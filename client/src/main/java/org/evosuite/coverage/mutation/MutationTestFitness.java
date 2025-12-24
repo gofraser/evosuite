@@ -177,6 +177,35 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         return fitness;
     }
 
+    /**
+     * Common logic to calculate infection distance.
+     *
+     * @param result The execution result.
+     * @param executionDistance The calculated execution distance.
+     * @return The infection distance.
+     */
+    protected double calculateInfectionDistance(ExecutionResult result, double executionDistance) {
+        double infectionDistance = 1.0;
+        if (executionDistance <= 0 && !result.calledReflection()) {
+            if (executionDistance < 0) {
+                 // Sould not happen based on current logic, but safety check
+                executionDistance = 0.0;
+            }
+            // Add infection distance
+            assert (result.getTrace() != null);
+            assert (result.getTrace().wasMutationTouched(mutation.getId()));
+
+            double dist = result.getTrace().getMutationDistance(mutation.getId());
+            if (dist < 0) {
+                 // Should not happen
+                 dist = 0.0;
+            }
+            infectionDistance = normalize(dist);
+            logger.debug("Infection distance for mutation = " + infectionDistance);
+        }
+        return infectionDistance;
+    }
+
     /* (non-Javadoc)
      * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome, org.evosuite.testcase.ExecutionResult)
      */

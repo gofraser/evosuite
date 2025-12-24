@@ -134,13 +134,24 @@ public class TestGenerationContext {
     }
 
     /**
-     * @return
-     * @deprecated use {@code getInstance().getClassLoaderForSUT()}
+     * Returns the class loader used for instrumentation.
+     *
+     * @return The instrumenting class loader.
+     * @deprecated use {@link #getInstance()} and then {@link #getClassLoaderForSUT()}
      */
+    @Deprecated
     public static ClassLoader getClassLoader() {
         return getInstance().classLoader;
     }
 
+    /**
+     * Resets the test generation context.
+     * <p>
+     * This involves clearing pools (branch, mutation, graph, etc.), resetting static state,
+     * re-initializing the instrumenting class loader, and resetting the archive and stopping conditions.
+     * This is typically done when starting a new search or when re-instrumentation is needed.
+     * </p>
+     */
     public void resetContext() {
         logger.info("*** Resetting context");
 
