@@ -107,7 +107,7 @@ public class InspectorAssertion extends Assertion {
     public boolean evaluate(Scope scope) {
         try {
             if (source.getObject(scope) == null)
-                return true; // TODO - true or false?
+                return false;
             else {
                 try {
                     Object val = inspector.getValue(source.getObject(scope));
@@ -117,7 +117,7 @@ public class InspectorAssertion extends Assertion {
                         return val.equals(value);
                 } catch (Exception e) {
                     logger.error("* Exception during call to inspector", e);
-                    return true;
+                    return false;
                 }
             }
         } catch (CodeUnderTestException e) {
