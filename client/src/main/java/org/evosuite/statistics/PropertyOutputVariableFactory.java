@@ -20,6 +20,8 @@
 package org.evosuite.statistics;
 
 import org.evosuite.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Output variable that represents a value stored in the properties
@@ -27,6 +29,8 @@ import org.evosuite.Properties;
  * @author gordon
  */
 public class PropertyOutputVariableFactory {
+
+    private static final Logger logger = LoggerFactory.getLogger(PropertyOutputVariableFactory.class);
 
     private final String propertyName;
 
@@ -38,8 +42,8 @@ public class PropertyOutputVariableFactory {
         try {
             return new OutputVariable<>(propertyName, Properties.getStringValue(propertyName));
         } catch (Exception e) {
-            // TODO: What would be better?
-            return new OutputVariable<>(propertyName, "error");
+            logger.error("Error retrieving property '" + propertyName + "': " + e.getMessage(), e);
+            return new OutputVariable<>(propertyName, "");
         }
     }
 

@@ -62,6 +62,33 @@ public class DirectSequenceOutputVariableFactory<T extends Number> extends Seque
         }
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    protected T interpolate(T v1, T v2, double ratio) {
+        if (type.equals(Integer.class)) {
+            double res = v1.intValue() + (v2.intValue() - v1.intValue()) * ratio;
+            return (T) Integer.valueOf((int) Math.round(res));
+        } else if (type.equals(Double.class)) {
+            double res = v1.doubleValue() + (v2.doubleValue() - v1.doubleValue()) * ratio;
+            return (T) Double.valueOf(res);
+        }
+        return v1;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    protected T getZeroValue() {
+        if (type.equals(Integer.class)) {
+            return (T) Integer.valueOf(0);
+        } else if (type.equals(Double.class)) {
+            return (T) Double.valueOf(0.0);
+        }
+        // Fallback to whatever start value or null?
+        // Assuming T is Number, we try to return something sensible or null.
+        // But the original code was returning (T) Integer.valueOf(0) blindly.
+        return (T) Integer.valueOf(0);
+    }
+
     public static DirectSequenceOutputVariableFactory<Double> getDouble(RuntimeVariable variable) {
         return new DirectSequenceOutputVariableFactory<>(variable, Double.class, 0.0);
     }
