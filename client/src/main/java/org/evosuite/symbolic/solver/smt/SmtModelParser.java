@@ -71,10 +71,10 @@ public final class SmtModelParser extends ResultParser {
             logger.debug("Solver outcome was UNKNOWN (probably due to timeout)");
             throw new SolverTimeoutException();
         } else if (solverResultStr.startsWith("(error")) {
-            logger.debug("Solver output was the following " + solverResultStr);
+            logger.debug("Solver output was the following {}", solverResultStr);
             throw new SolverErrorException("An error (probably an invalid input) occurred while executing the solver");
         } else {
-            logger.debug("The following solver output could not be parsed " + solverResultStr);
+            logger.debug("The following solver output could not be parsed {}", solverResultStr);
             throw new SolverParseException("Solver output is unknown. We are unable to parse it to a proper solution!",
                     solverResultStr);
         }
@@ -153,7 +153,7 @@ public final class SmtModelParser extends ResultParser {
             logger.debug("Parsed values from solver output");
             for (String varName : solution.keySet()) {
                 String valueOf = String.valueOf(solution.get(varName));
-                logger.debug(varName + ":" + valueOf);
+                logger.debug("{}:{}", varName, valueOf);
             }
         }
 
@@ -338,7 +338,7 @@ public final class SmtModelParser extends ResultParser {
             String stringToken;
             do {
                 if (!tokenizer.hasMoreTokens()) {
-                    System.out.println("Error!");
+                    throw new IllegalArgumentException("Error! Unexpected end of string while parsing");
                 }
                 stringToken = tokenizer.nextToken();
                 strBuilder.append(stringToken);
