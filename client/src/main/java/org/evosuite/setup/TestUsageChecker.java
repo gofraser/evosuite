@@ -200,7 +200,7 @@ public class TestUsageChecker {
         // This is inefficient
         if (TestClusterUtils.isAnonymousClass(c.getName())) {
             String message = c + " looks like an anonymous class, ignoring it (although reflection says " + c.isAnonymousClass() + ") " + c.getSimpleName();
-            LoggingUtils.logWarnAtMostOnce(logger, message);
+            AtMostOnceLogger.warn(logger, message);
             return false;
         }
 
