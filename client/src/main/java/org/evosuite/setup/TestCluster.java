@@ -1197,28 +1197,15 @@ public class TestCluster {
      * @return
      */
     private List<GenericAccessibleObject<?>> sortCalls(List<GenericAccessibleObject<?>> testMethods) {
-
-        // TODO: This can be done more efficiently, but we're just trying to see if this makes a difference at all
-        Map<GenericAccessibleObject<?>, String> mapCallToName = new LinkedHashMap<>();
+        Archive archive = Archive.getArchiveInstance();
+        Map<GenericAccessibleObject<?>, Integer> scores = new HashMap<>();
         for (GenericAccessibleObject<?> call : testMethods) {
-            String name = call.getDeclaringClass().getCanonicalName();
-            if (call.isMethod()) {
-                GenericMethod method = (GenericMethod) call;
-                name += method.getNameWithDescriptor();
-            } else if (call.isConstructor()) {
-                GenericConstructor constructor = (GenericConstructor) call;
-                name += constructor.getNameWithDescriptor();
-            } else {
-                throw new RuntimeException("Coverage goals must be methods or constructors");
-            }
-            mapCallToName.put(call, name);
+            String name = getKey(call);
+            scores.put(call, archive.getNumOfRemainingTargets(name));
         }
-        Map<String, Integer> mapMethodToGoals = new LinkedHashMap<>();
-        for (String methodName : mapCallToName.values()) {
-            // MethodKey is class+method+desc
-            mapMethodToGoals.put(methodName, Archive.getArchiveInstance().getNumOfRemainingTargets(methodName));
-        }
-        return testMethods.stream().sorted(Comparator.comparingInt(item -> mapMethodToGoals.get(mapCallToName.get(item))).reversed()).collect(Collectors.toList());
+        List<GenericAccessibleObject<?>> sorted = new ArrayList<>(testMethods);
+        sorted.sort(Comparator.comparingInt(scores::get).reversed());
+        return sorted;
     }
 
     /**
