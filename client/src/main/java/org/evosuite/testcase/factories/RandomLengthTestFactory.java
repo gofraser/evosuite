@@ -42,7 +42,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     /**
      * Constant <code>logger</code>
      */
-    protected static final Logger logger = LoggerFactory.getLogger(FixedLengthTestChromosomeFactory.class);
+    protected static final Logger logger = LoggerFactory.getLogger(RandomLengthTestFactory.class);
 
     /**
      * Creates a random test case (i.e., a test case consisting of random statements) with the given
@@ -64,7 +64,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         final TestFactory testFactory = TestFactory.getInstance();
 
         // Choose a random length between 1 (inclusive) and size (exclusive).
-        final int length = Randomness.nextInt(1, size);
+        int length = 0;
+        if (size > 1) {
+            length = Randomness.nextInt(1, size);
+        } else {
+             logger.warn("Requested random test case size {} is too small, defaulting to empty test case.", size);
+        }
 
         // Then add random statements until the test case reaches the chosen length or we run out of
         // generation attempts.
