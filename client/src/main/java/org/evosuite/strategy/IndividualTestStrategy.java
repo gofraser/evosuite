@@ -38,6 +38,7 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.testsuite.TestSuiteMinimizer;
 import org.evosuite.testsuite.factories.FixedSizeTestSuiteChromosomeFactory;
 import org.evosuite.utils.ArrayUtil;
+import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,7 +69,7 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
         Properties.TEST_ARCHIVE = false;
 
         // Set up search algorithm
-        logger.info("* Setting up search algorithm for individual test generation");
+        LoggingUtils.getEvoLogger().info("* Setting up search algorithm for individual test generation");
         ExecutionTracer.enableTraceCalls();
 
         PropertiesTestGAFactory factory = new PropertiesTestGAFactory();
@@ -81,15 +82,15 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
         List<TestFitnessFactory<? extends TestFitnessFunction>> goalFactories = getFitnessFactories();
         // long goalComputationStart = System.currentTimeMillis();
         List<TestFitnessFunction> goals = new ArrayList<>();
-        logger.info("* Total number of test goals: ");
+        LoggingUtils.getEvoLogger().info("* Total number of test goals: ");
         for (TestFitnessFactory<? extends TestFitnessFunction> goalFactory : goalFactories) {
             goals.addAll(goalFactory.getCoverageGoals());
-            logger.info("  - {} {}", goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
+            LoggingUtils.getEvoLogger().info("  - {} {}", goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
                     goalFactory.getCoverageGoals().size());
         }
 
         if (!canGenerateTestsForSUT()) {
-            logger.info("* Found no testable methods in the target class {}", Properties.TARGET_CLASS);
+            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}", Properties.TARGET_CLASS);
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
@@ -102,7 +103,7 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals,
                 goals.size());
 
-        logger.info("* Total number of test goals: {}", goals.size());
+        LoggingUtils.getEvoLogger().info("* Total number of test goals: {}", goals.size());
 
         // Bootstrap with random testing to cover easy goals
         ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
@@ -121,7 +122,7 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
             num++;
         }
         if (covered_goals > 0)
-            logger.info("* Random bootstrapping covered {} test goals", covered_goals);
+            LoggingUtils.getEvoLogger().info("* Random bootstrapping covered {} test goals", covered_goals);
 
         int total_goals = goals.size();
         if (covered_goals == total_goals)
@@ -130,7 +131,7 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
         int current_budget = 0;
 
         long total_budget = Properties.SEARCH_BUDGET;
-        logger.info("* Budget: {}", NumberFormat.getIntegerInstance().format(total_budget));
+        LoggingUtils.getEvoLogger().info("* Budget: {}", NumberFormat.getIntegerInstance().format(total_budget));
 
         while (current_budget < total_budget && covered_goals < total_goals
                 && !getGlobalTime().isFinished() && !ShutdownTestWriter.isInterrupted()) {
@@ -151,7 +152,7 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
                 GeneticAlgorithm<TestChromosome> ga = factory.getSearchAlgorithm();
 
                 if (Properties.PRINT_CURRENT_GOALS)
-                    logger.info("* Searching for goal {} ({} left) : {}", num, (total_goals - covered_goals),
+                    LoggingUtils.getEvoLogger().info("* Searching for goal {} ({} left) : {}", num, (total_goals - covered_goals),
                             fitnessFunction);
 
                 if (ShutdownTestWriter.isInterrupted()) {
@@ -159,7 +160,7 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
                     continue;
                 }
                 if (getGlobalTime().isFinished()) {
-                    logger.info("Skipping goal because time is up");
+                    LoggingUtils.getEvoLogger().info("Skipping goal because time is up");
                     num++;
                     continue;
                 }
@@ -172,7 +173,7 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
 
                 if (ga.getBestIndividual().getFitness() == 0.0) {
                     if (Properties.PRINT_COVERED_GOALS)
-                        logger.info("* Covered!");
+                        LoggingUtils.getEvoLogger().info("* Covered!");
 
                     logger.info("Found solution, adding to test suite at {}",
                             MaxStatementsStoppingCondition.getNumExecutedStatements());
@@ -213,37 +214,37 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
             }
         }
         if (Properties.SHOW_PROGRESS)
-            logger.info("");
+            LoggingUtils.getEvoLogger().info("");
 
         // for testing purposes
         if (getGlobalTime().isFinished())
-            logger.info("! Timeout reached");
+            LoggingUtils.getEvoLogger().info("! Timeout reached");
         if (current_budget >= total_budget)
-            logger.info("! Budget exceeded");
+            LoggingUtils.getEvoLogger().info("! Budget exceeded");
         else
-            logger.info("* Remaining budget: {}", (total_budget - current_budget));
+            LoggingUtils.getEvoLogger().info("* Remaining budget: {}", (total_budget - current_budget));
 
         int c = 0;
         int uncovered_goals = total_goals - covered_goals;
         if (uncovered_goals < 10)
             for (TestFitnessFunction goal : goals) {
                 if (!covered.contains(c)) {
-                    logger.info("! Unable to cover goal {} {}", c, goal);
+                    LoggingUtils.getEvoLogger().info("! Unable to cover goal {} {}", c, goal);
                 }
                 c++;
             }
         else
-            logger.info("! #Goals that were not covered: {}", uncovered_goals);
+            LoggingUtils.getEvoLogger().info("! #Goals that were not covered: {}", uncovered_goals);
 
         long end_time = System.currentTimeMillis() / 1000;
-        logger.info("* Search finished after {}s, {} statements, best individual has fitness {}",
+        LoggingUtils.getEvoLogger().info("* Search finished after {}s, {} statements, best individual has fitness {}",
                 (end_time - start_time),
                 current_budget,
                 suite.getFitness());
         // Search is finished, send statistics
         sendExecutionStatistics();
 
-        logger.info("* Covered {}/{} goals", covered_goals, goals.size());
+        LoggingUtils.getEvoLogger().info("* Covered {}/{} goals", covered_goals, goals.size());
         logger.info("Resulting test suite: {} tests, length {}", suite.size(),
                 suite.totalLengthOfTestCases());
 
@@ -267,7 +268,7 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
             if (goal.isCovered(best, result)) {
                 r.add(num);
                 if (Properties.PRINT_COVERED_GOALS)
-                    logger.info("* Additionally covered: {}", goal);
+                    LoggingUtils.getEvoLogger().info("* Additionally covered: {}", goal);
             }
         }
         return r;
@@ -277,12 +278,12 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
 
         if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)) {
-            logger.info("* Disabled random bootstraping for dataflow criterion");
+            LoggingUtils.getEvoLogger().info("* Disabled random bootstraping for dataflow criterion");
             Properties.RANDOM_TESTS = 0;
         }
 
         if (Properties.RANDOM_TESTS > 0) {
-            logger.info("* Bootstrapping initial random test suite");
+            LoggingUtils.getEvoLogger().info("* Bootstrapping initial random test suite");
         }
 
         FixedSizeTestSuiteChromosomeFactory factory = new FixedSizeTestSuiteChromosomeFactory(Properties.RANDOM_TESTS);
@@ -291,7 +292,7 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
         if (Properties.RANDOM_TESTS > 0) {
             TestSuiteMinimizer minimizer = new TestSuiteMinimizer(goals);
             minimizer.minimize(suite, true);
-            logger.info("* Initial test suite contains {} tests", suite.size());
+            LoggingUtils.getEvoLogger().info("* Initial test suite contains {} tests", suite.size());
         }
 
         return suite;

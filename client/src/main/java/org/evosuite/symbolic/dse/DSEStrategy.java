@@ -36,6 +36,7 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ArrayUtil;
+import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +76,7 @@ public class DSEStrategy extends TestGenerationStrategy {
 
     @Override
     public TestSuiteChromosome generateTests() {
-        logger.info(SETTING_UP_DSE_GENERATION_INFO_MESSAGE);
+        LoggingUtils.getEvoLogger().info(SETTING_UP_DSE_GENERATION_INFO_MESSAGE);
         Properties.CRITERION = Properties.DSE_EXPLORATION_ALGORITHM_TYPE.getCriteria();
         Criterion[] criterion = Properties.CRITERION;
 
@@ -83,7 +84,7 @@ public class DSEStrategy extends TestGenerationStrategy {
 
         List<TestFitnessFunction> goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(criterion, true);
         if (!canGenerateTestsForSUT()) {
-            logger.info(NOT_SUITABLE_METHOD_FOUND_INFO_MESSAGE, Properties.TARGET_CLASS);
+            LoggingUtils.getEvoLogger().info(NOT_SUITABLE_METHOD_FOUND_INFO_MESSAGE, Properties.TARGET_CLASS);
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
@@ -98,8 +99,8 @@ public class DSEStrategy extends TestGenerationStrategy {
             // Perform search
             // This is in case any algorithm internal strategy uses some random behaviour.
             //     e.g. after x iterations selects the next path randomly.
-            logger.info("* Using seed {}", Randomness.getSeed());
-            logger.info("* Starting DSE");
+            LoggingUtils.getEvoLogger().info("* Using seed {}", Randomness.getSeed());
+            LoggingUtils.getEvoLogger().info("* Starting DSE");
             ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
 
             // Builds the actual algorithm
@@ -125,13 +126,13 @@ public class DSEStrategy extends TestGenerationStrategy {
 
         // Newline after progress bar
         if (Properties.SHOW_PROGRESS)
-            logger.info("");
+            LoggingUtils.getEvoLogger().info("");
 
         if (!Properties.IS_RUNNING_A_SYSTEM_TEST) { // avoid printing time
             // related info in system
             // tests due to lack of
             // determinism
-            logger.info("* Search finished after {}s, fitness: {} and coverage: {}",
+            LoggingUtils.getEvoLogger().info("* Search finished after {}s, fitness: {} and coverage: {}",
                     (endTime - startTime),
                     testSuite.getFitness(),
                     testSuite.getCoverage());
@@ -145,10 +146,10 @@ public class DSEStrategy extends TestGenerationStrategy {
     }
 
     private void logDSEEngineEnabledFeatures() {
-        logger.info(SYMBOLIC_ARRAYS_SUPPORT_ENABLED, Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED);
+        LoggingUtils.getEvoLogger().info(SYMBOLIC_ARRAYS_SUPPORT_ENABLED, Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED);
 
         if (Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED) {
-            logger.info(SYMBOLIC_ARRAYS_IMPLEMENTATION_SELECTED,
+            LoggingUtils.getEvoLogger().info(SYMBOLIC_ARRAYS_IMPLEMENTATION_SELECTED,
                     Properties.SELECTED_DSE_ARRAYS_MEMORY_MODEL_VERSION.toString());
         }
     }
@@ -157,7 +158,7 @@ public class DSEStrategy extends TestGenerationStrategy {
         DSEAlgorithmFactory dseFactory = new DSEAlgorithmFactory();
         DSEAlgorithms dseAlgorithmType = Properties.DSE_EXPLORATION_ALGORITHM_TYPE;
 
-        logger.info(USING_DSE_ALGORITHM, dseAlgorithmType.getName());
+        LoggingUtils.getEvoLogger().info(USING_DSE_ALGORITHM, dseAlgorithmType.getName());
         ExplorationAlgorithm algorithm = dseFactory.getDSEAlgorithm(dseAlgorithmType);
 
         if (Properties.DSE_STOPPING_CONDITION.equals(Properties.DSEStoppingConditionCriterion.DEFAULTS)) {
