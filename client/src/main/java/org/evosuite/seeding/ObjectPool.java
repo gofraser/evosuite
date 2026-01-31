@@ -24,7 +24,6 @@ import org.evosuite.testcarver.extraction.CarvingRunListener;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.evosuite.utils.DebuggingObjectOutputStream;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -68,13 +67,10 @@ public class ObjectPool implements Serializable {
      * @param sequence
      */
     private void addSequence(ObjectSequence sequence) {
-        if (!pool.containsKey(sequence.getGeneratedClass()))
-            pool.put(sequence.getGeneratedClass(), new HashSet<>());
-
-        pool.get(sequence.getGeneratedClass()).add(sequence.getSequence());
-        logger.info("Added new sequence for " + sequence.getGeneratedClass());
-        logger.info(sequence.getSequence().toCode());
-
+        pool.computeIfAbsent(sequence.getGeneratedClass(), k -> new HashSet<>())
+            .add(sequence.getSequence());
+        logger.info("Added new sequence for {}", sequence.getGeneratedClass());
+        logger.debug("Sequence code:\n{}", sequence.getSequence().toCode());
     }
 
     /**
@@ -84,7 +80,11 @@ public class ObjectPool implements Serializable {
      * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     public TestCase getRandomSequence(GenericClass<?> clazz) {
-        return Randomness.choice(getSequences(clazz));
+        Set<TestCase> sequences = getSequences(clazz);
+        if (sequences == null || sequences.isEmpty()) {
+            return null;
+        }
+        return Randomness.choice(sequences);
     }
 
     /**
@@ -98,13 +98,16 @@ public class ObjectPool implements Serializable {
             return pool.get(clazz);
 
         Set<Set<TestCase>> candidates = new LinkedHashSet<>();
-        for (GenericClass<?> poolClazz : pool.keySet()) {
-            if (poolClazz.isAssignableTo(clazz))
-                candidates.add(pool.get(poolClazz));
+        for (Map.Entry<GenericClass<?>, Set<TestCase>> entry : pool.entrySet()) {
+            if (entry.getKey().isAssignableTo(clazz))
+                candidates.add(entry.getValue());
+        }
+
+        if (candidates.isEmpty()) {
+            return Collections.emptySet();
         }
 
         return Randomness.choice(candidates);
-
     }
 
     public Set<GenericClass<?>> getClasses() {
@@ -118,11 +121,11 @@ public class ObjectPool implements Serializable {
      * @return a boolean.
      */
     public boolean hasSequence(GenericClass<?> clazz) {
-        if (pool.containsKey(clazz))
+        if (pool.containsKey(clazz) && !pool.get(clazz).isEmpty())
             return true;
 
-        return pool.keySet().stream()
-                .anyMatch(poolClazz -> poolClazz.isAssignableTo(clazz));
+        return pool.entrySet().stream()
+                .anyMatch(entry -> entry.getKey().isAssignableTo(clazz) && !entry.getValue().isEmpty());
     }
 
     public int getNumberOfClasses() {
@@ -143,17 +146,14 @@ public class ObjectPool implements Serializable {
      * @param fileName
      */
     public static ObjectPool getPoolFromFile(String fileName) {
-        try {
-            InputStream in = new FileInputStream(fileName);
-            ObjectInputStream objectIn = new ObjectInputStream(in);
+        try (InputStream in = new FileInputStream(fileName);
+             ObjectInputStream objectIn = new ObjectInputStream(in)) {
             ObjectPool pool = (ObjectPool) objectIn.readObject();
-            in.close();
             // TODO: Do we also need to call that in the other factory methods?
             pool.filterUnaccessibleTests();
             return pool;
-        } catch (Exception e) {
-            logger.error("Exception while trying to get object pool from " + fileName
-                    + " , " + e.getMessage(), e);
+        } catch (IOException | ClassNotFoundException e) {
+            logger.error("Exception while trying to get object pool from {} , {}", fileName, e.getMessage(), e);
         }
         return null;
     }
@@ -182,17 +182,7 @@ public class ObjectPool implements Serializable {
         for (TestChromosome testChromosome : testSuite.getTestChromosomes()) {
             TestCase test = testChromosome.getTestCase().clone();
             test.removeAssertions();
-			/*
-			if (testChromosome.hasException()) {
-				// No code including or after an exception should be in the pool
-				Integer pos = testChromosome.getLastExecutionResult().getFirstPositionOfThrownException();
-				if (pos != null) {
-					test.chop(pos);
-				} else {
-					test.chop(test.size() - 1);
-				}
-			}
-			*/
+
             Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
 
             if (!testChromosome.hasException()
@@ -225,30 +215,23 @@ public class ObjectPool implements Serializable {
             throw new RuntimeException(e);
         }
 
-        ObjectPool pool = new ObjectPool();
-        //final Result result =
         runner.run(testSuite);
 
+        ObjectPool pool = new ObjectPool();
 
         for (TestCase test : listener.getTestCases().get(Properties.getTargetClassAndDontInitialise())) {
             // TODO: Maybe we would get the targetClass from the last object generated in the sequence?
             pool.addSequence(targetClass, test);
         }
 
-        // TODO: Some messages based on result
-
         return pool;
-
     }
 
     public void writePool(String fileName) {
-        try {
-            ObjectOutputStream out = new DebuggingObjectOutputStream(
-                    new FileOutputStream(fileName));
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(fileName))) {
             out.writeObject(this);
-            out.close();
         } catch (IOException e) {
-            logger.warn("Error while writing pool to file " + fileName + ": " + e);
+            logger.warn("Error while writing pool to file {}: {}", fileName, e.getMessage(), e);
         }
     }
 

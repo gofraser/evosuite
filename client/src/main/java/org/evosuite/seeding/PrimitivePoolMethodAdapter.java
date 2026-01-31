@@ -33,8 +33,6 @@ import org.objectweb.asm.Opcodes;
  */
 public class PrimitivePoolMethodAdapter extends MethodVisitor {
 
-    // private final PrimitivePool constantPool = PrimitivePool.getInstance();
-
     private final ConstantPoolManager poolManager = ConstantPoolManager.getInstance();
 
     private final String className;
@@ -51,31 +49,12 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
         this.className = className;
     }
 
-    /**
-     * {@inheritDoc}
-     * <p>
-     * This is a hack to avoid deadlocks because we are only testing single
-     * threaded stuff. This will be replaced with something nicer once Sebastian
-     * has found a solution
-     */
-	/*
-	@Override
-	public void visitInsn(int opcode) {
-		if (opcode != Opcodes.MONITORENTER && opcode != Opcodes.MONITOREXIT)
-			super.visitInsn(opcode);
-		else
-			super.visitInsn(Opcodes.POP);
-
-	}
-	*/
-
     /* (non-Javadoc)
      * @see org.objectweb.asm.MethodAdapter#visitLookupSwitchInsn(org.objectweb.asm.Label, int[], org.objectweb.asm.Label[])
      */
     @Override
     public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
         for (int key : keys) {
-            // constantPool.add(key);
             if (DependencyAnalysis.isTargetClassName(className)) {
                 poolManager.addSUTConstant(key);
             } else {
@@ -91,7 +70,6 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
     @Override
     public void visitIntInsn(int opcode, int operand) {
         if (opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH) {
-            // constantPool.add(operand);
             if (DependencyAnalysis.isTargetClassName(className)) {
                 poolManager.addSUTConstant(operand);
             } else {
@@ -106,7 +84,6 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
      */
     @Override
     public void visitLdcInsn(Object cst) {
-        // constantPool.add(cst);
         if (DependencyAnalysis.isTargetClassName(className)) {
             poolManager.addSUTConstant(cst);
         } else {
