@@ -28,6 +28,8 @@ import org.evosuite.testcase.TestCase;
  */
 public interface InsertionStrategy {
 
+    int INSERTION_ERROR = -1;
+
     /**
      * Inserts one or possibly multiple statements into the given test case {@code test} after the
      * given position {@code lastPosition}. The test case must not be {@code null} but it can be
