@@ -39,7 +39,7 @@ public class ArrayLengthSymbolicUtil {
     /**
      * Position of the dimension of an uni-dimensional array
      */
-    public static final int UNIDIMENTIONAL_ARRAY_VALUE = 0;
+    public static final int UNIDIMENSIONAL_ARRAY_VALUE = 0;
 
     /**
      * Creates the expression for an array length.

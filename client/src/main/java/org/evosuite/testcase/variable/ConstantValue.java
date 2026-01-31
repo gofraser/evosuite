@@ -123,7 +123,7 @@ public class ConstantValue extends VariableReferenceImpl {
         }
 
         throw new AssertionError(
-                "A ConstantValue position is only defined if the VariableReference is defined by a statement");
+                "A ConstantValue position is only defined if the VariableReference is referenced by a statement");
     }
 
     /**

@@ -34,9 +34,11 @@ import java.util.List;
  * @author Gordon Fraser
  */
 
-/*
- *  TODO: The length is currently stored in ArrayReference and the ArrayStatement.
- *  This is bound to lead to inconsistencies.
+/**
+ * Represents a reference to an array in the test case.
+ * <p>
+ * Note: The array length is currently stored in both ArrayReference and ArrayStatement (if created by one).
+ * This duplication should be addressed in future refactorings to avoid inconsistencies.
  */
 public class ArrayReference extends VariableReferenceImpl {
 
@@ -69,7 +71,6 @@ public class ArrayReference extends VariableReferenceImpl {
     public ArrayReference(TestCase tc, GenericClass<?> clazz, int[] lengths) {
         super(tc, clazz);
         assert (lengths.length > 0);
-        // this.lengths = lengths;
         setLengths(lengths);
     }
 
@@ -94,7 +95,6 @@ public class ArrayReference extends VariableReferenceImpl {
      * @return a int.
      */
     public int getArrayLength() {
-        // assert lengths.length == 1;
         return lengths[0];
     }
 
@@ -107,7 +107,6 @@ public class ArrayReference extends VariableReferenceImpl {
      */
     public void setArrayLength(int l) {
         assert (l >= 0);
-        // assert lengths.length == 1;
         lengths[0] = l;
     }
 
@@ -161,7 +160,7 @@ public class ArrayReference extends VariableReferenceImpl {
             return otherArray;
         } else {
 
-            // FIXXME: This part should be redundant
+            // FIXME: This part should be redundant
 
             if (newRef.getComponentType() != null) {
                 ArrayReference otherArray = new ArrayReference(newTestCase, type, lengths);
@@ -173,9 +172,6 @@ public class ArrayReference extends VariableReferenceImpl {
                 ArrayReference otherArray = new ArrayReference(newTestCase, type, lengths);
                 newTestCase.getStatement(getStPosition() + offset).setRetval(otherArray);
                 return otherArray;
-                //				throw new RuntimeException("After cloning the array disappeared: "
-                //				        + getName() + "/" + newRef.getName() + " in test "
-                //				        + newTestCase.toCode() + " / old test: " + testCase.toCode());
             }
         }
     }

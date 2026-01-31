@@ -89,8 +89,6 @@ public class FieldReference extends VariableReferenceImpl {
                 + " | Variable Class: " + source.getVariableClass()
                 + " # classloader: " + source.getVariableClass().getClassLoader()
                 + " | Field name: " + field.getField();
-        //		logger.info("Creating new field assignment for field " + field + " of object "
-        //		        + source);
 
     }
 
@@ -299,10 +297,8 @@ public class FieldReference extends VariableReferenceImpl {
                 }
             }
             throw new AssertionError(
-                    "A VariableReferences position is only defined if the VariableReference is defined by a statement in the testCase.");
+                    "A VariableReference's position is only defined if the VariableReference is defined by a statement in the testCase.");
         }
-
-        //			return 0;
     }
 
     /**
