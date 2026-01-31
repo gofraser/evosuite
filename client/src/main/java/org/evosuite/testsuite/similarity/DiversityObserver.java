@@ -57,13 +57,13 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
         for (int i = 0; i < individuals.size() - 1; i++) {
             for (int j = i + 1; j < individuals.size(); j++) {
                 double pairDiversity = getSuiteSimilarity(individuals.get(i), individuals.get(j));
-                logger.debug("Adding diversity of pair " + i + ", " + j + " of " + pairDiversity);
+                logger.debug("Adding diversity of pair {}, {} of {}", i, j, pairDiversity);
                 diversity += pairDiversity;
                 numComparisons += 1;
             }
         }
         diversity = 1.0 - diversity / numComparisons;
-        logger.info("Resulting diversity for " + numComparisons + " pairs: " + diversity);
+        logger.info("Resulting diversity for {} pairs: {}", numComparisons, diversity);
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.DiversityTimeline, diversity);
 
     }
@@ -123,7 +123,6 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
                 matrix[x][y] = Math.max(upLeft, Math.max(delete, insert));
             }
         }
-//        printMatrix(matrix);
 
         // Normalize
         double max = Math.max(test1.size(), test2.size()) * Math.abs(GAP_PENALTY); // max +
@@ -151,7 +150,7 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
                 if (getUnderlyingType((FieldStatement) s1).equals(getUnderlyingType((FieldStatement) s2)))
                     similarity += 1;
             }
-            // TOOD: If underlying type is the same, further benefit
+            // TODO: If underlying type is the same, further benefit
         } else {
             similarity = -2;
         }
@@ -173,16 +172,6 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
 
     private static Class<?> getUnderlyingType(PrimitiveStatement<?> ps) {
         return ps.getReturnClass();
-    }
-
-
-    public static void printMatrix(int[][] matrix) {
-        for (final int[] ints : matrix) {
-            for (final int i : ints) {
-                System.out.print(" " + i);
-            }
-            System.out.println();
-        }
     }
 
     @Override
