@@ -149,7 +149,6 @@ public class PropertiesSuiteGAFactory
             }
             case STEADY_STATE_GA: {
                 logger.info("Chosen search algorithm: Steady-StateGA");
-                logger.info("Chosen search algorithm: Steady-StateGA");
                 SteadyStateGA<TestSuiteChromosome> ga = new SteadyStateGA<>(factory);
                 if (Properties.REPLACEMENT_FUNCTION == TheReplacementFunction.FITNESSREPLACEMENT) {
                     // user has explicitly asked for this replacement function
@@ -174,7 +173,6 @@ public class PropertiesSuiteGAFactory
                 return new SPEA2<>(factory);
             case MOSA:
                 logger.info("Chosen search algorithm: MOSA");
-//				return new MOSA(factory);
                 if (factory instanceof TestSuiteChromosomeFactory) {
                     final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
                     return new MOSATestSuiteAdapter(new MOSA(tscf.getTestChromosomeFactory()));
@@ -185,7 +183,6 @@ public class PropertiesSuiteGAFactory
                 }
             case DYNAMOSA:
                 logger.info("Chosen search algorithm: DynaMOSA");
-//				return new DynaMOSA(factory);
                 if (factory instanceof TestSuiteChromosomeFactory) {
                     final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
                     return new MOSATestSuiteAdapter(new DynaMOSA(tscf.getTestChromosomeFactory()));
@@ -199,7 +196,6 @@ public class PropertiesSuiteGAFactory
                 return new OnePlusLambdaLambdaGA<>(factory, Properties.LAMBDA);
             case MIO:
                 logger.info("Chosen search algorithm: MIO");
-//				return new MIO(factory);
                 if (factory instanceof TestSuiteChromosomeFactory) {
                     final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
                     return new MIOTestSuiteAdapter(new MIO(tscf.getTestChromosomeFactory()));
@@ -216,7 +212,6 @@ public class PropertiesSuiteGAFactory
                 throw new RuntimeException("MAPElites only works on TestChromosome, not on TestSuiteChromosome");
             case LIPS:
                 logger.info("Chosen search algorithm: LIPS");
-//				return new LIPS(factory);
                 if (factory instanceof TestSuiteChromosomeFactory) {
                     final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
                     return new LIPSTestSuiteAdapter(new LIPS(tscf.getTestChromosomeFactory()));
@@ -285,7 +280,6 @@ public class PropertiesSuiteGAFactory
     public GeneticAlgorithm<TestSuiteChromosome> getSearchAlgorithm() {
         ChromosomeFactory<TestSuiteChromosome> factory = getChromosomeFactory();
 
-        // FIXXME
         GeneticAlgorithm<TestSuiteChromosome> ga = getGeneticAlgorithm(factory);
 
         if (Properties.NEW_STATISTICS)
@@ -302,7 +296,7 @@ public class PropertiesSuiteGAFactory
         // When to stop the search
         StoppingCondition<TestSuiteChromosome> stopping_condition = getStoppingCondition();
         ga.setStoppingCondition(stopping_condition);
-        // ga.addListener(stopping_condition);
+
         if (Properties.STOP_ZERO) {
             ga.addStoppingCondition(new ZeroFitnessStoppingCondition<>());
         }
@@ -323,37 +317,24 @@ public class PropertiesSuiteGAFactory
         CrossOverFunction<TestSuiteChromosome> crossover_function = getCrossoverFunction();
         ga.setCrossOverFunction(crossover_function);
 
-        // What to do about bloat
-        // MaxLengthBloatControl bloat_control = new MaxLengthBloatControl();
-        // ga.setBloatControl(bloat_control);
-
         if (Properties.CHECK_BEST_LENGTH) {
             RelativeSuiteLengthBloatControl<TestSuiteChromosome> bloat_control =
                     new RelativeSuiteLengthBloatControl<>();
             ga.addBloatControl(bloat_control);
             ga.addListener(bloat_control);
         }
-        // ga.addBloatControl(new MaxLengthBloatControl());
 
         TestSuiteSecondaryObjective.setSecondaryObjectives();
 
-        // Some statistics
-        //if (Properties.STRATEGY == Strategy.EVOSUITE)
-        //	ga.addListener(SearchStatistics.getInstance());
-        // ga.addListener(new MemoryMonitor());
-        // ga.addListener(MutationStatistics.getInstance());
-        // ga.addListener(BestChromosomeTracker.getInstance());
-
         if (Properties.DYNAMIC_LIMIT) {
             // max_s = GAProperties.generations * getBranches().size();
-            // TODO: might want to make this dependent on the selected coverage
-            // criterion
+            // TODO: might want to make this dependent on the selected coverage criterion
             // TODO also, question: is branchMap.size() really intended here?
             // I think BranchPool.getBranchCount() was intended
             Properties.SEARCH_BUDGET = Properties.SEARCH_BUDGET
                     * (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumBranchlessMethods(Properties.TARGET_CLASS) + BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchCountForClass(Properties.TARGET_CLASS) * 2);
             stopping_condition.setLimit(Properties.SEARCH_BUDGET);
-            logger.info("Setting dynamic length limit to " + Properties.SEARCH_BUDGET);
+            logger.info("Setting dynamic length limit to {}", Properties.SEARCH_BUDGET);
         }
 
         if (Properties.LOCAL_SEARCH_RESTORE_COVERAGE) {

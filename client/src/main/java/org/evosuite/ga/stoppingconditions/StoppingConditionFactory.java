@@ -46,6 +46,8 @@ public class StoppingConditionFactory {
                 return new MaxTestsStoppingCondition<>();
             case MAXSTATEMENTS:
                 return new MaxStatementsStoppingCondition<>();
+            case TIMEDELTA:
+                return new TimeDeltaStoppingCondition<>();
             default:
                 return new MaxGenerationStoppingCondition<>();
         }

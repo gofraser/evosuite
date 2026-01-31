@@ -38,6 +38,8 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -52,6 +54,8 @@ import java.util.List;
  * @author ignacio lebrero
  */
 public class DSEStrategy extends TestGenerationStrategy {
+
+    private static final Logger logger = LoggerFactory.getLogger(DSEStrategy.class);
 
     public static final String WITH_TIMEOUT = "* With timeout: {}";
     public static final String USING_DSE_ALGORITHM = "* Using DSE algorithm: {}";
@@ -80,10 +84,7 @@ public class DSEStrategy extends TestGenerationStrategy {
 
         List<TestFitnessFunction> goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(criterion, true);
         if (!canGenerateTestsForSUT()) {
-            LoggingUtils.getEvoLogger().info(
-                    NOT_SUITABLE_METHOD_FOUND_INFO_MESSAGE,
-                    Properties.TARGET_CLASS
-            );
+            LoggingUtils.getEvoLogger().info(NOT_SUITABLE_METHOD_FOUND_INFO_MESSAGE, Properties.TARGET_CLASS);
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
@@ -131,14 +132,10 @@ public class DSEStrategy extends TestGenerationStrategy {
             // related info in system
             // tests due to lack of
             // determinism
-            LoggingUtils.getEvoLogger()
-                    .info(new StringBuilder()
-                            .append("* Search finished after ")
-                            .append(endTime - startTime)
-                            .append("s, fitness: ")
-                            .append(testSuite.getFitness())
-                            .append(" and coverage: ")
-                            .append(testSuite.getCoverage()).toString());
+            LoggingUtils.getEvoLogger().info("* Search finished after {}s, fitness: {} and coverage: {}",
+                    (endTime - startTime),
+                    testSuite.getFitness(),
+                    testSuite.getCoverage());
         }
 
         // Search is finished, send statistics
@@ -149,15 +146,11 @@ public class DSEStrategy extends TestGenerationStrategy {
     }
 
     private void logDSEEngineEnabledFeatures() {
-        LoggingUtils.getEvoLogger().info(
-                SYMBOLIC_ARRAYS_SUPPORT_ENABLED,
-                Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED);
+        LoggingUtils.getEvoLogger().info(SYMBOLIC_ARRAYS_SUPPORT_ENABLED, Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED);
 
         if (Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED) {
-            LoggingUtils.getEvoLogger().info(
-                    SYMBOLIC_ARRAYS_IMPLEMENTATION_SELECTED,
-                    Properties.SELECTED_DSE_ARRAYS_MEMORY_MODEL_VERSION.toString()
-            );
+            LoggingUtils.getEvoLogger().info(SYMBOLIC_ARRAYS_IMPLEMENTATION_SELECTED,
+                    Properties.SELECTED_DSE_ARRAYS_MEMORY_MODEL_VERSION.toString());
         }
     }
 
@@ -189,8 +182,8 @@ public class DSEStrategy extends TestGenerationStrategy {
         algorithm.addFitnessFunctions(fitnessFunctions);
 
 
-        LoggingUtils.getEvoLogger().debug(WITH_TIMEOUT, Properties.GLOBAL_TIMEOUT);
-        LoggingUtils.getEvoLogger().debug(WITH_TARGET_COVERAGE, Properties.DSE_TARGET_COVERAGE);
+        logger.debug(WITH_TIMEOUT, Properties.GLOBAL_TIMEOUT);
+        logger.debug(WITH_TARGET_COVERAGE, Properties.DSE_TARGET_COVERAGE);
 
         return algorithm;
     }
@@ -200,7 +193,7 @@ public class DSEStrategy extends TestGenerationStrategy {
         List<TestSuiteFitnessFunction> fitnessFunctions = FitnessFunctionsUtils
                 .getFitnessFunctions(algorithm.getCriteria());
 
-        zeroFitness.setFinished();
+        getZeroFitness().setFinished();
 
         for (FitnessFunction<TestSuiteChromosome> ff : fitnessFunctions) {
             testSuite.setCoverage(ff, 1.0);

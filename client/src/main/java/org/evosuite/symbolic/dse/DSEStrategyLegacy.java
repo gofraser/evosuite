@@ -36,11 +36,15 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class DSEStrategyLegacy extends TestGenerationStrategy {
+
+    private static final Logger logger = LoggerFactory.getLogger(DSEStrategyLegacy.class);
 
     @Override
     public TestSuiteChromosome generateTests() {
@@ -55,8 +59,7 @@ public class DSEStrategyLegacy extends TestGenerationStrategy {
 
         List<TestFitnessFunction> goals = getGoals(true);
         if (!canGenerateTestsForSUT()) {
-            LoggingUtils.getEvoLogger()
-                    .info("* Found no testable methods in the target class " + Properties.TARGET_CLASS);
+            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}", Properties.TARGET_CLASS);
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
@@ -65,7 +68,7 @@ public class DSEStrategyLegacy extends TestGenerationStrategy {
         /*
          * Proceed with search if CRITERION=EXCEPTION, even if goals is empty
          */
-        TestSuiteChromosome testSuite = null;
+        TestSuiteChromosome testSuite;
         if (!(Properties.STOP_ZERO && goals.isEmpty())
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
             // Perform search
@@ -88,7 +91,7 @@ public class DSEStrategyLegacy extends TestGenerationStrategy {
             }
 
         } else {
-            zeroFitness.setFinished();
+            getZeroFitness().setFinished();
             testSuite = new TestSuiteChromosome();
             for (FitnessFunction<TestSuiteChromosome> ff : fitnessFunctions) {
                 testSuite.setCoverage(ff, 1.0);
@@ -109,10 +112,10 @@ public class DSEStrategyLegacy extends TestGenerationStrategy {
             // related info in system
             // tests due to lack of
             // determinism
-            LoggingUtils.getEvoLogger()
-                    .info("* Search finished after " + (endTime - startTime) + "s and "
-                            + MaxStatementsStoppingCondition.getNumExecutedStatements()
-                            + " statements, best individual has fitness: " + testSuite.getFitness());
+            LoggingUtils.getEvoLogger().info("* Search finished after {}s and {} statements, best individual has fitness: {}",
+                    (endTime - startTime),
+                    MaxStatementsStoppingCondition.getNumExecutedStatements(),
+                    testSuite.getFitness());
         }
 
         // Search is finished, send statistics
@@ -134,7 +137,7 @@ public class DSEStrategyLegacy extends TestGenerationStrategy {
                 LoggingUtils.getEvoLogger().info("* Total number of test goals: {}", factory.getCoverageGoals().size());
                 if (Properties.PRINT_GOALS) {
                     for (TestFitnessFunction goal : factory.getCoverageGoals())
-                        LoggingUtils.getEvoLogger().info("" + goal.toString());
+                        LoggingUtils.getEvoLogger().info("{}", goal);
                 }
             }
         } else {
@@ -146,12 +149,11 @@ public class DSEStrategyLegacy extends TestGenerationStrategy {
                 goals.addAll(goalFactory.getCoverageGoals());
 
                 if (verbose) {
-                    LoggingUtils.getEvoLogger()
-                            .info("  - " + goalFactory.getClass().getSimpleName().replace("CoverageFactory", "") + " "
-                                    + goalFactory.getCoverageGoals().size());
+                    LoggingUtils.getEvoLogger().info("  - {} {}", goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
+                            goalFactory.getCoverageGoals().size());
                     if (Properties.PRINT_GOALS) {
                         for (TestFitnessFunction goal : goalFactory.getCoverageGoals())
-                            LoggingUtils.getEvoLogger().info("" + goal.toString());
+                            LoggingUtils.getEvoLogger().info("{}", goal);
                     }
                 }
             }

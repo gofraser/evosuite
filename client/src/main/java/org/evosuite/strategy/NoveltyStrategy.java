@@ -93,8 +93,7 @@ public class NoveltyStrategy extends TestGenerationStrategy {
 
         List<TestFitnessFunction> goals = getGoals(true);
         if (!canGenerateTestsForSUT()) {
-            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class "
-                    + Properties.TARGET_CLASS);
+            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}", Properties.TARGET_CLASS);
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
@@ -113,7 +112,7 @@ public class NoveltyStrategy extends TestGenerationStrategy {
             algorithm.generateSolution();
             testSuite = Archive.getArchiveInstance().mergeArchiveAndSolution(new TestSuiteChromosome());
         } else {
-            zeroFitness.setFinished();
+            getZeroFitness().setFinished();
             testSuite = new TestSuiteChromosome();
             for (FitnessFunction<TestSuiteChromosome> ff : fitnessFunctions) {
                 testSuite.setCoverage(ff, 1.0);
@@ -130,14 +129,11 @@ public class NoveltyStrategy extends TestGenerationStrategy {
             LoggingUtils.getEvoLogger().info("");
 
         if (!Properties.IS_RUNNING_A_SYSTEM_TEST) { //avoid printing time related info in system tests due to lack of determinism
-            LoggingUtils.getEvoLogger().info("* Search finished after "
-                    + (endTime - startTime)
-                    + "s and "
-                    + algorithm.getAge()
-                    + " generations, "
-                    + MaxStatementsStoppingCondition.getNumExecutedStatements()
-                    + " statements, best individual has fitness: "
-                    + testSuite.getFitness());
+            LoggingUtils.getEvoLogger().info("* Search finished after {}s and {} generations, {} statements, best individual has fitness: {}",
+                    (endTime - startTime),
+                    algorithm.getAge(),
+                    MaxStatementsStoppingCondition.getNumExecutedStatements(),
+                    testSuite.getFitness());
         }
 
         // Search is finished, send statistics
@@ -158,7 +154,7 @@ public class NoveltyStrategy extends TestGenerationStrategy {
                 LoggingUtils.getEvoLogger().info("* Total number of test goals: {}", factory.getCoverageGoals().size());
                 if (Properties.PRINT_GOALS) {
                     for (TestFitnessFunction goal : factory.getCoverageGoals())
-                        LoggingUtils.getEvoLogger().info("" + goal.toString());
+                        LoggingUtils.getEvoLogger().info("{}", goal);
                 }
             }
         } else {
@@ -170,11 +166,11 @@ public class NoveltyStrategy extends TestGenerationStrategy {
                 goals.addAll(goalFactory.getCoverageGoals());
 
                 if (verbose) {
-                    LoggingUtils.getEvoLogger().info("  - " + goalFactory.getClass().getSimpleName().replace("CoverageFactory", "")
-                            + " " + goalFactory.getCoverageGoals().size());
+                    LoggingUtils.getEvoLogger().info("  - {} {}", goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
+                            goalFactory.getCoverageGoals().size());
                     if (Properties.PRINT_GOALS) {
                         for (TestFitnessFunction goal : goalFactory.getCoverageGoals())
-                            LoggingUtils.getEvoLogger().info("" + goal.toString());
+                            LoggingUtils.getEvoLogger().info("{}", goal);
                     }
                 }
             }

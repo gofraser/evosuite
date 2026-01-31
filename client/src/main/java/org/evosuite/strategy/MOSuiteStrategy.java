@@ -40,6 +40,8 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +52,8 @@ import java.util.List;
  * @author Annibale, Fitsum
  */
 public class MOSuiteStrategy extends TestGenerationStrategy {
+
+    private static final Logger logger = LoggerFactory.getLogger(MOSuiteStrategy.class);
 
     @Override
     public TestSuiteChromosome generateTests() {
@@ -87,25 +91,19 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
 
         algorithm.addFitnessFunctions(fitnessFunctions);
 
-        // if (Properties.SHOW_PROGRESS && !logger.isInfoEnabled())
-        algorithm.addListener(progressMonitor); // FIXME progressMonitor may cause
-        // client hang if EvoSuite is
-        // executed with -prefix!
+        // FIXME progressMonitor may cause client hang if EvoSuite is executed with -prefix!
+        algorithm.addListener(getProgressMonitor());
 
-//		List<TestFitnessFunction> goals = getGoals(true);
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Total number of test goals for {}: {}",
+        LoggingUtils.getEvoLogger().info("* {}Total number of test goals for {}: {}",
+                ClientProcess.getPrettyPrintIdentifier(),
                 Properties.ALGORITHM.name(), fitnessFunctions.size());
+
         if (!canGenerateTestsForSUT()) {
-            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class " + Properties.TARGET_CLASS);
+            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}", Properties.TARGET_CLASS);
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, fitnessFunctions.size());
 
             return new TestSuiteChromosome();
         }
-
-//		ga.setChromosomeFactory(getChromosomeFactory(fitnessFunctions.get(0))); // FIXME: just one fitness function?
-
-//		if (Properties.SHOW_PROGRESS && !logger.isInfoEnabled())
-//			ga.addListener(progressMonitor); // FIXME progressMonitor may cause
 
         if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) ||
                 ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS) ||
@@ -117,22 +115,22 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
 
         algorithm.resetStoppingConditions();
 
-        TestSuiteChromosome testSuite = null;
+        TestSuiteChromosome testSuite;
 
         if (!(Properties.STOP_ZERO && fitnessFunctions.isEmpty()) || ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
             // Perform search
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Using seed {}", Randomness.getSeed());
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Starting evolution");
+            LoggingUtils.getEvoLogger().info("* {}Using seed {}", ClientProcess.getPrettyPrintIdentifier(), Randomness.getSeed());
+            LoggingUtils.getEvoLogger().info("* {}Starting evolution", ClientProcess.getPrettyPrintIdentifier());
             ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
 
             algorithm.generateSolution();
 
             testSuite = algorithm.getBestIndividual();
             if (testSuite.getTestChromosomes().isEmpty()) {
-                LoggingUtils.getEvoLogger().warn(ClientProcess.getPrettyPrintIdentifier() + "Could not generate any test case");
+                LoggingUtils.getEvoLogger().warn("{}Could not generate any test case", ClientProcess.getPrettyPrintIdentifier());
             }
         } else {
-            zeroFitness.setFinished();
+            getZeroFitness().setFinished();
             testSuite = new TestSuiteChromosome();
             for (FitnessFunction<TestSuiteChromosome> ff : testSuite.getFitnessValues().keySet()) {
                 testSuite.setCoverage(ff, 1.0);
@@ -141,22 +139,18 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
 
         long endTime = System.currentTimeMillis() / 1000;
 
-//		goals = getGoals(false); //recalculated now after the search, eg to handle exception fitness
-//        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
-
         // Newline after progress bar
         if (Properties.SHOW_PROGRESS)
             LoggingUtils.getEvoLogger().info("");
 
         String text = " statements, best individual has fitness: ";
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Search finished after "
-                + (endTime - startTime)
-                + "s and "
-                + algorithm.getAge()
-                + " generations, "
-                + MaxStatementsStoppingCondition.getNumExecutedStatements()
-                + text
-                + testSuite.getFitness());
+        LoggingUtils.getEvoLogger().info("* {}Search finished after {}s and {} generations, {}{}{}",
+                ClientProcess.getPrettyPrintIdentifier(),
+                (endTime - startTime),
+                algorithm.getAge(),
+                MaxStatementsStoppingCondition.getNumExecutedStatements(),
+                text,
+                testSuite.getFitness());
         // Search is finished, send statistics
         sendExecutionStatistics();
 

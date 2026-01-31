@@ -69,15 +69,14 @@ public class RandomTestStrategy extends TestGenerationStrategy {
         LoggingUtils.getEvoLogger().info("* Total number of test goals: ");
         for (TestFitnessFactory<? extends TestFitnessFunction> goalFactory : goalFactories) {
             goals.addAll(goalFactory.getCoverageGoals());
-            LoggingUtils.getEvoLogger().info("  - " + goalFactory.getClass().getSimpleName().replace("CoverageFactory", "")
-                    + " " + goalFactory.getCoverageGoals().size());
+            LoggingUtils.getEvoLogger().info("  - {} {}", goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
+                    goalFactory.getCoverageGoals().size());
         }
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals,
                 goals.size());
 
         if (!canGenerateTestsForSUT()) {
-            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class "
-                    + Properties.TARGET_CLASS);
+            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}", Properties.TARGET_CLASS);
             return new TestSuiteChromosome();
         }
         ChromosomeFactory<TestChromosome> factory = getChromosomeFactory();
@@ -105,7 +104,7 @@ public class RandomTestStrategy extends TestGenerationStrategy {
         }
         //statistics.searchFinished(suiteGA);
         LoggingUtils.getEvoLogger().info("* Search Budget:");
-        LoggingUtils.getEvoLogger().info("\t- " + stoppingCondition);
+        LoggingUtils.getEvoLogger().info("\t- {}", stoppingCondition);
 
         // In the GA, these statistics are sent via the SearchListener when notified about the GA completing
         // Search is finished, send statistics
