@@ -21,7 +21,7 @@
 package org.evosuite.setup;
 
 import org.evosuite.classpath.ResourceList;
-import org.evosuite.utils.LoggingUtils;
+import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DirectedMultigraph;
 import org.jgrapht.graph.EdgeReversedGraph;
@@ -137,7 +137,7 @@ public class InheritanceTree {
             return subclassCache.get(classNameWithDots);
 
         if (!inheritanceGraph.containsVertex(classNameWithDots)) {
-            LoggingUtils.logWarnAtMostOnce(logger, "Class not in inheritance graph: " + classNameWithDots);
+            AtMostOnceLogger.warn(logger, "Class not in inheritance graph: " + classNameWithDots);
             return new LinkedHashSet<>();
         }
 
@@ -155,7 +155,7 @@ public class InheritanceTree {
     public Set<String> getSuperclasses(String className) {
         String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
         if (!inheritanceGraph.containsVertex(classNameWithDots)) {
-            LoggingUtils.logWarnAtMostOnce(logger, "Class not in inheritance graph: " + classNameWithDots);
+            AtMostOnceLogger.warn(logger, "Class not in inheritance graph: " + classNameWithDots);
             return new LinkedHashSet<>();
         }
         EdgeReversedGraph<String, DefaultEdge> reverseGraph = new EdgeReversedGraph<>(
@@ -174,7 +174,7 @@ public class InheritanceTree {
     public List<String> getOrderedSuperclasses(String className) {
         String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
         if (!inheritanceGraph.containsVertex(classNameWithDots)) {
-            LoggingUtils.logWarnAtMostOnce(logger, "Class not in inheritance graph: " + classNameWithDots);
+            AtMostOnceLogger.warn(logger, "Class not in inheritance graph: " + classNameWithDots);
             return new LinkedList<>();
         }
         EdgeReversedGraph<String, DefaultEdge> reverseGraph = new EdgeReversedGraph<>(

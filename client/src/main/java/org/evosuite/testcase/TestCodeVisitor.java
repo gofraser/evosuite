@@ -1239,10 +1239,6 @@ public class TestCodeVisitor extends TestVisitor {
 //			result += ".thenReturn( ";
 //			result += parameter_string + " );"+NEWLINE;
 
-            // Mockito doReturn() only takes single arguments. So we need to make sure that in the generated
-            // tests we import MockitoExtension class
-            //parameter_string = "doReturn(" + parameter_string.replaceAll(", ", ").doReturn(") + ")";
-            //result += parameter_string+".when("+getVariableName(retval)+")";
             result += "doReturn(" + parameter_string + ").when(" + getVariableName(retval) + ")";
             result += "." + md.getMethodName() + "(" + md.getInputParameterMatchers() + ");";
             result += NEWLINE;

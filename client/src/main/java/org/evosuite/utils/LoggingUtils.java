@@ -95,27 +95,6 @@ public class LoggingUtils {
     public LoggingUtils() {
     }
 
-    /**
-     * Rather use AtMostOnceLogger directly
-     *
-     * @param logger
-     * @param message
-     */
-    @Deprecated
-    public static void logWarnAtMostOnce(Logger logger, String message) {
-        AtMostOnceLogger.warn(logger, message);
-    }
-
-    /**
-     * Rather use AtMostOnceLogger directly
-     *
-     * @param logger
-     * @param message
-     */
-    @Deprecated
-    public static void logErrorAtMostOnce(Logger logger, String message) {
-        AtMostOnceLogger.error(logger, message);
-    }
 
     /**
      * <p>
