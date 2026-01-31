@@ -21,40 +21,17 @@
 package org.evosuite.testcase.localsearch;
 
 import org.evosuite.Properties;
+import org.evosuite.ga.localsearch.LocalSearchBudget;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.utils.Randomness;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Arrays;
 
 /**
  * @author Gordon Fraser
  */
-public class StringAVMLocalSearch extends StatementLocalSearch {
-
-    private static final Logger logger = LoggerFactory.getLogger(StringLocalSearch.class);
-
-    private String oldValue;
-
-    private ExecutionResult oldResult;
-
-    private boolean oldChanged;
-
-    private void backup(TestChromosome test, StringPrimitiveStatement p) {
-        oldValue = p.getValue();
-        oldResult = test.getLastExecutionResult();
-        oldChanged = test.isChanged();
-    }
-
-    private void restore(TestChromosome test, StringPrimitiveStatement p) {
-        p.setValue(oldValue);
-        test.setLastExecutionResult(oldResult);
-        test.setChanged(oldChanged);
-    }
+public class StringAVMLocalSearch extends AbstractStringLocalSearch {
 
     /* (non-Javadoc)
      * @see org.evosuite.testcase.LocalSearch#doSearch(org.evosuite.testcase.TestChromosome, int, org.evosuite.ga.LocalSearchObjective)
@@ -72,7 +49,7 @@ public class StringAVMLocalSearch extends StatementLocalSearch {
         // TODO: First apply 10 random mutations to determine if string influences _uncovered_ branch
 
         boolean affected = false;
-        String oldValue = p.getValue();
+        String originalValue = p.getValue();
 
 
         for (int i = 0; i < Properties.LOCAL_SEARCH_PROBES; i++) {
@@ -81,7 +58,7 @@ public class StringAVMLocalSearch extends StatementLocalSearch {
             else
                 p.randomize();
 
-            logger.info("Probing string " + oldValue + " ->" + p.getCode());
+            logger.info("Probing string " + originalValue + " ->" + p.getCode());
             int result = objective.hasChanged(test);
             if (result < 0) {
                 backup(test, p);
@@ -127,30 +104,6 @@ public class StringAVMLocalSearch extends StatementLocalSearch {
         return false;
     }
 
-    private boolean removeCharacters(LocalSearchObjective<TestChromosome> objective,
-                                     TestChromosome test, StringPrimitiveStatement p, int statement) {
-
-        boolean improvement = false;
-        backup(test, p);
-
-        for (int i = oldValue.length() - 1; i >= 0; i--) {
-            String newString = oldValue.substring(0, i) + oldValue.substring(i + 1);
-            p.setValue(newString);
-            logger.info(" " + i + " " + oldValue + "/" + oldValue.length() + " -> "
-                    + newString + "/" + newString.length());
-            if (objective.hasImproved(test)) {
-                logger.info("Has improved");
-                backup(test, p);
-                improvement = true;
-            } else {
-                logger.info("Has not improved");
-                restore(test, p);
-            }
-        }
-
-        return improvement;
-    }
-
     private boolean replaceCharacters(LocalSearchObjective<TestChromosome> objective,
                                       TestChromosome test, StringPrimitiveStatement p, int statement) {
 
@@ -158,9 +111,15 @@ public class StringAVMLocalSearch extends StatementLocalSearch {
         boolean improvement = false;
         backup(test, p);
         for (int i = 0; i < oldValue.length(); i++) {
+            if (LocalSearchBudget.getInstance().isFinished()) {
+                return improvement;
+            }
 
             boolean done = false;
             while (!done) {
+                if (LocalSearchBudget.getInstance().isFinished()) {
+                    return improvement;
+                }
                 done = true;
                 // Try +1
                 logger.debug("Trying increment of " + p.getCode());
@@ -236,6 +195,9 @@ public class StringAVMLocalSearch extends StatementLocalSearch {
         p.setValue(newString);
 
         while (objective.hasImproved(test)) {
+            if (LocalSearchBudget.getInstance().isFinished()) {
+                break;
+            }
             oldValue = p.getValue();
             oldResult = test.getLastExecutionResult();
             improvement = true;
@@ -256,62 +218,6 @@ public class StringAVMLocalSearch extends StatementLocalSearch {
 
         return improvement;
 
-    }
-
-    private boolean addCharacters(LocalSearchObjective<TestChromosome> objective,
-                                  TestChromosome test, StringPrimitiveStatement p, int statement) {
-
-        boolean improvement = false;
-        backup(test, p);
-
-        boolean add = true;
-
-        while (add) {
-            add = false;
-            int position = oldValue.length();
-            char[] characters = Arrays.copyOf(oldValue.toCharArray(), position + 1);
-            for (char replacement = 9; replacement < 128; replacement++) {
-                characters[position] = replacement;
-                String newString = new String(characters);
-                p.setValue(newString);
-                //logger.debug(" " + oldValue + "/" + oldValue.length() + " -> " + newString
-                //        + "/" + newString.length());
-
-                if (objective.hasImproved(test)) {
-                    backup(test, p);
-                    improvement = true;
-                    add = true;
-                    break;
-                } else {
-                    restore(test, p);
-                }
-            }
-        }
-
-        add = true;
-        while (add) {
-            add = false;
-            int position = 0;
-            char[] characters = (" " + oldValue).toCharArray();
-            for (char replacement = 9; replacement < 128; replacement++) {
-                characters[position] = replacement;
-                String newString = new String(characters);
-                p.setValue(newString);
-                //logger.debug(" " + oldValue + "/" + oldValue.length() + " -> " + newString
-                //        + "/" + newString.length());
-
-                if (objective.hasImproved(test)) {
-                    backup(test, p);
-                    improvement = true;
-                    add = true;
-                    break;
-                } else {
-                    restore(test, p);
-                }
-            }
-        }
-
-        return improvement;
     }
 
 }
