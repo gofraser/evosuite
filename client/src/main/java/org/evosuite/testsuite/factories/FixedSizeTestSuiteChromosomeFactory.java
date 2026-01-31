@@ -49,7 +49,17 @@ public class FixedSizeTestSuiteChromosomeFactory implements
      * @param size a int.
      */
     public FixedSizeTestSuiteChromosomeFactory(int size) {
-        testChromosomeFactory = new RandomLengthTestFactory();
+        this(new RandomLengthTestFactory(), size);
+    }
+
+    /**
+     * <p>Constructor for FixedSizeTestSuiteChromosomeFactory.</p>
+     *
+     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
+     * @param size a int.
+     */
+    public FixedSizeTestSuiteChromosomeFactory(ChromosomeFactory<TestChromosome> factory, int size) {
+        this.testChromosomeFactory = factory;
         this.size = size;
     }
 
@@ -62,8 +72,7 @@ public class FixedSizeTestSuiteChromosomeFactory implements
      */
     @Override
     public TestSuiteChromosome getChromosome() {
-        TestSuiteChromosome chromosome = new TestSuiteChromosome(
-                new RandomLengthTestFactory());
+        TestSuiteChromosome chromosome = new TestSuiteChromosome(testChromosomeFactory);
         chromosome.clearTests();
 
         for (int i = 0; i < size; i++) {
