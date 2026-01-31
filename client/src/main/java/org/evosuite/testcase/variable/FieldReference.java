@@ -61,7 +61,9 @@ public class FieldReference extends VariableReferenceImpl {
      */
     public FieldReference(TestCase testCase, GenericField field, VariableReference source) {
         super(testCase, field.getFieldType());
-        assert (source != null || field.isStatic()) : "No source object was supplied, therefore we assumed the field to be static. However asking the field if it was static, returned false";
+        if (source == null && !field.isStatic()) {
+            throw new IllegalArgumentException("No source object was supplied for non-static field: " + field);
+        }
         this.field = field;
         this.source = source;
     }
@@ -79,19 +81,22 @@ public class FieldReference extends VariableReferenceImpl {
     public FieldReference(TestCase testCase, GenericField field, Type fieldType,
                           VariableReference source) {
         super(testCase, fieldType);
-        assert (field != null);
-        assert (source != null || field.isStatic()) : "No source object was supplied, therefore we assumed the field to be static. However asking the field if it was static, returned false";
+        if (field == null) {
+            throw new IllegalArgumentException("Field cannot be null");
+        }
+        if (source == null && !field.isStatic()) {
+            throw new IllegalArgumentException("No source object was supplied for non-static field: " + field);
+        }
+        if (source != null && !field.getField().getDeclaringClass().isAssignableFrom(source.getVariableClass())) {
+            throw new IllegalArgumentException("Declaring class: " + field.getField().getDeclaringClass()
+                    + " # classloader: " + field.getField().getDeclaringClass().getClassLoader()
+                    + " | Variable Class: " + source.getVariableClass()
+                    + " # classloader: " + source.getVariableClass().getClassLoader()
+                    + " | Field name: " + field.getField());
+        }
+
         this.field = field;
         this.source = source;
-        assert (source == null || field.getField().getDeclaringClass().isAssignableFrom(source.getVariableClass()))
-                : "Assertion! Declaring class: " + field.getField().getDeclaringClass()
-                + " # classloader: " + field.getField().getDeclaringClass().getClassLoader()
-                + " | Variable Class: " + source.getVariableClass()
-                + " # classloader: " + source.getVariableClass().getClassLoader()
-                + " | Field name: " + field.getField();
-        //		logger.info("Creating new field assignment for field " + field + " of object "
-        //		        + source);
-
     }
 
     /**
@@ -299,10 +304,8 @@ public class FieldReference extends VariableReferenceImpl {
                 }
             }
             throw new AssertionError(
-                    "A VariableReferences position is only defined if the VariableReference is defined by a statement in the testCase.");
+                    "A VariableReference's position is only defined if the VariableReference is defined by a statement in the testCase.");
         }
-
-        //			return 0;
     }
 
     /**

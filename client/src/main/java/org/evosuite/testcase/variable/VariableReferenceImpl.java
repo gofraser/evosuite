@@ -99,21 +99,16 @@ public class VariableReferenceImpl implements VariableReference {
                 }
             }
             if (stPosition == null) {
-                String msg = "Bloody annoying bug \n";
-                msg += "Test case has " + testCase.size() + " function calls \n";
+                StringBuilder msg = new StringBuilder("VariableReference not found in TestCase\n");
+                msg.append("Test case has ").append(testCase.size()).append(" function calls \n");
                 for (int i = 0; i < testCase.size(); i++) {
-                    msg += testCase.getStatement(i).getCode(null) + "\n";
+                    msg.append(testCase.getStatement(i).getCode(null)).append("\n");
                 }
-                msg += "failed to find type " + this.type.getTypeName() + "\n";
+                msg.append("failed to find type ").append(this.type.getTypeName()).append("\n");
 
                 throw new AssertionError(
-                        msg + "A VariableReferences position is only defined if the VariableReference is defined by a statement in the testCase");
+                        msg + "A VariableReference's position is only defined if the VariableReference is defined by a statement in the testCase");
             }
-        } else {
-            int position = stPosition; //somehow this could be null, leading to NPE. Synchronization issue?
-            stPosition = null;
-            stPosition = getStPosition();
-            assert (stPosition == position);
         }
         return stPosition;
     }
@@ -131,14 +126,7 @@ public class VariableReferenceImpl implements VariableReference {
     @Override
     public VariableReference clone() {
         throw new UnsupportedOperationException(
-                "This method SHOULD not be used, as only the original reference is keeped up to date");
-		/*VariableReference copy = new VariableReference(type, statement);
-		if (array != null) {
-			copy.array = array.clone();
-			copy.array_index = array_index;
-			copy.array_length = array_length;
-		}
-		return copy;*/
+                "This method SHOULD not be used, as only the original reference is kept up to date");
     }
 
     /**
@@ -290,15 +278,7 @@ public class VariableReferenceImpl implements VariableReference {
      */
     @Override
     public boolean isAssignableTo(Type other) {
-        //if (type.hasWildcardTypes()) {
-        //	GenericClass rawClass = new GenericClass(other);
-        //	logger.warn("Getting raw assignables for: "+other +" and "+type);
-        //	logger.warn(testCase.toCode());
-        //	TypeUtils.isAssignable(other, getType());
-        //	return GenericClass.isAssignable(rawClass.getRawClass(), type.getRawClass());
-        //} else {
         return type.isAssignableTo(other);
-        //}
     }
 
     /**

@@ -47,6 +47,7 @@ public class NullReference extends VariableReferenceImpl {
      */
     @Override
     public VariableReference clone() {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(
+                "This method SHOULD not be used, as only the original reference is kept up to date");
     }
 }

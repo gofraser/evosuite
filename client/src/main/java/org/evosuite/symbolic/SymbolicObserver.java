@@ -64,7 +64,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.evosuite.symbolic.vm.HeapVM.ARRAY_LENGTH;
-import static org.evosuite.testcase.variable.ArrayLengthSymbolicUtil.UNIDIMENTIONAL_ARRAY_VALUE;
+import static org.evosuite.testcase.variable.ArrayLengthSymbolicUtil.UNIDIMENSIONAL_ARRAY_VALUE;
 
 public class SymbolicObserver extends ExecutionObserver {
 
@@ -240,7 +240,7 @@ public class SymbolicObserver extends ExecutionObserver {
                 int length = arrayRef.getArrayLength();
                 IntegerValue lengthExpression;
 
-                ArraySymbolicLengthName arraySymbolicLengthName = new ArraySymbolicLengthName(arrayRef.getName(), UNIDIMENTIONAL_ARRAY_VALUE);
+                ArraySymbolicLengthName arraySymbolicLengthName = new ArraySymbolicLengthName(arrayRef.getName(), UNIDIMENSIONAL_ARRAY_VALUE);
                 lengthExpression = ArrayLengthSymbolicUtil.buildArraySymbolicLengthExpression(length, arraySymbolicLengthName);
 
                 if (lengthExpression.containsSymbolicVariable()) {
@@ -1969,7 +1969,7 @@ public class SymbolicObserver extends ExecutionObserver {
                     ARRAY_LENGTH,
                     conc_array,
                     new_sym_array,
-                    symb_expressions.get(new ArraySymbolicLengthName(arrayRef.getName(), UNIDIMENTIONAL_ARRAY_VALUE).getSymbolicName())
+                    symb_expressions.get(new ArraySymbolicLengthName(arrayRef.getName(), UNIDIMENSIONAL_ARRAY_VALUE).getSymbolicName())
             );
 
             String varRef_name = arrayRef.getName();
