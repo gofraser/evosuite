@@ -20,6 +20,7 @@
 
 package org.evosuite.testcase.localsearch;
 
+import org.evosuite.ga.localsearch.LocalSearchBudget;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -35,7 +36,7 @@ import org.slf4j.LoggerFactory;
  */
 public class EnumLocalSearch extends StatementLocalSearch {
 
-    private static final Logger logger = LoggerFactory.getLogger(TestCaseLocalSearch.class);
+    private static final Logger logger = LoggerFactory.getLogger(EnumLocalSearch.class);
 
     private Object oldValue;
 
@@ -55,6 +56,9 @@ public class EnumLocalSearch extends StatementLocalSearch {
         oldValue = p.getValue();
 
         for (Object value : p.getEnumValues()) {
+            if (LocalSearchBudget.getInstance().isFinished()) {
+                return false;
+            }
             p.setValue(value);
 
             if (!objective.hasImproved(test)) {

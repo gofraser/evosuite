@@ -21,6 +21,7 @@
 package org.evosuite.testcase.localsearch;
 
 import org.evosuite.Properties;
+import org.evosuite.ga.localsearch.LocalSearchBudget;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.testcase.TestCaseExpander;
 import org.evosuite.testcase.TestChromosome;
@@ -42,7 +43,7 @@ public class ArrayLocalSearch extends StatementLocalSearch {
 
     private int oldLength = 0;
 
-    private static final Logger logger = LoggerFactory.getLogger(TestCaseLocalSearch.class);
+    private static final Logger logger = LoggerFactory.getLogger(ArrayLocalSearch.class);
 
     private int positionDelta = 0;
 
@@ -82,6 +83,9 @@ public class ArrayLocalSearch extends StatementLocalSearch {
         expander.visitArrayStatement(test.getTestCase(), p);
         int assignmentLength = test.size() - lengthWithoutAssignments;
         for (int position = statement + 1; position < statement + assignmentLength; position++) {
+            if (LocalSearchBudget.getInstance().isFinished()) {
+                break;
+            }
             logger.debug("Local search on statement " + position);
             StatementLocalSearch search = StatementLocalSearch.getLocalSearchFor(test.getTestCase().getStatement(position));
             if (search != null) {
@@ -101,6 +105,9 @@ public class ArrayLocalSearch extends StatementLocalSearch {
         ArrayReference arrRef = (ArrayReference) statement.getReturnValue();
         TestFactory factory = TestFactory.getInstance();
         for (int position = test.size() - 1; position > statement.getPosition(); position--) {
+            if (LocalSearchBudget.getInstance().isFinished()) {
+                break;
+            }
             logger.debug("Current delete position: " + position);
             if (test.getTestCase().getStatement(position) instanceof AssignmentStatement) {
                 logger.debug("Is assignment statement");
@@ -154,6 +161,9 @@ public class ArrayLocalSearch extends StatementLocalSearch {
         oldLength = p.size();
         boolean done = false;
         while (!done) {
+            if (LocalSearchBudget.getInstance().isFinished()) {
+                break;
+            }
             done = true;
             // Try +1
             p.setSize(oldLength + 1);
@@ -164,6 +174,9 @@ public class ArrayLocalSearch extends StatementLocalSearch {
 
                 boolean improved = true;
                 while (improved) {
+                    if (LocalSearchBudget.getInstance().isFinished()) {
+                        break;
+                    }
                     oldLength = p.size();
                     oldResult = test.getLastExecutionResult();
                     p.setSize(oldLength + 1);
@@ -192,6 +205,9 @@ public class ArrayLocalSearch extends StatementLocalSearch {
 
                     boolean improved = true;
                     while (improved && p.size() > 0) {
+                        if (LocalSearchBudget.getInstance().isFinished()) {
+                            break;
+                        }
                         oldLength = p.size();
                         oldResult = test.getLastExecutionResult();
                         p.setSize(oldLength - 1);

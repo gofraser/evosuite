@@ -24,6 +24,8 @@ import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.statements.PrimitiveStatement;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>
@@ -33,6 +35,8 @@ import org.evosuite.testcase.statements.PrimitiveStatement;
  * @author Gordon Fraser
  */
 public class BooleanLocalSearch extends StatementLocalSearch {
+
+    protected static final Logger logger = LoggerFactory.getLogger(BooleanLocalSearch.class);
 
     private boolean oldValue;
 
