@@ -127,7 +127,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                     c.mutationHistory.addMutationEntry(mutation.clone(c.getTestCase()));
             }
         }
-        // c.mutationHistory.set(mutationHistory);
         c.setNumberOfMutations(this.getNumberOfMutations());
         c.setNumberOfEvaluations(this.getNumberOfEvaluations());
         c.setKineticEnergy(getKineticEnergy());
@@ -243,7 +242,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         }
 
         for (TestMutationHistoryEntry mutation : mutationHistory) {
-            logger.info("Considering: " + mutation.getMutationType());
+            logger.info("Considering: {}", mutation.getMutationType());
 
             if (mutation.getMutationType() != TestMutationHistoryEntry.TestMutation.DELETION
                     && mutation.getStatement().getPosition() <= lastPosition) {
@@ -459,7 +458,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             return modified;
 
         } catch (ConstructionFailedException e) {
-            logger.warn("Deletion of statement failed: " + test.getStatement(num).getCode());
+            logger.warn("Deletion of statement failed: {}", test.getStatement(num).getCode());
             logger.warn(test.toCode());
             return false; //modifications were on copy
         }
@@ -566,7 +565,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
         // Apply DSE to gather constraints
         List<BranchCondition> branches = new ConcolicExecutorImpl().getSymbolicPath(this);
-        logger.debug("Conditions: " + branches);
+        logger.debug("Conditions: {}", branches);
         if (branches.isEmpty())
             return false;
 
@@ -580,9 +579,8 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         List<BranchCondition> bs = targetBranches.isEmpty() ? branches : targetBranches;
         BranchCondition branch = Randomness.choice(bs);
 
-        logger.debug("Trying to negate branch " + branch.getInstructionIndex()
-                + " - have " + targetBranches.size() + "/" + branches.size()
-                + " target branches");
+        logger.debug("Trying to negate branch {} - have {}/{} target branches",
+                branch.getInstructionIndex(), targetBranches.size(), branches.size());
 
         // Try to solve negated constraint
         TestCase newTest = ConcolicMutation.negateCondition(branches, branch, test);
@@ -692,6 +690,15 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      */
     public static List<SecondaryObjective<TestChromosome>> getSecondaryObjectives() {
         return secondaryObjectives;
+    }
+
+    /**
+     * Clear the list of secondary objectives.
+     * <p>
+     * This method should be called to avoid state pollution when running unit tests involving this class.
+     */
+    public static void clearSecondaryObjectives() {
+        secondaryObjectives.clear();
     }
 
 

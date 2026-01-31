@@ -62,7 +62,7 @@ import static java.util.stream.Collectors.toCollection;
  */
 public class TestCodeVisitor extends TestVisitor {
 
-    protected String testCode = "";
+    protected StringBuilder testCode = new StringBuilder();
 
     protected static final String NEWLINE = System.getProperty("line.separator");
 
@@ -93,7 +93,7 @@ public class TestCodeVisitor extends TestVisitor {
      * @return a {@link java.lang.String} object.
      */
     public String getCode() {
-        return testCode;
+        return testCode.toString();
     }
 
     /**
@@ -432,7 +432,7 @@ public class TestCodeVisitor extends TestVisitor {
     @Override
     public void visitTestCase(TestCase test) {
         this.test = test;
-        this.testCode = "";
+        this.testCode = new StringBuilder();
         this.variableNameStrategy = VariableNameStrategyFactory.get();
     }
 
@@ -489,7 +489,7 @@ public class TestCodeVisitor extends TestVisitor {
                     + getVariableName(source) + ");";
         }
 
-        testCode += stmt;
+        testCode.append(stmt);
     }
 
 
@@ -527,7 +527,7 @@ public class TestCodeVisitor extends TestVisitor {
         else
             stmt += ");";
 
-        testCode += stmt;
+        testCode.append(stmt);
     }
 
     protected void visitArrayLengthAssertion(ArrayLengthAssertion assertion) {
@@ -537,7 +537,7 @@ public class TestCodeVisitor extends TestVisitor {
         String stmt = "assertEquals(";
         stmt += length + ", " + getVariableName(source) + ".length);";
 
-        testCode += stmt;
+        testCode.append(stmt);
     }
 
     protected void visitContainsAssertion(ContainsAssertion assertion) {
@@ -554,7 +554,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
         stmt += getVariableName(containerObject) + ".contains(" + getVariableName(containedObject) + "));";
 
-        testCode += stmt;
+        testCode.append(stmt);
     }
 
     /**
@@ -578,40 +578,40 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         if (value == null) {
-            testCode += "assertNull(" + target
-                    + ");";
+            testCode.append("assertNull(" + target
+                    + ");");
         } else if (value.getClass().equals(Long.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + target + ");";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
+                    + target + ");");
         } else if (value.getClass().equals(Float.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + target + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
+                    + target + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");");
         } else if (value.getClass().equals(Double.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + target + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
+                    + target + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");");
         } else if (value.getClass().equals(Character.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + target + ");";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
+                    + target + ");");
         } else if (value.getClass().equals(String.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + target + ");";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
+                    + target + ");");
         } else if (value.getClass().equals(Boolean.class)) {
             Boolean flag = (Boolean) value;
             if (flag) {
-                testCode += "assertTrue(";
+                testCode.append("assertTrue(");
             } else {
-                testCode += "assertFalse(";
+                testCode.append("assertFalse(");
             }
-            testCode += "" + target + ");";
+            testCode.append("" + target + ");");
         } else if (value.getClass().isEnum()) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + target + ");";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
+                    + target + ");");
             // Make sure the enum is imported in the JUnit test
             getClassName(value.getClass());
 
         } else
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + target + ");";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
+                    + target + ");");
     }
 
     /**
@@ -628,61 +628,61 @@ public class TestCodeVisitor extends TestVisitor {
         Class<?> generatedType = inspector.getReturnType();
 
         if (value == null) {
-            testCode += "assertNull(" + getVariableName(source) + "."
-                    + inspector.getMethodCall() + "());";
+            testCode.append("assertNull(" + getVariableName(source) + "."
+                    + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(Long.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             if (ClassUtils.isPrimitiveWrapper(generatedType))
-                testCode += "(long)";
-            testCode += getVariableName(source) + "." + inspector.getMethodCall() + "());";
+                testCode.append("(long)");
+            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(Short.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             if (ClassUtils.isPrimitiveWrapper(generatedType))
-                testCode += "(short)";
-            testCode += getVariableName(source) + "." + inspector.getMethodCall() + "());";
+                testCode.append("(short)");
+            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(Integer.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             if (ClassUtils.isPrimitiveWrapper(generatedType))
-                testCode += "(int)";
-            testCode += getVariableName(source) + "." + inspector.getMethodCall() + "());";
+                testCode.append("(int)");
+            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(Byte.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             if (ClassUtils.isPrimitiveWrapper(generatedType))
-                testCode += "(byte)";
-            testCode += getVariableName(source) + "." + inspector.getMethodCall() + "());";
+                testCode.append("(byte)");
+            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(Float.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ";
-            testCode += getVariableName(source) + "." + inspector.getMethodCall()
-                    + "(), " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
+            testCode.append(getVariableName(source) + "." + inspector.getMethodCall()
+                    + "(), " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");");
         } else if (value.getClass().equals(Double.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ";
-            testCode += getVariableName(source) + "." + inspector.getMethodCall()
-                    + "(), " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
+            testCode.append(getVariableName(source) + "." + inspector.getMethodCall()
+                    + "(), " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");");
         } else if (value.getClass().equals(Character.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             if (ClassUtils.isPrimitiveWrapper(generatedType))
-                testCode += "(char)";
-            testCode += getVariableName(source) + "." + inspector.getMethodCall() + "());";
+                testCode.append("(char)");
+            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(String.class)) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ";
-            testCode += getVariableName(source) + "." + inspector.getMethodCall() + "());";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
+            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().isEnum() || value instanceof Enum) {
-            testCode += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + getVariableName(source) + "." + inspector.getMethodCall() + "());";
+            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
+                    + getVariableName(source) + "." + inspector.getMethodCall() + "());");
             // Make sure the enum is imported in the JUnit test
             getClassName(value.getClass());
 
         } else if (value.getClass().equals(boolean.class) || value.getClass().equals(Boolean.class)) {
             if ((Boolean) value)
-                testCode += "assertTrue(" + getVariableName(source) + "."
-                        + inspector.getMethodCall() + "());";
+                testCode.append("assertTrue(" + getVariableName(source) + "."
+                        + inspector.getMethodCall() + "());");
             else
-                testCode += "assertFalse(" + getVariableName(source) + "."
-                        + inspector.getMethodCall() + "());";
+                testCode.append("assertFalse(" + getVariableName(source) + "."
+                        + inspector.getMethodCall() + "());");
 
         } else
-            testCode += "assertEquals(" + value + ", " + getVariableName(source) + "."
-                    + inspector.getMethodCall() + "());";
+            testCode.append("assertEquals(" + value + ", " + getVariableName(source) + "."
+                    + inspector.getMethodCall() + "());");
     }
 
     /**
@@ -696,9 +696,9 @@ public class TestCodeVisitor extends TestVisitor {
         VariableReference source = assertion.getSource();
         Boolean value = (Boolean) assertion.getValue();
         if (value) {
-            testCode += "assertNull(" + getVariableName(source) + ");";
+            testCode.append("assertNull(" + getVariableName(source) + ");");
         } else
-            testCode += "assertNotNull(" + getVariableName(source) + ");";
+            testCode.append("assertNotNull(" + getVariableName(source) + ");");
     }
 
     /**
@@ -715,18 +715,18 @@ public class TestCodeVisitor extends TestVisitor {
 
         if (source.getType().equals(Integer.class)) {
             if ((Integer) value == 0)
-                testCode += "assertTrue(" + getVariableName(source) + " == "
-                        + getVariableName(dest) + ");";
+                testCode.append("assertTrue(" + getVariableName(source) + " == "
+                        + getVariableName(dest) + ");");
             else if ((Integer) value < 0)
-                testCode += "assertTrue(" + getVariableName(source) + " < "
-                        + getVariableName(dest) + ");";
+                testCode.append("assertTrue(" + getVariableName(source) + " < "
+                        + getVariableName(dest) + ");");
             else
-                testCode += "assertTrue(" + getVariableName(source) + " > "
-                        + getVariableName(dest) + ");";
+                testCode.append("assertTrue(" + getVariableName(source) + " > "
+                        + getVariableName(dest) + ");");
 
         } else {
-            testCode += "assertEquals(" + getVariableName(source) + ".compareTo("
-                    + getVariableName(dest) + "), " + value + ");";
+            testCode.append("assertEquals(" + getVariableName(source) + ".compareTo("
+                    + getVariableName(dest) + "), " + value + ");");
         }
     }
 
@@ -745,61 +745,61 @@ public class TestCodeVisitor extends TestVisitor {
         if (source.isPrimitive() || source.isWrapperType()) {
             if (source.getVariableClass().equals(float.class)) {
                 if ((Boolean) value)
-                    testCode += "assertEquals(" + getVariableName(source) + ", "
-                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
+                    testCode.append("assertEquals(" + getVariableName(source) + ", "
+                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");");
                 else
-                    testCode += "assertNotEquals(" + getVariableName(source) + ", "
-                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
+                    testCode.append("assertNotEquals(" + getVariableName(source) + ", "
+                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");");
             } else if (source.getVariableClass().equals(Float.class)) {
                 if ((Boolean) value)
-                    testCode += "assertEquals((float)" + getVariableName(source) + ", (float)"
-                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
+                    testCode.append("assertEquals((float)" + getVariableName(source) + ", (float)"
+                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");");
                 else
-                    testCode += "assertNotEquals((float)" + getVariableName(source) + ", (float)"
-                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
+                    testCode.append("assertNotEquals((float)" + getVariableName(source) + ", (float)"
+                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");");
             } else if (source.getVariableClass().equals(double.class)) {
                 if ((Boolean) value)
-                    testCode += "assertEquals(" + getVariableName(source) + ", "
-                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
+                    testCode.append("assertEquals(" + getVariableName(source) + ", "
+                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");");
                 else
-                    testCode += "assertNotEquals(" + getVariableName(source) + ", "
-                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
+                    testCode.append("assertNotEquals(" + getVariableName(source) + ", "
+                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");");
             } else if (source.getVariableClass().equals(Double.class)) {
                 if ((Boolean) value)
-                    testCode += "assertEquals((double)" + getVariableName(source) + ", (double)"
-                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
+                    testCode.append("assertEquals((double)" + getVariableName(source) + ", (double)"
+                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");");
                 else
-                    testCode += "assertNotEquals((double)" + getVariableName(source) + ", (double)"
-                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
+                    testCode.append("assertNotEquals((double)" + getVariableName(source) + ", (double)"
+                            + getVariableName(dest) + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");");
             } else if (source.isWrapperType()) {
                 if ((Boolean) value)
-                    testCode += "assertTrue(" + getVariableName(source) + ".equals((" + this.getClassName(Object.class) + ")"
-                            + getVariableName(dest) + "));";
+                    testCode.append("assertTrue(" + getVariableName(source) + ".equals((" + this.getClassName(Object.class) + ")"
+                            + getVariableName(dest) + "));");
                 else
-                    testCode += "assertFalse(" + getVariableName(source) + ".equals((" + this.getClassName(Object.class) + ")"
-                            + getVariableName(dest) + "));";
+                    testCode.append("assertFalse(" + getVariableName(source) + ".equals((" + this.getClassName(Object.class) + ")"
+                            + getVariableName(dest) + "));");
             } else if (dest.isWrapperType()) {
                 if ((Boolean) value)
-                    testCode += "assertTrue(" + getVariableName(dest) + ".equals((" + this.getClassName(Object.class) + ")"
-                            + getVariableName(source) + "));";
+                    testCode.append("assertTrue(" + getVariableName(dest) + ".equals((" + this.getClassName(Object.class) + ")"
+                            + getVariableName(source) + "));");
                 else
-                    testCode += "assertFalse(" + getVariableName(dest) + ".equals((" + this.getClassName(Object.class) + ")"
-                            + getVariableName(source) + "));";
+                    testCode.append("assertFalse(" + getVariableName(dest) + ".equals((" + this.getClassName(Object.class) + ")"
+                            + getVariableName(source) + "));");
             } else {
                 if ((Boolean) value)
-                    testCode += "assertTrue(" + getVariableName(source) + " == "
-                            + getVariableName(dest) + ");";
+                    testCode.append("assertTrue(" + getVariableName(source) + " == "
+                            + getVariableName(dest) + ");");
                 else
-                    testCode += "assertFalse(" + getVariableName(source) + " == "
-                            + getVariableName(dest) + ");";
+                    testCode.append("assertFalse(" + getVariableName(source) + " == "
+                            + getVariableName(dest) + ");");
             }
         } else {
             if ((Boolean) value)
-                testCode += "assertTrue(" + getVariableName(source) + ".equals((" + this.getClassName(Object.class) + ")"
-                        + getVariableName(dest) + "));";
+                testCode.append("assertTrue(" + getVariableName(source) + ".equals((" + this.getClassName(Object.class) + ")"
+                        + getVariableName(dest) + "));");
             else
-                testCode += "assertFalse(" + getVariableName(source) + ".equals((" + this.getClassName(Object.class) + ")"
-                        + getVariableName(dest) + "));";
+                testCode.append("assertFalse(" + getVariableName(source) + ".equals((" + this.getClassName(Object.class) + ")"
+                        + getVariableName(dest) + "));");
         }
     }
 
@@ -816,11 +816,11 @@ public class TestCodeVisitor extends TestVisitor {
         Object value = assertion.getValue();
 
         if ((Boolean) value)
-            testCode += "assertSame(" + getVariableName(source) + ", "
-                    + getVariableName(dest) + ");";
+            testCode.append("assertSame(" + getVariableName(source) + ", "
+                    + getVariableName(dest) + ");");
         else
-            testCode += "assertNotSame(" + getVariableName(source) + ", "
-                    + getVariableName(dest) + ");";
+            testCode.append("assertNotSame(" + getVariableName(source) + ", "
+                    + getVariableName(dest) + ");");
     }
 
     private String getUnstableTestComment() {
@@ -838,7 +838,7 @@ public class TestCodeVisitor extends TestVisitor {
             /*
              * if the current test is unstable, then comment out all of its assertions.
              */
-            testCode += "// " + getUnstableTestComment() + ": ";
+            testCode.append("// " + getUnstableTestComment() + ": ");
         }
 
         if (assertion instanceof PrimitiveAssertion) {
@@ -865,7 +865,7 @@ public class TestCodeVisitor extends TestVisitor {
             throw new RuntimeException("Unknown assertion type: " + assertion);
         }
         if (assertion.hasComment())
-            testCode += assertion.getComment();
+            testCode.append(assertion.getComment());
     }
 
     private void addAssertions(Statement statement) {
@@ -877,7 +877,7 @@ public class TestCodeVisitor extends TestVisitor {
                 if (assertion != null
                         && !assertion.getReferencedVariables().contains(returnValue)) {
                     visitAssertion(assertion);
-                    testCode += NEWLINE;
+                    testCode.append(NEWLINE);
                     assertionAdded = true;
                 }
             }
@@ -885,13 +885,13 @@ public class TestCodeVisitor extends TestVisitor {
             for (Assertion assertion : statement.getAssertions()) {
                 if (assertion != null) {
                     visitAssertion(assertion);
-                    testCode += NEWLINE;
+                    testCode.append(NEWLINE);
                     assertionAdded = true;
                 }
             }
         }
         if (assertionAdded)
-            testCode += NEWLINE;
+            testCode.append(NEWLINE);
     }
 
     protected String getEnumValue(EnumPrimitiveStatement<?> statement) {
@@ -940,19 +940,19 @@ public class TestCodeVisitor extends TestVisitor {
 
         if (statement instanceof StringPrimitiveStatement) {
             if (value == null) {
-                testCode += ((Class<?>) retval.getType()).getSimpleName() + " "
-                        + getVariableName(retval) + " = null;" + NEWLINE;
+                testCode.append(((Class<?>) retval.getType()).getSimpleName() + " "
+                        + getVariableName(retval) + " = null;" + NEWLINE);
 
             } else {
                 String escapedString = StringUtil.getEscapedString((String) value);
-                testCode += ((Class<?>) retval.getType()).getSimpleName() + " "
-                        + getVariableName(retval) + " = \"" + escapedString + "\";" + NEWLINE;
+                testCode.append(((Class<?>) retval.getType()).getSimpleName() + " "
+                        + getVariableName(retval) + " = \"" + escapedString + "\";" + NEWLINE);
             }
-            // testCode += ((Class<?>) retval.getType()).getSimpleName() + " "
+            // testCode.append(((Class<?>) retval.getType()).getSimpleName() + " "
             // + getVariableName(retval) + " = \""
-            // + StringEscapeUtils.escapeJava((String) value) + "\";\n";
+            // + StringEscapeUtils.escapeJava((String) value) + "\";\n");
         } else if (statement instanceof EnvironmentDataStatement) {
-            testCode += ((EnvironmentDataStatement<?>) statement).getTestCode(getVariableName(retval));
+            testCode.append(((EnvironmentDataStatement<?>) statement).getTestCode(getVariableName(retval)));
         } else if (statement instanceof ClassPrimitiveStatement) {
             StringBuilder builder = new StringBuilder();
             String className = getClassName(retval);
@@ -964,10 +964,10 @@ public class TestCodeVisitor extends TestVisitor {
             builder.append(getClassName(((Class<?>) value)));
             builder.append(".class;");
             builder.append(NEWLINE);
-            testCode += builder.toString();
+            testCode.append(builder.toString());
         } else {
-            testCode += getClassName(retval) + " " + getVariableName(retval) + " = "
-                    + NumberFormatter.getNumberString(value, this) + ";" + NEWLINE;
+            testCode.append(getClassName(retval) + " " + getVariableName(retval) + " = "
+                    + NumberFormatter.getNumberString(value, this) + ";" + NEWLINE);
         }
         addAssertions(statement);
     }
@@ -983,7 +983,7 @@ public class TestCodeVisitor extends TestVisitor {
         expression += getVariableName(statement.getLeftOperand()) + " "
                 + statement.getOperator().toCode() + " "
                 + getVariableName(statement.getRightOperand());
-        testCode += expression + ";" + NEWLINE;
+        testCode.append(expression + ";" + NEWLINE);
         addAssertions(statement);
     }
 
@@ -1050,7 +1050,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
         builder.append(NEWLINE);
 
-        testCode += builder.toString();
+        testCode.append(builder.toString());
         addAssertions(statement);
     }
 
@@ -1244,7 +1244,7 @@ public class TestCodeVisitor extends TestVisitor {
             result += NEWLINE;
         }
 
-        testCode += result;
+        testCode.append(result);
     }
 
     private String getParameterStringForFMthatReturnPrimitive(Class<?> returnType, List<VariableReference> parameters) {
@@ -1455,7 +1455,7 @@ public class TestCodeVisitor extends TestVisitor {
             result += generateCatchBlock(statement, exception);
         }
 
-        testCode += result + NEWLINE;
+        testCode.append(result + NEWLINE);
         addAssertions(statement);
     }
 
@@ -1663,7 +1663,7 @@ public class TestCodeVisitor extends TestVisitor {
             result += generateCatchBlock(statement, exception);
         }
 
-        testCode += result + NEWLINE;
+        testCode.append(result + NEWLINE);
         addAssertions(statement);
     }
 
@@ -1738,15 +1738,15 @@ public class TestCodeVisitor extends TestVisitor {
                 multiDimensions = "" + lengths.get(0);
             }
 
-            testCode += getClassName(retval) + " " + getVariableName(retval) + " = ("
+            testCode.append(getClassName(retval) + " " + getVariableName(retval) + " = ("
                     + getClassName(retval) + ") " + getClassName(Array.class)
                     + ".newInstance("
                     + getClassName(retval.getComponentClass()).replaceAll("\\[\\]", "")
-                    + ".class, " + multiDimensions + ");" + NEWLINE;
+                    + ".class, " + multiDimensions + ");" + NEWLINE);
 
         } else {
-            testCode += getClassName(retval) + " " + getVariableName(retval) + " = new "
-                    + type + multiDimensions + ";" + NEWLINE;
+            testCode.append(getClassName(retval) + " " + getVariableName(retval) + " = new "
+                    + type + multiDimensions + ";" + NEWLINE);
         }
         addAssertions(statement);
     }
@@ -1791,8 +1791,8 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
 
-        testCode += getVariableName(retval) + " = " + cast + getVariableName(parameter)
-                + ";" + NEWLINE;
+        testCode.append(getVariableName(retval) + " = " + cast + getVariableName(parameter)
+                + ";" + NEWLINE);
         addAssertions(statement);
     }
 
@@ -1809,7 +1809,7 @@ public class TestCodeVisitor extends TestVisitor {
     public void visitNullStatement(NullStatement statement) {
         VariableReference retval = statement.getReturnValue();
 
-        testCode += getClassName(retval) + " " + getVariableName(retval) + " = null;" + NEWLINE;
+        testCode.append(getClassName(retval) + " " + getVariableName(retval) + " = null;" + NEWLINE);
     }
 
     @Override
@@ -1817,7 +1817,7 @@ public class TestCodeVisitor extends TestVisitor {
         if (!statement.getComment().isEmpty()) {
             String comment = statement.getComment();
             for (String line : comment.split("\n")) {
-                testCode += "// " + line + NEWLINE;
+                testCode.append("// " + line + NEWLINE);
             }
         }
         super.visitStatement(statement);
