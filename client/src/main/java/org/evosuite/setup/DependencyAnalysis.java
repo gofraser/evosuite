@@ -211,25 +211,21 @@ public class DependencyAnalysis {
     // TODO implement something that takes parameters using properties -
     // generalize this method.
     public static boolean isTargetProject(String className) {
-        return (className.startsWith(Properties.PROJECT_PREFIX) || (!Properties.TARGET_CLASS_PREFIX
-                .isEmpty() && className.startsWith(Properties.TARGET_CLASS_PREFIX)))
-                && !className.startsWith("java.")
-                && !className.startsWith("sun.")
-                && !className.startsWith(PackageInfo.getEvoSuitePackage())
-                && !className.startsWith("org.exsyst")
-                && !className.startsWith("de.unisb.cs.st.evosuite")
-                && !className.startsWith("de.unisb.cs.st.specmate")
-                && !className.startsWith("javax.")
-                && !className.startsWith("org.xml")
-                && !className.startsWith("org.w3c")
-                && !className.startsWith("apple.")
-                && !className.startsWith("com.apple.")
-                && !className.startsWith("org.omg.")
-                && !className.startsWith("sunw.")
-                && !className.startsWith("org.jcp.")
-                && !className.startsWith("org.ietf.")
-                && !className.startsWith("daikon.")
-                && !className.startsWith("jdk.");
+        if (!className.startsWith(Properties.PROJECT_PREFIX) && (Properties.TARGET_CLASS_PREFIX.isEmpty() || !className.startsWith(Properties.TARGET_CLASS_PREFIX))) {
+            return false;
+        }
+
+        if (className.startsWith(PackageInfo.getEvoSuitePackage())) {
+            return false;
+        }
+
+        for (String forbidden : SetupConstants.FORBIDDEN_PACKAGES) {
+            if (className.startsWith(forbidden)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

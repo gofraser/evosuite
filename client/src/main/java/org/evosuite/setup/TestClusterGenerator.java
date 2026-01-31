@@ -109,8 +109,7 @@ public class TestClusterGenerator {
          * If we fail to load a class, we skip it, and avoid to try to load it
          * again (which would result in extra unnecessary logging)
          */
-        Set<String> blackList = new LinkedHashSet<>();
-        initBlackListWithEvoSuitePrimitives(blackList);
+        Set<String> blackList = new LinkedHashSet<>(SetupConstants.BLACKLIST_EVOSUITE_PRIMITIVES);
 
         logger.info("Handling cast classes");
         handleCastClasses();
@@ -137,8 +136,7 @@ public class TestClusterGenerator {
 
         Inputs.checkNull(rawTypes);
 
-        Set<String> blackList = new LinkedHashSet<>();
-        initBlackListWithEvoSuitePrimitives(blackList);
+        Set<String> blackList = new LinkedHashSet<>(SetupConstants.BLACKLIST_EVOSUITE_PRIMITIVES);
 
         rawTypes.stream().forEach(c -> dependencies.add(new DependencyPair(0, GenericClassFactory.get(c).getRawClass())));
 
@@ -189,8 +187,7 @@ public class TestClusterGenerator {
         // If we include type seeding, then we analyze classes to find types in
         // instanceof and cast instructions
         if (Properties.SEED_TYPES) {
-            Set<String> blackList = new LinkedHashSet<>();
-            initBlackListWithPrimitives(blackList);
+            Set<String> blackList = new LinkedHashSet<>(SetupConstants.PRIMITIVE_TYPES);
 
             Set<String> classNames = new LinkedHashSet<>();
             CastClassAnalyzer analyzer = new CastClassAnalyzer();
@@ -221,32 +218,6 @@ public class TestClusterGenerator {
                 TestCluster.getInstance().getGenerators().size());
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Modifiers,
                 TestCluster.getInstance().getModifiers().size());
-    }
-
-    private void initBlackListWithEvoSuitePrimitives(Set<String> blackList) throws NullPointerException {
-        blackList.add("int");
-        blackList.add("short");
-        blackList.add("float");
-        blackList.add("double");
-        blackList.add("byte");
-        blackList.add("char");
-        blackList.add("boolean");
-        blackList.add("long");
-        blackList.add(java.lang.Enum.class.getName());
-        blackList.add(java.lang.String.class.getName());
-        blackList.add(java.lang.Class.class.getName());
-        blackList.add(java.lang.ThreadGroup.class.getName()); // may lead to EvoSuite killing all threads
-    }
-
-    private void initBlackListWithPrimitives(Set<String> blackList) throws NullPointerException {
-        blackList.add("int");
-        blackList.add("short");
-        blackList.add("float");
-        blackList.add("double");
-        blackList.add("byte");
-        blackList.add("char");
-        blackList.add("boolean");
-        blackList.add("long");
     }
 
     private boolean addCastClassDependencyIfAccessible(String className, Set<String> blackList) {
