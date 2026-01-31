@@ -28,8 +28,11 @@ import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
@@ -45,6 +48,7 @@ import org.junit.Test;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -370,5 +374,52 @@ public class TestTestSuiteMinimizer {
 
         double branch_fitness = branch.getFitness(tsc);
         assertEquals(previous_branch_fitness, branch_fitness, 0.0);
+    }
+
+    @Test
+    public void testMinimizeSuiteFitnessUpdate() {
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        DefaultTestCase test = new DefaultTestCase();
+        // Add 2 statements
+        test.addStatement(new IntPrimitiveStatement(test, 1));
+        test.addStatement(new IntPrimitiveStatement(test, 2));
+        suite.addTest(test);
+
+        // Mock Fitness Function
+        final TestFitnessFunction mockFF = new TestFitnessFunction() {
+            @Override
+            public double getFitness(TestChromosome individual, ExecutionResult result) { return 0; }
+            @Override
+            public int compareTo(TestFitnessFunction other) { return 0; }
+            @Override
+            public int hashCode() { return 0; }
+            @Override
+            public boolean equals(Object other) { return false; }
+            @Override
+            public String getTargetClass() { return ""; }
+            @Override
+            public String getTargetMethod() { return ""; }
+        };
+
+        TestFitnessFactory<TestFitnessFunction> mockFactory = new TestFitnessFactory<TestFitnessFunction>() {
+            @Override
+            public List<TestFitnessFunction> getCoverageGoals() {
+                return Collections.singletonList(mockFF);
+            }
+            @Override
+            public double getFitness(TestSuiteChromosome suite) {
+                int size = suite.totalLengthOfTestCases();
+                if (size == 2) return 10.0;
+                if (size == 1) return 8.0;
+                if (size == 0) return 9.0;
+                return 100.0;
+            }
+        };
+
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(mockFactory);
+        minimizer.minimize(suite, false);
+
+        // Expected: Size 1. If bug present: Size 0.
+        assertEquals(1, suite.totalLengthOfTestCases());
     }
 }

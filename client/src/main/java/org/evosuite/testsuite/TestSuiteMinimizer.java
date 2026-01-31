@@ -171,31 +171,33 @@ public class TestSuiteMinimizer {
         List<TestChromosome> minimizedTests = new ArrayList<>();
         TestSuiteWriter minimizedSuite = new TestSuiteWriter();
 
+        boolean timeout = false;
+
         for (TestFitnessFunction goal : goals) {
             updateClientStatus(numGoals > 0 ? 100 * currentGoal / numGoals : 100);
             currentGoal++;
             if (isTimeoutReached()) {
-                /*
-                 * FIXME: if timeout, this algorithm should be changed in a way that the modifications
-                 * done so far are not lost
-                 */
-                logger.warn("Minimization timeout. Roll back to original test suite");
-                return;
+                logger.warn("Minimization timeout. Using partial results.");
+                timeout = true;
+                break;
             }
             logger.info("Considering goal: " + goal);
             if (Properties.MINIMIZE_SKIP_COINCIDENTAL) {
+                boolean innerTimeout = false;
                 for (TestChromosome test : minimizedTests) {
                     if (isTimeoutReached()) {
-                        logger.warn("Minimization timeout. Roll back to original test suite");
-                        return;
+                        logger.warn("Minimization timeout. Using partial results.");
+                        timeout = true;
+                        innerTimeout = true;
+                        break;
                     }
                     if (goal.isCovered(test)) {
                         logger.info("Covered by minimized test: " + goal);
                         covered.add(goal);
-                        //test.getTestCase().addCoveredGoal(goal); // FIXME why? goal.isCovered(test) is already adding the goal
                         break;
                     }
                 }
+                if (innerTimeout) break;
             }
             if (covered.contains(goal)) {
                 logger.info("Already covered: " + goal);
@@ -218,8 +220,9 @@ public class TestSuiteMinimizer {
                 TestChromosome copy = test.clone();
                 minimizer.minimize(copy);
                 if (isTimeoutReached()) {
-                    logger.warn("Minimization timeout. Roll back to original test suite");
-                    return;
+                    logger.warn("Minimization timeout. Using partial results.");
+                    timeout = true;
+                    break;
                 }
 
                 // TODO: Need proper list of covered goals
@@ -246,7 +249,18 @@ public class TestSuiteMinimizer {
 
         logger.info("Minimized suite covers " + covered.size() + "/" + goals.size()
                 + " goals");
+
+        List<TestCase> originalTestCases = null;
+        if (timeout) {
+             originalTestCases = suite.getTests();
+        }
+
         suite.tests.clear();
+
+        if (timeout && originalTestCases != null) {
+             for (TestCase test : originalTestCases) suite.addTest(test);
+        }
+
         for (TestCase test : minimizedSuite.getTestCases()) {
             suite.addTest(test);
         }
@@ -366,7 +380,7 @@ public class TestSuiteMinimizer {
                     // the value 0 if d1 (previous fitness) is numerically equal to d2 (new fitness)
                     if (compare_ff == 0) {
                         continue; // if we can guarantee that we have the same fitness value with less statements, better
-                    } else if (compare_ff < -1) // a value less than 0 if d1 is numerically less than d2
+                    } else if (compare_ff == -1) // a value less than 0 if d1 is numerically less than d2
                     {
                         fitness = modifiedVerFitness;
                         changed = true;

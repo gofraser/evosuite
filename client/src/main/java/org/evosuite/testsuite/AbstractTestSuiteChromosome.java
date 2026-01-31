@@ -150,7 +150,9 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
     /**
      * {@inheritDoc}
      * <p>
-     * Replace chromosome at position
+     * Replace chromosome at position.
+     * Note: Current implementation appends the test from the other chromosome at the given position to this chromosome,
+     * instead of replacing.
      */
     @Override
     public void crossOver(T other, int position) throws ConstructionFailedException {
@@ -192,11 +194,10 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
         if (this == obj)
             return true;
 
-        if (!(obj instanceof AbstractTestSuiteChromosome))
+        if (obj == null || getClass() != obj.getClass())
             return false;
-        if (!obj.getClass().isInstance(this.getClass()))
-            return false;
-        TestSuiteChromosome other = (TestSuiteChromosome) obj;
+
+        AbstractTestSuiteChromosome<?, ?> other = (AbstractTestSuiteChromosome<?, ?>) obj;
         if (other.size() != size())
             return false;
 
