@@ -23,7 +23,6 @@ package org.evosuite.testsuite.factories;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
 
@@ -59,23 +58,21 @@ public class JUnitTestSuiteChromosomeFactory implements
      */
     @Override
     public TestSuiteChromosome getChromosome() {
-		/*
-		double P_delta = 0.1d;
-		double P_clone = 0.1d;
-		int MAX_CHANGES = 10;
-		*/
-
-        TestSuiteChromosome chromosome = new TestSuiteChromosome(
-                new RandomLengthTestFactory());
+        TestSuiteChromosome chromosome = new TestSuiteChromosome(defaultFactory);
         chromosome.clearTests();
 
-        int numTests = Randomness.nextInt(Properties.MIN_INITIAL_TESTS,
-                Properties.MAX_INITIAL_TESTS + 1);
+        int min = Properties.MIN_INITIAL_TESTS;
+        int max = Properties.MAX_INITIAL_TESTS;
+
+        if (max < min) {
+            max = min;
+        }
+
+        int numTests = Randomness.nextInt(min, max + 1);
 
         for (int i = 0; i < numTests; i++) {
             TestChromosome test = defaultFactory.getChromosome();
             chromosome.addTest(test);
-            //chromosome.tests.add(test);
         }
 
         return chromosome;

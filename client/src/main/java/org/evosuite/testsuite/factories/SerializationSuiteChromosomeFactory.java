@@ -68,7 +68,7 @@ public class SerializationSuiteChromosomeFactory
         TestSuiteChromosome tsc = new TestSuiteChromosome(this.defaultFactory);
         tsc.clearTests();
 
-        if (Randomness.nextDouble() <= Properties.SEED_CLONE && this.previousSuite.size() > 0) {
+        if (Randomness.nextDouble() <= Properties.SEED_CLONE && !this.previousSuite.isEmpty()) {
             logger.debug("seeding previous test suite");
 
             for (TestChromosome tc : this.previousSuite) {
@@ -79,14 +79,20 @@ public class SerializationSuiteChromosomeFactory
         } else {
             logger.debug("creating a random testsuite");
 
-            int numTests = Randomness.nextInt(Properties.MIN_INITIAL_TESTS, Properties.MAX_INITIAL_TESTS + 1);
+            int min = Properties.MIN_INITIAL_TESTS;
+            int max = Properties.MAX_INITIAL_TESTS;
+
+            if (max < min) {
+                max = min;
+            }
+
+            int numTests = Randomness.nextInt(min, max + 1);
             for (int i = 0; i < numTests; i++) {
                 TestChromosome tc = this.defaultFactory.getChromosome();
                 tsc.addTest(tc);
             }
         }
 
-        assert (!tsc.getTestChromosomes().isEmpty());
         return tsc;
     }
 }
