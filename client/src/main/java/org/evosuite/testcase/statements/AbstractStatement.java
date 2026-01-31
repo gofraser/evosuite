@@ -163,9 +163,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
             IllegalArgumentException, IllegalAccessException, InstantiationException {
         try {
             code.execute();
-            // } catch (CodeUnderTestException e) {
-            // throw CodeUnderTestException.throwException(e);
-            //}
         } catch (CodeUnderTestException e) {
             return e;
         } catch (EvosuiteError e) {
@@ -274,7 +271,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
      */
     @Override
     public final Statement clone() {
-        throw new UnsupportedOperationException("Use statementInterface.clone(TestCase)");
+        throw new UnsupportedOperationException("Statement.clone() is not supported. Use Statement.clone(TestCase) instead.");
     }
 
     /* (non-Javadoc)
@@ -335,11 +332,9 @@ public abstract class AbstractStatement implements Statement, Serializable {
     public Set<Assertion> copyAssertions(TestCase newTestCase, int offset) {
         Set<Assertion> copy = new LinkedHashSet<>();
         for (Assertion a : assertions) {
-            if (a == null) {
-                logger.info("Assertion is null!");
-                logger.info("Statement has assertions: " + assertions.size());
-            } else
+            if (a != null) {
                 copy.add(a.copy(newTestCase, offset));
+            }
         }
         return copy;
     }

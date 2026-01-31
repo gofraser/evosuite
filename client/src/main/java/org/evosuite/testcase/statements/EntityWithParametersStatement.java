@@ -98,7 +98,8 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         }
         if (parameterAnnotations != null) {
             if (parameterAnnotations.length != parameters.size()) {
-                throw new IllegalArgumentException("Size mismatched");
+                throw new IllegalArgumentException("Number of parameter annotations (" + parameterAnnotations.length +
+                        ") does not match number of parameters (" + parameters.size() + ")");
             }
         }
     }
@@ -192,14 +193,17 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
     /**
      * Check if the given var is bounded in this method/constructor as input parameter
      *
-     * @param var
-     * @return
+     * @param var the variable reference to check
+     * @return true if the variable is bounded
+     * @throws IllegalArgumentException if var is null
      */
     public boolean isBounded(VariableReference var) throws IllegalArgumentException {
         Inputs.checkNull(var);
 
         if (parameterAnnotations == null) {
-            assert this instanceof FunctionalMockStatement; //for now this should be the only valid case
+            if (!(this instanceof FunctionalMockStatement)) {
+                throw new IllegalStateException("parameterAnnotations is null but statement is not a FunctionalMockStatement");
+            }
             return false;
         }
 

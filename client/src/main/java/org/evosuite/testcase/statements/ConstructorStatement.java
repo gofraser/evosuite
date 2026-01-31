@@ -161,11 +161,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     public Throwable execute(final Scope scope, PrintStream out)
             throws InvocationTargetException, IllegalArgumentException,
             InstantiationException, IllegalAccessException {
-        //PrintStream old_out = System.out;
-        //PrintStream old_err = System.err;
-        //System.setOut(out);
-        //System.setErr(out);
-
         logger.trace("Executing constructor " + constructor.toString());
         final Object[] inputs = new Object[parameters.size()];
         Throwable exceptionThrown = null;
@@ -185,13 +180,10 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                             inputs[i] = parameterVar.getObject(scope);
                         } catch (CodeUnderTestException e) {
                             throw e;
-                            //throw new CodeUnderTestException(e.getCause());
-                            // throw CodeUnderTestException.throwException(e.getCause());
                         } catch (Throwable e) {
                             //FIXME: this does not seem to propagate to client root. Is this normal behavior?
                             logger.error("Class " + Properties.TARGET_CLASS
                                     + ". Error encountered: " + e);
-                            assert (false);
                             throw new EvosuiteError(e);
                         }
                         if (inputs[i] != null && !TypeUtils.isAssignable(inputs[i].getClass(), parameterTypes[i])) {
@@ -219,11 +211,9 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                     Object ret = constructor.getConstructor().newInstance(inputs);
 
                     try {
-                        // assert(retval.getVariableClass().isAssignableFrom(ret.getClass())) :"we want an " + retval.getVariableClass() + " but got an " + ret.getClass();
                         retval.setObject(scope, ret);
                     } catch (CodeUnderTestException e) {
                         throw e;
-                        // throw CodeUnderTestException.throwException(e);
                     } catch (Throwable e) {
                         throw new EvosuiteError(e);
                     }
@@ -266,7 +256,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
         AbstractStatement copy = new ConstructorStatement(newTestCase,
                 constructor.copy(), new_params);
-        // copy.assertions = copyAssertions(newTestCase, offset);
 
         return copy;
     }
