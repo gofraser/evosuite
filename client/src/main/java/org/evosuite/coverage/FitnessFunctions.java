@@ -56,6 +56,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * factory class for fitness functions
@@ -66,6 +69,140 @@ public class FitnessFunctions {
 
     private static final Logger logger = LoggerFactory.getLogger(FitnessFunctions.class);
 
+    private static class FitnessRegistryEntry {
+        final Supplier<TestSuiteFitnessFunction> suiteFitnessSupplier;
+        final Supplier<TestFitnessFactory<? extends TestFitnessFunction>> fitnessFactorySupplier;
+        final Class<?> testFitnessClass;
+
+        FitnessRegistryEntry(Supplier<TestSuiteFitnessFunction> suiteFitnessSupplier,
+                             Supplier<TestFitnessFactory<? extends TestFitnessFunction>> fitnessFactorySupplier,
+                             Class<?> testFitnessClass) {
+            this.suiteFitnessSupplier = suiteFitnessSupplier;
+            this.fitnessFactorySupplier = fitnessFactorySupplier;
+            this.testFitnessClass = testFitnessClass;
+        }
+    }
+
+    private static final Map<Criterion, FitnessRegistryEntry> registry = new EnumMap<>(Criterion.class);
+
+    static {
+        registry.put(Criterion.STRONGMUTATION, new FitnessRegistryEntry(
+                StrongMutationSuiteFitness::new,
+                MutationFactory::new,
+                StrongMutationTestFitness.class
+        ));
+        registry.put(Criterion.WEAKMUTATION, new FitnessRegistryEntry(
+                WeakMutationSuiteFitness::new,
+                () -> new MutationFactory(false),
+                WeakMutationTestFitness.class
+        ));
+        registry.put(Criterion.MUTATION, new FitnessRegistryEntry(
+                StrongMutationSuiteFitness::new,
+                MutationFactory::new,
+                MutationTestFitness.class
+        ));
+        registry.put(Criterion.ONLYMUTATION, new FitnessRegistryEntry(
+                OnlyMutationSuiteFitness::new,
+                OnlyMutationFactory::new,
+                OnlyMutationTestFitness.class
+        ));
+        registry.put(Criterion.DEFUSE, new FitnessRegistryEntry(
+                DefUseCoverageSuiteFitness::new,
+                DefUseCoverageFactory::new,
+                DefUseCoverageTestFitness.class
+        ));
+        registry.put(Criterion.BRANCH, new FitnessRegistryEntry(
+                BranchCoverageSuiteFitness::new,
+                BranchCoverageFactory::new,
+                BranchCoverageTestFitness.class
+        ));
+        registry.put(Criterion.CBRANCH, new FitnessRegistryEntry(
+                CBranchSuiteFitness::new,
+                CBranchFitnessFactory::new,
+                CBranchTestFitness.class
+        ));
+        registry.put(Criterion.IBRANCH, new FitnessRegistryEntry(
+                IBranchSuiteFitness::new,
+                IBranchFitnessFactory::new,
+                IBranchTestFitness.class
+        ));
+        registry.put(Criterion.STATEMENT, new FitnessRegistryEntry(
+                StatementCoverageSuiteFitness::new,
+                StatementCoverageFactory::new,
+                StatementCoverageTestFitness.class
+        ));
+        registry.put(Criterion.RHO, new FitnessRegistryEntry(
+                RhoCoverageSuiteFitness::new,
+                RhoCoverageFactory::new,
+                LineCoverageTestFitness.class
+        ));
+        registry.put(Criterion.AMBIGUITY, new FitnessRegistryEntry(
+                AmbiguityCoverageSuiteFitness::new,
+                AmbiguityCoverageFactory::new,
+                LineCoverageTestFitness.class
+        ));
+        registry.put(Criterion.ALLDEFS, new FitnessRegistryEntry(
+                AllDefsCoverageSuiteFitness::new,
+                AllDefsCoverageFactory::new,
+                AllDefsCoverageTestFitness.class
+        ));
+        registry.put(Criterion.EXCEPTION, new FitnessRegistryEntry(
+                ExceptionCoverageSuiteFitness::new,
+                ExceptionCoverageFactory::new,
+                ExceptionCoverageTestFitness.class
+        ));
+        registry.put(Criterion.READABILITY, new FitnessRegistryEntry(
+                ReadabilitySuiteFitness::new,
+                BranchCoverageFactory::new, // Default behavior preserved
+                null // Will throw exception as per original code
+        ));
+        registry.put(Criterion.ONLYBRANCH, new FitnessRegistryEntry(
+                OnlyBranchCoverageSuiteFitness::new,
+                OnlyBranchCoverageFactory::new,
+                OnlyBranchCoverageTestFitness.class
+        ));
+        registry.put(Criterion.METHODTRACE, new FitnessRegistryEntry(
+                MethodTraceCoverageSuiteFitness::new,
+                MethodTraceCoverageFactory::new,
+                MethodTraceCoverageTestFitness.class
+        ));
+        registry.put(Criterion.METHOD, new FitnessRegistryEntry(
+                MethodCoverageSuiteFitness::new,
+                MethodCoverageFactory::new,
+                MethodCoverageTestFitness.class
+        ));
+        registry.put(Criterion.METHODNOEXCEPTION, new FitnessRegistryEntry(
+                MethodNoExceptionCoverageSuiteFitness::new,
+                MethodNoExceptionCoverageFactory::new,
+                MethodNoExceptionCoverageTestFitness.class
+        ));
+        registry.put(Criterion.ONLYLINE, new FitnessRegistryEntry(
+                OnlyLineCoverageSuiteFitness::new,
+                LineCoverageFactory::new,
+                LineCoverageTestFitness.class
+        ));
+        registry.put(Criterion.LINE, new FitnessRegistryEntry(
+                LineCoverageSuiteFitness::new,
+                LineCoverageFactory::new,
+                LineCoverageTestFitness.class
+        ));
+        registry.put(Criterion.OUTPUT, new FitnessRegistryEntry(
+                OutputCoverageSuiteFitness::new,
+                OutputCoverageFactory::new,
+                OutputCoverageTestFitness.class
+        ));
+        registry.put(Criterion.INPUT, new FitnessRegistryEntry(
+                InputCoverageSuiteFitness::new,
+                InputCoverageFactory::new,
+                InputCoverageTestFitness.class
+        ));
+        registry.put(Criterion.TRYCATCH, new FitnessRegistryEntry(
+                TryCatchCoverageSuiteFitness::new,
+                TryCatchCoverageFactory::new,
+                TryCatchCoverageTestFitness.class
+        ));
+    }
+
     /**
      * <p>
      * getFitnessFunction
@@ -75,57 +212,12 @@ public class FitnessFunctions {
      * @return a {@link org.evosuite.testsuite.TestSuiteFitnessFunction} object.
      */
     public static TestSuiteFitnessFunction getFitnessFunction(Criterion criterion) {
-        switch (criterion) {
-            case STRONGMUTATION:
-                return new StrongMutationSuiteFitness();
-            case WEAKMUTATION:
-                return new WeakMutationSuiteFitness();
-            case MUTATION:
-                return new StrongMutationSuiteFitness();
-            case ONLYMUTATION:
-                return new OnlyMutationSuiteFitness();
-            case DEFUSE:
-                return new DefUseCoverageSuiteFitness();
-            case BRANCH:
-                return new BranchCoverageSuiteFitness();
-            case CBRANCH:
-                return new CBranchSuiteFitness();
-            case IBRANCH:
-                return new IBranchSuiteFitness();
-            case STATEMENT:
-                return new StatementCoverageSuiteFitness();
-            case RHO:
-                return new RhoCoverageSuiteFitness();
-            case AMBIGUITY:
-                return new AmbiguityCoverageSuiteFitness();
-            case ALLDEFS:
-                return new AllDefsCoverageSuiteFitness();
-            case EXCEPTION:
-                return new ExceptionCoverageSuiteFitness();
-            case READABILITY:
-                return new ReadabilitySuiteFitness();
-            case ONLYBRANCH:
-                return new OnlyBranchCoverageSuiteFitness();
-            case METHODTRACE:
-                return new MethodTraceCoverageSuiteFitness();
-            case METHOD:
-                return new MethodCoverageSuiteFitness();
-            case METHODNOEXCEPTION:
-                return new MethodNoExceptionCoverageSuiteFitness();
-            case ONLYLINE:
-                return new OnlyLineCoverageSuiteFitness();
-            case LINE:
-                return new LineCoverageSuiteFitness();
-            case OUTPUT:
-                return new OutputCoverageSuiteFitness();
-            case INPUT:
-                return new InputCoverageSuiteFitness();
-            case TRYCATCH:
-                return new TryCatchCoverageSuiteFitness();
-            default:
-                logger.warn("No TestSuiteFitnessFunction defined for {}; using default one (BranchCoverageSuiteFitness)", Arrays.toString(Properties.CRITERION));
-                return new BranchCoverageSuiteFitness();
+        FitnessRegistryEntry entry = registry.get(criterion);
+        if (entry != null) {
+            return entry.suiteFitnessSupplier.get();
         }
+        logger.warn("No TestSuiteFitnessFunction defined for {}; using default one (BranchCoverageSuiteFitness)", Arrays.toString(Properties.CRITERION));
+        return new BranchCoverageSuiteFitness();
     }
 
     /**
@@ -138,55 +230,13 @@ public class FitnessFunctions {
      */
     public static TestFitnessFactory<? extends TestFitnessFunction> getFitnessFactory(
             Criterion crit) {
-        switch (crit) {
-            case STRONGMUTATION:
-            case MUTATION:
-                return new MutationFactory();
-            case WEAKMUTATION:
-                return new MutationFactory(false);
-            case ONLYMUTATION:
-                return new OnlyMutationFactory();
-            case DEFUSE:
-                return new DefUseCoverageFactory();
-            case BRANCH:
-                return new BranchCoverageFactory();
-            case CBRANCH:
-                return new CBranchFitnessFactory();
-            case IBRANCH:
-                return new IBranchFitnessFactory();
-            case STATEMENT:
-                return new StatementCoverageFactory();
-            case RHO:
-                return new RhoCoverageFactory();
-            case AMBIGUITY:
-                return new AmbiguityCoverageFactory();
-            case ALLDEFS:
-                return new AllDefsCoverageFactory();
-            case EXCEPTION:
-                return new ExceptionCoverageFactory();
-            case ONLYBRANCH:
-                return new OnlyBranchCoverageFactory();
-            case METHODTRACE:
-                return new MethodTraceCoverageFactory();
-            case METHOD:
-                return new MethodCoverageFactory();
-            case METHODNOEXCEPTION:
-                return new MethodNoExceptionCoverageFactory();
-            case LINE:
-                return new LineCoverageFactory();
-            case ONLYLINE:
-                return new LineCoverageFactory();
-            case OUTPUT:
-                return new OutputCoverageFactory();
-            case INPUT:
-                return new InputCoverageFactory();
-            case TRYCATCH:
-                return new TryCatchCoverageFactory();
-            default:
-                logger.warn("No TestFitnessFactory defined for " + crit
-                        + " using default one (BranchCoverageFactory)");
-                return new BranchCoverageFactory();
+        FitnessRegistryEntry entry = registry.get(crit);
+        if (entry != null) {
+            return entry.fitnessFactorySupplier.get();
         }
+        logger.warn("No TestFitnessFactory defined for " + crit
+                + " using default one (BranchCoverageFactory)");
+        return new BranchCoverageFactory();
     }
 
     /**
@@ -197,56 +247,11 @@ public class FitnessFunctions {
      * @return a {@link java.lang.Class} object.
      */
     public static Class<?> getTestFitnessFunctionClass(Criterion criterion) {
-        switch (criterion) {
-            case STRONGMUTATION:
-                return StrongMutationTestFitness.class;
-            case WEAKMUTATION:
-                return WeakMutationTestFitness.class;
-            case MUTATION:
-                return MutationTestFitness.class;
-            case ONLYMUTATION:
-                return OnlyMutationTestFitness.class;
-            case DEFUSE:
-                return DefUseCoverageTestFitness.class;
-            case BRANCH:
-                return BranchCoverageTestFitness.class;
-            case CBRANCH:
-                return CBranchTestFitness.class;
-            case IBRANCH:
-                return IBranchTestFitness.class;
-            case STATEMENT:
-                return StatementCoverageTestFitness.class;
-            case RHO:
-                return LineCoverageTestFitness.class;
-            case AMBIGUITY:
-                return LineCoverageTestFitness.class;
-            case ALLDEFS:
-                return AllDefsCoverageTestFitness.class;
-            case EXCEPTION:
-                return ExceptionCoverageTestFitness.class;
-            case READABILITY:
-                throw new RuntimeException("No test fitness function defined for " + criterion.name());
-            case ONLYBRANCH:
-                return OnlyBranchCoverageTestFitness.class;
-            case METHODTRACE:
-                return MethodTraceCoverageTestFitness.class;
-            case METHOD:
-                return MethodCoverageTestFitness.class;
-            case METHODNOEXCEPTION:
-                return MethodNoExceptionCoverageTestFitness.class;
-            case ONLYLINE:
-                return LineCoverageTestFitness.class;
-            case LINE:
-                return LineCoverageTestFitness.class;
-            case OUTPUT:
-                return OutputCoverageTestFitness.class;
-            case INPUT:
-                return InputCoverageTestFitness.class;
-            case TRYCATCH:
-                return TryCatchCoverageTestFitness.class;
-            default:
-                throw new RuntimeException("No criterion defined for " + criterion.name());
+        FitnessRegistryEntry entry = registry.get(criterion);
+        if (entry != null && entry.testFitnessClass != null) {
+            return entry.testFitnessClass;
         }
+        throw new RuntimeException("No test fitness function defined for " + criterion.name());
     }
 
 }

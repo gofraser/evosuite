@@ -61,7 +61,12 @@ public class ClientProcess {
 
     /**
      * <p>
-     * run
+     * Starts the client process to generate tests.
+     * </p>
+     * <p>
+     * This method initializes the environment, sets up runtime properties,
+     * initializes the sandbox, and connects to the master process to receive
+     * instructions and report results.
      * </p>
      */
     public void run() {
@@ -163,10 +168,15 @@ public class ClientProcess {
 
     /**
      * <p>
-     * main
+     * Main entry point for the ClientProcess.
+     * </p>
+     * <p>
+     * This method parses command line arguments to identify the client,
+     * sets up the logging, and starts the test generation process.
      * </p>
      *
-     * @param args an array of {@link java.lang.String} objects.
+     * @param args an array of {@link java.lang.String} objects. The first argument
+     *             is expected to be the client identifier.
      */
     public static void main(String[] args) {
 

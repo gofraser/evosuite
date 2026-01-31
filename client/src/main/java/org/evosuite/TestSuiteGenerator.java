@@ -44,6 +44,7 @@ import org.evosuite.seeding.ObjectPool;
 import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.ExceptionMapGenerator;
+import org.evosuite.setup.TargetClassInitializer;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.StatisticsSender;
@@ -85,40 +86,30 @@ public class TestSuiteGenerator {
 
 
     private void initializeTargetClass() throws Throwable {
-        String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
-
-        // Generate inheritance tree and call graph *before* loading the CUT
-        // as these are required for instrumentation for context-sensitive
-        // criteria (e.g. ibranch)
-        DependencyAnalysis.initInheritanceTree(Arrays.asList(cp.split(File.pathSeparator)));
-        DependencyAnalysis.initCallGraph(Properties.TARGET_CLASS);
-
-        // Here is where the <clinit> code should be invoked for the first time
-        DefaultTestCase test = buildLoadTargetClassTestCase(Properties.TARGET_CLASS);
-        ExecutionResult execResult = TestCaseExecutor.getInstance().execute(test, Integer.MAX_VALUE);
-
-        if (hasThrownInitializerError(execResult)) {
-            // create single test suite with Class.forName()
-            writeJUnitTestSuiteForFailedInitialization();
-            ExceptionInInitializerError ex = getInitializerError(execResult);
-            throw ex;
-        } else if (!execResult.getAllThrownExceptions().isEmpty()) {
-            // some other exception has been thrown during initialization
-            Throwable t = execResult.getAllThrownExceptions().iterator().next();
-            throw t;
-        }
-
-        // Analysis has to happen *after* the CUT is loaded since it will cause
-        // several other classes to be loaded (including the CUT), but we require
-        // the CUT to be loaded first
-        DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, Arrays.asList(cp.split(File.pathSeparator)));
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Finished analyzing classpath");
+        TargetClassInitializer initializer = new TargetClassInitializer();
+        initializer.initializeTargetClass(Properties.TARGET_CLASS, () -> {
+            try {
+                writeJUnitTestSuiteForFailedInitialization();
+            } catch (EvosuiteError e) {
+                logger.error("Failed to write JUnit test suite for failed initialization", e);
+            }
+        });
     }
 
     /**
-     * Generate a test suite for the target class
+     * Generates a test suite for the target class configured in {@link Properties#TARGET_CLASS}.
+     * <p>
+     * This method orchestrates the entire test generation process:
+     * <ul>
+     *     <li>Initializes the target class and analyzes dependencies.</li>
+     *     <li>Handles potential instrumentation issues (e.g., methods too large).</li>
+     *     <li>Invokes the configured test generation strategy (e.g., GA).</li>
+     *     <li>Post-processes the generated tests (minimization, assertions, etc.).</li>
+     *     <li>Writes the resulting test suite to disk (if configured).</li>
+     * </ul>
+     * </p>
      *
-     * @return a {@link java.lang.String} object.
+     * @return The result of the test generation process.
      */
     public TestGenerationResult generateTestSuite() {
 
@@ -238,38 +229,6 @@ public class TestSuiteGenerator {
     }
 
     /**
-     * Returns true iif the test case execution has thrown an instance of ExceptionInInitializerError
-     *
-     * @param execResult of the test case execution
-     * @return true if the test case has thrown an ExceptionInInitializerError
-     */
-    private static boolean hasThrownInitializerError(ExecutionResult execResult) {
-        for (Throwable t : execResult.getAllThrownExceptions()) {
-            if (t instanceof ExceptionInInitializerError) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-
-    /**
-     * Returns the initialized  error from the test case execution
-     *
-     * @param execResult of the test case execution
-     * @return null if there were no thrown instances of ExceptionInInitializerError
-     */
-    private static ExceptionInInitializerError getInitializerError(ExecutionResult execResult) {
-        for (Throwable t : execResult.getAllThrownExceptions()) {
-            if (t instanceof ExceptionInInitializerError) {
-                ExceptionInInitializerError exceptionInInitializerError = (ExceptionInInitializerError) t;
-                return exceptionInInitializerError;
-            }
-        }
-        return null;
-    }
-
-    /**
      * Reports the initialized classes during class initialization to the
      * ClassReInitializater and configures the ClassReInitializer accordingly
      */
@@ -285,60 +244,9 @@ public class TestSuiteGenerator {
 
     private static void writeJUnitTestSuiteForFailedInitialization() throws EvosuiteError {
         TestSuiteChromosome suite = new TestSuiteChromosome();
-        DefaultTestCase test = buildLoadTargetClassTestCase(Properties.TARGET_CLASS);
+        DefaultTestCase test = TargetClassInitializer.buildLoadTargetClassTestCase(Properties.TARGET_CLASS);
         suite.addTest(test);
         writeJUnitTestsAndCreateResult(suite);
-    }
-
-    /**
-     * Creates a single Test Case that only loads the target class.
-     * <code>
-     * Thread currentThread = Thread.currentThread();
-     * ClassLoader classLoader = currentThread.getClassLoader();
-     * classLoader.load(className);
-     * </code>
-     *
-     * @param className the class to be loaded
-     * @return
-     * @throws EvosuiteError if a reflection error happens while creating the test case
-     */
-    private static DefaultTestCase buildLoadTargetClassTestCase(String className) throws EvosuiteError {
-        DefaultTestCase test = new DefaultTestCase();
-
-        StringPrimitiveStatement stmt0 = new StringPrimitiveStatement(test, className);
-        VariableReference string0 = test.addStatement(stmt0);
-        try {
-            Method currentThreadMethod = Thread.class.getMethod("currentThread");
-            Statement currentThreadStmt = new MethodStatement(test,
-                    new GenericMethod(currentThreadMethod, currentThreadMethod.getDeclaringClass()), null,
-                    Collections.emptyList());
-            VariableReference currentThreadVar = test.addStatement(currentThreadStmt);
-
-            Method getContextClassLoaderMethod = Thread.class.getMethod("getContextClassLoader");
-            Statement getContextClassLoaderStmt = new MethodStatement(test,
-                    new GenericMethod(getContextClassLoaderMethod, getContextClassLoaderMethod.getDeclaringClass()),
-                    currentThreadVar, Collections.emptyList());
-            VariableReference contextClassLoaderVar = test.addStatement(getContextClassLoaderStmt);
-
-//			Method loadClassMethod = ClassLoader.class.getMethod("loadClass", String.class);
-//			Statement loadClassStmt = new MethodStatement(test,
-//					new GenericMethod(loadClassMethod, loadClassMethod.getDeclaringClass()), contextClassLoaderVar,
-//					Collections.singletonList(string0));
-//			test.addStatement(loadClassStmt);
-
-            BooleanPrimitiveStatement stmt1 = new BooleanPrimitiveStatement(test, true);
-            VariableReference boolean0 = test.addStatement(stmt1);
-
-            Method forNameMethod = Class.class.getMethod("forName", String.class, boolean.class, ClassLoader.class);
-            Statement forNameStmt = new MethodStatement(test,
-                    new GenericMethod(forNameMethod, forNameMethod.getDeclaringClass()), null,
-                    Arrays.asList(string0, boolean0, contextClassLoaderVar));
-            test.addStatement(forNameStmt);
-
-            return test;
-        } catch (NoSuchMethodException | SecurityException e) {
-            throw new EvosuiteError("Unexpected exception while creating Class Initializer Test Case");
-        }
     }
 
     /**
