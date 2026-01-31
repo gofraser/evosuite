@@ -46,20 +46,13 @@ public class FileIOUtils {
      * @return content of the file in a list
      */
     public static List<String> readFile(File file) {
-        List<String> content = new LinkedList<>();
         try {
-            Reader reader = new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8);
-            try (BufferedReader in = new BufferedReader(reader)) {
-                String str;
-                while ((str = in.readLine()) != null) {
-                    content.add(str);
-                }
-            }
+            return java.nio.file.Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
         } catch (Exception e) {
             logger.error("Error while reading file " + file.getName() + " , " +
                     e.getMessage(), e);
+            return new LinkedList<>();
         }
-        return content;
     }
 
     /**
@@ -119,12 +112,9 @@ public class FileIOUtils {
     @SuppressWarnings("unchecked")
     public static <T> T readXML(String fileName) {
         XStream xstream = new XStream();
-        try {
-            Reader reader = new InputStreamReader(
-                    new FileInputStream(fileName), StandardCharsets.UTF_8);
-            BufferedReader in = new BufferedReader(reader);
+        try (Reader reader = new InputStreamReader(new FileInputStream(fileName), StandardCharsets.UTF_8);
+             BufferedReader in = new BufferedReader(reader)) {
             return (T) xstream.fromXML(in);
-
         } catch (Exception e) {
             logger.error("Error while reading file " + fileName + " , " +
                     e.getMessage(), e);

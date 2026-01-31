@@ -45,13 +45,7 @@ public abstract class ListUtil {
      * @return a boolean.
      */
     public static <T> boolean anyEquals(List<T> list, T obj) {
-        for (T item : list) {
-            if (item.equals(obj)) {
-                return true;
-            }
-        }
-
-        return false;
+        return list.contains(obj);
     }
 
     /**

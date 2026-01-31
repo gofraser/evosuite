@@ -20,6 +20,7 @@
 package org.evosuite.utils;
 
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
 import java.util.StringJoiner;
@@ -86,23 +87,7 @@ public abstract class StringUtil {
      * @since 2.4
      */
     public static String getCommonPrefix(String[] strs) {
-        if (strs == null || strs.length == 0) {
-            return "";
-        }
-        int smallestIndexOfDiff = indexOfDifference(strs);
-        if (smallestIndexOfDiff == -1) {
-            // all strings were identical
-            if (strs[0] == null) {
-                return "";
-            }
-            return strs[0];
-        } else if (smallestIndexOfDiff == 0) {
-            // there were no common initial characters
-            return "";
-        } else {
-            // we found a common initial character sequence
-            return strs[0].substring(0, smallestIndexOfDiff);
-        }
+        return StringUtils.getCommonPrefix(strs);
     }
 
     /**
@@ -138,61 +123,7 @@ public abstract class StringUtil {
      * @since 2.4
      */
     public static int indexOfDifference(String[] strs) {
-        if (strs == null || strs.length <= 1) {
-            return -1;
-        }
-        boolean anyStringNull = false;
-        boolean allStringsNull = true;
-        int arrayLen = strs.length;
-        int shortestStrLen = Integer.MAX_VALUE;
-        int longestStrLen = 0;
-
-        // find the min and max string lengths; this avoids checking to make
-        // sure we are not exceeding the length of the string each time through
-        // the bottom loop.
-        for (final String str : strs) {
-            if (str == null) {
-                anyStringNull = true;
-                shortestStrLen = 0;
-            } else {
-                allStringsNull = false;
-                shortestStrLen = Math.min(str.length(), shortestStrLen);
-                longestStrLen = Math.max(str.length(), longestStrLen);
-            }
-        }
-
-        // handle lists containing all nulls or all empty strings
-        if (allStringsNull || (longestStrLen == 0 && !anyStringNull)) {
-            return -1;
-        }
-
-        // handle lists containing some nulls or some empty strings
-        if (shortestStrLen == 0) {
-            return 0;
-        }
-
-        // find the position with the first difference across all strings
-        int firstDiff = -1;
-        for (int stringPos = 0; stringPos < shortestStrLen; stringPos++) {
-            char comparisonChar = strs[0].charAt(stringPos);
-            for (int arrayPos = 1; arrayPos < arrayLen; arrayPos++) {
-                if (strs[arrayPos].charAt(stringPos) != comparisonChar) {
-                    firstDiff = stringPos;
-                    break;
-                }
-            }
-            if (firstDiff != -1) {
-                break;
-            }
-        }
-
-        if (firstDiff == -1 && shortestStrLen != longestStrLen) {
-            // we compared all of the characters up to the length of the
-            // shortest string and didn't find a match, but the string lengths
-            // vary, so return the length of the shortest string.
-            return shortestStrLen;
-        }
-        return firstDiff;
+        return StringUtils.indexOfDifference(strs);
     }
 
     /**

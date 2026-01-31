@@ -21,12 +21,31 @@ package org.evosuite.utils;
 
 import org.junit.Test;
 
-import static org.junit.Assert.assertTrue;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import static org.junit.Assert.*;
 
 /**
  * @author José Campos
  */
 public class RandomnessTest {
+
+    @Test
+    public void testChoiceList() {
+        List<String> list = Arrays.asList("a", "b", "c");
+        String choice = Randomness.choice(list);
+        assertTrue(list.contains(choice));
+    }
+
+    @Test
+    public void testChoiceSet() {
+        Set<String> set = new HashSet<>(Arrays.asList("a", "b", "c"));
+        String choice = Randomness.choice(set);
+        assertTrue(set.contains(choice));
+    }
 
     @Test
     public void testNextDoubleWithMinMax() {

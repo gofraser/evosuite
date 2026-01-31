@@ -178,9 +178,6 @@ public abstract class ArrayUtil {
                 return true;
             else if (obj != null && obj.equals(object))
                 return true;
-            else if (object instanceof String && obj.toString().equals(object))
-                // TODO: Does this check really make sense?
-                return true;
         }
         return false;
     }

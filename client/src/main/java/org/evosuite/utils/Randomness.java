@@ -66,9 +66,6 @@ public class Randomness implements Serializable {
      * @return a {@link org.evosuite.utils.Randomness} object.
      */
     public static Randomness getInstance() {
-        if (instance == null) {
-            instance = new Randomness();
-        }
         return instance;
     }
 
@@ -131,7 +128,6 @@ public class Randomness implements Serializable {
      */
     public static char nextChar() {
         return (char) (nextInt(32, 128));
-        //return random.nextChar();
     }
 
     /**
@@ -256,8 +252,17 @@ public class Randomness implements Serializable {
         if (set.isEmpty())
             return null;
 
+        if (set instanceof List) {
+            return ((List<T>) set).get(random.nextInt(set.size()));
+        }
+
         int position = random.nextInt(set.size());
-        return (T) set.toArray()[position];
+        java.util.Iterator<T> iterator = set.iterator();
+        T result = null;
+        for (int i = 0; i <= position; i++) {
+            result = iterator.next();
+        }
+        return result;
     }
 
     /**
