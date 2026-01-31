@@ -112,7 +112,7 @@ public class DefaultTestCase implements TestCase, Serializable {
         visitor.visitTestCase(this);
 
         for (Statement s : statements) {
-            logger.trace("Visiting statement " + s.getCode());
+            logger.trace("Visiting statement {}", s.getCode());
             visitor.visitStatement(s);
         }
     }
@@ -220,24 +220,24 @@ public class DefaultTestCase implements TestCase, Serializable {
         try {
             assert (isValid());
         } catch (AssertionError e) {
-            logger.info("Is not valid: ");
+            logger.error("Is not valid: ");
             for (Statement s : statements) {
                 try {
-                    logger.info(s.getCode());
+                    logger.error("{}", s.getCode());
                 } catch (AssertionError e2) {
-                    logger.info("Found error in: " + s);
+                    logger.error("Found error in: {}", s);
                     if (s instanceof MethodStatement) {
                         MethodStatement ms = (MethodStatement) s;
                         if (!ms.isStatic()) {
-                            logger.info("Callee: ");
-                            logger.info(ms.getCallee().toString());
+                            logger.error("Callee: ");
+                            logger.error("{}", ms.getCallee());
                         }
                         int num = 0;
                         for (VariableReference v : ms.getParameterReferences()) {
-                            logger.info("Parameter " + num);
-                            logger.info(v.getVariableClass().toString());
-                            logger.info(v.getClass().toString());
-                            logger.info(v.toString());
+                            logger.error("Parameter {}", num);
+                            logger.error("{}", v.getVariableClass());
+                            logger.error("{}", v.getClass());
+                            logger.error("{}", v);
                         }
                     }
                 }
@@ -366,15 +366,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public DefaultTestCase clone() {
         DefaultTestCase t = null;
         t = new DefaultTestCase(); //Note: cannot use super.clone() due to final fields :(
-		/*
-		try {
-			t = (DefaultTestCase) super.clone();
-		} catch (CloneNotSupportedException e) {
-			//shouldn't really happen
-			logger.error("Failed clone: "+e);
-			return null;
-		}
-		*/
 
         for (Statement s : statements) {
             Statement copy = s.clone(t);
@@ -655,8 +646,7 @@ public class DefaultTestCase implements TestCase, Serializable {
                 }
 
                 if (value.isAssignableTo(type) && !isClassUtilsBug && value.isArray() == rawClass.isArray()) {
-                    logger.debug("Array is assignable: " + value.getType() + " to "
-                            + type + ", " + value.isArray() + ", " + rawClass.isArray());
+                    logger.debug("Array is assignable: {} to {}, {}, {}", value.getType(), type, value.isArray(), rawClass.isArray());
                     variables.add(value);
                 } else if (GenericClassUtils.isAssignable(type, value.getComponentType())) {
                     Class<?> arrayClass = value.getComponentClass();
@@ -1235,8 +1225,7 @@ public class DefaultTestCase implements TestCase, Serializable {
     public VariableReference setStatement(Statement statement, int position) {
         statements.set(position, statement);
         assert (isValid());
-        return statement.getReturnValue(); // TODO:
-        // -1?
+        return statement.getReturnValue();
     }
 
     @Override

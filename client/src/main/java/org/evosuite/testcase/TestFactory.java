@@ -156,12 +156,12 @@ public class TestFactory {
             // We need to remove them in order, so that the test case is at all time consistent.
             for (int i = lengthDifference - 1; i >= 0; i--) {
                 if (logger.isDebugEnabled()) {
-                    logger.debug("  Removing statement: " + test.getStatement(position + i).getCode());
+                    logger.debug("  Removing statement: {}", test.getStatement(position + i).getCode());
                 }
                 test.remove(position + i);
             }
             if (logger.isDebugEnabled()) {
-                logger.debug("Test after removal: " + test.toCode());
+                logger.debug("Test after removal: {}", test.toCode());
             }
             return false;
         }
@@ -360,12 +360,12 @@ public class TestFactory {
      */
     public VariableReference addFieldAssignment(TestCase test, GenericField field,
                                                 int position, int recursionDepth) throws ConstructionFailedException {
-        logger.debug("Recursion depth: " + recursionDepth);
+        logger.debug("Recursion depth: {}", recursionDepth);
         if (recursionDepth > Properties.MAX_RECURSION) {
             logger.debug("Max recursion depth reached");
             throw new ConstructionFailedException("Max recursion depth reached");
         }
-        logger.debug("Adding field " + field);
+        logger.debug("Adding field {}", field);
 
         int length = test.size();
         VariableReference callee = null;
@@ -375,8 +375,7 @@ public class TestFactory {
             position += test.size() - length;
             length = test.size();
             if (!TestUsageChecker.canUse(field.getField(), callee.getVariableClass())) {
-                logger.debug("Cannot call field " + field + " with callee of type "
-                        + callee.getClassName());
+                logger.debug("Cannot call field {} with callee of type {}", field, callee.getClassName());
                 throw new ConstructionFailedException("Cannot apply field to this callee");
             }
 
@@ -410,7 +409,7 @@ public class TestFactory {
      */
     public VariableReference addFieldFor(TestCase test, VariableReference callee,
                                          GenericField field, int position) throws ConstructionFailedException {
-        logger.debug("Adding field " + field + " for variable " + callee);
+        logger.debug("Adding field {} for variable {}", field, callee);
         if (position <= callee.getStPosition())
             throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
 
@@ -456,13 +455,13 @@ public class TestFactory {
     public VariableReference addMethod(TestCase test, GenericMethod method, int position,
                                        int recursionDepth) throws ConstructionFailedException {
 
-        logger.debug("Recursion depth: " + recursionDepth);
+        logger.debug("Recursion depth: {}", recursionDepth);
         if (recursionDepth > Properties.MAX_RECURSION) {
             logger.debug("Max recursion depth reached");
             throw new ConstructionFailedException("Max recursion depth reached");
         }
 
-        logger.debug("Adding method " + method);
+        logger.debug("Adding method {}", method);
         int length = test.size();
         VariableReference callee = null;
         List<VariableReference> parameters = null;
@@ -477,12 +476,10 @@ public class TestFactory {
                 position += test.size() - length;
                 length = test.size();
 
-                logger.debug("Found callee of type " + method.getOwnerType() + ": "
-                        + callee.getName());
+                logger.debug("Found callee of type {}: {}", method.getOwnerType(), callee.getName());
                 if (!TestUsageChecker.canUse(method.getMethod(),
                         callee.getVariableClass())) {
-                    logger.debug("Cannot call method " + method
-                            + " with callee of type " + callee.getClassName());
+                    logger.debug("Cannot call method {} with callee of type {}", method, callee.getClassName());
                     throw new ConstructionFailedException("Cannot apply method to this callee");
                 }
             }
@@ -635,7 +632,7 @@ public class TestFactory {
             }
 
         }
-        logger.debug("Reusable objects: " + objects);
+        logger.debug("Reusable objects: {}", objects);
         assignArray(test, array, arrayIndex, position, objects);
     }
 
@@ -661,7 +658,7 @@ public class TestFactory {
             // TODO:
             // Do we need a special "[Array]AssignmentStatement"?
             VariableReference choice = Randomness.choice(objects);
-            logger.debug("Reusing value: " + choice);
+            logger.debug("Reusing value: {}", choice);
 
             ArrayIndex index = new ArrayIndex(test, arrRef, arrayIndex);
             Statement st = new AssignmentStatement(test, index, choice);
@@ -676,8 +673,7 @@ public class TestFactory {
             // OR: Create a new variablereference and then assign it to array
             // (better!)
             int oldLength = test.size();
-            logger.debug("Attempting generation of object of type "
-                    + array.getComponentType());
+            logger.debug("Attempting generation of object of type {}", array.getComponentType());
             VariableReference var = attemptGeneration(test, array.getComponentType(),
                     position);
             // Generics instantiation may lead to invalid types, so better double check
@@ -932,7 +928,7 @@ public class TestFactory {
                 test.setStatement(f, position);
                 logger.debug("Using field {}", f.getCode());
             } catch (Throwable e) {
-                logger.error("Error: " + e + " , Field: " + field + " , Test: " + test);
+            logger.error("Error: {} , Field: {} , Test: {}", e, field, test);
                 throw new Error(e);
             }
         }
@@ -995,8 +991,7 @@ public class TestFactory {
             return true;
         } catch (ConstructionFailedException e) {
             // Ignore
-            logger.info("Change failed for statement " + statement.getCode() + " -> "
-                    + call + ": " + e.getMessage() + " " + test.toCode());
+            logger.info("Change failed for statement {} -> {}: {} {}", statement.getCode(), call, e.getMessage(), test.toCode());
         }
         return false;
     }
@@ -1023,21 +1018,21 @@ public class TestFactory {
     private VariableReference createArray(TestCase test, GenericClass<?> arrayClass,
                                           int position, int recursionDepth) throws ConstructionFailedException {
 
-        logger.debug("Creating array of type " + arrayClass.getTypeName());
+        logger.debug("Creating array of type {}", arrayClass.getTypeName());
         if (arrayClass.hasWildcardOrTypeVariables()) {
             //if (arrayClass.getComponentClass().isClass()) {
             //	arrayClass = arrayClass.getWithWildcardTypes();
             //} else {
             arrayClass = arrayClass.getGenericInstantiation();
-            logger.debug("Setting generic array to type " + arrayClass.getTypeName());
+            logger.debug("Setting generic array to type {}", arrayClass.getTypeName());
             //}
         }
         // Create array with random size
         ArrayStatement statement = new ArrayStatement(test, arrayClass.getType());
         VariableReference reference = test.addStatement(statement, position);
         position++;
-        logger.debug("Array length: " + statement.size());
-        logger.debug("Array component type: " + reference.getComponentType());
+        logger.debug("Array length: {}", statement.size());
+        logger.debug("Array component type: {}", reference.getComponentType());
 
         // For each value of array, call attemptGeneration
         List<VariableReference> objects = test.getObjects(reference.getComponentType(),
@@ -1060,13 +1055,13 @@ public class TestFactory {
         }
 
         objects.remove(statement.getReturnValue());
-        logger.debug("Found assignable objects: " + objects.size());
+        logger.debug("Found assignable objects: {}", objects.size());
         Set<GenericAccessibleObject<?>> currentArrayRecursion = new LinkedHashSet<>(currentRecursion);
 
         for (int i = 0; i < statement.size(); i++) {
             currentRecursion.clear();
             currentRecursion.addAll(currentArrayRecursion);
-            logger.debug("Assigning array index " + i);
+            logger.debug("Assigning array index {}", i);
             int oldLength = test.size();
             assignArray(test, reference, i, position, objects);
             position += test.size() - oldLength;
@@ -1113,7 +1108,7 @@ public class TestFactory {
             if (clazz.hasWildcardOrTypeVariables()) {
                 logger.debug("Getting generic instantiation of class");
                 clazz = clazz.getGenericInstantiation();
-                logger.debug("Chosen: " + clazz);
+                logger.debug("Chosen: {}", clazz);
             }
             Type parameterType = clazz.getParameterTypes().get(0);
             if (!(parameterType instanceof WildcardType) && GenericTypeReflector.erase(parameterType).equals(Class.class)) {
@@ -1328,7 +1323,7 @@ public class TestFactory {
                 logger.debug("Attempting generating of {} via field of type {}", type, type);
                 ret = addField(test, (GenericField) o, position, recursionDepth + 1);
             } else if (o.isMethod()) {
-                logger.debug("Attempting generating of " + type + " via method " + (o) + " of type " + type);
+                logger.debug("Attempting generating of {} via method {} of type {}", type, o, type);
 
                 ret = addMethod(test, (GenericMethod) o, position, recursionDepth + 1);
 
@@ -1339,9 +1334,7 @@ public class TestFactory {
                 logger.debug("Success in generating type {} using method \"{}\"", type, o);
             } else if (o.isConstructor()) {
                 if (logger.isDebugEnabled()) {
-                    logger.debug("Attempting generating of " + type + " via constructor " + (o)
-                            + " of type " + type + ", with constructor type " + o.getOwnerType() +
-                            ", at position " + position);
+                    logger.debug("Attempting generating of {} via constructor {} of type {}, with constructor type {}, at position {}", type, o, type, o.getOwnerType(), position);
                 }
 
                 ret = addConstructor(test, (GenericConstructor) o, type, position, recursionDepth + 1);
@@ -1985,7 +1978,7 @@ public class TestFactory {
     private boolean insertRandomReflectionCall(TestCase test, int position, int recursionDepth)
             throws ConstructionFailedException {
 
-        logger.debug("Recursion depth: " + recursionDepth);
+        logger.debug("Recursion depth: {}", recursionDepth);
         if (recursionDepth > Properties.MAX_RECURSION) {
             logger.debug("Max recursion depth reached");
             throw new ConstructionFailedException("Max recursion depth reached");
@@ -2006,7 +1999,7 @@ public class TestFactory {
                 st = new PrivateFieldStatement(test, reflectionFactory.getReflectedClass(), field.getName(),
                         parameters.get(0), parameters.get(1));
             } catch (NoSuchFieldException e) {
-                logger.error("Reflection problem: " + e, e);
+                logger.error("Reflection problem: {}", e.getMessage(), e);
                 throw new ConstructionFailedException("Reflection problem");
             }
         } else {
@@ -2034,7 +2027,7 @@ public class TestFactory {
     private boolean insertRandomReflectionCallOnObject(TestCase test, VariableReference callee, int position, int recursionDepth)
             throws ConstructionFailedException {
 
-        logger.debug("Recursion depth: " + recursionDepth);
+        logger.debug("Recursion depth: {}", recursionDepth);
         if (recursionDepth > Properties.MAX_RECURSION) {
             logger.debug("Max recursion depth reached");
             throw new ConstructionFailedException("Max recursion depth reached");
@@ -2069,7 +2062,7 @@ public class TestFactory {
                 st = new PrivateFieldStatement(test, reflectionFactory.getReflectedClass(), field.getName(),
                         callee, parameters.get(0));
             } catch (NoSuchFieldException e) {
-                logger.error("Reflection problem: " + e, e);
+                logger.error("Reflection problem: {}", e.getMessage(), e);
                 throw new ConstructionFailedException("Reflection problem");
             }
         } else {
@@ -2139,7 +2132,7 @@ public class TestFactory {
                             callee = test.getRandomNonNullObject(target, position);
                         }
                         if (!TestUsageChecker.canUse(m.getMethod(), callee.getVariableClass())) {
-                            logger.error("Cannot call method " + m + " with callee of type " + callee.getClassName());
+                            logger.error("Cannot call method {} with callee of type {}", m, callee.getClassName());
                         }
 
                         addMethodFor(test, callee, m.copyWithNewOwner(callee.getGenericClass()), position);
@@ -2255,7 +2248,7 @@ public class TestFactory {
             for (int i = lengthDifference - 1; i >= 0; i--) {
                 //we need to remove them in order, so that the testcase is at all time consistent
                 if (logger.isDebugEnabled()) {
-                    logger.debug("  Removing statement: " + test.getStatement(position + i).getCode());
+                    logger.debug("  Removing statement: {}", test.getStatement(position + i).getCode());
                 }
                 test.remove(position + i);
             }
@@ -2288,7 +2281,7 @@ public class TestFactory {
             ArrayReference array = (ArrayReference) var;
             if (array.getArrayLength() > 0) {
                 for (int i = 0; i < array.getArrayLength(); i++) {
-                    logger.debug("Assigning array index " + i);
+                    logger.debug("Assigning array index {}", i);
                     int old_len = test.size();
                     try {
                         assignArray(test, array, i, position);
