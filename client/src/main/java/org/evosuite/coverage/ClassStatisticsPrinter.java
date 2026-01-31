@@ -156,6 +156,7 @@ public class ClassStatisticsPrinter {
                 TestGenerationStrategy.getFitnessFactories();
 
         int numCriterion = 0;
+        String lineSeparator = System.lineSeparator();
         for (TestFitnessFactory<? extends TestFitnessFunction> factory : factories) {
             List<? extends TestFitnessFunction> goals = factory.getCoverageGoals();
             LoggingUtils.getEvoLogger().info("* Criterion " + Properties.CRITERION[numCriterion++] + ": " + goals.size());
@@ -164,7 +165,7 @@ public class ClassStatisticsPrinter {
                     goals.sort(comparingInt(l -> ((LineCoverageTestFitness) l).getLine()));
                 }
                 for (TestFitnessFunction goal : goals) {
-                    allGoals.append(goal.toString() + java.lang.System.getProperty("line.separator"));
+                    allGoals.append(goal.toString()).append(lineSeparator);
                 }
             }
         }

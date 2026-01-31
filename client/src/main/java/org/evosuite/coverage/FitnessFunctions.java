@@ -51,11 +51,11 @@ import org.evosuite.coverage.statement.StatementCoverageFactory;
 import org.evosuite.coverage.statement.StatementCoverageSuiteFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -69,7 +69,7 @@ public class FitnessFunctions {
 
     private static final Logger logger = LoggerFactory.getLogger(FitnessFunctions.class);
 
-    private static class FitnessRegistryEntry {
+    private static final class FitnessRegistryEntry {
         final Supplier<TestSuiteFitnessFunction> suiteFitnessSupplier;
         final Supplier<TestFitnessFactory<? extends TestFitnessFunction>> fitnessFactorySupplier;
         final Class<?> testFitnessClass;
@@ -216,7 +216,7 @@ public class FitnessFunctions {
         if (entry != null) {
             return entry.suiteFitnessSupplier.get();
         }
-        logger.warn("No TestSuiteFitnessFunction defined for {}; using default one (BranchCoverageSuiteFitness)", Arrays.toString(Properties.CRITERION));
+        logger.warn("No TestSuiteFitnessFunction defined for {}; using default one (BranchCoverageSuiteFitness)", criterion);
         return new BranchCoverageSuiteFitness();
     }
 
@@ -234,8 +234,7 @@ public class FitnessFunctions {
         if (entry != null) {
             return entry.fitnessFactorySupplier.get();
         }
-        logger.warn("No TestFitnessFactory defined for " + crit
-                + " using default one (BranchCoverageFactory)");
+        logger.warn("No TestFitnessFactory defined for {} using default one (BranchCoverageFactory)", crit);
         return new BranchCoverageFactory();
     }
 
@@ -251,7 +250,7 @@ public class FitnessFunctions {
         if (entry != null && entry.testFitnessClass != null) {
             return entry.testFitnessClass;
         }
-        throw new RuntimeException("No test fitness function defined for " + criterion.name());
+        throw new EvosuiteError("No test fitness function defined for " + criterion.name());
     }
 
 }
