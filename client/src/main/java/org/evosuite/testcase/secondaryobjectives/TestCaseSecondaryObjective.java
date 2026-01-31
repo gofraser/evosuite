@@ -22,29 +22,37 @@ package org.evosuite.testcase.secondaryobjectives;
 import org.evosuite.Properties;
 import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.testcase.TestChromosome;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestCaseSecondaryObjective {
 
+    private static final Logger logger = LoggerFactory.getLogger(TestCaseSecondaryObjective.class);
+
     public static void setSecondaryObjectives() {
         for (Properties.SecondaryObjective secondaryObjective : Properties.SECONDARY_OBJECTIVE) {
-            try {
-                SecondaryObjective<TestChromosome> secondaryObjectiveInstance = null;
-                switch (secondaryObjective) {
-                    case AVG_LENGTH:
-                    case MAX_LENGTH:
-                    case TOTAL_LENGTH:
-                        secondaryObjectiveInstance = new MinimizeLengthSecondaryObjective();
-                        break;
-                    case EXCEPTIONS:
-                        secondaryObjectiveInstance = new MinimizeExceptionsSecondaryObjective();
-                        break;
-                    default:
-                        throw new RuntimeException("ERROR: asked for unknown secondary objective \""
-                                + secondaryObjective.name() + "\"");
-                }
+            SecondaryObjective<TestChromosome> secondaryObjectiveInstance = null;
+            switch (secondaryObjective) {
+                case AVG_LENGTH:
+                case MAX_LENGTH:
+                case TOTAL_LENGTH:
+                    secondaryObjectiveInstance = new MinimizeLengthSecondaryObjective();
+                    break;
+                case EXCEPTIONS:
+                    secondaryObjectiveInstance = new MinimizeExceptionsSecondaryObjective();
+                    break;
+                case SIZE:
+                case IBRANCH:
+                case RHO:
+                    // These objectives are not applicable to single test cases
+                    break;
+                default:
+                    logger.warn("ERROR: asked for unknown secondary objective \"{}\"", secondaryObjective.name());
+            }
+
+            if (secondaryObjectiveInstance != null) {
                 TestChromosome.addSecondaryObjective(secondaryObjectiveInstance);
-            } catch (Throwable t) {
-            } // Not all objectives make sense for tests
+            }
         }
     }
 }

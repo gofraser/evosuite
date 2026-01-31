@@ -63,7 +63,7 @@ public class MinimizeLengthSecondaryObjective extends SecondaryObjective<TestChr
     @Override
     public int compareGenerations(TestChromosome parent1, TestChromosome parent2,
                                   TestChromosome child1, TestChromosome child2) {
-        logger.debug("Comparing sizes: " + parent1.size() + ", " + parent1.size()
+        logger.debug("Comparing sizes: " + parent1.size() + ", " + parent2.size()
                 + " vs " + child1.size() + ", " + child2.size());
         return Math.min(parent1.size(), parent2.size())
                 - Math.min(child1.size(), child2.size());
