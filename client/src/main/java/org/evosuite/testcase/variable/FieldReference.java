@@ -61,9 +61,7 @@ public class FieldReference extends VariableReferenceImpl {
      */
     public FieldReference(TestCase testCase, GenericField field, VariableReference source) {
         super(testCase, field.getFieldType());
-        if (source == null && !field.isStatic()) {
-            throw new IllegalArgumentException("No source object was supplied for non-static field: " + field);
-        }
+        assert (source != null || field.isStatic()) : "No source object was supplied, therefore we assumed the field to be static. However asking the field if it was static, returned false";
         this.field = field;
         this.source = source;
     }
@@ -81,22 +79,17 @@ public class FieldReference extends VariableReferenceImpl {
     public FieldReference(TestCase testCase, GenericField field, Type fieldType,
                           VariableReference source) {
         super(testCase, fieldType);
-        if (field == null) {
-            throw new IllegalArgumentException("Field cannot be null");
-        }
-        if (source == null && !field.isStatic()) {
-            throw new IllegalArgumentException("No source object was supplied for non-static field: " + field);
-        }
-        if (source != null && !field.getField().getDeclaringClass().isAssignableFrom(source.getVariableClass())) {
-            throw new IllegalArgumentException("Declaring class: " + field.getField().getDeclaringClass()
-                    + " # classloader: " + field.getField().getDeclaringClass().getClassLoader()
-                    + " | Variable Class: " + source.getVariableClass()
-                    + " # classloader: " + source.getVariableClass().getClassLoader()
-                    + " | Field name: " + field.getField());
-        }
-
+        assert (field != null);
+        assert (source != null || field.isStatic()) : "No source object was supplied, therefore we assumed the field to be static. However asking the field if it was static, returned false";
         this.field = field;
         this.source = source;
+        assert (source == null || field.getField().getDeclaringClass().isAssignableFrom(source.getVariableClass()))
+                : "Assertion! Declaring class: " + field.getField().getDeclaringClass()
+                + " # classloader: " + field.getField().getDeclaringClass().getClassLoader()
+                + " | Variable Class: " + source.getVariableClass()
+                + " # classloader: " + source.getVariableClass().getClassLoader()
+                + " | Field name: " + field.getField();
+
     }
 
     /**
