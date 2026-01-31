@@ -37,7 +37,6 @@ import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
-import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,7 +55,7 @@ public class RandomTestStrategy extends TestGenerationStrategy {
 
     @Override
     public TestSuiteChromosome generateTests() {
-        LoggingUtils.getEvoLogger().info("* Using random test generation");
+        logger.info("* Using random test generation");
 
         List<TestSuiteFitnessFunction> fitnessFunctions = getFitnessFunctions();
 
@@ -66,18 +65,17 @@ public class RandomTestStrategy extends TestGenerationStrategy {
 
         List<TestFitnessFactory<? extends TestFitnessFunction>> goalFactories = getFitnessFactories();
         List<TestFitnessFunction> goals = new ArrayList<>();
-        LoggingUtils.getEvoLogger().info("* Total number of test goals: ");
+        logger.info("* Total number of test goals: ");
         for (TestFitnessFactory<? extends TestFitnessFunction> goalFactory : goalFactories) {
             goals.addAll(goalFactory.getCoverageGoals());
-            LoggingUtils.getEvoLogger().info("  - " + goalFactory.getClass().getSimpleName().replace("CoverageFactory", "")
-                    + " " + goalFactory.getCoverageGoals().size());
+            logger.info("  - {} {}", goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
+                    goalFactory.getCoverageGoals().size());
         }
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals,
                 goals.size());
 
         if (!canGenerateTestsForSUT()) {
-            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class "
-                    + Properties.TARGET_CLASS);
+            logger.info("* Found no testable methods in the target class {}", Properties.TARGET_CLASS);
             return new TestSuiteChromosome();
         }
         ChromosomeFactory<TestChromosome> factory = getChromosomeFactory();
@@ -104,8 +102,8 @@ public class RandomTestStrategy extends TestGenerationStrategy {
             }
         }
         //statistics.searchFinished(suiteGA);
-        LoggingUtils.getEvoLogger().info("* Search Budget:");
-        LoggingUtils.getEvoLogger().info("\t- " + stoppingCondition);
+        logger.info("* Search Budget:");
+        logger.info("\t- {}", stoppingCondition);
 
         // In the GA, these statistics are sent via the SearchListener when notified about the GA completing
         // Search is finished, send statistics

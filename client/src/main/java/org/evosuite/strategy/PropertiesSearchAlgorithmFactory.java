@@ -25,7 +25,8 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.populationlimit.IndividualPopulationLimit;
 import org.evosuite.ga.populationlimit.PopulationLimit;
 import org.evosuite.ga.populationlimit.SizePopulationLimit;
-import org.evosuite.ga.stoppingconditions.*;
+import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.ga.stoppingconditions.StoppingConditionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,24 +52,8 @@ public abstract class PropertiesSearchAlgorithmFactory<T extends Chromosome<T>> 
     }
 
     protected StoppingCondition<T> getStoppingCondition() {
-        logger.info("Setting stopping condition: " + Properties.STOPPING_CONDITION);
-        switch (Properties.STOPPING_CONDITION) {
-            case MAXGENERATIONS:
-                return new MaxGenerationStoppingCondition<>();
-            case MAXFITNESSEVALUATIONS:
-                return new MaxFitnessEvaluationsStoppingCondition<>();
-            case MAXTIME:
-                return new MaxTimeStoppingCondition<>();
-            case MAXTESTS:
-                return new MaxTestsStoppingCondition<>();
-            case MAXSTATEMENTS:
-                return new MaxStatementsStoppingCondition<>();
-            case TIMEDELTA:
-                return new TimeDeltaStoppingCondition<>();
-            default:
-                logger.warn("Unknown stopping condition: " + Properties.STOPPING_CONDITION);
-                return new MaxGenerationStoppingCondition<>();
-        }
+        logger.info("Setting stopping condition: {}", Properties.STOPPING_CONDITION);
+        return StoppingConditionFactory.getStoppingCondition(Properties.STOPPING_CONDITION);
     }
 
     public abstract GeneticAlgorithm<T> getSearchAlgorithm();
