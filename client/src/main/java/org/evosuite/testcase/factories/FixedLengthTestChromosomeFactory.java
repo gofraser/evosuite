@@ -62,7 +62,9 @@ public class FixedLengthTestChromosomeFactory implements
             testFactory.insertRandomStatement(test, test.size() - 1);
         }
 
-        //logger.debug("Randomized test case:" + test.toCode());
+        if (logger.isDebugEnabled()) {
+             logger.debug("Randomized test case:" + test.toCode());
+        }
 
         return test;
     }

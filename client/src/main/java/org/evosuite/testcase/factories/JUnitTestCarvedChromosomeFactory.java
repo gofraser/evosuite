@@ -50,9 +50,9 @@ public class JUnitTestCarvedChromosomeFactory implements
     private final ChromosomeFactory<TestChromosome> defaultFactory;
 
     // These two variables will go once the new statistics frontend is finally finished
-    private static int totalNumberOfTestsCarved = 0;
+    private int totalNumberOfTestsCarved = 0;
 
-    private static double carvedCoverage = 0.0;
+    private double carvedCoverage = 0.0;
 
     /**
      * The carved test cases are used only with a certain probability P. So,
@@ -75,7 +75,7 @@ public class JUnitTestCarvedChromosomeFactory implements
         List<TestCase> tests = manager.getTestsForClass(targetClass);
         junitTests.addAll(tests);
 
-        if (junitTests.size() > 0) {
+        if (!junitTests.isEmpty()) {
             totalNumberOfTestsCarved = junitTests.size();
 
             LoggingUtils.getEvoLogger().info("* Using {} carved tests from existing JUnit tests for seeding",
@@ -99,12 +99,14 @@ public class JUnitTestCarvedChromosomeFactory implements
         }
 
         ClientNodeLocal client = ClientServices.getInstance().getClientNode();
-        client.trackOutputVariable(RuntimeVariable.CarvedTests, totalNumberOfTestsCarved);
-        client.trackOutputVariable(RuntimeVariable.CarvedCoverage, carvedCoverage);
+        if (client != null) {
+            client.trackOutputVariable(RuntimeVariable.CarvedTests, totalNumberOfTestsCarved);
+            client.trackOutputVariable(RuntimeVariable.CarvedCoverage, carvedCoverage);
+        }
     }
 
     public boolean hasCarvedTestCases() {
-        return junitTests.size() > 0;
+        return !junitTests.isEmpty();
     }
 
     public int getNumCarvedTestCases() {
@@ -151,14 +153,6 @@ public class JUnitTestCarvedChromosomeFactory implements
         }
 
         return chromosome;
-    }
-
-    public static int getTotalNumberOfTestsCarved() {
-        return totalNumberOfTestsCarved;
-    }
-
-    public static double getCoverageOfCarvedTests() {
-        return carvedCoverage;
     }
 
 }

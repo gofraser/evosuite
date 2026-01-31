@@ -28,6 +28,7 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
+import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericAccessibleObject;
@@ -36,6 +37,8 @@ import org.evosuite.utils.generic.GenericMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -60,17 +63,17 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
     /**
      * Methods we have already seen
      */
-    private static final Set<GenericAccessibleObject<?>> attemptedMethods = new LinkedHashSet<>();
+    private final Set<GenericAccessibleObject<?>> attemptedMethods = new LinkedHashSet<>();
 
     /**
      * Methods we have not already seen
      */
-    private static final Set<GenericAccessibleObject<?>> remainingMethods = new LinkedHashSet<>();
+    private final List<GenericAccessibleObject<?>> remainingMethods = new ArrayList<>();
 
     /**
      * Methods we have to cover
      */
-    private static final List<GenericAccessibleObject<?>> allMethods = new LinkedList<>();
+    private final List<GenericAccessibleObject<?>> allMethods = new LinkedList<>();
 
     /**
      * Create a list of all methods
@@ -103,12 +106,16 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
         while (test.size() < length && num < Properties.MAX_ATTEMPTS) {
             // Select an uncovered method and add it
 
-            if (remainingMethods.size() == 0) {
+            if (remainingMethods.isEmpty()) {
                 reset();
             }
-            GenericAccessibleObject<?> call = Randomness.choice(remainingMethods);
+
+            int index = Randomness.nextInt(remainingMethods.size());
+            GenericAccessibleObject<?> call = remainingMethods.get(index);
+            Collections.swap(remainingMethods, index, remainingMethods.size() - 1);
+            remainingMethods.remove(remainingMethods.size() - 1);
+
             attemptedMethods.add(call);
-            remainingMethods.remove(call);
 
             try {
                 TestFactory testFactory = TestFactory.getInstance();
@@ -119,9 +126,10 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
                     testFactory.addConstructor(test, (GenericConstructor) call,
                             test.size(), 0);
                 } else {
-                    assert (false) : "Found test call that is neither method nor constructor";
+                    throw new EvosuiteError("Found test call that is neither method nor constructor");
                 }
             } catch (ConstructionFailedException e) {
+                logger.debug("Construction failed for call {}: {}", call, e.getMessage());
             }
             num++;
         }
@@ -169,6 +177,7 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
      * Forget which calls we have already attempted
      */
     public void reset() {
+        remainingMethods.clear();
         remainingMethods.addAll(allMethods);
         attemptedMethods.clear();
     }
