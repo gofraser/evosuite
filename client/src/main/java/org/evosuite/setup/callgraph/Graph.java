@@ -38,6 +38,20 @@ public abstract class Graph<E> {
     }
 
     public synchronized void removeVertex(E vertex) {
+        if (edges.containsKey(vertex)) {
+            for (E neighbor : edges.get(vertex)) {
+                if (reverseEdges.containsKey(neighbor)) {
+                    reverseEdges.get(neighbor).remove(vertex);
+                }
+            }
+        }
+        if (reverseEdges.containsKey(vertex)) {
+            for (E neighbor : reverseEdges.get(vertex)) {
+                if (edges.containsKey(neighbor)) {
+                    edges.get(neighbor).remove(vertex);
+                }
+            }
+        }
         edges.remove(vertex);
         reverseEdges.remove(vertex);
         vertexSet.remove(vertex);

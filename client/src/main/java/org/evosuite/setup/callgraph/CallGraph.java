@@ -23,8 +23,6 @@ import org.evosuite.Properties;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.setup.Call;
 import org.evosuite.setup.CallContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -48,13 +46,7 @@ public class CallGraph implements Iterable<CallGraphEntry> {
      */
     private final ReverseCallGraph graph = new ReverseCallGraph();
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = LoggerFactory
-            .getLogger(CallGraph.class);
-
     private final String className;
-
-    private final Set<CallGraphEntry> cutNodes = Collections.synchronizedSet(new LinkedHashSet<>());
 
     private final Set<String> callGraphClasses = Collections.synchronizedSet(new LinkedHashSet<>());
 
@@ -108,11 +100,6 @@ public class CallGraph implements Iterable<CallGraphEntry> {
                            String targetClass, String targetMethod) {
         CallGraphEntry from = new CallGraphEntry(targetClass, targetMethod);
         CallGraphEntry to = new CallGraphEntry(sourceClass, sourceMethod);
-
-//		logger.info("Adding new call from: " + to + " -> " + from);
-
-        if (sourceClass.equals(className))
-            cutNodes.add(to);
 
         if (!graph.containsEdge(from, to)) {
             graph.addEdge(from, to);
@@ -193,7 +180,7 @@ public class CallGraph implements Iterable<CallGraphEntry> {
      */
     public Set<CallContext> getAllContextsFromTargetClass(String className, String methodName) {
         CallGraphEntry root = new CallGraphEntry(className, methodName);
-        Set<List<CallGraphEntry>> paths = PathFinder.getPahts(graph, root);
+        Set<List<CallGraphEntry>> paths = PathFinder.getPaths(graph, root);
         Set<CallContext> contexts = convertIntoCallContext(paths);
         if (!Properties.EXCLUDE_IBRANCHES_CUT)
             addPublicClassMethod(className, methodName, contexts);
@@ -260,19 +247,6 @@ public class CallGraph implements Iterable<CallGraphEntry> {
         return toTestClasses.contains(className);
     }
 
-    public boolean isCalledClassOld(String className) {
-        if (toTestClasses.contains(className)) return true;
-        if (notToTestClasses.contains(className)) return false;
-
-        for (CallGraphEntry e : graph.getEdges().keySet()) {
-            if (e.getClassName().equals(className)) {
-                if (checkClassInPaths(this.className, graph, e))
-                    return true;
-            }
-        }
-        return false;
-    }
-
     private boolean computeInterestingClasses(Graph<CallGraphEntry> g) {
         Set<CallGraphEntry> startingVertices = new HashSet<>();
         for (CallGraphEntry e : graph.getVertexSet()) {
@@ -296,24 +270,6 @@ public class CallGraph implements Iterable<CallGraphEntry> {
         return true;
     }
 
-    private boolean checkClassInPaths(String targetClass, Graph<CallGraphEntry> g, CallGraphEntry startingVertex) {
-        if (!g.containsVertex(startingVertex)) {
-            return false;
-        }
-        Set<String> classes = new HashSet<>();
-        PathFinderDFSIterator<CallGraphEntry> dfs = new PathFinderDFSIterator<>(g, startingVertex);
-        while (dfs.hasNext()) {
-            CallGraphEntry e = dfs.next();
-            classes.add(e.getClassName());
-            if (e.getClassName().equals(targetClass)) {
-                toTestClasses.addAll(classes);
-                return true;
-            }
-        }
-        notToTestClasses.addAll(classes);
-        return false;
-    }
-
     /**
      * Determine if methodName of className can be called through the target
      * class
@@ -326,23 +282,6 @@ public class CallGraph implements Iterable<CallGraphEntry> {
         if (toTestMethods.isEmpty())
             computeInterestingClasses(graph);
         return toTestMethods.contains(className + methodName);
-    }
-
-    public boolean isCalledMethodOld(String className, String methodName) {
-
-
-        CallGraphEntry tmp = new CallGraphEntry(className, methodName);
-        for (CallGraphEntry e : graph.getEdges().keySet()) {
-            if (e.equals(tmp)) {
-                for (List<CallGraphEntry> c : PathFinder.getPahts(graph, e)) {
-                    for (CallGraphEntry entry : c) {
-                        if (entry.getClassName().equals(this.className))
-                            return true;
-                    }
-                }
-            }
-        }
-        return false;
     }
 
     /*

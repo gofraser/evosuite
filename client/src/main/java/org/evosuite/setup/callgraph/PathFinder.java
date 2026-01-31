@@ -39,22 +39,22 @@ public class PathFinder {
      * @param startingVertex
      * @return
      */
-    public static <E> Set<List<E>> getPahts(Graph<E> g, E startingVertex) {
+    public static <E> Set<List<E>> getPaths(Graph<E> g, E startingVertex) {
         if (!g.containsVertex(startingVertex)) {
             return new HashSet<>();
         }
-        PathFinderDFSIterator<E> dfs = new PathFinderDFSIterator<>(g, startingVertex);
+        PathFinderDFSIterator<E> dfs = new PathFinderDFSIterator<>(g, startingVertex, false, true);
         while (dfs.hasNext()) {
             dfs.next();
         }
         return dfs.getPaths();
     }
 
-    public static <E> Set<List<E>> getReversePahts(Graph<E> g, E startingVertex) {
+    public static <E> Set<List<E>> getReversePaths(Graph<E> g, E startingVertex) {
         if (!g.containsVertex(startingVertex)) {
             return new HashSet<>();
         }
-        PathFinderDFSIterator<E> dfs = new PathFinderDFSIterator<>(g, startingVertex, true);
+        PathFinderDFSIterator<E> dfs = new PathFinderDFSIterator<>(g, startingVertex, true, true);
         while (dfs.hasNext()) {
             dfs.next();
         }
