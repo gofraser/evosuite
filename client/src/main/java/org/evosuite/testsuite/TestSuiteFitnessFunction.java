@@ -55,7 +55,6 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction<TestSuite
      * @param test The test case to execute
      * @return Result of the execution
      */
-    @Deprecated
     public ExecutionResult runTest(TestCase test) {
         ExecutionResult result = new ExecutionResult(test, null);
 
@@ -63,17 +62,9 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction<TestSuite
             result = TestCaseExecutor.getInstance().execute(test);
             MaxStatementsStoppingCondition.statementsExecuted(result.getExecutedStatements());
         } catch (Exception e) {
-            logger.warn("TG: Exception caught: " + e.getMessage(), e);
-            try {
-                Thread.sleep(1000);
-                result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
-            } catch (Exception e1) {
-                throw new Error(e1);
-            }
-
+            logger.warn("Exception caught during test execution: " + e.getMessage(), e);
         }
 
-        // System.out.println("TG: Killed "+result.getNumKilled()+" out of "+mutants.size());
         return result;
     }
 

@@ -268,18 +268,19 @@ public final class TestSuiteChromosome
      */
     @Override
     public String toString() {
-        String result = "TestSuite: " + tests.size() + "\n";
+        StringBuilder result = new StringBuilder();
+        result.append("TestSuite: ").append(tests.size()).append("\n");
         int i = 0;
         for (TestChromosome test : tests) {
-            result += "Test " + i + ": \n";
+            result.append("Test ").append(i).append(": \n");
             i++;
             if (test.getLastExecutionResult() != null) {
-                result += test.getTestCase().toCode(test.getLastExecutionResult().exposeExceptionMapping());
+                result.append(test.getTestCase().toCode(test.getLastExecutionResult().exposeExceptionMapping()));
             } else {
-                result += test.getTestCase().toCode() + "\n";
+                result.append(test.getTestCase().toCode()).append("\n");
             }
         }
-        return result;
+        return result.toString();
     }
 
 }
