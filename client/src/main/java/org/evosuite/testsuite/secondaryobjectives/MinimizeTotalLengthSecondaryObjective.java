@@ -31,11 +31,6 @@ public class MinimizeTotalLengthSecondaryObjective extends SecondaryObjective<Te
 
     private static final long serialVersionUID = 1974099736891048617L;
 
-    private int getLengthSum(TestSuiteChromosome chromosome1,
-                             TestSuiteChromosome chromosome2) {
-        return chromosome1.totalLengthOfTestCases() + chromosome2.totalLengthOfTestCases();
-    }
-
     /*
      * (non-Javadoc)
      *
@@ -67,8 +62,8 @@ public class MinimizeTotalLengthSecondaryObjective extends SecondaryObjective<Te
     @Override
     public int compareGenerations(TestSuiteChromosome parent1, TestSuiteChromosome parent2,
                                   TestSuiteChromosome child1, TestSuiteChromosome child2) {
-        return getLengthSum(parent1, parent2)
-                - getLengthSum(child1, child2);
+        return Math.min(parent1.totalLengthOfTestCases(), parent2.totalLengthOfTestCases())
+                - Math.min(child1.totalLengthOfTestCases(), child2.totalLengthOfTestCases());
     }
 
 }
