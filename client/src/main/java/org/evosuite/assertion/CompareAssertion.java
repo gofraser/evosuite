@@ -85,7 +85,7 @@ public class CompareAssertion extends Assertion {
     public String getCode() {
         if (source.getType().equals(Integer.class)) {
             if ((Integer) value == 0)
-                return "assertTrue(" + source.getName() + " == " + dest.getName() + ");";
+                return "assertEquals(" + source.getName() + ", " + dest.getName() + ");";
             else if ((Integer) value < 0)
                 return "assertTrue(" + source.getName() + " < " + dest.getName() + ");";
             else
@@ -111,12 +111,12 @@ public class CompareAssertion extends Assertion {
                 if ((Integer) value == 0)
                     return dest.getObject(scope) == null;
                 else
-                    return true; // TODO - true or false?
+                    return false;
             else {
                 try {
                     return comparable.compareTo(dest.getObject(scope)) == (Integer) value;
                 } catch (Exception e) {
-                    return true; // TODO - true or false?
+                    return false;
                 }
             }
         } catch (CodeUnderTestException e) {
