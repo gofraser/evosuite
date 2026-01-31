@@ -22,7 +22,6 @@ package org.evosuite.seeding;
 import org.evosuite.Properties;
 import org.evosuite.testcarver.extraction.CarvingManager;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 
@@ -34,15 +33,20 @@ public class ObjectPoolManager extends ObjectPool {
 
     private static final long serialVersionUID = 6287216639197977371L;
 
-    private static ObjectPoolManager instance = null;
+    private static volatile ObjectPoolManager instance = null;
 
     private ObjectPoolManager() {
         initialisePool();
     }
 
     public static ObjectPoolManager getInstance() {
-        if (instance == null)
-            instance = new ObjectPoolManager();
+        if (instance == null) {
+            synchronized (ObjectPoolManager.class) {
+                if (instance == null) {
+                    instance = new ObjectPoolManager();
+                }
+            }
+        }
         return instance;
     }
 
@@ -60,22 +64,22 @@ public class ObjectPoolManager extends ObjectPool {
         if (!Properties.OBJECT_POOLS.isEmpty()) {
             String[] poolFiles = Properties.OBJECT_POOLS.split(File.pathSeparator);
             if (poolFiles.length > 1)
-                LoggingUtils.getEvoLogger().info("* Reading object pools:");
+                logger.info("* Reading object pools:");
             else
-                LoggingUtils.getEvoLogger().info("* Reading object pool:");
+                logger.info("* Reading object pool:");
             for (String fileName : poolFiles) {
-                logger.info("Adding object pool from file " + fileName);
+                logger.info("Adding object pool from file {}", fileName);
                 ObjectPool pool = ObjectPool.getPoolFromFile(fileName);
                 if (pool == null) {
-                    logger.error("Failed to load object from " + fileName);
+                    logger.error("Failed to load object from {}", fileName);
                 } else {
-                    LoggingUtils.getEvoLogger().info(" - Object pool " + fileName + ": " + pool.getNumberOfSequences() + " sequences for " + pool.getNumberOfClasses() + " classes");
+                    logger.info(" - Object pool {}: {} sequences for {} classes", fileName, pool.getNumberOfSequences(), pool.getNumberOfClasses());
                     addPool(pool);
                 }
             }
             if (logger.isDebugEnabled()) {
                 for (GenericClass<?> key : pool.keySet()) {
-                    logger.debug("Have sequences for " + key + ": " + pool.get(key).size());
+                    logger.debug("Have sequences for {}: {}", key, pool.get(key).size());
                 }
             }
         }
@@ -89,13 +93,15 @@ public class ObjectPoolManager extends ObjectPool {
                     this.addSequence(cut, test);
                 }
             }
-            logger.info("Pool after carving: " + this.getNumberOfClasses() + "/" + this.getNumberOfSequences());
+            logger.info("Pool after carving: {}/{}", this.getNumberOfClasses(), this.getNumberOfSequences());
         }
     }
 
     public void reset() {
         pool.clear();
-        ObjectPoolManager.instance = null;
+        synchronized (ObjectPoolManager.class) {
+            ObjectPoolManager.instance = null;
+        }
     }
 
 }

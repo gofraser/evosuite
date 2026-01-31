@@ -51,7 +51,9 @@ public final class TestCaseRecycler<T extends Chromosome<T>> implements SearchLi
 
     private static final long serialVersionUID = -2372656982678139994L;
 
-    private static TestCaseRecycler<?> instance;
+    private static class SingletonHolder {
+        private static final TestCaseRecycler<?> INSTANCE = new TestCaseRecycler<>();
+    }
 
     private final Set<TestCase> testPool;
 
@@ -64,9 +66,7 @@ public final class TestCaseRecycler<T extends Chromosome<T>> implements SearchLi
      */
     @SuppressWarnings("unchecked")
     public static <T extends Chromosome<T>> TestCaseRecycler<T> getInstance() {
-        if (instance == null)
-            instance = new TestCaseRecycler<>();
-        return (TestCaseRecycler<T>) instance;
+        return (TestCaseRecycler<T>) SingletonHolder.INSTANCE;
     }
 
     private TestCaseRecycler() {
@@ -76,14 +76,12 @@ public final class TestCaseRecycler<T extends Chromosome<T>> implements SearchLi
 
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
-        // TODO Auto-generated method stub
-
+        // Empty implementation
     }
 
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
-        // TODO Auto-generated method stub
-
+        // Empty implementation
     }
 
     @Override
@@ -100,13 +98,11 @@ public final class TestCaseRecycler<T extends Chromosome<T>> implements SearchLi
 
     @Override
     public void fitnessEvaluation(T individual) {
-        // TODO Auto-generated method stub
-
+        // Empty implementation
     }
 
     @Override
     public void modification(T individual) {
-        // TODO Auto-generated method stub
-
+        // Empty implementation
     }
 }

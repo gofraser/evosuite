@@ -21,9 +21,10 @@
 package org.evosuite.seeding;
 
 import org.evosuite.Properties;
-import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.objectweb.asm.Type;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -33,6 +34,10 @@ import java.util.Set;
  * @author Gordon Fraser
  */
 public class StaticConstantPool implements ConstantPool {
+
+    private static final Logger logger = LoggerFactory.getLogger(StaticConstantPool.class);
+
+    private static final int MAX_STRING_LITERAL_LENGTH = 65535;
 
     private final Set<String> stringPool = Collections.synchronizedSet(new LinkedHashSet<>());
 
@@ -102,8 +107,7 @@ public class StaticConstantPool implements ConstantPool {
      */
     @Override
     public int getRandomInt() {
-        int r = Randomness.choice(intPool);
-        return r;
+        return Randomness.choice(intPool);
     }
 
     /**
@@ -161,7 +165,7 @@ public class StaticConstantPool implements ConstantPool {
                 return;
             // String literals are constrained to 65535 bytes
             // as they are stored in the constant pool
-            if (string.length() > 65535)
+            if (string.length() > MAX_STRING_LITERAL_LENGTH)
                 return;
             stringPool.add(string);
         } else if (object instanceof Type) {
@@ -206,8 +210,7 @@ public class StaticConstantPool implements ConstantPool {
                 doublePool.add((Double) object);
             }
         } else {
-            LoggingUtils.getEvoLogger().info("Constant of unknown type: "
-                    + object.getClass());
+            logger.info("Constant of unknown type: {}", object.getClass());
         }
     }
 

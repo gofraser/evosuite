@@ -28,28 +28,38 @@ import org.evosuite.utils.Randomness;
  */
 public class ConstantPoolManager {
 
-    private static final ConstantPoolManager instance = new ConstantPoolManager();
+    private static class SingletonHolder {
+        private static final ConstantPoolManager INSTANCE = new ConstantPoolManager();
+    }
+
+    private static final int SUT_POOL_INDEX = 0;
+    private static final int NON_SUT_POOL_INDEX = 1;
+    private static final int DYNAMIC_POOL_INDEX = 2;
 
     private ConstantPool[] pools;
     private double[] probabilities;
-
-    /*
-     * We treat it in a special way, for now, just for making experiments
-     * easier to run
-     */
-    private static final int DYNAMIC_POOL_INDEX = 2;
 
     private ConstantPoolManager() {
         init();
     }
 
+    public static ConstantPoolManager getInstance() {
+        return SingletonHolder.INSTANCE;
+    }
+
     private void init() {
         if (!Properties.VARIABLE_POOL) {
-            pools = new ConstantPool[]{new StaticConstantPool(), new StaticConstantPool(),
-                    new DynamicConstantPool()};
+            pools = new ConstantPool[]{
+                    new StaticConstantPool(),
+                    new StaticConstantPool(),
+                    new DynamicConstantPool()
+            };
         } else {
-            pools = new ConstantPool[]{new StaticConstantVariableProbabilityPool(), new StaticConstantVariableProbabilityPool(),
-                    new DynamicConstantVariableProbabilityPool()};
+            pools = new ConstantPool[]{
+                    new StaticConstantVariableProbabilityPool(),
+                    new StaticConstantVariableProbabilityPool(),
+                    new DynamicConstantVariableProbabilityPool()
+            };
         }
 
         initDefaultProbabilities();
@@ -57,42 +67,39 @@ public class ConstantPoolManager {
 
     private void initDefaultProbabilities() {
         probabilities = new double[pools.length];
-//		double p = 1d / probabilities.length;
-        double p = (1d - Properties.DYNAMIC_POOL) / (probabilities.length - 1);
+        // Distribute remaining probability among non-dynamic pools
+        double remainingProbability = 1.0 - Properties.DYNAMIC_POOL;
+        double p = remainingProbability / (probabilities.length - 1);
+
         for (int i = 0; i < probabilities.length; i++) {
-            probabilities[i] = p;
+            if (i == DYNAMIC_POOL_INDEX) {
+                probabilities[i] = Properties.DYNAMIC_POOL;
+            } else {
+                probabilities[i] = p;
+            }
         }
-        probabilities[DYNAMIC_POOL_INDEX] = Properties.DYNAMIC_POOL;
         normalizeProbabilities();
     }
 
     private void normalizeProbabilities() {
-        double sum = 0d;
+        double sum = 0.0;
         for (double p : probabilities) {
             sum += p;
         }
-        double delta = 1d / sum;
-        for (int i = 0; i < probabilities.length; i++) {
-            probabilities[i] = probabilities[i] * delta;
+        if (sum > 0) {
+            double delta = 1.0 / sum;
+            for (int i = 0; i < probabilities.length; i++) {
+                probabilities[i] *= delta;
+            }
         }
     }
 
-    public static ConstantPoolManager getInstance() {
-        return instance;
-    }
-
-    /*
-     * Note: the indexes are hard coded for now. We do it because maybe
-     * in the future we might want to extend this class, so still we need to
-     * use arrays
-     */
-
     public void addSUTConstant(Object value) {
-        pools[0].add(value);
+        pools[SUT_POOL_INDEX].add(value);
     }
 
     public void addNonSUTConstant(Object value) {
-        pools[1].add(value);
+        pools[NON_SUT_POOL_INDEX].add(value);
     }
 
     public void addDynamicConstant(Object value) {
@@ -101,7 +108,7 @@ public class ConstantPoolManager {
 
     public ConstantPool getConstantPool() {
         double p = Randomness.nextDouble();
-        double k = 0d;
+        double k = 0.0;
         for (int i = 0; i < probabilities.length; i++) {
             k += probabilities[i];
             if (p < k) {
@@ -111,7 +118,7 @@ public class ConstantPoolManager {
         /*
          * This should not happen, but you never know with double computations...
          */
-        return pools[0];
+        return pools[SUT_POOL_INDEX];
     }
 
     public ConstantPool getDynamicConstantPool() {
