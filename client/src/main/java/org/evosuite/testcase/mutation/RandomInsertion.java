@@ -32,11 +32,9 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-
-import static java.util.stream.Collectors.toList;
+import java.util.stream.Collectors;
 
 /**
  * An insertion strategy that allows for modification of test cases by inserting random statements.
@@ -50,99 +48,119 @@ public class RandomInsertion implements InsertionStrategy {
         double r = Randomness.nextDouble();
         int oldSize = test.size();
 
-		/*
-			TODO: if allow inserting a UUT method in the middle of a test,
-			 we need to handle case of not breaking any initializing bounded variable
-		 */
-
-        int position = 0;
-
-        assert Properties.INSERTION_UUT + Properties.INSERTION_ENVIRONMENT + Properties.INSERTION_PARAMETER == 1.0;
-
-        // Whether to insert a call on the unit under test at the end of the given test case.
-        final boolean insertUUT = Properties.INSERTION_UUT > 0
-                && r <= Properties.INSERTION_UUT
-                && TestCluster.getInstance().getNumTestCalls() > 0;
-
         /*
-         * Whether to insert a call on the environment of the unit under test at the end of the
-         * given test case. The environment of a test case are external resources for the test case
-         * such as handles to files on the file system, sockets that open network connections, etc.
+            TODO: if allow inserting a UUT method in the middle of a test,
+             we need to handle case of not breaking any initializing bounded variable
          */
-        final boolean insertEnv = !insertUUT
-                && Properties.INSERTION_ENVIRONMENT > 0
-                && r > Properties.INSERTION_UUT && r <= Properties.INSERTION_UUT + Properties.INSERTION_ENVIRONMENT
-                && TestCluster.getInstance().getNumOfEnvironmentCalls() > 0;
 
-        boolean insertParam = !insertUUT && !insertEnv;
+        int position = INSERTION_ERROR;
+
+        if (Properties.INSERTION_UUT + Properties.INSERTION_ENVIRONMENT + Properties.INSERTION_PARAMETER != 1.0) {
+            // Assertions are often disabled, so we log a warning instead of asserting
+            logger.warn("Insertion probabilities do not sum to 1.0: UUT={}, Environment={}, Parameter={}",
+                    Properties.INSERTION_UUT, Properties.INSERTION_ENVIRONMENT, Properties.INSERTION_PARAMETER);
+        }
+
+        // Determine intended action based on probabilities
+        boolean attemptUUT = Properties.INSERTION_UUT > 0 && r <= Properties.INSERTION_UUT;
+        boolean attemptEnv = Properties.INSERTION_ENVIRONMENT > 0 && r > Properties.INSERTION_UUT && r <= Properties.INSERTION_UUT + Properties.INSERTION_ENVIRONMENT;
+
+        // Fallback or explicit parameter insertion
+        // If we didn't pick UUT or ENV, then we picked PARAM.
+        // Also if we picked UUT or ENV but they are not possible (no calls available), we might fall back.
 
         boolean success = false;
-        if (insertUUT) {
-            // Insert a call to the UUT at the end
-            position = test.size();
-            success = TestFactory.getInstance().insertRandomCall(test, lastPosition + 1);
-        } else if (insertEnv) {
-			/*
-				Insert a call to the environment, i.e., external resources for the test case such
-				as handles to files on the file system, sockets that open network connections, etc.
-				As such call is likely to depend on many constraints, we do not specify here the
-				position of where it ll happen.
-			 */
+
+        if (attemptUUT && TestCluster.getInstance().getNumTestCalls() > 0) {
+            // Insert a call to the UUT
+            // We assume insertion should happen after the last valid position
+            position = lastPosition + 1;
+            success = TestFactory.getInstance().insertRandomCall(test, position);
+            if (success) {
+                logger.debug("Inserted random call to UUT");
+            }
+        } else if (attemptEnv && TestCluster.getInstance().getNumOfEnvironmentCalls() > 0) {
+             /*
+                Insert a call to the environment, i.e., external resources for the test case such
+                as handles to files on the file system, sockets that open network connections, etc.
+                As such call is likely to depend on many constraints, we do not specify here the
+                position of where it ll happen.
+             */
             position = TestFactory.getInstance().insertRandomCallOnEnvironment(test, lastPosition);
             success = (position >= 0);
-        } else if (insertParam) {
+            if (success) {
+                logger.debug("Inserted random call to Environment");
+            }
+        }
+
+        // If neither UUT nor ENV were successful (either not chosen, or failed/not available), try Parameter insertion
+        if (!success) {
             // Insert a call to a variable (one that is used as a parameter for some function call
             // in the test case). The idea is to mutate the parameter so that new program states
             // can be reached in the function call.
-            VariableReference var = selectRandomVariableForCall(test, lastPosition);
-            if (var != null) {
-                // find the last position where the selected variable is used in the test case
-                final int lastUsage = test.getReferences(var).stream()
-                        .mapToInt(VariableReference::getStPosition)
-                        .max().orElse(var.getStPosition());
-
-                if (lastUsage > var.getStPosition() + 1) {
-                    // If there is more than 1 statement where it is used, we randomly choose a position
-                    position = Randomness.nextInt(var.getStPosition() + 1, // call has to be after the object is created
-                            lastUsage                // but before the last usage
-                    );
-                } else if (lastUsage == var.getStPosition()) {
-                    // The variable isn't used
-                    position = lastUsage + 1;
-                } else {
-                    // The variable is used at only one position, we insert at exactly that position
-                    position = lastUsage;
-                }
-
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Inserting call at position " + position + ", chosen var: "
-                            + var.getName() + ", distance: " + var.getDistance() + ", class: "
-                            + var.getClassName());
-                }
-
-                success = TestFactory.getInstance().insertRandomCallOnObjectAt(test, var, position);
+            position = insertCallOnObject(test, lastPosition);
+            success = (position != INSERTION_ERROR);
+            if (success) {
+                logger.debug("Inserted random call on object");
             }
+        }
 
-            if (!success && TestCluster.getInstance().getNumTestCalls() > 0) {
-                logger.debug("Adding new call on UUT because var was null");
-                //Why was it different from UUT insertion? ie, in random position instead of last
-                //position = Randomness.nextInt(max);
-                position = test.size();
-                success = TestFactory.getInstance().insertRandomCall(test, position);
-            }
+        // If even that failed, try UUT again as a last resort fallback if calls are available
+        if (!success && TestCluster.getInstance().getNumTestCalls() > 0) {
+            logger.debug("Adding new call on UUT because other strategies failed");
+            // To be consistent with "after lastPosition"
+            position = lastPosition + 1;
+            success = TestFactory.getInstance().insertRandomCall(test, position);
         }
 
         // This can happen if insertion had side effect of adding further previous statements in the
         // test, e.g., to handle input parameters.
         if (test.size() - oldSize > 1) {
+            // Adjust position to point to the last inserted statement (approximately)
+            // or rather, return the new "last valid position".
             position += (test.size() - oldSize - 1);
         }
 
         if (success) {
             return position;
         } else {
-            return -1;
+            return INSERTION_ERROR;
         }
+    }
+
+    private int insertCallOnObject(TestCase test, int lastPosition) {
+        VariableReference var = selectRandomVariableForCall(test, lastPosition);
+        if (var != null) {
+            // find the last position where the selected variable is used in the test case
+            final int lastUsage = test.getReferences(var).stream()
+                    .mapToInt(VariableReference::getStPosition)
+                    .max().orElse(var.getStPosition());
+
+            int position;
+            if (lastUsage > var.getStPosition() + 1) {
+                // If there is more than 1 statement where it is used, we randomly choose a position
+                position = Randomness.nextInt(var.getStPosition() + 1, // call has to be after the object is created
+                        lastUsage                // but before the last usage
+                );
+            } else if (lastUsage == var.getStPosition()) {
+                // The variable isn't used
+                position = lastUsage + 1;
+            } else {
+                // The variable is used at only one position, we insert at exactly that position
+                position = lastUsage;
+            }
+
+            if (logger.isDebugEnabled()) {
+                logger.debug("Inserting call at position " + position + ", chosen var: "
+                        + var.getName() + ", distance: " + var.getDistance() + ", class: "
+                        + var.getClassName());
+            }
+
+            if (TestFactory.getInstance().insertRandomCallOnObjectAt(test, var, position)) {
+                return position;
+            }
+        }
+        return INSERTION_ERROR;
     }
 
     /**
@@ -151,7 +169,7 @@ public class RandomInsertion implements InsertionStrategy {
      * {@code null} is returned.
      *
      * @param test     the test case from which to select the variable
-     * @param position the position in the test case up to which a variable shoulb be selected
+     * @param position the position in the test case up to which a variable should be selected
      * @return the selected variable or {@code null} (see above)
      */
     private VariableReference selectRandomVariableForCall(TestCase test, int position) {
@@ -159,44 +177,36 @@ public class RandomInsertion implements InsertionStrategy {
             return null;
 
         List<VariableReference> allVariables = test.getObjects(position);
-        List<VariableReference> candidateVariables = new ArrayList<>();
 
-        for (VariableReference var : allVariables) {
-
-            if (!(var instanceof NullReference) &&
-                    !var.isVoid() &&
-                    !var.getGenericClass().isObject() &&
-                    !(test.getStatement(var.getStPosition()) instanceof PrimitiveStatement) &&
-                    !var.isPrimitive() &&
-                    !var.isWrapperType() &&
-                    !var.isString() &&
-                    (test.hasReferences(var) || var.getVariableClass().equals(Properties.getInitializedTargetClass())) &&
-					/* Note: this check has been added only recently,
-						to avoid having added calls to UUT in the middle of the test
-					 */
-					/*
-					   Commented this out again, as it would mean that methods of the SUT class
-					   that are declared in a superclass would not be inserted at all, but now
-					   this may break some constraints.
-					 */
-//					!var.getVariableClass().equals(Properties.getTargetClass()) &&
-                    //do not directly call methods on mock objects
-                    !(test.getStatement(var.getStPosition()) instanceof FunctionalMockStatement)) {
-
-                candidateVariables.add(var);
-            }
-        }
+        List<VariableReference> candidateVariables = allVariables.stream()
+                .filter(var -> isValidVariableForCall(test, var))
+                .collect(Collectors.toList());
 
         if (candidateVariables.isEmpty()) {
             return null;
         } else if (Properties.SORT_OBJECTS) {
-            candidateVariables = candidateVariables.stream()
-                    .sorted(Comparator.comparingInt(VariableReference::getDistance))
-                    .collect(toList());
+            candidateVariables.sort(Comparator.comparingInt(VariableReference::getDistance));
             return ListUtil.selectRankBiased(candidateVariables);
         } else {
             return Randomness.choice(candidateVariables);
         }
+    }
+
+    private boolean isValidVariableForCall(TestCase test, VariableReference var) {
+        if (var instanceof NullReference) return false;
+        if (var.isVoid()) return false;
+        if (var.getGenericClass().isObject()) return false;
+        if (var.isPrimitive()) return false;
+        if (var.isWrapperType()) return false;
+        if (var.isString()) return false;
+
+        // Check statement types
+        if (test.getStatement(var.getStPosition()) instanceof PrimitiveStatement) return false;
+        if (test.getStatement(var.getStPosition()) instanceof FunctionalMockStatement) return false;
+
+        // Check usages / SUT
+        // Note: this check has been added only recently, to avoid having added calls to UUT in the middle of the test
+        return test.hasReferences(var) || var.getVariableClass().equals(Properties.getInitializedTargetClass());
     }
 
 }
