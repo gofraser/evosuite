@@ -107,25 +107,18 @@ public class AssignmentStatement extends AbstractStatement {
             VariableReference newTarget;
 
             // FIXXME: Return value should always be an existing variable
-            //if (retval.getAdditionalVariableReference() != null)
             newTarget = retval.copy(newTestCase, offset);
-            //else
-            //	newTarget = retval.copy(newTestCase, offset);
-            //newTarget = new VariableReferenceImpl(newTestCase, retval.getType());
+
             AssignmentStatement copy = new AssignmentStatement(newTestCase, newTarget,
                     newParam);
-            // copy.assertions = copyAssertions(newTestCase, offset);
 
-            //logger.info("Copy of statement is: " + copy.getCode());
             return copy;
         } catch (Exception e) {
             logger.info("Error cloning statement " + getCode());
             logger.info("In test: " + this.tc.toCode());
             logger.info("New test: " + newTestCase.toCode());
-            e.printStackTrace();
-            assert (false) : e.toString();
+            throw new EvosuiteError(e);
         }
-        return null;
     }
 
     /**
@@ -150,8 +143,6 @@ public class AssignmentStatement extends AbstractStatement {
                     }
 
                     retval.setObject(scope, value);
-                    //} catch (CodeUnderTestException e) {
-                    //	throw CodeUnderTestException.throwException(e.getCause());
                 } catch (IllegalArgumentException e) {
                     logger.error("Error assigning value of type "
                             + parameter.getSimpleClassName() + " defined at statement "
@@ -162,6 +153,7 @@ public class AssignmentStatement extends AbstractStatement {
 
                     // FIXXME: IllegalArgumentException may happen when we only have generators
                     // for an abstract supertype and not the concrete type that we need!
+                    // We rethrow it so that the execution framework can handle it (e.g., by marking the test as failing or invalid)
                     throw e;
                 } catch (CodeUnderTestException e) {
                     throw e;
@@ -232,13 +224,8 @@ public class AssignmentStatement extends AbstractStatement {
     public void replace(VariableReference var1, VariableReference var2) {
         if (parameter.equals(var1))
             parameter = var2;
-            //else if (retval.equals(var1))
-            //	retval = var2;
         else
             parameter.replaceAdditionalVariableReference(var1, var2);
-        //else if (var1.equals(retval.getAdditionalVariableReference()))
-        //	retval.setAdditionalVariableReference(var2);
-
     }
 
     /**
@@ -300,13 +287,6 @@ public class AssignmentStatement extends AbstractStatement {
     public boolean isValid() {
         assert (super.isValid());
         parameter.getStPosition();
-        //if (!retval.getVariableClass().isAssignableFrom(parameter.getVariableClass())) {
-        //	logger.error("Type mismatch: " + retval.getVariableClass() + " and "
-        //	        + parameter.getVariableClass());
-        //	logger.error(tc.toCode());
-        //}
-
-        //assert (retval.getVariableClass().isAssignableFrom(parameter.getVariableClass()));
         return true;
     }
 

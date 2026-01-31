@@ -248,7 +248,6 @@ public class MethodStatement extends EntityWithParametersStatement {
                         }
                     } catch (CodeUnderTestException e) {
                         throw e;
-                        // throw CodeUnderTestException.throwException(e.getCause());
                     } catch (Throwable e) {
                         e.printStackTrace();
                         throw new EvosuiteError(e);
@@ -276,7 +275,6 @@ public class MethodStatement extends EntityWithParametersStatement {
                         retval.setObject(scope, ret);
                     } catch (CodeUnderTestException e) {
                         throw e;
-                        // throw CodeUnderTestException.throwException(e);
                     } catch (Throwable e) {
                         throw new EvosuiteError(e);
                     }
@@ -327,6 +325,9 @@ public class MethodStatement extends EntityWithParametersStatement {
         if (isStatic()) {
             // FIXXME: If callee is an array index, this will return an invalid
             // copy of the cloned variable!
+            // This is a known limitation. When the callee is an array index, simply cloning the variable reference
+            // might not correctly point to the intended array element in the new test case context if the array itself
+            // has changed position or if the index logic is complex. This needs architectural review.
             m = new MethodStatement(newTestCase, method.copy(), null, newParams);
         } else {
             VariableReference newCallee = callee.copy(newTestCase, offset);
@@ -344,8 +345,6 @@ public class MethodStatement extends EntityWithParametersStatement {
 
         }
         m.getReturnValue().setType(retval.getType()); // Actual type may have changed, e.g. subtype
-
-        // m.assertions = copyAssertions(newTestCase, offset);
 
         return m;
     }
