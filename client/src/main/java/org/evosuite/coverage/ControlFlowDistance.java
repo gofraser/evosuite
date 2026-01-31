@@ -29,10 +29,8 @@ import org.evosuite.ga.FitnessFunction;
  */
 public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
 
-    // TODO make private and redirect all accesses to setter and getter - was
-    // too lazy to do concurrency and mutation package right now
-    public int approachLevel;
-    public double branchDistance;
+    private int approachLevel;
+    private double branchDistance;
 
     /**
      * Creates the 0-distance, meaning a distance having approachLevel and
@@ -65,19 +63,10 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
      */
     @Override
     public int compareTo(ControlFlowDistance o) {
-        ControlFlowDistance d = o;
-        if (approachLevel < d.approachLevel)
-            return -1;
-        else if (approachLevel > d.approachLevel)
-            return 1;
-        else {
-            if (branchDistance < d.branchDistance)
-                return -1;
-            else if (branchDistance > d.branchDistance)
-                return 1;
-            else
-                return 0;
+        if (approachLevel != o.approachLevel) {
+            return Integer.compare(approachLevel, o.approachLevel);
         }
+        return Double.compare(branchDistance, o.branchDistance);
     }
 
     /**
@@ -139,7 +128,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
      * @return a double.
      */
     public double getResultingBranchFitness() {
-
         return approachLevel + FitnessFunction.normalize(branchDistance);
     }
 

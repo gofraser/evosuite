@@ -49,16 +49,15 @@ public class CoverageCriteriaAnalyzer {
 
     private static final Map<String, StringBuffer> coverageBitString = new TreeMap<>();
 
+    private static final Set<Properties.Criterion> MUTATION_CRITERIA = EnumSet.of(
+            Properties.Criterion.MUTATION,
+            Properties.Criterion.WEAKMUTATION,
+            Properties.Criterion.STRONGMUTATION,
+            Properties.Criterion.ONLYMUTATION
+    );
+
     private static boolean isMutationCriterion(Properties.Criterion criterion) {
-        switch (criterion) {
-            case MUTATION:
-            case WEAKMUTATION:
-            case STRONGMUTATION:
-            case ONLYMUTATION:
-                return true;
-            default:
-                return false;
-        }
+        return MUTATION_CRITERIA.contains(criterion);
     }
 
     private static void reinstrument(TestSuiteChromosome testSuite, Properties.Criterion criterion) {

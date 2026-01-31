@@ -40,7 +40,7 @@ public abstract class TestCoverageGoal {
     /**
      * Constant <code>logger</code>
      */
-    protected final static Logger logger = LoggerFactory.getLogger(TestCoverageGoal.class);
+    private final static Logger logger = LoggerFactory.getLogger(TestCoverageGoal.class);
 
 
     /**
