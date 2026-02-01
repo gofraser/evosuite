@@ -123,22 +123,29 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
-        double fitness = 1.0;
+        double fitness = Double.MAX_VALUE;
+        boolean found = false;
 
         for (Set<InputCoverageGoal> coveredGoals : result.getInputGoals().values()) {
-            if (!coveredGoals.contains(this.goal)) {
-                continue;
-            }
-
             for (InputCoverageGoal coveredGoal : coveredGoals) {
-                if (coveredGoal.equals(this.goal)) {
+                if (this.goal.isSameArgument(coveredGoal)) {
+                    found = true;
                     double distance = this.calculateDistance(coveredGoal);
-                    if (!(distance < 0.0)) {
+                    if (distance < fitness) {
                         fitness = distance;
+                    }
+                    if (fitness == 0.0) {
                         break;
                     }
                 }
             }
+            if (fitness == 0.0) {
+                break;
+            }
+        }
+
+        if (!found) {
+            fitness = Double.MAX_VALUE;
         }
 
         assert fitness >= 0.0;
@@ -157,7 +164,7 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
 
     private double calculateDistance(InputCoverageGoal coveredGoal) {
         Number argValue = coveredGoal.getNumericValue();
-        switch (coveredGoal.getType().getSort()) {
+        switch (goal.getType().getSort()) {
             case Type.BYTE:
             case Type.SHORT:
             case Type.INT:
@@ -166,15 +173,14 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
             case Type.DOUBLE:
                 assert (argValue != null);
                 assert (argValue instanceof Number);
-                // TODO: ideally we should be able to tell between Number as an object, and primitive numeric types
                 double doubleValue = argValue.doubleValue();
                 if (Double.isNaN(doubleValue)) { // EvoSuite generates Double.NaN
-                    return -1;
+                    return Double.MAX_VALUE;
                 }
 
-                double distanceToNegative = 0.0;
-                double distanceToZero = 0.0;
-                double distanceToPositive = 0.0;
+                double distanceToNegative;
+                double distanceToZero;
+                double distanceToPositive;
 
                 if (doubleValue < 0) {
                     distanceToNegative = 0;
@@ -190,7 +196,7 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
                     distanceToPositive = 0;
                 }
 
-                switch (coveredGoal.getValueDescriptor()) {
+                switch (goal.getValueDescriptor()) {
                     case NUM_NEGATIVE:
                         return distanceToNegative;
                     case NUM_ZERO:
@@ -219,16 +225,18 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
                     distanceToDigit = charValue - '9';
                 }
 
-                double distanceToOther = 0.0; // TODO distanceToOther is never used!
-                if (charValue > '0' && charValue < '9') {
-                    distanceToAlpha = Math.min(charValue - '0', '9' - charValue);
-                } else if (charValue > 'A' && charValue < 'Z') {
-                    distanceToAlpha = Math.min(charValue - 'A', 'Z' - charValue);
-                } else if (charValue > 'a' && charValue < 'z') {
-                    distanceToAlpha = Math.min(charValue - 'A', 'Z' - charValue);
+                double distanceToOther = 0.0;
+                if (Character.isAlphabetic(charValue)) {
+                    if (charValue >= 'A' && charValue <= 'Z') {
+                        distanceToOther = Math.min(charValue - ('A' - 1), ('Z' + 1) - charValue);
+                    } else if (charValue >= 'a' && charValue <= 'z') {
+                        distanceToOther = Math.min(charValue - ('a' - 1), ('z' + 1) - charValue);
+                    }
+                } else if (Character.isDigit(charValue)) {
+                    distanceToOther = Math.min(charValue - ('0' - 1), ('9' + 1) - charValue);
                 }
 
-                switch (coveredGoal.getValueDescriptor()) {
+                switch (goal.getValueDescriptor()) {
                     case CHAR_ALPHA:
                         return distanceToAlpha;
                     case CHAR_DIGIT:
@@ -239,10 +247,15 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
 
                 break;
             default:
-                return 0.0;
+                // For other types like Boolean, String, Array, Object, we check if descriptors match
+                if (Objects.equals(goal.getValueDescriptor(), coveredGoal.getValueDescriptor())) {
+                    return 0.0;
+                } else {
+                    return 1.0;
+                }
         }
 
-        return 0.0;
+        return 1.0;
     }
 
     /**

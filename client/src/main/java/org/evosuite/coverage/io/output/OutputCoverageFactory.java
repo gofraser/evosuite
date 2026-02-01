@@ -22,7 +22,6 @@ package org.evosuite.coverage.io.output;
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.assertion.Inspector;
 import org.evosuite.assertion.InspectorManager;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
@@ -35,7 +34,6 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.evosuite.coverage.io.IOCoverageConstants.*;
@@ -111,13 +109,14 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
                         break;
                     case Type.OBJECT:
                         goals.add(createGoal(className, methodName, returnType, REF_NULL));
-                        //goals.add(new OutputCoverageTestFitness(new OutputCoverageGoal(className, methodName, returnType.toString(), REF_NONNULL)));
                         if (returnType.getClassName().equals("java.lang.String")) {
                             goals.add(createGoal(className, methodName, returnType, STRING_EMPTY));
                             goals.add(createGoal(className, methodName, returnType, STRING_NONEMPTY));
                             break;
                         }
-                        boolean observerGoalsAdded = false;
+
+                        goals.add(createGoal(className, methodName, returnType, REF_NONNULL));
+
                         Class<?> returnClazz = method.getReturnType();
                         for (Inspector inspector : InspectorManager.getInstance().getInspectors(returnClazz)) {
                             String insp = inspector.getMethodCall() + Type.getMethodDescriptor(inspector.getMethod());
@@ -125,16 +124,12 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
                             if (t.getSort() == Type.BOOLEAN) {
                                 goals.add(createGoal(className, methodName, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + BOOL_TRUE));
                                 goals.add(createGoal(className, methodName, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + BOOL_FALSE));
-                                observerGoalsAdded = true;
-                            } else if (Arrays.asList(new Integer[]{Type.BYTE, Type.SHORT, Type.INT, Type.FLOAT, Type.LONG, Type.DOUBLE}).contains(t.getSort())) {
+                            } else if (t.getSort() >= Type.BYTE && t.getSort() <= Type.DOUBLE) {
                                 goals.add(createGoal(className, methodName, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + NUM_NEGATIVE));
                                 goals.add(createGoal(className, methodName, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + NUM_ZERO));
                                 goals.add(createGoal(className, methodName, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + NUM_POSITIVE));
-                                observerGoalsAdded = true;
                             }
                         }
-                        if (!observerGoalsAdded)
-                            goals.add(createGoal(className, methodName, returnType, REF_NONNULL));
                         break;
                     default:
                         // Ignore
@@ -151,22 +146,5 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
         OutputCoverageGoal goal = new OutputCoverageGoal(className, methodName, returnType, suffix);
         logger.info("Created output coverage goal: {}", goal);
         return new OutputCoverageTestFitness(goal);
-    }
-
-    /**
-     * Returns list of inspector methods in a given class.
-     * An inspector is a cheap-pure method with no arguments.
-     *
-     * @param className A class name
-     */
-    public static List<String> getInspectors(String className) {
-        List<String> pureMethods = CheapPurityAnalyzer.getInstance().getPureMethods(className);
-        List<String> inspectors = new ArrayList<>();
-        for (String pm : pureMethods) {
-            if ((Type.getArgumentTypes(pm.substring(pm.indexOf('('))).length == 0) &&
-                    !(pm.substring(0, pm.indexOf("(")).equals("<clinit>")))
-                inspectors.add(pm);
-        }
-        return inspectors;
     }
 }
