@@ -61,9 +61,7 @@ public class HashCodeReturnsNormallyContract extends Contract {
                 if (equalsMethod.getDeclaringClass().equals(Object.class))
                     continue;
 
-            } catch (SecurityException e1) {
-                continue;
-            } catch (NoSuchMethodException e1) {
+            } catch (SecurityException | NoSuchMethodException e1) {
                 continue;
             }
 
@@ -96,12 +94,8 @@ public class HashCodeReturnsNormallyContract extends Contract {
             test.addStatement(st1, position + 1);
             st1.addComment("Throws exception: " + exception.getMessage());
 
-        } catch (NoSuchMethodException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (SecurityException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+        } catch (NoSuchMethodException | SecurityException e) {
+            logger.error("Failed to add assertion for hashCode contract violation", e);
         }
     }
 

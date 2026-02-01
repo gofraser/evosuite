@@ -64,20 +64,10 @@ public class UndeclaredExceptionContract extends Contract {
                     return null;
                 }
 
-                /*
-                 * even if possible handled by other contracts, that does not mean
-                 * they check the signature.
-                 * TODO: Not sure I can follow, what does that have to do with the signature
-                 */
                 // Assertion errors are checked by a different contract
                 if (exception instanceof AssertionError)
                     return null;
-				/*
-				// NullPointerExceptions are checked by a different contract
-				if (exception instanceof NullPointerException) {
-					return true;
-				}
-				*/
+
                 if (statement instanceof MethodStatement) {
                     // hashCode and toString are covered already
                     String methodName = ((MethodStatement) statement).getMethod().getName();

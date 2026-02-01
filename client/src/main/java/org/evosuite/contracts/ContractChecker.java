@@ -51,15 +51,7 @@ public class ContractChecker extends ExecutionObserver {
 
     private final Set<Contract> contracts = new HashSet<>();
 
-    /*
-     * Maybe it was not a problem, but it all depends on when Properties.CHECK_CONTRACTS_END
-     * is initialized. Maybe best to just call it directly
-     */
-    //private static final boolean checkAtEnd = Properties.CHECK_CONTRACTS_END;
-
     private static final Set<Contract> invalid = new HashSet<>();
-
-    //private static boolean valid = true;
 
     private static boolean active = true;
 
@@ -102,7 +94,7 @@ public class ContractChecker extends ExecutionObserver {
                 }
                 for (Method method : theory.getDeclaredMethods()) {
                     if (method.isAnnotationPresent(Theory.class)) {
-                        logger.info("Found theory method: " + method.getName());
+                        logger.info("Found theory method: {}", method.getName());
                         if (method.getParameterTypes().length != 1) {
                             logger.info("Wrong number of arguments!");
                             continue;
@@ -111,24 +103,16 @@ public class ContractChecker extends ExecutionObserver {
                             GenericMethod gm = new GenericMethod(method, theory);
                             JUnitTheoryContract contract = new JUnitTheoryContract(gm);
                             contracts.add(contract);
-                        } catch (InstantiationException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        } catch (IllegalAccessException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
+                        } catch (Exception e) {
+                            logger.error("Failed to instantiate theory method: {}", method.getName(), e);
                         }
 
                     }
                 }
             } catch (ClassNotFoundException e) {
-                logger.warn("Could not load theory " + theoryName + ": " + e);
-            } catch (NoSuchMethodException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            } catch (SecurityException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
+                logger.warn("Could not load theory {}: {}", theoryName, e.getMessage());
+            } catch (NoSuchMethodException | SecurityException e) {
+                logger.error("Error accessing theory class constructor: {}", theoryName, e);
             }
         }
 
@@ -154,8 +138,7 @@ public class ContractChecker extends ExecutionObserver {
      */
     @Override
     public void output(int position, String output) {
-        // TODO Auto-generated method stub
-
+        // Not used
     }
 
     /**
@@ -165,7 +148,6 @@ public class ContractChecker extends ExecutionObserver {
      */
     public static void currentTest(TestCase test) {
         currentTest = test;
-        //ContractChecker.valid = true;
         ContractChecker.invalid.clear();
         // TODO: Keep track of objects that raised an exception, and exclude them from contract checking
     }
@@ -180,18 +162,6 @@ public class ContractChecker extends ExecutionObserver {
     @Override
     public void afterStatement(Statement statement, Scope scope,
                                Throwable exception) {
-
-        //if (!ContractChecker.valid) {
-        /*
-         * once we get a contract that is violated, no point in checking the following statements,
-         * because the internal state of the SUT is corrupted.
-         *
-         * TODO: at this point, for the fitness function we still consider the coverage given by the
-         * following statements. Maybe that should be changed? At the moment, we only stop if exceptions
-         */
-        //	logger.debug("Not checking contracts for invalid test");
-        //	return;
-        //}
 
         if (!ContractChecker.active) {
             return;
@@ -212,18 +182,10 @@ public class ContractChecker extends ExecutionObserver {
                     logger.debug("Contract failed: {} {}", contract, statement.getCode());
 
                     FailingTestSet.addFailingTest(violation);
-					/*
-					FailingTestSet.addFailingTest(currentTest, contract, statement,
-					                              exception);
-					                              */
-                    //ContractChecker.valid = false;
                     invalid.add(contract);
-                    //break;
                 }
             } catch (Throwable t) {
-                logger.debug("Caught exception during contract checking: " + t);
-                for (StackTraceElement e : t.getStackTrace())
-                    logger.info(e.toString());
+                logger.debug("Caught exception during contract checking: ", t);
             }
         }
     }
@@ -246,7 +208,6 @@ public class ContractChecker extends ExecutionObserver {
     @Override
     public void clear() {
         ContractChecker.invalid.clear();
-        // ContractChecker.valid = true;
     }
 
     @Override
