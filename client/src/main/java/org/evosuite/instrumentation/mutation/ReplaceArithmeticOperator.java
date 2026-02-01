@@ -50,8 +50,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     private static final Set<Integer> opcodesDouble = new HashSet<>();
 
-    private int numVariable = 0;
-
     static {
         opcodesInt.addAll(Arrays.asList(Opcodes.IADD, Opcodes.ISUB,
                 Opcodes.IMUL, Opcodes.IDIV, Opcodes.IREM));
@@ -173,7 +171,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
 
-        numVariable = getNextIndex(mn);
+        int numVariable = getNextIndex(mn);
         List<Mutation> mutations = new LinkedList<>();
 
         InsnNode node = (InsnNode) instruction.getASMNode();
@@ -191,8 +189,11 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                     instruction,
                     mutation,
                     getInfectionDistance(node.getOpcode(),
-                            opcode));
+                            opcode, numVariable));
             mutations.add(mutationObject);
+            if (opcodesLong.contains(node.getOpcode()) || opcodesDouble.contains(node.getOpcode())) {
+                numVariable += 2;
+            }
         }
 
         return mutations;
@@ -218,9 +219,10 @@ public class ReplaceArithmeticOperator implements MutationOperator {
      *
      * @param opcodeOrig a int.
      * @param opcodeNew  a int.
+     * @param localVar   a int.
      * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
-    public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew) {
+    public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew, int localVar) {
         InsnList distance = new InsnList();
 
         if (opcodesInt.contains(opcodeOrig)) {
@@ -232,9 +234,9 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                     PackageInfo.getNameWithSlash(ReplaceArithmeticOperator.class),
                     "getInfectionDistanceInt", "(IIII)D", false));
         } else if (opcodesLong.contains(opcodeOrig)) {
-            distance.add(new VarInsnNode(Opcodes.LSTORE, numVariable));
+            distance.add(new VarInsnNode(Opcodes.LSTORE, localVar));
             distance.add(new InsnNode(Opcodes.DUP2));
-            distance.add(new VarInsnNode(Opcodes.LLOAD, numVariable));
+            distance.add(new VarInsnNode(Opcodes.LLOAD, localVar));
             distance.add(new InsnNode(Opcodes.DUP2_X2));
             distance.add(new LdcInsnNode(opcodeOrig));
             distance.add(new LdcInsnNode(opcodeNew));
@@ -242,7 +244,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                     Opcodes.INVOKESTATIC,
                     PackageInfo.getNameWithSlash(ReplaceArithmeticOperator.class),
                     "getInfectionDistanceLong", "(JJII)D", false));
-            numVariable += 2;
         } else if (opcodesFloat.contains(opcodeOrig)) {
             distance.add(new InsnNode(Opcodes.DUP2));
             distance.add(new LdcInsnNode(opcodeOrig));
@@ -252,9 +253,9 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                     PackageInfo.getNameWithSlash(ReplaceArithmeticOperator.class),
                     "getInfectionDistanceFloat", "(FFII)D", false));
         } else if (opcodesDouble.contains(opcodeOrig)) {
-            distance.add(new VarInsnNode(Opcodes.DSTORE, numVariable));
+            distance.add(new VarInsnNode(Opcodes.DSTORE, localVar));
             distance.add(new InsnNode(Opcodes.DUP2));
-            distance.add(new VarInsnNode(Opcodes.DLOAD, numVariable));
+            distance.add(new VarInsnNode(Opcodes.DLOAD, localVar));
             distance.add(new InsnNode(Opcodes.DUP2_X2));
             distance.add(new LdcInsnNode(opcodeOrig));
             distance.add(new LdcInsnNode(opcodeNew));
@@ -262,7 +263,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                     Opcodes.INVOKESTATIC,
                     PackageInfo.getNameWithSlash(ReplaceArithmeticOperator.class),
                     "getInfectionDistanceDouble", "(DDII)D", false));
-            numVariable += 2;
         }
 
         return distance;
@@ -405,7 +405,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
             case Opcodes.LREM:
                 return x % y;
         }
-        throw new RuntimeException("Unknown integer opcode: " + opcode);
+        throw new RuntimeException("Unknown long opcode: " + opcode);
     }
 
     /**
@@ -429,7 +429,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
             case Opcodes.FREM:
                 return x % y;
         }
-        throw new RuntimeException("Unknown integer opcode: " + opcode);
+        throw new RuntimeException("Unknown float opcode: " + opcode);
     }
 
     /**
@@ -453,7 +453,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
             case Opcodes.DREM:
                 return x % y;
         }
-        throw new RuntimeException("Unknown integer opcode: " + opcode);
+        throw new RuntimeException("Unknown double opcode: " + opcode);
     }
 
     /* (non-Javadoc)
