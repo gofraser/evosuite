@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -75,26 +76,32 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
     public DominatorTree(ControlFlowGraph<V> cfg) {
         super(DefaultEdge.class);
 
+        if (cfg == null) {
+            throw new IllegalArgumentException("CFG cannot be null");
+        }
+
         logger.debug("Computing DominatorTree for " + cfg.getName());
 
         this.cfg = cfg;
 
         createDominatorNodes();
 
-        V root = cfg.determineEntryPoint(); // TODO change to getEntryPoint()
+        V root = cfg.determineEntryPoint();
         logger.debug("determined root: " + root);
-        DominatorNode<V> rootNode = getDominatorNodeFor(root);
 
-        depthFirstAnalyze(rootNode);
+        if (root != null) {
+            DominatorNode<V> rootNode = getDominatorNodeFor(root);
+            depthFirstAnalyze(rootNode);
 
-        computeSemiDominators();
-        computeImmediateDominators(rootNode);
+            computeSemiDominators();
+            computeImmediateDominators(rootNode);
 
-        createDominatorTree();
+            createDominatorTree();
 
-        computeDominatorFrontiers(rootNode);
-
-        //		toDot();
+            computeDominatorFrontiers(rootNode);
+        } else if (!cfg.vertexSet().isEmpty()) {
+             logger.warn("Could not determine entry point for non-empty CFG: " + cfg.getName());
+        }
     }
 
     private void createDominatorTree() {
@@ -108,53 +115,56 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
         for (DominatorNode<V> v : vertexSet()) {
             if (v.isRootNode())
                 continue;
-            if (addEdge(v.immediateDominator, v) == null)
-                throw new IllegalStateException(
-                        "internal error while building dominator tree edges");
 
-            logger.debug("added DTEdge from " + v.immediateDominator.n + " to " + v.n);
+            if (v.immediateDominator != null) {
+                if (addEdge(v.immediateDominator, v) == null)
+                    throw new IllegalStateException(
+                            "internal error while building dominator tree edges");
+
+                logger.debug("added DTEdge from " + v.immediateDominator.n + " to " + v.n);
+            }
         }
 
         logger.debug("DTEdges: " + edgeCount());
 
         // sanity check
-        if (isEmpty())
-            throw new IllegalStateException("expect dominator trees to not be empty");
-        // check tree is connected
-        if (!isConnected())
-            throw new IllegalStateException("dominator tree expected to be connected");
-        // TODO more sanity checks - no one likes to be insane ;)
+        if (isEmpty() && !cfg.vertexSet().isEmpty())
+            throw new IllegalStateException("expect dominator trees to not be empty for non-empty CFG");
     }
 
     private void computeDominatorFrontiers(DominatorNode<V> currentNode) {
-
-        // TODO check assumption: exitPoints in original CFG are exitPoints in resulting DominatorTree
 
         for (DominatorNode<V> child : getChildren(currentNode))
             computeDominatorFrontiers(child);
 
         logger.debug("computing dominatingFrontier for: " + currentNode.toString());
 
-        Set<V> dominatingFrontier = dominatingFrontiers.get(currentNode);
+        Set<V> dominatingFrontier = dominatingFrontiers.get(currentNode.node);
         if (dominatingFrontier == null)
-            dominatingFrontier = new HashSet<>();
+            dominatingFrontier = new LinkedHashSet<>();
 
         // "local"
         for (V child : cfg.getChildren(currentNode.node)) {
             DominatorNode<V> y = getDominatorNodeFor(child);
-            if (y.immediateDominator.n != currentNode.n) {
+            if (y.immediateDominator != null && y.immediateDominator.n != currentNode.n) {
                 logger.debug("  LOCAL adding to DFs: " + y.node);
                 dominatingFrontier.add(y.node);
             }
         }
 
         // "up"
-        for (DominatorNode<V> z : getChildren(currentNode))
-            for (V y : dominatingFrontiers.get(z.node))
-                if (getDominatorNodeFor(y).immediateDominator.n != currentNode.n) {
-                    logger.debug("  UP adding to DFs: " + y);
-                    dominatingFrontier.add(y);
+        for (DominatorNode<V> z : getChildren(currentNode)) {
+            Set<V> childDF = dominatingFrontiers.get(z.node);
+            if (childDF != null) {
+                for (V y : childDF) {
+                    DominatorNode<V> yDomNode = getDominatorNodeFor(y);
+                    if (yDomNode.immediateDominator != null && yDomNode.immediateDominator.n != currentNode.n) {
+                        logger.debug("  UP adding to DFs: " + y);
+                        dominatingFrontier.add(y);
+                    }
                 }
+            }
+        }
 
         dominatingFrontiers.put(currentNode.node, dominatingFrontier);
     }
@@ -185,10 +195,10 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
 
         if (domNode.immediateDominator == null) {
             // sanity check: this is only allowed to happen if v is root of CFG
-            if (domNode.n != 1)
-                throw new IllegalStateException(
-                        "expect known node without iDom to be root of CFG");
-
+            if (domNode.n != 1) {
+                 // Or if node is unreachable from root.
+                 return null;
+            }
             return null;
         }
 
@@ -205,7 +215,8 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
         if (v == null)
             throw new IllegalStateException("null given");
 
-        return dominatingFrontiers.get(v);
+        Set<V> df = dominatingFrontiers.get(v);
+        return df != null ? df : new LinkedHashSet<>();
     }
 
     // computation
@@ -250,6 +261,8 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
             // step 2
             for (V current : cfg.getParents(w.node)) {
                 DominatorNode<V> v = getDominatorNodeFor(current);
+                if (v.n == 0) continue; // Skip unreachable nodes
+
                 DominatorNode<V> u = v.eval();
 
                 if (u.semiDominator.n < w.semiDominator.n)

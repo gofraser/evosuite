@@ -50,30 +50,7 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         this.methodName = cfg.getMethodName();
 
         computeGraph();
-        // TODO check sanity
     }
-
-    /**
-     * Convenience method redirecting to getControlDependentBranches(BasicBlock)
-     * if the given instruction is known to this CDG. Otherwise an
-     * IllegalArgumentException will be thrown.
-     *
-     * Should no longer be used: rather ask a BasicBlock for its CDs, so it can
-     * cache it.
-     */
-    // public Set<ControlDependency>
-    // getControlDependentBranches(BytecodeInstruction ins) {
-    // if (ins == null)
-    // throw new IllegalArgumentException("null not accepted");
-    // if (!knowsInstruction(ins))
-    // throw new IllegalArgumentException(
-    // "instruction not known to this CDG: " + methodName
-    // + ins.toString());
-    //
-    // BasicBlock insBlock = ins.getBasicBlock();
-    //
-    // return getControlDependentBranches(insBlock);
-    // }
 
     /**
      * Checks whether this graph knows the given instruction. That is there is a
@@ -115,14 +92,13 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
         BasicBlock block = branch.getInstruction().getBasicBlock();
         for (ControlFlowEdge e : outgoingEdgesOf(block)) {
-            // TODO: Why can this be null?
+            // ControlDependency can be null on edges that are not control dependent (e.g. unconditional)
             if (e.getControlDependency() == null
                     || e.getControlDependency().equals(dependency))
                 continue;
             BasicBlock next = getEdgeTarget(e);
             blocks.add(next);
             getReachableBasicBlocks(blocks, next);
-            //			blocks.addAll(getReachableBasicBlocks(next));
         }
         return blocks;
     }
@@ -133,10 +109,8 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
             if (!blocks.contains(next)) {
                 blocks.add(next);
                 getReachableBasicBlocks(blocks, next);
-                //				blocks.addAll(getReachableBasicBlocks(next));
             }
         }
-        //		return blocks;
     }
 
     /**
@@ -159,10 +133,7 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         if (insBlock.hasControlDependenciesSet())
             return insBlock.getControlDependencies();
 
-        Set<ControlDependency> r = retrieveControlDependencies(insBlock,
-                new LinkedHashSet<>());
-
-        return r;
+        return retrieveControlDependencies(insBlock, new LinkedHashSet<>());
     }
 
     private Set<ControlDependency> retrieveControlDependencies(BasicBlock insBlock,
@@ -185,29 +156,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
             }
 
         }
-
-        // TODO need RootBranch Object!!!
-        // TODO the following does not hold! a node can be dependent on the root
-        // branch AND another branch! TODO !!!
-        // // sanity check
-        // if (r.isEmpty()) {
-        // Set<BasicBlock> insParents = getParents(insBlock);
-        // if (insParents.size() != 1) {
-        //
-        // for (BasicBlock b : insParents)
-        // logger.error(b.toString());
-        //
-        // throw new IllegalStateException(
-        // "expect instruction dependent on root branch to have exactly one parent in it's CDG namely the EntryBlock: "
-        // + insBlock.toString());
-        // }
-        //
-        // for (BasicBlock b : insParents)
-        // if (!b.isEntryBlock() && !getControlDependentBranches(b).isEmpty())
-        // throw new IllegalStateException(
-        // "expect instruction dependent on root branch to have exactly one parent in it's CDG namely the EntryBlock"
-        // + insBlock.toString() + methodName);
-        // }
 
         return r;
     }
@@ -239,55 +187,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
         return r;
     }
-
-    // /**
-    // * Determines whether the given Branch has to be evaluated to true or to
-    // * false in order to reach the given BytecodeInstruction - given the
-    // * instruction is directly control dependent on the given Branch.
-    // *
-    // * In other words this method checks whether there is an incoming
-    // * ControlFlowEdge to the given instruction's BasicBlock containing the
-    // * given Branch as it's BranchInstruction and if so, that edges
-    // * branchExpressionValue is returned. If the given instruction is directly
-    // * control dependent on the given branch such a ControlFlowEdge must
-    // exist.
-    // * Should this assumption be violated an IllegalStateException is thrown.
-    // *
-    // * If the given instruction is not known to this CDG or not directly
-    // control
-    // * dependent on the given Branch an IllegalArgumentException is thrown.
-    // */
-    // public boolean getBranchExpressionValue(BytecodeInstruction ins, Branch
-    // b) {
-    // if (ins == null)
-    // throw new IllegalArgumentException("null given");
-    // if (!ins.isDirectlyControlDependentOn(b))
-    // throw new IllegalArgumentException(
-    // "only allowed to call this method for instructions and their directly control dependent branches");
-    // if (b == null)
-    // return true; // root branch special case
-    //
-    // BasicBlock insBlock = ins.getBasicBlock();
-    //
-    // for (ControlFlowEdge e : incomingEdgesOf(insBlock)) {
-    // if (e.isExceptionEdge() && !e.hasControlDependency())
-    // continue;
-    //
-    // Branch current = e.getBranchInstruction();
-    // if (current == null) {
-    // try {
-    // BasicBlock in = getEdgeSource(e);
-    // return getBranchExpressionValue(in.getFirstInstruction(), b);
-    // } catch (Exception ex) {
-    // continue;
-    // }
-    // } else if (current.equals(b))
-    // return e.getBranchExpressionValue();
-    // }
-    //
-    // throw new IllegalStateException(
-    // "expect CDG to contain an incoming edge to the given instructions basic block containing the given branch if isControlDependent() returned true on those two ");
-    // }
 
     // initialization
 
@@ -333,14 +232,11 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         Set<ControlFlowEdge> incomming = incomingEdgesOf(insBlock);
 
         if (incomming.size() == 1) {
-            // in methods with a try-catch-block it is possible that there
+            // In methods with a try-catch-block it is possible that there
             // are nodes in the CDG that have exactly one parent with an
-            // edge without a branchInstruction that is a non exceptional
-            // edge
-            // should the given instruction be such a node, follow the parents
-            // until
+            // edge without a branchInstruction that is a non exceptional edge.
+            // Should the given instruction be such a node, follow the parents until
             // you reach one where the above conditions are not met
-
             for (ControlFlowEdge e : incomming) {
                 if (!e.hasControlDependency() && !e.isExceptionEdge()) {
                     return isDirectlyControlDependentOn(getEdgeSource(e), b);
@@ -367,16 +263,12 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
             if (current == null)
                 continue;
-            // throw new IllegalStateException(
-            // "expect non exceptional ControlFlowEdges whithin the CDG that don't come from EntryBlock to have branchInstructions set "
-            // + insBlock.toString() + methodName);
 
             if (current.equals(b))
                 return true;
         }
 
         return false;
-
     }
 
     /**
@@ -443,33 +335,9 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         return false;
     }
 
-    // /**
-    // * If the given instruction is known to this graph, the BasicBlock holding
-    // * that instruction is returned. Otherwise an IllegalArgumentException
-    // will
-    // * be thrown.
-    // *
-    // * Just a convenience method that more or less just redirects the call to
-    // * the CFG
-    // */
-    // public BasicBlock getBlockOf(BytecodeInstruction ins) {
-    // if (ins == null)
-    // throw new IllegalArgumentException("null given");
-    // if (!cfg.knowsInstruction(ins))
-    // throw new IllegalArgumentException("unknown instruction");
-    //
-    // BasicBlock insBlock = cfg.getBlockOf(ins);
-    // if (insBlock == null)
-    // throw new IllegalStateException(
-    // "expect CFG to return non-null BasicBlock for instruction it knows");
-    //
-    // return insBlock;
-    // }
-
     // init
 
     private void computeGraph() {
-
         createGraphNodes();
         computeControlDependence();
     }
@@ -478,10 +346,16 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         // copy CFG nodes
         addVertices(cfg);
 
+        // Remove exit blocks from CDG as they don't have control dependencies
+        Set<BasicBlock> toRemove = new LinkedHashSet<>();
         for (BasicBlock b : vertexSet())
-            if (b.isExitBlock() && !graph.removeVertex(b)) // TODO refactor
-                throw new IllegalStateException("internal error building up CDG");
+            if (b.isExitBlock())
+                toRemove.add(b);
 
+        for (BasicBlock b : toRemove) {
+            if (!graph.removeVertex(b))
+                throw new IllegalStateException("internal error building up CDG: failed to remove exit block");
+        }
     }
 
     private void computeControlDependence() {
@@ -489,70 +363,59 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         ActualControlFlowGraph rcfg = cfg.computeReverseCFG();
         DominatorTree<BasicBlock> dt = new DominatorTree<>(rcfg);
 
-        for (BasicBlock b : rcfg.vertexSet())
-            if (!b.isExitBlock()) {
+        for (BasicBlock b : rcfg.vertexSet()) {
+            if (b.isExitBlock()) continue;
 
-                logger.debug("DFs for: " + b.getName());
-                for (BasicBlock cd : dt.getDominatingFrontiers(b)) {
-                    ControlFlowEdge orig = cfg.getEdge(cd, b);
+            logger.debug("DFs for: " + b.getName());
+            for (BasicBlock cd : dt.getDominatingFrontiers(b)) {
+                ControlFlowEdge orig = cfg.getEdge(cd, b);
 
-                    if (!cd.isEntryBlock() && orig == null) {
-                        // in for loops for example it can happen that cd and b
-                        // were not directly adjacent to each other in the CFG
-                        // but rather there were some intermediate nodes between
-                        // them and the needed information is inside one of the
-                        // edges
-                        // from cd to the first intermediate node. more
-                        // precisely cd is expected to be a branch and to have 2
-                        // outgoing edges, one for evaluating to true (jumping)
-                        // and one for false. one of them can be followed and b
-                        // will eventually be reached, the other one can not be
-                        // followed in that way. TODO TRY!
+                if (!cd.isEntryBlock() && orig == null) {
+                    // Handling the case where cd and b are not directly connected in CFG
 
-                        logger.debug("cd: " + cd);
-                        logger.debug("b: " + b);
+                    logger.debug("cd: " + cd);
+                    logger.debug("b: " + b);
 
-                        // TODO this is just for now! unsafe and probably not
-                        // even correct!
-                        Set<ControlFlowEdge> candidates = cfg.outgoingEdgesOf(cd);
-                        if (candidates.size() < 2)
-                            throw new IllegalStateException("unexpected");
-
-                        boolean leadToB = false;
-                        boolean skip = false;
-
-                        for (ControlFlowEdge e : candidates) {
-                            if (!e.hasControlDependency()) {
-                                skip = true;
-                                break;
-                            }
-
-                            if (cfg.leadsToNode(e, b)) {
-                                if (leadToB)
-                                    orig = null;
-                                // throw new
-                                // IllegalStateException("unexpected");
-                                leadToB = true;
-
-                                orig = e;
-                            }
-                        }
-                        if (skip)
-                            continue;
-                        if (!leadToB)
-                            throw new IllegalStateException("unexpected");
+                    Set<ControlFlowEdge> candidates = cfg.outgoingEdgesOf(cd);
+                    if (candidates.size() < 2) {
+                        logger.warn("Expected branch node " + cd + " to have multiple outgoing edges, but found " + candidates.size());
                     }
 
-                    if (orig == null)
-                        logger.debug("orig still null!");
+                    boolean leadToB = false;
+                    boolean skip = false;
 
+                    for (ControlFlowEdge e : candidates) {
+                        if (!e.hasControlDependency()) {
+                            skip = true;
+                            break;
+                        }
+
+                        if (cfg.leadsToNode(e, b)) {
+                            if (leadToB) {
+                                orig = null;
+                            }
+                            leadToB = true;
+                            orig = e;
+                        }
+                    }
+                    if (skip)
+                        continue;
+
+                    if (!leadToB) {
+                        logger.warn("Unexpected: node " + cd + " determined as control dependency for " + b + " but no path found.");
+                    }
+                }
+
+                if (orig != null) {
                     if (!addEdge(cd, b, new ControlFlowEdge(orig)))
-                        throw new IllegalStateException(
-                                "internal error while adding CD edge");
+                        throw new IllegalStateException("internal error while adding CD edge");
 
                     logger.debug("  " + cd.getName());
+                } else {
+                    logger.debug("orig is null, cannot add CD edge for " + cd + " -> " + b);
                 }
             }
+        }
     }
 
     /**
@@ -560,7 +423,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
      */
     @Override
     public String getName() {
-        // return "CDG" + graphId + "_" + methodName;
         return methodName + "_" + "CDG";
     }
 
