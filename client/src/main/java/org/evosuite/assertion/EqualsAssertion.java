@@ -25,6 +25,7 @@ import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.variable.VariableReference;
 
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 
 public class EqualsAssertion extends Assertion {
@@ -69,18 +70,15 @@ public class EqualsAssertion extends Assertion {
      */
     @Override
     public String getCode() {
-        if (source.isPrimitive() && dest.isPrimitive()) {
-            if ((Boolean) value)
-                return "assertTrue(" + source.getName() + " == " + dest.getName() + ");";
-            else
-                return "assertFalse(" + source.getName() + " == " + dest.getName() + ");";
+        if ((Boolean) value) {
+            return "assertEquals(" + source.getName() + ", " + dest.getName() + ");";
         } else {
-            if ((Boolean) value)
-                return "assertTrue(" + source.getName() + ".equals((java.lang.Object)" + dest.getName()
+            if (source.isPrimitive() && dest.isPrimitive()) {
+                return "assertFalse(" + source.getName() + " == " + dest.getName() + ");";
+            } else {
+                return "assertFalse(" + source.getName() + ".equals((Object)" + dest.getName()
                         + "));";
-            else
-                return "assertFalse(" + source.getName() + ".equals((java.lang.Object)" + dest.getName()
-                        + "));";
+            }
         }
     }
 
@@ -129,9 +127,7 @@ public class EqualsAssertion extends Assertion {
         if (getClass() != obj.getClass())
             return false;
         EqualsAssertion other = (EqualsAssertion) obj;
-        if (dest == null) {
-            return other.dest == null;
-        } else return dest.equals(other.dest);
+        return Objects.equals(dest, other.dest);
     }
 
     /*

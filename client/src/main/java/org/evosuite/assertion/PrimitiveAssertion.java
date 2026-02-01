@@ -19,6 +19,7 @@
  */
 package org.evosuite.assertion;
 
+import org.evosuite.Properties;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
@@ -38,20 +39,20 @@ public class PrimitiveAssertion extends Assertion {
             return "assertNull(" + source.getName() + ");";
         } else if (source.getVariableClass().equals(float.class)) {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + ", 0.01F);";
+                    + source.getName() + ", " + Properties.FLOAT_PRECISION + "F);";
         } else if (source.getVariableClass().equals(double.class)) {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + ", 0.01D);";
+                    + source.getName() + ", " + Properties.DOUBLE_PRECISION + ");";
         } else if (value.getClass().isEnum()) {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                     + source.getName() + ");";
         } else if (source.isWrapperType()) {
             if (source.getVariableClass().equals(Float.class)) {
                 return "assertEquals(" + NumberFormatter.getNumberString(value)
-                        + "(float)" + source.getName() + ", 0.01F);";
+                        + ", (float)" + source.getName() + ", " + Properties.FLOAT_PRECISION + "F);";
             } else if (source.getVariableClass().equals(Double.class)) {
                 return "assertEquals(" + NumberFormatter.getNumberString(value)
-                        + "(double)" + source.getName() + ", 0.01D);";
+                        + ", (double)" + source.getName() + ", " + Properties.DOUBLE_PRECISION + ");";
             } else if (value.getClass().isEnum()) {
                 return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                         + source.getName() + ");";
