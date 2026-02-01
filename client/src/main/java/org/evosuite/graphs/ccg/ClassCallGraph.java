@@ -24,8 +24,10 @@ import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Represents the method call structure of a class in a graph.
@@ -42,6 +44,8 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
     private final String className;
 
     private final ClassLoader classLoader;
+
+    private final Map<String, ClassCallNode> methodToNodeMap = new HashMap<>();
 
     /**
      * @return the classLoader
@@ -71,21 +75,26 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
 
         if (cfgs == null)
             throw new IllegalStateException(
-                    "did not find CFGs for a class I was supposed to compute the CCG of");
+                    "Did not find CFGs for class " + className + " to compute the CCG of");
+
+        // Use TreeMap for deterministic iteration order
+        Map<String, RawControlFlowGraph> sortedCfgs = new TreeMap<>(cfgs);
 
         // add nodes
-        for (String method : cfgs.keySet())
-            addVertex(new ClassCallNode(method));
+        for (String method : sortedCfgs.keySet()) {
+            ClassCallNode node = new ClassCallNode(method);
+            addVertex(node);
+            methodToNodeMap.put(method, node);
+        }
 
-        //		System.out.println("generating class call graph for "+className);
+        // add edges
+        for (Map.Entry<String, RawControlFlowGraph> entry : sortedCfgs.entrySet()) {
+            String methodName = entry.getKey();
+            RawControlFlowGraph rcfg = entry.getValue();
+            ClassCallNode methodNode = methodToNodeMap.get(methodName);
 
-        // add vertices
-        for (ClassCallNode methodNode : graph.vertexSet()) {
-            RawControlFlowGraph rcfg = cfgs.get(methodNode.getMethod());
             List<BytecodeInstruction> calls = rcfg.determineMethodCallsToOwnClass();
-            //			System.out.println(calls.size()+" method calls from "+methodNode);
             for (BytecodeInstruction call : calls) {
-                //				System.out.println("  to "+call.getCalledMethod()+" in "+call.getCalledMethodsClass());
                 ClassCallNode calledMethod = getNodeByMethodName(call.getCalledMethod());
                 if (calledMethod != null) {
                     ClassCallEdge e = new ClassCallEdge(call);
@@ -104,22 +113,7 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
      * @return a {@link org.evosuite.graphs.ccg.ClassCallNode} object.
      */
     public ClassCallNode getNodeByMethodName(String methodName) {
-        ClassCallNode r = null;
-        //		System.out.println("getting node by methodName "+methodName);
-        for (ClassCallNode node : graph.vertexSet()) {
-            if (node.getMethod().equals(methodName)) {
-                if (r == null) {
-                    r = node;
-                } else {
-                    throw new IllegalStateException(
-                            "Expect each ClassCallNode to have a unique method name");
-                }
-            }
-        }
-        // TODO logger.warn
-        //		if(r==null)
-        //			System.out.println("didn't find node by methodName "+methodName);
-        return r;
+        return methodToNodeMap.get(methodName);
     }
 
     /**

@@ -22,6 +22,8 @@ package org.evosuite.graphs.ccg;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.jgrapht.graph.DefaultEdge;
 
+import java.util.Objects;
+
 public class ClassCallEdge extends DefaultEdge {
 
     private static final long serialVersionUID = 7136724698608115327L;
@@ -51,11 +53,7 @@ public class ClassCallEdge extends DefaultEdge {
      */
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result
-                + ((callInstruction == null) ? 0 : callInstruction.hashCode());
-        return result;
+        return Objects.hash(callInstruction);
     }
 
     /**
@@ -65,14 +63,10 @@ public class ClassCallEdge extends DefaultEdge {
     public boolean equals(Object obj) {
         if (this == obj)
             return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
+        if (obj == null || getClass() != obj.getClass())
             return false;
         ClassCallEdge other = (ClassCallEdge) obj;
-        if (callInstruction == null) {
-            return other.callInstruction == null;
-        } else return callInstruction.equals(other.callInstruction);
+        return Objects.equals(callInstruction, other.callInstruction);
     }
 
     /**

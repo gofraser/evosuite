@@ -21,6 +21,8 @@ package org.evosuite.graphs.ccg;
 
 import org.evosuite.graphs.ccfg.CCFGNode;
 
+import java.util.Objects;
+
 public class ClassCallNode extends CCFGNode {
 
     private final String method;
@@ -48,10 +50,7 @@ public class ClassCallNode extends CCFGNode {
      */
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((method == null) ? 0 : method.hashCode());
-        return result;
+        return Objects.hash(method);
     }
 
     /**
@@ -61,14 +60,10 @@ public class ClassCallNode extends CCFGNode {
     public boolean equals(Object obj) {
         if (this == obj)
             return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
+        if (obj == null || getClass() != obj.getClass())
             return false;
         ClassCallNode other = (ClassCallNode) obj;
-        if (method == null) {
-            return other.method == null;
-        } else return method.equals(other.method);
+        return Objects.equals(method, other.method);
     }
 
     /**
