@@ -23,6 +23,11 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 
+/**
+ * Fitness function that measures the readability of a test suite.
+ * Currently, it uses a simple metric based on the size of the test case
+ * and the number of assertions.
+ */
 public class ReadabilitySuiteFitness extends TestSuiteFitnessFunction {
 
 
@@ -34,19 +39,31 @@ public class ReadabilitySuiteFitness extends TestSuiteFitnessFunction {
         double average = 0.0;
 
         for (TestChromosome ec : suite.getTestChromosomes()) {
-            average += getScore(ec.toString());
+            average += getScore(ec);
         }
 
-        average /= suite.getTestChromosomes().size();
+        if (!suite.getTestChromosomes().isEmpty()) {
+            average /= suite.getTestChromosomes().size();
+        }
 
         updateIndividual(suite, average);
         return average;
     }
 
 
-    public double getScore(String test) {
-        // TODO
-        return 0.0;
+    /**
+     * Calculate the readability score of a test chromosome.
+     * Lower is better (more readable).
+     *
+     * @param test The test chromosome to evaluate
+     * @return The readability score (size + assertions)
+     */
+    public double getScore(TestChromosome test) {
+        if (test == null || test.getTestCase() == null) {
+            return 0.0;
+        }
+        // Size (number of statements) + number of assertions
+        return test.getTestCase().size() + test.getTestCase().getAssertions().size();
     }
 
 
