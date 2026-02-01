@@ -61,29 +61,24 @@ public class ClassPathHacker {
      * If we need to activate JavaAgent (eg to handle environment in generated tests), we need
      * to be sure we can use tools.jar
      */
-    public static void initializeToolJar() throws RuntimeException {
-        Integer javaVersion = Integer.valueOf(SystemUtils.JAVA_VERSION.split("\\.")[0]);
-        if (javaVersion >= 9) {
-			/*junitCheckAvailable = false;
-			cause = "Running the junit tests on Java >8 is not available yet";
-			return; */
-            // running junit tests only causes errors when executing the jar in IntelliJ
+    public static void initializeToolJar() {
+        if (SystemUtils.isJavaVersionAtLeast(org.apache.commons.lang3.JavaVersion.JAVA_9)) {
+            // running junit tests only causes errors when executing the jar in IntelliJ on older versions
             return;
         }
+
         ToolsJarLocator locator = new ToolsJarLocator(Properties.TOOLS_JAR_LOCATION);
         locator.getLoaderForToolsJar();
         if (locator.getLocationNotOnClasspath() != null) {
             try {
-                logger.info("Using JDK libraries at: " + locator.getLocationNotOnClasspath());
-                addFile(locator.getLocationNotOnClasspath());  //FIXME needs refactoring
+                logger.info("Using JDK libraries at: {}", locator.getLocationNotOnClasspath());
+                addFile(locator.getLocationNotOnClasspath());
             } catch (IOException e) {
                 cause = "Failed to add " + locator.getLocationNotOnClasspath() + " to system classpath";
                 junitCheckAvailable = false;
-                //throw new RuntimeException("Failed to add " + locator.getLocationNotOnClasspath() + " to system classpath");
-                return;
+                logger.error(cause, e);
             }
         }
-
     }
 
     public static String getCause() {
@@ -103,7 +98,7 @@ public class ClassPathHacker {
     public static void addFile(String s) throws IOException {
         File f = new File(s);
         addFile(f);
-    }//end method
+    }
 
     /**
      * <p>addFile</p>
@@ -112,9 +107,8 @@ public class ClassPathHacker {
      * @throws java.io.IOException if any.
      */
     public static void addFile(File f) throws IOException {
-        //addURL(f.toURL());
         addURL(f.toURI().toURL());
-    }//end method
+    }
 
     /**
      * <p>addURL</p>
@@ -123,7 +117,7 @@ public class ClassPathHacker {
      * @throws java.io.IOException if any.
      */
     public static void addURL(URL u) throws IOException {
-        logger.info("Trying to add URL to class path:" + u.toString());
+        logger.info("Trying to add URL to class path: {}", u);
         ClassLoader sysloader = ClassLoader.getSystemClassLoader();
         if (sysloader instanceof URLClassLoader) {
             try {
@@ -132,11 +126,12 @@ public class ClassPathHacker {
                 method.setAccessible(true);
                 method.invoke(sysloader, u);
             } catch (Throwable t) {
-                throw new IOException("Error, could not add URL to system classloader");
+                logger.error("Error, could not add URL to system classloader", t);
+                throw new IOException("Error, could not add URL to system classloader: " + t.getMessage(), t);
             }
-            logger.info("Successfully added " + u + " to class path");
+            logger.info("Successfully added {} to class path", u);
         } else {
-            logger.info("Did not add " + u + ", because system class loader is no URLClassLoader");
+            logger.info("Did not add {}, because system class loader is no URLClassLoader", u);
         }
     }
 
@@ -153,12 +148,11 @@ public class ClassPathHacker {
             URL toURL = toURI.toURL();
             list.add(toURL);
         }
-        URL[] urls = new URL[list.size()];
-        URL[] urlArray = list.toArray(urls);
+        URL[] urls = list.toArray(new URL[0]);
         ClassLoader sysloader = ClassLoader.getSystemClassLoader();
         if (sysloader instanceof URLClassLoader) {
             try {
-                for (URL url : urlArray) {
+                for (URL url : urls) {
                     Class<?> sysclass = URLClassLoader.class;
                     Method method = sysclass.getDeclaredMethod("addURL", parameters);
                     method.setAccessible(true);
@@ -167,11 +161,11 @@ public class ClassPathHacker {
 
                 continuousClassLoader = sysloader;
             } catch (Throwable t) {
-                throw new IOException("Error, could not add URL to system classloader");
+                logger.error("Error, could not add URL to system classloader", t);
+                throw new IOException("Error, could not add URL to system classloader: " + t.getMessage(), t);
             }
         } else {
-            URLClassLoader urlClassLoader = new URLClassLoader(urlArray, sysloader);
-            continuousClassLoader = urlClassLoader;
+            continuousClassLoader = new URLClassLoader(urls, sysloader);
         }
     }
 
