@@ -95,6 +95,8 @@ public class FileIOUtils {
     public static void writeXML(Object data, String fileName) {
         try {
             XStream xstream = new XStream();
+            XStream.setupDefaultSecurity(xstream);
+            xstream.allowTypesByWildcard(new String[]{"**"});
             FileUtils.writeStringToFile(new File(fileName), xstream.toXML(data));
         } catch (Exception e) {
             logger.error("Error while writing file " + fileName + " , " +
@@ -112,6 +114,8 @@ public class FileIOUtils {
     @SuppressWarnings("unchecked")
     public static <T> T readXML(String fileName) {
         XStream xstream = new XStream();
+        XStream.setupDefaultSecurity(xstream);
+        xstream.allowTypesByWildcard(new String[]{"**"});
         try (Reader reader = new InputStreamReader(new FileInputStream(fileName), StandardCharsets.UTF_8);
              BufferedReader in = new BufferedReader(reader)) {
             return (T) xstream.fromXML(in);

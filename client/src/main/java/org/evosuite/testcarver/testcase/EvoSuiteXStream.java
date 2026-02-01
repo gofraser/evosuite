@@ -32,6 +32,8 @@ public class EvoSuiteXStream {
      */
     public static Object fromString(String value) {
         XStream xstream = new XStream();
+        XStream.setupDefaultSecurity(xstream);
+        xstream.allowTypesByWildcard(new String[]{"**"});
         return xstream.fromXML(value);
     }
 }

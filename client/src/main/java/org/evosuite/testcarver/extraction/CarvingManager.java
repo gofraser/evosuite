@@ -215,10 +215,19 @@ public class CarvingManager {
         if (!carvingDone)
             readTestCases();
 
-        if (!carvedTests.containsKey(clazz))
-            return new ArrayList<>();
+        if (carvedTests.containsKey(clazz)) {
+            return carvedTests.get(clazz);
+        }
 
-        return carvedTests.get(clazz);
+        // Fallback: check by name for ClassLoader mismatch
+        for (Class<?> key : carvedTests.keySet()) {
+            if (key.getName().equals(clazz.getName())) {
+                logger.info("Used fallback lookup for class: " + clazz.getName());
+                return carvedTests.get(key);
+            }
+        }
+
+        return new ArrayList<>();
     }
 
     public Set<Class<?>> getClassesWithTests() {

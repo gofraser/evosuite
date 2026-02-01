@@ -120,6 +120,8 @@ public final class Capturer {
         }
 
         final XStream xstream = new XStream();
+        XStream.setupDefaultSecurity(xstream);
+        xstream.allowTypesByWildcard(new String[]{"**"});
         xstream.toXML(logs, out);
         out.close();
     }
@@ -131,6 +133,8 @@ public final class Capturer {
         }
 
         final XStream xstream = new XStream(new StaxDriver());
+        XStream.setupDefaultSecurity(xstream);
+        xstream.allowTypesByWildcard(new String[]{"**"});
         logs.addAll((ArrayList<CaptureLog>) xstream.fromXML(in));
     }
 
@@ -243,6 +247,9 @@ public final class Capturer {
 
     public static void capture(final int captureId, final Object receiver,
                                final String methodName, final String methodDesc, final Object[] methodParams) {
+        if (receiver != null && receiver.getClass().getName().contains("Person")) {
+             logger.error("CAPTURED call on Person: " + methodName);
+        }
         try {
             if (isCapturing()) {
                 //(currentLog) {
@@ -262,7 +269,7 @@ public final class Capturer {
             }
         } catch (Throwable t) {
             // TODO: Handle properly?
-            logger.debug(t.toString());
+            logger.error("Capture failed", t);
         }
     }
 
@@ -292,7 +299,7 @@ public final class Capturer {
             }
         } catch (Throwable t) {
             // TODO: Handle properly
-            logger.debug(t.toString());
+            logger.error("Enable failed", t);
 
         }
     }

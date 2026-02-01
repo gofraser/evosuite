@@ -152,6 +152,8 @@ public final class CaptureLog implements Cloneable {
         this.oidNamesOfAccessedFields = new LinkedHashMap<>();
 
         this.xstream = new XStream();
+        XStream.setupDefaultSecurity(this.xstream);
+        this.xstream.allowTypesByWildcard(new String[]{"**"});
     }
 
     public String getNameOfAccessedFields(final int captureId) {
@@ -629,7 +631,7 @@ public final class CaptureLog implements Cloneable {
 
                         logUnobservedInitStmt(param);
                     } catch (final Exception e) {
-                        logger.info("an error occurred while serializing and deserializing {} -> is handled as NULL param",
+                        logger.error("an error occurred while serializing and deserializing {} -> is handled as NULL param",
                                 param, e);
                         continue;
                     }
@@ -820,7 +822,7 @@ public final class CaptureLog implements Cloneable {
             // FIXME
             this.params.add(new Object[]{this.xstream.toXML(subject)});
         } catch (final Exception e) {
-            logger.info("an error occurred while serializing param '{}' -> adding null as param instead",
+            logger.error("an error occurred while serializing param '{}' -> adding null as param instead",
                     subject, e);
 
             // param can not be serialized -> add null as param

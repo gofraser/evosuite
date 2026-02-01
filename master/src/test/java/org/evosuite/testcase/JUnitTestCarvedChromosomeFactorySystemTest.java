@@ -49,6 +49,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
         Properties.SEED_MUTATIONS = defaultSeedMutations;
         Properties.SEED_CLONE = defaultSeedClone;
         Properties.CHOP_CARVED_EXCEPTIONS = defaultChopExceptions;
+        org.evosuite.testcarver.extraction.CarvingManager.getInstance().clear();
     }
 
     @SuppressWarnings("unused")
