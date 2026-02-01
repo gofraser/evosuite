@@ -39,7 +39,10 @@ public class RhoAux {
 
     private static final Logger logger = LoggerFactory.getLogger(RhoAux.class);
 
-    private static boolean isCUTorNot(String className) {
+    private static boolean isTargetClass(String className) {
+        if (Properties.TARGET_CLASS == null) {
+            return false;
+        }
         return Properties.TARGET_CLASS.equals("") || (className.equals(Properties.TARGET_CLASS)
                 || className.startsWith(Properties.TARGET_CLASS + "$"));
     }
@@ -47,19 +50,14 @@ public class RhoAux {
     /**
      * Returns the list of lines goals of the CUT
      *
-     * @return
+     * @return list of line coverage goals
      */
     public static List<LineCoverageTestFitness> getLineGoals() {
         List<LineCoverageTestFitness> goals = new ArrayList<>();
 
-    /*TestFitnessFactory<? extends TestFitnessFunction> factory = FitnessFunctions.getFitnessFactory(Properties.Criterion.ONLYLINE);
-    for (TestFitnessFunction goal : factory.getCoverageGoals()) {
-        goals.add((LineCoverageTestFitness) goal);
-    }*/
-
         for (String className : LinePool.getKnownClasses()) {
             // Only lines in CUT
-            if (!isCUTorNot(className)) {
+            if (!isTargetClass(className)) {
                 continue;
             }
 
@@ -69,7 +67,7 @@ public class RhoAux {
             }
 
             for (Integer line : lines) {
-                logger.info("Adding line " + line + " for class '" + className + "'");
+                logger.debug("Adding line {} for class '{}'", line, className);
                 // Properties.TARGET_METHOD as to be used instead of methodName, otherwise
                 // an CFG exception would be thrown
                 goals.add(new LineCoverageTestFitness(className, Properties.TARGET_METHOD, line));
@@ -77,5 +75,21 @@ public class RhoAux {
         }
 
         return goals;
+    }
+
+    /**
+     * Calculates the Rho score (deviation from 0.5).
+     *
+     * @param numberOfOnes      total number of covered goals
+     * @param numberOfTestCases total number of test cases
+     * @param numberOfGoals     total number of goals
+     * @return the absolute difference between 0.5 and the raw rho score
+     */
+    public static double calculateRho(int numberOfOnes, int numberOfTestCases, int numberOfGoals) {
+        if (numberOfTestCases == 0) {
+            return 1.0;
+        }
+        double rho = ((double) numberOfOnes) / ((double) numberOfTestCases) / ((double) numberOfGoals);
+        return Math.abs(0.5 - rho);
     }
 }

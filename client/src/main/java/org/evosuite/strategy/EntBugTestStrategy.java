@@ -63,7 +63,7 @@ import java.util.Set;
  */
 public class EntBugTestStrategy extends TestGenerationStrategy {
 
-    private static final Logger logger = LoggerFactory.getLogger(IndividualTestStrategy.class);
+    private static final Logger logger = LoggerFactory.getLogger(EntBugTestStrategy.class);
 
     @Override
     public TestSuiteChromosome generateTests() {
@@ -72,7 +72,7 @@ public class EntBugTestStrategy extends TestGenerationStrategy {
         Properties.TEST_ARCHIVE = false;
 
         // Set up search algorithm
-        LoggingUtils.getEvoLogger().info("* Setting up search algorithm for individual test generation (ASE'13)");
+        logger.info("* Setting up search algorithm for individual test generation (ASE'13)");
         ExecutionTracer.enableTraceCalls();
 
         // Set up genetic algorithm
@@ -90,18 +90,18 @@ public class EntBugTestStrategy extends TestGenerationStrategy {
 
         // Goals
         List<TestFitnessFunction> goals = new ArrayList<>(rhoFactory.getCoverageGoals());
-        LoggingUtils.getEvoLogger().info("* Total number of test goals: ");
-        LoggingUtils.getEvoLogger().info("  - Rho " + goals.size());
+        logger.info("* Total number of test goals: ");
+        logger.info("  - Rho " + goals.size());
         ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
 
-        double previous_fitness = RhoCoverageFactory.getRho();
-        double best_fitness = 0.0;
-        int number_of_generations = (int) (Properties.SEARCH_BUDGET / 10);
+        double previousFitness = RhoCoverageFactory.getRho();
+        double bestFitness = 0.0;
+        int numberOfGenerations = (int) (Properties.SEARCH_BUDGET / 10);
         //Properties.SEARCH_BUDGET = 10; // 10 seconds for each generation
 
         TestSuiteChromosome bests = new TestSuiteChromosome();
-        while (number_of_generations > 0) {
-            LoggingUtils.getEvoLogger().info("  * iteration(" + number_of_generations + ")");
+        while (numberOfGenerations > 0) {
+            logger.info("  * iteration(" + numberOfGenerations + ")");
 
             // 10 seconds for each generation
             ga.setStoppingConditionLimit(10); // FIXME: should be a parameter?
@@ -110,7 +110,7 @@ public class EntBugTestStrategy extends TestGenerationStrategy {
             //ga.setChromosomeFactory(getDefaultChromosomeFactory()); // not in the original version
 
             ga.generateSolution();
-            number_of_generations--;
+            numberOfGenerations--;
 
             TestChromosome best = ga.getBestIndividual();
             if (best.getLastExecutionResult() == null) {
@@ -119,34 +119,34 @@ public class EntBugTestStrategy extends TestGenerationStrategy {
                 continue;
             }
 
-            best_fitness = best.getFitness(rhoTestFitnessFunction);
+            bestFitness = best.getFitness(rhoTestFitnessFunction);
 
-            if ((best_fitness < previous_fitness) || // we've found a better test case
-                    (best_fitness <= Properties.EPSON)) // or this new test case is not so bad (i.e., < Properties.EPSON)
+            if ((bestFitness < previousFitness) || // we've found a better test case
+                    (bestFitness <= Properties.EPSON)) // or this new test case is not so bad (i.e., < Properties.EPSON)
             {
                 // GOOD
-                LoggingUtils.getEvoLogger().info("  * new best (previous fitness: " + previous_fitness + " | best_fitness: " + best_fitness + ")");
+                logger.info("  * new best (previous fitness: " + previousFitness + " | best_fitness: " + bestFitness + ")");
 
                 ExecutionResult exec = best.getLastExecutionResult();
                 ExecutionTrace trace = exec.getTrace();
                 Set<Integer> testCoverage = trace.getCoveredLines();
-                LoggingUtils.getEvoLogger().info("  * new test case added " + testCoverage.toString());
+                logger.info("  * new test case added " + testCoverage.toString());
 
-                rhoTestFitnessFunction.incrementNumber_of_Ones(testCoverage.size());
-                rhoTestFitnessFunction.incrementNumber_of_Test_Cases();
+                rhoTestFitnessFunction.incrementNumberOfOnes(testCoverage.size());
+                rhoTestFitnessFunction.incrementNumberOfTestCases();
                 rhoTestFitnessFunction.addTestCoverage(testCoverage);
 
                 bests.addTest(best);
-                previous_fitness = best_fitness; // update global fitness
+                previousFitness = bestFitness; // update global fitness
             } else {
                 // BAD
-                LoggingUtils.getEvoLogger().info("  * new test case ignored (previous fitness: " + previous_fitness + " | best_fitness: " + best_fitness + ")");
+                logger.info("  * new test case ignored (previous fitness: " + previousFitness + " | best_fitness: " + bestFitness + ")");
             }
         }
 
-        LoggingUtils.getEvoLogger().info("* Search finished after, best individual has fitness "
-                + best_fitness);
-        LoggingUtils.getEvoLogger().info("Resulting test suite: " + bests.size() + " tests, length "
+        logger.info("* Search finished after, best individual has fitness "
+                + bestFitness);
+        logger.info("Resulting test suite: " + bests.size() + " tests, length "
                 + bests.totalLengthOfTestCases());
 
         return bests;

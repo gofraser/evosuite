@@ -23,6 +23,8 @@ import org.evosuite.Properties;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -30,62 +32,58 @@ public class RhoCoverageTestFitness extends TestFitnessFunction {
 
     private static final long serialVersionUID = -1483213330289592274L;
 
-    private int previous_number_of_ones = 0;
-    private int previous_number_of_test_cases = 0;
+    private static final Logger logger = LoggerFactory.getLogger(RhoCoverageTestFitness.class);
 
-    private final Set<Set<Integer>> coverage_matrix_generated_so_far = new LinkedHashSet<>();
+    private int previousNumberOfOnes = 0;
+    private int previousNumberOfTestCases = 0;
+
+    private final Set<Set<Integer>> coverageMatrixGeneratedSoFar = new LinkedHashSet<>();
 
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
 
-        Set<Set<Integer>> tmp_coverage_matrix = new LinkedHashSet<>(this.coverage_matrix_generated_so_far);
+        Set<Set<Integer>> tmpCoverageMatrix = new LinkedHashSet<>(this.coverageMatrixGeneratedSoFar);
 
         double fitness = 1.0;
 
-        int number_of_goals = RhoCoverageFactory.getNumberGoals();
-        int number_of_ones = RhoCoverageFactory.getNumber_of_Ones() + this.previous_number_of_ones;
-        int number_of_test_cases = RhoCoverageFactory.getNumber_of_Test_Cases() + this.previous_number_of_test_cases;
+        int numberOfGoals = RhoCoverageFactory.getNumberGoals();
+        int numberOfOnes = RhoCoverageFactory.getNumberOfOnes() + this.previousNumberOfOnes;
+        int numberOfTestCases = RhoCoverageFactory.getNumberOfTestCases() + this.previousNumberOfTestCases;
 
         Set<Integer> coveredLines = result.getTrace().getCoveredLines();
 
         if (Properties.STRATEGY == Properties.Strategy.ENTBUG) {
             // order set
-            List<Integer> l_coveredLines = new ArrayList<>(coveredLines);
-            Collections.sort(l_coveredLines);
-            Set<Integer> coveredLinesOrdered = new LinkedHashSet<>(l_coveredLines);
+            List<Integer> lCoveredLines = new ArrayList<>(coveredLines);
+            Collections.sort(lCoveredLines);
+            Set<Integer> coveredLinesOrdered = new LinkedHashSet<>(lCoveredLines);
 
             // no coverage
-            if (coveredLinesOrdered.size() == 0) {
+            if (coveredLinesOrdered.isEmpty()) {
                 updateIndividual(individual, 1.0);
                 return 1.0;
             }
             // already exists locally
-            else if (!tmp_coverage_matrix.add(coveredLinesOrdered)) {
+            else if (!tmpCoverageMatrix.add(coveredLinesOrdered)) {
                 updateIndividual(individual, 1.0);
                 return 1.0;
             }
             // already exists on the original test suite
-            else if (RhoCoverageFactory.exists(l_coveredLines)) {
+            else if (RhoCoverageFactory.exists(lCoveredLines)) {
                 updateIndividual(individual, 1.0);
                 return 1.0;
             }
             // good
             else {
-                number_of_ones += coveredLinesOrdered.size();
-                number_of_test_cases++;
+                numberOfOnes += coveredLinesOrdered.size();
+                numberOfTestCases++;
             }
         } else {
-            number_of_ones += coveredLines.size();
-            number_of_test_cases++;
+            numberOfOnes += coveredLines.size();
+            numberOfTestCases++;
         }
 
-        // was not possible to generate new test cases
-        if (number_of_test_cases == 0.0) {
-            fitness = 1.0; // penalise this test case
-        } else {
-            fitness = ((double) number_of_ones) / ((double) number_of_test_cases) / ((double) number_of_goals);
-            fitness = Math.abs(0.5 - fitness);
-        }
+        fitness = RhoAux.calculateRho(numberOfOnes, numberOfTestCases, numberOfGoals);
 
         updateIndividual(individual, fitness);
         return fitness;
@@ -93,7 +91,6 @@ public class RhoCoverageTestFitness extends TestFitnessFunction {
 
     @Override
     public int compareTo(TestFitnessFunction other) {
-        // TODO Auto-generated method stub
         return compareClassName(other);
     }
 
@@ -103,9 +100,9 @@ public class RhoCoverageTestFitness extends TestFitnessFunction {
         final int prime = 31;
         int result = 1;
         result = prime * result
-                + ((coverage_matrix_generated_so_far == null) ? 0 : coverage_matrix_generated_so_far.hashCode());
-        result = prime * result + previous_number_of_ones;
-        result = prime * result + previous_number_of_test_cases;
+                + ((coverageMatrixGeneratedSoFar == null) ? 0 : coverageMatrixGeneratedSoFar.hashCode());
+        result = prime * result + previousNumberOfOnes;
+        result = prime * result + previousNumberOfTestCases;
         return result;
     }
 
@@ -118,45 +115,43 @@ public class RhoCoverageTestFitness extends TestFitnessFunction {
         if (getClass() != obj.getClass())
             return false;
         RhoCoverageTestFitness other = (RhoCoverageTestFitness) obj;
-        if (coverage_matrix_generated_so_far == null) {
-            if (other.coverage_matrix_generated_so_far != null)
+        if (coverageMatrixGeneratedSoFar == null) {
+            if (other.coverageMatrixGeneratedSoFar != null)
                 return false;
-        } else if (!coverage_matrix_generated_so_far.equals(other.coverage_matrix_generated_so_far))
+        } else if (!coverageMatrixGeneratedSoFar.equals(other.coverageMatrixGeneratedSoFar))
             return false;
-        if (previous_number_of_ones != other.previous_number_of_ones)
+        if (previousNumberOfOnes != other.previousNumberOfOnes)
             return false;
-        return previous_number_of_test_cases == other.previous_number_of_test_cases;
+        return previousNumberOfTestCases == other.previousNumberOfTestCases;
     }
 
     @Override
     public String getTargetClass() {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public String getTargetMethod() {
-        // TODO Auto-generated method stub
         return null;
     }
 
-    public void incrementNumber_of_Ones(int n) {
-        this.previous_number_of_ones += n;
+    public void incrementNumberOfOnes(int n) {
+        this.previousNumberOfOnes += n;
     }
 
-    public int getNumber_of_Ones() {
-        return this.previous_number_of_ones;
+    public int getNumberOfOnes() {
+        return this.previousNumberOfOnes;
     }
 
-    public void incrementNumber_of_Test_Cases() {
-        this.previous_number_of_test_cases++;
+    public void incrementNumberOfTestCases() {
+        this.previousNumberOfTestCases++;
     }
 
-    public int getNumber_of_Test_Cases() {
-        return this.previous_number_of_test_cases;
+    public int getNumberOfTestCases() {
+        return this.previousNumberOfTestCases;
     }
 
-    public void addTestCoverage(Set<Integer> test_coverage) {
-        this.coverage_matrix_generated_so_far.add(test_coverage);
+    public void addTestCoverage(Set<Integer> testCoverage) {
+        this.coverageMatrixGeneratedSoFar.add(testCoverage);
     }
 }
