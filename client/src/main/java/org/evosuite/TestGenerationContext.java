@@ -173,9 +173,7 @@ public class TestGenerationContext {
         GraphPool.clearAll();
         DefUsePool.clear();
 
-        // TODO: This is not nice
-        for (ClassLoader cl : CFGMethodAdapter.methods.keySet())
-            CFGMethodAdapter.methods.get(cl).clear();
+        CFGMethodAdapter.clear();
 
         // TODO: Clear only pool of current classloader?
         BytecodeInstructionPool.clearAll();

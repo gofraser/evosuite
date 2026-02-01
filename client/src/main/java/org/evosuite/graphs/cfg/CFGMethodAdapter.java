@@ -66,7 +66,14 @@ public class CFGMethodAdapter extends MethodVisitor {
      * The set of all methods which can be used during test case generation This
      * excludes e.g. synthetic, initializers, private and deprecated methods
      */
-    public static Map<ClassLoader, Map<String, Set<String>>> methods = new HashMap<>();
+    private static Map<ClassLoader, Map<String, Set<String>>> methods = new HashMap<>();
+
+    public static void clear() {
+        for (ClassLoader cl : methods.keySet()) {
+            methods.get(cl).clear();
+        }
+        methods.clear();
+    }
 
     /**
      * This is the name + the description of the method. It is more like the
