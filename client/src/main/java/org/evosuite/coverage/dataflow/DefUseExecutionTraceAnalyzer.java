@@ -490,37 +490,4 @@ public abstract class DefUseExecutionTraceAnalyzer {
 
         return r;
     }
-
-    //	private static Set<DefUseCoverageTestFitness> getGoalsFor(int activeDef,
-    //			Set<Integer> coveredUses) {
-    //
-    //		Set<DefUseCoverageTestFitness> r = new HashSet<DefUseCoverageTestFitness>();
-    //		Definition def = DefUsePool.getDefinitionByDefId(activeDef);
-    //
-    //		List<DefUseCoverageTestFitness> validGoals = DefUseCoverageFactory
-    //				.getDUGoals();
-    //
-    //		for (Integer coveredUse : coveredUses) {
-    //			Use use = DefUsePool.getUseByUseId(coveredUse);
-    //			DefUseCoverageTestFitness goal = DefUseCoverageFactory.createGoal(
-    //					def, use);
-    //
-    //			if (validGoals.contains(goal))
-    //				r.add(goal);
-    //		}
-    //
-    //		return r;
-    //	}
-    //
-    //	public static Set<Integer> getUsesBetween(
-    //			Map<Integer, Integer> currentUseMap, int currentDUCounter,
-    //			int nextDUCounter) {
-    //
-    //		Set<Integer> r = new HashSet<Integer>();
-    //		for (Integer duCounter : currentUseMap.keySet())
-    //			if (currentDUCounter < duCounter && duCounter < nextDUCounter)
-    //				r.add(currentUseMap.get(duCounter));
-    //
-    //		return r;
-    //	}
 }

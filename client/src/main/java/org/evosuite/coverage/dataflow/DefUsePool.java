@@ -107,10 +107,6 @@ public class DefUsePool {
         if (!d.canBeInstrumented())
             return false;
 
-//		if (d.isLocalArrayDefinition())
-//			LoggingUtils.getEvoLogger().info("registering LOCAL ARRAY VAR DEF "
-//			                                         + d.toString());
-
         // register instruction
 
         // IINCs and field method calls already have duID set so this can fail
@@ -122,10 +118,6 @@ public class DefUsePool {
                     "expect registering to fail only on IINCs and field method calls");
 
         registerAsDefinition(d);
-
-//		if (d.isMethodCallOfField())
-//			LoggingUtils.getEvoLogger().info("Registered field method call as Definition "
-//			                                         + d.toString());
 
         return true;
     }
@@ -168,10 +160,6 @@ public class DefUsePool {
                     "expect registering to fail only on field method calls");
 
         registerAsUse(u);
-
-//		if (u.isMethodCallOfField())
-//			LoggingUtils.getEvoLogger().info("Registered field method call as Use "
-//			                                         + u.toString());
 
         return true;
     }
@@ -245,10 +233,6 @@ public class DefUsePool {
 
         // now the first Definition instance for this instruction can be created
         Definition def = DefUseFactory.makeDefinition(d);
-
-//		if (d.isLocalArrayDefinition())
-//			LoggingUtils.getEvoLogger().info("succesfully registered LOCAL ARRAY VAR DEF "
-//			                                         + def.toString());
 
         // finally add the Definition to all corresponding maps
         fillDefinitionMaps(def);
@@ -646,24 +630,6 @@ public class DefUsePool {
      */
     public static int getDefUseCounter() {
         return duCounter;
-    }
-
-    /**
-     * Determine the number of DefUse pairs for the given Def
-     *
-     * @param def
-     * @return
-     */
-    public static int getDefUseCounterForDef(Definition def) {
-        int count = 0;
-        if (def == null)
-            return 1; // FIXXME - what is this?
-
-        for (Definition d : defuseIdsToDefs.values()) {
-            if (d.getDefId() == def.getDefId())
-                count++;
-        }
-        return count;
     }
 
     public static void clear() {

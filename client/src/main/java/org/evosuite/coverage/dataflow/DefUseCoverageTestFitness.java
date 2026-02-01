@@ -577,13 +577,13 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public String toString() {
-        StringBuffer r = new StringBuffer();
+        StringBuilder r = new StringBuilder();
         r.append(type.toString());
         r.append("-Definition-Use-Pair");
         r.append("\n\t");
         if (isParameterGoal())
-            r.append("Parameter-Definition " + goalUse.getLocalVariableSlot()
-                    + " for method " + goalUse.getMethodName());
+            r.append("Parameter-Definition ").append(goalUse.getLocalVariableSlot())
+                    .append(" for method ").append(goalUse.getMethodName());
         else
             r.append(goalDefinition.toString());
         r.append("\n\t");
@@ -618,20 +618,11 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         if (getClass() != obj.getClass())
             return false;
         DefUseCoverageTestFitness other = (DefUseCoverageTestFitness) obj;
-        if (goalDefinition == null) {
-            if (other.goalDefinition != null)
-                return false;
-        } else if (!goalDefinition.equals(other.goalDefinition))
+        if (!Objects.equals(goalDefinition, other.goalDefinition))
             return false;
-        if (goalUse == null) {
-            if (other.goalUse != null)
-                return false;
-        } else if (!goalUse.equals(other.goalUse))
+        if (!Objects.equals(goalUse, other.goalUse))
             return false;
-        if (goalVariable == null) {
-            if (other.goalVariable != null)
-                return false;
-        } else if (!goalVariable.equals(other.goalVariable))
+        if (!Objects.equals(goalVariable, other.goalVariable))
             return false;
         return type == other.type;
     }
@@ -643,14 +634,17 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     public int compareTo(TestFitnessFunction other) {
         if (other instanceof DefUseCoverageTestFitness) {
             DefUseCoverageTestFitness otherFitness = (DefUseCoverageTestFitness) other;
-            // goalDefinition can be null for parameter goals
-            if (goalDefinition == null || otherFitness.getGoalDefinition() == null)
-                return goalUse.compareTo(otherFitness.getGoalUse());
-            if (goalDefinition.compareTo(otherFitness.getGoalDefinition()) == 0) {
-                return goalUse.compareTo(otherFitness.getGoalUse());
-            } else {
-                return goalDefinition.compareTo(otherFitness.getGoalDefinition());
+            if (this.goalDefinition == null && otherFitness.goalDefinition != null) {
+                return -1;
             }
+            if (this.goalDefinition != null && otherFitness.goalDefinition == null) {
+                return 1;
+            }
+            if (this.goalDefinition != null) {
+                int defCompare = goalDefinition.compareTo(otherFitness.goalDefinition);
+                if (defCompare != 0) return defCompare;
+            }
+            return goalUse.compareTo(otherFitness.goalUse);
         }
         return compareClassName(other);
     }
@@ -691,14 +685,17 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         Integer useId = (Integer) ois.readObject();
         Integer defId = (Integer) ois.readObject();
         Use use = DefUsePool.getUseByUseId(useId);
-        //TODO: Need to find a better solution.
+
         if (use == null)
-            return;
+            throw new IOException("Unable to restore DefUseCoverageTestFitness: Use with ID " + useId + " not found in pool.");
 
         if (type == DefUsePairType.PARAMETER) {
             initParameterUse(use);
         } else {
             Definition def = DefUsePool.getDefinitionByDefId(defId);
+            if (def == null) {
+                throw new IOException("Unable to restore DefUseCoverageTestFitness: Definition with ID " + defId + " not found in pool.");
+            }
             initRegularDefUse(def, use, type);
         }
     }
