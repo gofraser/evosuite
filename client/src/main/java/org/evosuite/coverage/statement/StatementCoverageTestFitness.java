@@ -135,6 +135,10 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
         for (BranchCoverageTestFitness branchFitness : this.branchFitnesses) {
             double newFitness = branchFitness.getFitness(individual, result);
             if (newFitness == 0.0) {
+                // Although the BranchCoverage goal has been covered, it is not part of the
+                // statement coverage optimisation - always remove it
+                individual.getTestCase().removeCoveredGoal(branchFitness);
+
                 double penalty = 0.0;
                 if (this.goalInstruction != null && this.goalInstruction.hasLineNumberSet()) {
                     if (!result.getTrace().getCoveredLines(this.className).contains(this.goalInstruction.getLineNumber())) {
@@ -145,9 +149,6 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
 
                 if (penalty == 0.0) {
                     r = 0.0;
-                    // Although the BranchCoverage goal has been covered, it is not part of the
-                    // optimisation
-                    individual.getTestCase().removeCoveredGoal(branchFitness);
                     break;
                 } else {
                     if (penalty < r) {
