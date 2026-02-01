@@ -52,6 +52,20 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
 
     protected abstract T getValue(TestSuiteChromosome individual);
 
+    /**
+     * Interpolate between two values
+     * @param v1 start value
+     * @param v2 end value
+     * @param ratio position (0..1)
+     * @return interpolated value
+     */
+    protected abstract T interpolate(T v1, T v2, double ratio);
+
+    /**
+     * Value to return when no data is available
+     */
+    protected abstract T getZeroValue();
+
     public void update(TestSuiteChromosome individual) {
         timeStamps.add(System.currentTimeMillis() - startTime);
         values.add(getValue(individual));
@@ -83,7 +97,23 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
     private T getTimeLineValue(String name) {
         long interval = Properties.TIMELINE_INTERVAL;
 
-        int index = Integer.parseInt((name.split("_T"))[1]);
+        // Better parsing
+        int index;
+        try {
+            index = Integer.parseInt(name.substring(name.lastIndexOf("_T") + 2));
+        } catch (Exception e) {
+             // Fallback or error? original code assumed split worked.
+             // Original: int index = Integer.parseInt((name.split("_T"))[1]);
+             // name is like "Coverage_T1", split("_T") -> ["Coverage", "1"]
+             // if name is "My_Var_T1", split("_T") -> ["My_Var", "1"]
+             String[] split = name.split("_T");
+             if (split.length > 1) {
+                 index = Integer.parseInt(split[split.length - 1]);
+             } else {
+                 return getZeroValue();
+             }
+        }
+
         long preferredTime = interval * index;
 
         /*
@@ -91,7 +121,7 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
          * and budget was not enough to get even first generation
          */
         if (timeStamps.isEmpty()) {
-            return (T) Integer.valueOf(0); // FIXXME - what else?
+            return getZeroValue();
         }
 
         for (int i = 0; i < timeStamps.size(); i++) {
@@ -125,12 +155,8 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
             long timeDelta = timeStamps.get(i) - timeStamps.get(i - 1);
 
             if (timeDelta > 0) {
-                double covDelta = values.get(i).doubleValue() - values.get(i - 1).doubleValue();
-                double ratio = covDelta / timeDelta;
-
-                long diff = preferredTime - timeStamps.get(i - 1);
-                Double cov = values.get(i - 1).doubleValue() + (diff * ratio);
-                return (T) cov; // TODO...type
+                double tRatio = (double) (preferredTime - timeStamps.get(i - 1)) / timeDelta;
+                return interpolate(values.get(i - 1), values.get(i), tRatio);
             }
         }
 

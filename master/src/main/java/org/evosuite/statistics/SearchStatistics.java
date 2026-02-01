@@ -395,7 +395,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             }
         }
 
-        boolean valid = RuntimeVariable.validateRuntimeVariables(map);
+        boolean valid = StatisticsValidator.validateRuntimeVariables(map);
         if (!valid) {
             logger.error("Not going to write down statistics data, as some data is invalid");
             return false;
@@ -426,7 +426,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             return false;
         }
 
-        boolean valid = RuntimeVariable.validateRuntimeVariables(map);
+        boolean valid = StatisticsValidator.validateRuntimeVariables(map);
         if (!valid) {
             logger.error("Not going to write down statistics data, as some data is invalid");
             return false;
@@ -526,7 +526,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     /**
      * Sequence variable for fitness values
      */
-    private static class FitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class FitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public FitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.FitnessTimeline);
@@ -541,7 +541,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     /**
      * Sequence variable for coverage values
      */
-    private static class CoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class CoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public CoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.CoverageTimeline);
@@ -556,7 +556,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     /**
      * Sequence variable for number of tests
      */
-    private static class SizeSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Integer> {
+    private static class SizeSequenceOutputVariableFactory extends IntegerSequenceOutputVariableFactory {
 
         public SizeSequenceOutputVariableFactory() {
             super(RuntimeVariable.SizeTimeline);
@@ -571,7 +571,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     /**
      * Sequence variable for total length of tests
      */
-    private static class LengthSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Integer> {
+    private static class LengthSequenceOutputVariableFactory extends IntegerSequenceOutputVariableFactory {
 
         public LengthSequenceOutputVariableFactory() {
             super(RuntimeVariable.LengthTimeline);
@@ -586,7 +586,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     /**
      * Sequence variable for coverage values
      */
-    private static class IBranchGoalsSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Integer> {
+    private static class IBranchGoalsSequenceOutputVariableFactory extends IntegerSequenceOutputVariableFactory {
 
         public IBranchGoalsSequenceOutputVariableFactory() {
             super(RuntimeVariable.IBranchGoalsTimeline);
@@ -598,7 +598,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class BranchCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class BranchCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public BranchCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.BranchCoverageTimeline);
@@ -610,7 +610,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class OnlyBranchFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class OnlyBranchFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public OnlyBranchFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.OnlyBranchFitnessTimeline);
@@ -622,7 +622,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class OnlyBranchCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class OnlyBranchCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public OnlyBranchCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.OnlyBranchCoverageTimeline);
@@ -634,7 +634,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class CBranchFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class CBranchFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public CBranchFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.CBranchFitnessTimeline);
@@ -646,7 +646,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class CBranchCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class CBranchCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public CBranchCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.CBranchCoverageTimeline);
@@ -658,7 +658,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class MethodTraceFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class MethodTraceFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public MethodTraceFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.MethodTraceFitnessTimeline);
@@ -670,7 +670,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class MethodTraceCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class MethodTraceCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public MethodTraceCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.MethodTraceCoverageTimeline);
@@ -682,7 +682,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class MethodFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class MethodFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public MethodFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.MethodFitnessTimeline);
@@ -694,7 +694,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class MethodCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class MethodCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public MethodCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.MethodCoverageTimeline);
@@ -706,7 +706,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class MethodNoExceptionFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class MethodNoExceptionFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public MethodNoExceptionFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.MethodNoExceptionFitnessTimeline);
@@ -718,7 +718,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class MethodNoExceptionCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class MethodNoExceptionCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public MethodNoExceptionCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.MethodNoExceptionCoverageTimeline);
@@ -730,7 +730,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class RhoFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class RhoFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public RhoFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.RhoScoreTimeline);
@@ -743,7 +743,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class AmbiguityFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class AmbiguityFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public AmbiguityFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.AmbiguityScoreTimeline);
@@ -755,7 +755,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class LineFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class LineFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public LineFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.LineFitnessTimeline);
@@ -767,7 +767,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class LineCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class LineCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public LineCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.LineCoverageTimeline);
@@ -779,7 +779,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class OutputFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class OutputFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public OutputFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.OutputFitnessTimeline);
@@ -791,7 +791,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class OutputCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class OutputCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public OutputCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.OutputCoverageTimeline);
@@ -803,7 +803,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class InputFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class InputFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public InputFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.InputFitnessTimeline);
@@ -815,7 +815,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class InputCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class InputCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public InputCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.InputCoverageTimeline);
@@ -827,7 +827,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class ExceptionFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class ExceptionFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public ExceptionFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.ExceptionFitnessTimeline);
@@ -839,7 +839,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class ExceptionCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class ExceptionCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public ExceptionCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.ExceptionCoverageTimeline);
@@ -851,7 +851,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class WeakMutationCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class WeakMutationCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public WeakMutationCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.WeakMutationCoverageTimeline);
@@ -863,7 +863,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class OnlyMutationFitnessSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class OnlyMutationFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public OnlyMutationFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.OnlyMutationFitnessTimeline);
@@ -875,7 +875,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class OnlyMutationCoverageSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
+    private static class OnlyMutationCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
         public OnlyMutationCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.OnlyMutationCoverageTimeline);

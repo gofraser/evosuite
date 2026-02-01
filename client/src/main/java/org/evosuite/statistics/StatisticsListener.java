@@ -52,7 +52,7 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
 
     private int numFitnessEvaluations;
 
-    private final Thread notifier;
+    private transient Thread notifier;
 
     /**
      * When did we send an individual due to a new generation iteration?
@@ -65,35 +65,16 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
         bestFitness = Double.MAX_VALUE;
         minimizing = true;
         numFitnessEvaluations = 0;
-
-        notifier = new Thread(() -> {
-            // Wait for new element in queue
-            // If there is a new element, then send it to master through RMI
-            while (!done || !individuals.isEmpty()) {
-                T individual;
-                try {
-                    individual = individuals.take();
-                    StatisticsSender.sendIndividualToMaster(individual);
-                } catch (InterruptedException e) {
-                    done = true;
-                }
-            }
-        });
-        Sandbox.addPrivilegedThread(notifier);
-        notifier.start();
     }
 
     public StatisticsListener(StatisticsListener<T> that) {
         this.individuals = new LinkedBlockingQueue<>(that.individuals);
+
         this.bestFitness = that.bestFitness;
         this.done = that.done;
         this.minimizing = that.minimizing;
         this.numFitnessEvaluations = that.numFitnessEvaluations;
         this.timeFromLastGenerationUpdate = that.timeFromLastGenerationUpdate;
-
-        this.notifier = new Thread(that.notifier);
-        Sandbox.addPrivilegedThread(this.notifier);
-        this.notifier.start();
     }
 
     @Override
@@ -131,11 +112,13 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
             reportTestSuiteResult((TestSuiteChromosome) algorithm.getBestIndividual());
         }
         done = true;
-        try {
-            notifier.join(3000);
-        } catch (InterruptedException e) {
-            notifier.interrupt();
-            Thread.currentThread().interrupt();//interrupted flag was reset
+        if (notifier != null) {
+            try {
+                notifier.join(3000);
+            } catch (InterruptedException e) {
+                notifier.interrupt();
+                Thread.currentThread().interrupt();//interrupted flag was reset
+            }
         }
     }
 
@@ -152,6 +135,27 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
         } else {
             bestFitness = Double.MAX_VALUE;
             minimizing = true;
+        }
+        startNotifier();
+    }
+
+    private void startNotifier() {
+        if (notifier == null || !notifier.isAlive()) {
+             notifier = new Thread(() -> {
+                // Wait for new element in queue
+                // If there is a new element, then send it to master through RMI
+                while (!done || !individuals.isEmpty()) {
+                    T individual;
+                    try {
+                        individual = individuals.take();
+                        StatisticsSender.sendIndividualToMaster(individual);
+                    } catch (InterruptedException e) {
+                        done = true;
+                    }
+                }
+            });
+            Sandbox.addPrivilegedThread(notifier);
+            notifier.start();
         }
     }
 
