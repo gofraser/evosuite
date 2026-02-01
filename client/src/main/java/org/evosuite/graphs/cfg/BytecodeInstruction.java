@@ -27,6 +27,8 @@ import org.evosuite.graphs.cdg.ControlDependenceGraph;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.SourceValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.util.Set;
@@ -47,6 +49,7 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         Comparable<BytecodeInstruction> {
 
     private static final long serialVersionUID = 3630449183355518857L;
+    private static final Logger logger = LoggerFactory.getLogger(BytecodeInstruction.class);
 
     // identification of a byteCode instruction inside EvoSuite
     protected ClassLoader classLoader;
@@ -597,51 +600,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
                 "expect getControlDependencies() to contain a CD for each branch that isDirectlyControlDependentOn() returns true on");
     }
 
-    // /**
-    // * WARNING: better don't user this method right now TODO
-    // *
-    // * Determines whether the CFGVertex is transitively control dependent on
-    // the
-    // * given Branch
-    // *
-    // * A CFGVertex is transitively control dependent on a given Branch if the
-    // * Branch and the vertex are in the same method and the vertex is either
-    // * directly control dependent on the Branch - look at
-    // * isDirectlyControlDependentOn(Branch) - or the CFGVertex of the control
-    // * dependent branch of this CFGVertex is transitively control dependent on
-    // * the given branch.
-    // *
-    // */
-    // public boolean isTransitivelyControlDependentOn(Branch branch) {
-    // if (!getClassName().equals(branch.getClassName()))
-    // return false;
-    // if (!getMethodName().equals(branch.getMethodName()))
-    // return false;
-    //
-    // // TODO: this method does not take into account, that there might be
-    // // multiple branches this instruction is control dependent on
-    //
-    // BytecodeInstruction vertexHolder = this;
-    // do {
-    // if (vertexHolder.isDirectlyControlDependentOn(branch))
-    // return true;
-    // vertexHolder = vertexHolder.getControlDependentBranch()
-    // .getInstruction();
-    // } while (vertexHolder != null);
-    //
-    // return false;
-    // }
-
-    // /**
-    // * WARNING: better don't user this method right now TODO
-    // *
-    // * Determines the number of branches that have to be passed in order to
-    // pass
-    // * this CFGVertex
-    // *
-    // * Used to determine TestFitness difficulty
-    // */
-
     /**
      * <p>
      * getCDGDepth
@@ -660,13 +618,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
                 min = depth;
         }
         return min;
-        /*
-         * // TODO: this method does not take into account, that there might be
-         * // multiple branches this instruction is control dependent on Branch
-         * current = getControlDependentBranch(); int r = 1; while (current !=
-         * null) { r++; current =
-         * current.getInstruction().getControlDependentBranch(); } return r;
-         */
     }
 
     // String methods
@@ -691,8 +642,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
             }
             return "UNKNOWN Branch I" + instructionId + " "
                     + getInstructionType() + ", jump to " + ((JumpInsnNode) asmNode).label.getLabel();
-
-            // + " - " + ((JumpInsnNode) asmNode).label.getLabel();
         }
 
         return getASMNodeString();
@@ -784,32 +733,34 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * </p>
      */
     public void printFrameInformation() {
-        System.out.println("Frame STACK:");
+        logger.info("Frame STACK:");
         for (int i = 0; i < frame.getStackSize(); i++) {
             SourceValue v = (SourceValue) frame.getStack(i);
-            System.out.print(" " + i + "(" + v.insns.size() + "): ");
+            StringBuilder sb = new StringBuilder();
+            sb.append(" ").append(i).append("(").append(v.insns.size()).append("): ");
             for (Object n : v.insns) {
                 AbstractInsnNode node = (AbstractInsnNode) n;
                 BytecodeInstruction ins = BytecodeInstructionPool.getInstance(classLoader).getInstruction(className,
                         methodName,
                         node);
-                System.out.print(ins.toString() + ", ");
+                sb.append(ins.toString()).append(", ");
             }
-            System.out.println();
+            logger.info(sb.toString());
         }
 
-        System.out.println("Frame LOCALS:");
+        logger.info("Frame LOCALS:");
         for (int i = 1; i < frame.getLocals(); i++) {
             SourceValue v = (SourceValue) frame.getLocal(i);
-            System.out.print(" " + i + "(" + v.insns.size() + "): ");
+            StringBuilder sb = new StringBuilder();
+            sb.append(" ").append(i).append("(").append(v.insns.size()).append("): ");
             for (Object n : v.insns) {
                 AbstractInsnNode node = (AbstractInsnNode) n;
                 BytecodeInstruction ins = BytecodeInstructionPool.getInstance(classLoader).getInstruction(className,
                         methodName,
                         node);
-                System.out.print(ins.toString() + ", ");
+                sb.append(ins.toString()).append(", ");
             }
-            System.out.println();
+            logger.info(sb.toString());
         }
     }
 
@@ -1065,13 +1016,7 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
         int stackPos = frame.getStackSize() - (1 + positionFromTop);
         if (stackPos < 0) {
-            StackTraceElement[] se = new Throwable().getStackTrace();
-            int t = 0;
-            System.out.println("Stack trace: ");
-            while (t < se.length) {
-                System.out.println(se[t]);
-                t++;
-            }
+            logger.warn("Stack trace: ", new Throwable());
             return null;
         }
         SourceValue source = (SourceValue) frame.getStack(stackPos);
@@ -1168,7 +1113,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * @return a boolean.
      */
     public boolean canBeInstrumented() {
-        // System.out.println("i cant be instrumented "+toString());
         return !isWithinConstructor() || !proceedsOwnConstructorInvocation();
     }
 
