@@ -43,21 +43,22 @@ public class StatementCoverageFactory extends
         List<StatementCoverageTestFitness> goals = new ArrayList<>();
 
         final MethodNameMatcher matcher = new MethodNameMatcher();
+        BytecodeInstructionPool pool = BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
 
-        for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownClasses()) {
+        for (String className : pool.knownClasses()) {
 
             if (!(targetClass.equals("") || className.endsWith(targetClass)))
                 continue;
 
-            for (String methodName : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownMethods(className)) {
+            for (String methodName : pool.knownMethods(className)) {
 
                 if (!matcher.methodMatches(methodName))
                     continue;
 
-                for (BytecodeInstruction ins : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getInstructionsIn(className,
-                        methodName))
+                for (BytecodeInstruction ins : pool.getInstructionsIn(className, methodName)) {
                     if (isUsable(ins))
                         goals.add(new StatementCoverageTestFitness(ins.getClassName(), ins.getMethodName(), ins.getInstructionId()));
+                }
             }
         }
         long end = System.currentTimeMillis();
