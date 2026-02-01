@@ -73,6 +73,8 @@ public class ControlFlowDistanceCalculator {
 
     private static final Logger logger = LoggerFactory.getLogger(ControlFlowDistanceCalculator.class);
 
+    private static final int TIMEOUT_APPROACH_LEVEL = 20;
+
     // DONE hold intermediately calculated ControlFlowDistances in
     // ExecutionResult during computation in order to speed up things -
     // experiment at least
@@ -143,7 +145,7 @@ public class ControlFlowDistanceCalculator {
     private static ControlFlowDistance worstPossibleDistanceForMethod(Branch branch) {
         ControlFlowDistance d = new ControlFlowDistance();
         if (branch == null) {
-            d.setApproachLevel(20);
+            d.setApproachLevel(TIMEOUT_APPROACH_LEVEL);
         } else {
             d.setApproachLevel(branch.getInstruction().getActualCFG().getDiameter() + 2);
         }

@@ -107,48 +107,6 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
         return goal.getValue();
     }
 
-    /**
-     * <p>
-     * getUnfitness
-     * </p>
-     *
-     * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
-     * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @return a double.
-     */
-    public double getUnfitness(ExecutableChromosome<?> individual, ExecutionResult result) {
-
-        double sum = 0.0;
-        boolean methodExecuted = false;
-
-        for (MethodCall call : result.getTrace().getMethodCalls()) {
-            if (call.className.equals(goal.getClassName())
-                    && call.methodName.equals(goal.getMethodName())) {
-                methodExecuted = true;
-                if (goal.getBranch() != null) {
-                    for (int i = 0; i < call.branchTrace.size(); i++) {
-                        if (call.branchTrace.get(i) == goal.getBranch().getInstruction().getInstructionId()) {
-                            if (goal.getValue())
-                                sum += call.falseDistanceTrace.get(i);
-                            else
-                                sum += call.trueDistanceTrace.get(i);
-                        }
-                    }
-                }
-            }
-        }
-
-        if (goal.getBranch() == null) {
-            // logger.info("Branch is null? " + goal.branch);
-            if (goal.getValue())
-                sum = methodExecuted ? 1.0 : 0.0;
-            else
-                sum = methodExecuted ? 0.0 : 1.0;
-
-        }
-
-        return sum;
-    }
 
     /**
      * {@inheritDoc}

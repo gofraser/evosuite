@@ -229,7 +229,7 @@ public class BranchPool {
 
         branchCounter++;
 
-        Branch switchBranch = new Branch(v, caseValue, targetLabel, branchCounter);
+        Branch switchBranch = new Branch(v, caseValue, branchCounter);
         registerSwitchBranch(v, switchBranch);
         addBranchToMap(switchBranch);
         branchIdMap.put(branchCounter, switchBranch);

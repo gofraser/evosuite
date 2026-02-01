@@ -20,7 +20,6 @@
 package org.evosuite.coverage.branch;
 
 import org.evosuite.graphs.cfg.BytecodeInstruction;
-import org.objectweb.asm.tree.LabelNode;
 
 import java.io.Serializable;
 
@@ -92,21 +91,16 @@ public class Branch implements Serializable, Comparable<Branch> {
      *
      * @param switchInstruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @param targetCaseValue   a {@link java.lang.Integer} object.
-     * @param targetLabel       a {@link org.objectweb.asm.tree.LabelNode} object.
      * @param actualBranchId    a int.
      */
     public Branch(BytecodeInstruction switchInstruction, Integer targetCaseValue,
-                  LabelNode targetLabel, int actualBranchId) {
+                  int actualBranchId) {
         if (!switchInstruction.isSwitch())
             throw new IllegalArgumentException("switch instruction expected");
-        if (targetLabel == null)
-            throw new IllegalArgumentException(
-                    "expect targetLabel to not be null for case branches");
 
         this.instruction = switchInstruction;
         this.actualBranchId = actualBranchId;
 
-        // this.targetLabel = targetLabel;
         this.targetCaseValue = targetCaseValue;
         this.isSwitch = true;
 
@@ -158,7 +152,7 @@ public class Branch implements Serializable, Comparable<Branch> {
         // in order to avoid confusion when targetCaseValue is null
         if (!isSwitch)
             throw new IllegalStateException(
-                    "method only allowed to be called on non-switch-Branches");
+                    "method only allowed to be called on switch-Branches");
 
         return targetCaseValue; // null for default case
     }
@@ -253,7 +247,11 @@ public class Branch implements Serializable, Comparable<Branch> {
      */
     @Override
     public int compareTo(Branch other) {
-        return instruction.getLineNumber() - other.getInstruction().getLineNumber();
+        int diff = instruction.getLineNumber() - other.getInstruction().getLineNumber();
+        if (diff == 0) {
+            return Integer.compare(this.actualBranchId, other.actualBranchId);
+        }
+        return diff;
     }
 
     /**
