@@ -347,15 +347,32 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
             }
         }
         int diff = lineNumber - o.lineNumber;
-        // TODO: this code in some cases leads to the violation of the compare
-        // contract. I still have to figure out why - mattia
-        //			// Branch can only be null if this is a branchless method
-        //			if(branch == null || o.getBranch() == null)
-        //				return 0;
-        //
-        //			// If on the same line, order by appearance in bytecode
-        //			return branch.getActualBranchId() - o.getBranch().getActualBranchId();
-        return diff;
+        if (diff != 0) {
+            return diff;
+        }
+
+        diff = className.compareTo(o.className);
+        if (diff != 0) {
+            return diff;
+        }
+
+        diff = methodName.compareTo(o.methodName);
+        if (diff != 0) {
+            return diff;
+        }
+
+        if (this.branch != null && o.branch != null) {
+            diff = this.branch.compareTo(o.branch);
+            if (diff != 0) {
+                return diff;
+            }
+        } else if (this.branch != null) {
+            return 1;
+        } else if (o.branch != null) {
+            return -1;
+        }
+
+        return Boolean.compare(this.value, o.value);
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException {
