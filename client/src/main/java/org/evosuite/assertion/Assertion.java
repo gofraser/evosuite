@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -107,14 +108,9 @@ public abstract class Assertion implements Serializable {
         if (getClass() != obj.getClass())
             return false;
         Assertion other = (Assertion) obj;
-        if (source == null) {
-            if (other.source != null)
-                return false;
-        } else if (!source.equals(other.source))
+        if (!Objects.equals(source, other.source))
             return false;
-        if (value == null) {
-            return other.value == null;
-        } else return value.equals(other.value);
+        return Objects.equals(value, other.value);
     }
 
     public void addKilledMutation(Mutation m) {

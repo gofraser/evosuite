@@ -24,7 +24,8 @@ import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.variable.VariableReference;
 
-import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -68,8 +69,8 @@ public class CompareAssertion extends Assertion {
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
         CompareAssertion s = new CompareAssertion();
-        s.source = newTestCase.getStatement(source.getStPosition() + offset).getReturnValue();
-        s.dest = newTestCase.getStatement(dest.getStPosition() + offset).getReturnValue();
+        s.source = source.copy(newTestCase, offset);
+        s.dest = dest.copy(newTestCase, offset);
         s.value = value;
         s.comment = comment;
         s.killedMutants.addAll(killedMutants);
@@ -83,18 +84,19 @@ public class CompareAssertion extends Assertion {
      */
     @Override
     public String getCode() {
-        if (source.getType().equals(Integer.class)) {
-            if ((Integer) value == 0)
-                return "assertEquals(" + source.getName() + ", " + dest.getName() + ");";
-            else if ((Integer) value < 0)
-                return "assertTrue(" + source.getName() + " < " + dest.getName() + ");";
-            else
-                return "assertTrue(" + source.getName() + " > " + dest.getName() + ");";
-
-        } else {
-            return "assertEquals(" + source.getName() + ".compareTo(" + dest.getName()
-                    + "), " + value + ");";
+        if (value instanceof Integer) {
+            int val = (Integer) value;
+            if (source.getType().equals(Integer.class)) {
+                if (val == 0)
+                    return "assertEquals(" + source.getName() + ", " + dest.getName() + ");";
+                else if (val < 0)
+                    return "assertTrue(" + source.getName() + " < " + dest.getName() + ");";
+                else
+                    return "assertTrue(" + source.getName() + " > " + dest.getName() + ");";
+            }
         }
+        return "assertEquals(" + source.getName() + ".compareTo(" + dest.getName()
+                + "), " + value + ");";
     }
 
     /**
@@ -106,18 +108,30 @@ public class CompareAssertion extends Assertion {
     @Override
     public boolean evaluate(Scope scope) {
         try {
-            Comparable<Object> comparable = (Comparable<Object>) source.getObject(scope);
-            if (comparable == null)
-                if ((Integer) value == 0)
+            Object sObj = source.getObject(scope);
+            if (sObj == null) {
+                if (value instanceof Integer && ((Integer) value) == 0)
                     return dest.getObject(scope) == null;
                 else
                     return false;
-            else {
-                try {
-                    return comparable.compareTo(dest.getObject(scope)) == (Integer) value;
-                } catch (Exception e) {
-                    return false;
+            }
+
+            if (!(sObj instanceof Comparable)) {
+                return false;
+            }
+
+            Comparable<Object> comparable = (Comparable<Object>) sObj;
+            Object dObj = dest.getObject(scope);
+
+            try {
+                int result = comparable.compareTo(dObj);
+                if (value instanceof Integer) {
+                    return result == (Integer) value;
                 }
+                // If value is not Integer, strict equality check of result (though compareTo returns int)
+                return value != null && value.equals(result);
+            } catch (Exception e) {
+                return false;
             }
         } catch (CodeUnderTestException e) {
             throw new UnsupportedOperationException();
@@ -147,26 +161,22 @@ public class CompareAssertion extends Assertion {
         if (getClass() != obj.getClass())
             return false;
         CompareAssertion other = (CompareAssertion) obj;
-        if (dest == null) {
-            if (other.dest != null)
-                return false;
-        } else if (!dest.equals(other.dest))
+        if (!Objects.equals(dest, other.dest))
             return false;
-        if (source == null) {
-            if (other.source != null)
-                return false;
-        } else if (!source.equals(other.source))
+        if (!Objects.equals(source, other.source))
             return false;
+
         if (value == null) {
             return other.value == null;
-        } else if ((Integer) value > 0) {
-            return (Integer) other.value > 0;
-        } else if ((Integer) value < 0) {
-            return (Integer) other.value < 0;
-        } else if ((Integer) value == 0) {
-            return (Integer) other.value == 0;
+        } else if (value instanceof Integer && other.value instanceof Integer) {
+            int v1 = (Integer) value;
+            int v2 = (Integer) other.value;
+            if (v1 > 0) return v2 > 0;
+            if (v1 < 0) return v2 < 0;
+            return v1 == 0 && v2 == 0;
+        } else {
+            return value.equals(other.value);
         }
-        return true;
     }
 
     /*
@@ -180,7 +190,7 @@ public class CompareAssertion extends Assertion {
      */
     @Override
     public Set<VariableReference> getReferencedVariables() {
-        Set<VariableReference> vars = new HashSet<>();
+        Set<VariableReference> vars = new LinkedHashSet<>();
         vars.add(source);
         vars.add(dest);
         return vars;

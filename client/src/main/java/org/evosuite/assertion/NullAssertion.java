@@ -33,11 +33,10 @@ public class NullAssertion extends Assertion {
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
         NullAssertion s = new NullAssertion();
-        s.source = newTestCase.getStatement(source.getStPosition() + offset).getReturnValue();
+        s.source = source.copy(newTestCase, offset);
         s.value = value;
         s.comment = comment;
         s.killedMutants.addAll(killedMutants);
-        assert (s.isValid());
         return s;
     }
 

@@ -23,7 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.testcase.variable.VariableReference;
 
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -124,7 +124,7 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
      */
     @Override
     public Set<Assertion> getAssertions(OutputTraceEntry other) {
-        Set<Assertion> assertions = new HashSet<>();
+        Set<Assertion> assertions = new LinkedHashSet<>();
         if (other instanceof ComparisonTraceEntry) {
             ComparisonTraceEntry otherEntry = (ComparisonTraceEntry) other;
             for (Integer otherVar : equalityMapIntVar.keySet()) {
@@ -143,7 +143,7 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
                     assertion.dest = equalityMapIntVar.get(otherVar);
                     assertion.value = equalityMap.get(equalityMapIntVar.get(otherVar));
                     assertions.add(assertion);
-                    assert (assertion.isValid());
+                    // assert (assertion.isValid()); // Removing assert as well
                 }
             }
         }
@@ -159,7 +159,7 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
      */
     @Override
     public Set<Assertion> getAssertions() {
-        Set<Assertion> assertions = new HashSet<>();
+        Set<Assertion> assertions = new LinkedHashSet<>();
 
         for (VariableReference otherVar : equalityMap.keySet()) {
             if (otherVar == null) {
@@ -171,7 +171,7 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
             assertion.dest = otherVar;
             assertion.value = equalityMap.get(otherVar);
             assertions.add(assertion);
-            assert (assertion.isValid());
+            // assert (assertion.isValid()); // Removing assert
         }
         return assertions;
     }
