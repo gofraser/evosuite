@@ -65,10 +65,10 @@ public class DeleteStatement implements MutationOperator {
 
         // insert mutation into bytecode with conditional
         InsnList mutation = new InsnList();
-        logger.info("Mutation deletestatement for statement " + node.name + node.desc);
+        logger.debug("Mutation deletestatement for statement " + node.name + node.desc);
         for (Type argType : Type.getArgumentTypes(node.desc)) {
             if (argType.getSize() == 0)
-                logger.info("Ignoring parameter of type " + argType);
+                logger.debug("Ignoring parameter of type " + argType);
             else if (argType.getSize() == 2) {
                 mutation.insert(new InsnNode(Opcodes.POP2));
                 logger.debug("Deleting parameter of 2 type " + argType);
@@ -83,7 +83,7 @@ public class DeleteStatement implements MutationOperator {
         } else if (node.getOpcode() == Opcodes.INVOKEINTERFACE) {
             boolean isStatic = false;
             try {
-                Class<?> clazz = Class.forName(node.owner.replace('/', '.'), false, DeleteStatement.class.getClassLoader());
+                Class<?> clazz = Class.forName(node.owner.replace('/', '.'), false, TestGenerationContext.getInstance().getClassLoaderForSUT());
                 for (java.lang.reflect.Method method : clazz.getMethods()) {
                     if (method.getName().equals(node.name)) {
                         if (Type.getMethodDescriptor(method).equals(node.desc)) {
@@ -97,7 +97,7 @@ public class DeleteStatement implements MutationOperator {
                         + ", this is likely a severe problem");
             }
             if (!isStatic) {
-                logger.info("Deleting callee of type " + node.owner);
+                logger.debug("Deleting callee of type " + node.owner);
                 mutation.add(new InsnNode(Opcodes.POP));
             }
         }

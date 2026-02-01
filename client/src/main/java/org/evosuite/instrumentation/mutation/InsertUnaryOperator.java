@@ -73,7 +73,12 @@ public class InsertUnaryOperator implements MutationOperator {
 
                 // insert mutation into bytecode with conditional
                 mutation.add(new VarInsnNode(node.getOpcode(), node.var));
-                mutation.add(new InsnNode(getNegation(node.getOpcode())));
+                if (node.getOpcode() == Opcodes.ILOAD && frame.getLocal(node.var) == BooleanValueInterpreter.BOOLEAN_VALUE) {
+                    mutation.add(new InsnNode(Opcodes.ICONST_1));
+                    mutation.add(new InsnNode(Opcodes.IXOR));
+                } else {
+                    mutation.add(new InsnNode(getNegation(node.getOpcode())));
+                }
                 mutationCode.add(mutation);
 
                 if (!mn.localVariables.isEmpty())
@@ -103,7 +108,7 @@ public class InsertUnaryOperator implements MutationOperator {
                     }
                 }
             } catch (VariableNotFoundException e) {
-                logger.info("Could not find variable: " + e);
+                logger.debug("Could not find variable: " + e);
                 return new ArrayList<>();
             }
         } else {
@@ -112,7 +117,12 @@ public class InsertUnaryOperator implements MutationOperator {
             Type type = Type.getType(node.desc);
             mutation.add(new FieldInsnNode(node.getOpcode(), node.owner, node.name,
                     node.desc));
-            mutation.add(new InsnNode(getNegation(type)));
+            if (type == Type.BOOLEAN_TYPE) {
+                mutation.add(new InsnNode(Opcodes.ICONST_1));
+                mutation.add(new InsnNode(Opcodes.IXOR));
+            } else {
+                mutation.add(new InsnNode(getNegation(type)));
+            }
             descriptions.add("Negation");
             mutationCode.add(mutation);
 
