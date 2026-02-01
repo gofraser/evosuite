@@ -56,8 +56,10 @@ public class BranchCoverageFactory extends
         long start = System.currentTimeMillis();
         List<BranchCoverageTestFitness> goals = new ArrayList<>();
 
+        BranchPool branchPool = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
+
         // logger.info("Getting branches");
-        for (String className : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownClasses()) {
+        for (String className : branchPool.knownClasses()) {
             //when limitToCUT== true, if not the class under test of a inner/anonymous class, continue
             if (limitToCUT && !isCUT(className)) continue;
             //when limitToCUT==false, consider all classes, but excludes libraries ones according the INSTRUMENT_LIBRARIES property
@@ -65,20 +67,20 @@ public class BranchCoverageFactory extends
                 continue;
             final MethodNameMatcher matcher = new MethodNameMatcher();
             // Branchless methods
-            for (String method : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchlessMethods(className)) {
+            for (String method : branchPool.getBranchlessMethods(className)) {
                 if (matcher.fullyQualifiedMethodMatches(method)) {
                     goals.add(createRootBranchTestFitness(className, method));
                 }
             }
 
             // Branches
-            for (String methodName : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownMethods(className)) {
+            for (String methodName : branchPool.knownMethods(className)) {
                 if (!matcher.methodMatches(methodName)) {
-                    logger.info("Method " + methodName + " does not match criteria. ");
+                    logger.debug("Method " + methodName + " does not match criteria. ");
                     continue;
                 }
 
-                for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).retrieveBranchesInMethod(className,
+                for (Branch b : branchPool.retrieveBranchesInMethod(className,
                         methodName)) {
                     if (!b.isInstrumented()) {
                         goals.add(createBranchCoverageTestFitness(b, true));
@@ -175,17 +177,3 @@ public class BranchCoverageFactory extends
                 instruction.getMethodName());
     }
 }
-
-////----------
-//List<String> l = new ArrayList<>();
-//for (BranchCoverageTestFitness callGraphEntry : goals) {
-//	l.add(callGraphEntry.toString());
-//}
-//File f = new File("/Users/mattia/workspaces/evosuiteSheffield/evosuite/master/evosuite-report/branchgoals.txt");
-//f.delete();
-//try {
-//	Files.write(f.toPath(), l, Charset.defaultCharset(), StandardOpenOption.CREATE);
-//} catch (IOException e) { 
-//	e.printStackTrace();
-//}
-////---------- 

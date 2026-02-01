@@ -286,15 +286,6 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
         result = prime * result + (branch == null ? 0 : branch.getActualBranchId());
         result = prime * result
                 + (branch == null ? 0 : branch.getInstruction().getInstructionId());
-        // TODO sure you want to call hashCode() on the cfg? doesn't that take
-        // long?
-        // Seems redundant -- GF
-		/*
-		result = prime
-		        * result
-		        + ((branch == null) ? 0
-		                : branch.getInstruction().getActualCFG().hashCode());
-		                */
         result = prime * result + className.hashCode();
         result = prime * result + methodName.hashCode();
         result = prime * result + (value ? 1231 : 1237);
@@ -318,12 +309,12 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
         if (this.branch == null) {
             if (other.branch != null)
                 return false;
-            else
-                // i don't have to check for value at this point, because if
-                // branch is null we are talking about the root branch here
-                return this.methodName.equals(other.methodName)
-                        && this.className.equals(other.className);
+            // i don't have to check for value at this point, because if
+            // branch is null we are talking about the root branch here
+            return this.methodName.equals(other.methodName)
+                    && this.className.equals(other.className);
         }
+
         // well i am not, if you are we are different
         if (other.branch == null)
             return false;
@@ -332,47 +323,40 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
         // way we want it to be evaluated
         if (!this.branch.equals(other.branch))
             return false;
-        else {
-            return this.value == other.value;
-        }
+
+        return this.value == other.value;
     }
 
     @Override
     public int compareTo(BranchCoverageGoal o) {
-        if (branch != null && o.getBranch() != null && branch.isInstrumented() != o.getBranch().isInstrumented()) {
-            if (branch.isInstrumented()) {
+        if (this.branch == null && o.branch == null) {
+            // Both are root branches
+            int classComp = this.className.compareTo(o.className);
+            if (classComp != 0) return classComp;
+            return this.methodName.compareTo(o.methodName);
+        }
+        if (this.branch == null) return -1;
+        if (o.branch == null) return 1;
+
+        if (branch.isInstrumented() != o.getBranch().isInstrumented()) {
+             if (branch.isInstrumented()) {
                 return 1;
             } else {
                 return -1;
             }
         }
-        int diff = lineNumber - o.lineNumber;
-        if (diff != 0) {
-            return diff;
+
+        int diff = Integer.compare(this.lineNumber, o.lineNumber);
+        if (diff != 0) return diff;
+
+        diff = this.branch.compareTo(o.branch);
+        if (diff != 0) return diff;
+
+        if (this.value != o.value) {
+            return this.value ? 1 : -1;
         }
 
-        diff = className.compareTo(o.className);
-        if (diff != 0) {
-            return diff;
-        }
-
-        diff = methodName.compareTo(o.methodName);
-        if (diff != 0) {
-            return diff;
-        }
-
-        if (this.branch != null && o.branch != null) {
-            diff = this.branch.compareTo(o.branch);
-            if (diff != 0) {
-                return diff;
-            }
-        } else if (this.branch != null) {
-            return 1;
-        } else if (o.branch != null) {
-            return -1;
-        }
-
-        return Boolean.compare(this.value, o.value);
+        return 0;
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException {

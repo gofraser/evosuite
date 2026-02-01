@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toCollection;
 
@@ -71,7 +72,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     protected Class<E> edgeClass;
 
     // for .dot functionality
-    // TODO need jgrapht-0.8.3
     ComponentAttributeProvider<V> vertexAttributeProvider = null;
     ComponentAttributeProvider<E> edgeAttributeProvider = null;
 
@@ -147,7 +147,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         if (!containsVertex(node)) // should this just return null?
             throw new IllegalArgumentException(
                     "node not contained in this graph");
-        // TODO hash set? can't be sure E implements hash correctly
         return new LinkedHashSet<>(graph.outgoingEdgesOf(node));
     }
 
@@ -160,7 +159,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     public Set<E> incomingEdgesOf(V node) {
         if (!containsVertex(node)) // should this just return null?
             throw new IllegalArgumentException("node not contained in this graph ");
-        // TODO hash set? can't be sure E implements hash correctly
         return new LinkedHashSet<>(graph.incomingEdgesOf(node));
     }
 
@@ -172,13 +170,10 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
      */
     public Set<V> getChildren(V node) {
         if (!containsVertex(node)) {
-            LoggingUtils.getEvoLogger().warn("getChildren call requests a node not contained in the current graph. Node: " + node);
+            logger.warn("getChildren call requests a node not contained in the current graph. Node: " + node);
             return null;
         }
-        //TODO check why in project 57_hft-bomberman class client.gui.StartFrame this happens
-        //	throw new IllegalArgumentException(
-        //			"node not contained in this graph");
-        // TODO hash set? can't be sure V implements hash correctly
+
         Set<V> r = outgoingEdgesOf(node).stream()
                 .map(this::getEdgeTarget)
                 .collect(toCollection(LinkedHashSet::new));
@@ -201,7 +196,7 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         if (!containsVertex(node)) // should this just return null?
             throw new IllegalArgumentException(
                     "node not contained in this graph");
-        // TODO hash set? can't be sure V implements hash correctly
+
         Set<V> r = incomingEdgesOf(node).stream()
                 .map(this::getEdgeSource)
                 .collect(toCollection(LinkedHashSet::new));
@@ -220,15 +215,7 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
      * @return a {@link java.util.Set} object.
      */
     public Set<V> vertexSet() {
-        // TODO hash set? can't be sure V implements hash correctly
         return new LinkedHashSet<>(graph.vertexSet());
-        /*
-         * Set<V> r = new HashSet<V>();
-         *
-         * for (V v : graph.vertexSet()) r.add(v);
-         *
-         * return r;
-         */
     }
 
     /**
@@ -237,16 +224,7 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
      * @return a {@link java.util.Set} object.
      */
     public Set<E> edgeSet() {
-        // TODO hash set? can't be sure E implements hash correctly
         return new LinkedHashSet<>(graph.edgeSet());
-
-        /*
-         * Set<E> r = new HashSet<E>();
-         *
-         * for (E e : graph.edgeSet()) r.add(e);
-         *
-         * return r;
-         */
     }
 
     /**
@@ -259,13 +237,14 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     public V getSingleChild(V node) {
         if (node == null)
             return null;
-        if (!graph.containsVertex(node))
+        if (!containsVertex(node))
             return null;
         if (outDegreeOf(node) != 1)
             return null;
 
-        for (V r : getChildren(node))
-            return r;
+        for (E e : outgoingEdgesOf(node)) {
+            return getEdgeTarget(e);
+        }
         // should be unreachable
         return null;
     }
@@ -513,8 +492,7 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
      * @return a boolean.
      */
     public boolean containsEdge(E e) {
-        return graph.containsEdge(e); // TODO this seems to be buggy, at least
-        // for ControlFlowEdges
+        return graph.containsEdge(e);
     }
 
     /**
@@ -794,17 +772,25 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     private void createToPNGScript(String filename) {
         File dotFile = new File(filename);
 
-        // dot -Tpng RawCFG11_exe2_III_I.dot > file.png
         assert (dotFile.exists() && !dotFile.isDirectory());
 
         try {
-            String[] cmd = {"dot", "-Tpng",
+            ProcessBuilder pb = new ProcessBuilder("dot", "-Tpng",
                     "-o" + dotFile.getAbsolutePath() + ".png",
-                    dotFile.getAbsolutePath()};
-            Runtime.getRuntime().exec(cmd);
+                    dotFile.getAbsolutePath());
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            // We wait for the process to ensure the PNG is generated
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                logger.error("dot process exited with code " + exitCode + " for file " + filename);
+            }
 
-        } catch (IOException e) {
-            logger.error("Problem while generating a graph for a dotFile", e);
+        } catch (IOException | InterruptedException e) {
+            logger.error("Problem while generating a graph for a dotFile: " + filename, e);
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -842,10 +828,8 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         // TODO check if graphviz/dot is actually available on the current
         // machine
 
-        try {
+        try (BufferedWriter out = new BufferedWriter(new FileWriter(filename))) {
 
-            FileWriter fstream = new FileWriter(filename);
-            BufferedWriter out = new BufferedWriter(fstream);
             if (!graph.vertexSet().isEmpty()) {
                 // FrameVertexNameProvider nameprovider = new
                 // FrameVertexNameProvider(mn.instructions);
@@ -866,11 +850,10 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
                 // new IntegerEdgeNameProvider<E>());
                 exporter.export(out, graph);
 
-                logger.info("exportet " + getName());
+                logger.info("exported " + getName());
             }
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            logger.error("Error writing dot file: " + filename, e);
         }
     }
 }

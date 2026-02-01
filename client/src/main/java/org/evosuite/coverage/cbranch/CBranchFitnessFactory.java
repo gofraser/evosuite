@@ -30,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -46,8 +46,7 @@ public class CBranchFitnessFactory extends AbstractFitnessFactory<CBranchTestFit
      */
     @Override
     public List<CBranchTestFitness> getCoverageGoals() {
-        //TODO this creates duplicate goals. Momentary fixed using a Set, but it should be optimised
-        Set<CBranchTestFitness> goals = new HashSet<>();
+        Set<CBranchTestFitness> goals = new LinkedHashSet<>();
 
         // retrieve set of branches
         BranchCoverageFactory branchFactory = new BranchCoverageFactory();
@@ -67,4 +66,3 @@ public class CBranchFitnessFactory extends AbstractFitnessFactory<CBranchTestFit
         return new ArrayList<>(goals);
     }
 }
-
