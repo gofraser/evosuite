@@ -29,6 +29,6 @@ public class DefaultTestCaseTest {
 
         DefaultTestCase tc = new DefaultTestCase();
         DefaultTestCase clone = tc.clone();
-        Assert.assertTrue(tc.statements != clone.statements);
+        Assert.assertNotSame(tc.statements, clone.statements);
     }
 }

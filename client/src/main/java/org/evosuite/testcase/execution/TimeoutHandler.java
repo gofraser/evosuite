@@ -97,6 +97,7 @@ public class TimeoutHandler<T> {
         return result;
     }
 
+    @SuppressWarnings("removal") // ThreadDeath is deprecated for removal but still needed for Thread.stop() handling
     private T executeWithCpuBasedTimeout(final Callable<T> testcase,
                                          ExecutorService executor, long timeout) throws InterruptedException,
             ExecutionException, TimeoutException {

@@ -282,7 +282,7 @@ public class TestCaseExecutor implements ThreadFactory {
      * @param scope a {@link org.evosuite.testcase.execution.Scope} object.
      * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({"deprecation", "removal"})
     private ExecutionResult execute(TestCase tc, Scope scope, int timeout) {
         ExecutionTracer.getExecutionTracer().clear();
 

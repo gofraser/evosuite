@@ -19,6 +19,7 @@
  */
 package com.examples.with.different.packagename.concolic;
 
+@SuppressWarnings("removal") // ThreadDeath is deprecated for removal but still needed for Thread.stop() handling
 public class TestInput2 {
 
     /**

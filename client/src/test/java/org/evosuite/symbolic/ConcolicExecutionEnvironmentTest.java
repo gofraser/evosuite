@@ -50,7 +50,6 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.List;
 
-import static org.evosuite.symbolic.SymbolicObserverTest.printConstraints;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -69,14 +68,10 @@ public class ConcolicExecutionEnvironmentTest {
 
     private List<BranchCondition> executeTest(DefaultTestCase tc) {
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         // ConcolicExecution concolicExecutor = new ConcolicExecution();
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         return branch_conditions;
     }
 

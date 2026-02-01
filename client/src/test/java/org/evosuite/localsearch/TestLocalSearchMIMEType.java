@@ -104,8 +104,6 @@ public class TestLocalSearchMIMEType {
         VariableReference mIMEType0 = builder.appendStaticFieldStmt(memField);
         builder.appendMethod(mIMEType0, toString);
 
-        System.out.println("Test Case #0=" + builder.toCode());
-
         return builder.getDefaultTestCase();
     }
 
@@ -142,7 +140,6 @@ public class TestLocalSearchMIMEType {
         VariableReference string7 = builder.appendStringPrimitive("xT7vo\"<|[E{4");
         builder.appendConstructor(constructorStringBoolean, string7, boolean0);
         builder.addException(new Error());
-        System.out.println("Test Case #2=" + builder.toCode());
         return builder.getDefaultTestCase();
     }
 
@@ -203,7 +200,6 @@ public class TestLocalSearchMIMEType {
         VariableReference mIMEType4 = builder.appendConstructor(constructorString, string8);
         VariableReference string9 = builder.appendMethod(mIMEType1, getTypeMethod);
 
-        System.out.println("Test Case #1=" + builder.toCode());
         return builder.getDefaultTestCase();
 
     }
@@ -263,32 +259,13 @@ public class TestLocalSearchMIMEType {
             suite.addFitness(ff);
         }
 
-        for (TestSuiteFitnessFunction ff : fitnessFunctions) {
-            double oldFitness = ff.getFitness(suite);
-            System.out.println(ff.toString() + "->" + oldFitness);
-        }
         double oldFitness = suite.getFitness();
-        System.out.println("oldFitness->" + oldFitness);
-        System.out.println("oldSize->" + suite.getTests().size());
 
         DefaultLocalSearchObjective objective = new DefaultLocalSearchObjective<>();
         for (TestSuiteFitnessFunction ff : fitnessFunctions) {
             objective.addFitnessFunction(ff);
         }
-        boolean hasImproved = suite.localSearch(objective);
-
-        System.out.println("hasImproved=" + hasImproved);
-
-
-        for (TestSuiteFitnessFunction ff : fitnessFunctions) {
-            double newFitness = ff.getFitness(suite);
-            System.out.println(ff.toString() + "->" + newFitness);
-
-        }
         double newFitness = suite.getFitness();
-        System.out.println("newFitness->" + newFitness);
-        System.out.println("newSize->" + suite.getTests().size());
-
         assertTrue(newFitness <= oldFitness);
     }
 
@@ -303,7 +280,6 @@ public class TestLocalSearchMIMEType {
         VariableReference mIMEType0 = builder.appendStaticFieldStmt(xmlField);
         VariableReference string0 = builder.appendMethod(mIMEType0, toString);
 
-        System.out.println("Test Case #3=" + builder.toCode());
         return builder.getDefaultTestCase();
     }
 
@@ -341,7 +317,6 @@ public class TestLocalSearchMIMEType {
         builder.addException(new NullPointerException());
         VariableReference string3 = builder.appendMethod(mIMEType1, toString);
 
-        System.out.println("Test Case #4=" + builder.toCode());
         return builder.getDefaultTestCase();
     }
 
@@ -356,7 +331,6 @@ public class TestLocalSearchMIMEType {
         VariableReference mIMEType0 = builder.appendStaticFieldStmt(memField);
         VariableReference string0 = builder.appendMethod(mIMEType0, toString);
 
-        System.out.println("Test Case #5=" + builder.toCode());
         return builder.getDefaultTestCase();
     }
 

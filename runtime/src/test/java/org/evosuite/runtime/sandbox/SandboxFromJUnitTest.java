@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+@SuppressWarnings("removal")
 public class SandboxFromJUnitTest {
 
     private static ExecutorService executor;

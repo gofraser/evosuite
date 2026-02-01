@@ -159,6 +159,7 @@ public class TestRunnable implements InterfaceTestRunnable {
      * {@inheritDoc}
      */
     @Override
+    @SuppressWarnings("removal") // ThreadDeath is deprecated for removal but still needed for Thread.stop() handling
     public ExecutionResult call() {
 
         exceptionsThrown.clear();

@@ -38,7 +38,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import static org.evosuite.symbolic.SymbolicObserverTest.printConstraints;
 import static org.evosuite.symbolic.solver.TestSolver.solve;
 import static org.junit.Assert.*;
 
@@ -95,7 +94,6 @@ public class TestStringSearch2 extends RandomizedTC {
         try {
             solution = solve(solver, constraints);
             assertNotNull(solution);
-            System.out.println(solution);
         } catch (SolverTimeoutException e) {
             fail();
         }
@@ -123,7 +121,6 @@ public class TestStringSearch2 extends RandomizedTC {
         try {
             solution = solve(solver, constraints);
             assertNotNull(solution);
-            System.out.println(solution);
         } catch (SolverTimeoutException e) {
             fail();
         }
@@ -144,13 +141,9 @@ public class TestStringSearch2 extends RandomizedTC {
         Properties.TIMEOUT = 5000;
         Properties.CONCOLIC_TIMEOUT = 5000000;
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         return branch_conditions;
     }
 

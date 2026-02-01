@@ -37,18 +37,6 @@ import static org.junit.Assert.assertEquals;
 
 public class SymbolicObserverTest {
 
-    public static void printConstraints(List<BranchCondition> branch_conditions) {
-        System.out.println("Constraints=");
-        for (BranchCondition branchCondition : branch_conditions) {
-
-            for (Constraint<?> constr : branchCondition.getSupportingConstraints()) {
-                System.out.println(constr.toString());
-            }
-            System.out.println(branchCondition.getConstraint().toString());
-
-        }
-    }
-
     private static void test_input1() {
         String string0 = "aaaaaaaaaaab";
         String string1 = "a*b";
@@ -82,13 +70,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_1();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(1, branch_conditions.size());
     }
 
@@ -133,13 +117,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_2();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(1, branch_conditions.size());
     }
 
@@ -181,13 +161,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_3();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(2, branch_conditions.size());
     }
 
@@ -247,13 +223,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_4();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(1, branch_conditions.size());
     }
 
@@ -322,13 +294,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_5();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(1, branch_conditions.size());
     }
 
@@ -379,13 +347,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_6();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(1, branch_conditions.size());
     }
 
@@ -423,13 +387,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_7();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(0, branch_conditions.size());
     }
 
@@ -455,13 +415,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_8();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(0, branch_conditions.size());
     }
 
@@ -516,13 +472,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_9();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(6, branch_conditions.size());
     }
 
@@ -564,13 +516,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_10();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(1, branch_conditions.size());
     }
 
@@ -658,13 +606,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_11();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(8, branch_conditions.size());
     }
 
@@ -693,13 +637,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_12();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(1, branch_conditions.size());
     }
 
@@ -724,13 +664,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_13();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(1, branch_conditions.size());
     }
 
@@ -769,13 +705,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_14();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(1, branch_conditions.size());
     }
 
@@ -799,13 +731,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_15();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(0, branch_conditions.size());
     }
 
@@ -831,13 +759,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_16();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(0, branch_conditions.size());
     }
 
@@ -862,13 +786,9 @@ public class SymbolicObserverTest {
 
         DefaultTestCase tc = build_test_input_17();
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         assertEquals(1, branch_conditions.size());
     }
 }

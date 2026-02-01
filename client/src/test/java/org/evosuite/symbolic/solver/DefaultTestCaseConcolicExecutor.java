@@ -33,8 +33,6 @@ import org.evosuite.testcase.DefaultTestCase;
 
 import java.util.*;
 
-import static org.evosuite.symbolic.SymbolicObserverTest.printConstraints;
-
 public abstract class DefaultTestCaseConcolicExecutor {
 
     public static Collection<Constraint<?>> execute(DefaultTestCase tc) {
@@ -67,13 +65,9 @@ public abstract class DefaultTestCaseConcolicExecutor {
         Properties.TIMEOUT = 5000;
         Properties.CONCOLIC_TIMEOUT = 5000000;
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
-        printConstraints(branch_conditions);
         return branch_conditions;
     }
 
