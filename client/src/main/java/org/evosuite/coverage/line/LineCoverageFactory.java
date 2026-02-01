@@ -30,11 +30,12 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * <p>
- * MethodCoverageFactory class.
+ * LineCoverageFactory class.
  * </p>
  *
  * @author Gordon Fraser, Andre Mis, Jose Miguel Rojas
@@ -52,12 +53,12 @@ public class LineCoverageFactory extends
         try {
             Class<?> targetClass = Class.forName(className, false, TestGenerationContext.getInstance().getClassLoaderForSUT());
             if (!targetClass.isEnum()) {
-                logger.debug("Class is not enum");
+                logger.debug("Class {} is not an enum", className);
                 return false;
             }
             return Modifier.isPrivate(targetClass.getDeclaredConstructor(String.class, int.class).getModifiers());
         } catch (ClassNotFoundException | NoSuchMethodException e) {
-            logger.debug("Exception " + e);
+            logger.debug("Exception checking for enum constructor: {}", e.getMessage());
             return false;
         }
     }
@@ -93,7 +94,7 @@ public class LineCoverageFactory extends
                 }
                 Set<Integer> lines = LinePool.getLines(className, methodName);
                 for (Integer line : lines) {
-                    logger.info("Adding goal for method " + className + "." + methodName + ", Line " + line + ".");
+                    logger.info("Adding goal for method {}.{}, Line {}.", className, methodName, line);
                     goals.add(new LineCoverageTestFitness(className, methodName, line));
                 }
             }
@@ -104,28 +105,31 @@ public class LineCoverageFactory extends
 
 
     /**
-     * Create a fitness function for branch coverage aimed at covering the root
-     * branch of the given method in the given class. Covering a root branch
-     * means entering the method.
+     * Create a fitness function for line coverage aimed at covering the given line
+     * in the given class and method.
      *
      * @param className a {@link java.lang.String} object.
      * @param method    a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
+     * @param line      a {@link java.lang.Integer} object.
+     * @return a {@link org.evosuite.coverage.line.LineCoverageTestFitness}
      * object.
      */
     public static LineCoverageTestFitness createLineTestFitness(
             String className, String method, Integer line) {
+        Objects.requireNonNull(className, "className cannot be null");
+        Objects.requireNonNull(method, "method cannot be null");
+        Objects.requireNonNull(line, "line cannot be null");
 
         return new LineCoverageTestFitness(className,
                 method.substring(method.lastIndexOf(".") + 1), line);
     }
 
     /**
-     * Convenience method calling createMethodTestFitness(class,method) with
-     * the respective class and method of the given BytecodeInstruction.
+     * Convenience method calling createLineTestFitness(class,method,line) with
+     * the respective class, method, and line of the given BytecodeInstruction.
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
+     * @return a {@link org.evosuite.coverage.line.LineCoverageTestFitness}
      * object.
      */
     public static LineCoverageTestFitness createLineTestFitness(
