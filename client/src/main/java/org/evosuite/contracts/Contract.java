@@ -65,14 +65,19 @@ public abstract class Contract {
      * @return a {@link java.util.Collection} object.
      */
     protected Collection<Object> getAllObjects(Scope scope) {
-        // TODO: Assignable classes and subclasses?
         final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
-        return scope.getObjects(targetClass);
+        if (targetClass == null) {
+            return new HashSet<>();
+        }
+        return new HashSet<>(scope.getObjects(targetClass));
     }
 
     protected Collection<VariableReference> getAllVariables(Scope scope) {
         final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
-        return scope.getElements(targetClass);
+        if (targetClass == null) {
+            return new HashSet<>();
+        }
+        return new HashSet<>(scope.getElements(targetClass));
     }
 
     /**
@@ -86,6 +91,9 @@ public abstract class Contract {
     protected Collection<Pair<Object>> getAllObjectPairs(Scope scope) {
         Set<Pair<Object>> pairs = new HashSet<>();
         Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
+        if (targetClass == null) {
+            return pairs;
+        }
         for (Object o1 : scope.getObjects(targetClass)) {
             for (Object o2 : scope.getObjects(o1.getClass())) {
                 pairs.add(new Pair<>(o1, o2));
@@ -97,17 +105,15 @@ public abstract class Contract {
     protected Collection<Pair<VariableReference>> getAllVariablePairs(Scope scope) {
         Set<Pair<VariableReference>> pairs = new HashSet<>();
         final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
+        if (targetClass == null) {
+            return pairs;
+        }
         List<VariableReference> objects = scope.getElements(targetClass);
         for (int i = 0; i < objects.size(); i++) {
             for (int j = i; j < objects.size(); j++) {
                 pairs.add(new Pair<>(objects.get(i), objects.get(j)));
             }
         }
-        //		for (VariableReference o1 : scope.getElements(Properties.getTargetClass())) {
-        //			for (VariableReference o2 : scope.getElements(o1.getVariableClass())) {
-        //				pairs.add(new Pair<VariableReference>(o1, o2));
-        //			}
-        //		}
         return pairs;
     }
 
@@ -118,19 +124,19 @@ public abstract class Contract {
      * @return a boolean.
      */
     protected boolean isTargetStatement(Statement statement) {
-        //if (statement.getReturnClass().equals(Properties.getTargetClass()))
-        //	return true;
+        final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
+        if (targetClass == null) {
+            return false;
+        }
+
         if (statement instanceof MethodStatement) {
             MethodStatement ms = (MethodStatement) statement;
-            final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
             return targetClass.equals(ms.getMethod().getDeclaringClass());
         } else if (statement instanceof ConstructorStatement) {
             ConstructorStatement cs = (ConstructorStatement) statement;
-            final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
             return targetClass.equals(cs.getConstructor().getDeclaringClass());
         } else if (statement instanceof FieldStatement) {
             FieldStatement fs = (FieldStatement) statement;
-            final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
             return targetClass.equals(fs.getField().getDeclaringClass());
         }
 

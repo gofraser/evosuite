@@ -47,9 +47,6 @@ import java.util.List;
  */
 public class ContractViolation {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = LoggerFactory.getLogger(ContractViolation.class);
-
     private final Contract contract;
 
     private TestCase test;
@@ -175,9 +172,6 @@ public class ContractViolation {
             changed = false;
 
             for (int i = test.size() - 1; i >= 0; i--) {
-                // TODO - why??
-                if (i >= test.size())
-                    continue;
                 if (positions.contains(i))
                     continue;
 

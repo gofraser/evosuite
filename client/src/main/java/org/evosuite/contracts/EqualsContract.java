@@ -38,13 +38,6 @@ import java.util.List;
  */
 public class EqualsContract extends Contract {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = LoggerFactory.getLogger(Contract.class);
-
-    /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.TestCase, org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -63,9 +56,7 @@ public class EqualsContract extends Contract {
                 if (equalsMethod.getDeclaringClass().equals(Object.class))
                     continue;
 
-            } catch (SecurityException e1) {
-                continue;
-            } catch (NoSuchMethodException e1) {
+            } catch (SecurityException | NoSuchMethodException e1) {
                 continue;
             }
 
@@ -75,12 +66,7 @@ public class EqualsContract extends Contract {
                     return new ContractViolation(this, statement, exception, var);
 
             } catch (NullPointerException e) {
-                // No nullpointer exceptions may be thrown if the parameter was not null
-                // TODO: Use UndeclaredExceptionContract instead?
-                // return new ContractViolation(this, statement, e, var);
-                // Returning this contract violation is definitely wrong as it would look like equals returned false
-
-
+                return new ContractViolation(this, statement, e, var);
             } catch (Throwable ignored) {
                 // ignored
             }
