@@ -218,7 +218,7 @@ public abstract class ExplorationAlgorithm extends ExplorationAlgorithmBase {
 
         // Run this before finish
         notifyGenerationFinished();
-        statisticsLogger.reportTotalTestExecutionTime(TestCaseExecutor.timeExecuted);
+        statisticsLogger.reportTotalTestExecutionTime(TestCaseExecutor.getTimeExecuted());
         statisticsLogger.logStatistics();
         return testSuite;
     }

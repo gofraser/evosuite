@@ -123,12 +123,12 @@ public class TestSuiteGeneratorHelper {
 
     static void getBytecodeStatistics() {
         if (Properties.TRACK_BOOLEAN_BRANCHES) {
-            int gradientBranchCount = ExecutionTraceImpl.gradientBranches.size() * 2;
+            int gradientBranchCount = ExecutionTraceImpl.getGradientBranches().size() * 2;
             ClientServices.track(RuntimeVariable.Gradient_Branches, gradientBranchCount);
         }
         if (Properties.TRACK_COVERED_GRADIENT_BRANCHES) {
-            int coveredGradientBranchCount = ExecutionTraceImpl.gradientBranchesCoveredTrue.size()
-                    + ExecutionTraceImpl.gradientBranchesCoveredFalse.size();
+            int coveredGradientBranchCount = ExecutionTraceImpl.getGradientBranchesCoveredTrue().size()
+                    + ExecutionTraceImpl.getGradientBranchesCoveredFalse().size();
             ClientServices.track(RuntimeVariable.Gradient_Branches_Covered, coveredGradientBranchCount);
         }
         if (Properties.BRANCH_COMPARISON_TYPES) {
@@ -212,8 +212,8 @@ public class TestSuiteGeneratorHelper {
 
             for (RuntimeVariable bcvar : bytecodeVarsCovered) {
                 ClientServices.track(bcvar,
-                        getBytecodeCount(bcvar, ExecutionTraceImpl.bytecodeInstructionCoveredFalse)
-                                + getBytecodeCount(bcvar, ExecutionTraceImpl.bytecodeInstructionCoveredTrue));
+                        getBytecodeCount(bcvar, ExecutionTraceImpl.getBytecodeInstructionCoveredFalse())
+                                + getBytecodeCount(bcvar, ExecutionTraceImpl.getBytecodeInstructionCoveredTrue()));
             }
 
             RuntimeVariable[] bytecodeVarsReached = new RuntimeVariable[]{RuntimeVariable.Reached_lcmp,
@@ -226,7 +226,7 @@ public class TestSuiteGeneratorHelper {
 
             for (RuntimeVariable bcvar : bytecodeVarsReached) {
                 ClientServices.track(bcvar,
-                        getBytecodeCount(bcvar, ExecutionTraceImpl.bytecodeInstructionReached) * 2);
+                        getBytecodeCount(bcvar, ExecutionTraceImpl.getBytecodeInstructionReached()) * 2);
             }
 
         }
