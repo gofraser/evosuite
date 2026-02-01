@@ -36,6 +36,39 @@ public class Sandbox {
 
     private static final Logger logger = LoggerFactory.getLogger(Sandbox.class);
 
+    /**
+     * Flag indicating whether Security Manager is supported in this JVM.
+     * Java 17+ deprecated Security Manager, and Java 24+ completely removed support
+     * for System.setSecurityManager() - it throws UnsupportedOperationException.
+     */
+    private static final boolean SECURITY_MANAGER_SUPPORTED;
+
+    static {
+        boolean supported = true;
+        try {
+            // Check if setSecurityManager is supported by attempting to get/set null
+            // This will throw UnsupportedOperationException on Java 24+
+            SecurityManager current = System.getSecurityManager();
+            System.setSecurityManager(current);
+        } catch (UnsupportedOperationException e) {
+            supported = false;
+            logger.warn("Security Manager is not supported in this JVM (Java 24+). " +
+                    "Sandbox functionality will be disabled.");
+        } catch (SecurityException e) {
+            // Security Manager is supported but we don't have permission to change it
+            // This is fine - we'll handle it when we actually try to apply our manager
+        }
+        SECURITY_MANAGER_SUPPORTED = supported;
+    }
+
+    /**
+     * Returns whether Security Manager is supported in this JVM.
+     * @return true if Security Manager can be used, false otherwise (Java 24+)
+     */
+    public static boolean isSecurityManagerSupported() {
+        return SECURITY_MANAGER_SUPPORTED;
+    }
+
     private static volatile MSecurityManager manager;
 
     /**
@@ -59,6 +92,13 @@ public class Sandbox {
      * Create and initialize security manager for SUT
      */
     public static synchronized void initializeSecurityManagerForSUT(Set<Thread> privileged) {
+        if (!SECURITY_MANAGER_SUPPORTED) {
+            // On Java 24+, Security Manager is not supported.
+            // We still increment counter to maintain symmetry with resetDefaultSecurityManager()
+            counter++;
+            return;
+        }
+
         if (manager == null) {
             manager = new MSecurityManager();
 

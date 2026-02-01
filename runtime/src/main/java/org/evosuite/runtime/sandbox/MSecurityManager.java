@@ -316,10 +316,15 @@ public class MSecurityManager extends SecurityManager {
      * Use this manager as security manager
      *
      * @throws IllegalStateException
+     * @throws UnsupportedOperationException if Security Manager is not supported (Java 24+)
      */
-    public void apply() throws IllegalStateException {
+    public void apply() throws IllegalStateException, UnsupportedOperationException {
         try {
             System.setSecurityManager(this);
+        } catch (UnsupportedOperationException e) {
+            // Java 24+ no longer supports Security Manager
+            logger.warn("Security Manager is not supported in this JVM (Java 24+)");
+            throw e;
         } catch (SecurityException e) {
             // this should never happen in EvoSuite, ie this object should be created just once
             logger.error("Cannot instantiate mock security manager", e);
@@ -331,7 +336,12 @@ public class MSecurityManager extends SecurityManager {
      * Note: an un-privileged thread would throw a security exception
      */
     public void restoreDefaultManager() throws SecurityException {
-        System.setSecurityManager(defaultManager);
+        try {
+            System.setSecurityManager(defaultManager);
+        } catch (UnsupportedOperationException e) {
+            // Java 24+ no longer supports Security Manager
+            logger.warn("Security Manager is not supported in this JVM (Java 24+), cannot restore");
+        }
     }
 
     public void goingToExecuteTestCase() throws IllegalStateException {

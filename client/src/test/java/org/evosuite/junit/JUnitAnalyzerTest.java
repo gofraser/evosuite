@@ -80,6 +80,12 @@ public class JUnitAnalyzerTest {
     @Test
     public void testSandboxIssue() throws Exception {
 
+        // Skip test if Security Manager is not supported (Java 24+)
+        if (!Sandbox.isSecurityManagerSupported()) {
+            System.out.println("Skipping testSandboxIssue: Security Manager not supported in this JVM (Java 24+)");
+            return;
+        }
+
         //First, get a TestCase from a carved JUnit
 
         Properties.SELECTED_JUNIT = com.examples.with.different.packagename.sandbox.OpenStreamInATryCatch_FakeTestToCarve.class.getCanonicalName();

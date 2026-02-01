@@ -22,6 +22,7 @@ package org.evosuite.runtime;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
+import org.evosuite.runtime.sandbox.Sandbox;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,9 +36,12 @@ import static org.junit.Assert.assertFalse;
 
 public class SUTWithSystemExitSystemTest extends SystemTestBase {
 
+    private boolean securityManagerSupported;
+
     @Before
     public void setFlag() {
         SafeExit.calledExit = false;
+        securityManagerSupported = Sandbox.isSecurityManagerSupported();
     }
 
     @Test
@@ -49,7 +53,12 @@ public class SUTWithSystemExitSystemTest extends SystemTestBase {
     @Test
     public void testSystemExit() {
 
-        java.lang.System.setSecurityManager(new SafeExit());
+        // Only set Security Manager if supported (Java < 24)
+        if (securityManagerSupported) {
+            java.lang.System.setSecurityManager(new SafeExit());
+        } else {
+            java.lang.System.out.println("Skipping Security Manager setup: not supported in this JVM (Java 24+)");
+        }
 
         EvoSuite evosuite = new EvoSuite();
 
@@ -62,12 +71,21 @@ public class SUTWithSystemExitSystemTest extends SystemTestBase {
 
         evosuite.parseCommandLine(command);
 
-        assertFalse(SafeExit.calledExit);
+        // Only check if Security Manager was set
+        if (securityManagerSupported) {
+            assertFalse(SafeExit.calledExit);
+        }
     }
 
     @After
     public void removeSecurity() {
-        java.lang.System.setSecurityManager(null);
+        if (securityManagerSupported) {
+            try {
+                java.lang.System.setSecurityManager(null);
+            } catch (UnsupportedOperationException e) {
+                // Java 24+ no longer supports Security Manager
+            }
+        }
     }
 
     private static class SafeExit extends SecurityManager {

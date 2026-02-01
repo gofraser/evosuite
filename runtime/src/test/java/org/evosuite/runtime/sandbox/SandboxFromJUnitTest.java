@@ -32,7 +32,9 @@ public class SandboxFromJUnitTest {
 
     @BeforeClass
     public static void initEvoSuiteFramework() {
-        Assert.assertNull(System.getSecurityManager());
+        if (Sandbox.isSecurityManagerSupported()) {
+            Assert.assertNull(System.getSecurityManager());
+        }
 
         Sandbox.initializeSecurityManagerForSUT();
         executor = Executors.newCachedThreadPool();
@@ -41,12 +43,16 @@ public class SandboxFromJUnitTest {
 
     @AfterClass
     public static void clearEvoSuiteFramework() {
-        Assert.assertNotNull(System.getSecurityManager());
+        if (Sandbox.isSecurityManagerSupported()) {
+            Assert.assertNotNull(System.getSecurityManager());
+        }
 
         executor.shutdownNow();
         Sandbox.resetDefaultSecurityManager();
 
-        Assert.assertNull(System.getSecurityManager());
+        if (Sandbox.isSecurityManagerSupported()) {
+            Assert.assertNull(System.getSecurityManager());
+        }
     }
 
     @Before
@@ -63,6 +69,11 @@ public class SandboxFromJUnitTest {
 
     @Test
     public void testExit() throws Exception {
+        // Skip test if Security Manager is not supported (Java 24+)
+        if (!Sandbox.isSecurityManagerSupported()) {
+            System.out.println("Skipping testExit: Security Manager not supported in this JVM (Java 24+)");
+            return;
+        }
 
         Future<?> future = executor.submit(new Runnable() {
             @Override

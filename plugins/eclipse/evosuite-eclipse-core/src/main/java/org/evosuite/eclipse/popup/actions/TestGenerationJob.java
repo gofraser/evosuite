@@ -800,11 +800,16 @@ public class TestGenerationJob extends Job {
      * otherwise it won't work
      */
     protected void setupRMI() {
-        // RMI only runs if there is a security manager
+        // Note: In older Java versions, RMI required a security manager.
+        // In Java 24+, Security Manager is no longer supported, but RMI works without it.
         if (System.getSecurityManager() == null) {
-            // As there is no security manager, we can just put a dumb security
-            // manager that allows everything here, just to make RMI happy
-            System.setSecurityManager(new DumbSecurityManager());
+            try {
+                // As there is no security manager, we can just put a dumb security
+                // manager that allows everything here, just to make RMI happy
+                System.setSecurityManager(new DumbSecurityManager());
+            } catch (UnsupportedOperationException e) {
+                // Java 24+ no longer supports Security Manager, but RMI works without it
+            }
         }
         Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
     }
