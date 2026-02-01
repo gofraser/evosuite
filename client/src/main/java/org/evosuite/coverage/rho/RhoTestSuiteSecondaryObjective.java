@@ -43,15 +43,7 @@ public class RhoTestSuiteSecondaryObjective extends SecondaryObjective<TestSuite
     public int compareChromosomes(TestSuiteChromosome suite1, TestSuiteChromosome suite2) {
         double c1 = this.getRhoFitnessValue(suite1);
         double c2 = this.getRhoFitnessValue(suite2);
-
-        if (c1 == c2) {
-            return 0;
-        } else if (c1 < c2) {
-            // the Chromosome with the lowest rho value should be ranked first
-            return -1;
-        } else {
-            return 1;
-        }
+        return Double.compare(c1, c2);
     }
 
     /**
@@ -61,7 +53,7 @@ public class RhoTestSuiteSecondaryObjective extends SecondaryObjective<TestSuite
     public int compareGenerations(TestSuiteChromosome parent1, TestSuiteChromosome parent2,
                                   TestSuiteChromosome child1, TestSuiteChromosome child2) {
         // this function is not used
-        throw new RuntimeException(
+        throw new UnsupportedOperationException(
                 "compareGenerations function of " + RhoTestSuiteSecondaryObjective.class.getCanonicalName()
                         + " has not been implemented yet");
     }

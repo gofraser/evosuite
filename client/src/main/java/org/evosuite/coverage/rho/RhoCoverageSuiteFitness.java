@@ -33,10 +33,10 @@ public class RhoCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     private static final long serialVersionUID = 5460600509431741746L;
 
-    private int previous_number_of_ones = 0;
-    private int previous_number_of_test_cases = 0;
+    private int previousNumberOfOnes = 0;
+    private int previousNumberOfTestCases = 0;
 
-    private final Set<Set<Integer>> coverage_matrix_generated_so_far = new LinkedHashSet<>();
+    private final Set<Set<Integer>> coverageMatrixGeneratedSoFar = new LinkedHashSet<>();
 
     @Override
     public double getFitness(TestSuiteChromosome suite) {
@@ -45,13 +45,13 @@ public class RhoCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     protected double getFitness(TestSuiteChromosome suite, boolean updateFitness) {
 
-        Set<Set<Integer>> tmp_coverage_matrix = new LinkedHashSet<>(this.coverage_matrix_generated_so_far);
+        Set<Set<Integer>> tmpCoverageMatrix = new LinkedHashSet<>(this.coverageMatrixGeneratedSoFar);
 
-        double fitness = 1.0;
+        double fitness;
 
-        int number_of_goals = RhoCoverageFactory.getNumberGoals();
-        int number_of_ones = RhoCoverageFactory.getNumber_of_Ones() + this.previous_number_of_ones;
-        int number_of_test_cases = RhoCoverageFactory.getNumber_of_Test_Cases() + this.previous_number_of_test_cases;
+        int numberOfGoals = RhoCoverageFactory.getNumberGoals();
+        int numberOfOnes = RhoCoverageFactory.getNumberOfOnes() + this.previousNumberOfOnes;
+        int numberOfTestCases = RhoCoverageFactory.getNumberOfTestCases() + this.previousNumberOfTestCases;
 
         List<ExecutionResult> results = runTestSuite(suite);
         for (ExecutionResult result : results) {
@@ -61,31 +61,24 @@ public class RhoCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
             if (Properties.STRATEGY == Properties.Strategy.ENTBUG) {
                 // order set
-                List<Integer> l_coveredLines = new ArrayList<>(coveredLines);
-                Collections.sort(l_coveredLines);
-                Set<Integer> coveredLinesOrdered = new LinkedHashSet<>(l_coveredLines);
+                List<Integer> lCoveredLines = new ArrayList<>(coveredLines);
+                Collections.sort(lCoveredLines);
+                Set<Integer> coveredLinesOrdered = new LinkedHashSet<>(lCoveredLines);
 
-                // there is coverage, and already exists on the original test
-                // suite, and already exists locally
-                if ((coveredLinesOrdered.size() != 0
-                        && tmp_coverage_matrix.add(coveredLinesOrdered))
-                        && !RhoCoverageFactory.exists(l_coveredLines)) {
-                    number_of_ones += coveredLinesOrdered.size();
-                    number_of_test_cases++;
+                // there is coverage, and it is new (not in local matrix), and not in original matrix
+                if (!coveredLinesOrdered.isEmpty()
+                        && tmpCoverageMatrix.add(coveredLinesOrdered)
+                        && !RhoCoverageFactory.exists(lCoveredLines)) {
+                    numberOfOnes += coveredLinesOrdered.size();
+                    numberOfTestCases++;
                 }
             } else {
-                number_of_ones += coveredLines.size();
-                number_of_test_cases++;
+                numberOfOnes += coveredLines.size();
+                numberOfTestCases++;
             }
         }
 
-        // was not possible to generate new test cases
-        if (number_of_test_cases == 0.0) {
-            fitness = 1.0; // penalise this suite
-        } else {
-            fitness = ((double) number_of_ones) / ((double) number_of_test_cases) / ((double) number_of_goals);
-            fitness = Math.abs(0.5 - fitness);
-        }
+        fitness = RhoAux.calculateRho(numberOfOnes, numberOfTestCases, numberOfGoals);
 
         if (updateFitness) {
             updateIndividual(suite, fitness);
@@ -93,23 +86,23 @@ public class RhoCoverageSuiteFitness extends TestSuiteFitnessFunction {
         return fitness;
     }
 
-    public void incrementNumber_of_Ones(int n) {
-        this.previous_number_of_ones += n;
+    public void incrementNumberOfOnes(int n) {
+        this.previousNumberOfOnes += n;
     }
 
-    public int getNumber_of_Ones() {
-        return this.previous_number_of_ones;
+    public int getNumberOfOnes() {
+        return this.previousNumberOfOnes;
     }
 
-    public void incrementNumber_of_Test_Cases() {
-        this.previous_number_of_test_cases++;
+    public void incrementNumberOfTestCases() {
+        this.previousNumberOfTestCases++;
     }
 
-    public int getNumber_of_Test_Cases() {
-        return this.previous_number_of_test_cases;
+    public int getNumberOfTestCases() {
+        return this.previousNumberOfTestCases;
     }
 
-    public void addTestCoverage(Set<Integer> test_coverage) {
-        this.coverage_matrix_generated_so_far.add(test_coverage);
+    public void addTestCoverage(Set<Integer> testCoverage) {
+        this.coverageMatrixGeneratedSoFar.add(testCoverage);
     }
 }
