@@ -171,13 +171,11 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
                         boolean isExplicit = ExceptionCoverageHelper.isExplicit(result, i);
 
                         if (isExplicit) {
-
                             if (!explicitTypesOfExceptions.containsKey(methodIdentifier)) {
                                 explicitTypesOfExceptions.put(methodIdentifier, new HashSet<>());
                             }
                             explicitTypesOfExceptions.get(methodIdentifier).add(exceptionClass);
                         } else {
-
                             if (!implicitTypesOfExceptions.containsKey(methodIdentifier)) {
                                 implicitTypesOfExceptions.put(methodIdentifier, new HashSet<>());
                             }
@@ -192,21 +190,26 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
 
                     ExceptionCoverageTestFitness.ExceptionType type = ExceptionCoverageHelper.getType(result, i);
-                    /*
-                     * Add goal to ExceptionCoverageFactory
-                     */
-                    ExceptionCoverageTestFitness goal = new ExceptionCoverageTestFitness(Properties.TARGET_CLASS, methodIdentifier, exceptionClass, type);
-                    String key = goal.getKey();
-                    if (!ExceptionCoverageFactory.getGoals().containsKey(key)) {
-                        ExceptionCoverageFactory.getGoals().put(key, goal);
-                        test.getTestCase().addCoveredGoal(goal);
-                        if (Properties.TEST_ARCHIVE && contextFitness != null) {
-                            Archive.getArchiveInstance().addTarget(goal);
-                            Archive.getArchiveInstance().updateArchive(goal, test, 0.0);
-                        }
-                    }
+                    registerGoal(test, contextFitness, methodIdentifier, exceptionClass, type);
                 }
+            }
+        }
+    }
 
+    private static void registerGoal(TestChromosome test, ExceptionCoverageSuiteFitness contextFitness,
+                                     String methodIdentifier, Class<?> exceptionClass,
+                                     ExceptionCoverageTestFitness.ExceptionType type) {
+        /*
+         * Add goal to ExceptionCoverageFactory
+         */
+        ExceptionCoverageTestFitness goal = new ExceptionCoverageTestFitness(Properties.TARGET_CLASS, methodIdentifier, exceptionClass, type);
+        String key = goal.getKey();
+        if (!ExceptionCoverageFactory.getGoals().containsKey(key)) {
+            ExceptionCoverageFactory.getGoals().put(key, goal);
+            test.getTestCase().addCoveredGoal(goal);
+            if (Properties.TEST_ARCHIVE && contextFitness != null) {
+                Archive.getArchiveInstance().addTarget(goal);
+                Archive.getArchiveInstance().updateArchive(goal, test, 0.0);
             }
         }
     }
