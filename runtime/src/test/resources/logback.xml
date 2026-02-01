@@ -23,14 +23,19 @@
 
 <configuration>
 
+    <!-- Suppress logback's internal status messages -->
+    <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+
     <contextName>ContextForTests</contextName>
 
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.out</target>
+        <encoder>
+            <pattern>%-5level %logger - %msg%n</pattern>
+        </encoder>
+    </appender>
+
     <root level="WARN">
-        <appender  class="ch.qos.logback.core.ConsoleAppender">
-            <target>System.out</target>
-            <encoder>
-                <pattern>%-5level %logger - %msg%n</pattern>
-            </encoder>
-        </appender>
+        <appender-ref ref="CONSOLE"/>
     </root>
 </configuration>
