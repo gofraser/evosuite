@@ -28,15 +28,22 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import java.util.Set;
 
-@SupportedAnnotationTypes({"EvoIgnore"})
+/**
+ * Annotation processor for {@link EvoIgnore}.
+ * <p>
+ * This processor is responsible for handling elements annotated with {@code @EvoIgnore}.
+ * Currently, it serves as a placeholder for future implementation of source-level processing.
+ */
+@SupportedAnnotationTypes({"org.evosuite.annotations.EvoIgnore"})
 public class EvoSuiteAnnotationProcessor extends AbstractProcessor {
 
     @Override
-    public boolean process(Set<? extends TypeElement> arg0,
-                           RoundEnvironment arg1) {
-        // TODO Auto-generated method stub
-        if (!arg1.processingOver()) {
-            Set<? extends Element> ele = arg1.getElementsAnnotatedWith(EvoIgnore.class);
+    public boolean process(Set<? extends TypeElement> annotations,
+                           RoundEnvironment roundEnv) {
+        if (!roundEnv.processingOver()) {
+            // Retrieve elements annotated with EvoIgnore to ensure they are processed/claimed
+            Set<? extends Element> ignoredElements = roundEnv.getElementsAnnotatedWith(EvoIgnore.class);
+            // Future implementation: handle ignored elements (e.g. generate configuration or logs)
         }
         return true;
     }
