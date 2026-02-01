@@ -25,6 +25,7 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -33,14 +34,10 @@ import java.util.*;
  * @author fraser
  */
 public class MutationPool {
-    private static final Map<ClassLoader, MutationPool> instanceMap = new HashMap<>();
+    private static final Map<ClassLoader, MutationPool> instanceMap = new ConcurrentHashMap<>();
 
     public static MutationPool getInstance(ClassLoader classLoader) {
-        if (!instanceMap.containsKey(classLoader)) {
-            instanceMap.put(classLoader, new MutationPool());
-        }
-
-        return instanceMap.get(classLoader);
+        return instanceMap.computeIfAbsent(classLoader, k -> new MutationPool());
     }
 
     private MutationPool() {
@@ -55,41 +52,34 @@ public class MutationPool {
 
     private int numMutations = 0;
 
-    public Mutation addMutation(String className, String methodName,
+    public synchronized Mutation addMutation(String className, String methodName,
                                 String mutationName, BytecodeInstruction instruction,
                                 AbstractInsnNode mutation, InsnList distance) {
 
-        if (!mutationMap.containsKey(className))
-            mutationMap.put(className, new HashMap<>());
-
-        if (!mutationMap.get(className).containsKey(methodName))
-            mutationMap.get(className).put(methodName, new ArrayList<>());
-
         Mutation mutationObject = new Mutation(className, methodName, mutationName,
                 numMutations++, instruction, mutation, distance);
-        mutationMap.get(className).get(methodName).add(mutationObject);
-        mutationIdMap.put(mutationObject.getId(), mutationObject);
+        registerMutation(className, methodName, mutationObject);
 
         return mutationObject;
     }
 
-    public Mutation addMutation(String className, String methodName,
+    public synchronized Mutation addMutation(String className, String methodName,
                                 String mutationName, BytecodeInstruction instruction, InsnList mutation,
                                 InsnList distance) {
 
-        if (!mutationMap.containsKey(className))
-            mutationMap.put(className, new HashMap<>());
-
-        if (!mutationMap.get(className).containsKey(methodName))
-            mutationMap.get(className).put(methodName, new ArrayList<>());
-
         Mutation mutationObject = new Mutation(className, methodName, mutationName,
                 numMutations++, instruction, mutation, distance);
-        mutationMap.get(className).get(methodName).add(mutationObject);
-
-        mutationIdMap.put(mutationObject.getId(), mutationObject);
+        registerMutation(className, methodName, mutationObject);
 
         return mutationObject;
+    }
+
+    private void registerMutation(String className, String methodName, Mutation mutationObject) {
+        mutationMap.computeIfAbsent(className, k -> new LinkedHashMap<>())
+                .computeIfAbsent(methodName, k -> new ArrayList<>())
+                .add(mutationObject);
+
+        mutationIdMap.put(mutationObject.getId(), mutationObject);
     }
 
     /**
@@ -101,12 +91,14 @@ public class MutationPool {
      * @param methodName a {@link java.lang.String} object.
      * @return a {@link java.util.List} object.
      */
-    public List<Mutation> retrieveMutationsInMethod(String className,
+    public synchronized List<Mutation> retrieveMutationsInMethod(String className,
                                                     String methodName) {
         List<Mutation> r = new ArrayList<>();
-        if (mutationMap.get(className) == null)
+        Map<String, List<Mutation>> methods = mutationMap.get(className);
+        if (methods == null)
             return r;
-        List<Mutation> mutants = mutationMap.get(className).get(methodName);
+
+        List<Mutation> mutants = methods.get(methodName);
         if (mutants != null)
             r.addAll(mutants);
         return r;
@@ -117,18 +109,18 @@ public class MutationPool {
      *
      * @return a {@link java.util.List} object.
      */
-    public List<Mutation> getMutants() {
+    public synchronized List<Mutation> getMutants() {
         return new ArrayList<>(mutationIdMap.values());
     }
 
-    public Mutation getMutant(int id) {
+    public synchronized Mutation getMutant(int id) {
         return mutationIdMap.get(id);
     }
 
     /**
      * Remove all known mutants
      */
-    public void clear() {
+    public synchronized void clear() {
         mutationMap.clear();
         mutationIdMap.clear();
         numMutations = 0;
@@ -139,7 +131,7 @@ public class MutationPool {
      *
      * @return The number of currently known mutants
      */
-    public int getMutantCounter() {
+    public synchronized int getMutantCounter() {
         return numMutations;
     }
 }

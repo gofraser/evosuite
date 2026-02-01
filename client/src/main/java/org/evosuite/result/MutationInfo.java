@@ -39,7 +39,7 @@ public class MutationInfo implements Serializable {
         this.className = m.getClassName();
         this.methodName = m.getMethodName();
         this.lineNo = m.getLineNumber();
-        this.replacement = m.getMutationName();
+        this.replacement = m.getDescription();
     }
 
     public MutationInfo(String className, String methodName, int lineNo,

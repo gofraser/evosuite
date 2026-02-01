@@ -184,7 +184,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
 			}
 			*/
 
-            logger.debug("Running test on mutation {}", m.getMutationName());
+            logger.debug("Running test on mutation {}", m.toString());
             ExecutionResult mutantResult = runTest(test, m);
 
             int numKilled = 0;
