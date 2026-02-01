@@ -47,10 +47,6 @@ public class IBranchSecondaryObjective extends SecondaryObjective<TestSuiteChrom
         double fitness1 = ff.getFitness(chromosome1, false);
         double fitness2 = ff.getFitness(chromosome2, false);
         int i = (int) Math.signum(fitness1 - fitness2);
-//		if (!chromosome1.hasExecutedFitness(ff) || chromosome1.isChanged())
-//			ff.getFitness(chromosome1);
-//		if (!chromosome2.hasExecutedFitness(ff) || chromosome2.isChanged())
-//			ff.getFitness(chromosome2);
         ff.updateCoveredGoals();
         return i;
     }
@@ -61,8 +57,10 @@ public class IBranchSecondaryObjective extends SecondaryObjective<TestSuiteChrom
             TestSuiteChromosome parent2,
             TestSuiteChromosome child1,
             TestSuiteChromosome child2) {
-        logger.debug("Comparing sizes: " + parent1.size() + ", " + parent1.size() + " vs "
-                + child1.size() + ", " + child2.size());
+        if (logger.isDebugEnabled()) {
+            logger.debug("Comparing sizes: {}, {} vs {}, {}", parent1.size(), parent2.size(),
+                    child1.size(), child2.size());
+        }
         if (!parent1.hasExecutedFitness(ff) || parent1.isChanged())
             ff.getFitness(parent1);
         if (!parent2.hasExecutedFitness(ff) || parent2.isChanged())
