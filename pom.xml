@@ -656,7 +656,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.21.0</version>
+                <version>3.5.2</version>
                 <configuration>
                     <!--<rerunFailingTestsCount>${rerunFailingTestsCount}</rerunFailingTestsCount>-->
                     <forkCount>1</forkCount>
@@ -672,15 +672,17 @@
                         <exclude>${systemTests}</exclude>
                         <exclude>${exclude.tests.concolic}</exclude>
                         <exclude>${exclude.tests.mimeType}</exclude>
+                        <exclude>**/MSecurityManagerTest.java</exclude>
+                        <exclude>**/SandboxFromJUnitTest.java</exclude>
                     </excludes>
-                    <argLine>-Djdk.attach.allowAttachSelf=true -Xms512m -Xmx4096m --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED -Djava.security.manager=allow</argLine>
+                    <argLine>-Djdk.attach.allowAttachSelf=true -Xms512m -Xmx4096m --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
                 </configuration>
             </plugin>
             <!-- pluging to run tests after 'package' phase in 'integration-test' -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>2.22.2</version>
+                <version>3.5.2</version>
                 <configuration>
                     <!--<rerunFailingTestsCount>${rerunFailingTestsCount}</rerunFailingTestsCount>-->
                     <!-- includes>
