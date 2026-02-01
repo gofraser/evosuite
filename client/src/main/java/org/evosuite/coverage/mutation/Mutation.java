@@ -145,23 +145,23 @@ public class Mutation implements Comparable<Mutation> {
 
     /**
      * <p>
-     * getOperandSize
-     * </p>
-     *
-     * @return a int.
-     */
-    public int getOperandSize() {
-        return 0;
-    }
-
-    /**
-     * <p>
      * Getter for the field <code>mutationName</code>.
      * </p>
      *
      * @return a {@link java.lang.String} object.
      */
     public String getMutationName() {
+        return mutationName;
+    }
+
+    /**
+     * <p>
+     * Returns a formatted description of the mutation.
+     * </p>
+     *
+     * @return a {@link java.lang.String} object.
+     */
+    public String getDescription() {
         return mutationName + " (" + id + "): " + ", line " + original.getLineNumber();
     }
 
@@ -299,7 +299,11 @@ public class Mutation implements Comparable<Mutation> {
      */
     @Override
     public int compareTo(Mutation o) {
-        return lineNo - o.lineNo;
+        int diff = lineNo - o.lineNo;
+        if (diff == 0) {
+            return Integer.compare(id, o.id);
+        }
+        return diff;
     }
 
 }
