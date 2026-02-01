@@ -57,8 +57,8 @@ public class ExceptionCoverageHelper {
     }
 
     public static boolean isExplicit(ExecutionResult result, int exceptionPosition) {
-        return result.explicitExceptions.containsKey(exceptionPosition)
-                && result.explicitExceptions.get(exceptionPosition);
+        return result.getExplicitExceptions().containsKey(exceptionPosition)
+                && result.getExplicitExceptions().get(exceptionPosition);
     }
 
     public static boolean isDeclared(ExecutionResult result, int exceptionPosition) {

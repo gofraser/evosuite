@@ -159,7 +159,7 @@ public class CarvingManager {
                     for (StackTraceElement elem : executionResult.getExceptionThrownAtPosition(executionResult.getFirstPositionOfThrownException()).getStackTrace()) {
                         logger.info(elem.toString());
                     }
-                    logger.info(test.toCode(executionResult.exposeExceptionMapping()));
+                    logger.info(test.toCode(executionResult.getCopyOfExceptionMapping()));
                     if (Properties.CHOP_CARVED_EXCEPTIONS) {
                         logger.info("Chopping exception of carved test");
                         chopException(test, executionResult);
