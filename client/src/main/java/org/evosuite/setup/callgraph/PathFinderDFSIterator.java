@@ -32,12 +32,17 @@ public class PathFinderDFSIterator<E> implements Iterator<E> {
     private final Set<List<E>> paths = new HashSet<>();
     private List<E> currentPath = new ArrayList<>();
     private boolean reversed = false;
+    private final boolean visitAllPaths;
 
     public PathFinderDFSIterator(Graph<E> g, E startingVertex) {
-        this(g, startingVertex, false);
+        this(g, startingVertex, false, false);
     }
 
     public PathFinderDFSIterator(Graph<E> g, E startingVertex, boolean reversed) {
+        this(g, startingVertex, reversed, false);
+    }
+
+    public PathFinderDFSIterator(Graph<E> g, E startingVertex, boolean reversed, boolean visitAllPaths) {
         if (!reversed) {
             this.stack.push(g.getNeighbors(startingVertex).iterator());
         } else {
@@ -47,6 +52,7 @@ public class PathFinderDFSIterator<E> implements Iterator<E> {
         this.next = startingVertex;
         paths.add(currentPath);
         this.reversed = reversed;
+        this.visitAllPaths = visitAllPaths;
     }
 
     public Set<List<E>> getPaths() {
@@ -95,6 +101,12 @@ public class PathFinderDFSIterator<E> implements Iterator<E> {
             }
 
             if (update) {
+                if (visitAllPaths) {
+                    for (int i = 0; i < levelback; i++) {
+                        E e = currentPath.get(currentPath.size() - 1 - i);
+                        visited.remove(e);
+                    }
+                }
                 List<E> newPath = new ArrayList<>(currentPath.subList(0,
                         currentPath.size() - levelback));
                 currentPath = newPath;
