@@ -57,10 +57,9 @@ public class BooleanIfTransformer extends MethodNodeTransformer {
                 jumpNode.setOpcode(Opcodes.IFGT);
             } else {
                 BooleanTestabilityTransformation.logger.info("Not changing IFNE");
-                int insnPosition = mn.instructions.indexOf(jumpNode);
-                Frame frame = this.booleanTestabilityTransformation.currentFrames[insnPosition];
-                AbstractInsnNode insn = mn.instructions.get(insnPosition - 1);
-                BooleanTestabilityTransformation.logger.info("Current node: " + mn.instructions.get(insnPosition));
+                Frame frame = this.booleanTestabilityTransformation.currentFrames.get(jumpNode);
+                AbstractInsnNode insn = jumpNode.getPrevious();
+                BooleanTestabilityTransformation.logger.info("Current node: " + jumpNode);
                 BooleanTestabilityTransformation.logger.info("Previous node: " + insn);
                 if (insn instanceof MethodInsnNode) {
                     MethodInsnNode mi = (MethodInsnNode) insn;
@@ -86,9 +85,8 @@ public class BooleanIfTransformer extends MethodNodeTransformer {
                 jumpNode.setOpcode(Opcodes.IFLE);
             } else {
                 BooleanTestabilityTransformation.logger.info("Not changing IFEQ");
-                int insnPosition = mn.instructions.indexOf(jumpNode);
-                Frame frame = this.booleanTestabilityTransformation.currentFrames[insnPosition];
-                AbstractInsnNode insn = mn.instructions.get(insnPosition - 1);
+                Frame frame = this.booleanTestabilityTransformation.currentFrames.get(jumpNode);
+                AbstractInsnNode insn = jumpNode.getPrevious();
                 BooleanTestabilityTransformation.logger.info("Previous node: " + insn);
                 if (insn instanceof MethodInsnNode) {
                     MethodInsnNode mi = (MethodInsnNode) insn;

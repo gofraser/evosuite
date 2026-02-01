@@ -42,7 +42,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Transform everything Boolean to ints.
@@ -62,7 +64,7 @@ public class BooleanTestabilityTransformation {
 
     public final String className;
 
-    public Frame[] currentFrames = null;
+    public Map<AbstractInsnNode, Frame> currentFrames = null;
 
     private MethodNode currentMethodNode = null;
 
@@ -470,13 +472,11 @@ public class BooleanTestabilityTransformation {
     }
 
     public boolean isBooleanOnStack(MethodNode mn, AbstractInsnNode node, int position) {
-        int insnPosition = mn.instructions.indexOf(node);
-        if (insnPosition >= currentFrames.length) {
-            logger.info("Trying to access frame out of scope: " + insnPosition + "/"
-                    + currentFrames.length);
+        if (currentFrames == null || !currentFrames.containsKey(node)) {
+            logger.info("Trying to access frame out of scope");
             return false;
         }
-        Frame frame = currentFrames[insnPosition];
+        Frame frame = currentFrames.get(node);
         return frame.getStack(frame.getStackSize() - 1 - position) == BooleanValueInterpreter.BOOLEAN_VALUE;
     }
 
@@ -653,11 +653,19 @@ public class BooleanTestabilityTransformation {
         mn.name = newName;
     }
 
-    private Frame[] getArrayFrames(MethodNode mn) {
+    private Map<AbstractInsnNode, Frame> getArrayFrames(MethodNode mn) {
         try {
             Analyzer a = new Analyzer(new BooleanArrayInterpreter());
             a.analyze(cn.name, mn);
-            return a.getFrames();
+            Frame[] frames = a.getFrames();
+            AbstractInsnNode[] insns = mn.instructions.toArray();
+            Map<AbstractInsnNode, Frame> frameMap = new HashMap<>();
+            for (int i = 0; i < frames.length; i++) {
+                if (frames[i] != null && i < insns.length) {
+                    frameMap.put(insns[i], frames[i]);
+                }
+            }
+            return frameMap;
         } catch (Exception e) {
             logger.info("[Array] Error during analysis: " + e);
             return null;
@@ -685,7 +693,14 @@ public class BooleanTestabilityTransformation {
             Analyzer a = new Analyzer(new BooleanValueInterpreter(origDesc,
                     (mn.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC));
             a.analyze(className, mn);
-            currentFrames = a.getFrames();
+            Frame[] frames = a.getFrames();
+            AbstractInsnNode[] insns = mn.instructions.toArray();
+            currentFrames = new HashMap<>();
+            for (int i = 0; i < frames.length; i++) {
+                if (frames[i] != null && i < insns.length) {
+                    currentFrames.put(insns[i], frames[i]);
+                }
+            }
         } catch (Exception e) {
             logger.info("1. Error during analysis: " + e);
             //e.printStackTrace();
@@ -699,7 +714,14 @@ public class BooleanTestabilityTransformation {
             Analyzer a = new Analyzer(new BooleanValueInterpreter(origDesc,
                     (mn.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC));
             a.analyze(className, mn);
-            currentFrames = a.getFrames();
+            Frame[] frames = a.getFrames();
+            AbstractInsnNode[] insns = mn.instructions.toArray();
+            currentFrames = new HashMap<>();
+            for (int i = 0; i < frames.length; i++) {
+                if (frames[i] != null && i < insns.length) {
+                    currentFrames.put(insns[i], frames[i]);
+                }
+            }
         } catch (Exception e) {
             logger.info("2. Error during analysis: " + e);
             //e.printStackTrace();
