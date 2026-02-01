@@ -109,7 +109,7 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
     // currently
     // being analyzed across several CCFGs. elements are of the form
     // <className>.<methodName>
-    private static final Set<String> methodsInPurityAnalysis = new HashSet<>();
+    private static final ThreadLocal<Set<String>> methodsInPurityAnalysis = ThreadLocal.withInitial(HashSet::new);
 
 
     /**
@@ -161,12 +161,13 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
         // "Starting purity analysis of " + methodName);
 
         // add methodName to set of currently analyzed methods
-        methodsInPurityAnalysis.add(className + "." + methodName);
-        boolean r = analyzePurity(methodName, entry, handled);
-        // remove methodName from set of currently analyzed methods
-        methodsInPurityAnalysis.remove(className + "." + methodName);
-
-        return r;
+        methodsInPurityAnalysis.get().add(className + "." + methodName);
+        try {
+            return analyzePurity(methodName, entry, handled);
+        } finally {
+            // remove methodName from set of currently analyzed methods
+            methodsInPurityAnalysis.get().remove(className + "." + methodName);
+        }
     }
 
     private boolean analyzePurity(String analyzedMethod, CCFGNode currentNode,
@@ -192,7 +193,7 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
                     + fieldCall.getMethodName();
             if (GraphPool.getInstance(classLoader).canMakeCCFGForClass(fieldCall.getClassName())) {
 
-                if (!methodsInPurityAnalysis.contains(toAnalyze)) {
+                if (!methodsInPurityAnalysis.get().contains(toAnalyze)) {
                     ClassControlFlowGraph ccfg = GraphPool.getInstance(classLoader).getCCFG(fieldCall
                             .getClassName());
                     if (!ccfg.isPure(fieldCall.getMethodName())) {
@@ -216,12 +217,12 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
                 if (toAnalyze.startsWith("java.")) {
 
                     Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(fieldCall.getOnlyParameters());
-                    String newParams = "";
+                    StringBuilder newParams = new StringBuilder();
                     if (parameters.length != 0) {
                         for (Type i : parameters) {
-                            newParams = newParams + "," + i.getClassName();
+                            newParams.append(",").append(i.getClassName());
                         }
-                        newParams = newParams.substring(1);
+                        newParams.deleteCharAt(0);
                     }
                     toAnalyze = fieldCall.getClassName() + "." + fieldCall.getOnlyMethodName() + "(" + newParams + ")";
 
@@ -251,7 +252,7 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
             CCFGMethodCallNode callNode = (CCFGMethodCallNode) currentNode;
             // avoid loops in analysis
             String toAnalyze = className + "." + callNode.getCalledMethod();
-            if (!methodsInPurityAnalysis.contains(toAnalyze)) {
+            if (!methodsInPurityAnalysis.get().contains(toAnalyze)) {
                 // if another method of this class is called check that
                 // method
                 // it the called method is impure then this method is impure
