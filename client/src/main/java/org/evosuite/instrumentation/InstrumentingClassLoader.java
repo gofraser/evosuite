@@ -32,6 +32,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -47,8 +48,7 @@ public class InstrumentingClassLoader extends ClassLoader {
     private final static Logger logger = LoggerFactory.getLogger(InstrumentingClassLoader.class);
 
     private final BytecodeInstrumentation instrumentation;
-    private final ClassLoader classLoader;
-    private final Map<String, Class<?>> classes = new HashMap<>();
+    private final Map<String, Class<?>> classes = new ConcurrentHashMap<>();
 
     /**
      * <p>
@@ -71,13 +71,11 @@ public class InstrumentingClassLoader extends ClassLoader {
      */
     public InstrumentingClassLoader(BytecodeInstrumentation instrumentation) {
         super(InstrumentingClassLoader.class.getClassLoader());
-        classLoader = InstrumentingClassLoader.class.getClassLoader();
         this.instrumentation = instrumentation;
     }
 
     public List<String> getViewOfInstrumentedClasses() {
-        List<String> list = new ArrayList<>(classes.keySet());
-        return list;
+        return new ArrayList<>(classes.keySet());
     }
 
 
@@ -88,16 +86,12 @@ public class InstrumentingClassLoader extends ClassLoader {
         try (InputStream is = new FileInputStream(new File(fileName))) {
 
             byte[] byteBuffer = getTransformedBytes(className, is);
-
-            createPackageDefinition(fullyQualifiedTargetClass);
-            Class<?> result = defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length);
-
-            classes.put(fullyQualifiedTargetClass, result);
+            Class<?> result = defineInstrumentedClass(fullyQualifiedTargetClass, byteBuffer);
 
             logger.info("Loaded class " + fullyQualifiedTargetClass + " directly from " + fileName);
             return result;
         } catch (Throwable t) {
-            logger.info("Error while loading class " + fullyQualifiedTargetClass + " : " + t);
+            logger.error("Error while loading class " + fullyQualifiedTargetClass + " : " + t.getMessage(), t);
             throw new ClassNotFoundException(t.getMessage(), t);
         }
     }
@@ -114,8 +108,8 @@ public class InstrumentingClassLoader extends ClassLoader {
                 if (result != null) {
                     return result;
                 }
-                result = classLoader.loadClass(name);
-                return result;
+                // Delegate to parent (which was passed as InstrumentingClassLoader.class.getClassLoader())
+                return getParent().loadClass(name);
             }
 
             Class<?> result = classes.get(name);
@@ -123,10 +117,8 @@ public class InstrumentingClassLoader extends ClassLoader {
                 return result;
             } else {
                 logger.info("Seeing class for first time: " + name);
-                Class<?> instrumentedClass = instrumentClass(name);
-                return instrumentedClass;
+                return instrumentClass(name);
             }
-
         }
     }
 
@@ -137,49 +129,48 @@ public class InstrumentingClassLoader extends ClassLoader {
 
     private Class<?> instrumentClass(String fullyQualifiedTargetClass) throws ClassNotFoundException {
         String className = fullyQualifiedTargetClass.replace('.', '/');
-        InputStream is = null;
-        try {
-            is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(fullyQualifiedTargetClass);
 
+        try (InputStream is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(fullyQualifiedTargetClass)) {
             if (is == null) {
                 throw new ClassNotFoundException("Class '" + className + ".class"
                         + "' should be in target project, but could not be found!");
             }
 
             byte[] byteBuffer = getTransformedBytes(className, is);
-            createPackageDefinition(fullyQualifiedTargetClass);
-            Class<?> result = defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length);
-            classes.put(fullyQualifiedTargetClass, result);
+            Class<?> result = defineInstrumentedClass(fullyQualifiedTargetClass, byteBuffer);
 
             logger.info("Loaded class: " + fullyQualifiedTargetClass);
             return result;
         } catch (Throwable t) {
-            logger.info("Error while loading class: " + t);
+            logger.error("Error while loading class: " + t.getMessage(), t);
             throw new ClassNotFoundException(t.getMessage(), t);
-        } finally {
-            if (is != null)
-                try {
-                    is.close();
-                } catch (IOException e) {
-                    throw new Error(e);
-                }
         }
+    }
+
+    private Class<?> defineInstrumentedClass(String fullyQualifiedTargetClass, byte[] byteBuffer) {
+        createPackageDefinition(fullyQualifiedTargetClass);
+        Class<?> result = defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length);
+        classes.put(fullyQualifiedTargetClass, result);
+        return result;
     }
 
     /**
      * Before a new class is defined, we need to create a package definition for it
      *
-     * @param className
+     * @param className a {@link java.lang.String} object.
      */
     private void createPackageDefinition(String className) {
         int i = className.lastIndexOf('.');
         if (i != -1) {
             String pkgname = className.substring(0, i);
             // Check if package already loaded.
-            Package pkg = getPackage(pkgname);
-            if (pkg == null) {
-                definePackage(pkgname, null, null, null, null, null, null, null);
-                logger.info("Defined package (3): " + getPackage(pkgname) + ", " + getPackage(pkgname).hashCode());
+            if (getPackage(pkgname) == null) {
+                try {
+                    definePackage(pkgname, null, null, null, null, null, null, null);
+                    logger.info("Defined package (3): " + getPackage(pkgname) + ", " + getPackage(pkgname).hashCode());
+                } catch (IllegalArgumentException e) {
+                    // Ignore if already defined by another thread
+                }
             }
         }
     }
@@ -189,8 +180,7 @@ public class InstrumentingClassLoader extends ClassLoader {
     }
 
     public Set<String> getLoadedClasses() {
-        HashSet<String> loadedClasses = new HashSet<>(this.classes.keySet());
-        return loadedClasses;
+        return new HashSet<>(this.classes.keySet());
     }
 
 }
