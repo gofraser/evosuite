@@ -62,7 +62,10 @@ public class GraphPool {
     }
 
     public static GraphPool getInstance(ClassLoader classLoader) {
-        return instanceMap.computeIfAbsent(classLoader, GraphPool::new);
+        // Handle null classLoader (bootstrap classloader) by using a sentinel key,
+        // since ConcurrentHashMap doesn't allow null keys
+        ClassLoader key = classLoader != null ? classLoader : ClassLoader.getSystemClassLoader();
+        return instanceMap.computeIfAbsent(key, GraphPool::new);
     }
 
     /**

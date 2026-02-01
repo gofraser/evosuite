@@ -797,13 +797,20 @@ public class TestCoverageGoalNameGeneration {
         TestCase test1 = new DefaultTestCase();
         MethodCoverageTestFitness methodGoal = new MethodCoverageTestFitness("FooClass", "toString()");
         test1.addCoveredGoal(methodGoal);
-        LineCoverageTestFitness lineGoal1 = new LineCoverageTestFitness("FooClass", "toString()", 0);
+        // Use mock LineCoverageTestFitness to avoid setupDependencies() which requires bytecode pool
+        LineCoverageTestFitness lineGoal1 = mock(LineCoverageTestFitness.class);
+        when(lineGoal1.getClassName()).thenReturn("FooClass");
+        when(lineGoal1.getMethod()).thenReturn("toString()");
+        when(lineGoal1.getLine()).thenReturn(0);
         test1.addCoveredGoal(lineGoal1);
 
         TestCase test2 = new DefaultTestCase();
         test2.addCoveredGoal(methodGoal);
         test2.addStatement(new IntPrimitiveStatement(test2, 0)); // Need to add statements to change hashCode
-        LineCoverageTestFitness lineGoal2 = new LineCoverageTestFitness("FooClass", "toString()", 10);
+        LineCoverageTestFitness lineGoal2 = mock(LineCoverageTestFitness.class);
+        when(lineGoal2.getClassName()).thenReturn("FooClass");
+        when(lineGoal2.getMethod()).thenReturn("toString()");
+        when(lineGoal2.getLine()).thenReturn(10);
         test2.addCoveredGoal(lineGoal2);
 
 
