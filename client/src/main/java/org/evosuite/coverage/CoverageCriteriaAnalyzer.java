@@ -47,7 +47,7 @@ public class CoverageCriteriaAnalyzer {
 
     private static final Logger logger = LoggerFactory.getLogger(CoverageCriteriaAnalyzer.class);
 
-    private static final Map<String, StringBuffer> coverageBitString = new TreeMap<>();
+    private static final Map<String, StringBuilder> coverageBitString = new TreeMap<>();
 
     private static final Set<Properties.Criterion> MUTATION_CRITERIA = EnumSet.of(
             Properties.Criterion.MUTATION,
@@ -55,6 +55,57 @@ public class CoverageCriteriaAnalyzer {
             Properties.Criterion.STRONGMUTATION,
             Properties.Criterion.ONLYMUTATION
     );
+
+    private static final Map<Criterion, RuntimeVariable> coverageVariables = new EnumMap<>(Criterion.class);
+    private static final Map<Criterion, RuntimeVariable> bitStringVariables = new EnumMap<>(Criterion.class);
+
+    static {
+        // Initialize coverage variables
+        coverageVariables.put(Criterion.ALLDEFS, RuntimeVariable.AllDefCoverage);
+        coverageVariables.put(Criterion.BRANCH, RuntimeVariable.BranchCoverage);
+        coverageVariables.put(Criterion.CBRANCH, RuntimeVariable.CBranchCoverage);
+        coverageVariables.put(Criterion.EXCEPTION, RuntimeVariable.ExceptionCoverage);
+        coverageVariables.put(Criterion.DEFUSE, RuntimeVariable.DefUseCoverage);
+        coverageVariables.put(Criterion.STATEMENT, RuntimeVariable.StatementCoverage);
+        coverageVariables.put(Criterion.RHO, RuntimeVariable.RhoScore);
+        coverageVariables.put(Criterion.AMBIGUITY, RuntimeVariable.AmbiguityScore);
+        coverageVariables.put(Criterion.STRONGMUTATION, RuntimeVariable.MutationScore);
+        coverageVariables.put(Criterion.MUTATION, RuntimeVariable.MutationScore);
+        coverageVariables.put(Criterion.ONLYMUTATION, RuntimeVariable.OnlyMutationScore);
+        coverageVariables.put(Criterion.WEAKMUTATION, RuntimeVariable.WeakMutationScore);
+        coverageVariables.put(Criterion.ONLYBRANCH, RuntimeVariable.OnlyBranchCoverage);
+        coverageVariables.put(Criterion.METHODTRACE, RuntimeVariable.MethodTraceCoverage);
+        coverageVariables.put(Criterion.METHOD, RuntimeVariable.MethodCoverage);
+        coverageVariables.put(Criterion.METHODNOEXCEPTION, RuntimeVariable.MethodNoExceptionCoverage);
+        coverageVariables.put(Criterion.ONLYLINE, RuntimeVariable.LineCoverage);
+        coverageVariables.put(Criterion.LINE, RuntimeVariable.LineCoverage);
+        coverageVariables.put(Criterion.OUTPUT, RuntimeVariable.OutputCoverage);
+        coverageVariables.put(Criterion.INPUT, RuntimeVariable.InputCoverage);
+        coverageVariables.put(Criterion.IBRANCH, RuntimeVariable.IBranchCoverage);
+        coverageVariables.put(Criterion.TRYCATCH, RuntimeVariable.TryCatchCoverage);
+
+        // Initialize bit string variables
+        bitStringVariables.put(Criterion.EXCEPTION, RuntimeVariable.ExceptionCoverageBitString);
+        bitStringVariables.put(Criterion.DEFUSE, RuntimeVariable.DefUseCoverageBitString);
+        bitStringVariables.put(Criterion.ALLDEFS, RuntimeVariable.AllDefCoverageBitString);
+        bitStringVariables.put(Criterion.BRANCH, RuntimeVariable.BranchCoverageBitString);
+        bitStringVariables.put(Criterion.CBRANCH, RuntimeVariable.CBranchCoverageBitString);
+        bitStringVariables.put(Criterion.IBRANCH, RuntimeVariable.IBranchCoverageBitString);
+        bitStringVariables.put(Criterion.ONLYBRANCH, RuntimeVariable.OnlyBranchCoverageBitString);
+        bitStringVariables.put(Criterion.MUTATION, RuntimeVariable.MutationCoverageBitString);
+        bitStringVariables.put(Criterion.STRONGMUTATION, RuntimeVariable.MutationCoverageBitString);
+        bitStringVariables.put(Criterion.WEAKMUTATION, RuntimeVariable.WeakMutationCoverageBitString);
+        bitStringVariables.put(Criterion.ONLYMUTATION, RuntimeVariable.OnlyMutationCoverageBitString);
+        bitStringVariables.put(Criterion.METHODTRACE, RuntimeVariable.MethodTraceCoverageBitString);
+        bitStringVariables.put(Criterion.METHOD, RuntimeVariable.MethodCoverageBitString);
+        bitStringVariables.put(Criterion.METHODNOEXCEPTION, RuntimeVariable.MethodNoExceptionCoverageBitString);
+        bitStringVariables.put(Criterion.OUTPUT, RuntimeVariable.OutputCoverageBitString);
+        bitStringVariables.put(Criterion.INPUT, RuntimeVariable.InputCoverageBitString);
+        bitStringVariables.put(Criterion.STATEMENT, RuntimeVariable.StatementCoverageBitString);
+        bitStringVariables.put(Criterion.LINE, RuntimeVariable.LineCoverageBitString);
+        bitStringVariables.put(Criterion.ONLYLINE, RuntimeVariable.LineCoverageBitString);
+        // TRYCATCH maps to null in original code, so we skip it here
+    }
 
     private static boolean isMutationCriterion(Properties.Criterion criterion) {
         return MUTATION_CRITERIA.contains(criterion);
@@ -78,7 +129,7 @@ public class CoverageCriteriaAnalyzer {
         Properties.Criterion[] oldCriterion = Arrays.copyOf(Properties.CRITERION, Properties.CRITERION.length);
         Properties.CRITERION = new Properties.Criterion[]{criterion};
 
-        logger.info("Re-instrumenting for criterion: " + criterion);
+        logger.info("Re-instrumenting for criterion: {}", criterion);
         TestGenerationContext.getInstance().resetContext();
 
         // Need to load class explicitly in case there are no test cases.
@@ -86,7 +137,7 @@ public class CoverageCriteriaAnalyzer {
         Properties.getInitializedTargetClass();
 
         // TODO: Now all existing test cases have reflection objects pointing to the wrong classloader
-        logger.info("Changing classloader of test suite for criterion: " + criterion);
+        logger.info("Changing classloader of test suite for criterion: {}", criterion);
 
         for (TestChromosome test : testSuite.getTestChromosomes()) {
             DefaultTestCase dtest = (DefaultTestCase) test.getTestCase();
@@ -133,58 +184,15 @@ public class CoverageCriteriaAnalyzer {
             Properties.Criterion crit = Properties.Criterion.valueOf(criterion.toUpperCase());
             analyzeCoverage(testSuite, crit);
         } catch (IllegalArgumentException e) {
-            LoggingUtils.getEvoLogger().info("* Unknown coverage criterion: " + criterion);
+            LoggingUtils.getEvoLogger().info("* Unknown coverage criterion: {}", criterion);
         }
     }
 
     public static RuntimeVariable getCoverageVariable(Properties.Criterion criterion) {
-        switch (criterion) {
-            case ALLDEFS:
-                return RuntimeVariable.AllDefCoverage;
-            case BRANCH:
-                return RuntimeVariable.BranchCoverage;
-            case CBRANCH:
-                return RuntimeVariable.CBranchCoverage;
-            case EXCEPTION:
-                return RuntimeVariable.ExceptionCoverage;
-            case DEFUSE:
-                return RuntimeVariable.DefUseCoverage;
-            case STATEMENT:
-                return RuntimeVariable.StatementCoverage;
-            case RHO:
-                return RuntimeVariable.RhoScore;
-            case AMBIGUITY:
-                return RuntimeVariable.AmbiguityScore;
-            case STRONGMUTATION:
-            case MUTATION:
-                return RuntimeVariable.MutationScore;
-            case ONLYMUTATION:
-                return RuntimeVariable.OnlyMutationScore;
-            case WEAKMUTATION:
-                return RuntimeVariable.WeakMutationScore;
-            case ONLYBRANCH:
-                return RuntimeVariable.OnlyBranchCoverage;
-            case METHODTRACE:
-                return RuntimeVariable.MethodTraceCoverage;
-            case METHOD:
-                return RuntimeVariable.MethodCoverage;
-            case METHODNOEXCEPTION:
-                return RuntimeVariable.MethodNoExceptionCoverage;
-            case ONLYLINE:
-            case LINE:
-                return RuntimeVariable.LineCoverage;
-            case OUTPUT:
-                return RuntimeVariable.OutputCoverage;
-            case INPUT:
-                return RuntimeVariable.InputCoverage;
-            case IBRANCH:
-                return RuntimeVariable.IBranchCoverage;
-            case TRYCATCH:
-                return RuntimeVariable.TryCatchCoverage;
-            default:
-                throw new RuntimeException("Criterion not supported: " + criterion);
-
+        if (coverageVariables.containsKey(criterion)) {
+            return coverageVariables.get(criterion);
         }
+        throw new RuntimeException("Criterion not supported: " + criterion);
     }
 
     public static void analyzeCoverage(TestSuiteChromosome testSuite) {
@@ -200,7 +208,7 @@ public class CoverageCriteriaAnalyzer {
         boolean recalculate = false;
 
         for (Properties.Criterion pc : criteria) {
-            LoggingUtils.getEvoLogger().info("* Coverage analysis for criterion " + pc);
+            LoggingUtils.getEvoLogger().info("* Coverage analysis for criterion {}", pc);
 
             analyzeCoverage(testSuite, pc, recalculate);
         }
@@ -235,7 +243,7 @@ public class CoverageCriteriaAnalyzer {
         List<? extends TestFitnessFunction> goals = factory.getCoverageGoals();
         Collections.sort(goals);
 
-        StringBuffer buffer = new StringBuffer(goals.size());
+        StringBuilder buffer = new StringBuilder(goals.size());
         int covered = 0;
 
         for (TestFitnessFunction goal : goals) {
@@ -253,7 +261,7 @@ public class CoverageCriteriaAnalyzer {
 
         coverageBitString.put(criterion.name(), buffer);
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.CoverageBitString,
-                coverageBitString.size() == 0 ? "0" : coverageBitString.values().toString().replace("[", "").replace("]", "").replace(", ", ""));
+                coverageBitString.isEmpty() ? "0" : coverageBitString.values().toString().replace("[", "").replace("]", "").replace(", ", ""));
 
         RuntimeVariable bitStringVariable = getBitStringVariable(criterion);
         if (bitStringVariable != null) {
@@ -267,7 +275,7 @@ public class CoverageCriteriaAnalyzer {
                 ClientServices.getInstance().getClientNode().trackOutputVariable(
                         RuntimeVariable.MutationScore, 1.0);
             }
-            LoggingUtils.getEvoLogger().info("* Coverage of criterion " + criterion + ": 100% (no goals)");
+            LoggingUtils.getEvoLogger().info("* Coverage of criterion {}: 100% (no goals)", criterion);
             ClientServices.getInstance().getClientNode().trackOutputVariable(getCoverageVariable(criterion), 1.0);
         } else {
 
@@ -280,13 +288,11 @@ public class CoverageCriteriaAnalyzer {
                         RuntimeVariable.MutationScore, (double) covered / (double) goals.size());
             }
 
-            LoggingUtils.getEvoLogger().info("* Coverage of criterion "
-                    + criterion
-                    + ": "
-                    + NumberFormat.getPercentInstance().format((double) covered / (double) goals.size()));
+            LoggingUtils.getEvoLogger().info("* Coverage of criterion {}: {}", criterion,
+                    NumberFormat.getPercentInstance().format((double) covered / (double) goals.size()));
 
-            LoggingUtils.getEvoLogger().info("* Total number of goals: " + goals.size());
-            LoggingUtils.getEvoLogger().info("* Number of covered goals: " + covered);
+            LoggingUtils.getEvoLogger().info("* Total number of goals: {}", goals.size());
+            LoggingUtils.getEvoLogger().info("* Number of covered goals: {}", covered);
         }
 
         // FIXME it works, but needs a better way of handling this
@@ -302,48 +308,10 @@ public class CoverageCriteriaAnalyzer {
     }
 
     public static RuntimeVariable getBitStringVariable(Properties.Criterion criterion) {
-        switch (criterion) {
-            case EXCEPTION:
-                return RuntimeVariable.ExceptionCoverageBitString;
-            case DEFUSE:
-                return RuntimeVariable.DefUseCoverageBitString;
-            case ALLDEFS:
-                return RuntimeVariable.AllDefCoverageBitString;
-            case BRANCH:
-                return RuntimeVariable.BranchCoverageBitString;
-            case CBRANCH:
-                return RuntimeVariable.CBranchCoverageBitString;
-            case IBRANCH:
-                return RuntimeVariable.IBranchCoverageBitString;
-            case ONLYBRANCH:
-                return RuntimeVariable.OnlyBranchCoverageBitString;
-            case MUTATION:
-            case STRONGMUTATION:
-                return RuntimeVariable.MutationCoverageBitString;
-            case WEAKMUTATION:
-                return RuntimeVariable.WeakMutationCoverageBitString;
-            case ONLYMUTATION:
-                return RuntimeVariable.OnlyMutationCoverageBitString;
-            case METHODTRACE:
-                return RuntimeVariable.MethodTraceCoverageBitString;
-            case METHOD:
-                return RuntimeVariable.MethodCoverageBitString;
-            case METHODNOEXCEPTION:
-                return RuntimeVariable.MethodNoExceptionCoverageBitString;
-            case OUTPUT:
-                return RuntimeVariable.OutputCoverageBitString;
-            case INPUT:
-                return RuntimeVariable.InputCoverageBitString;
-            case STATEMENT:
-                return RuntimeVariable.StatementCoverageBitString;
-            case LINE:
-            case ONLYLINE:
-                return RuntimeVariable.LineCoverageBitString;
-            case TRYCATCH:
-                return null;
-            default:
-                logger.debug("Criterion not supported: " + criterion);
-                return null;
+        if (bitStringVariables.containsKey(criterion)) {
+            return bitStringVariables.get(criterion);
         }
+        logger.debug("Criterion not supported: {}", criterion);
+        return null;
     }
 }

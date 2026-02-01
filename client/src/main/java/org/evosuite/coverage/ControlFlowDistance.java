@@ -22,6 +22,8 @@ package org.evosuite.coverage;
 
 import org.evosuite.ga.FitnessFunction;
 
+import java.util.Objects;
+
 /**
  * <p>ControlFlowDistance class.</p>
  *
@@ -51,7 +53,7 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
      */
     public ControlFlowDistance(int approachLevel, double branchDistance) {
         if (approachLevel < 0 || branchDistance < 0.0)
-            throw new IllegalStateException(
+            throw new IllegalArgumentException(
                     "expect approachLevel and branchDistance to always be positive");
 
         this.approachLevel = approachLevel;
@@ -129,6 +131,26 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
      */
     public double getResultingBranchFitness() {
         return approachLevel + FitnessFunction.normalize(branchDistance);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ControlFlowDistance that = (ControlFlowDistance) o;
+        return approachLevel == that.approachLevel &&
+                Double.compare(that.branchDistance, branchDistance) == 0;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(approachLevel, branchDistance);
     }
 
     /**

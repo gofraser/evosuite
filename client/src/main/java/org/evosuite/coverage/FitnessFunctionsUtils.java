@@ -54,7 +54,7 @@ public class FitnessFunctionsUtils {
             if (Properties.ALGORITHM != Properties.Algorithm.NSGAII && Properties.ALGORITHM != Properties.Algorithm.SPEA2) {
                 for (TestSuiteFitnessFunction oldFunction : ffs) {
                     if (oldFunction.isMaximizationFunction() != newFunction.isMaximizationFunction()) {
-                        StringBuffer sb = new StringBuffer();
+                        StringBuilder sb = new StringBuilder();
                         sb.append("* Invalid combination of fitness functions: ");
                         sb.append(oldFunction);
                         if (oldFunction.isMaximizationFunction())
@@ -110,7 +110,7 @@ public class FitnessFunctionsUtils {
                 LoggingUtils.getEvoLogger().info("* Total number of test goals: {}", factory.getCoverageGoals().size());
                 if (Properties.PRINT_GOALS) {
                     for (TestFitnessFunction goal : factory.getCoverageGoals())
-                        LoggingUtils.getEvoLogger().info("" + goal.toString());
+                        LoggingUtils.getEvoLogger().info("{}", goal);
                 }
             }
         } else {
@@ -123,11 +123,11 @@ public class FitnessFunctionsUtils {
 
                 if (verbose) {
                     LoggingUtils.getEvoLogger()
-                            .info("  - " + goalFactory.getClass().getSimpleName().replace("CoverageFactory", "") + " "
-                                    + goalFactory.getCoverageGoals().size());
+                            .info("  - {} {}", goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
+                                    goalFactory.getCoverageGoals().size());
                     if (Properties.PRINT_GOALS) {
                         for (TestFitnessFunction goal : goalFactory.getCoverageGoals())
-                            LoggingUtils.getEvoLogger().info("" + goal.toString());
+                            LoggingUtils.getEvoLogger().info("{}", goal);
                     }
                 }
             }
