@@ -46,7 +46,7 @@ public class ErrorConditionChecker {
      * @return a int.
      */
     public static int scale(float value) {
-        return (Integer.MAX_VALUE - 2) * (int) Math.ceil((value / (value + 1.0F)));
+        return (int) (Math.ceil((Integer.MAX_VALUE - 2) * (value / (value + 1.0F))));
     }
 
     /**
@@ -58,7 +58,7 @@ public class ErrorConditionChecker {
      * @return a int.
      */
     public static int scale(double value) {
-        return (Integer.MAX_VALUE - 2) * (int) Math.ceil((value / (value + 1.0)));
+        return (int) (Math.ceil((Integer.MAX_VALUE - 2) * (value / (value + 1.0))));
     }
 
     /**
@@ -70,10 +70,13 @@ public class ErrorConditionChecker {
      * @return a int.
      */
     public static int scale(long value) {
-        return (Integer.MAX_VALUE - 2) * (int) Math.ceil((value / (value + 1.0)));
+        return (int) (Math.ceil((Integer.MAX_VALUE - 2) * (value / (value + 1.0))));
     }
 
     public static int scaleTo(double value, int max) {
+        if (Double.isInfinite(value)) {
+            return max;
+        }
         return (int) (Math.ceil(max * (1.0 * value / (value + 1.0))));
     }
 
@@ -258,9 +261,8 @@ public class ErrorConditionChecker {
             if (op2 == Integer.MAX_VALUE)
                 return Integer.MAX_VALUE;
 
-            // TODO There may be an overflow here
-            return scaleTo(Math.abs(Integer.MIN_VALUE - op1), HALFWAY)
-                    + scaleTo(Math.abs(-1 - op2), HALFWAY);
+            return scaleTo(Math.abs((long) Integer.MIN_VALUE - op1), HALFWAY)
+                    + scaleTo(Math.abs(-1L - op2), HALFWAY);
         }
     }
 
@@ -444,10 +446,11 @@ public class ErrorConditionChecker {
     protected static int overflowDistanceDiv(float op1, float op2) {
         if (op1 == -Float.MAX_VALUE && op2 == -1.0)
             return -1;
-        else
-            // TODO There may be an overflow here
-            return scaleTo(Math.abs(-Float.MAX_VALUE - op1), HALFWAY)
-                    + scaleTo(Math.abs(-1.0 - op2), HALFWAY);
+        else {
+            double diff1 = Math.abs((double) -Float.MAX_VALUE - op1);
+            double diff2 = Math.abs(-1.0 - op2);
+            return scaleTo(diff1, HALFWAY) + scaleTo(diff2, HALFWAY);
+        }
     }
 
     public static int overflowDistance(double op1, double op2, int opcode) {
@@ -611,10 +614,11 @@ public class ErrorConditionChecker {
     protected static int overflowDistanceDiv(double op1, double op2) {
         if (op1 == -Double.MAX_VALUE && op2 == -1.0)
             return -1;
-        else
-            // TODO There may be an overflow here
-            return scaleTo(Math.abs(-Double.MAX_VALUE - op1), HALFWAY)
-                    + scaleTo(Math.abs(-1.0 - op2), HALFWAY);
+        else {
+            double diff1 = Math.abs(-Double.MAX_VALUE - op1);
+            double diff2 = Math.abs(-1.0 - op2);
+            return scaleTo(diff1, HALFWAY) + scaleTo(diff2, HALFWAY);
+        }
     }
 
     public static int overflowDistance(long op1, long op2, int opcode) {
@@ -808,10 +812,11 @@ public class ErrorConditionChecker {
     protected static int overflowDistanceDiv(long op1, long op2) {
         if (op1 == Long.MIN_VALUE && op2 == -1L)
             return -1;
-        else
-            // TODO There may be an overflow here
-            return scaleTo(Math.abs(Long.MIN_VALUE - op1), HALFWAY)
-                    + scaleTo(Math.abs(-1L - op2), HALFWAY);
+        else {
+            BigDecimal diff1 = new BigDecimal(Long.MIN_VALUE).subtract(new BigDecimal(op1)).abs();
+            BigDecimal diff2 = new BigDecimal(-1L).subtract(new BigDecimal(op2)).abs();
+            return scaleTo(diff1.doubleValue(), HALFWAY) + scaleTo(diff2.doubleValue(), HALFWAY);
+        }
     }
 
 }

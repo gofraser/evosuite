@@ -93,11 +93,22 @@ public class ArrayInstrumentation extends ErrorBranchInstrumenter {
         }
     }
 
+    @Override
     public void visitMultiANewArrayInsn(String desc, int dims) {
-        mv.visitLdcInsn(dims);
-        // Number of dimensions
-        insertBranch(Opcodes.IFGE, "java/lang/NegativeArraySizeException");
-        // TODO: Check for each dimension that it is geq 0
+        int[] locals = new int[dims];
+        for (int i = dims - 1; i >= 0; i--) {
+            locals[i] = mv.newLocal(Type.INT_TYPE);
+            mv.storeLocal(locals[i]);
+        }
+
+        for (int i = 0; i < dims; i++) {
+            mv.loadLocal(locals[i]);
+            insertBranch(Opcodes.IFGE, "java/lang/NegativeArraySizeException");
+        }
+
+        for (int i = 0; i < dims; i++) {
+            mv.loadLocal(locals[i]);
+        }
     }
 
     @Override

@@ -87,6 +87,10 @@ public class ErrorBranchInstrumenter {
                              int operand) {
     }
 
+    public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
+
+    }
+
 
     protected void insertBranch(int opcode, String exception) {
         Label origTarget = new Label();

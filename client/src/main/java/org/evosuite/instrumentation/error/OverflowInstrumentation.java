@@ -53,7 +53,7 @@ public class OverflowInstrumentation extends ErrorBranchInstrumenter {
                         "underflowDistance", "(III)I", false);
 
                 insertBranchWithoutException(Opcodes.IFGT);
-                // TODO: No break is intentional?
+                // Intentional fallthrough to check overflow
 
             case Opcodes.IDIV:
                 mv.visitInsn(Opcodes.DUP2);
@@ -75,6 +75,7 @@ public class OverflowInstrumentation extends ErrorBranchInstrumenter {
                         CHECKER,
                         "underflowDistance", "(FFI)I", false);
                 insertBranchWithoutException(Opcodes.IFGE);
+                // Intentional fallthrough to check overflow
 
             case Opcodes.FDIV:
                 mv.visitInsn(Opcodes.DUP2);
@@ -100,6 +101,7 @@ public class OverflowInstrumentation extends ErrorBranchInstrumenter {
                         "underflowDistance", "(DDI)I", false);
 
                 insertBranchWithoutException(Opcodes.IFGE);
+                // Intentional fallthrough to check overflow
 
             case Opcodes.DDIV:
                 loc = mv.newLocal(Type.DOUBLE_TYPE);
@@ -130,6 +132,7 @@ public class OverflowInstrumentation extends ErrorBranchInstrumenter {
                         "underflowDistance", "(JJI)I", false);
 
                 insertBranchWithoutException(Opcodes.IFGE);
+                // Intentional fallthrough to check overflow
 
             case Opcodes.LDIV:
 
