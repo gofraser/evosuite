@@ -59,14 +59,12 @@ import org.evosuite.testsuite.factories.TestSuiteChromosomeFactory;
 import org.evosuite.testsuite.secondaryobjectives.TestSuiteSecondaryObjective;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.ResourceController;
-import sun.misc.Signal;
 
 /**
  * Factory for GA on test suites
  *
  * @author gordon
  */
-@SuppressWarnings("restriction")
 public class PropertiesSuiteGAFactory
         extends PropertiesSearchAlgorithmFactory<TestSuiteChromosome> {
 
@@ -357,7 +355,7 @@ public class PropertiesSuiteGAFactory
             }
 
             // Runtime.getRuntime().addShutdownHook(writer);
-            Signal.handle(new Signal("INT"), writer);
+            writer.registerAsSignalHandler();
         }
 
         ga.addListener(new ResourceController<>());

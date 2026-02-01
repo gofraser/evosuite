@@ -37,7 +37,6 @@ import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.testsuite.RelativeSuiteLengthBloatControl;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.ResourceController;
-import sun.misc.Signal;
 
 public class PropertiesMapElitesSearchFactory
         extends PropertiesSearchAlgorithmFactory<TestChromosome> {
@@ -149,7 +148,7 @@ public class PropertiesMapElitesSearchFactory
                 ga.addStoppingCondition(ss);
             }
 
-            Signal.handle(new Signal("INT"), writer);
+            writer.registerAsSignalHandler();
         }
 
         ga.addListener(new ResourceController<>());

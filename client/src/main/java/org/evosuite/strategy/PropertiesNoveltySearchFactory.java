@@ -47,7 +47,6 @@ import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.ResourceController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
 
 public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFactory<TestChromosome> {
 
@@ -216,7 +215,7 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
             }
 
             // Runtime.getRuntime().addShutdownHook(writer);
-            Signal.handle(new Signal("INT"), writer);
+            writer.registerAsSignalHandler();
         }
 
         ga.addListener(new ResourceController<>());
