@@ -252,6 +252,11 @@
             </properties>
             <dependencyManagement>
                 <dependencies>
+                    <dependency>
+                        <groupId>org.mockito</groupId>
+                        <artifactId>mockito-core</artifactId>
+                        <version>5.11.0</version>
+                    </dependency>
                 </dependencies>
             </dependencyManagement>
         </profile>
@@ -349,31 +354,31 @@
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
-                <version>9.6</version>
+                <version>9.7</version>
             </dependency>
             <dependency>
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-commons</artifactId>
-                <version>9.6</version>
+                <version>9.7</version>
             </dependency>
             <dependency>
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-tree</artifactId>
-                <version>9.6</version>
+                <version>9.7</version>
             </dependency>
             <dependency>
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-analysis</artifactId>
-                <version>9.6</version>
+                <version>9.7</version>
             </dependency>
             <dependency>
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-util</artifactId>
-                <version>9.6</version>
+                <version>9.7</version>
             </dependency>
             <dependency>
                 <!-- Apache 2 -->
@@ -668,7 +673,7 @@
                         <exclude>${exclude.tests.concolic}</exclude>
                         <exclude>${exclude.tests.mimeType}</exclude>
                     </excludes>
-                    <argLine>-Djdk.attach.allowAttachSelf=true -Xms512m -Xmx4096m --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED -Djava.security.manager=allow</argLine>
+                    <argLine>-Djdk.attach.allowAttachSelf=true -Xms512m -Xmx4096m --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED -Djava.security.manager=allow</argLine>
                 </configuration>
             </plugin>
             <!-- pluging to run tests after 'package' phase in 'integration-test' -->
@@ -682,7 +687,7 @@
                         <include>${integrationTests}</include>
                         <include>${systemTests}</include>
                     </includes -->
-                    <argLine>-Djdk.attach.allowAttachSelf=true</argLine>
+                    <argLine>-Djdk.attach.allowAttachSelf=true --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED</argLine>
                 </configuration>
                 <executions>
                     <execution>
@@ -736,7 +741,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>3.1.0</version>
+                    <version>3.6.0</version>
                     <executions>
                         <execution>
                             <phase>package</phase>

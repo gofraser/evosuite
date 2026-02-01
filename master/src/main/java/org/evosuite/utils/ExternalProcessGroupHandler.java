@@ -30,9 +30,6 @@ import org.evosuite.rmi.service.ClientState;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
-
 import java.io.*;
 import java.rmi.ConnectException;
 import java.rmi.RemoteException;
@@ -639,24 +636,44 @@ public class ExternalProcessGroupHandler {
      * @param processIndex index of process
      */
     protected void startSignalHandler(final int processIndex) {
-        Signal.handle(new Signal("INT"), new SignalHandler() {
+        try {
+            Class<?> signalClass = Class.forName("sun.misc.Signal");
+            Class<?> signalHandlerClass = Class.forName("sun.misc.SignalHandler");
 
-            private boolean interrupted = false;
+            Object signalInt = signalClass.getConstructor(String.class).newInstance("INT");
 
-            @Override
-            public void handle(Signal arg0) {
-                if (interrupted)
-                    System.exit(0);
-                try {
-                    interrupted = true;
-                    if (processGroup[processIndex] != null)
-                        processGroup[processIndex].waitFor();
-                } catch (InterruptedException e) {
-                    logger.warn("", e);
-                }
-            }
+            Object handler = java.lang.reflect.Proxy.newProxyInstance(
+                    signalHandlerClass.getClassLoader(),
+                    new Class<?>[]{signalHandlerClass},
+                    new java.lang.reflect.InvocationHandler() {
+                        private boolean interrupted = false;
 
-        });
+                        @Override
+                        public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+                            if (method.getName().equals("handle")) {
+                                if (interrupted) {
+                                    System.exit(0);
+                                }
+                                try {
+                                    interrupted = true;
+                                    if (processGroup[processIndex] != null) {
+                                        processGroup[processIndex].waitFor();
+                                    }
+                                } catch (InterruptedException e) {
+                                    logger.warn("", e);
+                                }
+                                return null;
+                            }
+                            return null;
+                        }
+                    }
+            );
+
+            signalClass.getMethod("handle", signalClass, signalHandlerClass).invoke(null, signalInt, handler);
+
+        } catch (Throwable e) {
+            logger.debug("Could not register signal handler: " + e.getMessage());
+        }
     }
 
     /**
