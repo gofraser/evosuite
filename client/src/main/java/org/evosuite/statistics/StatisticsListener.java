@@ -42,6 +42,14 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
 
     private static final long serialVersionUID = -8229756367168023616L;
 
+    /**
+     * Capacity of the queue to store individuals.
+     * We limit this to avoid OutOfMemoryError if the master is slow to process
+     * or if the network is congested, while still allowing a reasonable buffer
+     * for bursts of updates.
+     */
+    private static final int QUEUE_CAPACITY = 5000;
+
     private final BlockingQueue<T> individuals;
 
     private volatile boolean done;
@@ -60,7 +68,7 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
     private volatile long timeFromLastGenerationUpdate = 0;
 
     public StatisticsListener() {
-        individuals = new LinkedBlockingQueue<>(5000);
+        individuals = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
         done = false;
         bestFitness = Double.MAX_VALUE;
         minimizing = true;
@@ -68,7 +76,7 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
     }
 
     public StatisticsListener(StatisticsListener<T> that) {
-        this.individuals = new LinkedBlockingQueue<>(5000);
+        this.individuals = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
         this.individuals.addAll(that.individuals);
 
         this.bestFitness = that.bestFitness;
