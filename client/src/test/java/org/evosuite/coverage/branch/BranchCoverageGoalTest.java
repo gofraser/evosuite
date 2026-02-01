@@ -89,6 +89,9 @@ public class BranchCoverageGoalTest {
         Mockito.when(instr2.getMethodName()).thenReturn("Method");
         Mockito.when(instr2.getClassName()).thenReturn("Class");
 
+        Mockito.when(instr1.compareTo(instr2)).thenReturn(0);
+        Mockito.when(instr2.compareTo(instr1)).thenReturn(0);
+
         Branch b1 = new Branch(instr1, 1);
         Branch b2 = new Branch(instr2, 2); // Different ID
 

@@ -247,11 +247,11 @@ public class Branch implements Serializable, Comparable<Branch> {
      */
     @Override
     public int compareTo(Branch other) {
-        int diff = instruction.getLineNumber() - other.getInstruction().getLineNumber();
-        if (diff == 0) {
-            return Integer.compare(this.actualBranchId, other.actualBranchId);
+        int diff = instruction.compareTo(other.instruction);
+        if (diff != 0) {
+            return diff;
         }
-        return diff;
+        return Integer.compare(this.actualBranchId, other.actualBranchId);
     }
 
     /**

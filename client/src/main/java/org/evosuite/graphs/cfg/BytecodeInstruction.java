@@ -1220,7 +1220,32 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      */
     @Override
     public int compareTo(BytecodeInstruction o) {
-        return getLineNumber() - o.getLineNumber();
+        int diff = getLineNumber() - o.getLineNumber();
+        if (diff != 0) {
+            return diff;
+        }
+        if (this.className != null) {
+            if (o.className == null)
+                return 1;
+            diff = this.className.compareTo(o.className);
+            if (diff != 0) {
+                return diff;
+            }
+        } else if (o.className != null) {
+            return -1;
+        }
+
+        if (this.methodName != null) {
+            if (o.methodName == null)
+                return 1;
+            diff = this.methodName.compareTo(o.methodName);
+            if (diff != 0) {
+                return diff;
+            }
+        } else if (o.methodName != null) {
+            return -1;
+        }
+        return Integer.compare(this.instructionId, o.instructionId);
     }
 
 }
