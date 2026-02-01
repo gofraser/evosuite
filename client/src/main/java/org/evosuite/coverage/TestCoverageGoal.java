@@ -102,8 +102,7 @@ public abstract class TestCoverageGoal {
             return test.getLastExecutionResult();
 
         try {
-            ExecutionResult result = TestCaseExecutor.getInstance().execute(test.getTestCase());
-            return result;
+            return TestCaseExecutor.getInstance().execute(test.getTestCase());
         } catch (Exception e) {
             logger.error("TG: Exception caught: ", e);
             throw new EvosuiteError(e);
