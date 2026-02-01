@@ -128,7 +128,7 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
                                 goals.add(createGoal(className, methodName, i, argType, MAP_NONEMPTY));
                                 // TODO: Collection.class?
                             } else {
-                                boolean observerGoalsAdded = false;
+                                goals.add(createGoal(className, methodName, i, argType, REF_NONNULL));
                                 Class<?> paramClazz = argumentClasses[i];
                                 for (Inspector inspector : InspectorManager.getInstance().getInspectors(paramClazz)) {
                                     String insp = inspector.getMethodCall() + Type.getMethodDescriptor(inspector.getMethod());
@@ -136,17 +136,12 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
                                     if (t.getSort() == Type.BOOLEAN) {
                                         goals.add(createGoal(className, methodName, i, argType, REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":" + BOOL_TRUE));
                                         goals.add(createGoal(className, methodName, i, argType, REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":" + BOOL_FALSE));
-                                        observerGoalsAdded = true;
-                                    } else if (Arrays.asList(new Integer[]{Type.BYTE, Type.SHORT, Type.INT, Type.FLOAT, Type.LONG, Type.DOUBLE}).contains(t.getSort())) {
+                                    } else if (t.getSort() >= Type.BYTE && t.getSort() <= Type.DOUBLE) {
                                         goals.add(createGoal(className, methodName, i, argType, REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":" + NUM_NEGATIVE));
                                         goals.add(createGoal(className, methodName, i, argType, REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":" + NUM_ZERO));
                                         goals.add(createGoal(className, methodName, i, argType, REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":" + NUM_POSITIVE));
-                                        observerGoalsAdded = true;
                                     }
                                 }
-                                if (!observerGoalsAdded)
-                                    goals.add(createGoal(className, methodName, i, argType, REF_NONNULL));
-                                goals.add(createGoal(className, methodName, i, argType, REF_NONNULL));
                             }
                             break;
                         default:

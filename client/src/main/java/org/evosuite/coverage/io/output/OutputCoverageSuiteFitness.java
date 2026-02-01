@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.ExecutionObserver;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -51,9 +52,17 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
     public OutputCoverageSuiteFitness() {
         // Add observer
         TestCaseExecutor executor = TestCaseExecutor.getInstance();
-        OutputObserver observer = new OutputObserver();
-        executor.addObserver(observer);
-        //TODO: where to remove observer?: executor.removeObserver(observer);
+        boolean hasObserver = false;
+        for (ExecutionObserver ob : executor.getExecutionObservers()) {
+            if (ob instanceof OutputObserver) {
+                hasObserver = true;
+                break;
+            }
+        }
+        if (!hasObserver) {
+            OutputObserver observer = new OutputObserver();
+            executor.addObserver(observer);
+        }
 
         determineCoverageGoals();
 
@@ -145,7 +154,7 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         Map<OutputCoverageTestFitness, Double> mapDistances = new LinkedHashMap<>();
         for (OutputCoverageTestFitness testFitness : this.outputCoverageGoals) {
-            mapDistances.put(testFitness, 1.0);
+            mapDistances.put(testFitness, Double.MAX_VALUE);
         }
 
         for (ExecutionResult result : results) {
@@ -176,7 +185,7 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
         }
 
         return mapDistances.values().stream()
-                .mapToDouble(Double::doubleValue)
+                .mapToDouble(TestFitnessFunction::normalize)
                 .sum();
     }
 
