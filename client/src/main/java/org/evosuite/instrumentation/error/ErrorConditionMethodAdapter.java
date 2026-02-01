@@ -228,6 +228,18 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         }
         super.visitInsn(opcode);
     }
+
+    @Override
+    public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
+        if (!inInstrumentation) {
+            inInstrumentation = true;
+            for (ErrorBranchInstrumenter instrumenter : instrumentation) {
+                instrumenter.visitMultiANewArrayInsn(descriptor, numDimensions);
+            }
+            inInstrumentation = false;
+        }
+        super.visitMultiANewArrayInsn(descriptor, numDimensions);
+    }
 	
 	/*
 	public Frame currentFrame = null;

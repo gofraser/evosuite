@@ -31,7 +31,9 @@ public class ListInstrumentation extends ErrorBranchInstrumenter {
             LinkedList.class.getCanonicalName().replace('.', '/'),
             Vector.class.getCanonicalName().replace('.', '/'));
 
-    private final List<String> indexListMethods = Arrays.asList("get", "set", "add", "remove", "listIterator", "addAll");
+    private final List<String> indexListMethodsStrict = Arrays.asList("get", "set", "remove");
+    private final List<String> indexListMethodsLoose = Arrays.asList("add", "listIterator", "addAll");
+
     // overloaded version of add(Element, Index), add(Index, Collection) and listIterator(Index) is considered here.
     // Missing: subList, removeRange
 
@@ -44,7 +46,10 @@ public class ListInstrumentation extends ErrorBranchInstrumenter {
                                 String desc, boolean itf) {
 
         if (LISTNAMES.contains(owner)) {
-            if (indexListMethods.contains(name)) {
+            boolean isStrict = indexListMethodsStrict.contains(name);
+            boolean isLoose = indexListMethodsLoose.contains(name);
+
+            if (isStrict || isLoose) {
                 Type[] args = Type.getArgumentTypes(desc);
                 if (args.length == 0)
                     return;
@@ -58,7 +63,11 @@ public class ListInstrumentation extends ErrorBranchInstrumenter {
 
                 // index >= size
                 mv.loadLocal(tempVariables.get(0));
-                insertBranch(Opcodes.IF_ICMPGT, "java/lang/IndexOutOfBoundsException");
+                if (isStrict) {
+                    insertBranch(Opcodes.IF_ICMPGT, "java/lang/IndexOutOfBoundsException");
+                } else {
+                    insertBranch(Opcodes.IF_ICMPGE, "java/lang/IndexOutOfBoundsException");
+                }
 
                 // index < 0
                 mv.loadLocal(tempVariables.get(0));
