@@ -29,8 +29,9 @@ import org.objectweb.asm.tree.analysis.Frame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
-import java.util.ListIterator;
+import java.util.Map;
 import java.util.regex.Matcher;
 
 /**
@@ -85,9 +86,9 @@ public class StringTransformation {
     private boolean transformStrings(MethodNode mn) {
         logger.info("Current method: " + mn.name);
         boolean changed = false;
-        ListIterator<AbstractInsnNode> iterator = mn.instructions.iterator();
-        while (iterator.hasNext()) {
-            AbstractInsnNode node = iterator.next();
+        AbstractInsnNode node = mn.instructions.getFirst();
+        while (node != null) {
+            AbstractInsnNode next = node.getNext();
             if (node instanceof MethodInsnNode) {
                 MethodInsnNode min = (MethodInsnNode) node;
                 if (min.owner.equals("java/lang/String")) {
@@ -247,6 +248,7 @@ public class StringTransformation {
                     }
                 }
             }
+            node = next;
         }
         return changed;
     }
@@ -276,18 +278,21 @@ public class StringTransformation {
                 Analyzer a = new Analyzer(new StringBooleanInterpreter());
                 a.analyze(cn.name, mn);
                 Frame[] frames = a.getFrames();
+                AbstractInsnNode[] insns = mn.instructions.toArray();
+                Map<AbstractInsnNode, Frame> frameMap = new HashMap<>();
+                for (int i = 0; i < frames.length; i++) {
+                    if (frames[i] != null && i < insns.length) {
+                        frameMap.put(insns[i], frames[i]);
+                    }
+                }
                 AbstractInsnNode node = mn.instructions.getFirst();
-                boolean done = false;
-                while (!done) {
-                    if (node == mn.instructions.getLast())
-                        done = true;
+                while (node != null) {
                     AbstractInsnNode next = node.getNext();
-                    int index = mn.instructions.indexOf(node);
-                    if (index >= frames.length)
-                        break;
-                    Frame current = frames[index];
-                    if (current == null)
-                        break;
+                    if (!frameMap.containsKey(node)) {
+                        node = next;
+                        continue;
+                    }
+                    Frame current = frameMap.get(node);
                     int size = current.getStackSize();
                     if (node.getOpcode() == Opcodes.IFNE) {
                         JumpInsnNode branch = (JumpInsnNode) node;

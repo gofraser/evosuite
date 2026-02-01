@@ -66,7 +66,7 @@ public class ComparisonTransformation {
      */
     public void transformMethod(MethodNode mn) {
         AbstractInsnNode node = mn.instructions.getFirst();
-        while (node != mn.instructions.getLast()) {
+        while (node != null) {
             AbstractInsnNode next = node.getNext();
             if (node instanceof InsnNode) {
                 InsnNode in = (InsnNode) node;

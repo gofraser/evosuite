@@ -78,9 +78,9 @@ public class ContainerTransformation {
     @SuppressWarnings("unchecked")
     public boolean transformMethod(MethodNode mn) {
         boolean changed = false;
-        ListIterator<AbstractInsnNode> iterator = mn.instructions.iterator();
-        while (iterator.hasNext()) {
-            AbstractInsnNode node = iterator.next();
+        AbstractInsnNode node = mn.instructions.getFirst();
+        while (node != null) {
+            AbstractInsnNode next = node.getNext();
 
             if (node instanceof MethodInsnNode) {
                 MethodInsnNode methodNode = (MethodInsnNode) node;
@@ -198,6 +198,7 @@ public class ContainerTransformation {
                     }
                 }
             }
+            node = next;
         }
         return changed;
     }
