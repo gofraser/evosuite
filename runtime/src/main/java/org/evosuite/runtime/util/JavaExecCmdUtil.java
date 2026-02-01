@@ -20,7 +20,6 @@
 package org.evosuite.runtime.util;
 
 import java.io.File;
-import java.nio.file.Paths;
 import java.util.Optional;
 
 /**
@@ -46,15 +45,17 @@ public class JavaExecCmdUtil {
      * @apiNote under maven java.home property is ${JAVA_HOME}/jre/bin/java
      */
     public static String getJavaBinExecutablePath(final boolean isFullOriginalJavaExecRequired) {
-        final String JAVA_CMD = Paths.get(System.getProperty("java.home"), "bin", "java").toString();
+        final String sep = System.getProperty("file.separator");
+        final String JAVA_CMD = System.getProperty("java.home") + sep + "bin" + sep + "java";
 
         return getJavaHomeEnv()
-                .map(javaHomeEnvVar ->
-                     Paths.get(javaHomeEnvVar, "bin", "java", getOsName()
+                .map(javaHomeEnvVar -> {
+                     String exeSuffix = getOsName()
                                .filter(osName -> osName.toLowerCase().contains("windows"))
                                .map(osName -> ".exe")
-                               .orElse("")).toFile()
-                )
+                               .orElse("");
+                     return new File(javaHomeEnvVar + sep + "bin" + sep + "java" + exeSuffix);
+                })
                 .filter(File::exists)
                 .map(File::getPath)
                 .orElse(isFullOriginalJavaExecRequired ? JAVA_CMD : "java");
