@@ -20,12 +20,13 @@
 package org.evosuite.classpath;
 
 import org.evosuite.Properties;
-import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.util.Scanner;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * When running EvoSuite there are at least three different classpaths
@@ -48,7 +49,7 @@ public class ClassPathHandler {
      * The classpath of the project to test, including all
      * its dependencies
      */
-    private String targetClassPath;
+    private volatile String targetClassPath;
 
     /**
      * When we start the client, we need to know what is the classpath of EvoSuite.
@@ -57,7 +58,7 @@ public class ClassPathHandler {
      * current classloader to get such info, as we cannot make any assumption on its implementation.
      * So, in those cases, we need to manually specify it
      */
-    private String evosuiteClassPath;
+    private volatile String evosuiteClassPath;
 
 
     private ClassPathHandler() {
@@ -83,10 +84,10 @@ public class ClassPathHandler {
     /**
      * Replace current CP of EvoSuite with the given <code>elements</code>
      *
-     * @param elements
+     * @param elements array of classpath entries
      * @throws IllegalArgumentException if values in <code>elements</code> are not valid classpath entries
      */
-    public void setEvoSuiteClassPath(String[] elements) throws IllegalArgumentException {
+    public synchronized void setEvoSuiteClassPath(String[] elements) throws IllegalArgumentException {
         String cp = getClassPath(elements);
         evosuiteClassPath = cp;
     }
@@ -95,10 +96,10 @@ public class ClassPathHandler {
     /**
      * Replace current CP for target project with the given <code>elements</code>
      *
-     * @param elements
+     * @param elements array of classpath entries
      * @throws IllegalArgumentException if values in <code>elements</code> are not valid classpath entries
      */
-    public void changeTargetClassPath(String[] elements) throws IllegalArgumentException {
+    public synchronized void changeTargetClassPath(String[] elements) throws IllegalArgumentException {
         String cp = getClassPath(elements);
         Properties.CP = cp;
         targetClassPath = cp;
@@ -109,18 +110,18 @@ public class ClassPathHandler {
             throw new IllegalArgumentException("No classpath elements");
         }
 
-        String cp = "";
+        StringBuilder cp = new StringBuilder();
         boolean first = true;
         for (String entry : elements) {
             checkIfValidClasspathEntry(entry);
             if (first) {
                 first = false;
             } else {
-                cp += File.pathSeparator;
+                cp.append(File.pathSeparator);
             }
-            cp += entry;
+            cp.append(entry);
         }
-        return cp;
+        return cp.toString();
     }
 
     /**
@@ -132,7 +133,7 @@ public class ClassPathHandler {
      * If no classpath has been set so far, the one from the property file
      * will be used, if it exists.
      *
-     * @return
+     * @return the target project classpath
      */
     public String getTargetProjectClasspath() {
 
@@ -141,11 +142,10 @@ public class ClassPathHandler {
             if (Properties.CP_FILE_PATH != null) {
                 File file = new File(Properties.CP_FILE_PATH);
 
-                try (InputStream in = new BufferedInputStream(new FileInputStream(file))) {
-                    Scanner scanner = new Scanner(in);
-                    line = scanner.nextLine();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+                    line = reader.readLine();
                 } catch (Exception e) {
-                    LoggingUtils.getEvoLogger().error("Error while processing " + file.getAbsolutePath() + " : " + e.getMessage());
+                    logger.error("Error while processing {} : {}", file.getAbsolutePath(), e.getMessage());
                 }
             }
 
@@ -158,10 +158,11 @@ public class ClassPathHandler {
     public static String writeClasspathToFile(String classpath) {
 
         try {
-            File file = File.createTempFile("EvoSuite_classpathFile", ".txt");
+            Path tempFile = Files.createTempFile("EvoSuite_classpathFile", ".txt");
+            File file = tempFile.toFile();
             file.deleteOnExit();
 
-            try (BufferedWriter out = new BufferedWriter(new FileWriter(file))) {
+            try (BufferedWriter out = Files.newBufferedWriter(tempFile, StandardCharsets.UTF_8)) {
                 out.write(classpath);
                 out.newLine();
             }
@@ -177,10 +178,10 @@ public class ClassPathHandler {
     /**
      * Add classpath entry to the classpath of the target project
      *
-     * @param element
-     * @throws IllegalArgumentException
+     * @param element the classpath element to add
+     * @throws IllegalArgumentException if the element is invalid
      */
-    public void addElementToTargetProjectClassPath(String element) throws IllegalArgumentException {
+    public synchronized void addElementToTargetProjectClassPath(String element) throws IllegalArgumentException {
         checkIfValidClasspathEntry(element);
 
         getTargetProjectClasspath(); //need to be sure it is initialized
