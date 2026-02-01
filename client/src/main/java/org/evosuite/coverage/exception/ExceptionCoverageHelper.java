@@ -84,19 +84,26 @@ public class ExceptionCoverageHelper {
             Constructor<?> constructor = cs.getConstructor().getConstructor();
             return "<init>" + Type.getConstructorDescriptor(constructor);
         }
-        return "";
+        return "Unknown";
     }
 
     public static boolean isSutException(ExecutionResult result, int exceptionPosition) {
+        if (Properties.TARGET_CLASS == null) {
+            return false;
+        }
+
+        Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
+        if (targetClass == null) {
+            return false;
+        }
+
         if (result.test.getStatement(exceptionPosition) instanceof MethodStatement) {
             MethodStatement ms = (MethodStatement) result.test.getStatement(exceptionPosition);
             Method method = ms.getMethod().getMethod();
-            Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
             return method.getDeclaringClass().equals(targetClass);
         } else if (result.test.getStatement(exceptionPosition) instanceof ConstructorStatement) {
             ConstructorStatement cs = (ConstructorStatement) result.test.getStatement(exceptionPosition);
             Constructor<?> constructor = cs.getConstructor().getConstructor();
-            Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
             return constructor.getDeclaringClass().equals(targetClass);
         }
         return false;
