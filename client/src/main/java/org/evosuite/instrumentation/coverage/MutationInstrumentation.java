@@ -116,6 +116,13 @@ public class MutationInstrumentation implements MethodInstrumentation {
 
         RawControlFlowGraph graph = GraphPool.getInstance(classLoader).getRawCFG(className,
                 methodName);
+
+        // Optimization: Create a map for fast lookup of BytecodeInstructions by their ASM nodes
+        Map<AbstractInsnNode, BytecodeInstruction> instructionMap = new HashMap<>();
+        for (BytecodeInstruction v : graph.vertexSet()) {
+            instructionMap.put(v.getASMNode(), v);
+        }
+
         Iterator<AbstractInsnNode> j = mn.instructions.iterator();
 
         getFrames(mn, className);
@@ -131,11 +138,25 @@ public class MutationInstrumentation implements MethodInstrumentation {
             logger.error("Skipping mutation of method " + className + "." + methodName);
             return;
         }
-        //assert (frames.length == mn.instructions.size()) : "Length " + frames.length
-        //        + " vs " + mn.instructions.size();
+
+        boolean inInstrumentation = false;
+
         while (j.hasNext()) {
             Frame currentFrame = frames[frameIndex++];
             AbstractInsnNode in = j.next();
+
+            if (in instanceof LabelNode) {
+                LabelNode labelNode = (LabelNode) in;
+                if (labelNode.getLabel() instanceof AnnotatedLabel) {
+                    AnnotatedLabel aLabel = (AnnotatedLabel) labelNode.getLabel();
+                    inInstrumentation = aLabel.isStartTag();
+                }
+            }
+
+            if (inInstrumentation) {
+                continue;
+            }
+
             if (!constructorInvoked) {
                 if (in.getOpcode() == Opcodes.INVOKESPECIAL) {
                     if (className.matches(".*\\$\\d+$")) {
@@ -157,54 +178,39 @@ public class MutationInstrumentation implements MethodInstrumentation {
                 }
             }
 
-            boolean inInstrumentation = false;
-            for (BytecodeInstruction v : graph.vertexSet()) {
+            BytecodeInstruction v = instructionMap.get(in);
+            if (v != null) {
+                logger.info(v.toString());
+                List<Mutation> mutations = new LinkedList<>();
 
-                // If the bytecode is instrumented by EvoSuite, then don't mutate
-                if (v.isLabel()) {
-                    LabelNode labelNode = (LabelNode) v.getASMNode();
+                // TODO: More than one mutation operator might apply to the same instruction
+                for (MutationOperator mutationOperator : mutationOperators) {
 
-                    if (labelNode.getLabel() instanceof AnnotatedLabel) {
-                        AnnotatedLabel aLabel = (AnnotatedLabel) labelNode.getLabel();
-                        inInstrumentation = aLabel.isStartTag();
+                    if (numMutants >= Properties.MAX_MUTANTS_PER_METHOD) {
+                        logger.info("Reached maximum number of mutants per method");
+                        break;
+                    }
+
+                    if (mutationOperator.isApplicable(v)) {
+                        logger.info("Applying mutation operator "
+                                + mutationOperator.getClass().getSimpleName());
+                        List<Mutation> applied = mutationOperator.apply(mn, className,
+                                methodName, v,
+                                currentFrame);
+                        mutations.addAll(applied);
+                        numMutants += applied.size();
                     }
                 }
-                if (inInstrumentation) {
-                    continue;
+                if (!mutations.isEmpty()) {
+                    logger.info("Adding instrumentation for mutation");
+                    addInstrumentation(mn, in, mutations);
                 }
-                // If this is in the CFG
-                if (in.equals(v.getASMNode())) {
-                    logger.info(v.toString());
-                    List<Mutation> mutations = new LinkedList<>();
-
-                    // TODO: More than one mutation operator might apply to the same instruction
-                    for (MutationOperator mutationOperator : mutationOperators) {
-
-                        if (numMutants++ > Properties.MAX_MUTANTS_PER_METHOD) {
-                            logger.info("Reached maximum number of mutants per method");
-                            break;
-                        }
-                        //logger.info("Checking mutation operator on instruction " + v);
-                        if (mutationOperator.isApplicable(v)) {
-                            logger.info("Applying mutation operator "
-                                    + mutationOperator.getClass().getSimpleName());
-                            mutations.addAll(mutationOperator.apply(mn, className,
-                                    methodName, v,
-                                    currentFrame));
-                        }
-                    }
-                    if (!mutations.isEmpty()) {
-                        logger.info("Adding instrumentation for mutation");
-                        //InsnList instrumentation = getInstrumentation(in, mutations);
-                        addInstrumentation(mn, in, mutations);
-                    }
-                }
-                if (numMutants > Properties.MAX_MUTANTS_PER_METHOD) {
-                    break;
-                }
-
+            }
+            if (numMutants >= Properties.MAX_MUTANTS_PER_METHOD) {
+                break;
             }
         }
+
         j = mn.instructions.iterator();
 
         logger.info("Result of mutation: ");
