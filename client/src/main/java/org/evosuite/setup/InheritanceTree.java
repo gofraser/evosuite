@@ -44,22 +44,28 @@ public class InheritanceTree {
     private Set<String> interfacesSet = new LinkedHashSet<>();
     private Set<String> abstractClassesSet = new LinkedHashSet<>();
 
-    private Map<String, Set<String>> analyzedMethods;
+    private Map<String, Set<String>> analyzedMethods = new LinkedHashMap<>();
 
     private DirectedMultigraph<String, DefaultEdge> inheritanceGraph = new DirectedMultigraph<>(
             DefaultEdge.class);
 
-    private void initialiseMap() {
-        if (analyzedMethods == null)
+    private Object readResolve() {
+        if (analyzedMethods == null) {
             analyzedMethods = new LinkedHashMap<>();
-        if (interfacesSet == null)
+        }
+        if (interfacesSet == null) {
             interfacesSet = new LinkedHashSet<>();
-        if (abstractClassesSet == null)
+        }
+        if (abstractClassesSet == null) {
             abstractClassesSet = new LinkedHashSet<>();
+        }
+        if (inheritanceGraph == null) {
+            inheritanceGraph = new DirectedMultigraph<>(DefaultEdge.class);
+        }
+        return this;
     }
 
     public boolean isClassDefined(String className) {
-        initialiseMap();
         return analyzedMethods.containsKey(className);
     }
 
@@ -72,32 +78,24 @@ public class InheritanceTree {
     }
 
     public void registerAbstractClass(String abstractClassName) {
-        initialiseMap();
         abstractClassesSet.add(ResourceList.getClassNameFromResourcePath(abstractClassName));
     }
 
     public void registerInterface(String interfaceName) {
-        initialiseMap();
         interfacesSet.add(ResourceList.getClassNameFromResourcePath(interfaceName));
     }
 
     public boolean isMethodDefined(String className, String methodNameWdescriptor) {
-        initialiseMap();
-
         if (analyzedMethods.get(className) == null) return false;
         return analyzedMethods.get(className).contains(methodNameWdescriptor);
     }
 
     public boolean isMethodDefined(String className, String methodName, String descriptor) {
-        initialiseMap();
-
         if (analyzedMethods.get(className) == null) return false;
         return analyzedMethods.get(className).contains(methodName + descriptor);
     }
 
-    //TODO the initialization in the clinit dosen't work, no idea why - mattia
     public void addAnalyzedMethod(String classname, String methodname, String descriptor) {
-        initialiseMap();
         classname = classname.replace(File.separator, ".");
         Set<String> tmp = analyzedMethods.get(classname);
         if (tmp == null)
@@ -109,11 +107,6 @@ public class InheritanceTree {
     public void addSuperclass(String className, String superName, int access) {
         String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
         String superNameWithDots = ResourceList.getClassNameFromResourcePath(superName);
-
-        if (inheritanceGraph == null) {
-            inheritanceGraph = new DirectedMultigraph<>(
-                    DefaultEdge.class);
-        }
 
         inheritanceGraph.addVertex(classNameWithDots);
         inheritanceGraph.addVertex(superNameWithDots);

@@ -141,23 +141,8 @@ public class TestCluster {
                 recursiveRemoveGenerators(entry.getKey());
             }
 
-
             Set<GenericClass<?>> toRemove = new LinkedHashSet<>();
-
-            for (GenericAccessibleObject<?> gao : entry.getValue()) {
-                GenericClass<?> owner = gao.getOwnerClass();
-                if (removed.contains(owner)) {
-                    continue;
-                }
-                try {
-                    cacheGenerators(owner);
-                } catch (ConstructionFailedException e) {
-                    continue;
-                }
-                if (generatorCache.get(owner).isEmpty()) {
-                    toRemove.add(owner);
-                }
-            }
+            validateGenerators(entry.getValue(), removed, toRemove);
 
             for (GenericClass<?> tr : toRemove) {
                 recursiveRemoveGenerators(tr);
@@ -170,6 +155,23 @@ public class TestCluster {
         removeDirectCycle();
 
         generatorCache.clear();
+    }
+
+    private void validateGenerators(Set<GenericAccessibleObject<?>> generators, Set<GenericClass<?>> removed, Set<GenericClass<?>> toRemove) {
+        for (GenericAccessibleObject<?> gao : generators) {
+            GenericClass<?> owner = gao.getOwnerClass();
+            if (removed.contains(owner)) {
+                continue;
+            }
+            try {
+                cacheGenerators(owner);
+            } catch (ConstructionFailedException e) {
+                continue;
+            }
+            if (generatorCache.get(owner).isEmpty()) {
+                toRemove.add(owner);
+            }
+        }
     }
 
 
@@ -622,6 +624,7 @@ public class TestCluster {
 
     /**
      * @return the analyzedClasses
+     * @deprecated This field is deprecated and should not be used. It is maintained for backward compatibility.
      */
     @Deprecated
     public Set<Class<?>> getAnalyzedClasses() {
