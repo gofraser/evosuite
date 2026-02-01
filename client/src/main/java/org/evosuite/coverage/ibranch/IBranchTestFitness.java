@@ -80,15 +80,6 @@ public class IBranchTestFitness extends TestFitnessFunction {
         return Double.MAX_VALUE;
     }
 
-    public int getGenericContextBranchIdentifier() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + (branchGoal == null ? 0 : branchGoal.hashCodeWithoutValue());
-        result = prime * result + (context == null ? 0 : context.hashCode());
-        return result;
-    }
-
-
     private double getPredicateDistance(Map<Integer, Map<CallContext, Double>> distanceMap) {
 
         if (!distanceMap.containsKey(branchGoal.getBranch().getActualBranchId())) {
@@ -111,7 +102,7 @@ public class IBranchTestFitness extends TestFitnessFunction {
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
-        double fitness = 0.0;
+        double fitness;
 
         if (branchGoal.getBranch() == null) {
             fitness = getMethodCallDistance(result);
@@ -142,13 +133,23 @@ public class IBranchTestFitness extends TestFitnessFunction {
     public int compareTo(TestFitnessFunction other) {
         if (other instanceof IBranchTestFitness) {
             IBranchTestFitness otherBranchFitness = (IBranchTestFitness) other;
-            return branchGoal.compareTo(otherBranchFitness.branchGoal);
+            int diff = branchGoal.compareTo(otherBranchFitness.branchGoal);
+            if (diff != 0) {
+                return diff;
+            }
+            if (context != null && otherBranchFitness.context != null) {
+                return context.toString().compareTo(otherBranchFitness.context.toString());
+            } else if (context == null && otherBranchFitness.context != null) {
+                return -1;
+            } else if (context != null) {
+                return 1;
+            }
+            return 0;
         } else if (other instanceof BranchCoverageTestFitness) {
             BranchCoverageTestFitness otherBranchFitness = (BranchCoverageTestFitness) other;
             return branchGoal.compareTo(otherBranchFitness.getBranchGoal());
         }
         return compareClassName(other);
-//		return -1;
     }
 
     /* (non-Javadoc)
@@ -170,10 +171,6 @@ public class IBranchTestFitness extends TestFitnessFunction {
     @Override
     public String toString() {
         return "Branch " + branchGoal + " in context: " + context.toString();
-    }
-
-    public String toStringContext() {
-        return context.toString() + ":" + branchGoal;
     }
 
 

@@ -19,204 +19,32 @@
  */
 package org.evosuite.coverage.line;
 
-import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.ga.archive.Archive;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.cfg.ControlDependency;
-import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testsuite.TestSuiteChromosome;
-import org.evosuite.testsuite.TestSuiteFitnessFunction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * Fitness function for a whole test suite for all branches
+ * Fitness function for a whole test suite for all lines.
  *
  * @author Gordon Fraser, Jose Miguel Rojas
  */
-public class LineCoverageSuiteFitness extends TestSuiteFitnessFunction {
+public class LineCoverageSuiteFitness extends AbstractLineCoverageSuiteFitness {
 
     private static final long serialVersionUID = -6369027784777941998L;
-
-    private final static Logger logger = LoggerFactory.getLogger(LineCoverageSuiteFitness.class);
-
-    // target goals
-    private final int numLines;
-    private final Map<Integer, TestFitnessFunction> lineGoals = new LinkedHashMap<>();
-
-    private final Set<Integer> removedLines = new LinkedHashSet<>();
-    private final Set<Integer> toRemoveLines = new LinkedHashSet<>();
-
-    // Some stuff for debug output
-    private int maxCoveredLines = 0;
-    private double bestFitness = Double.MAX_VALUE;
 
     private final Set<Integer> branchesToCoverTrue = new LinkedHashSet<>();
     private final Set<Integer> branchesToCoverFalse = new LinkedHashSet<>();
     private final Set<Integer> branchesToCoverBoth = new LinkedHashSet<>();
 
     public LineCoverageSuiteFitness() {
-        @SuppressWarnings("unused")
-        String prefix = Properties.TARGET_CLASS_PREFIX;
-
-        /* TODO: Would be nice to use a prefix here */
-//		for(String className : LinePool.getKnownClasses()) {
-//			lines.addAll(LinePool.getLines(className));
-//		}
-
-        List<LineCoverageTestFitness> goals = new LineCoverageFactory().getCoverageGoals();
-        for (LineCoverageTestFitness goal : goals) {
-            lineGoals.put(goal.getLine(), goal);
-            if (Properties.TEST_ARCHIVE)
-                Archive.getArchiveInstance().addTarget(goal);
-        }
-        this.numLines = lineGoals.size();
-        logger.info("Total line coverage goals: " + this.numLines);
-
+        super();
         initializeControlDependencies();
-    }
-
-    @Override
-    public boolean updateCoveredGoals() {
-        if (!Properties.TEST_ARCHIVE) {
-            return false;
-        }
-
-        for (Integer goalID : this.toRemoveLines) {
-            TestFitnessFunction ff = this.lineGoals.remove(goalID);
-            if (ff != null) {
-                this.removedLines.add(goalID);
-            } else {
-                throw new IllegalStateException("goal to remove not found");
-            }
-        }
-
-        this.toRemoveLines.clear();
-        logger.info("Current state of archive: " + Archive.getArchiveInstance().toString());
-
-        assert this.numLines == this.lineGoals.size() + this.removedLines.size();
-
-        return true;
-    }
-
-    /**
-     * Iterate over all execution results and summarize statistics
-     *
-     * @param results
-     * @param coveredLines
-     * @return
-     */
-    private boolean analyzeTraces(List<ExecutionResult> results, Set<Integer> coveredLines) {
-        boolean hasTimeoutOrTestException = false;
-
-        for (ExecutionResult result : results) {
-            if (result.hasTimeout() || result.hasTestException()) {
-                hasTimeoutOrTestException = true;
-                continue;
-            }
-
-            TestChromosome test = new TestChromosome();
-            test.setTestCase(result.test);
-            test.setLastExecutionResult(result);
-            test.setChanged(false);
-
-            for (Integer goalID : this.lineGoals.keySet()) {
-                TestFitnessFunction goal = this.lineGoals.get(goalID);
-
-                double fit = goal.getFitness(test, result); // archive is updated by the TestFitnessFunction class
-
-                if (fit == 0.0) {
-                    coveredLines.add(goalID); // helper to count the number of covered goals
-                    this.toRemoveLines.add(goalID); // goal to not be considered by the next iteration of the evolutionary algorithm
-                }
-            }
-        }
-
-        return hasTimeoutOrTestException;
-    }
-
-    /**
-     * {@inheritDoc}
-     * <p>
-     * Execute all tests and count covered branches
-     */
-    @Override
-    public double getFitness(TestSuiteChromosome suite) {
-        logger.trace("Calculating branch fitness");
-        double fitness = 0.0;
-
-        List<ExecutionResult> results = runTestSuite(suite);
-        fitness += getControlDependencyGuidance(results);
-        logger.info("Branch distances: " + fitness);
-
-        Set<Integer> coveredLines = new LinkedHashSet<>();
-        boolean hasTimeoutOrTestException = analyzeTraces(results, coveredLines);
-
-        int totalLines = this.numLines;
-        int numCoveredLines = coveredLines.size() + this.removedLines.size();
-
-        logger.debug("Covered " + numCoveredLines + " out of " + totalLines + " lines, " + removedLines.size() + " in archive");
-        fitness += normalize(totalLines - numCoveredLines);
-
-        printStatusMessages(suite, numCoveredLines, fitness);
-
-        if (totalLines > 0)
-            suite.setCoverage(this, (double) numCoveredLines / (double) totalLines);
-        else
-            suite.setCoverage(this, 1.0);
-
-        suite.setNumOfCoveredGoals(this, numCoveredLines);
-        suite.setNumOfNotCoveredGoals(this, totalLines - numCoveredLines);
-
-        if (hasTimeoutOrTestException) {
-            logger.info("Test suite has timed out, setting fitness to max value " + totalLines);
-            fitness = totalLines;
-            //suite.setCoverage(0.0);
-        }
-
-        updateIndividual(suite, fitness);
-
-        assert (numCoveredLines <= totalLines) : "Covered " + numCoveredLines + " vs total goals " + totalLines;
-        assert (fitness >= 0.0);
-        assert (fitness != 0.0 || numCoveredLines == totalLines) : "Fitness: " + fitness + ", "
-                + "coverage: " + numCoveredLines + "/" + totalLines;
-        assert (suite.getCoverage(this) <= 1.0) && (suite.getCoverage(this) >= 0.0) : "Wrong coverage value "
-                + suite.getCoverage(this);
-
-        return fitness;
-    }
-
-    /**
-     * Some useful debug information
-     *
-     * @param coveredLines
-     * @param fitness
-     */
-    private void printStatusMessages(TestSuiteChromosome suite,
-                                     int coveredLines, double fitness) {
-        if (coveredLines > maxCoveredLines) {
-            maxCoveredLines = coveredLines;
-            logger.info("(Lines) Best individual covers " + coveredLines + "/"
-                    + this.numLines + " lines");
-            logger.info("Fitness: " + fitness + ", size: " + suite.size() + ", length: "
-                    + suite.totalLengthOfTestCases());
-        }
-
-        if (fitness < bestFitness) {
-            logger.info("(Fitness) Best individual covers " + coveredLines + "/"
-                    + this.numLines + " lines");
-            bestFitness = fitness;
-            logger.info("Fitness: " + fitness + ", size: " + suite.size() + ", length: "
-                    + suite.totalLengthOfTestCases());
-
-        }
     }
 
     /**
@@ -265,6 +93,11 @@ public class LineCoverageSuiteFitness extends TestSuiteFitnessFunction {
         logger.info("Covering branches both: " + branchesToCoverBoth);
     }
 
+    @Override
+    protected double getAdditionalFitness(List<ExecutionResult> results) {
+        return getControlDependencyGuidance(results);
+    }
+
     private double getControlDependencyGuidance(List<ExecutionResult> results) {
         Map<Integer, Integer> predicateCount = new LinkedHashMap<>();
         Map<Integer, Double> trueDistance = new LinkedHashMap<>();
@@ -275,31 +108,13 @@ public class LineCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 continue;
             }
             for (Entry<Integer, Integer> entry : result.getTrace().getPredicateExecutionCount().entrySet()) {
-                if (!predicateCount.containsKey(entry.getKey()))
-                    predicateCount.put(entry.getKey(), entry.getValue());
-                else {
-                    predicateCount.put(entry.getKey(),
-                            predicateCount.get(entry.getKey())
-                                    + entry.getValue());
-                }
+                predicateCount.merge(entry.getKey(), entry.getValue(), Integer::sum);
             }
             for (Entry<Integer, Double> entry : result.getTrace().getTrueDistances().entrySet()) {
-                if (!trueDistance.containsKey(entry.getKey()))
-                    trueDistance.put(entry.getKey(), entry.getValue());
-                else {
-                    trueDistance.put(entry.getKey(),
-                            Math.min(trueDistance.get(entry.getKey()),
-                                    entry.getValue()));
-                }
+                trueDistance.merge(entry.getKey(), entry.getValue(), Math::min);
             }
             for (Entry<Integer, Double> entry : result.getTrace().getFalseDistances().entrySet()) {
-                if (!falseDistance.containsKey(entry.getKey()))
-                    falseDistance.put(entry.getKey(), entry.getValue());
-                else {
-                    falseDistance.put(entry.getKey(),
-                            Math.min(falseDistance.get(entry.getKey()),
-                                    entry.getValue()));
-                }
+                falseDistance.merge(entry.getKey(), entry.getValue(), Math::min);
             }
         }
 
@@ -334,5 +149,4 @@ public class LineCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         return distance;
     }
-
 }

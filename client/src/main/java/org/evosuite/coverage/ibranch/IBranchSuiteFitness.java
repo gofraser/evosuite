@@ -34,9 +34,8 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * We don't remember what the I of IBranch stands for. Anyway, this fitness
- * function targets all the branches (of all classes) that is possible to reach
- * from the class under test.
+ * This fitness function targets all the branches (of all classes) that is possible to reach
+ * from the class under test, considering the call context.
  *
  * @author Gordon Fraser, mattia
  */
@@ -88,7 +87,7 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
             if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
-            logger.info("Context goal: " + goal);
+            logger.debug("Context goal: {}", goal);
         }
         totGoals = branchGoals.size();
     }
@@ -138,7 +137,7 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     public double getFitness(TestSuiteChromosome suite, boolean updateChromosome) {
-        double fitness = 0.0; // branchFitness.getFitness(suite);
+        double fitness = 0.0;
         List<ExecutionResult> results = runTestSuite(suite);
 
         Map<IBranchTestFitness, Double> distanceMap = new LinkedHashMap<>();
@@ -149,58 +148,16 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
                 continue;
             }
 
-            TestChromosome test = new TestChromosome();
-            test.setTestCase(result.test);
-            test.setLastExecutionResult(result);
-            test.setChanged(false);
-
-            for (Integer branchId : result.getTrace().getTrueDistancesContext().keySet()) {
-                Map<CallContext, Double> trueMap = result.getTrace().getTrueDistancesContext()
-                        .get(branchId);
-
-                for (CallContext context : trueMap.keySet()) {
-                    IBranchTestFitness goalT = getContextGoal(branchId, context, true);
-                    if (goalT == null || removedBranchesT.contains(goalT))
-                        continue;
-                    double distanceT = normalize(trueMap.get(context));
-                    if (distanceMap.get(goalT) == null || distanceMap.get(goalT) > distanceT) {
-                        distanceMap.put(goalT, distanceT);
-                    }
-                    if (Double.compare(distanceT, 0.0) == 0) {
-                        if (updateChromosome)
-                            test.getTestCase().addCoveredGoal(goalT);
-                        toRemoveBranchesT.add(goalT);
-                    }
-
-                    if (Properties.TEST_ARCHIVE) {
-                        Archive.getArchiveInstance().updateArchive(goalT, test, distanceT);
-                    }
-                }
+            TestChromosome testChromosome = null;
+            if (Properties.TEST_ARCHIVE || updateChromosome) {
+                testChromosome = new TestChromosome();
+                testChromosome.setTestCase(result.test);
+                testChromosome.setLastExecutionResult(result);
+                testChromosome.setChanged(false);
             }
 
-            for (Integer branchId : result.getTrace().getFalseDistancesContext().keySet()) {
-                Map<CallContext, Double> falseMap = result.getTrace().getFalseDistancesContext()
-                        .get(branchId);
-
-                for (CallContext context : falseMap.keySet()) {
-                    IBranchTestFitness goalF = getContextGoal(branchId, context, false);
-                    if (goalF == null || removedBranchesF.contains(goalF))
-                        continue;
-                    double distanceF = normalize(falseMap.get(context));
-                    if (distanceMap.get(goalF) == null || distanceMap.get(goalF) > distanceF) {
-                        distanceMap.put(goalF, distanceF);
-                    }
-                    if (Double.compare(distanceF, 0.0) == 0) {
-                        if (updateChromosome)
-                            test.getTestCase().addCoveredGoal(goalF);
-                        toRemoveBranchesF.add(goalF);
-                    }
-
-                    if (Properties.TEST_ARCHIVE) {
-                        Archive.getArchiveInstance().updateArchive(goalF, test, distanceF);
-                    }
-                }
-            }
+            updateBranchDistances(result.getTrace().getTrueDistancesContext(), true, distanceMap, testChromosome, updateChromosome);
+            updateBranchDistances(result.getTrace().getFalseDistancesContext(), false, distanceMap, testChromosome, updateChromosome);
 
             for (Entry<String, Map<CallContext, Integer>> entry : result.getTrace()
                     .getMethodContextCount().entrySet()) {
@@ -213,8 +170,8 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
                         callCount.put(goal, count);
                     }
                     if (count > 0) {
-                        if (updateChromosome)
-                            result.test.addCoveredGoal(goal);
+                        if (updateChromosome && testChromosome != null)
+                            testChromosome.getTestCase().addCoveredGoal(goal);
                         toRemoveRootBranches.add(goal);
                     }
                 }
@@ -254,6 +211,41 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
             updateIndividual(suite, fitness);
         }
         return fitness;
+    }
+
+    private void updateBranchDistances(Map<Integer, Map<CallContext, Double>> distances, boolean value,
+                                       Map<IBranchTestFitness, Double> distanceMap,
+                                       TestChromosome testChromosome, boolean updateChromosome) {
+        Set<IBranchTestFitness> removedSet = value ? removedBranchesT : removedBranchesF;
+        Set<IBranchTestFitness> toRemoveSet = value ? toRemoveBranchesT : toRemoveBranchesF;
+
+        for (Entry<Integer, Map<CallContext, Double>> entry : distances.entrySet()) {
+            Integer branchId = entry.getKey();
+            Map<CallContext, Double> map = entry.getValue();
+
+            for (Entry<CallContext, Double> contextEntry : map.entrySet()) {
+                CallContext context = contextEntry.getKey();
+                IBranchTestFitness goal = getContextGoal(branchId, context, value);
+
+                if (goal == null || removedSet.contains(goal))
+                    continue;
+
+                double distance = normalize(contextEntry.getValue());
+                if (distanceMap.get(goal) == null || distanceMap.get(goal) > distance) {
+                    distanceMap.put(goal, distance);
+                }
+
+                if (Double.compare(distance, 0.0) == 0) {
+                    if (updateChromosome && testChromosome != null)
+                        testChromosome.getTestCase().addCoveredGoal(goal);
+                    toRemoveSet.add(goal);
+                }
+
+                if (Properties.TEST_ARCHIVE && testChromosome != null) {
+                    Archive.getArchiveInstance().updateArchive(goal, testChromosome, distance);
+                }
+            }
+        }
     }
 
     /*

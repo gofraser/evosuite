@@ -41,6 +41,13 @@ public class ExceptionCoverageFactory extends AbstractFitnessFactory<TestFitness
     }
 
     /**
+     * Clear all coverage goals
+     */
+    public static void clear() {
+        goals.clear();
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override

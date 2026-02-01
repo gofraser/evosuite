@@ -22,7 +22,6 @@ package org.evosuite.coverage.method;
 import org.evosuite.Properties;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.EntityWithParametersStatement;
@@ -32,22 +31,15 @@ import org.evosuite.testcase.statements.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Fitness function for a single test on a single method (no exception)
  *
  * @author Gordon Fraser, Jose Miguel Rojas, Annibale Panichella
  */
-public class MethodNoExceptionCoverageTestFitness extends TestFitnessFunction {
+public class MethodNoExceptionCoverageTestFitness extends AbstractMethodTestFitness {
 
     private static final long serialVersionUID = 3624503060256855484L;
-
-    /**
-     * Target method
-     */
-    protected final String className;
-    protected final String methodName;
 
     /**
      * Constructor - fitness is specific to a method
@@ -56,30 +48,7 @@ public class MethodNoExceptionCoverageTestFitness extends TestFitnessFunction {
      * @param methodName the method name
      */
     public MethodNoExceptionCoverageTestFitness(String className, String methodName) {
-        this.className = Objects.requireNonNull(className, "className cannot be null");
-        this.methodName = Objects.requireNonNull(methodName, "methodName cannot be null");
-    }
-
-    /**
-     * <p>
-     * getClassName
-     * </p>
-     *
-     * @return a {@link java.lang.String} object.
-     */
-    public String getClassName() {
-        return className;
-    }
-
-    /**
-     * <p>
-     * getMethod
-     * </p>
-     *
-     * @return a {@link java.lang.String} object.
-     */
-    public String getMethod() {
-        return methodName;
+        super(className, methodName);
     }
 
     /**
@@ -145,63 +114,6 @@ public class MethodNoExceptionCoverageTestFitness extends TestFitnessFunction {
     @Override
     public String toString() {
         return "[METHODNOEX] " + className + "." + methodName;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int hashCode() {
-        int iConst = 13;
-        return 51 * iConst + className.hashCode() * iConst + methodName.hashCode();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        MethodNoExceptionCoverageTestFitness other = (MethodNoExceptionCoverageTestFitness) obj;
-        if (!className.equals(other.className)) {
-            return false;
-        } else return methodName.equals(other.methodName);
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
-     */
-    @Override
-    public int compareTo(TestFitnessFunction other) {
-        if (other instanceof MethodNoExceptionCoverageTestFitness) {
-            MethodNoExceptionCoverageTestFitness otherMethodFitness = (MethodNoExceptionCoverageTestFitness) other;
-            if (className.equals(otherMethodFitness.getClassName()))
-                return methodName.compareTo(otherMethodFitness.getMethod());
-            else
-                return className.compareTo(otherMethodFitness.getClassName());
-        }
-        return compareClassName(other);
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
-     */
-    @Override
-    public String getTargetClass() {
-        return getClassName();
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
-     */
-    @Override
-    public String getTargetMethod() {
-        return getMethod();
     }
 
 }

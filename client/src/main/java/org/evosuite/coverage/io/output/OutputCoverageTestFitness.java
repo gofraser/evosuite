@@ -127,22 +127,29 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
-        double fitness = 1.0;
+        double fitness = Double.MAX_VALUE;
+        boolean found = false;
 
         for (Set<OutputCoverageGoal> coveredGoals : result.getOutputGoals().values()) {
-            if (!coveredGoals.contains(this.goal)) {
-                continue;
-            }
-
             for (OutputCoverageGoal coveredGoal : coveredGoals) {
-                if (coveredGoal.equals(this.goal)) {
+                if (this.goal.isSameArgument(coveredGoal)) {
+                    found = true;
                     double distance = this.calculateDistance(coveredGoal);
-                    if (!(distance < 0.0)) {
+                    if (distance < fitness) {
                         fitness = distance;
+                    }
+                    if (fitness == 0.0) {
                         break;
                     }
                 }
             }
+            if (fitness == 0.0) {
+                break;
+            }
+        }
+
+        if (!found) {
+            fitness = Double.MAX_VALUE;
         }
 
         assert fitness >= 0.0;
@@ -160,7 +167,7 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
     }
 
     private double calculateDistance(OutputCoverageGoal coveredGoal) {
-        switch (coveredGoal.getType().getSort()) {
+        switch (goal.getType().getSort()) {
             case Type.BYTE:
             case Type.SHORT:
             case Type.INT:
@@ -170,15 +177,14 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
                 Number returnValue = coveredGoal.getNumericValue();
                 assert (returnValue != null);
                 assert (returnValue instanceof Number);
-                // TODO: ideally we should be able to tell between Number as an object, and primitive numeric types
                 double value = returnValue.doubleValue();
                 if (Double.isNaN(value)) { // EvoSuite generates Double.NaN
-                    return -1.0;
+                    return Double.MAX_VALUE;
                 }
 
-                double distanceToNegative = 0.0;
-                double distanceToZero = 0.0;
-                double distanceToPositive = 0.0;
+                double distanceToNegative;
+                double distanceToZero;
+                double distanceToPositive;
 
                 if (value < 0.0) {
                     distanceToNegative = 0;
@@ -194,7 +200,7 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
                     distanceToPositive = 0;
                 }
 
-                switch (coveredGoal.getValueDescriptor()) {
+                switch (goal.getValueDescriptor()) {
                     case NUM_NEGATIVE:
                         return distanceToNegative;
                     case NUM_ZERO:
@@ -204,11 +210,55 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
                 }
 
                 break;
-            default:
-                return 0.0;
-        }
+            case Type.CHAR:
+                Number charNumValue = coveredGoal.getNumericValue();
+                assert (charNumValue != null);
+                char charValue = (char) charNumValue.intValue();
 
-        return 0.0;
+                double distanceToAlpha = 0.0;
+                if (charValue < 'A') {
+                    distanceToAlpha = 'A' - charValue;
+                } else if (charValue > 'z') {
+                    distanceToAlpha = charValue - 'z';
+                } else if (charValue < 'a' && charValue > 'Z') {
+                    distanceToAlpha = Math.min('a' - charValue, charValue - 'Z');
+                }
+
+                double distanceToDigit = 0.0;
+                if (charValue < '0') {
+                    distanceToDigit = '0' - charValue;
+                } else if (charValue > '9') {
+                    distanceToDigit = charValue - '9';
+                }
+
+                double distanceToOther = 0.0;
+                if (Character.isAlphabetic(charValue)) {
+                    if (charValue >= 'A' && charValue <= 'Z') {
+                        distanceToOther = Math.min(charValue - ('A' - 1), ('Z' + 1) - charValue);
+                    } else if (charValue >= 'a' && charValue <= 'z') {
+                        distanceToOther = Math.min(charValue - ('a' - 1), ('z' + 1) - charValue);
+                    }
+                } else if (Character.isDigit(charValue)) {
+                    distanceToOther = Math.min(charValue - ('0' - 1), ('9' + 1) - charValue);
+                }
+
+                switch (goal.getValueDescriptor()) {
+                    case CHAR_ALPHA:
+                        return distanceToAlpha;
+                    case CHAR_DIGIT:
+                        return distanceToDigit;
+                    case CHAR_OTHER:
+                        return distanceToOther;
+                }
+                break;
+            default:
+                if (Objects.equals(goal.getValueDescriptor(), coveredGoal.getValueDescriptor())) {
+                    return 0.0;
+                } else {
+                    return 1.0;
+                }
+        }
+        return 1.0;
     }
 
     /**
@@ -269,56 +319,5 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
     @Override
     public String getTargetMethod() {
         return getMethod();
-    }
-
-    /*
-     * TODO: Move somewhere else into a utility class
-     */
-    private static Class<?> getClassForName(String type) {
-        try {
-            switch (type) {
-                case "boolean":
-                    return Boolean.TYPE;
-                case "byte":
-                    return Byte.TYPE;
-                case "char":
-                    return Character.TYPE;
-                case "double":
-                    return Double.TYPE;
-                case "float":
-                    return Float.TYPE;
-                case "int":
-                    return Integer.TYPE;
-                case "long":
-                    return Long.TYPE;
-                case "short":
-                    return Short.TYPE;
-                case "String":
-                case "Boolean":
-                case "Short":
-                case "Long":
-                case "Integer":
-                case "Float":
-                case "Double":
-                case "Byte":
-                case "Character":
-                    return Class.forName("java.lang." + type);
-            }
-
-            //			if(type.endsWith(";") && ! type.startsWith("["))
-            //			{
-            //				type = type.replaceFirst("L", "");
-            //				type = type.replace(";", "");
-            //			}
-
-            if (type.endsWith("[]")) {
-                type = type.replace("[]", "");
-                return Class.forName("[L" + type + ";");
-            } else {
-                return Class.forName(type);
-            }
-        } catch (final ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

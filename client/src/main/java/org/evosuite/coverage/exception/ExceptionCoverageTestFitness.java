@@ -86,7 +86,7 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
     }
 
     public String getKey() {
-        return methodIdentifier + "_" + exceptionClass.getClassName() + "_" + type;
+        return className + "_" + methodIdentifier + "_" + exceptionClass.getClassName() + "_" + type;
     }
 
     /**
@@ -172,8 +172,13 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public int hashCode() {
-        int iConst = 17;
-        return 53 * iConst + methodIdentifier.hashCode() * iConst + exceptionClass.hashCode();
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((className == null) ? 0 : className.hashCode());
+        result = prime * result + ((exceptionClass == null) ? 0 : exceptionClass.hashCode());
+        result = prime * result + ((methodIdentifier == null) ? 0 : methodIdentifier.hashCode());
+        result = prime * result + ((type == null) ? 0 : type.hashCode());
+        return result;
     }
 
     /**
@@ -188,15 +193,22 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
         if (getClass() != obj.getClass())
             return false;
         ExceptionCoverageTestFitness other = (ExceptionCoverageTestFitness) obj;
-        if (!methodIdentifier.equals(other.methodIdentifier)) {
-            return false;
-        } else {
-            if (!exceptionClass.equals(other.exceptionClass)) {
+        if (className == null) {
+            if (other.className != null)
                 return false;
-            } else {
-                return this.type.equals(other.type);
-            }
-        }
+        } else if (!className.equals(other.className))
+            return false;
+        if (methodIdentifier == null) {
+            if (other.methodIdentifier != null)
+                return false;
+        } else if (!methodIdentifier.equals(other.methodIdentifier))
+            return false;
+        if (exceptionClass == null) {
+            if (other.exceptionClass != null)
+                return false;
+        } else if (!exceptionClass.equals(other.exceptionClass))
+            return false;
+        return type == other.type;
     }
 
     /* (non-Javadoc)

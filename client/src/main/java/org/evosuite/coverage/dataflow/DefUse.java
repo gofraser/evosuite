@@ -239,21 +239,21 @@ public class DefUse extends BytecodeInstruction {
     public String toString() {
         StringBuilder r = new StringBuilder();
         if (isDefinition())
-            r.append("Definition " + getDefId());
+            r.append("Definition ").append(getDefId());
         if (isUse())
-            r.append("Use " + getUseId());
+            r.append("Use ").append(getUseId());
         r.append(" for ");
         if (isStaticDefUse())
             r.append("static ");
         r.append(getDUVariableType());
-        r.append("-Variable \"" + getVariableName() + "\"");
-        r.append(" in " + getMethodName() + "." + getInstructionId());
+        r.append("-Variable \"").append(getVariableName()).append("\"");
+        r.append(" in ").append(getMethodName()).append(".").append(getInstructionId());
         if (isRootBranchDependent())
             r.append(" root-Branch");
         else
-            r.append(" Branch " + getControlDependentBranchId()
-                    + (getControlDependentBranchExpressionValue() ? "t" : "f"));
-        r.append(" Line " + getLineNumber());
+            r.append(" Branch ").append(getControlDependentBranchId())
+                    .append(getControlDependentBranchExpressionValue() ? "t" : "f");
+        r.append(" Line ").append(getLineNumber());
         return r.toString();
     }
 
@@ -319,9 +319,7 @@ public class DefUse extends BytecodeInstruction {
             return false;
         if (useId != other.useId)
             return false;
-        if (varName == null) {
-            return other.varName == null;
-        } else return varName.equals(other.varName);
+        return java.util.Objects.equals(varName, other.varName);
     }
 
 }

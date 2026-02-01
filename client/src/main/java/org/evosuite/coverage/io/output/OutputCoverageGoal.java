@@ -32,6 +32,7 @@ import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.evosuite.coverage.io.IOCoverageConstants.*;
@@ -137,13 +138,7 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
      */
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + className.hashCode();
-        result = prime * result + methodName.hashCode();
-        result = prime * result + (type == null ? 0 : type.hashCode());
-        result = prime * result + (valueDescriptor == null ? 0 : valueDescriptor.hashCode());
-        return result;
+        return Objects.hash(className, methodName, type, valueDescriptor);
     }
 
     /**
@@ -160,37 +155,48 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
 
         OutputCoverageGoal other = (OutputCoverageGoal) obj;
 
-        if (!this.methodName.equals(other.methodName) && this.className.equals(other.className))
+        if (!Objects.equals(this.className, other.className))
             return false;
 
-        if ((this.type == null && other.type != null) || (this.type != null && other.type == null))
+        if (!Objects.equals(this.methodName, other.methodName))
             return false;
 
-        if (type != null && !this.type.equals(other.type))
+        if (!Objects.equals(this.type, other.type))
             return false;
 
-        if ((this.valueDescriptor == null && other.valueDescriptor != null) || (this.valueDescriptor != null && other.valueDescriptor == null))
-            return false;
+        return Objects.equals(this.valueDescriptor, other.valueDescriptor);
+    }
 
-        return valueDescriptor == null || this.valueDescriptor.equals(other.valueDescriptor);
+    /**
+     * Checks if this goal refers to the same return value target as the other goal,
+     * ignoring the value descriptor.
+     *
+     * @param other the other goal
+     * @return true if class name and method name match
+     */
+    public boolean isSameArgument(OutputCoverageGoal other) {
+        if (this == other) return true;
+        if (other == null) return false;
+        if (!Objects.equals(this.className, other.className)) return false;
+        if (!Objects.equals(this.methodName, other.methodName)) return false;
+        return true;
     }
 
     @Override
     public int compareTo(OutputCoverageGoal o) {
-
         int diff = className.compareTo(o.className);
-        if (diff == 0) {
-            int diff2 = methodName.compareTo(o.methodName);
-            if (diff2 == 0) {
-                int diff3 = type.compareTo(o.type);
-                if (diff3 == 0)
-                    return this.valueDescriptor.compareTo(o.valueDescriptor);
-                else
-                    return diff3;
-            } else
-                return diff2;
-        } else
-            return diff;
+        if (diff != 0) return diff;
+
+        diff = methodName.compareTo(o.methodName);
+        if (diff != 0) return diff;
+
+        diff = type.compareTo(o.type);
+        if (diff != 0) return diff;
+
+        if (valueDescriptor == null && o.valueDescriptor == null) return 0;
+        if (valueDescriptor == null) return -1;
+        if (o.valueDescriptor == null) return 1;
+        return valueDescriptor.compareTo(o.valueDescriptor);
     }
 
     public static Set<OutputCoverageGoal> createGoalsFromObject(String className, String methodName, String methodDesc, Object returnValue) {
@@ -218,12 +224,13 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
                 break;
             case Type.CHAR:
                 char c = (char) returnValue;
+                Number numberValue = (int) c;
                 if (Character.isAlphabetic(c))
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_ALPHA));
+                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_ALPHA, numberValue));
                 else if (Character.isDigit(c))
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_DIGIT));
+                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_DIGIT, numberValue));
                 else
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_OTHER));
+                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_OTHER, numberValue));
                 break;
             case Type.BYTE:
             case Type.SHORT:
@@ -280,7 +287,6 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
                 break;
             default:
                 // IGNORE
-                // TODO: what to do with the sort for METHOD?
                 break;
         }
         return goals;
@@ -297,26 +303,4 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
     private static boolean isJavaNumber(Object val) {
         return val instanceof Number && val.getClass().getName().startsWith("java.");
     }
-
-//	private void writeObject(ObjectOutputStream oos) throws IOException {
-//		oos.defaultWriteObject();
-//		// Write/save additional fields
-//		if (branch != null)
-//			oos.writeInt(branch.getActualBranchId());
-//		else
-//			oos.writeInt(-1);
-//	}
-//
-//	// assumes "static java.util.Date aDate;" declared
-//	private void readObject(ObjectInputStream ois) throws ClassNotFoundException,
-//	        IOException {
-//		ois.defaultReadObject();
-//
-//		int branchId = ois.readInt();
-//		if (branchId >= 0)
-//			this.branch = BranchPool.getBranch(branchId);
-//		else
-//			this.branch = null;
-//	}
-
 }

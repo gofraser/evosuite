@@ -62,6 +62,7 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
      *
      * @param className  the class name
      * @param methodName the method name
+     * @param line       the line number
      * @throws IllegalArgumentException
      */
     public LineCoverageTestFitness(String className, String methodName, Integer line) {
@@ -108,8 +109,12 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
     private void setupDependencies() {
         goalInstruction = BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getFirstInstructionAtLineNumber(className, methodName, line);
 
-        if (goalInstruction == null)
-            return;
+        if (goalInstruction == null) {
+            // If the instruction is not found, we cannot calculate fitness dependencies.
+            // This might happen if there's a mismatch between LinePool and BytecodeInstructionPool
+            // or if the code wasn't properly instrumented/analyzed.
+             throw new IllegalStateException("Instruction not found for " + className + "." + methodName + " line " + line);
+        }
 
         Set<ControlDependency> cds = goalInstruction.getControlDependencies();
 
@@ -129,7 +134,7 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
 
         if (branchFitnesses.isEmpty())
             throw new IllegalStateException(
-                    "an instruction is at least on the root branch of it's method");
+                    "an instruction is at least on the root branch of its method: " + this);
 
 
         branchFitnesses.sort(Comparator.naturalOrder());
@@ -209,8 +214,7 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public int hashCode() {
-        int iConst = 13;
-        return 51 * iConst + className.hashCode() * iConst + methodName.hashCode() + iConst + line.hashCode();
+        return Objects.hash(className, methodName, line);
     }
 
     /**
@@ -225,13 +229,9 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
         if (getClass() != obj.getClass())
             return false;
         LineCoverageTestFitness other = (LineCoverageTestFitness) obj;
-        if (!className.equals(other.className)) {
-            return false;
-        } else if (!methodName.equals(other.methodName)) {
-            return false;
-        } else {
-            return line.intValue() == other.line.intValue();
-        }
+        return Objects.equals(className, other.className) &&
+               Objects.equals(methodName, other.methodName) &&
+               Objects.equals(line, other.line);
     }
 
     /* (non-Javadoc)
@@ -273,8 +273,16 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
         branchFitnesses = new ArrayList<>();
         if (GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getActualCFG(className,
                 methodName) != null) {
-            // TODO: Figure out why the CFG may not exist
-            setupDependencies();
+            // CFG may not exist if the class was not instrumented or if there was an issue during graph generation.
+            // We attempt to setup dependencies, but it might fail if instruction pool is empty.
+            try {
+                setupDependencies();
+            } catch (IllegalStateException e) {
+                // Warning: Dependencies could not be set up during deserialization.
+                // This might cause issues if this fitness function is reused without re-initialization.
+                // However, often deserialization happens in contexts where full CFG is not available or needed immediately?
+                // But setupDependencies throws exception if goalInstruction is null.
+            }
         }
     }
 

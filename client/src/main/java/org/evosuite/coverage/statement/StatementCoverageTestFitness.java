@@ -87,7 +87,7 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
         this.setupDependencies(goalInstruction);
     }
 
-    private void setupDependencies(BytecodeInstruction goalInstruction) {
+    protected void setupDependencies(BytecodeInstruction goalInstruction) {
         this.goalInstruction = goalInstruction;
 
         Set<ControlDependency> cds = goalInstruction.getControlDependencies();
@@ -135,11 +135,26 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
         for (BranchCoverageTestFitness branchFitness : this.branchFitnesses) {
             double newFitness = branchFitness.getFitness(individual, result);
             if (newFitness == 0.0) {
-                r = 0.0;
-                // Although the BranchCoverage goal has been covered, it is not part of the
-                // optimisation
-                individual.getTestCase().removeCoveredGoal(branchFitness);
-                break;
+                double penalty = 0.0;
+                if (this.goalInstruction != null && this.goalInstruction.hasLineNumberSet()) {
+                    if (!result.getTrace().getCoveredLines(this.className).contains(this.goalInstruction.getLineNumber())) {
+                        // The branch was covered, but the statement was not executed (e.g. due to an exception)
+                        penalty = 1.0;
+                    }
+                }
+
+                if (penalty == 0.0) {
+                    r = 0.0;
+                    // Although the BranchCoverage goal has been covered, it is not part of the
+                    // optimisation
+                    individual.getTestCase().removeCoveredGoal(branchFitness);
+                    break;
+                } else {
+                    if (penalty < r) {
+                        r = penalty;
+                    }
+                    continue;
+                }
             }
             if (newFitness < r)
                 r = newFitness;

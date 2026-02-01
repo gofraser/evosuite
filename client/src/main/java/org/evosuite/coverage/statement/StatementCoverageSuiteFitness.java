@@ -106,17 +106,21 @@ public class StatementCoverageSuiteFitness extends TestSuiteFitnessFunction {
             test.setLastExecutionResult(result);
             test.setChanged(false);
 
-            for (TestFitnessFunction goal : this.statementGoals) {
-                double fit = goal.getFitness(test, result); // archive is updated by the TestFitnessFunction class
-
-                if (fit == 0.0) {
-                    coveredStatements.add(goal); // helper to count the number of covered goals
-                    this.toRemoveStatements.add(goal); // goal to not be considered by the next iteration of the evolutionary algorithm
-                }
-            }
+            evaluateGoals(test, result, coveredStatements);
         }
 
         return hasTimeoutOrTestException;
+    }
+
+    private void evaluateGoals(TestChromosome test, ExecutionResult result, Set<TestFitnessFunction> coveredStatements) {
+        for (TestFitnessFunction goal : this.statementGoals) {
+            double fit = goal.getFitness(test, result); // archive is updated by the TestFitnessFunction class
+
+            if (fit == 0.0) {
+                coveredStatements.add(goal); // helper to count the number of covered goals
+                this.toRemoveStatements.add(goal); // goal to not be considered by the next iteration of the evolutionary algorithm
+            }
+        }
     }
 
     /**
@@ -125,7 +129,7 @@ public class StatementCoverageSuiteFitness extends TestSuiteFitnessFunction {
     @Override
     public double getFitness(TestSuiteChromosome suite) {
         List<ExecutionResult> results = runTestSuite(suite);
-        double fitness = 0.0;
+        double fitness;
 
         Set<TestFitnessFunction> coveredStatements = new LinkedHashSet<>();
         boolean hasTimeoutOrTestException = analyzeTraces(results, coveredStatements);
@@ -134,28 +138,33 @@ public class StatementCoverageSuiteFitness extends TestSuiteFitnessFunction {
             logger.info("Test suite has timed out, setting fitness to max value " + this.numStatements);
             fitness = this.numStatements;
         } else {
-            int totalStatements = this.numStatements;
-            int numCoveredStatements = coveredStatements.size() + this.removedStatements.size();
-            suite.setNumOfCoveredGoals(this, numCoveredStatements);
-
-            if (totalStatements > 0) {
-                suite.setCoverage(this, (double) numCoveredStatements / (double) totalStatements);
-            } else {
-                suite.setCoverage(this, 1.0);
-            }
-            fitness = normalize(totalStatements - numCoveredStatements);
-
-            assert (numCoveredStatements <= totalStatements) : "Covered " + numCoveredStatements + " vs total goals "
-                    + totalStatements;
-            assert (fitness >= 0.0);
-            assert (fitness != 0.0 || numCoveredStatements == totalStatements) : "Fitness: " + fitness + ", "
-                    + "coverage: " + numCoveredStatements + "/" + totalStatements;
-            assert (suite.getCoverage(this) <= 1.0) && (suite.getCoverage(this) >= 0.0) : "Wrong coverage value "
-                    + suite.getCoverage(this);
+            fitness = computeFitness(suite, coveredStatements);
         }
 
         updateIndividual(suite, fitness);
 
+        return fitness;
+    }
+
+    private double computeFitness(TestSuiteChromosome suite, Set<TestFitnessFunction> coveredStatements) {
+        int totalStatements = this.numStatements;
+        int numCoveredStatements = coveredStatements.size() + this.removedStatements.size();
+        suite.setNumOfCoveredGoals(this, numCoveredStatements);
+
+        if (totalStatements > 0) {
+            suite.setCoverage(this, (double) numCoveredStatements / (double) totalStatements);
+        } else {
+            suite.setCoverage(this, 1.0);
+        }
+        double fitness = normalize(totalStatements - numCoveredStatements);
+
+        assert (numCoveredStatements <= totalStatements) : "Covered " + numCoveredStatements + " vs total goals "
+                + totalStatements;
+        assert (fitness >= 0.0);
+        assert (fitness != 0.0 || numCoveredStatements == totalStatements) : "Fitness: " + fitness + ", "
+                + "coverage: " + numCoveredStatements + "/" + totalStatements;
+        assert (suite.getCoverage(this) <= 1.0) && (suite.getCoverage(this) >= 0.0) : "Wrong coverage value "
+                + suite.getCoverage(this);
         return fitness;
     }
 

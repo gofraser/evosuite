@@ -107,15 +107,6 @@ public class DefUseCoverageFactory extends
 
         categorizeFieldMethodCalls();
 
-
-        // XXX testing purposes
-		/*for(String methodInCCFG : GraphPool.getInstance(TestGenerationContext.getClassLoader()).getRawCFGs(Properties.TARGET_CLASS).keySet()) {
-			if(GraphPool.getInstance(TestGenerationContext.getClassLoader()).getCCFG(Properties.TARGET_CLASS).isPure(methodInCCFG))
-				LoggingUtils.getEvoLogger().debug("PURE method:\t"+methodInCCFG);
-			else
-				LoggingUtils.getEvoLogger().debug("IMPURE method:\t"+methodInCCFG);
-		} */
-
         long start = System.currentTimeMillis();
         LoggingUtils.getEvoLogger().info("starting DefUse-Coverage goal generation");
         duGoals = new ArrayList<>();
@@ -133,8 +124,6 @@ public class DefUseCoverageFactory extends
                 + " inter-method- and "
                 + getIntraClassGoalsCount()
                 + " intra-class-pairs");
-
-        LoggingUtils.getEvoLogger().info("  " + duGoals.toString());
 
         LoggingUtils.getEvoLogger().info("* Creating parameter goals...");
         duGoals.addAll(getParameterGoals());
@@ -501,63 +490,69 @@ public class DefUseCoverageFactory extends
         Set<DefUseCoverageTestFitness> aliasingGoals = new HashSet<>();
 
         for (String goalVariable : passedUsesObject.keySet()) {
-            for (Integer objectId : passedUsesObject.get(goalVariable).keySet()) {
-                for (Object o1 : passedUsesObject.get(goalVariable).get(objectId).values()) {
-                    for (String otherGoalVariable : passedDefsObject.keySet()) {
-                        for (Integer otherObjectId : passedDefsObject.get(otherGoalVariable).keySet()) {
-                            for (Object o2 : passedDefsObject.get(otherGoalVariable).get(otherObjectId).values()) {
-                                if (o1 != null && o1 == o2 && objectId == otherObjectId
-                                        && !goalVariable.equals(otherGoalVariable)) {
-                                    Map<Integer, Integer> currentDefMap = passedDefs.get(otherGoalVariable).get(objectId);
-                                    Map<Integer, Integer> currentUseMap = passedUses.get(goalVariable).get(objectId);
+            Map<Integer, HashMap<Integer, Object>> usesByObject = passedUsesObject.get(goalVariable);
+            for (Integer objectId : usesByObject.keySet()) {
 
-                                    List<Integer> duCounterTrace = new ArrayList<>(
-                                            currentDefMap.keySet());
-                                    duCounterTrace.addAll(currentUseMap.keySet());
-                                    //				System.out.println(duCounterTrace.size()); oO for ncs.Bessj these can be up to 50k entries big
-                                    Collections.sort(duCounterTrace);
-                                    int traceLength = duCounterTrace.size();
-                                    Integer[] sortedDefDUTrace = duCounterTrace.toArray(new Integer[traceLength]);
+                for (String otherGoalVariable : passedDefsObject.keySet()) {
+                    if (goalVariable.equals(otherGoalVariable))
+                        continue;
 
-                                    int activeDef = -1;
-                                    for (int i = 0; i < traceLength; i++) {
-                                        int currentDUCounter = sortedDefDUTrace[i];
+                    Map<Integer, HashMap<Integer, Object>> defsByObject = passedDefsObject.get(otherGoalVariable);
+                    if (!defsByObject.containsKey(objectId))
+                        continue;
 
-                                        if (currentDefMap.containsKey(currentDUCounter)) {
-                                            activeDef = currentDefMap.get(currentDUCounter);
-                                        } else if (activeDef != -1) {
-                                            int currentUse = currentUseMap.get(currentDUCounter);
-                                            DefUseCoverageTestFitness currentGoal = DefUseCoverageFactory.retrieveGoal(activeDef,
-                                                    currentUse);
-                                            if (currentGoal == null) {
-                                                logger.info("New alias found: Variable defined as "
-                                                        + otherGoalVariable
-                                                        + " appeared in use as "
-                                                        + goalVariable);
-                                                Definition def = DefUsePool.getDefinitionByDefId(activeDef);
-                                                Use use = DefUsePool.getUseByUseId(currentUse);
+                    for (Object o1 : usesByObject.get(objectId).values()) {
+                        for (Object o2 : defsByObject.get(objectId).values()) {
+                            if (o1 != null && o1 == o2) {
+                                Map<Integer, Integer> currentDefMap = passedDefs.get(otherGoalVariable).get(objectId);
+                                Map<Integer, Integer> currentUseMap = passedUses.get(goalVariable).get(objectId);
 
-                                                for (DefUseCoverageTestFitness defUse : duGoals) {
-                                                    // Find all other defs of the variable in the use
-                                                    if (defUse.getGoalUse().equals(use)) {
-                                                        Map<Use, DefUseCoverageTestFitness> defUseMap = getRegisteredGoalsForDefinition(defUse.getGoalDefinition());
-                                                        for (Use otherUse : defUseMap.keySet()) {
-                                                            //   For each defuse pair, add new defuse pair with alternative def
-                                                            DefUseCoverageTestFitness goal = DefUseCoverageFactory.createGoal(def,
-                                                                    otherUse,
-                                                                    defUseMap.get(otherUse).getType());
-                                                            if (goal != null) {
-                                                                logger.info("Created new defuse pair: "
-                                                                        + goal
-                                                                        + " of type "
-                                                                        + goal.getType());
-                                                                aliasingGoals.add(goal);
-                                                            }
+                                List<Integer> duCounterTrace = new ArrayList<>(
+                                        currentDefMap.keySet());
+                                duCounterTrace.addAll(currentUseMap.keySet());
+                                //				System.out.println(duCounterTrace.size()); oO for ncs.Bessj these can be up to 50k entries big
+                                Collections.sort(duCounterTrace);
+                                int traceLength = duCounterTrace.size();
+                                Integer[] sortedDefDUTrace = duCounterTrace.toArray(new Integer[traceLength]);
+
+                                int activeDef = -1;
+                                for (int i = 0; i < traceLength; i++) {
+                                    int currentDUCounter = sortedDefDUTrace[i];
+
+                                    if (currentDefMap.containsKey(currentDUCounter)) {
+                                        activeDef = currentDefMap.get(currentDUCounter);
+                                    } else if (activeDef != -1) {
+                                        int currentUse = currentUseMap.get(currentDUCounter);
+                                        DefUseCoverageTestFitness currentGoal = DefUseCoverageFactory.retrieveGoal(activeDef,
+                                                currentUse);
+                                        if (currentGoal == null) {
+                                            logger.info("New alias found: Variable defined as "
+                                                    + otherGoalVariable
+                                                    + " appeared in use as "
+                                                    + goalVariable);
+                                            Definition def = DefUsePool.getDefinitionByDefId(activeDef);
+                                            Use use = DefUsePool.getUseByUseId(currentUse);
+
+                                            for (DefUseCoverageTestFitness defUse : duGoals) {
+                                                // Find all other defs of the variable in the use
+                                                if (defUse.getGoalUse().equals(use)) {
+                                                    Map<Use, DefUseCoverageTestFitness> defUseMap = getRegisteredGoalsForDefinition(defUse.getGoalDefinition());
+                                                    for (Use otherUse : defUseMap.keySet()) {
+                                                        //   For each defuse pair, add new defuse pair with alternative def
+                                                        DefUseCoverageTestFitness goal = DefUseCoverageFactory.createGoal(def,
+                                                                otherUse,
+                                                                defUseMap.get(otherUse).getType());
+                                                        if (goal != null) {
+                                                            logger.info("Created new defuse pair: "
+                                                                    + goal
+                                                                    + " of type "
+                                                                    + goal.getType());
+                                                            aliasingGoals.add(goal);
                                                         }
                                                     }
                                                 }
-
                                             }
+
                                         }
                                     }
                                 }
