@@ -30,6 +30,7 @@ import org.evosuite.testcase.execution.ExecutionResult;
 
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 
 /**
  * @author Gordon Fraser, mattia
@@ -64,11 +65,7 @@ public class CBranchTestFitness extends TestFitnessFunction {
     }
 
     public int getGenericContextBranchIdentifier() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + (branchGoal == null ? 0 : branchGoal.hashCodeWithoutValue());
-        result = prime * result + (context == null ? 0 : context.hashCode());
-        return result;
+        return Objects.hash(branchGoal != null ? branchGoal.hashCodeWithoutValue() : 0, context);
     }
 
     private double getMethodCallDistance(ExecutionResult result) {
@@ -138,21 +135,25 @@ public class CBranchTestFitness extends TestFitnessFunction {
     public int compareTo(TestFitnessFunction other) {
         if (other instanceof CBranchTestFitness) {
             CBranchTestFitness otherBranchFitness = (CBranchTestFitness) other;
-            return branchGoal.compareTo(otherBranchFitness.branchGoal);
+            int branchComparison = branchGoal.compareTo(otherBranchFitness.branchGoal);
+            if (branchComparison != 0) {
+                return branchComparison;
+            }
+            if (context == null && otherBranchFitness.context == null) {
+                return 0;
+            }
+            if (context == null) {
+                return -1;
+            }
+            if (otherBranchFitness.context == null) {
+                return 1;
+            }
+            // CallContext does not implement Comparable, so we use string representation
+            // to ensure deterministic ordering
+            return context.toString().compareTo(otherBranchFitness.context.toString());
         }
 
-		/*
-			This check is wrong, unless BranchCoverageTestFitness is checking as well for CBranchTestFitness in
-			its compareTo method
-
-		else if (other instanceof BranchCoverageTestFitness) {
-			BranchCoverageTestFitness otherBranchFitness = (BranchCoverageTestFitness) other;
-			return branchGoal.compareTo(otherBranchFitness.getBranchGoal());
-		}
-		*/
-
         return compareClassName(other);
-//		return -1;
     }
 
     /* (non-Javadoc)
@@ -186,11 +187,7 @@ public class CBranchTestFitness extends TestFitnessFunction {
      */
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((branchGoal == null) ? 0 : branchGoal.hashCode());
-        result = prime * result + ((context == null) ? 0 : context.hashCode());
-        return result;
+        return Objects.hash(branchGoal, context);
     }
 
     /* (non-Javadoc)
@@ -205,14 +202,8 @@ public class CBranchTestFitness extends TestFitnessFunction {
         if (getClass() != obj.getClass())
             return false;
         CBranchTestFitness other = (CBranchTestFitness) obj;
-        if (branchGoal == null) {
-            if (other.branchGoal != null)
-                return false;
-        } else if (!branchGoal.equals(other.branchGoal))
-            return false;
-        if (context == null) {
-            return other.context == null;
-        } else return context.equals(other.context);
+        return Objects.equals(branchGoal, other.branchGoal) &&
+               Objects.equals(context, other.context);
     }
 
 }
