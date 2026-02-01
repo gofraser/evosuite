@@ -139,6 +139,7 @@ public class BytecodeInstrumentation {
      * transformBytes
      * </p>
      *
+     * @param classLoader a {@link java.lang.ClassLoader} object.
      * @param className a {@link java.lang.String} object.
      * @param reader    a {@link org.objectweb.asm.ClassReader} object.
      * @return an array of byte.
@@ -169,9 +170,23 @@ public class BytecodeInstrumentation {
 
         ClassVisitor cv = writer;
         if (logger.isDebugEnabled()) {
+            // TraceClassVisitor prints to a PrintWriter. Bridging to SLF4J is non-trivial without buffering.
+            // Using System.err for debug trace as is common for TraceClassVisitor.
             cv = new TraceClassVisitor(cv, new PrintWriter(System.err));
         }
 
+        cv = createAdapterChain(cv, className, classNameWithDots, classLoader);
+
+        if (shouldApplyTestabilityTransformation(classNameWithDots)) {
+             return applyTestabilityTransformation(reader, cv, writer, className, classNameWithDots, classLoader, readFlags);
+        } else {
+            reader.accept(cv, readFlags);
+        }
+
+        return writer.toByteArray();
+    }
+
+    private ClassVisitor createAdapterChain(ClassVisitor cv, String className, String classNameWithDots, ClassLoader classLoader) {
         if (Properties.RESET_STATIC_FIELDS) {
             cv = new StaticAccessClassAdapter(cv, className);
         }
@@ -243,50 +258,52 @@ public class BytecodeInstrumentation {
                 cv = new SerialVersionUIDAdder(cv);
         }
 
-        // Testability Transformations
-        if (classNameWithDots.startsWith(Properties.PROJECT_PREFIX)
+        return cv;
+    }
+
+    private boolean shouldApplyTestabilityTransformation(String classNameWithDots) {
+        return classNameWithDots.startsWith(Properties.PROJECT_PREFIX)
                 || (!Properties.TARGET_CLASS_PREFIX.isEmpty()
                 && classNameWithDots.startsWith(Properties.TARGET_CLASS_PREFIX))
-                || shouldTransform(classNameWithDots)) {
+                || shouldTransform(classNameWithDots);
+    }
 
-            ClassNode cn = new AnnotatedClassNode();
-            reader.accept(cn, readFlags);
-            logger.info("Starting transformation of " + className);
+    private byte[] applyTestabilityTransformation(ClassReader reader, ClassVisitor cv, ClassWriter writer, String className, String classNameWithDots, ClassLoader classLoader, int readFlags) {
+        ClassNode cn = new AnnotatedClassNode();
+        reader.accept(cn, readFlags);
+        logger.info("Starting transformation of " + className);
 
-            if (Properties.STRING_REPLACEMENT) {
-                StringTransformation st = new StringTransformation(cn);
-                if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots))
-                    cn = st.transform();
+        if (Properties.STRING_REPLACEMENT) {
+            StringTransformation st = new StringTransformation(cn);
+            if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots))
+                cn = st.transform();
+        }
+
+        ComparisonTransformation cmp = new ComparisonTransformation(cn);
+        if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots)) {
+            cn = cmp.transform();
+            ContainerTransformation ct = new ContainerTransformation(cn);
+            cn = ct.transform();
+        }
+
+        if (shouldTransform(classNameWithDots)) {
+            logger.info("Testability Transforming " + className);
+
+            BooleanTestabilityTransformation tt = new BooleanTestabilityTransformation(cn, classLoader);
+            try {
+                cn = tt.transform();
+            } catch (Throwable t) {
+                // Wrap Throwable in RuntimeException to avoid declaring it or throwing Error
+                throw new RuntimeException("Error during boolean testability transformation of " + className, t);
             }
+            logger.info("Testability Transformation done: " + className);
+        }
 
-            ComparisonTransformation cmp = new ComparisonTransformation(cn);
-            if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots)) {
-                cn = cmp.transform();
-                ContainerTransformation ct = new ContainerTransformation(cn);
-                cn = ct.transform();
-            }
+        // -----
+        cn.accept(cv);
 
-            if (shouldTransform(classNameWithDots)) {
-                logger.info("Testability Transforming " + className);
-
-                BooleanTestabilityTransformation tt = new BooleanTestabilityTransformation(cn, classLoader);
-                try {
-                    cn = tt.transform();
-                } catch (Throwable t) {
-                    throw new Error(t);
-                }
-                logger.info("Testability Transformation done: " + className);
-            }
-
-            // -----
-            cn.accept(cv);
-
-            if (Properties.TEST_CARVING && TransformerUtil.isClassConsideredForInstrumentation(className)) {
-                return handleCarving(className, writer);
-            }
-
-        } else {
-            reader.accept(cv, readFlags);
+        if (Properties.TEST_CARVING && TransformerUtil.isClassConsideredForInstrumentation(className)) {
+            return handleCarving(className, writer);
         }
 
         return writer.toByteArray();
@@ -315,9 +332,9 @@ public class BytecodeInstrumentation {
      * __STATIC_RESET() methods, inserting callbacks for PUTSTATIC and GETSTATIC
      * instructions
      *
-     * @param className
-     * @param cv
-     * @return
+     * @param className a {@link java.lang.String} object.
+     * @param cv a {@link org.objectweb.asm.ClassVisitor} object.
+     * @return a {@link org.objectweb.asm.ClassVisitor} object.
      */
     private static ClassVisitor handleStaticReset(String className, ClassVisitor cv) {
         // Create a __STATIC_RESET() cloning the original <clinit> method or
