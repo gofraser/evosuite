@@ -38,37 +38,30 @@ import java.util.Map.Entry;
  * @author Gordon Fraser, mattia
  */
 
-// TODO: Archive handling could be improved to use branchIds and thus reduce
-//       the overhead of calculating the fitness function
-
-// TODO fix count goal, when a suite executes a branch only one time we should
-// return 0.5 and not the distance.
-
 public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
 
     private static final long serialVersionUID = -4745892521350308986L;
 
     private final List<CBranchTestFitness> branchGoals;
 
-    private final Map<Integer, Map<CallContext, Set<CBranchTestFitness>>> contextGoalsMap;
+    private final Map<Integer, Map<CallContext, Set<CBranchTestFitness>>> contextGoalsMap = new LinkedHashMap<>();
 
-    private final Map<Integer, Set<CBranchTestFitness>> privateMethodsGoalsMap;
+    private final Map<Integer, Set<CBranchTestFitness>> privateMethodsGoalsMap = new LinkedHashMap<>();
 
-    private final Map<String, Map<CallContext, CBranchTestFitness>> methodsMap;
+    private final Map<String, Map<CallContext, CBranchTestFitness>> methodsMap = new LinkedHashMap<>();
 
-    private final Map<String, CBranchTestFitness> privateMethodsMethodsMap;
+    private final Map<String, CBranchTestFitness> privateMethodsMethodsMap = new LinkedHashMap<>();
 
     private final Set<CBranchTestFitness> toRemoveGoals = new LinkedHashSet<>();
     private final Set<CBranchTestFitness> removedGoals = new LinkedHashSet<>();
 
     public CBranchSuiteFitness() {
-        contextGoalsMap = new LinkedHashMap<>();
-        privateMethodsGoalsMap = new LinkedHashMap<>();
-        methodsMap = new LinkedHashMap<>();
-        privateMethodsMethodsMap = new LinkedHashMap<>();
-
         CBranchFitnessFactory factory = new CBranchFitnessFactory();
         branchGoals = factory.getCoverageGoals();
+        initMaps();
+    }
+
+    private void initMaps() {
         for (CBranchTestFitness goal : branchGoals) {
             if (Properties.TEST_ARCHIVE)
                 Archive.getArchiveInstance().addTarget(goal);
@@ -78,23 +71,11 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
 
                 // if private method do not consider context
                 if (goal.getContext().isEmpty()) {
-                    Set<CBranchTestFitness> tempInSet = privateMethodsGoalsMap.get(branchId);
-                    if (tempInSet == null) {
-                        privateMethodsGoalsMap.put(branchId, tempInSet = new LinkedHashSet<>());
-                    }
-                    tempInSet.add(goal);
+                    privateMethodsGoalsMap.computeIfAbsent(branchId, k -> new LinkedHashSet<>()).add(goal);
                 } else {
                     // if public method consider context
-                    Map<CallContext, Set<CBranchTestFitness>> innermap = contextGoalsMap
-                            .get(branchId);
-                    if (innermap == null) {
-                        contextGoalsMap.put(branchId, innermap = new LinkedHashMap<>());
-                    }
-                    Set<CBranchTestFitness> tempInSet = innermap.get(goal.getContext());
-                    if (tempInSet == null) {
-                        innermap.put(goal.getContext(), tempInSet = new LinkedHashSet<>());
-                    }
-                    tempInSet.add(goal);
+                    contextGoalsMap.computeIfAbsent(branchId, k -> new LinkedHashMap<>())
+                            .computeIfAbsent(goal.getContext(), k -> new LinkedHashSet<>()).add(goal);
                 }
             } else {
                 String methodName = goal.getTargetClass() + "." + goal.getTargetMethod();
@@ -103,24 +84,13 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
                     privateMethodsMethodsMap.put(methodName, goal);
                 } else {
                     // if public method consider context
-                    Map<CallContext, CBranchTestFitness> innermap = methodsMap.get(methodName);
-                    if (innermap == null) {
-                        methodsMap.put(methodName, innermap = new LinkedHashMap<>());
-                    }
-                    innermap.put(goal.getContext(), goal);
+                    methodsMap.computeIfAbsent(methodName, k -> new LinkedHashMap<>())
+                            .put(goal.getContext(), goal);
                 }
             }
             logger.info("Context goal: " + goal);
         }
     }
-
-    // private Map<CBranchTestFitness, Double> getDefaultDistanceMap() {
-    // Map<CBranchTestFitness, Double> distanceMap = new
-    // HashMap<CBranchTestFitness, Double>();
-    // for (CBranchTestFitness goal : branchGoals)
-    // distanceMap.put(goal, 1.0);
-    // return distanceMap;
-    // }
 
     private CBranchTestFitness getContextGoal(String classAndMethodName, CallContext context) {
         if (privateMethodsMethodsMap.containsKey(classAndMethodName)) {
@@ -159,7 +129,7 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
      */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
-        double fitness = 0.0; // branchFitness.getFitness(suite);
+        double fitness = 0.0;
 
         List<ExecutionResult> results = runTestSuite(suite);
         Map<CBranchTestFitness, Double> distanceMap = new LinkedHashMap<>();
@@ -295,6 +265,8 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
                 Integer count = branchCounter.get(goal.getGenericContextBranchIdentifier());
                 if (count == null || count == 0)
                     fitness += 1;
+                    // If the branch was executed but not covered, we add 0.5 to the fitness
+                    // to distinguish it from a branch that was not executed at all.
                 else if (count == 1)
                     fitness += 0.5;
                 else {
