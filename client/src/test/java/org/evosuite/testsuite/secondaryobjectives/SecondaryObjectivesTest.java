@@ -82,11 +82,12 @@ public class SecondaryObjectivesTest {
 
         int result = obj.compareGenerations(p1, p2, c1, c2);
 
-        // We expect consistent behavior (MIN comparison).
-        // min(10, 20) - min(5, 100) = 10 - 5 = 5.
-        // Current implementation does SUM: (30) - (105) = -75.
+        // SUM comparison logic (reverted behavior):
+        // Sum(Parents) = 10 + 20 = 30
+        // Sum(Children) = 5 + 100 = 105
+        // Result = 30 - 105 = -75.
 
-        Assert.assertTrue("Should favor children because child1 has length 5 which is better than parent1 length 10. Result was: " + result, result > 0);
+        Assert.assertTrue("Should favor parents because sum of parents (30) is less than sum of children (105). Result was: " + result, result < 0);
     }
 
     @Test
