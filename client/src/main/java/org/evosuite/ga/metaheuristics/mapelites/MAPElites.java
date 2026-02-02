@@ -33,7 +33,7 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.statements.*;
-import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testcase.utils.TestChromosomeUtils;
 import org.evosuite.utils.IterUtil;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
@@ -66,13 +66,13 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
     private final Map<FitnessFunctionWrapper, Map<FeatureVector, TestChromosome>> populationMap;
     private final Set<FeatureVector> droppedFeatureVectors;
 
-    private final int featureVectorPossibilityCount;
+    private final double featureVectorPossibilityCount;
     private final int featureCount;
 
     private final List<TestChromosome> bestIndividuals;
 
     private static final List<FeatureVector> IGNORE_VECTORS =
-            Arrays.asList(new FeatureVector(new Inspector[0], null));
+            Collections.singletonList(new FeatureVector(new Inspector[0], null));
 
     private final CrossOverFunction<TestChromosome> crossoverFunction = new SinglePointCrossOver<>();
 
@@ -188,7 +188,7 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
     }
 
     private void applyMutation(TestChromosome chromosome, TestChromosome parent) {
-        this.removeUnusedVariables(chromosome);
+        TestChromosomeUtils.removeUnusedVariables(chromosome);
 
         if (Properties.MAP_ELITES_MOSA_MUTATIONS) {
             this.mutate(chromosome, parent);
@@ -206,8 +206,6 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
     protected void evolve() {
         Set<TestChromosome> parents1 = this.getToMutate();
         Set<TestChromosome> parents2 = this.getToMutate();
-
-        Set<TestChromosome> toMutate = new LinkedHashSet<>();
 
         for (TestChromosome parent1 : parents1) {
             TestChromosome offspring1 = parent1.clone();
@@ -228,7 +226,7 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
             applyMutation(offspring1, parent1);
         }
 
-        if ((toMutate.isEmpty() && Properties.MAP_ELITES_CHOICE != Properties.MapElitesChoice.SINGLE_AVG)
+        if (Properties.MAP_ELITES_CHOICE != Properties.MapElitesChoice.SINGLE_AVG
                 || Randomness.nextDouble() <= Properties.MAP_ELITES_RANDOM) {
             this.analyzeChromosome(this.getRandomPopulation(1).get(0));
         }
@@ -250,7 +248,7 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
             // if offspring is not changed, we try to mutate it once again
             offspring.mutate();
         }
-        if (!this.hasMethodCall(offspring)) {
+        if (!TestChromosomeUtils.hasMethodCall(offspring)) {
             offspring.setTestCase(parent.getTestCase().clone());
             boolean changed = offspring.mutationInsert();
             if (changed) {
@@ -261,79 +259,6 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
             offspring.setChanged(changed);
         }
         this.notifyMutation(offspring);
-    }
-
-    /**
-     * This method checks whether the test has only primitive type statements. Indeed,
-     * crossover and mutation can lead to tests with no method calls (methods or constructors
-     * call), thus, when executed they will never cover something in the class under test.
-     * <p>
-     * Copied from AbstractMOSA
-     *
-     * @param test to check
-     * @return true if the test has at least one method or constructor call (i.e., the test may
-     * cover something when executed; false otherwise
-     */
-    private boolean hasMethodCall(TestChromosome test) {
-        boolean flag = false;
-        TestCase tc = test.getTestCase();
-        for (Statement s : tc) {
-            if (s instanceof MethodStatement) {
-                MethodStatement ms = (MethodStatement) s;
-                boolean isTargetMethod = ms.getDeclaringClassName().equals(Properties.TARGET_CLASS);
-                if (isTargetMethod) {
-                    return true;
-                }
-            }
-            if (s instanceof ConstructorStatement) {
-                ConstructorStatement ms = (ConstructorStatement) s;
-                boolean isTargetMethod = ms.getDeclaringClassName().equals(Properties.TARGET_CLASS);
-                if (isTargetMethod) {
-                    return true;
-                }
-            }
-        }
-        return flag;
-    }
-
-    /**
-     * When a test case is changed via crossover and/or mutation, it can contains some
-     * primitive variables that are not used as input (or to store the output) of method calls.
-     * Thus, this method removes all these "trash" statements.
-     * <p>
-     * Taken from AbstractMOSA
-     *
-     * @param chromosome
-     * @return true or false depending on whether "unused variables" are removed
-     */
-    private boolean removeUnusedVariables(TestChromosome chromosome) {
-        int sizeBefore = chromosome.size();
-        TestCase t = chromosome.getTestCase();
-        List<Integer> to_delete = new ArrayList<>(chromosome.size());
-        boolean has_deleted = false;
-
-        int num = 0;
-        for (Statement s : t) {
-            VariableReference var = s.getReturnValue();
-            boolean delete = false;
-            delete = delete || s instanceof PrimitiveStatement;
-            delete = delete || s instanceof ArrayStatement;
-            delete = delete || s instanceof StringPrimitiveStatement;
-            if (!t.hasReferences(var) && delete) {
-                to_delete.add(num);
-                has_deleted = true;
-            }
-            num++;
-        }
-        to_delete.sort(reverseOrder());
-        for (Integer position : to_delete) {
-            t.remove(position);
-        }
-        int sizeAfter = chromosome.size();
-        if (has_deleted) {
-            logger.debug("Removed {} unused statements", (sizeBefore - sizeAfter));
-        }
-        return has_deleted;
     }
 
     private int getFoundVectorCount() {
@@ -364,10 +289,10 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
     }
 
     private double getDensity(int foundVectorCount) {
-        int n = this.featureVectorPossibilityCount;
+        double n = this.featureVectorPossibilityCount;
         int z = this.getFoundVectorCount();
 
-        double density = z / (double) n;
+        double density = z / n;
         return density;
     }
 
@@ -438,7 +363,9 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
 
     @Override
     public List<TestChromosome> getBestIndividuals() {
-        throw new UnsupportedOperationException();
+        List<TestChromosome> chromosomes = new ArrayList<>();
+        this.populationMap.values().forEach(entry -> chromosomes.addAll(entry.values()));
+        return chromosomes;
     }
 
     private void updateAndSortBest() {
