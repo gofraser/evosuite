@@ -29,6 +29,7 @@ import java.io.Serializable;
  *
  * @author Gordon Fraser
  */
+@FunctionalInterface
 public interface BloatControlFunction<T extends Chromosome<T>> extends Serializable {
 
     /**
