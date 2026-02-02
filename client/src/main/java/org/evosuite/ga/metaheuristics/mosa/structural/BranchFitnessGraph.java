@@ -55,19 +55,25 @@ public class BranchFitnessGraph implements Serializable {
 
         // derive dependencies among branches
         for (TestFitnessFunction fitness : goals) {
-            Branch branch = ((BranchCoverageTestFitness) fitness).getBranch();
+            if (!(fitness instanceof BranchCoverageTestFitness)) {
+                continue;
+            }
+
+            BranchCoverageTestFitness branchFitness = (BranchCoverageTestFitness) fitness;
+            Branch branch = branchFitness.getBranch();
             if (branch == null) {
                 this.rootBranches.add(fitness);
                 continue;
             }
 
             if (branch.getInstruction().isRootBranchDependent())
-                //|| branch.getInstruction().getControlDependentBranchIds().contains(-1))
                 this.rootBranches.add(fitness);
+
             // see dependencies for all true/false branches
             ActualControlFlowGraph rcfg = branch.getInstruction().getActualCFG();
-            Set<BasicBlock> visitedBlock = new HashSet<>();
-            Set<BasicBlock> parents = lookForParent(branch.getInstruction().getBasicBlock(), rcfg, visitedBlock);
+            Set<BasicBlock> visitedBlocks = new HashSet<>();
+            Set<BasicBlock> parents = lookForParent(branch.getInstruction().getBasicBlock(), rcfg, visitedBlocks);
+
             for (BasicBlock bb : parents) {
                 Branch newB = extractBranch(bb);
                 if (newB == null) {
@@ -75,35 +81,37 @@ public class BranchFitnessGraph implements Serializable {
                     continue;
                 }
 
-                BranchCoverageGoal goal = new BranchCoverageGoal(newB, true, newB.getClassName(), newB.getMethodName());
-                BranchCoverageTestFitness newFitness = new BranchCoverageTestFitness(goal);
-                graph.addEdge(newFitness, fitness);
+                BranchCoverageGoal goalTrue = new BranchCoverageGoal(newB, true, newB.getClassName(), newB.getMethodName());
+                BranchCoverageTestFitness newFitnessTrue = new BranchCoverageTestFitness(goalTrue);
+                graph.addVertex(newFitnessTrue);
+                graph.addEdge(newFitnessTrue, fitness);
 
-                BranchCoverageGoal goal2 = new BranchCoverageGoal(newB, false, newB.getClassName(), newB.getMethodName());
-                BranchCoverageTestFitness newfitness2 = new BranchCoverageTestFitness(goal2);
-                graph.addEdge(newfitness2, fitness);
+                BranchCoverageGoal goalFalse = new BranchCoverageGoal(newB, false, newB.getClassName(), newB.getMethodName());
+                BranchCoverageTestFitness newFitnessFalse = new BranchCoverageTestFitness(goalFalse);
+                graph.addVertex(newFitnessFalse);
+                graph.addEdge(newFitnessFalse, fitness);
             }
         }
     }
 
 
-    public Set<BasicBlock> lookForParent(BasicBlock block, ActualControlFlowGraph acfg, Set<BasicBlock> visitedBlock) {
-        Set<BasicBlock> realParent = new HashSet<>();
+    public Set<BasicBlock> lookForParent(BasicBlock block, ActualControlFlowGraph acfg, Set<BasicBlock> visitedBlocks) {
+        Set<BasicBlock> realParents = new HashSet<>();
         Set<BasicBlock> parents = acfg.getParents(block);
-        if (parents.size() == 0) {
-            realParent.add(block);
-            return realParent;
+        if (parents.isEmpty()) {
+            realParents.add(block);
+            return realParents;
         }
         for (BasicBlock bb : parents) {
-            if (visitedBlock.contains(bb))
+            if (visitedBlocks.contains(bb))
                 continue;
-            visitedBlock.add(bb);
+            visitedBlocks.add(bb);
             if (containsBranches(bb))
-                realParent.add(bb);
+                realParents.add(bb);
             else
-                realParent.addAll(lookForParent(bb, acfg, visitedBlock));
+                realParents.addAll(lookForParent(bb, acfg, visitedBlocks));
         }
-        return realParent;
+        return realParents;
     }
 
     /**

@@ -19,14 +19,25 @@
  */
 package org.evosuite.ga.metaheuristics.mosa.structural;
 
+import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTrace;
+import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -40,14 +51,22 @@ public abstract class StructuralGoalManager implements Serializable {
 
     private static final long serialVersionUID = -2577487057354286024L;
 
+    private static final Logger logger = LoggerFactory.getLogger(StructuralGoalManager.class);
+
+    protected BranchFitnessGraph graph;
+
+    protected final Map<Integer, TestFitnessFunction> branchCoverageTrueMap = new LinkedHashMap<>();
+    protected final Map<Integer, TestFitnessFunction> branchCoverageFalseMap = new LinkedHashMap<>();
+    protected final Map<String, TestFitnessFunction> branchlessMethodCoverageMap = new LinkedHashMap<>();
+
     /**
      * Set of goals currently used as objectives.
      * <p>
-     * The idea is to consider only those gaols that are independent from any other targets. That
-     * is, the gaols that
+     * The idea is to consider only those goals that are independent from any other targets. That
+     * is, the goals that
      * <ol>
      *     <li>are free of control dependencies, or</li>
-     *     <li>only have direct control dependencies to already covered gaols.</li>
+     *     <li>only have direct control dependencies to already covered goals.</li>
      * </ol>
      * <p>
      * Each goal is encoded by a corresponding fitness function, which returns an optimal fitness value if the goal has been reached by a given
@@ -81,8 +100,115 @@ public abstract class StructuralGoalManager implements Serializable {
      * @param c a TestChromosome
      * @return covered goals along with the corresponding test case
      */
-    public abstract void calculateFitness(TestChromosome c,
-                                          GeneticAlgorithm<TestChromosome> ga);
+    public void calculateFitness(TestChromosome c, GeneticAlgorithm<TestChromosome> ga) {
+        // Run the test and record the execution result.
+        TestCase test = c.getTestCase();
+        ExecutionResult result = TestCaseExecutor.runTest(test);
+        c.setLastExecutionResult(result);
+        c.setChanged(false);
+
+        // If the test failed to execute properly, or if the test does not cover anything,
+        // it means none of the current goals could be reached.
+        if (result.hasTimeout() || result.hasTestException() || result.getTrace().getCoveredLines().isEmpty()) {
+            currentGoals.forEach(f -> c.setFitness(f, Double.MAX_VALUE)); // assume minimization
+            return;
+        }
+
+        Set<TestFitnessFunction> visitedTargets = new LinkedHashSet<>(getUncoveredGoals().size() * 2);
+
+        /*
+         * The processing list of current targets. If it turns out that any such target has been
+         * reached, we also enqueue its structural and control-dependent children. This is to
+         * determine which of those children are already reached by control flow. Only the missed
+         * children will be part of the currentGoals for the next generation (together with the
+         * missed goals of the currentGoals of the current generation).
+         */
+        LinkedList<TestFitnessFunction> targets = new LinkedList<>(this.currentGoals);
+
+        // 1) We update the set of current goals.
+        while (!targets.isEmpty() && !ga.isFinished()) {
+            // We evaluate the given test case against all current targets.
+            // (There might have been serendipitous coverage of other targets, though.)
+            TestFitnessFunction target = targets.poll();
+
+            if (!visitedTargets.add(target))
+                continue;
+
+            double fitness = target.getFitness(c);
+
+            /*
+             * Checks if the current test target has been reached and, in accordance, marks it as
+             * covered or uncovered.
+             */
+            if (fitness == 0.0) { // assume minimization function
+                updateCoveredGoals(target, c); // marks the current goal as covered
+
+                for (TestFitnessFunction child : getDependencies(target)) {
+                    targets.addLast(child);
+                }
+            } else {
+                currentGoals.add(target); // marks the goal as uncovered
+            }
+        }
+
+        // Removes all newly covered goals from the list of currently uncovered goals.
+        currentGoals.removeAll(this.getCoveredGoals());
+
+        // 2) We update the archive.
+        updateCoveredGoalsFromTrace(result, c);
+
+        // 3) Hook for subclass specific post-processing
+        postCalculateFitness(c);
+    }
+
+    protected abstract Set<TestFitnessFunction> getDependencies(TestFitnessFunction fitnessFunction);
+
+    protected void postCalculateFitness(TestChromosome c) {
+        // Default implementation does nothing
+    }
+
+    protected void initializeMaps(Set<TestFitnessFunction> goals) {
+        for (TestFitnessFunction ff : goals) {
+            if (!(ff instanceof BranchCoverageTestFitness)) continue;
+
+            BranchCoverageTestFitness goal = (BranchCoverageTestFitness) ff;
+
+            // Skip instrumented branches - we only want real branches
+            if (goal.getBranch() != null && goal.getBranch().isInstrumented()) {
+                continue;
+            }
+
+            if (goal.getBranch() == null) { // the goal is to call the method at hand
+                branchlessMethodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), ff);
+            } else if (goal.getBranchExpressionValue()) { // we want to take the given branch
+                branchCoverageTrueMap.put(goal.getBranch().getActualBranchId(), ff);
+            } else { // we don't want to take the given branch
+                branchCoverageFalseMap.put(goal.getBranch().getActualBranchId(), ff);
+            }
+        }
+    }
+
+    protected void updateCoveredGoalsFromTrace(ExecutionResult result, TestChromosome c) {
+        ExecutionTrace trace = result.getTrace();
+        for (Integer branchID : trace.getCoveredFalseBranches()) {
+            TestFitnessFunction branch = this.branchCoverageFalseMap.get(branchID);
+            if (branch == null)
+                continue;
+            updateCoveredGoals(branch, c);
+        }
+        for (Integer branchID : trace.getCoveredTrueBranches()) {
+            TestFitnessFunction branch = this.branchCoverageTrueMap.get(branchID);
+            if (branch == null)
+                continue;
+            updateCoveredGoals(branch, c);
+        }
+        for (String method : trace.getCoveredBranchlessMethods()) {
+            TestFitnessFunction branch = this.branchlessMethodCoverageMap.get(method);
+            if (branch == null)
+                continue;
+            updateCoveredGoals(branch, c);
+        }
+    }
 
     /**
      * Returns the set of yet uncovered goals.
@@ -135,5 +261,9 @@ public abstract class StructuralGoalManager implements Serializable {
 
         // update covered targets
         this.archive.updateArchive(f, tc, tc.getFitness(f));
+    }
+
+    public BranchFitnessGraph getGraph() {
+        return graph;
     }
 }

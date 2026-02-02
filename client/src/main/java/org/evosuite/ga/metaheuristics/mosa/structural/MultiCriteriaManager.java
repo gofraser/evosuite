@@ -39,19 +39,15 @@ import org.evosuite.coverage.mutation.StrongMutationTestFitness;
 import org.evosuite.coverage.mutation.WeakMutationTestFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
 import org.evosuite.ga.FitnessFunction;
-import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.cfg.ControlDependency;
 import org.evosuite.setup.CallContext;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.callgraph.CallGraph;
-import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testcase.execution.ExecutionTrace;
-import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -69,27 +65,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
 
     private static final long serialVersionUID = 8161137239404885564L;
 
-    protected BranchFitnessGraph graph;
-
     protected Map<BranchCoverageTestFitness, Set<TestFitnessFunction>> dependencies;
-
-    /**
-     * Maps branch IDs to the corresponding fitness function, only considering branches we want to
-     * take.
-     */
-    protected final Map<Integer, TestFitnessFunction> branchCoverageTrueMap = new LinkedHashMap<>();
-
-    /**
-     * Maps branch IDs to the corresponding fitness function, only considering the branches we do
-     * <em>not</em> want to take.
-     */
-    protected final Map<Integer, TestFitnessFunction> branchCoverageFalseMap = new LinkedHashMap<>();
-
-    /**
-     * Maps branch IDs to the corresponding fitness function, only considering root branches of
-     * methods (i.e. the goal is to just invoke the method).
-     */
-    private final Map<String, TestFitnessFunction> branchlessMethodCoverageMap = new LinkedHashMap<>();
 
     /**
      * Creates a new {@code MultiCriteriaManager} with the given list of targets. The targets are
@@ -104,11 +80,10 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         this.graph = getControlDependencies4Branches(targets);
 
         // initialize the dependency graph between branches and other coverage targets (e.g., statements)
-        // let's derive the dependency graph between branches and other coverage targets (e.g., statements)
         for (Criterion criterion : Properties.CRITERION) {
             switch (criterion) {
                 case BRANCH:
-                    break; // branches have been handled by getControlDepencies4Branches
+                    break; // branches have been handled by getControlDependencies4Branches
                 case EXCEPTION:
                     break; // exception coverage is handled by calculateFitness
                 case LINE:
@@ -150,326 +125,17 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         this.currentGoals.addAll(graph.getRootBranches());
     }
 
-    private void addDependencies4TryCatch() {
-        logger.debug("Added dependencies for Try-Catch");
-        for (FitnessFunction<TestChromosome> ff : this.getUncoveredGoals()) {
-            if (ff instanceof TryCatchCoverageTestFitness) {
-                TryCatchCoverageTestFitness stmt = (TryCatchCoverageTestFitness) ff;
-                BranchCoverageTestFitness branch = new BranchCoverageTestFitness(stmt.getBranchGoal());
-                this.dependencies.get(branch).add(stmt);
-            }
-        }
-    }
-
-    private void initializeMaps(Set<TestFitnessFunction> set) {
-        for (TestFitnessFunction ff : set) {
-            BranchCoverageTestFitness goal = (BranchCoverageTestFitness) ff;
-
-            // Skip instrumented branches - we only want real branches
-            if (goal.getBranch() != null && goal.getBranch().isInstrumented()) {
-                continue;
-            }
-
-            if (goal.getBranch() == null) { // the goal is to call the method at hand
-                branchlessMethodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), ff);
-            } else if (goal.getBranchExpressionValue()) { // we want to take the given branch
-                branchCoverageTrueMap.put(goal.getBranch().getActualBranchId(), ff);
-            } else { // we don't want to take the given branch
-                branchCoverageFalseMap.put(goal.getBranch().getActualBranchId(), ff);
-            }
-        }
-    }
-
-    private void addDependencies4Output() {
-        logger.debug("Added dependencies for Output");
-        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
-            if (ff instanceof OutputCoverageTestFitness) {
-                OutputCoverageTestFitness output = (OutputCoverageTestFitness) ff;
-                ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
-                BytecodeInstructionPool pool = BytecodeInstructionPool.getInstance(loader);
-                if (pool.getInstructionsIn(output.getClassName(), output.getMethod()) == null) {
-                    this.currentGoals.add(ff);
-                    continue;
-                }
-                for (BytecodeInstruction instruction : pool.getInstructionsIn(output.getClassName(), output.getMethod())) {
-                    if (instruction.getBasicBlock() != null) {
-                        Set<ControlDependency> cds = instruction.getBasicBlock().getControlDependencies();
-                        if (cds.size() == 0) {
-                            this.currentGoals.add(ff);
-                        } else {
-                            for (ControlDependency cd : cds) {
-                                BranchCoverageTestFitness fitness = BranchCoverageFactory.createBranchCoverageTestFitness(cd);
-                                this.dependencies.get(fitness).add(ff);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * This methods derive the dependencies between {@link InputCoverageTestFitness} and branches.
-     * Therefore, it is used to update 'this.dependencies'
-     */
-    private void addDependencies4Input() {
-        logger.debug("Added dependencies for Input");
-        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
-            if (ff instanceof InputCoverageTestFitness) {
-                InputCoverageTestFitness input = (InputCoverageTestFitness) ff;
-                ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
-                BytecodeInstructionPool pool = BytecodeInstructionPool.getInstance(loader);
-                if (pool.getInstructionsIn(input.getClassName(), input.getMethod()) == null) {
-                    this.currentGoals.add(ff);
-                    continue;
-                }
-                for (BytecodeInstruction instruction : pool.getInstructionsIn(input.getClassName(), input.getMethod())) {
-                    if (instruction.getBasicBlock() != null) {
-                        Set<ControlDependency> cds = instruction.getBasicBlock().getControlDependencies();
-                        if (cds.size() == 0) {
-                            this.currentGoals.add(ff);
-                        } else {
-                            for (ControlDependency cd : cds) {
-                                BranchCoverageTestFitness fitness = BranchCoverageFactory.createBranchCoverageTestFitness(cd);
-                                this.dependencies.get(fitness).add(ff);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * This methods derive the dependencies between {@link MethodCoverageTestFitness} and branches.
-     * Therefore, it is used to update 'this.dependencies'
-     */
-    private void addDependencies4Methods() {
-        logger.debug("Added dependencies for Methods");
-        for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
-            MethodCoverageTestFitness method = new MethodCoverageTestFitness(branch.getClassName(), branch.getMethod());
-            this.dependencies.get(branch).add(method);
-        }
-    }
-
-    /**
-     * This methods derive the dependencies between {@link MethodNoExceptionCoverageTestFitness} and branches.
-     * Therefore, it is used to update 'this.dependencies'
-     */
-    private void addDependencies4MethodsNoException() {
-        logger.debug("Added dependencies for MethodsNoException");
-        for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
-            MethodNoExceptionCoverageTestFitness method = new MethodNoExceptionCoverageTestFitness(branch.getClassName(), branch.getMethod());
-            this.dependencies.get(branch).add(method);
-        }
-    }
-
-    /**
-     * This methods derive the dependencies between {@link CBranchTestFitness} and branches.
-     * Therefore, it is used to update 'this.dependencies'
-     */
-    private void addDependencies4CBranch() {
-        logger.debug("Added dependencies for CBranch");
-        CallGraph callGraph = DependencyAnalysis.getCallGraph();
-        for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
-            for (CallContext context : callGraph.getMethodEntryPoint(branch.getClassName(), branch.getMethod())) {
-                CBranchTestFitness cBranch = new CBranchTestFitness(branch.getBranchGoal(), context);
-                this.dependencies.get(branch).add(cBranch);
-                logger.debug("Added context branch: " + cBranch);
-            }
-        }
-    }
-
-    /**
-     * This methods derive the dependencies between {@link WeakMutationTestFitness} and branches.
-     * Therefore, it is used to update 'this.dependencies'
-     */
-    private void addDependencies4WeakMutation() {
-        logger.debug("Added dependencies for Weak-Mutation");
-        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
-            if (ff instanceof WeakMutationTestFitness) {
-                WeakMutationTestFitness mutation = (WeakMutationTestFitness) ff;
-                Set<BranchCoverageGoal> goals = mutation.getMutation().getControlDependencies();
-                if (goals.size() == 0) {
-                    this.currentGoals.add(ff);
-                } else {
-                    for (BranchCoverageGoal goal : goals) {
-                        BranchCoverageTestFitness fitness = new BranchCoverageTestFitness(goal);
-                        this.dependencies.get(fitness).add(ff);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * This methods derive the dependencies between {@link org.evosuite.coverage.mutation.StrongMutationTestFitness} and branches.
-     * Therefore, it is used to update 'this.dependencies'
-     */
-    private void addDependencies4StrongMutation() {
-        logger.debug("Added dependencies for Strong-Mutation");
-        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
-            if (ff instanceof StrongMutationTestFitness) {
-                StrongMutationTestFitness mutation = (StrongMutationTestFitness) ff;
-                Set<BranchCoverageGoal> goals = mutation.getMutation().getControlDependencies();
-                if (goals.size() == 0) {
-                    this.currentGoals.add(ff);
-                } else {
-                    for (BranchCoverageGoal goal : goals) {
-                        BranchCoverageTestFitness fitness = new BranchCoverageTestFitness(goal);
-                        this.dependencies.get(fitness).add(ff);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * This methods derive the dependencies between  {@link LineCoverageTestFitness} and branches.
-     * Therefore, it is used to update 'this.dependencies'
-     */
-    private void addDependencies4Line() {
-        logger.debug("Added dependencies for Lines");
-        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
-            if (ff instanceof LineCoverageTestFitness) {
-                LineCoverageTestFitness line = (LineCoverageTestFitness) ff;
-                ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
-                BytecodeInstructionPool pool = BytecodeInstructionPool.getInstance(loader);
-                BytecodeInstruction instruction = pool.getFirstInstructionAtLineNumber(line.getClassName(), line.getMethod(), line.getLine());
-                if(instruction == null) {
-                    return;
-                }
-                Set<ControlDependency> cds = instruction.getControlDependencies();
-                if (cds.size() == 0)
-                    this.currentGoals.add(ff);
-                else {
-                    for (ControlDependency cd : cds) {
-                        BranchCoverageTestFitness fitness = BranchCoverageFactory.createBranchCoverageTestFitness(cd);
-                        this.dependencies.get(fitness).add(ff);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * This methods derive the dependencies between  {@link StatementCoverageTestFitness} and branches.
-     * Therefore, it is used to update 'this.dependencies'
-     */
-    private void addDependencies4Statement() {
-        logger.debug("Added dependencies for Statements");
-        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
-            if (ff instanceof StatementCoverageTestFitness) {
-                StatementCoverageTestFitness stmt = (StatementCoverageTestFitness) ff;
-                if (stmt.getBranchFitnesses().size() == 0)
-                    this.currentGoals.add(ff);
-                else {
-                    for (BranchCoverageTestFitness branch : stmt.getBranchFitnesses()) {
-                        this.dependencies.get(branch).add(stmt);
-                    }
-                }
-            }
-        }
-    }
-
-
-    /**
-     * Calculates the fitness of the given test chromosome w.r.t. the current set of goals. To this
-     * end, the test chromosome is executed, it's execution trace recorded and the resulting
-     * coverage analyzed. This information is further used to update the set of current
-     * goals (as given by {@link MultiCriteriaManager#getCurrentGoals()} and the population of the
-     * archive.
-     *
-     * @param c the chromosome whose fitness to calculate (must be a {@link TestChromosome})
-     */
     @Override
-    public void calculateFitness(TestChromosome c, GeneticAlgorithm<TestChromosome> ga) {
-        // Run the test and record the execution result.
-        TestCase test = c.getTestCase();
-        ExecutionResult result = TestCaseExecutor.runTest(test);
-        c.setLastExecutionResult(result);
-        c.setChanged(false);
-
-        // If the test failed to execute properly, or if the test does not cover anything,
-        // it means none of the current gaols could be reached.
-        if (result.hasTimeout() || result.hasTestException() || result.getTrace().getCoveredLines().size() == 0) {
-            currentGoals.forEach(f -> c.setFitness(f, Double.MAX_VALUE)); // assume minimization
-            return;
+    protected Set<TestFitnessFunction> getDependencies(TestFitnessFunction fitnessFunction) {
+        Set<TestFitnessFunction> deps = new LinkedHashSet<>(graph.getStructuralChildren(fitnessFunction));
+        if (fitnessFunction instanceof BranchCoverageTestFitness && dependencies.containsKey(fitnessFunction)) {
+            deps.addAll(dependencies.get(fitnessFunction));
         }
+        return deps;
+    }
 
-        Set<TestFitnessFunction> visitedTargets = new LinkedHashSet<>(getUncoveredGoals().size() * 2);
-
-        /*
-         * The processing list of current targets. If it turns out that any such target has been
-         * reached, we also enqueue its structural and control-dependent children. This is to
-         * determine which of those children are already reached by control flow. Only the missed
-         * children will be part of the currentGoals for the next generation (together with the
-         * missed goals of the currentGoals of the current generation).
-         */
-        LinkedList<TestFitnessFunction> targets = new LinkedList<>(this.currentGoals);
-
-        // 1) We update the set of current goals.
-        while (targets.size() > 0 && !ga.isFinished()) {
-            // We evaluate the given test case against all current targets.
-            // (There might have been serendipitous coverage of other targets, though.)
-            TestFitnessFunction target = targets.poll();
-
-            int pastSize = visitedTargets.size();
-            visitedTargets.add(target);
-            if (pastSize == visitedTargets.size())
-                continue;
-
-            double fitness = target.getFitness(c);
-
-            /*
-             * Checks if the current test target has been reached and, in accordance, marks it as
-             * covered or uncovered.
-             */
-            if (fitness == 0.0) { // assume minimization function
-                updateCoveredGoals(target, c); // marks the current goal as covered
-
-                /*
-                 * If the coverage criterion is branch coverage, we also add structural children
-                 * and control dependencies of the current target to the processing queue. This is
-                 * to see which ones of those goals are already reached by control flow.
-                 */
-                if (target instanceof BranchCoverageTestFitness) {
-                    for (TestFitnessFunction child : graph.getStructuralChildren(target)) {
-                        targets.addLast(child);
-                    }
-                    for (TestFitnessFunction dependentTarget : dependencies.get(target)) {
-                        targets.addLast(dependentTarget);
-                    }
-                }
-            } else {
-                currentGoals.add(target); // marks the goal as uncovered
-            }
-        }
-
-        // Removes all newly covered goals from the list of currently uncovered goals.
-        currentGoals.removeAll(this.getCoveredGoals());
-
-        // 2) We update the archive.
-        final ExecutionTrace trace = result.getTrace();
-        for (int branchid : trace.getCoveredFalseBranches()) {
-            TestFitnessFunction branch = this.branchCoverageFalseMap.get(branchid);
-            if (branch == null)
-                continue;
-            updateCoveredGoals(branch, c);
-        }
-        for (int branchid : trace.getCoveredTrueBranches()) {
-            TestFitnessFunction branch = this.branchCoverageTrueMap.get(branchid);
-            if (branch == null)
-                continue;
-            updateCoveredGoals(branch, c);
-        }
-        for (String method : trace.getCoveredBranchlessMethods()) {
-            TestFitnessFunction branch = this.branchlessMethodCoverageMap.get(method);
-            if (branch == null)
-                continue;
-            updateCoveredGoals(branch, c);
-        }
-
+    @Override
+    protected void postCalculateFitness(TestChromosome c) {
         // let's manage the exception coverage
         if (ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
             // if one of the coverage criterion is Criterion.EXCEPTION,
@@ -483,6 +149,172 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
                 if (!ExceptionCoverageFactory.getGoals().containsKey(exp.getKey())) {
                     // let's update the newly discovered exceptions to ExceptionCoverageFactory
                     ExceptionCoverageFactory.getGoals().put(exp.getKey(), exp);
+                }
+            }
+        }
+    }
+
+    private void addDependencies4TryCatch() {
+        logger.debug("Added dependencies for Try-Catch");
+        for (FitnessFunction<TestChromosome> ff : this.getUncoveredGoals()) {
+            if (ff instanceof TryCatchCoverageTestFitness) {
+                TryCatchCoverageTestFitness stmt = (TryCatchCoverageTestFitness) ff;
+                BranchCoverageTestFitness branch = new BranchCoverageTestFitness(stmt.getBranchGoal());
+                if (this.dependencies.containsKey(branch)) {
+                    this.dependencies.get(branch).add(stmt);
+                }
+            }
+        }
+    }
+
+    private void addDependencies4Output() {
+        logger.debug("Added dependencies for Output");
+        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
+            if (ff instanceof OutputCoverageTestFitness) {
+                OutputCoverageTestFitness output = (OutputCoverageTestFitness) ff;
+                processInstructionDependencies(output.getClassName(), output.getMethod(), ff);
+            }
+        }
+    }
+
+    private void addDependencies4Input() {
+        logger.debug("Added dependencies for Input");
+        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
+            if (ff instanceof InputCoverageTestFitness) {
+                InputCoverageTestFitness input = (InputCoverageTestFitness) ff;
+                processInstructionDependencies(input.getClassName(), input.getMethod(), ff);
+            }
+        }
+    }
+
+    private void processInstructionDependencies(String className, String methodName, TestFitnessFunction ff) {
+        ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        BytecodeInstructionPool pool = BytecodeInstructionPool.getInstance(loader);
+        List<BytecodeInstruction> instructions = pool.getInstructionsIn(className, methodName);
+
+        if (instructions == null) {
+            this.currentGoals.add(ff);
+            return;
+        }
+
+        for (BytecodeInstruction instruction : instructions) {
+            if (instruction.getBasicBlock() != null) {
+                Set<ControlDependency> cds = instruction.getBasicBlock().getControlDependencies();
+                if (cds.isEmpty()) {
+                    this.currentGoals.add(ff);
+                } else {
+                    for (ControlDependency cd : cds) {
+                        BranchCoverageTestFitness fitness = BranchCoverageFactory.createBranchCoverageTestFitness(cd);
+                        if (this.dependencies.containsKey(fitness)) {
+                            this.dependencies.get(fitness).add(ff);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void addDependencies4Methods() {
+        logger.debug("Added dependencies for Methods");
+        for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
+            MethodCoverageTestFitness method = new MethodCoverageTestFitness(branch.getClassName(), branch.getMethod());
+            this.dependencies.get(branch).add(method);
+        }
+    }
+
+    private void addDependencies4MethodsNoException() {
+        logger.debug("Added dependencies for MethodsNoException");
+        for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
+            MethodNoExceptionCoverageTestFitness method = new MethodNoExceptionCoverageTestFitness(branch.getClassName(), branch.getMethod());
+            this.dependencies.get(branch).add(method);
+        }
+    }
+
+    private void addDependencies4CBranch() {
+        logger.debug("Added dependencies for CBranch");
+        CallGraph callGraph = DependencyAnalysis.getCallGraph();
+        for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
+            Set<CallContext> entryPoints = callGraph.getMethodEntryPoint(branch.getClassName(), branch.getMethod());
+            for (CallContext context : entryPoints) {
+                CBranchTestFitness cBranch = new CBranchTestFitness(branch.getBranchGoal(), context);
+                this.dependencies.get(branch).add(cBranch);
+                logger.debug("Added context branch: {}", cBranch);
+            }
+        }
+    }
+
+    private void addDependencies4WeakMutation() {
+        logger.debug("Added dependencies for Weak-Mutation");
+        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
+            if (ff instanceof WeakMutationTestFitness) {
+                WeakMutationTestFitness mutation = (WeakMutationTestFitness) ff;
+                processMutationDependencies(mutation.getMutation().getControlDependencies(), ff);
+            }
+        }
+    }
+
+    private void addDependencies4StrongMutation() {
+        logger.debug("Added dependencies for Strong-Mutation");
+        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
+            if (ff instanceof StrongMutationTestFitness) {
+                StrongMutationTestFitness mutation = (StrongMutationTestFitness) ff;
+                processMutationDependencies(mutation.getMutation().getControlDependencies(), ff);
+            }
+        }
+    }
+
+    private void processMutationDependencies(Set<BranchCoverageGoal> goals, TestFitnessFunction ff) {
+        if (goals.isEmpty()) {
+            this.currentGoals.add(ff);
+        } else {
+            for (BranchCoverageGoal goal : goals) {
+                BranchCoverageTestFitness fitness = new BranchCoverageTestFitness(goal);
+                if (this.dependencies.containsKey(fitness)) {
+                    this.dependencies.get(fitness).add(ff);
+                }
+            }
+        }
+    }
+
+    private void addDependencies4Line() {
+        logger.debug("Added dependencies for Lines");
+        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
+            if (ff instanceof LineCoverageTestFitness) {
+                LineCoverageTestFitness line = (LineCoverageTestFitness) ff;
+                ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+                BytecodeInstructionPool pool = BytecodeInstructionPool.getInstance(loader);
+                BytecodeInstruction instruction = pool.getFirstInstructionAtLineNumber(line.getClassName(), line.getMethod(), line.getLine());
+                if (instruction == null) {
+                    continue;
+                }
+                Set<ControlDependency> cds = instruction.getControlDependencies();
+                if (cds.isEmpty())
+                    this.currentGoals.add(ff);
+                else {
+                    for (ControlDependency cd : cds) {
+                        BranchCoverageTestFitness fitness = BranchCoverageFactory.createBranchCoverageTestFitness(cd);
+                        if (this.dependencies.containsKey(fitness)) {
+                            this.dependencies.get(fitness).add(ff);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void addDependencies4Statement() {
+        logger.debug("Added dependencies for Statements");
+        for (TestFitnessFunction ff : this.getUncoveredGoals()) {
+            if (ff instanceof StatementCoverageTestFitness) {
+                StatementCoverageTestFitness stmt = (StatementCoverageTestFitness) ff;
+                if (stmt.getBranchFitnesses().isEmpty())
+                    this.currentGoals.add(ff);
+                else {
+                    for (BranchCoverageTestFitness branch : stmt.getBranchFitnesses()) {
+                        if (this.dependencies.containsKey(branch)) {
+                            this.dependencies.get(branch).add(stmt);
+                        }
+                    }
                 }
             }
         }
@@ -511,12 +343,6 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
             Class<?> exceptionClass = ExceptionCoverageHelper.getExceptionClass(result, i);
             String methodIdentifier = ExceptionCoverageHelper.getMethodIdentifier(result, i); //eg name+descriptor
             boolean sutException = ExceptionCoverageHelper.isSutException(result, i); // was the exception originated by a direct call on the SUT?
-
-            /*
-             * We only consider exceptions that were thrown by calling directly the SUT (not the other
-             * used libraries). However, this would ignore cases in which the SUT is indirectly tested
-             * through another class
-             */
 
             if (sutException) {
 
