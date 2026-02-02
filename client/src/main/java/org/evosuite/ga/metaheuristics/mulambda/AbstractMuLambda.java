@@ -28,7 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p>AbstractMuLambda</p>
+ * Abstract class for (Mu, Lambda) and (Mu + Lambda) evolutionary algorithms.
  *
  * @author José Campos
  */
@@ -38,10 +38,23 @@ public abstract class AbstractMuLambda<T extends Chromosome<T>> extends GeneticA
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractMuLambda.class);
 
+    /**
+     * The number of individuals in the population.
+     */
     protected final int mu;
 
+    /**
+     * The number of offspring generated in each generation.
+     */
     protected final int lambda;
 
+    /**
+     * Constructor.
+     *
+     * @param factory the chromosome factory
+     * @param mu      the population size
+     * @param lambda  the number of offspring
+     */
     public AbstractMuLambda(ChromosomeFactory<T> factory, int mu, int lambda) {
         super(factory);
         this.mu = mu;
@@ -97,13 +110,9 @@ public abstract class AbstractMuLambda<T extends Chromosome<T>> extends GeneticA
             this.applyLocalSearch();
 
             double newFitness = getBestIndividual().getFitness();
-            if (getFitnessFunction().isMaximizationFunction()) {
-                assert (newFitness >= bestFitness) : "best fitness was: " + bestFitness
-                        + ", now best fitness is " + newFitness;
-            } else {
-                assert (newFitness <= bestFitness) : "best fitness was: " + bestFitness
-                        + ", now best fitness is " + newFitness;
-            }
+            // Note: We do not assert that newFitness is better than bestFitness,
+            // because (Mu, Lambda) strategies can accept worse solutions.
+
             bestFitness = newFitness;
 
             if (Double.compare(bestFitness, lastBestFitness) == 0) {
