@@ -45,7 +45,7 @@ public interface LocalSearchObjective<T extends Chromosome<T>> {
 
     /**
      * Returns true if all the fitness functions are maximising functions
-     * (Observe that it is not possible to store simoustaneously maximising and
+     * (Observe that it is not possible to store simultaneously maximising and
      * minimising fitness functions)
      *
      * @return
@@ -71,10 +71,10 @@ public interface LocalSearchObjective<T extends Chromosome<T>> {
     boolean hasNotWorsened(T chromosome);
 
     /**
-     * Returns true if the individual has changed since local search started
+     * Checks if the individual has changed since local search started
      *
      * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
-     * @return a int.
+     * @return an integer indicating status: -1 if improved, 1 if worsened, 0 if unchanged.
      */
     int hasChanged(T chromosome);
 

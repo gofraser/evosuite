@@ -27,6 +27,7 @@ import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ObjectStreamException;
 import java.io.Serializable;
 
 /**
@@ -44,12 +45,12 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
     private final static Logger logger = LoggerFactory.getLogger(LocalSearchBudget.class);
 
     // Singleton instance
-    private static LocalSearchBudget<?> instance = null;
+    private static volatile LocalSearchBudget<?> instance = null;
 
-    protected int fitnessEvaluations = 0;
-    protected int tests = 0;
+    protected long fitnessEvaluations = 0;
+    protected long tests = 0;
     protected long executedStart = 0L;
-    protected int suites = 0;
+    protected long suites = 0;
     protected long startTime = 0L;
     protected long endTime = 0L;
 
@@ -63,10 +64,24 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
     // Singleton accessor
     @SuppressWarnings("unchecked")
     public static <T extends Chromosome<T>> LocalSearchBudget<T> getInstance() {
-        if (instance == null)
-            instance = new LocalSearchBudget<>();
+        if (instance == null) {
+            synchronized (LocalSearchBudget.class) {
+                if (instance == null) {
+                    instance = new LocalSearchBudget<>();
+                }
+            }
+        }
 
         return (LocalSearchBudget<T>) instance;
+    }
+
+    /**
+     * Resolve the singleton instance during deserialization.
+     * @return the singleton instance
+     * @throws ObjectStreamException if an error occurs
+     */
+    private Object readResolve() throws ObjectStreamException {
+        return getInstance();
     }
 
     /**
@@ -81,32 +96,42 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
         if (ga != null && ga.isFinished())
             return true;
 
-        boolean isFinished = false;
-
         switch (Properties.LOCAL_SEARCH_BUDGET_TYPE) {
             case FITNESS_EVALUATIONS:
-                isFinished = fitnessEvaluations >= Properties.LOCAL_SEARCH_BUDGET;
+                if (fitnessEvaluations >= Properties.LOCAL_SEARCH_BUDGET) {
+                    logger.info("Local search budget used up; type: " + Properties.LOCAL_SEARCH_BUDGET_TYPE);
+                    return true;
+                }
                 break;
             case SUITES:
-                isFinished = suites >= Properties.LOCAL_SEARCH_BUDGET;
+                if (suites >= Properties.LOCAL_SEARCH_BUDGET) {
+                    logger.info("Local search budget used up; type: " + Properties.LOCAL_SEARCH_BUDGET_TYPE);
+                    return true;
+                }
                 break;
             case STATEMENTS:
-                isFinished = MaxStatementsStoppingCondition.getNumExecutedStatements() > executedStart + Properties.LOCAL_SEARCH_BUDGET;
+                if (MaxStatementsStoppingCondition.getNumExecutedStatements() > executedStart + Properties.LOCAL_SEARCH_BUDGET) {
+                    logger.info("Local search budget used up; type: " + Properties.LOCAL_SEARCH_BUDGET_TYPE);
+                    return true;
+                }
                 break;
             case TESTS:
-                isFinished = tests >= Properties.LOCAL_SEARCH_BUDGET;
+                if (tests >= Properties.LOCAL_SEARCH_BUDGET) {
+                    logger.info("Local search budget used up; type: " + Properties.LOCAL_SEARCH_BUDGET_TYPE);
+                    return true;
+                }
                 break;
             case TIME:
-                isFinished = System.currentTimeMillis() > endTime;
+                if (System.currentTimeMillis() > endTime) {
+                    logger.info("Local search budget used up; type: " + Properties.LOCAL_SEARCH_BUDGET_TYPE);
+                    return true;
+                }
                 break;
             default:
                 throw new RuntimeException("Unknown budget type: "
                         + Properties.LOCAL_SEARCH_BUDGET_TYPE);
         }
-        if (isFinished) {
-            logger.info("Local search budget used up; type: " + Properties.LOCAL_SEARCH_BUDGET_TYPE);
-        }
-        return isFinished;
+        return false;
     }
 
     /**
@@ -189,11 +214,12 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
 
     /**
      * {@inheritDoc}
+     *
+     * Not used by LocalSearchBudget.
      */
     @Override
     public void fitnessEvaluation(T individual) {
-        // TODO Auto-generated method stub
-
+        // Not used
     }
 
     /* (non-Javadoc)
@@ -202,11 +228,12 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
 
     /**
      * {@inheritDoc}
+     *
+     * Not used by LocalSearchBudget.
      */
     @Override
     public void modification(T individual) {
-        // TODO Auto-generated method stub
-
+        // Not used
     }
 
 }
