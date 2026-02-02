@@ -48,9 +48,6 @@ public class TestConstraintSolver {
         Properties.TIMEOUT = 5000000;
         Properties.CONCOLIC_TIMEOUT = 5000000;
 
-        System.out.println("TestCase=");
-        System.out.println(tc.toCode());
-
         PathCondition pc = new ConcolicExecutorImpl().execute(tc);
         List<BranchCondition> branch_conditions = pc.getBranchConditions();
 
@@ -107,9 +104,6 @@ public class TestConstraintSolver {
 
         constraints.add(targetConstraint);
 
-        System.out.println("Target constraints");
-        printConstraints(constraints);
-
         EvoSuiteSolver solver = new EvoSuiteSolver();
         SolverResult solverResult;
         try {
@@ -118,21 +112,14 @@ public class TestConstraintSolver {
             solverResult = null;
         }
 
-        if (solverResult.isUNSAT())
-            System.out.println("No new model was found");
-        else {
-            Map<String, Object> model = solverResult.getModel();
-            System.out.println(model.toString());
-        }
+//        if (solverResult.isUNSAT())
+//            System.out.println("No new model was found");
+//        else {
+//            Map<String, Object> model = solverResult.getModel();
+//            System.out.println(model.toString());
+//        }
 
         return solverResult;
-    }
-
-    private static void printConstraints(List<Constraint<?>> constraints) {
-        for (Constraint<?> constraint : constraints) {
-            System.out.println(constraint);
-        }
-
     }
 
     /**

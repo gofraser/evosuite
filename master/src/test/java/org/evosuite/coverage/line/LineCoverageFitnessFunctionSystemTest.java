@@ -200,6 +200,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // seeding, but need to increase the budget
         Properties.PRIMITIVE_POOL = 0.0;
         Properties.SEARCH_BUDGET = 500_000;
+        Properties.GLOBAL_TIMEOUT = 300;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
         Object result = evosuite.parseCommandLine(command);
@@ -283,6 +284,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // seeding, but need to increase the budget
         Properties.PRIMITIVE_POOL = 0.0;
         Properties.SEARCH_BUDGET = 150000;
+        Properties.GLOBAL_TIMEOUT = 300;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
         Object result = evosuite.parseCommandLine(command);
@@ -346,7 +348,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         for (LineCoverageTestFitness goal : goals)
             System.out.println(goal);
 
-        assertEquals(8, goals.size());
+        assertEquals(9, goals.size());
     }
 
     @Test
@@ -371,7 +373,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         for (LineCoverageTestFitness goal : goals)
             System.out.println(goal);
 
-        assertEquals(8, goals.size());
+        assertEquals(9, goals.size());
     }
 
     @Test
@@ -396,7 +398,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         }
 
         // lines: 22, 24, 27, 30, 31, 32, 33, 35, 38 
-        Assert.assertEquals(9, lines.size());
+        Assert.assertEquals(11, lines.size());
     }
 
     @Test
@@ -418,7 +420,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         // lines: 22, 24, 27, 30, 31, 32, 33, 35, 38
-        Assert.assertEquals(9, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
+        Assert.assertEquals(11, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
         Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
     }
 }

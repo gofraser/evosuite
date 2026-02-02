@@ -59,7 +59,7 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
         }
 
         this.toRemoveLines.clear();
-        logger.info("Current state of archive: " + Archive.getArchiveInstance().toString());
+        logger.debug("Current state of archive: " + Archive.getArchiveInstance().toString());
 
         assert this.numLines == this.lineGoals.size() + this.removedLines.size();
 
@@ -127,7 +127,7 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
         double additionalFitness = getAdditionalFitness(results);
         fitness += additionalFitness;
         if (additionalFitness > 0) {
-            logger.info("Additional guidance fitness: " + additionalFitness);
+            logger.debug("Additional guidance fitness: " + additionalFitness);
         }
 
         Set<Integer> coveredLines = new LinkedHashSet<>();

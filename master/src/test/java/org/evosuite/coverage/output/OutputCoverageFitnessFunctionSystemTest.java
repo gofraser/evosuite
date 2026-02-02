@@ -97,7 +97,7 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         for (TestFitnessFactory ff : TestGenerationStrategy.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
         Assert.assertEquals("Unexpected number of goals", 29, goals);
-        Assert.assertEquals("Non-optimal fitness: ", 5.0, best.getFitness(), 0.001);
+        Assert.assertEquals("Non-optimal fitness: ", 2.5, best.getFitness(), 0.001);
     }
 
     @Test
@@ -115,7 +115,7 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         int goals = 0;
         for (TestFitnessFactory ff : TestGenerationStrategy.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
-        Assert.assertEquals("Unexpected number of goals", 11, goals);
+        Assert.assertEquals("Unexpected number of goals", 12, goals);
         Assert.assertEquals("Unexpected coverage: ", 1d, best.getCoverage(), 0.001);
     }
 

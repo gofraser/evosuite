@@ -53,12 +53,11 @@ public class MIOSystemTest extends SystemTestBase {
         Assert.assertEquals(TestSuiteAdapter.class, ga.getClass());
 
         @SuppressWarnings("unchecked")
-        TestSuiteAdapter<MIO> mio = (TestSuiteAdapter<MIO>) ga;
+        MIOTestSuiteAdapter mio = (MIOTestSuiteAdapter) ga;
 
         Assert.assertEquals(MIO.class, mio.getAlgorithm().getClass());
 
         TestSuiteChromosome best = mio.getBestIndividual();
-        System.out.println("EvolvedTestSuite:\n" + best);
         Assert.assertEquals(0.0, best.getFitness(), 0.0);
         Assert.assertEquals(1d, best.getCoverage(), 0.001);
     }
