@@ -31,12 +31,26 @@ public class MaxSizeBloatControl<T extends Chromosome<T>> implements BloatContro
 
     private static final long serialVersionUID = -8241127914702360972L;
 
+    private int maxSize;
+
     public MaxSizeBloatControl() {
-        // empty constructor
+        this.maxSize = Properties.MAX_SIZE;
+    }
+
+    public MaxSizeBloatControl(int maxSize) {
+        this.maxSize = maxSize;
     }
 
     public MaxSizeBloatControl(final MaxSizeBloatControl<?> that) {
-        // empty copy constructor
+        this.maxSize = that.maxSize;
+    }
+
+    public int getMaxSize() {
+        return maxSize;
+    }
+
+    public void setMaxSize(int maxSize) {
+        this.maxSize = maxSize;
     }
 
     /**
@@ -46,7 +60,7 @@ public class MaxSizeBloatControl<T extends Chromosome<T>> implements BloatContro
      */
     @Override
     public boolean isTooLong(T chromosome) {
-        return chromosome.size() > Properties.MAX_SIZE;
+        return chromosome.size() > maxSize;
     }
 
 }
