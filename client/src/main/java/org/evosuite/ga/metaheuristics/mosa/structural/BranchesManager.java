@@ -26,8 +26,6 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -39,7 +37,6 @@ import java.util.*;
  */
 public class BranchesManager extends StructuralGoalManager {
 
-    private static final Logger logger = LoggerFactory.getLogger(BranchesManager.class);
     private static final long serialVersionUID = 6453893627503159175L;
 
     protected BranchFitnessGraph graph;
@@ -96,12 +93,10 @@ public class BranchesManager extends StructuralGoalManager {
         Set<TestFitnessFunction> visitedStatements = new HashSet<>(this.getUncoveredGoals().size() * 2);
         LinkedList<TestFitnessFunction> targets = new LinkedList<>(this.currentGoals);
 
-        while (targets.size() > 0 && !ga.isFinished()) {
+        while (!targets.isEmpty() && !ga.isFinished()) {
             TestFitnessFunction fitnessFunction = targets.poll();
 
-            int pastSize = visitedStatements.size();
-            visitedStatements.add(fitnessFunction);
-            if (pastSize == visitedStatements.size())
+            if (!visitedStatements.add(fitnessFunction))
                 continue;
 
             double value = fitnessFunction.getFitness(c);
@@ -133,16 +128,6 @@ public class BranchesManager extends StructuralGoalManager {
             if (branch == null)
                 continue;
             updateCoveredGoals(branch, c);
-        }
-        //debugStructuralDependencies(c);
-    }
-
-    protected void debugStructuralDependencies(TestChromosome c) {
-        for (TestFitnessFunction fitnessFunction : this.getUncoveredGoals()) {
-            double value = fitnessFunction.getFitness(c);
-            if (value < 1 && !currentGoals.contains(fitnessFunction) && !this.getCoveredGoals().contains(fitnessFunction)) {
-                logger.error("Branch {} has fitness {} but is not in the current goals", fitnessFunction, value);
-            }
         }
     }
 
