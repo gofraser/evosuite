@@ -136,35 +136,29 @@ public final class FeatureVector implements Serializable {
         return Arrays.toString(features);
     }
 
-    private static int getPossibilityCountForType(Class<?> type) {
+    private static double getPossibilityCountForType(Class<?> type) {
         final Class<?> wrappedType = ClassUtils.primitiveToWrapper(type);
 
-        int amount = 0;
-
         if (Character.class.isAssignableFrom(wrappedType)) {
-            amount = 1;
+            return 2.0;
         } else if (Boolean.class.isAssignableFrom(wrappedType)) {
-            amount = 2;
+            return 2.0;
         } else if (String.class.isAssignableFrom(wrappedType)) {
-            amount = 2;
+            return 2.0;
         } else if (wrappedType.isEnum()) {
-            amount = wrappedType.getEnumConstants().length;
+            return wrappedType.getEnumConstants().length;
         } else if (Number.class.isAssignableFrom(wrappedType)) {
-            amount = 3;
+            return 3.0;
         }
 
-        if (!type.isPrimitive()) {
-            amount += 1;
-        }
-
-        return amount;
+        return 1.0;
     }
 
-    public static int getPossibilityCount(final Inspector[] inspectors) {
+    public static double getPossibilityCount(final Inspector[] inspectors) {
         return Arrays
                 .stream(inspectors)
-                .mapToInt(i -> getPossibilityCountForType(i.getReturnType()))
-                .reduce(1, Math::multiplyExact);
+                .mapToDouble(i -> getPossibilityCountForType(i.getReturnType()))
+                .reduce(1.0, (a, b) -> a * b);
     }
 
 }

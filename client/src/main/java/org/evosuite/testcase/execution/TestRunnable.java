@@ -315,9 +315,9 @@ public class TestRunnable implements InterfaceTestRunnable {
                 // check if it was an explicit exception
                 // --------------------------------------------------------
                 if (ExecutionTracer.getExecutionTracer().getLastException() == exceptionThrown) {
-                    result.explicitExceptions.put(num.get(), true);
+                    result.getExplicitExceptions().put(num.get(), true);
                 } else {
-                    result.explicitExceptions.put(num.get(), false);
+                    result.getExplicitExceptions().put(num.get(), false);
                 }
                 // --------------------------------------------------------
 

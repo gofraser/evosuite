@@ -162,19 +162,9 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
                     + target);
             return internalAddEdge(src, target, new ControlFlowEdge(isExceptionEdge));
         }
-        // throw new IllegalStateException(
-        // "expect BranchPool to contain a Branch for each switch-case-label"+src.toString()+" to "+target.toString());
-
-        // TODO there is an inconsistency when it comes to switches with
-        // empty case: blocks. they do not have their own label, so there
-        // can be multiple ControlFlowEdges from the SWITCH instruction to
-        // one LabelNode.
-        // But currently our RawCFG does not permit multiple edges between
-        // two nodes
 
         for (Branch switchCaseBranch : switchCaseBranches) {
 
-            // TODO n^2
             Set<ControlFlowEdge> soFar = incomingEdgesOf(target);
             boolean handled = false;
             for (ControlFlowEdge old : soFar)
@@ -183,22 +173,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
             if (handled)
                 continue;
-            /*
-             * previous try to add fake intermediate nodes for each empty case
-             * block to help the CDG - unsuccessful:
-             * if(switchCaseBranches.size()>1) { // // e = new
-             * ControlFlowEdge(isExceptionEdge); //
-             * e.setBranchInstruction(switchCaseBranch); //
-             * e.setBranchExpressionValue(true); // BytecodeInstruction
-             * fakeInstruction =
-             * BytecodeInstructionPool.createFakeInstruction(className
-             * ,methodName); // addVertex(fakeInstruction); //
-             * internalAddEdge(src,fakeInstruction,e); // // e = new
-             * ControlFlowEdge(isExceptionEdge); //
-             * e.setBranchInstruction(switchCaseBranch); //
-             * e.setBranchExpressionValue(true); // // e =
-             * internalAddEdge(fakeInstruction,target,e); // } else {
-             */
 
             ControlDependency cd = new ControlDependency(switchCaseBranch, true);
             ControlFlowEdge e = new ControlFlowEdge(cd, isExceptionEdge);
@@ -214,7 +188,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
                                             BytecodeInstruction target, ControlFlowEdge e) {
 
         if (!super.addEdge(src, target, e)) {
-            // TODO find out why this still happens
             logger.debug("unable to add edge from " + src.toString() + " to "
                     + target.toString() + " into the rawCFG of " + getMethodName());
             e = super.getEdge(src, target);
@@ -249,8 +222,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
     public BasicBlock determineBasicBlockFor(BytecodeInstruction instruction) {
         if (instruction == null)
             throw new IllegalArgumentException("null given");
-
-        // TODO clean this up
 
         logger.debug("creating basic block for " + instruction);
 
@@ -768,9 +739,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
                 if (GraphPool.getInstance(classLoader).getRawCFG(className,
                         ins.getCalledMethod()) != null)
                     calls.add(ins);
-                // TODO logger.warn or logger.debug
-                // else
-                // System.out.println("false positive call to own classes method: "+ins.toString());
             }
 
         return calls;

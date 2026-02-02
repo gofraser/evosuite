@@ -491,7 +491,7 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
         }
 
         /** Test case total execution time **/
-        DSEStatistics.getInstance().reportTotalTestExecutionTime(TestCaseExecutor.timeExecuted);
+        DSEStatistics.getInstance().reportTotalTestExecutionTime(TestCaseExecutor.getTimeExecuted());
 
         /** Test case total execution time **/
         DSEStatistics.getInstance().logStatistics();

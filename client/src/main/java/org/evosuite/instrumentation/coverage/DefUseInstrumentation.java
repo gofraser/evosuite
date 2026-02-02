@@ -69,21 +69,24 @@ public class DefUseInstrumentation implements MethodInstrumentation {
         RawControlFlowGraph completeCFG = GraphPool.getInstance(classLoader).getRawCFG(className,
                 methodName);
         logger.info("Applying DefUse instrumentation on CFG with " + completeCFG.vertexCount() + " nodes");
+
+        // Optimization: Create a map for fast lookup of BytecodeInstructions by their ASM nodes
+        Map<AbstractInsnNode, BytecodeInstruction> instructionMap = new HashMap<>();
+        for (BytecodeInstruction v : completeCFG.vertexSet()) {
+            instructionMap.put(v.getASMNode(), v);
+        }
+
         Iterator<AbstractInsnNode> j = mn.instructions.iterator();
         while (j.hasNext()) {
             AbstractInsnNode in = j.next();
-            for (BytecodeInstruction v : completeCFG.vertexSet()) {
+            BytecodeInstruction v = instructionMap.get(in);
 
+            if (v != null) {
                 if ((ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
                         || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS))
-                        && in.equals(v.getASMNode()) && v.isDefUse()) {
+                        && v.isDefUse()) {
 
                     boolean isValidDU = false;
-
-//					if(v.isLocalArrayDefinition()) {
-//						LoggingUtils.getEvoLogger().info(
-//							"LOCAL ARRAY VAR DEF " + v.toString()+" loaded by "+v.getSourceOfStackInstruction(2).toString());
-//					}
 
                     if (v.isMethodCallOfField()) {
                         // keep track of field method calls, though we do not
@@ -119,8 +122,6 @@ public class DefUseInstrumentation implements MethodInstrumentation {
                             // Loading of an array is already handled by ALOAD
                             // AILOAD would only be needed if we define DU pairs on
                             // array indices
-                            //						else if(v.isArrayLoadInstruction())
-                            //							mn.instructions.insertBefore(v.getSourceOfArrayReference().getASMNode(), instrumentation);
                         else if (v.isUse())
                             mn.instructions.insert(v.getASMNode(), instrumentation);
                         else
@@ -181,18 +182,6 @@ public class DefUseInstrumentation implements MethodInstrumentation {
         }
     }
 
-    @SuppressWarnings({"unchecked", "unused"})
-    private int getNextLocalVariable(MethodNode mn) {
-        int var = 1;
-        List<LocalVariableNode> nodes = mn.localVariables;
-        for (LocalVariableNode varNode : nodes) {
-            if (varNode.index >= var) {
-                var = varNode.index + 1;
-            }
-        }
-        return var;
-    }
-
     private void addObjectInstrumentation(BytecodeInstruction instruction, InsnList instrumentation, MethodNode mn) {
         if (instruction.isLocalVariableDefinition()) {
             if (instruction.getASMNode().getOpcode() == Opcodes.ALOAD) {
@@ -212,7 +201,7 @@ public class DefUseInstrumentation implements MethodInstrumentation {
         } else if (instruction.isArrayLoadInstruction()) {
             instrumentation.add(new InsnNode(Opcodes.ACONST_NULL));
         } else if (instruction.isFieldNodeDU()) {
-            // TODO: FieldNodeDU takes care of ArrayStore - why?
+            // FieldNodeDU takes care of ArrayStore
             Type type = Type.getType(instruction.getFieldType());
             if (type.getSort() == Type.OBJECT) {
                 instrumentation.add(new InsnNode(Opcodes.DUP));
@@ -232,12 +221,14 @@ public class DefUseInstrumentation implements MethodInstrumentation {
     }
 
     @SuppressWarnings("unchecked")
-    private int getNextLocalNum(MethodNode mn) {
+    private int getNextLocalVariableIndex(MethodNode mn) {
         List<LocalVariableNode> variables = mn.localVariables;
         int max = 0;
-        for (LocalVariableNode node : variables) {
-            if (node.index > max)
-                max = node.index;
+        if (variables != null) {
+            for (LocalVariableNode node : variables) {
+                if (node.index > max)
+                    max = node.index;
+            }
         }
         return max + 1;
     }
@@ -247,7 +238,7 @@ public class DefUseInstrumentation implements MethodInstrumentation {
 
         String descriptor = call.getMethodCallDescriptor();
         Type[] args = Type.getArgumentTypes(descriptor);
-        int loc = getNextLocalNum(mn);
+        int loc = getNextLocalVariableIndex(mn);
         Map<Integer, Integer> to = new HashMap<>();
         for (int i = args.length - 1; i >= 0; i--) {
             Type type = args[i];

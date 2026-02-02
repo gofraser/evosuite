@@ -47,6 +47,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
      */
     public static final int MIN_REACHABLE_COVERAGE = 0;
     public static final int MAX_REACHABLE_COVERAGE = 100;
+    public static final int UNCOVERED_GOALS_DEFAULT = -1;
 
     /**
      * Constant <code>logger</code>
@@ -91,10 +92,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
      * The number of covered goals with regard to the fitness function given as key
      */
     private final LinkedHashMap<FitnessFunction<T>, Integer> numsCoveredGoals = new LinkedHashMap<>();
-
-    // protected double coverage = 0.0;
-
-    // protected int numOfCoveredGoals = 0;
 
     /**
      * Generation in which this chromosome was created
@@ -232,7 +229,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
         this.previousFitnessValues.put(ff, fitnessValue);
         this.coverageValues.put(ff, coverage);
         this.numsCoveredGoals.put(ff, numCoveredGoals);
-        this.numsNotCoveredGoals.put(ff, -1);
+        this.numsNotCoveredGoals.put(ff, UNCOVERED_GOALS_DEFAULT);
     }
 
     /**
@@ -346,25 +343,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
     public abstract boolean localSearch(LocalSearchObjective<T> objective);
 
     /**
-     * Apply the local search
-     *
-     * @param objective
-     *            a {@link org.evosuite.ga.LocalSearchObjective} object.
-     */
-    // public void applyAdaptiveLocalSearch(LocalSearchObjective<? extends
-    // Chromosome> objective) {
-    // // No-op
-    // }
-
-    /**
-     * Apply DSE
-     *
-     * @param algorithm
-     *            a {@link org.evosuite.ga.GeneticAlgorithm} object.
-     */
-    // public abstract boolean applyDSE(GeneticAlgorithm<?> algorithm);
-
-    /**
      * Return length of individual
      *
      * @return a int.
@@ -383,6 +361,10 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     /**
      * Set changed status to @param changed
+     * <p>
+     * Note: If changed is set to true, it also resets {@code localSearchApplied} to false,
+     * implying local search can be applied again.
+     * </p>
      *
      * @param changed a boolean.
      */
@@ -470,10 +452,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
         this.coverageValues.clear();
         this.coverageValues.putAll(coverages);
     }
-
-    // public void setNumOfCoveredGoals(int numOfCoveredGoals) {
-    // this.numOfCoveredGoals = numOfCoveredGoals;
-    // }
 
     /**
      * Gets the coverage value for a given fitness function

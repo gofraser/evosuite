@@ -27,6 +27,9 @@ import java.util.List;
 
 /**
  * <p>SizePopulationLimit class.</p>
+ * <p>
+ * Limits the population size based on the sum of the sizes of all individuals (chromosomes) in the population.
+ * The size of a chromosome is determined by {@link Chromosome#size()}.
  *
  * @author fraser
  */
@@ -34,7 +37,22 @@ public class SizePopulationLimit<T extends Chromosome<T>> implements PopulationL
 
     private static final long serialVersionUID = 7978512501601348014L;
 
+    private final int limit;
+
+    /**
+     * Constructor using the default population limit from Properties.
+     */
     public SizePopulationLimit() {
+        this(Properties.POPULATION);
+    }
+
+    /**
+     * Constructor using a specific limit.
+     *
+     * @param limit the maximum allowed sum of sizes of individuals.
+     */
+    public SizePopulationLimit(int limit) {
+        this.limit = limit;
     }
 
     /**
@@ -45,9 +63,10 @@ public class SizePopulationLimit<T extends Chromosome<T>> implements PopulationL
      * <p>
      * This constructor shall preserve the current state of the SizePopulationLimit (if existing).
      *
-     * @param other
+     * @param other the other limit to copy
      */
     public SizePopulationLimit(SizePopulationLimit<?> other) {
+        this.limit = other.limit;
     }
 
     /* (non-Javadoc)
@@ -60,7 +79,15 @@ public class SizePopulationLimit<T extends Chromosome<T>> implements PopulationL
     @Override
     public boolean isPopulationFull(List<T> population) {
         final int size = population.stream().mapToInt(Chromosome::size).sum();
-        return size >= Properties.POPULATION;
+        return size >= limit;
     }
 
+    /**
+     * Returns the configured limit.
+     *
+     * @return the limit
+     */
+    public int getLimit() {
+        return limit;
+    }
 }

@@ -28,14 +28,16 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.analysis.Frame;
 
+import java.util.Map;
+
 /**
  * Make sure array accesses of boolean arrays are also transformed
  */
 public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
-    private final Frame[] frames;
+    private final Map<AbstractInsnNode, Frame> frames;
 
     // TODO: Use currentFrames
-    public BooleanArrayIndexTransformer(Frame[] frames) {
+    public BooleanArrayIndexTransformer(Map<AbstractInsnNode, Frame> frames) {
         this.frames = frames;
     }
 
@@ -49,7 +51,8 @@ public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
         }
 
         if (insnNode.getOpcode() == Opcodes.BALOAD) {
-            Frame current = frames[mn.instructions.indexOf(insnNode)];
+            Frame current = frames.get(insnNode);
+            if (current == null) return insnNode;
             int size = current.getStackSize();
             if (current.getStack(size - 2) == BooleanArrayInterpreter.INT_ARRAY) {
                 BooleanTestabilityTransformation.logger.info("Array is of boolean type, changing BALOAD to IALOAD");
@@ -59,7 +62,8 @@ public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
                 return replacement;
             }
         } else if (insnNode.getOpcode() == Opcodes.BASTORE) {
-            Frame current = frames[mn.instructions.indexOf(insnNode)];
+            Frame current = frames.get(insnNode);
+            if (current == null) return insnNode;
             int size = current.getStackSize();
             if (current.getStack(size - 3) == BooleanArrayInterpreter.INT_ARRAY) {
                 BooleanTestabilityTransformation.logger.info("Array is of boolean type, changing BASTORE to IASTORE");
@@ -82,7 +86,8 @@ public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
             return typeNode;
 
         if (typeNode.getOpcode() == Opcodes.CHECKCAST) {
-            Frame current = frames[mn.instructions.indexOf(typeNode)];
+            Frame current = frames.get(typeNode);
+            if (current == null) return typeNode;
             int size = current.getStackSize();
             if (current.getStack(size - 1) == BooleanArrayInterpreter.INT_ARRAY) {
                 BooleanTestabilityTransformation.logger.info("Array is of boolean type, changing CHECKCAST to [I");

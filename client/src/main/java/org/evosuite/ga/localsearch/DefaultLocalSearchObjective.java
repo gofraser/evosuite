@@ -45,7 +45,10 @@ public class DefaultLocalSearchObjective<T extends Chromosome<T>> implements Loc
     private boolean isMaximization = false;
 
     /**
-     * This operation should not be invoked for this class
+     * This operation is not supported by this class.
+     *
+     * @return boolean
+     * @throws UnsupportedOperationException always
      */
     @Override
     public boolean isDone() {
@@ -53,7 +56,11 @@ public class DefaultLocalSearchObjective<T extends Chromosome<T>> implements Loc
     }
 
     /**
-     * This operation should not be invoked for this class
+     * This operation is not supported by this class.
+     *
+     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
+     * @return boolean
+     * @throws UnsupportedOperationException always
      */
     @Override
     public boolean hasImproved(T chromosome) {
@@ -93,7 +100,11 @@ public class DefaultLocalSearchObjective<T extends Chromosome<T>> implements Loc
 
 
     /**
-     * This operation should not be invoked for this class
+     * This operation is not supported by this class.
+     *
+     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
+     * @return int
+     * @throws UnsupportedOperationException always
      */
     @Override
     public int hasChanged(T chromosome) {
@@ -101,7 +112,11 @@ public class DefaultLocalSearchObjective<T extends Chromosome<T>> implements Loc
     }
 
     /**
-     * This operation should not be invoked for this class
+     * This operation is not supported by this class.
+     *
+     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
+     * @return boolean
+     * @throws UnsupportedOperationException always
      */
     @Override
     public boolean hasNotWorsened(T chromosome) {

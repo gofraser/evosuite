@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga;
 
+import org.evosuite.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,8 +41,6 @@ public class TournamentChromosomeFactory<T extends Chromosome<T>> implements
     private final FitnessFunction<T> fitnessFunction;
 
     private final ChromosomeFactory<T> factory;
-
-    private final int tournamentSize = 10;
 
     /**
      * <p>
@@ -67,15 +66,25 @@ public class TournamentChromosomeFactory<T extends Chromosome<T>> implements
     public T getChromosome() {
         T bestIndividual = null;
         logger.debug("Starting random generation");
-        for (int i = 0; i < tournamentSize; i++) {
+        for (int i = 0; i < Properties.TOURNAMENT_SIZE; i++) {
             T candidate = factory.getChromosome();
             fitnessFunction.getFitness(candidate);
             if (bestIndividual == null) {
                 bestIndividual = candidate;
-            } else if (candidate.compareTo(bestIndividual) <= 0) {
-                logger.debug("Old individual has fitness " + bestIndividual.getFitness(this.fitnessFunction)
-                        + ", replacing with fitness " + candidate.getFitness(this.fitnessFunction));
-                bestIndividual = candidate;
+            } else {
+                int comparison = candidate.compareTo(bestIndividual);
+                boolean better;
+                if (fitnessFunction.isMaximizationFunction()) {
+                    better = comparison > 0;
+                } else {
+                    better = comparison < 0;
+                }
+
+                if (better) {
+                    logger.debug("Old individual has fitness " + bestIndividual.getFitness(this.fitnessFunction)
+                            + ", replacing with fitness " + candidate.getFitness(this.fitnessFunction));
+                    bestIndividual = candidate;
+                }
             }
         }
         if (bestIndividual != null)

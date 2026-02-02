@@ -33,8 +33,10 @@ import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
@@ -74,40 +76,44 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
         RawControlFlowGraph graph = GraphPool.getInstance(classLoader).getRawCFG(className,
                 methodName);
+
+        // Optimization: Create a map for fast lookup of BytecodeInstructions by their ASM nodes
+        Map<AbstractInsnNode, BytecodeInstruction> instructionMap = new HashMap<>();
+        for (BytecodeInstruction v : graph.vertexSet()) {
+            instructionMap.put(v.getASMNode(), v);
+        }
+
         Iterator<AbstractInsnNode> j = mn.instructions.iterator();
         while (j.hasNext()) {
             AbstractInsnNode in = j.next();
-            for (BytecodeInstruction v : graph.vertexSet()) {
+            BytecodeInstruction v = instructionMap.get(in);
 
-                // If this is in the CFG and it's a branch...
-                if (in.equals(v.getASMNode())) {
-                    if (v.isBranch()) {
-                        if (in.getPrevious() instanceof LabelNode) {
-                            LabelNode label = (LabelNode) in.getPrevious();
-                            if (label.getLabel() instanceof AnnotatedLabel) {
-                                AnnotatedLabel aLabel = (AnnotatedLabel) label.getLabel();
-                                if (aLabel.isStartTag()) {
-                                    if (!aLabel.shouldIgnore()) {
-                                        logger.debug("Found artificial branch: " + v);
-                                        Branch b = BranchPool.getInstance(classLoader).getBranchForInstruction(v);
-                                        b.setInstrumented(true);
-                                        if (aLabel.shouldIgnoreFalse())
-                                            b.setIgnoreFalse(true);
-                                    } else {
-                                        continue;
-                                    }
+            if (v != null) {
+                if (v.isBranch()) {
+                    if (in.getPrevious() instanceof LabelNode) {
+                        LabelNode label = (LabelNode) in.getPrevious();
+                        if (label.getLabel() instanceof AnnotatedLabel) {
+                            AnnotatedLabel aLabel = (AnnotatedLabel) label.getLabel();
+                            if (aLabel.isStartTag()) {
+                                if (!aLabel.shouldIgnore()) {
+                                    logger.debug("Found artificial branch: " + v);
+                                    Branch b = BranchPool.getInstance(classLoader).getBranchForInstruction(v);
+                                    b.setInstrumented(true);
+                                    if (aLabel.shouldIgnoreFalse())
+                                        b.setIgnoreFalse(true);
+                                } else {
+                                    continue;
                                 }
                             }
                         }
-                        mn.instructions.insertBefore(v.getASMNode(), getInstrumentation(v));
-
-                    } else if (v.isSwitch()) {
-
-                        mn.instructions.insertBefore(v.getASMNode(),
-                                getSwitchInstrumentation(v, mn,
-                                        className,
-                                        methodName));
                     }
+                    mn.instructions.insertBefore(v.getASMNode(), getInstrumentation(v));
+
+                } else if (v.isSwitch()) {
+                    mn.instructions.insertBefore(v.getASMNode(),
+                            getSwitchInstrumentation(v, mn,
+                                    className,
+                                    methodName));
                 }
             }
         }
@@ -149,7 +155,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
             case Opcodes.IFLE:
                 instrumentation.add(new InsnNode(Opcodes.DUP));
                 instrumentation.add(new LdcInsnNode(opcode));
-                // instrumentation.add(new LdcInsnNode(id));
                 instrumentation.add(new LdcInsnNode(branchId));
                 instrumentation.add(new LdcInsnNode(instructionId));
                 instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
@@ -166,7 +171,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
             case Opcodes.IF_ICMPLE:
                 instrumentation.add(new InsnNode(Opcodes.DUP2));
                 instrumentation.add(new LdcInsnNode(opcode));
-                // instrumentation.add(new LdcInsnNode(id));
                 instrumentation.add(new LdcInsnNode(branchId));
                 instrumentation.add(new LdcInsnNode(instructionId));
                 instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
@@ -176,7 +180,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
             case Opcodes.IF_ACMPNE:
                 instrumentation.add(new InsnNode(Opcodes.DUP2));
                 instrumentation.add(new LdcInsnNode(opcode));
-                // instrumentation.add(new LdcInsnNode(id));
                 instrumentation.add(new LdcInsnNode(branchId));
                 instrumentation.add(new LdcInsnNode(instructionId));
                 instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
@@ -187,7 +190,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
             case Opcodes.IFNONNULL:
                 instrumentation.add(new InsnNode(Opcodes.DUP));
                 instrumentation.add(new LdcInsnNode(opcode));
-                // instrumentation.add(new LdcInsnNode(id));
                 instrumentation.add(new LdcInsnNode(branchId));
                 instrumentation.add(new LdcInsnNode(instructionId));
                 instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,

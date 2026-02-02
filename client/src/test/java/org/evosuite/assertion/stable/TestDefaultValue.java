@@ -61,7 +61,7 @@ public class TestDefaultValue {
         DefaultTestCase tc = builder.getDefaultTestCase();
         ExecutionResult ret_val = TestCaseExecutor.runTest(tc);
         assertNotNull(ret_val);
-        assertFalse(ret_val.explicitExceptions.isEmpty());
+        assertFalse(ret_val.getExplicitExceptions().isEmpty());
     }
 
     @Test
@@ -75,7 +75,7 @@ public class TestDefaultValue {
         DefaultTestCase tc = builder.getDefaultTestCase();
         ExecutionResult ret_val = TestCaseExecutor.runTest(tc);
         assertNotNull(ret_val);
-        assertFalse(ret_val.explicitExceptions.isEmpty());
+        assertFalse(ret_val.getExplicitExceptions().isEmpty());
     }
 
     @Test
@@ -89,7 +89,7 @@ public class TestDefaultValue {
         DefaultTestCase tc = builder.getDefaultTestCase();
         ExecutionResult ret_val = TestCaseExecutor.runTest(tc);
         assertNotNull(ret_val);
-        assertFalse(ret_val.explicitExceptions.isEmpty());
+        assertFalse(ret_val.getExplicitExceptions().isEmpty());
     }
 
     @Test
@@ -103,7 +103,7 @@ public class TestDefaultValue {
         DefaultTestCase tc = builder.getDefaultTestCase();
         ExecutionResult ret_val = TestCaseExecutor.runTest(tc);
         assertNotNull(ret_val);
-        assertFalse(ret_val.explicitExceptions.isEmpty());
+        assertFalse(ret_val.getExplicitExceptions().isEmpty());
     }
 
     @Test
@@ -117,7 +117,7 @@ public class TestDefaultValue {
         DefaultTestCase tc = builder.getDefaultTestCase();
         ExecutionResult ret_val = TestCaseExecutor.runTest(tc);
         assertNotNull(ret_val);
-        assertFalse(ret_val.explicitExceptions.isEmpty());
+        assertFalse(ret_val.getExplicitExceptions().isEmpty());
     }
 
     @Test
@@ -131,7 +131,7 @@ public class TestDefaultValue {
         DefaultTestCase tc = builder.getDefaultTestCase();
         ExecutionResult ret_val = TestCaseExecutor.runTest(tc);
         assertNotNull(ret_val);
-        assertFalse(ret_val.explicitExceptions.isEmpty());
+        assertFalse(ret_val.getExplicitExceptions().isEmpty());
     }
 
     @Test
@@ -145,6 +145,6 @@ public class TestDefaultValue {
         DefaultTestCase tc = builder.getDefaultTestCase();
         ExecutionResult ret_val = TestCaseExecutor.runTest(tc);
         assertNotNull(ret_val);
-        assertFalse(ret_val.explicitExceptions.isEmpty());
+        assertFalse(ret_val.getExplicitExceptions().isEmpty());
     }
 }

@@ -33,6 +33,10 @@ import java.io.IOException;
 
 /**
  * <p>TransformationStatistics class.</p>
+ * <p>
+ * This class uses ThreadLocal to ensure that statistics are tracked independently
+ * for each thread (e.g., when running multiple instrumentations in parallel).
+ * </p>
  *
  * @author Gordon Fraser
  */
@@ -40,128 +44,48 @@ public class TransformationStatistics {
 
     private static final Logger logger = LoggerFactory.getLogger(TransformationStatistics.class);
 
-    /**
-     * Constant <code>transformedBooleanComparison=0</code>
-     */
-    public static int transformedBooleanComparison = 0;
+    private static final ThreadLocal<Stats> stats = ThreadLocal.withInitial(Stats::new);
 
-    /**
-     * Constant <code>insertedGet=0</code>
-     */
-    public static int insertedGet = 0;
-
-    /**
-     * Constant <code>insertedPushInt0=0</code>
-     */
-    public static int insertedPushInt0 = 0;
-
-    /**
-     * Constant <code>insertedPushInt1=0</code>
-     */
-    public static int insertedPushInt1 = 0;
-
-    /**
-     * Constant <code>insertedPushIntRef=0</code>
-     */
-    public static int insertedPushIntRef = 0;
-
-    /**
-     * Constant <code>insertedPushIntNull=0</code>
-     */
-    public static int insertedPushIntNull = 0;
-
-    /**
-     * Constant <code>transformedComparison=0</code>
-     */
-    public static int transformedComparison = 0;
-
-    /**
-     * Constant <code>transformedImplicitElse=0</code>
-     */
-    public static int transformedImplicitElse = 0;
-
-    /**
-     * Constant <code>transformedInstanceOf=0</code>
-     */
-    public static int transformedInstanceOf = 0;
-
-    /**
-     * Constant <code>transformedBooleanReturn=0</code>
-     */
-    public static int transformedBooleanReturn = 0;
-
-    /**
-     * Constant <code>transformedBooleanParameter=0</code>
-     */
-    public static int transformedBooleanParameter = 0;
-
-    /**
-     * Constant <code>transformedBooleanField=0</code>
-     */
-    public static int transformedBooleanField = 0;
-
-    /**
-     * Constant <code>transformedBackToBooleanParameter=0</code>
-     */
-    public static int transformedBackToBooleanParameter = 0;
-
-    /**
-     * Constant <code>transformedBackToBooleanField=0</code>
-     */
-    public static int transformedBackToBooleanField = 0;
-
-    /**
-     * Constant <code>untransformableMethod=0</code>
-     */
-    public static int untransformableMethod = 0;
-
-    /**
-     * Constant <code>transformedStringComparison=0</code>
-     */
-    public static int transformedStringComparison = 0;
-
-    /**
-     * Constant <code>transformedContainerComparison=0</code>
-     */
-    public static int transformedContainerComparison = 0;
-
-    /**
-     * Constant <code>transformedBitwise=0</code>
-     */
-    public static int transformedBitwise = 0;
+    private static class Stats {
+        int transformedBooleanComparison = 0;
+        int insertedGet = 0;
+        int insertedPushInt0 = 0;
+        int insertedPushInt1 = 0;
+        int insertedPushIntRef = 0;
+        int insertedPushIntNull = 0;
+        int transformedComparison = 0;
+        int transformedImplicitElse = 0;
+        int transformedInstanceOf = 0;
+        int transformedBooleanReturn = 0;
+        int transformedBooleanParameter = 0;
+        int transformedBooleanField = 0;
+        int transformedBackToBooleanParameter = 0;
+        int transformedBackToBooleanField = 0;
+        int untransformableMethod = 0;
+        int transformedStringComparison = 0;
+        int transformedContainerComparison = 0;
+        int transformedBitwise = 0;
+    }
 
     /**
      * <p>reset</p>
      */
     public static void reset() {
-        transformedBooleanComparison = 0;
-        insertedGet = 0;
-        insertedPushInt0 = 0;
-        insertedPushInt1 = 0;
-        insertedPushIntRef = 0;
-        insertedPushIntNull = 0;
-        transformedComparison = 0;
-        transformedImplicitElse = 0;
-        transformedInstanceOf = 0;
-        transformedBooleanReturn = 0;
-        transformedBooleanParameter = 0;
-        untransformableMethod = 0;
-        transformedStringComparison = 0;
-        transformedContainerComparison = 0;
+        stats.remove();
     }
 
     /**
      * IFEQ -> IFLE / IFNE -> IFGT
      */
     public static void transformedBooleanComparison() {
-        transformedBooleanComparison++;
+        stats.get().transformedBooleanComparison++;
     }
 
     /**
      * Insertion of getPredicate
      */
     public static void insertedGet() {
-        insertedGet++;
+        stats.get().insertedGet++;
     }
 
     /**
@@ -177,7 +101,7 @@ public class TransformationStatistics {
             case Opcodes.IFGE:
             case Opcodes.IFGT:
             case Opcodes.IFLE:
-                insertedPushInt0++;
+                stats.get().insertedPushInt0++;
                 break;
             case Opcodes.IF_ICMPEQ:
             case Opcodes.IF_ICMPNE:
@@ -185,15 +109,15 @@ public class TransformationStatistics {
             case Opcodes.IF_ICMPGE:
             case Opcodes.IF_ICMPGT:
             case Opcodes.IF_ICMPLE:
-                insertedPushInt1++;
+                stats.get().insertedPushInt1++;
                 break;
             case Opcodes.IFNULL:
             case Opcodes.IFNONNULL:
-                insertedPushIntRef++;
+                stats.get().insertedPushIntRef++;
                 break;
             case Opcodes.IF_ACMPEQ:
             case Opcodes.IF_ACMPNE:
-                insertedPushIntNull++;
+                stats.get().insertedPushIntNull++;
                 break;
             default:
                 // GOTO, JSR: Do nothing
@@ -204,84 +128,84 @@ public class TransformationStatistics {
      * LCMPL, DCMPL, FCMPL
      */
     public static void transformedComparison() {
-        transformedComparison++;
+        stats.get().transformedComparison++;
     }
 
     /**
      * Added implicit else
      */
     public static void transformedImplicitElse() {
-        transformedImplicitElse++;
+        stats.get().transformedImplicitElse++;
     }
 
     /**
      * InstanceOf
      */
     public static void transformInstanceOf() {
-        transformedInstanceOf++;
+        stats.get().transformedInstanceOf++;
     }
 
     /**
      * Return value was boolean
      */
     public static void transformBooleanReturnValue() {
-        transformedBooleanReturn++;
+        stats.get().transformedBooleanReturn++;
     }
 
     /**
      * Parameter value was boolean
      */
     public static void transformBooleanParameter() {
-        transformedBooleanParameter++;
+        stats.get().transformedBooleanParameter++;
     }
 
     /**
      * Field was boolean
      */
     public static void transformBooleanField() {
-        transformedBooleanField++;
+        stats.get().transformedBooleanField++;
     }
 
     /**
      * Parameter value was boolean
      */
     public static void transformBackToBooleanParameter() {
-        transformedBackToBooleanParameter++;
+        stats.get().transformedBackToBooleanParameter++;
     }
 
     /**
      * Field was boolean
      */
     public static void transformBackToBooleanField() {
-        transformedBackToBooleanField++;
+        stats.get().transformedBackToBooleanField++;
     }
 
     /**
      * Method contains boolean in signature, but can't be transformed
      */
     public static void foundUntransformableMethod() {
-        untransformableMethod++;
+        stats.get().untransformableMethod++;
     }
 
     /**
      * String.equals or similar
      */
     public static void transformedStringComparison() {
-        transformedStringComparison++;
+        stats.get().transformedStringComparison++;
     }
 
     /**
      * Container.isEmpty or similar
      */
     public static void transformedContainerComparison() {
-        transformedContainerComparison++;
+        stats.get().transformedContainerComparison++;
     }
 
     /**
      * Bitwise AND, OR, XOR
      */
     public static void transformedBitwise() {
-        transformedBitwise++;
+        stats.get().transformedBitwise++;
     }
 
     /**
@@ -290,35 +214,37 @@ public class TransformationStatistics {
      * @param className a {@link java.lang.String} object.
      */
     public static void writeStatistics(String className) {
-        try {
-            String filename = Properties.REPORT_DIR + "/transformation.csv";
-            File logfile = new File(filename);
-            boolean needHeader = !logfile.exists();
-            BufferedWriter out = new BufferedWriter(new FileWriter(logfile, true));
+        String filename = Properties.REPORT_DIR + "/transformation.csv";
+        File logfile = new File(filename);
+        boolean needHeader = !logfile.exists();
 
+        try (BufferedWriter out = new BufferedWriter(new FileWriter(logfile, true))) {
             if (needHeader)
-                out.write("ClassName,BooleanComparison,Get,Push0,Push1,PushRef,PushNull,Comparison,ImplicitElse,InstanceOf,BooleanReturn,BooleanParameter,BooleanField,BackToBooleanParameter,BackToBooleanField,UntransformableMethod,StringComparison,ContainerComparison\n");
+                out.write("ClassName,BooleanComparison,Get,Push0,Push1,PushRef,PushNull,Comparison,ImplicitElse,InstanceOf,BooleanReturn,BooleanParameter,BooleanField,BackToBooleanParameter,BackToBooleanField,UntransformableMethod,StringComparison,ContainerComparison,Bitwise\n");
+
+            Stats s = stats.get();
 
             out.write(className);
             out.write(",");
-            out.write(transformedBooleanComparison + ",");
-            out.write(insertedGet + ",");
-            out.write(insertedPushInt0 + ",");
-            out.write(insertedPushInt1 + ",");
-            out.write(insertedPushIntRef + ",");
-            out.write(insertedPushIntNull + ",");
-            out.write(transformedComparison + ",");
-            out.write(transformedImplicitElse + ",");
-            out.write(transformedInstanceOf + ",");
-            out.write(transformedBooleanReturn + ",");
-            out.write(transformedBooleanParameter + ",");
-            out.write(transformedBooleanField + ",");
-            out.write(transformedBackToBooleanParameter + ",");
-            out.write(transformedBackToBooleanField + ",");
-            out.write(transformedStringComparison + ",");
-            out.write(transformedContainerComparison + ",");
+            out.write(s.transformedBooleanComparison + ",");
+            out.write(s.insertedGet + ",");
+            out.write(s.insertedPushInt0 + ",");
+            out.write(s.insertedPushInt1 + ",");
+            out.write(s.insertedPushIntRef + ",");
+            out.write(s.insertedPushIntNull + ",");
+            out.write(s.transformedComparison + ",");
+            out.write(s.transformedImplicitElse + ",");
+            out.write(s.transformedInstanceOf + ",");
+            out.write(s.transformedBooleanReturn + ",");
+            out.write(s.transformedBooleanParameter + ",");
+            out.write(s.transformedBooleanField + ",");
+            out.write(s.transformedBackToBooleanParameter + ",");
+            out.write(s.transformedBackToBooleanField + ",");
+            out.write(s.untransformableMethod + ",");
+            out.write(s.transformedStringComparison + ",");
+            out.write(s.transformedContainerComparison + ",");
+            out.write(s.transformedBitwise + "");
             out.write("\n");
-            out.close();
         } catch (IOException e) {
             logger.info("Exception while writing CSV data: " + e);
         }

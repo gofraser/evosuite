@@ -756,7 +756,7 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
      */
     @Override
     public Map<Integer, Double> getFalseDistancesSum() {
-        return trace.getTrueDistancesSum();
+        return trace.getFalseDistancesSum();
     }
 
     /**

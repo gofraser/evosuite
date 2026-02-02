@@ -46,18 +46,22 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
 
     /**
      * {@inheritDoc}
+     *
+     * Default no-op implementation.
      */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
-
+        // Default no-op implementation
     }
 
     /**
      * {@inheritDoc}
+     *
+     * Default no-op implementation.
      */
     @Override
     public void fitnessEvaluation(T chromosome) {
-
+        // Default no-op implementation
     }
 
     /*
@@ -68,11 +72,12 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
 
     /**
      * {@inheritDoc}
+     *
+     * Default no-op implementation.
      */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
-        // TODO Auto-generated method stub
-
+        // Default no-op implementation
     }
 
     /*
@@ -83,11 +88,12 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
 
     /**
      * {@inheritDoc}
+     *
+     * Default no-op implementation.
      */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
-        // TODO Auto-generated method stub
-
+        // Default no-op implementation
     }
 
     /*
@@ -100,11 +106,12 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
 
     /**
      * {@inheritDoc}
+     *
+     * Default no-op implementation.
      */
     @Override
     public void modification(T individual) {
-        // TODO Auto-generated method stub
-
+        // Default no-op implementation
     }
 
     /**

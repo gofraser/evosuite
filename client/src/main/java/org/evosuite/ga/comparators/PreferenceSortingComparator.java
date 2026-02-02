@@ -84,13 +84,13 @@ public class PreferenceSortingComparator<T extends Chromosome<T>> implements Com
         double value1, value2;
         value1 = solution1.getFitness(this.objective);
         value2 = solution2.getFitness(this.objective);
-        if (value1 < value2) {
-            return -1;
-        } else if (value1 > value2) {
-            return +1;
-        } else {
-            return solution1.compareSecondaryObjective(solution2);
+
+        int comparison = Double.compare(value1, value2);
+        if (comparison != 0) {
+            return comparison;
         }
+
+        return solution1.compareSecondaryObjective(solution2);
     }
 }
 

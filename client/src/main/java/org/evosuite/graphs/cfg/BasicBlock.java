@@ -62,8 +62,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     private static final Logger logger = LoggerFactory.getLogger(BasicBlock.class);
 
-    private static int blockCount = 0;
-
     private int id = -1;
     protected ClassLoader classLoader;
     protected String className;
@@ -77,12 +75,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
     protected boolean isAuxiliaryBlock = false;
 
     private final List<BytecodeInstruction> instructions = new ArrayList<>();
-
-    // DONE reference each BytecodeInstruction's BasicBlock at the instruction
-    // DONE determine ControlDependentBranches once for each BasicBlock, then
-    // ask BasicBloc, whenever instruction is asked
-    // TODO remember distance to each control dependent Branch in order to speed
-    // up ControlFlowDistance calculation even more
 
     /**
      * <p>
@@ -102,8 +94,11 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         this.methodName = methodName;
         this.classLoader = classLoader;
 
-        setId();
         setInstructions(blockNodes);
+
+        if (!instructions.isEmpty()) {
+            this.id = instructions.get(0).getInstructionId();
+        }
 
         checkSanity();
     }
@@ -114,13 +109,14 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      */
-    protected BasicBlock(String className, String methodName) {
+    protected BasicBlock(String className, String methodName, int id) {
         if (className == null || methodName == null)
             throw new IllegalArgumentException("null given");
 
         this.className = className;
         this.methodName = methodName;
         this.isAuxiliaryBlock = true;
+        this.id = id;
     }
 
     // CDs
@@ -184,7 +180,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         if (controlDependencies == null)
             controlDependencies = getCDG().getControlDependentBranches(this);
 
-        //		return new HashSet<ControlDependency>(controlDependentBranches);
         return controlDependencies;
     }
 
@@ -228,25 +223,9 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
             throw new IllegalArgumentException(
                     "a basic block can not contain the same element twice");
 
-        // not sure if this holds:
-        // .. apparently it doesn't. at least check
-        // fails for java2.util2.Pattern TODO
-
-        // BytecodeInstruction previousInstruction = getLastInstruction();
-        // if (previousInstruction != null
-        // && instruction.getInstructionId() < previousInstruction
-        // .getInstructionId())
-        // throw new IllegalStateException(
-        // "expect instructions in a basic block to be ordered by their instructionId");
-
         instruction.setBasicBlock(this);
 
         return instructions.add(instruction);
-    }
-
-    private void setId() {
-        blockCount++;
-        this.id = blockCount;
     }
 
     // retrieve information
@@ -268,13 +247,13 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * <p>
-     * constainsInstruction
+     * containsInstruction
      * </p>
      *
      * @param insnNode a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      * @return a boolean.
      */
-    public boolean constainsInstruction(AbstractInsnNode insnNode) {
+    public boolean containsInstruction(AbstractInsnNode insnNode) {
         for (BytecodeInstruction instruction : instructions) {
             if (instruction.getASMNode().equals(insnNode))
                 return true;
@@ -350,7 +329,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
      */
     public String getName() {
         return (isAuxiliaryBlock ? "aux" : "") + "BasicBlock " + id;
-        // +" - "+methodName;
     }
 
     /**
@@ -475,24 +453,7 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
      * </p>
      */
     public void checkSanity() {
-
         logger.debug("checking sanity of " + this);
-
-        // TODO
-
-        // not true, there are branches that don't really jump
-        // for example if you have no statement in a then-part:
-        // if (exp) { ; }
-        // you will not have a second outgoing edge for that if
-
-        // for(BytecodeInstruction instruction : instructions) {
-        // if (!instruction.equals(getLastInstruction())
-        // && instruction.isActualBranch())
-        // throw new IllegalStateException(
-        // "expect actual branches to always end a basic block: "+instruction.toString()+" \n"+explain());
-        // }
-
-        // TODO handle specialBlocks
     }
 
     /**

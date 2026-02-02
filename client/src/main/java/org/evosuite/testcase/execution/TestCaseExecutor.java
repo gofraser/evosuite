@@ -89,12 +89,20 @@ public class TestCaseExecutor implements ThreadFactory {
     /**
      * Constant <code>timeExecuted=0</code>
      */
-    public static long timeExecuted = 0;
+    private static long timeExecuted = 0;
 
     /**
      * Constant <code>testsExecuted=0</code>
      */
-    public static int testsExecuted = 0;
+    private static int testsExecuted = 0;
+
+    public static long getTimeExecuted() {
+        return timeExecuted;
+    }
+
+    public static int getTestsExecuted() {
+        return testsExecuted;
+    }
 
     /**
      * Used when we spawn a new thread to give a unique name
@@ -206,11 +214,6 @@ public class TestCaseExecutor implements ThreadFactory {
             logger.debug("Adding observer");
             observers.add(observer);
         }
-        // FIXXME: Find proper solution for this
-        // for (ExecutionObserver o : observers)
-        // if (o.getClass().equals(observer.getClass()))
-        // return;
-
     }
 
     /**

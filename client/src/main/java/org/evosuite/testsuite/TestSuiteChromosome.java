@@ -275,7 +275,7 @@ public final class TestSuiteChromosome
             result.append("Test ").append(i).append(": \n");
             i++;
             if (test.getLastExecutionResult() != null) {
-                result.append(test.getTestCase().toCode(test.getLastExecutionResult().exposeExceptionMapping()));
+                result.append(test.getTestCase().toCode(test.getLastExecutionResult().getCopyOfExceptionMapping()));
             } else {
                 result.append(test.getTestCase().toCode()).append("\n");
             }

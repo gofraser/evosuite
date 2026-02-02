@@ -153,31 +153,21 @@ public abstract class Archive implements Serializable {
      * @param candidateSolution
      * @return true if a candidate solution is better than an existing one, false otherwise
      */
-    public boolean isBetterThanCurrent(TestChromosome currentSolution, TestChromosome candidateSolution) {
+    public static boolean isBetterThanCurrent(TestChromosome currentSolution, TestChromosome candidateSolution) {
 
         if (currentSolution.equals(candidateSolution)) {
             return false;
         }
- 
-        ExecutionResult currentSolutionExecution = currentSolution.getLastExecutionResult();
-        ExecutionResult candidateSolutionExecution = candidateSolution.getLastExecutionResult();
-        if (currentSolutionExecution != null
-                && (currentSolutionExecution.hasTimeout() || currentSolutionExecution.hasTestException())) {
-            // If the latest execution of the current solution in the archive has ran out of time or has
-            // thrown any exception, a candidate could be considered better if its latest execution has
-            // not ran out of time and has not thrown any exception, independent of whether it uses more
-            // functional mocks or whether it is longer than the current solution.
-            if (candidateSolutionExecution != null && !candidateSolutionExecution.hasTimeout()
-                    && !candidateSolutionExecution.hasTestException()) {
-                return true;
-            }
+
+        if (isBetterExecutionResult(currentSolution, candidateSolution)) {
+            return true;
         }
 
         // Check if solutions are using any functional mock or private access. A solution is considered
         // better than any other solution if does not use functional mock / private access at all, or if
         // it uses less of those functionalities.
-        int penaltyCurrentSolution = this.calculatePenalty(currentSolution.getTestCase());
-        int penaltyCandidateSolution = this.calculatePenalty(candidateSolution.getTestCase());
+        int penaltyCurrentSolution = calculatePenalty(currentSolution.getTestCase());
+        int penaltyCandidateSolution = calculatePenalty(candidateSolution.getTestCase());
 
         if (penaltyCandidateSolution < penaltyCurrentSolution) {
             return true;
@@ -188,6 +178,25 @@ public abstract class Archive implements Serializable {
         // only look at other properties (e.g., length) if penalty scores are the same
         assert penaltyCandidateSolution == penaltyCurrentSolution;
 
+        return isBetterBySecondaryObjectives(currentSolution, candidateSolution);
+    }
+
+    private static boolean isBetterExecutionResult(TestChromosome currentSolution, TestChromosome candidateSolution) {
+        ExecutionResult currentSolutionExecution = currentSolution.getLastExecutionResult();
+        ExecutionResult candidateSolutionExecution = candidateSolution.getLastExecutionResult();
+        if (currentSolutionExecution != null
+                && (currentSolutionExecution.hasTimeout() || currentSolutionExecution.hasTestException())) {
+            // If the latest execution of the current solution in the archive has ran out of time or has
+            // thrown any exception, a candidate could be considered better if its latest execution has
+            // not ran out of time and has not thrown any exception, independent of whether it uses more
+            // functional mocks or whether it is longer than the current solution.
+            return candidateSolutionExecution != null && !candidateSolutionExecution.hasTimeout()
+                    && !candidateSolutionExecution.hasTestException();
+        }
+        return false;
+    }
+
+    private static boolean isBetterBySecondaryObjectives(TestChromosome currentSolution, TestChromosome candidateSolution) {
         // If we try to add a test for a target we've already covered
         // and the new test is shorter, keep the shorter one
         int timesBetter = 0;
@@ -401,7 +410,7 @@ public abstract class Archive implements Serializable {
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @return number of penalty points
      */
-    protected int calculatePenalty(TestCase testCase) {
+    protected static int calculatePenalty(TestCase testCase) {
         int penalty = 0;
 
         if (hasFunctionalMocks(testCase)) {
@@ -417,7 +426,7 @@ public abstract class Archive implements Serializable {
         return penalty;
     }
 
-    private boolean hasFunctionalMocks(TestCase testCase) {
+    private static boolean hasFunctionalMocks(TestCase testCase) {
         for (Statement statement : testCase) {
             if (statement instanceof FunctionalMockStatement) {
                 return true;
@@ -426,7 +435,7 @@ public abstract class Archive implements Serializable {
         return false;
     }
 
-    private boolean hasFunctionalMocksForGenerableTypes(TestCase testCase) {
+    private static boolean hasFunctionalMocksForGenerableTypes(TestCase testCase) {
         for (Statement statement : testCase) {
             if (statement instanceof FunctionalMockStatement) {
                 FunctionalMockStatement fm = (FunctionalMockStatement) statement;
@@ -440,7 +449,7 @@ public abstract class Archive implements Serializable {
         return false;
     }
 
-    private boolean hasPrivateAccess(TestCase testCase) {
+    private static boolean hasPrivateAccess(TestCase testCase) {
         for (Statement statement : testCase) {
             if (statement instanceof PrivateFieldStatement
                     || statement instanceof PrivateMethodStatement) {

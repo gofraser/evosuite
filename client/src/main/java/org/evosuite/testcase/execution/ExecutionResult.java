@@ -54,8 +54,7 @@ public class ExecutionResult implements Cloneable {
     /**
      * Record for each exception if it was explicitly thrown
      */
-    // FIXME: internal data structures should never be null...
-    public Map<Integer, Boolean> explicitExceptions = new HashMap<>();
+    private Map<Integer, Boolean> explicitExceptions = new HashMap<>();
 
     /**
      * Trace recorded during execution
@@ -234,16 +233,6 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * shouldn't be used
-     *
-     * @return a {@link java.util.Map} object.
-     */
-    @Deprecated
-    public Map<Integer, Throwable> exposeExceptionMapping() {
-        return exceptions;
-    }
-
-    /**
      * @return Mapping of statement indexes and thrown exceptions.
      */
     public Map<Integer, Throwable> getCopyOfExceptionMapping() {
@@ -410,7 +399,7 @@ public class ExecutionResult implements Cloneable {
         ExecutionResult copy = new ExecutionResult(test, mutation);
         copy.exceptions.putAll(exceptions);
         copy.trace = trace.lazyClone();
-        copy.explicitExceptions.putAll(explicitExceptions);
+        copy.getExplicitExceptions().putAll(explicitExceptions);
         copy.executionTime = executionTime;
         copy.inputGoals = new LinkedHashMap<>(inputGoals);
         copy.outputGoals = new LinkedHashMap<>(outputGoals);
@@ -487,5 +476,17 @@ public class ExecutionResult implements Cloneable {
      */
     public List<FeatureVector> getFeatureVectors() {
         return Collections.unmodifiableList(this.featureVectors);
+    }
+
+    public Map<Integer, Boolean> getExplicitExceptions() {
+        return explicitExceptions;
+    }
+
+    public void setExplicitExceptions(Map<Integer, Boolean> explicitExceptions) {
+        if (explicitExceptions != null) {
+            this.explicitExceptions = explicitExceptions;
+        } else {
+            this.explicitExceptions = new HashMap<>();
+        }
     }
 }

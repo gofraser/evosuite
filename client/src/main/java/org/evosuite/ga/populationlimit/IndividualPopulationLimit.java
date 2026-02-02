@@ -27,6 +27,8 @@ import java.util.List;
 
 /**
  * <p>IndividualPopulationLimit class.</p>
+ * <p>
+ * Limits the population size based on the number of individuals.
  *
  * @author Gordon Fraser
  */
@@ -34,7 +36,22 @@ public class IndividualPopulationLimit<T extends Chromosome<T>> implements Popul
 
     private static final long serialVersionUID = -3985726226793280031L;
 
+    private final int limit;
+
+    /**
+     * Constructor using the default population limit from Properties.
+     */
     public IndividualPopulationLimit() {
+        this(Properties.POPULATION);
+    }
+
+    /**
+     * Constructor using a specific population limit.
+     *
+     * @param limit the maximum number of individuals in the population.
+     */
+    public IndividualPopulationLimit(int limit) {
+        this.limit = limit;
     }
 
     /**
@@ -45,9 +62,10 @@ public class IndividualPopulationLimit<T extends Chromosome<T>> implements Popul
      * <p>
      * This constructor shall preserve the current state of the IndividualPopulationLimit (if existing).
      *
-     * @param other
+     * @param other the other limit to copy
      */
     public IndividualPopulationLimit(IndividualPopulationLimit<?> other) {
+        this.limit = other.limit;
     }
 
     /* (non-Javadoc)
@@ -59,7 +77,15 @@ public class IndividualPopulationLimit<T extends Chromosome<T>> implements Popul
      */
     @Override
     public boolean isPopulationFull(List<T> population) {
-        return population.size() >= Properties.POPULATION;
+        return population.size() >= limit;
     }
 
+    /**
+     * Returns the configured limit.
+     *
+     * @return the limit
+     */
+    public int getLimit() {
+        return limit;
+    }
 }

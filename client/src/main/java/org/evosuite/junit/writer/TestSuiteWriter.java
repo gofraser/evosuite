@@ -413,7 +413,7 @@ public class TestSuiteWriter implements Opcodes {
 
         for (ExecutionResult result : results) {
             visitor.clearExceptions();
-            visitor.setExceptions(result.exposeExceptionMapping());
+            visitor.setExceptions(result.getCopyOfExceptionMapping());
             result.test.accept(visitor);
             imports.addAll(visitor.getImports());
             accessedClasses.addAll(result.test.getAccessedClasses());
@@ -686,7 +686,7 @@ public class TestSuiteWriter implements Opcodes {
         }
 
         for (String line : adapter.getTestString(id, test,
-                result.exposeExceptionMapping(), visitor).split("\\r?\\n")) {
+                result.getCopyOfExceptionMapping(), visitor).split("\\r?\\n")) {
             builder.append(CODE_SPACE);
             builder.append(line);
             builder.append(NEWLINE);

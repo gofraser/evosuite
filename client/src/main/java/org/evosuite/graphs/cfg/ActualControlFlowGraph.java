@@ -205,25 +205,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
             if (!belongsToMethod(branch))
                 throw new IllegalArgumentException(
                         "branch does not belong to this CFGs method");
-            // if (!branch.isActualBranch()) // TODO this happens if your in a
-            // try-catch ... handle!
-            // throw new IllegalArgumentException(
-            // "unexpected branch byteCode instruction type: "
-            // + branch.getInstructionType());
-
-            // TODO the following doesn't work at this point
-            // because the BranchPool is not yet filled yet
-            // BUT one could fill the pool right now and drop further analysis
-            // later
-            // way cooler, because then filling of the BranchPool is unrelated
-            // to
-            // BranchInstrumentation - then again that instrumentation is needed
-            // anyways i guess
-
-            // if (!BranchPool.isKnownAsBranch(instruction))
-            // throw new IllegalStateException(
-            // "expect BranchPool to know all branching instructions: "
-            // + instruction.toString());
 
             this.branches.add(branch);
         }
@@ -261,9 +242,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
         computeNodes();
         computeEdges();
-
-        // TODO: Need to make that compatible with Testability Transformation
-        // checkSanity();
 
         addAuxiliaryBlocks();
     }
@@ -358,30 +336,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         if (!addVertex(nodeBlock))
             throw new IllegalStateException(
                     "internal error while addind basic block to CFG");
-
-        // for (BasicBlock test : graph.vertexSet()) {
-        // logger.debug("experimental self-equals on " + test.getName());
-        // if (nodeBlock.equals(test))
-        // logger.debug("true");
-        // else
-        // logger.debug("false");
-        // if (!containsBlock(test))
-        // throw new IllegalStateException("wtf");
-        //
-        // logger.debug("experimental equals on " + test.getName() + " with "
-        // + nodeBlock.getName());
-        // if (test.equals(nodeBlock))
-        // logger.debug("true");
-        // else
-        // logger.debug("false");
-        //
-        // logger.debug("experimental dual-equal");
-        // if (nodeBlock.equals(test))
-        // logger.debug("true");
-        // else
-        // logger.debug("false");
-        //
-        // }
 
         if (!containsVertex(nodeBlock))
             throw new IllegalStateException(
