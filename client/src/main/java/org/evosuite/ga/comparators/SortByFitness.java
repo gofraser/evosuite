@@ -54,11 +54,11 @@ public class SortByFitness<T extends Chromosome<T>> implements Comparator<T>, Se
         else if (c2 == null)
             return -1;
 
-        double objetive1 = c1.getFitness(this.ff);
-        double objetive2 = c2.getFitness(this.ff);
+        double objective1 = c1.getFitness(this.ff);
+        double objective2 = c2.getFitness(this.ff);
 
         return this.order
-                ? Double.compare(objetive2, objetive1)
-                : Double.compare(objetive1, objetive2);
+                ? Double.compare(objective2, objective1)
+                : Double.compare(objective1, objective2);
     }
 }

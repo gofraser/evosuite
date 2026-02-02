@@ -126,7 +126,7 @@ public class TestRankAndCrowdingDistanceComparator {
         RankAndCrowdingDistanceComparator<TestChromosome> comparator =
                 new RankAndCrowdingDistanceComparator<>(true);
         double result = comparator.compare(tch1, tch2);
-        assertEquals(+1, result, 0.00001);
+        assertEquals(-1, result, 0.00001);
     }
 
     @Test
@@ -142,7 +142,7 @@ public class TestRankAndCrowdingDistanceComparator {
         RankAndCrowdingDistanceComparator<TestChromosome> comparator =
                 new RankAndCrowdingDistanceComparator<>(true);
         double result = comparator.compare(tch1, tch2);
-        assertEquals(-1, result, 0.00001);
+        assertEquals(+1, result, 0.00001);
     }
 
     @Test
