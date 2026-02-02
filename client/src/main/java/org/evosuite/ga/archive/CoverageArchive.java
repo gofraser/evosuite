@@ -98,7 +98,7 @@ public class CoverageArchive extends Archive {
             logger.debug("Solution for non-covered target '" + target + "'");
             isNewCoveredTarget = true;
         } else {
-            isNewSolutionBetterThanCurrent = this.isBetterThanCurrent(currentSolution, solution);
+            isNewSolutionBetterThanCurrent = Archive.isBetterThanCurrent(currentSolution, solution);
         }
 
         if (isNewCoveredTarget || isNewSolutionBetterThanCurrent) {
