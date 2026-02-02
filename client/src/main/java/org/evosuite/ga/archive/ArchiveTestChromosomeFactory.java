@@ -75,7 +75,7 @@ public class ArchiveTestChromosomeFactory implements ChromosomeFactory<TestChrom
         // double P = (double)Archive.getArchiveInstance().getNumberOfCoveredTargets() / (double)Archive.getArchiveInstance().getNumberOfTargets();
         if (!Archive.getArchiveInstance().isArchiveEmpty()
                 && Randomness.nextDouble() < Properties.SEED_CLONE) {
-            logger.info("Creating test based on archive");
+            logger.debug("Creating test based on archive");
             test = new TestChromosome();
             test.setTestCase(Archive.getArchiveInstance().getRandomSolution().getTestCase());
             int mutations = Randomness.nextInt(Properties.SEED_MUTATIONS);
@@ -83,7 +83,7 @@ public class ArchiveTestChromosomeFactory implements ChromosomeFactory<TestChrom
                 test.mutate();
             }
         } else {
-            logger.info("Creating random test");
+            logger.debug("Creating random test");
             test = defaultFactory.getChromosome();
         }
 

@@ -362,7 +362,7 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
         toRemoveRootBranches.clear();
         toRemoveBranchesF.clear();
         toRemoveBranchesT.clear();
-        logger.info("Current state of archive: " + Archive.getArchiveInstance().toString());
+        logger.debug("Current state of archive: " + Archive.getArchiveInstance().toString());
 
         return true;
     }

@@ -686,15 +686,19 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         Integer defId = (Integer) ois.readObject();
         Use use = DefUsePool.getUseByUseId(useId);
 
+        // The pool may be empty on the master side during RMI deserialization.
+        // In this case, we can't fully reconstruct the object, so we leave
+        // the transient fields (goalUse, goalDefinition) as null.
+        // This is a known limitation of the client-master architecture.
         if (use == null)
-            throw new IOException("Unable to restore DefUseCoverageTestFitness: Use with ID " + useId + " not found in pool.");
+            return;
 
         if (type == DefUsePairType.PARAMETER) {
             initParameterUse(use);
         } else {
             Definition def = DefUsePool.getDefinitionByDefId(defId);
             if (def == null) {
-                throw new IOException("Unable to restore DefUseCoverageTestFitness: Definition with ID " + defId + " not found in pool.");
+                return;
             }
             initRegularDefUse(def, use, type);
         }

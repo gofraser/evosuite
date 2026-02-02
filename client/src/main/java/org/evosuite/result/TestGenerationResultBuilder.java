@@ -230,7 +230,12 @@ public class TestGenerationResultBuilder {
 
     public void setGeneticAlgorithm(GeneticAlgorithm<?> ga) {
         this.ga = ga;
-        ga.getBestIndividual().getCoverageValues().forEach(targetCoverages::put);
+        // Only gather coverage values if the population has been initialized.
+        // When called early (before search starts), the population may be empty
+        // and getBestIndividual() could fail with mock factories (e.g., in MOSuiteStrategy).
+        if (!ga.getPopulation().isEmpty()) {
+            ga.getBestIndividual().getCoverageValues().forEach(targetCoverages::put);
+        }
     }
 
     public void setDSEAlgorithm(ExplorationAlgorithmBase dse) {

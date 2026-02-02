@@ -20,7 +20,7 @@ public class TargetMethodListSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.TARGET_METHOD_LIST = targetMethod;
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH, Properties.Criterion.LINE};
-        String[] command = new String[]{"-generateMOSuite", "-class", targetClass};
+        String[] command = new String[]{"-generateMOSuite", "-Dalgorithm=DYNAMOSA", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
 
@@ -38,7 +38,7 @@ public class TargetMethodListSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.TARGET_METHOD_LIST = targetMethod;
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH, Properties.Criterion.WEAKMUTATION};
-        String[] command = new String[]{"-generateMOSuite", "-class", targetClass};
+        String[] command = new String[]{"-generateMOSuite", "-Dalgorithm=DYNAMOSA", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
 
@@ -56,7 +56,7 @@ public class TargetMethodListSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.TARGET_METHOD_LIST = targetMethod;
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH, Properties.Criterion.METHOD};
-        String[] command = new String[]{"-generateMOSuite", "-class", targetClass};
+        String[] command = new String[]{"-generateMOSuite", "-Dalgorithm=DYNAMOSA", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
 
@@ -74,7 +74,7 @@ public class TargetMethodListSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.TARGET_METHOD_LIST = targetMethod;
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH, Properties.Criterion.EXCEPTION};
-        String[] command = new String[]{"-generateMOSuite", "-class", targetClass};
+        String[] command = new String[]{"-generateMOSuite", "-Dalgorithm=DYNAMOSA", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
 
@@ -92,7 +92,7 @@ public class TargetMethodListSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.TARGET_METHOD_LIST = targetMethod;
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH, Properties.Criterion.METHODNOEXCEPTION};
-        String[] command = new String[]{"-generateMOSuite", "-class", targetClass};
+        String[] command = new String[]{"-generateMOSuite", "-Dalgorithm=DYNAMOSA", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
 
@@ -110,7 +110,7 @@ public class TargetMethodListSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.TARGET_METHOD_LIST = targetMethod;
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH, Properties.Criterion.CBRANCH};
-        String[] command = new String[]{"-generateMOSuite", "-class", targetClass};
+        String[] command = new String[]{"-generateMOSuite", "-Dalgorithm=DYNAMOSA", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
 
@@ -128,7 +128,7 @@ public class TargetMethodListSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.TARGET_METHOD_LIST = targetMethod;
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH, Properties.Criterion.OUTPUT};
-        String[] command = new String[]{"-generateMOSuite", "-class", targetClass};
+        String[] command = new String[]{"-generateMOSuite", "-Dalgorithm=DYNAMOSA", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
 
