@@ -83,6 +83,15 @@ public class BytecodeInstructionPool {
                                                         String className, String methodName) {
         registerMethodNode(node);
 
+        // Clear any existing instructions to avoid duplicates when the same method
+        // is registered multiple times (e.g., during testability transformation and
+        // then again during CFG generation). This ensures consistency with the
+        // MethodNode's ASM nodes.
+        if (instructionMap.containsKey(className) &&
+            instructionMap.get(className).containsKey(methodName)) {
+            instructionMap.get(className).get(methodName).clear();
+        }
+
         int lastLineNumber = -1;
         int bytecodeOffset = 0;
 

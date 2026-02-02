@@ -148,6 +148,14 @@ public class InstrumentingClassLoader extends ClassLoader {
     }
 
     private Class<?> defineInstrumentedClass(String fullyQualifiedTargetClass, byte[] byteBuffer) {
+        // Check if the class was already defined (e.g., during recursive class loading
+        // where the first definition succeeded but an exception occurred later)
+        Class<?> alreadyLoaded = findLoadedClass(fullyQualifiedTargetClass);
+        if (alreadyLoaded != null) {
+            classes.put(fullyQualifiedTargetClass, alreadyLoaded);
+            return alreadyLoaded;
+        }
+
         createPackageDefinition(fullyQualifiedTargetClass);
         Class<?> result = defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length);
         classes.put(fullyQualifiedTargetClass, result);
