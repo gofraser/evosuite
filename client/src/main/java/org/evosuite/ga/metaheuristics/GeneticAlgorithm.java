@@ -310,9 +310,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             localSearchProbability /= Properties.LOCAL_SEARCH_ADAPTATION_RATE;
             localSearchProbability = Math.max(localSearchProbability, Double.MIN_VALUE);
         }
-        // localSearchProbability = Math.pow(
-        // 1.0 + ((1.0 - localSearchProbability) / localSearchProbability) *
-        // Math.exp(delta), -1.0);
     }
 
 
@@ -367,7 +364,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      */
     protected void starveRandomly(int limit) {
         while (population.size() > limit) {
-            int removePos = Randomness.nextInt() % population.size();
+            int removePos = Randomness.nextInt(population.size());
             population.remove(removePos);
         }
     }
@@ -705,7 +702,8 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
         File dir = new File(Properties.REPORT_DIR);
         if (!dir.exists() && !dir.mkdirs()) {
-            throw new RuntimeException("Cannot create report dir: " + Properties.REPORT_DIR);
+            logger.error("Cannot create report dir: " + Properties.REPORT_DIR);
+            return;
         }
 
         try {
@@ -749,7 +747,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             fw.close();
 
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Error writing individuals to file", e);
         }
     }
 

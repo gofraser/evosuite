@@ -111,10 +111,14 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             }
 
             // Mutation
-            notifyMutation(offspring1);
-            offspring1.mutate();
-            notifyMutation(offspring2);
-            offspring2.mutate();
+            if (Randomness.nextDouble() <= Properties.MUTATION_RATE) {
+                notifyMutation(offspring1);
+                offspring1.mutate();
+            }
+            if (Randomness.nextDouble() <= Properties.MUTATION_RATE) {
+                notifyMutation(offspring2);
+                offspring2.mutate();
+            }
 
             if (offspring1.isChanged()) {
                 offspring1.updateAge(currentIteration);
