@@ -42,9 +42,15 @@ import org.evosuite.ga.Chromosome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * <p>
  * MaxStatementsStoppingCondition class.
+ * </p>
+ * <p>
+ * Note: This class tracks the number of executed statements globally via a static counter.
+ * This design is coupled with {@link org.evosuite.testcase.execution.TestCaseExecutor}.
  * </p>
  *
  * @author Gordon Fraser
@@ -59,7 +65,7 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
     /**
      * Maximum number of iterations
      */
-    protected static long currentStatement = 0;
+    protected static final AtomicLong currentStatement = new AtomicLong(0);
 
     public MaxStatementsStoppingCondition() {
         // empty constructor
@@ -80,7 +86,7 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
      * @param num a int.
      */
     public static void statementsExecuted(int num) {
-        currentStatement += num;
+        currentStatement.addAndGet(num);
     }
 
     /**
@@ -90,9 +96,7 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
      */
     @Override
     public boolean isFinished() {
-        // logger.info("Current number of statements executed: " + current_statement + "/"
-        //        + max_statements);
-        return currentStatement >= Properties.SEARCH_BUDGET;
+        return currentStatement.get() >= Properties.SEARCH_BUDGET;
     }
 
     /**
@@ -102,7 +106,7 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
      */
     @Override
     public void reset() {
-        currentStatement = 0;
+        currentStatement.set(0);
     }
 
     /**
@@ -113,7 +117,7 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
      * @return a long.
      */
     public static long getNumExecutedStatements() {
-        return currentStatement;
+        return currentStatement.get();
     }
 
     /**
@@ -124,7 +128,7 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
      * @return a long.
      */
     public static void setNumExecutedStatements(long value) {
-        currentStatement = value;
+        currentStatement.set(value);
     }
 
     /* (non-Javadoc)
@@ -136,7 +140,7 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
      */
     @Override
     public long getCurrentValue() {
-        return currentStatement;
+        return currentStatement.get();
     }
 
     /**
@@ -152,12 +156,12 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
      */
     @Override
     public void forceCurrentValue(long value) {
-        currentStatement = value;
+        currentStatement.set(value);
     }
 
     @Override
     public void setLimit(long limit) {
-        // No-op?
+        // No-op
         // The limit should be set by setting Properties.SEARCH_BUDGET
     }
 

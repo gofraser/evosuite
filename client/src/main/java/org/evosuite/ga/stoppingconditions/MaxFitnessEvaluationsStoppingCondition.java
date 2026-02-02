@@ -41,16 +41,18 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
     protected long maxEvaluations;
 
     /**
-     * Maximum number of iterations
+     * Current number of evaluations
      */
-    protected static long currentEvaluation = 0;
+    protected long currentEvaluation = 0;
 
     public MaxFitnessEvaluationsStoppingCondition() {
         maxEvaluations = Properties.SEARCH_BUDGET;
+        currentEvaluation = 0;
     }
 
     public MaxFitnessEvaluationsStoppingCondition(MaxFitnessEvaluationsStoppingCondition<?> that) {
         this.maxEvaluations = that.maxEvaluations;
+        this.currentEvaluation = that.currentEvaluation;
     }
 
     @Override
@@ -65,7 +67,9 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
      */
     @Override
     public boolean isFinished() {
-        logger.info("Current number of fitness_evaluations: " + currentEvaluation);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Current number of fitness_evaluations: " + currentEvaluation);
+        }
         return currentEvaluation >= maxEvaluations;
     }
 
@@ -77,15 +81,6 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
     @Override
     public void fitnessEvaluation(T individual) {
         currentEvaluation++;
-    }
-
-    /**
-     * Static getter method
-     *
-     * @return a long.
-     */
-    public static long getNumFitnessEvaluations() {
-        return currentEvaluation;
     }
 
     /**

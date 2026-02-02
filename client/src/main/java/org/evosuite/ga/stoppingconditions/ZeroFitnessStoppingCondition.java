@@ -105,10 +105,15 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
 
     /**
      * {@inheritDoc}
+     *
+     * <p>
+     * This method returns the current best fitness cast to a long.
+     * Note: This is an approximation (rounding to nearest integer) and might lose precision.
+     * </p>
      */
     @Override
     public long getCurrentValue() {
-        return (long) (lastFitness + 0.5); // TODO: Why +0.5??
+        return (long) (lastFitness + 0.5);
     }
 
     /**
@@ -123,8 +128,7 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
      */
     @Override
     public void forceCurrentValue(long value) {
-        // TODO Auto-generated method stub
-        // TODO ?
+        lastFitness = value;
     }
 
 }
