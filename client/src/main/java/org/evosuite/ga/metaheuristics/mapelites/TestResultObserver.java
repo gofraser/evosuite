@@ -51,7 +51,7 @@ public class TestResultObserver extends ExecutionObserver implements Serializabl
         Arrays.sort(this.inspectors, (a, b) -> a.getMethodCall().compareTo(b.getMethodCall()));
     }
 
-    public int getPossibilityCount() {
+    public double getPossibilityCount() {
         return FeatureVector.getPossibilityCount(this.inspectors);
     }
 
