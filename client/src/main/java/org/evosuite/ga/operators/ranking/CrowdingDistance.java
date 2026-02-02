@@ -17,23 +17,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-/*
- *
- * This file is part of EvoSuite.
- *
- * EvoSuite is free software: you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation, either version 3.0 of the License, or
- * (at your option) any later version.
- *
- * EvoSuite is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
- */
 package org.evosuite.ga.operators.ranking;
 
 import org.evosuite.ga.Chromosome;
@@ -92,9 +75,14 @@ public class CrowdingDistance<T extends Chromosome<T>> implements Serializable {
             front.get(0).setDistance(Double.POSITIVE_INFINITY);
             front.get(size - 1).setDistance(Double.POSITIVE_INFINITY);
 
+            double diff = objetiveMaxn - objetiveMinn;
+            if (diff == 0.0) {
+                continue;
+            }
+
             for (int j = 1; j < size - 1; j++) {
                 distance = front.get(j + 1).getFitness(ff) - front.get(j - 1).getFitness(ff);
-                distance = distance / (objetiveMaxn - objetiveMinn);
+                distance = distance / diff;
                 distance += front.get(j).getDistance();
                 front.get(j).setDistance(distance);
             }
@@ -111,8 +99,7 @@ public class CrowdingDistance<T extends Chromosome<T>> implements Serializable {
      * @param front front of non-dominated solutions/tests
      * @param set   set of goals/targets (e.g., branches) to consider
      */
-    public void subvectorDominanceAssignment(List<T> front, Set<FitnessFunction<T>> set) {
-        int size = front.size();
+    public void subvectorDominanceAssignment(List<T> front, Set<? extends FitnessFunction<T>> set) {
         if (front.size() == 1) {
             front.get(0).setDistance(Double.POSITIVE_INFINITY);
             return;

@@ -39,7 +39,7 @@ public class TournamentSelection<T extends Chromosome<T>> extends SelectionFunct
     }
 
     public TournamentSelection(TournamentSelection<?> other) {
-        // empty copy constructor
+        this.maximize = other.maximize;
     }
 
     /**

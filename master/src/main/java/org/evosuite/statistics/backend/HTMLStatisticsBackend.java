@@ -300,7 +300,7 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
             int linecount = 1;
             String code = null;
             if (testChromosome.getLastExecutionResult() != null) {
-                code = test.toCode(testChromosome.getLastExecutionResult().exposeExceptionMapping());
+                code = test.toCode(testChromosome.getLastExecutionResult().getCopyOfExceptionMapping());
             } else
                 code = test.toCode();
 
