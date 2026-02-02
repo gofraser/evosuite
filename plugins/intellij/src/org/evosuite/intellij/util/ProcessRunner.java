@@ -91,6 +91,14 @@ public class ProcessRunner {
             java += ".exe";
         }
         list.add(params.getJavaHome() + File.separator + "bin" + File.separator + java);
+        // Add module access flags needed for XStream serialization (Java 9+)
+        list.add("--add-opens");
+        list.add("java.base/java.util=ALL-UNNAMED");
+        list.add("--add-opens");
+        list.add("java.base/java.lang=ALL-UNNAMED");
+        // Add module access flags needed for VirtualNetwork (Java 9+)
+        list.add("--add-opens");
+        list.add("java.base/java.net=ALL-UNNAMED");
         list.add("-jar");
         list.add(params.getEvosuiteJarLocation());
 

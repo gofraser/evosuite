@@ -168,6 +168,14 @@ public class EvoSuiteRunner {
 
         List<String> cmd = new ArrayList<>();
         cmd.add(JavaExecCmdUtil.getJavaBinExecutablePath()/*"java"*/);
+        // Add module access flags needed for XStream serialization (Java 9+)
+        cmd.add("--add-opens");
+        cmd.add("java.base/java.util=ALL-UNNAMED");
+        cmd.add("--add-opens");
+        cmd.add("java.base/java.lang=ALL-UNNAMED");
+        // Add module access flags needed for VirtualNetwork (Java 9+)
+        cmd.add("--add-opens");
+        cmd.add("java.base/java.net=ALL-UNNAMED");
         cmd.add("-D" + LoggingUtils.USE_DIFFERENT_LOGGING_XML_PARAMETER + "=logback-ctg-entry.xml");
         cmd.add("-Dlogback.configurationFile=logback-ctg-entry.xml");
         cmd.add("-cp");

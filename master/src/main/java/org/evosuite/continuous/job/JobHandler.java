@@ -236,6 +236,15 @@ public class JobHandler extends Thread {
         commands.add("-cp");
         commands.add(configureAndGetClasspath());
 
+        // Add module access flags needed for XStream serialization (Java 9+)
+        commands.add("--add-opens");
+        commands.add("java.base/java.util=ALL-UNNAMED");
+        commands.add("--add-opens");
+        commands.add("java.base/java.lang=ALL-UNNAMED");
+        // Add module access flags needed for VirtualNetwork (Java 9+)
+        commands.add("--add-opens");
+        commands.add("java.base/java.net=ALL-UNNAMED");
+
         /*
          * FIXME for seeding, need to setup classpath of generated test suites
          * - first the currently generated

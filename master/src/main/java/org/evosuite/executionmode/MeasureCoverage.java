@@ -111,6 +111,14 @@ public class MeasureCoverage {
         }
         cmdLine.add("-Dlogback.configurationFile=" + LoggingUtils.getLogbackFileName());
         cmdLine.add("-Djava.library.path=lib");
+        // Add module access flags needed for XStream serialization (Java 9+)
+        cmdLine.add("--add-opens");
+        cmdLine.add("java.base/java.util=ALL-UNNAMED");
+        cmdLine.add("--add-opens");
+        cmdLine.add("java.base/java.lang=ALL-UNNAMED");
+        // Add module access flags needed for VirtualNetwork (Java 9+)
+        cmdLine.add("--add-opens");
+        cmdLine.add("java.base/java.net=ALL-UNNAMED");
         cmdLine.add(projectCP.isEmpty() ? "-DCP=" + classPath : "-DCP=" + projectCP);
 
         for (String arg : args) {

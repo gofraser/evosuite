@@ -308,6 +308,15 @@ public class TestGeneration {
         cmdLine.add("-XX:MaxJavaStackTraceDepth=1000000");
         cmdLine.add("-XX:+StartAttachListener");
 
+        // Add module access flags needed for XStream serialization (Java 9+)
+        cmdLine.add("--add-opens");
+        cmdLine.add("java.base/java.util=ALL-UNNAMED");
+        cmdLine.add("--add-opens");
+        cmdLine.add("java.base/java.lang=ALL-UNNAMED");
+        // Add module access flags needed for VirtualNetwork (Java 9+)
+        cmdLine.add("--add-opens");
+        cmdLine.add("java.base/java.net=ALL-UNNAMED");
+
         for (String arg : args) {
             if (!arg.startsWith("-DCP=")) {
                 cmdLine.add(arg);
