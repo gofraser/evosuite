@@ -27,14 +27,17 @@ import java.util.List;
 /**
  * <p>PopulationLimit interface.</p>
  *
+ * Defines a strategy to determine if the population is full.
+ *
+ * @param <T> the type of chromosome
  * @author Gordon Fraser
  */
 public interface PopulationLimit<T extends Chromosome<T>> extends Serializable {
     /**
-     * <p>isPopulationFull</p>
+     * Checks if the population is full according to the implemented strategy.
      *
-     * @param population a {@link java.util.List} object.
-     * @return a boolean.
+     * @param population a {@link java.util.List} of chromosomes representing the current population.
+     * @return true if the population is considered full, false otherwise.
      */
     boolean isPopulationFull(List<T> population);
 }
