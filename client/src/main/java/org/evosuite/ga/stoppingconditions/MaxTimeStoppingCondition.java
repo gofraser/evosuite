@@ -23,6 +23,8 @@ import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 
+import java.util.concurrent.TimeUnit;
+
 
 /**
  * Stop search after a predefined amount of time
@@ -59,7 +61,7 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
      */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
-        startTime = System.currentTimeMillis();
+        reset();
     }
 
     /**
@@ -69,8 +71,8 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
      */
     @Override
     public boolean isFinished() {
-        long currentTime = System.currentTimeMillis();
-        return (currentTime - startTime) / 1000 > maxSeconds;
+        long currentTime = System.nanoTime();
+        return TimeUnit.NANOSECONDS.toSeconds(currentTime - startTime) > maxSeconds;
     }
 
     /**
@@ -80,7 +82,7 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
      */
     @Override
     public void reset() {
-        startTime = System.currentTimeMillis();
+        startTime = System.nanoTime();
     }
 
     /* (non-Javadoc)
@@ -112,8 +114,8 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
      */
     @Override
     public long getCurrentValue() {
-        long currentTime = System.currentTimeMillis();
-        return (currentTime - startTime) / 1000;
+        long currentTime = System.nanoTime();
+        return TimeUnit.NANOSECONDS.toSeconds(currentTime - startTime);
     }
 
     /**
@@ -121,7 +123,7 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
      */
     @Override
     public void forceCurrentValue(long value) {
-        startTime = value;
+        startTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(value);
     }
 
 }
