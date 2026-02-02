@@ -61,13 +61,14 @@ public class BranchFitnessGraph implements Serializable {
                 continue;
             }
 
-            if (branch.getInstruction().isRootBranchDependent())
-                //|| branch.getInstruction().getControlDependentBranchIds().contains(-1))
+            if (branch.getInstruction().isRootBranchDependent()) {
                 this.rootBranches.add(fitness);
+            }
+
             // see dependencies for all true/false branches
             ActualControlFlowGraph rcfg = branch.getInstruction().getActualCFG();
             Set<BasicBlock> visitedBlock = new HashSet<>();
-            Set<BasicBlock> parents = lookForParent(branch.getInstruction().getBasicBlock(), rcfg, visitedBlock);
+            Set<BasicBlock> parents = lookForParents(branch.getInstruction().getBasicBlock(), rcfg, visitedBlock);
             for (BasicBlock bb : parents) {
                 Branch newB = extractBranch(bb);
                 if (newB == null) {
@@ -77,20 +78,30 @@ public class BranchFitnessGraph implements Serializable {
 
                 BranchCoverageGoal goal = new BranchCoverageGoal(newB, true, newB.getClassName(), newB.getMethodName());
                 BranchCoverageTestFitness newFitness = new BranchCoverageTestFitness(goal);
+                graph.addVertex(newFitness);
                 graph.addEdge(newFitness, fitness);
 
                 BranchCoverageGoal goal2 = new BranchCoverageGoal(newB, false, newB.getClassName(), newB.getMethodName());
-                BranchCoverageTestFitness newfitness2 = new BranchCoverageTestFitness(goal2);
-                graph.addEdge(newfitness2, fitness);
+                BranchCoverageTestFitness newFitness2 = new BranchCoverageTestFitness(goal2);
+                graph.addVertex(newFitness2);
+                graph.addEdge(newFitness2, fitness);
             }
         }
     }
 
 
-    public Set<BasicBlock> lookForParent(BasicBlock block, ActualControlFlowGraph acfg, Set<BasicBlock> visitedBlock) {
+    /**
+     * Recursively looks for parent blocks that contain branches.
+     *
+     * @param block        the current basic block
+     * @param acfg         the control flow graph
+     * @param visitedBlock set of visited blocks to avoid cycles
+     * @return set of parent basic blocks that contain branches
+     */
+    public Set<BasicBlock> lookForParents(BasicBlock block, ActualControlFlowGraph acfg, Set<BasicBlock> visitedBlock) {
         Set<BasicBlock> realParent = new HashSet<>();
         Set<BasicBlock> parents = acfg.getParents(block);
-        if (parents.size() == 0) {
+        if (parents.isEmpty()) {
             realParent.add(block);
             return realParent;
         }
@@ -101,7 +112,7 @@ public class BranchFitnessGraph implements Serializable {
             if (containsBranches(bb))
                 realParent.add(bb);
             else
-                realParent.addAll(lookForParent(bb, acfg, visitedBlock));
+                realParent.addAll(lookForParents(bb, acfg, visitedBlock));
         }
         return realParent;
     }
