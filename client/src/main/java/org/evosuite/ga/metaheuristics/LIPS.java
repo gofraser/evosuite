@@ -153,16 +153,12 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
                     crossoverFunction.crossOver(offspring1, offspring2);
                 }
 
-                if (Randomness.nextDouble() <= Properties.MUTATION_RATE) {
-                    notifyMutation(offspring1);
-                    offspring1.mutate();
-                }
+                notifyMutation(offspring1);
+                offspring1.mutate();
                 newGeneration.add(offspring1);
 
-                if (Randomness.nextDouble() <= Properties.MUTATION_RATE) {
-                    notifyMutation(offspring2);
-                    offspring2.mutate();
-                }
+                notifyMutation(offspring2);
+                offspring2.mutate();
                 newGeneration.add(offspring2);
 
                 if (offspring1.isChanged()) {
