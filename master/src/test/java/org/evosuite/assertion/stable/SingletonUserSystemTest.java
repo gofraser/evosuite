@@ -39,6 +39,7 @@ import com.examples.with.different.packagename.stable.SingletonUser;
 public class SingletonUserSystemTest extends SystemTestBase {
 
     private final boolean DEFAULT_RESET_STATIC_FIELDS = Properties.RESET_STATIC_FIELDS;
+    private final boolean DEFAULT_RESET_STATIC_FIELD_GETS = Properties.RESET_STATIC_FIELD_GETS;
     private final Properties.JUnitCheckValues DEFAULT_JUNIT_CHECK = Properties.JUNIT_CHECK;
     private final boolean DEFAULT_JUNIT_TESTS = Properties.JUNIT_TESTS;
     private final boolean DEFAULT_PURE_INSPECTORS = Properties.PURE_INSPECTORS;
@@ -48,6 +49,7 @@ public class SingletonUserSystemTest extends SystemTestBase {
     @Before
     public void before() {
         Properties.RESET_STATIC_FIELDS = true;
+        Properties.RESET_STATIC_FIELD_GETS = true;
         Properties.SANDBOX = true;
         Properties.JUNIT_CHECK = Properties.JUnitCheckValues.TRUE;
         Properties.JUNIT_TESTS = true;
@@ -58,6 +60,7 @@ public class SingletonUserSystemTest extends SystemTestBase {
     @After
     public void after() {
         Properties.RESET_STATIC_FIELDS = DEFAULT_RESET_STATIC_FIELDS;
+        Properties.RESET_STATIC_FIELD_GETS = DEFAULT_RESET_STATIC_FIELD_GETS;
         Properties.SANDBOX = DEFAULT_SANDBOX;
         Properties.JUNIT_CHECK = DEFAULT_JUNIT_CHECK;
         Properties.JUNIT_TESTS = DEFAULT_JUNIT_TESTS;
