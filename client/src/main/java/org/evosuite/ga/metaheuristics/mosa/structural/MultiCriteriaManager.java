@@ -101,45 +101,45 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         super(targets);
 
         // initialize the dependency graph among branches
-        this.graph = getControlDependencies4Branches(targets);
+        this.graph = getControlDependenciesForBranches(targets);
 
         // initialize the dependency graph between branches and other coverage targets (e.g., statements)
         // let's derive the dependency graph between branches and other coverage targets (e.g., statements)
         for (Criterion criterion : Properties.CRITERION) {
             switch (criterion) {
                 case BRANCH:
-                    break; // branches have been handled by getControlDepencies4Branches
+                    break; // branches have been handled by getControlDependenciesForBranches
                 case EXCEPTION:
                     break; // exception coverage is handled by calculateFitness
                 case LINE:
-                    addDependencies4Line();
+                    addDependenciesForLine();
                     break;
                 case STATEMENT:
-                    addDependencies4Statement();
+                    addDependenciesForStatement();
                     break;
                 case WEAKMUTATION:
-                    addDependencies4WeakMutation();
+                    addDependenciesForWeakMutation();
                     break;
                 case STRONGMUTATION:
-                    addDependencies4StrongMutation();
+                    addDependenciesForStrongMutation();
                     break;
                 case METHOD:
-                    addDependencies4Methods();
+                    addDependenciesForMethods();
                     break;
                 case INPUT:
-                    addDependencies4Input();
+                    addDependenciesForInput();
                     break;
                 case OUTPUT:
-                    addDependencies4Output();
+                    addDependenciesForOutput();
                     break;
                 case TRYCATCH:
-                    addDependencies4TryCatch();
+                    addDependenciesForTryCatch();
                     break;
                 case METHODNOEXCEPTION:
-                    addDependencies4MethodsNoException();
+                    addDependenciesForMethodsNoException();
                     break;
                 case CBRANCH:
-                    addDependencies4CBranch();
+                    addDependenciesForCBranch();
                     break;
                 default:
                     LoggingUtils.getEvoLogger().error("The criterion {} is not currently supported in DynaMOSA", criterion.name());
@@ -150,7 +150,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         this.currentGoals.addAll(graph.getRootBranches());
     }
 
-    private void addDependencies4TryCatch() {
+    private void addDependenciesForTryCatch() {
         logger.debug("Added dependencies for Try-Catch");
         for (FitnessFunction<TestChromosome> ff : this.getUncoveredGoals()) {
             if (ff instanceof TryCatchCoverageTestFitness) {
@@ -180,7 +180,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         }
     }
 
-    private void addDependencies4Output() {
+    private void addDependenciesForOutput() {
         logger.debug("Added dependencies for Output");
         for (TestFitnessFunction ff : this.getUncoveredGoals()) {
             if (ff instanceof OutputCoverageTestFitness) {
@@ -193,15 +193,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
                 }
                 for (BytecodeInstruction instruction : pool.getInstructionsIn(output.getClassName(), output.getMethod())) {
                     if (instruction.getBasicBlock() != null) {
-                        Set<ControlDependency> cds = instruction.getBasicBlock().getControlDependencies();
-                        if (cds.size() == 0) {
-                            this.currentGoals.add(ff);
-                        } else {
-                            for (ControlDependency cd : cds) {
-                                BranchCoverageTestFitness fitness = BranchCoverageFactory.createBranchCoverageTestFitness(cd);
-                                this.dependencies.get(fitness).add(ff);
-                            }
-                        }
+                        processControlDependencies(ff, instruction.getBasicBlock().getControlDependencies());
                     }
                 }
             }
@@ -212,7 +204,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * This methods derive the dependencies between {@link InputCoverageTestFitness} and branches.
      * Therefore, it is used to update 'this.dependencies'
      */
-    private void addDependencies4Input() {
+    private void addDependenciesForInput() {
         logger.debug("Added dependencies for Input");
         for (TestFitnessFunction ff : this.getUncoveredGoals()) {
             if (ff instanceof InputCoverageTestFitness) {
@@ -225,15 +217,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
                 }
                 for (BytecodeInstruction instruction : pool.getInstructionsIn(input.getClassName(), input.getMethod())) {
                     if (instruction.getBasicBlock() != null) {
-                        Set<ControlDependency> cds = instruction.getBasicBlock().getControlDependencies();
-                        if (cds.size() == 0) {
-                            this.currentGoals.add(ff);
-                        } else {
-                            for (ControlDependency cd : cds) {
-                                BranchCoverageTestFitness fitness = BranchCoverageFactory.createBranchCoverageTestFitness(cd);
-                                this.dependencies.get(fitness).add(ff);
-                            }
-                        }
+                        processControlDependencies(ff, instruction.getBasicBlock().getControlDependencies());
                     }
                 }
             }
@@ -244,7 +228,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * This methods derive the dependencies between {@link MethodCoverageTestFitness} and branches.
      * Therefore, it is used to update 'this.dependencies'
      */
-    private void addDependencies4Methods() {
+    private void addDependenciesForMethods() {
         logger.debug("Added dependencies for Methods");
         for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
             MethodCoverageTestFitness method = new MethodCoverageTestFitness(branch.getClassName(), branch.getMethod());
@@ -256,7 +240,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * This methods derive the dependencies between {@link MethodNoExceptionCoverageTestFitness} and branches.
      * Therefore, it is used to update 'this.dependencies'
      */
-    private void addDependencies4MethodsNoException() {
+    private void addDependenciesForMethodsNoException() {
         logger.debug("Added dependencies for MethodsNoException");
         for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
             MethodNoExceptionCoverageTestFitness method = new MethodNoExceptionCoverageTestFitness(branch.getClassName(), branch.getMethod());
@@ -268,7 +252,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * This methods derive the dependencies between {@link CBranchTestFitness} and branches.
      * Therefore, it is used to update 'this.dependencies'
      */
-    private void addDependencies4CBranch() {
+    private void addDependenciesForCBranch() {
         logger.debug("Added dependencies for CBranch");
         CallGraph callGraph = DependencyAnalysis.getCallGraph();
         for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
@@ -284,7 +268,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * This methods derive the dependencies between {@link WeakMutationTestFitness} and branches.
      * Therefore, it is used to update 'this.dependencies'
      */
-    private void addDependencies4WeakMutation() {
+    private void addDependenciesForWeakMutation() {
         logger.debug("Added dependencies for Weak-Mutation");
         for (TestFitnessFunction ff : this.getUncoveredGoals()) {
             if (ff instanceof WeakMutationTestFitness) {
@@ -306,7 +290,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * This methods derive the dependencies between {@link org.evosuite.coverage.mutation.StrongMutationTestFitness} and branches.
      * Therefore, it is used to update 'this.dependencies'
      */
-    private void addDependencies4StrongMutation() {
+    private void addDependenciesForStrongMutation() {
         logger.debug("Added dependencies for Strong-Mutation");
         for (TestFitnessFunction ff : this.getUncoveredGoals()) {
             if (ff instanceof StrongMutationTestFitness) {
@@ -328,7 +312,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * This methods derive the dependencies between  {@link LineCoverageTestFitness} and branches.
      * Therefore, it is used to update 'this.dependencies'
      */
-    private void addDependencies4Line() {
+    private void addDependenciesForLine() {
         logger.debug("Added dependencies for Lines");
         for (TestFitnessFunction ff : this.getUncoveredGoals()) {
             if (ff instanceof LineCoverageTestFitness) {
@@ -336,18 +320,10 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
                 ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
                 BytecodeInstructionPool pool = BytecodeInstructionPool.getInstance(loader);
                 BytecodeInstruction instruction = pool.getFirstInstructionAtLineNumber(line.getClassName(), line.getMethod(), line.getLine());
-                if(instruction == null) {
+                if (instruction == null) {
                     return;
                 }
-                Set<ControlDependency> cds = instruction.getControlDependencies();
-                if (cds.size() == 0)
-                    this.currentGoals.add(ff);
-                else {
-                    for (ControlDependency cd : cds) {
-                        BranchCoverageTestFitness fitness = BranchCoverageFactory.createBranchCoverageTestFitness(cd);
-                        this.dependencies.get(fitness).add(ff);
-                    }
-                }
+                processControlDependencies(ff, instruction.getControlDependencies());
             }
         }
     }
@@ -356,7 +332,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * This methods derive the dependencies between  {@link StatementCoverageTestFitness} and branches.
      * Therefore, it is used to update 'this.dependencies'
      */
-    private void addDependencies4Statement() {
+    private void addDependenciesForStatement() {
         logger.debug("Added dependencies for Statements");
         for (TestFitnessFunction ff : this.getUncoveredGoals()) {
             if (ff instanceof StatementCoverageTestFitness) {
@@ -531,7 +507,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         return covered_exceptions;
     }
 
-    public BranchFitnessGraph getControlDependencies4Branches(List<TestFitnessFunction> fitnessFunctions) {
+    public BranchFitnessGraph getControlDependenciesForBranches(List<TestFitnessFunction> fitnessFunctions) {
         Set<TestFitnessFunction> setOfBranches = new LinkedHashSet<>();
         this.dependencies = new LinkedHashMap<>();
 
@@ -545,5 +521,16 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         this.initializeMaps(setOfBranches);
 
         return new BranchFitnessGraph(setOfBranches);
+    }
+
+    private void processControlDependencies(TestFitnessFunction ff, Set<ControlDependency> cds) {
+        if (cds.isEmpty()) {
+            this.currentGoals.add(ff);
+        } else {
+            for (ControlDependency cd : cds) {
+                BranchCoverageTestFitness fitness = BranchCoverageFactory.createBranchCoverageTestFitness(cd);
+                this.dependencies.get(fitness).add(ff);
+            }
+        }
     }
 }

@@ -193,7 +193,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             } else {
                 tch = Randomness.choice(this.getSolutions()).clone();
                 tch.mutate();
-//				tch.mutate(); // TODO why is it mutated twice?
             }
             if (tch.isChanged()) {
                 tch.updateAge(this.currentIteration);
@@ -214,7 +213,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private void mutate(TestChromosome offspring, TestChromosome parent) {
         offspring.mutate();
         if (!offspring.isChanged()) {
-            // if offspring is not changed, we try to mutate it once again
+            // if offspring is not changed, we try to mutate it once again.
+            // This acts as a retry mechanism to force exploration.
             offspring.mutate();
         }
         if (!this.hasMethodCall(offspring)) {
@@ -441,31 +441,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * in the {@link org.evosuite.ga.archive.Archive}.
      */
 
-    // This override should no longer be needed since MOSA no longer accepts ProgressMonitors
-//	/**
-//     * Notify all search listeners but ProgressMonitor of fitness evaluation.
-//     *
-//     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
-//     */
-//    @Override
-//	protected void notifyEvaluation(TestChromosome chromosome) {
-//		// ProgressMonitor requires a TestSuiteChromosome
-//		Stream<SearchListener<TestChromosome>> ls = listeners.stream().filter(l -> !(l instanceof ProgressMonitor));
-//		ls.forEach(l -> l.fitnessEvaluation(chromosome));
-//	}
-
-    // This override should no longer be needed since MOSA no longer accepts ProgressMonitors
-//    /**
-//     * Notify all search listeners but ProgressMonitor of a mutation.
-//     *
-//     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
-//     */
-//    @Override
-//    protected void notifyMutation(TestChromosome chromosome) {
-//		// ProgressMonitor requires a TestSuiteChromosome
-//		Stream<SearchListener<TestChromosome>> ls = listeners.stream().filter(l -> !(l instanceof ProgressMonitor));
-//		ls.forEach(l -> l.modification(chromosome));
-//    }
     @Override
     protected void notifySearchStarted() {
         super.notifySearchStarted();
@@ -504,81 +479,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * {@inheritDoc}
      */
-//    @SuppressWarnings("unchecked")
-//    @Override
-//    public List<TestSuiteChromosome> getBestIndividuals() {
-//        // get final test suite (i.e., non dominated solutions in Archive)
-//        TestSuiteChromosome bestTestCases = Archive.getArchiveInstance().mergeArchiveAndSolution(new TestSuiteChromosome());
-//        if (bestTestCases.getTestChromosomes().isEmpty()) {
-//          for (TestChromosome test : this.getNonDominatedSolutions(this.population)) {
-//            bestTestCases.addTest(test);
-//          }
-//        }
-//
-//        // compute overall fitness and coverage
-//        this.computeCoverageAndFitness(bestTestCases);
-//
-//		return Collections.singletonList(bestTestCases);
-//    }
     @Override
     public List<TestChromosome> getBestIndividuals() {
         return this.getNonDominatedSolutions(this.population);
     }
-
-//	/**
-//     * {@inheritDoc}
-//     *
-//     * <p>This method is used by the Progress Monitor at the and of each generation to show the total coverage reached by the algorithm.
-//     * Since the Progress Monitor requires a {@link org.evosuite.testsuite.TestSuiteChromosome} object, this method artificially creates
-//     * a {@link org.evosuite.testsuite.TestSuiteChromosome} object as the union of all solutions stored in the {@link
-//     * org.evosuite.ga.archive.Archive}.</p>
-//     *
-//     * <p>The coverage score of the {@link org.evosuite.testsuite.TestSuiteChromosome} object is given by the percentage of targets marked
-//     * as covered in the archive.</p>
-//     *
-//     * @return a {@link org.evosuite.testsuite.TestSuiteChromosome} object to be consumable by the Progress Monitor.
-//     */
-//    @Override
-//    public TestSuiteChromosome getBestIndividual() {
-//        TestSuiteChromosome best = this.generateSuite();
-//        if (best.getTestChromosomes().isEmpty()) {
-//          for (TestChromosome test : this.getNonDominatedSolutions(this.population)) {
-//            best.addTest(test);
-//          }
-//          for (TestSuiteFitnessFunction suiteFitness : this.suiteFitnessFunctions.keySet()) {
-//            best.setCoverage(suiteFitness, 0.0);
-//            best.setFitness(suiteFitness,  1.0);
-//          }
-//          return best;
-//        }
-//
-//        // compute overall fitness and coverage
-//        this.computeCoverageAndFitness(best);
-//
-//        return best;
-//    }
-
-//    protected void computeCoverageAndFitness(TestSuiteChromosome suite) {
-//      for (Entry<TestSuiteFitnessFunction, Class<?>> entry : this.suiteFitnessFunctions
-//          .entrySet()) {
-//        TestSuiteFitnessFunction suiteFitnessFunction = entry.getKey();
-//        Class<?> testFitnessFunction = entry.getValue();
-//
-//        int numberCoveredTargets =
-//            Archive.getArchiveInstance().getNumberOfCoveredTargets(testFitnessFunction);
-//        int numberUncoveredTargets =
-//            Archive.getArchiveInstance().getNumberOfUncoveredTargets(testFitnessFunction);
-//        int totalNumberTargets = numberCoveredTargets + numberUncoveredTargets;
-//
-//        double coverage = totalNumberTargets == 0 ? 1.0
-//            : ((double) numberCoveredTargets) / ((double) totalNumberTargets);
-//
-//        suite.setFitness(suiteFitnessFunction, numberUncoveredTargets);
-//        suite.setCoverage(suiteFitnessFunction, coverage);
-//        suite.setNumOfCoveredGoals(suiteFitnessFunction, numberCoveredTargets);
-//        suite.setNumOfNotCoveredGoals(suiteFitnessFunction, numberUncoveredTargets);
-//      }
-//    }
 
     protected void applyLocalSearch(final TestSuiteChromosome testSuite) {
         adapter.applyLocalSearch(testSuite);
