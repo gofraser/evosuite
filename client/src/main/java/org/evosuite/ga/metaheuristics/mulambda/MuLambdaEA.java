@@ -44,6 +44,9 @@ public class MuLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T> {
 
     public MuLambdaEA(ChromosomeFactory<T> factory, int mu, int lambda) {
         super(factory, mu, lambda);
+        if (lambda < mu) {
+            throw new IllegalArgumentException("Lambda must be greater than or equal to Mu");
+        }
     }
 
     /**
@@ -55,17 +58,16 @@ public class MuLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T> {
         List<T> offspring = new ArrayList<>(this.lambda);
 
         // create new offspring by mutating current population
-        for (int i = 0; i < this.mu; i++) {
-            for (int j = 0; j < this.lambda / this.mu; j++) {
-                T t = this.population.get(i).clone();
+        for (int i = 0; i < this.lambda; i++) {
+            T parent = this.population.get(i % this.mu);
+            T t = parent.clone();
 
-                do {
-                    this.notifyMutation(t);
-                    t.mutate();
-                } while (!t.isChanged());
+            do {
+                this.notifyMutation(t);
+                t.mutate();
+            } while (!t.isChanged());
 
-                offspring.add(t);
-            }
+            offspring.add(t);
         }
 
         // update fitness values of offspring
@@ -90,10 +92,11 @@ public class MuLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T> {
         }
 
         // replace mu (i.e., population) out of lambda (i.e., offspring)
-        for (int i = 0; i < this.population.size(); i++) {
-            logger.debug("replacing " + this.population.get(i).getFitness() + " with "
-                    + offspring.get(i).getFitness());
-            this.population.set(i, offspring.get(i));
+        this.population.clear();
+        for (int i = 0; i < this.mu; i++) {
+            T bestOffspring = offspring.get(i);
+            logger.debug("New population individual " + i + ": " + bestOffspring.getFitness());
+            this.population.add(bestOffspring);
         }
     }
 }

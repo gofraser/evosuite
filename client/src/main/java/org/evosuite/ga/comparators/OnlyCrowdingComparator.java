@@ -63,6 +63,11 @@ public class OnlyCrowdingComparator<T extends Chromosome<T>> implements Comparat
      */
     @Override
     public int compare(T c1, T c2) {
+        if (c1 == null) {
+            return 1;
+        } else if (c2 == null) {
+            return -1;
+        }
         return Double.compare(c2.getDistance(), c1.getDistance());
     }
 }

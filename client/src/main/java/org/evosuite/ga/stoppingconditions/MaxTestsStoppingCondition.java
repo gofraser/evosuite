@@ -22,8 +22,14 @@ package org.evosuite.ga.stoppingconditions;
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * <p>MaxTestsStoppingCondition class.</p>
+ * <p>
+ * Note: This class tracks the number of executed tests globally via a static counter.
+ * This design is coupled with {@link org.evosuite.testcase.execution.TestCaseExecutor}.
+ * </p>
  *
  * @author Gordon Fraser
  */
@@ -34,7 +40,7 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
     /**
      * Current number of tests
      */
-    protected static long numTests = 0;
+    protected static final AtomicLong numTests = new AtomicLong(0);
 
     /**
      * Maximum number of evaluations
@@ -60,14 +66,14 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
      * @return a long.
      */
     public static long getNumExecutedTests() {
-        return numTests;
+        return numTests.get();
     }
 
     /**
      * <p>testExecuted</p>
      */
     public static void testExecuted() {
-        numTests++;
+        numTests.incrementAndGet();
     }
 
     /**
@@ -75,7 +81,7 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
      */
     @Override
     public void reset() {
-        numTests = 0;
+        numTests.set(0);
     }
 
     /**
@@ -83,7 +89,7 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
      */
     @Override
     public boolean isFinished() {
-        return numTests >= maxTests;
+        return numTests.get() >= maxTests;
     }
 
     /* (non-Javadoc)
@@ -95,7 +101,7 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
      */
     @Override
     public long getCurrentValue() {
-        return numTests;
+        return numTests.get();
     }
 
     /* (non-Javadoc)
@@ -123,8 +129,7 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
      */
     @Override
     public void forceCurrentValue(long value) {
-        // TODO Auto-generated method stub
-        numTests = value;
+        numTests.set(value);
     }
 
 }

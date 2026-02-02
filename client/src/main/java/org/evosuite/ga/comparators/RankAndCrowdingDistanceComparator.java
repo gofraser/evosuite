@@ -35,12 +35,14 @@ public class RankAndCrowdingDistanceComparator<T extends Chromosome<T>> implemen
 
     private static final long serialVersionUID = -1663917547588039444L;
 
+    @Deprecated
     private boolean isToMaximize;
 
     public RankAndCrowdingDistanceComparator() {
         this.isToMaximize = false;
     }
 
+    @Deprecated
     public RankAndCrowdingDistanceComparator(boolean maximize) {
         this.isToMaximize = maximize;
     }
@@ -70,25 +72,16 @@ public class RankAndCrowdingDistanceComparator<T extends Chromosome<T>> implemen
             return 0;
         }
 
-        if (this.isToMaximize) {
-            if (c1.getRank() < c2.getRank()) {
-                return 1;
-            } else if (c1.getRank() > c2.getRank()) {
-                return -1;
-            } else if (c1.getRank() == c2.getRank()) {
-                return (c1.getDistance() > c2.getDistance()) ? -1 : 1;
-            }
-        } else {
-            if (c1.getRank() < c2.getRank()) {
-                return -1;
-            } else if (c1.getRank() > c2.getRank()) {
-                return 1;
-            } else if (c1.getRank() == c2.getRank()) {
-                return (c1.getDistance() > c2.getDistance()) ? -1 : 1;
-            }
+        // Rank 0 is always the best (non-dominated front), so we always minimize rank
+        if (c1.getRank() < c2.getRank()) {
+            return -1;
+        } else if (c1.getRank() > c2.getRank()) {
+            return 1;
         }
 
-        return 0;
+        // If ranks are equal, we check crowding distance
+        // Higher crowding distance is better (more diversity), so we sort descending
+        return Double.compare(c2.getDistance(), c1.getDistance());
     }
 
     /**
@@ -96,6 +89,7 @@ public class RankAndCrowdingDistanceComparator<T extends Chromosome<T>> implemen
      *
      * @param max a boolean.
      */
+    @Deprecated
     public void setMaximize(boolean max) {
         this.isToMaximize = max;
     }

@@ -25,6 +25,8 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * <p>
  * GlobalTimeStoppingCondition class.
@@ -79,8 +81,11 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
      */
     @Override
     public long getCurrentValue() {
-        long current_time = System.currentTimeMillis();
-        return (int) ((current_time - startTime) / 1000);
+        if (startTime == 0) {
+            return 0;
+        }
+        long currentTime = System.nanoTime();
+        return TimeUnit.NANOSECONDS.toSeconds(currentTime - startTime);
     }
 
     /* (non-Javadoc)
@@ -92,13 +97,17 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
      */
     @Override
     public boolean isFinished() {
-        long current_time = System.currentTimeMillis();
-        if (Properties.GLOBAL_TIMEOUT != 0 && startTime != 0
-                && (current_time - startTime) / 1000 > Properties.GLOBAL_TIMEOUT)
-            logger.info("Timeout reached");
+        if (Properties.GLOBAL_TIMEOUT == 0 || startTime == 0) {
+            return false;
+        }
+        long currentTime = System.nanoTime();
+        long elapsedSeconds = TimeUnit.NANOSECONDS.toSeconds(currentTime - startTime);
 
-        return Properties.GLOBAL_TIMEOUT != 0 && startTime != 0
-                && (current_time - startTime) / 1000 > Properties.GLOBAL_TIMEOUT;
+        if (elapsedSeconds > Properties.GLOBAL_TIMEOUT) {
+            logger.info("Timeout reached");
+            return true;
+        }
+        return false;
     }
 
     /* (non-Javadoc)
@@ -111,7 +120,7 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
     @Override
     public void reset() {
         if (startTime == 0)
-            startTime = System.currentTimeMillis();
+            startTime = System.nanoTime();
     }
 
     /**
@@ -121,7 +130,7 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
      * use <tt>reset()</tt>.
      */
     public void fullReset() {
-        startTime = System.currentTimeMillis();
+        startTime = System.nanoTime();
     }
 
     /* (non-Javadoc)
@@ -133,8 +142,7 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
      */
     @Override
     public void setLimit(long limit) {
-        // TODO Auto-generated method stub
-
+        // Limit is determined by Properties.GLOBAL_TIMEOUT
     }
 
     /**
@@ -142,7 +150,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
      */
     @Override
     public long getLimit() {
-        // TODO Auto-generated method stub
         return Properties.GLOBAL_TIMEOUT;
     }
 
@@ -160,21 +167,25 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
      */
     @Override
     public void forceCurrentValue(long value) {
-        startTime = value;
+        // value is in seconds
+        startTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(value);
     }
 
     /**
      * Remember start pause time
      */
     public void pause() {
-        pauseTime = System.currentTimeMillis();
+        pauseTime = System.nanoTime();
     }
 
     /**
      * Change start time after MA
      */
     public void resume() {
-        startTime += System.currentTimeMillis() - pauseTime;
+        if (pauseTime != 0) {
+            startTime += System.nanoTime() - pauseTime;
+            pauseTime = 0;
+        }
     }
 
 }

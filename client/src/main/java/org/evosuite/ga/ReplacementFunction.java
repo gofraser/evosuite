@@ -131,17 +131,4 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
         return bestOffspring.compareTo(bestParent);
     }
 
-    /**
-     * Decide which of two offspring to keep
-     *
-     * @param parent    a {@link org.evosuite.ga.Chromosome} object.
-     * @param offspring a {@link org.evosuite.ga.Chromosome} object.
-     * @return a boolean.
-     * @deprecated should not be used, as it does not handle
-     * Properties.CHECK_PARENTS_LENGTH
-     */
-    @Deprecated
-    public boolean keepOffspring(T parent, T offspring) {
-        return isBetterOrEqual(offspring, parent);
-    }
 }

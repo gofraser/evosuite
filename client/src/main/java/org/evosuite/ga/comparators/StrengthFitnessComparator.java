@@ -25,7 +25,10 @@ import java.io.Serializable;
 import java.util.Comparator;
 
 /**
- * StrengthFitnessComparator class.
+ * Comparator based on the "strength" value of chromosomes.
+ * <p>
+ * This is primarily used in SPEA2. Note that the strength value (fitness + density)
+ * is stored in the {@link Chromosome#getDistance()} field.
  *
  * @author José Campos
  */
@@ -43,7 +46,8 @@ public class StrengthFitnessComparator implements Comparator<Chromosome<?>>, Ser
             return -1;
         }
 
-        double strengthC1 = c1.getDistance(); // TODO: should we change name of the function?
+        // Note: In SPEA2, the strength value is stored in the distance field of the chromosome.
+        double strengthC1 = c1.getDistance();
         double strengthC2 = c2.getDistance();
 
         return Double.compare(strengthC1, strengthC2);

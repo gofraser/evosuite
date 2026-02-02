@@ -93,13 +93,13 @@ public class TestCrowdingComparator {
         population.sort(cc);
 
         // assert by Rank
-        Assert.assertEquals(1, population.get(0).getRank());
+        Assert.assertEquals(0, population.get(0).getRank());
         Assert.assertEquals(0, population.get(1).getRank());
-        Assert.assertEquals(0, population.get(2).getRank());
+        Assert.assertEquals(1, population.get(2).getRank());
 
         // assert by Distance
-        Assert.assertEquals(0.1, population.get(0).getDistance(), 0.0);
-        Assert.assertEquals(0.5, population.get(1).getDistance(), 0.0);
-        Assert.assertEquals(0.4, population.get(2).getDistance(), 0.0);
+        Assert.assertEquals(0.5, population.get(0).getDistance(), 0.0);
+        Assert.assertEquals(0.4, population.get(1).getDistance(), 0.0);
+        Assert.assertEquals(0.1, population.get(2).getDistance(), 0.0);
     }
 }

@@ -48,17 +48,16 @@ public class MuPlusLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T>
         List<T> offsprings = new ArrayList<>(this.lambda);
 
         // create new offsprings by mutating current population
-        for (int i = 0; i < this.mu; i++) {
-            for (int j = 0; j < this.lambda / this.mu; j++) {
-                T offspring = this.population.get(i).clone();
-                this.notifyMutation(offspring);
+        for (int i = 0; i < this.lambda; i++) {
+            T parent = this.population.get(i % this.mu);
+            T offspring = parent.clone();
+            this.notifyMutation(offspring);
 
-                do {
-                    offspring.mutate();
-                } while (!offspring.isChanged());
+            do {
+                offspring.mutate();
+            } while (!offspring.isChanged());
 
-                offsprings.add(offspring);
-            }
+            offsprings.add(offspring);
         }
 
         // update fitness values of offsprings
@@ -69,30 +68,21 @@ public class MuPlusLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T>
             }
         }
 
-        for (int i = 0; i < this.population.size(); i++) {
-            T bestOffspring = this.population.get(i);
+        // Combine parents and offspring
+        this.population.addAll(offsprings);
 
-            boolean offspring_is_better = false;
-            for (T offspring : offsprings) {
-                if (isBetterOrEqual(offspring, bestOffspring)) {
-                    bestOffspring = offspring;
-                    offspring_is_better = true;
-                }
-            }
+        // Sort by fitness
+        this.sortPopulation();
 
-            if (offspring_is_better) {
-                // replace individual with a better one
-                this.population.set(i, bestOffspring);
-                // to prevent a population with only equal and dominant
-                // individuals, here the best offspring is remove so that
-                // it cannot be chosen again. in case of 1+1 and 1+Lambda EA
-                // this optimization has no effect.
-                offsprings.remove(bestOffspring);
-            }
-
-            this.population.get(i).updateAge(this.currentIteration);
+        // Truncate to mu
+        while (this.population.size() > this.mu) {
+            this.population.remove(this.population.size() - 1);
         }
-        assert this.population.size() == this.mu;
+
+        // Update age
+        for (T individual : this.population) {
+            individual.updateAge(this.currentIteration);
+        }
 
         this.currentIteration++;
     }

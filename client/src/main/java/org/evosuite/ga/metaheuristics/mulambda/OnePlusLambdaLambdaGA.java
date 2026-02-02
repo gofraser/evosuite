@@ -46,67 +46,73 @@ public class OnePlusLambdaLambdaGA<T extends Chromosome<T>> extends AbstractMuLa
     @Override
     protected void evolve() {
 
-        List<T> mutants = new ArrayList<>();
+        T parent = population.get(0);
 
-        T parent = population.get(0).clone();
-
+        // 1. Mutation Phase
+        List<T> mutants = new ArrayList<>(this.lambda);
         while (mutants.size() < this.lambda) {
             // clone firstly offspring from parent
-            T MutationOffspring = parent.clone();
-            notifyMutation(MutationOffspring);
+            T mutationOffspring = parent.clone();
+            notifyMutation(mutationOffspring);
 
             // perform mutation operation with high probability
-            MutationOffspring.mutate();
-            mutants.add(MutationOffspring);
+            mutationOffspring.mutate();
+            mutants.add(mutationOffspring);
         }
 
-        // mutants are evaluated as current population so that the best mutant
-        // can be selected
-        population = mutants;
+        evaluate(mutants);
+        sort(mutants);
+        T bestMutantOffspring = mutants.get(0);
 
-        updateFitnessFunctionsAndValues();
-        calculateFitnessAndSortPopulation();
+        // 2. Crossover Phase
+        List<T> crossoverOffsprings = new ArrayList<>(this.lambda);
 
-        // obtain the best mutant
-        T bestMutantOffspring = getBestIndividual();
-
-        // start to execute uniform crossover operator
-        List<T> crossoverOffspring = new ArrayList<>();
-
-        while (crossoverOffspring.size() < this.lambda) {
+        while (crossoverOffsprings.size() < this.lambda) {
             try {
                 T p1 = parent.clone();
                 T p2 = bestMutantOffspring.clone();
 
                 crossoverFunction.crossOver(p1, p2);
 
-                crossoverOffspring.add(p1);
-                crossoverOffspring.add(p2);
+                crossoverOffsprings.add(p1);
+                if (crossoverOffsprings.size() < this.lambda) {
+                    crossoverOffsprings.add(p2);
+                }
             } catch (ConstructionFailedException e) {
                 logger.info("CrossOver failed.");
             }
         }
 
-        population = crossoverOffspring;
+        evaluate(crossoverOffsprings);
+        sort(crossoverOffsprings);
+        T bestCrossoverOffspring = crossoverOffsprings.get(0);
+
+        // 3. Selection
+        T bestCandidate = isBetterOrEqual(bestCrossoverOffspring, parent) ? bestCrossoverOffspring : parent;
+        T nextParent = isBetterOrEqual(bestCandidate, bestMutantOffspring) ? bestCandidate : bestMutantOffspring;
+
+        this.population.clear();
+        this.population.add(nextParent);
+
         updateFitnessFunctionsAndValues();
-        T bestCrossoverOffspring = getBestIndividual();
-
-        T so_far_best_individual;
-        // compare bestCrossover offspring with parent and select the better one
-        if (isBetterOrEqual(bestCrossoverOffspring, parent)) {
-            so_far_best_individual = bestCrossoverOffspring;
-        } else {
-            so_far_best_individual = parent;
-        }
-
-        // compare the so_far_best_individual with best mutant, and select the better one to be the
-        // parent for next iteration.
-        if (isBetterOrEqual(so_far_best_individual, bestMutantOffspring)) {
-            population.set(0, so_far_best_individual);
-        } else {
-            population.set(0, bestMutantOffspring);
-        }
 
         currentIteration++;
+    }
+
+    private void evaluate(List<T> individuals) {
+        for (T ind : individuals) {
+            for (org.evosuite.ga.FitnessFunction<T> ff : this.fitnessFunctions) {
+                ff.getFitness(ind);
+                notifyEvaluation(ind);
+            }
+        }
+    }
+
+    private void sort(List<T> individuals) {
+        if (isMaximizationFunction()) {
+            individuals.sort(java.util.Collections.reverseOrder());
+        } else {
+            java.util.Collections.sort(individuals);
+        }
     }
 }
