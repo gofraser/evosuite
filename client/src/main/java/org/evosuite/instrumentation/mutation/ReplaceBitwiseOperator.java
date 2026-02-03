@@ -49,8 +49,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
 
     private static final Set<Integer> opcodesLongShift = new HashSet<>();
 
-    private int numVariable = 0;
-
     static {
         opcodesInt.addAll(Arrays.asList(Opcodes.IAND, Opcodes.IOR,
                 Opcodes.IXOR));
@@ -76,7 +74,7 @@ public class ReplaceBitwiseOperator implements MutationOperator {
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
 
-        numVariable = ReplaceArithmeticOperator.getNextIndex(mn);
+        int numVariable = MutationUtils.getNextIndex(mn);
 
         // TODO: Check if this operator is applicable at all first
         // Should we do this via a method defined in the interface?
@@ -107,8 +105,14 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                     instruction,
                     mutation,
                     getInfectionDistance(node.getOpcode(),
-                            opcode));
+                            opcode, numVariable));
             mutations.add(mutationObject);
+
+            if (opcodesLong.contains(node.getOpcode())) {
+                numVariable += 2;
+            } else if (opcodesLongShift.contains(node.getOpcode())) {
+                numVariable += 1;
+            }
         }
 
         return mutations;
@@ -146,9 +150,10 @@ public class ReplaceBitwiseOperator implements MutationOperator {
      *
      * @param opcodeOrig a int.
      * @param opcodeNew  a int.
+     * @param numVariable a int.
      * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
-    public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew) {
+    public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew, int numVariable) {
         InsnList distance = new InsnList();
 
         if (opcodesInt.contains(opcodeOrig)) {
@@ -179,7 +184,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                     Opcodes.INVOKESTATIC,
                     PackageInfo.getNameWithSlash(ReplaceBitwiseOperator.class),
                     "getInfectionDistanceLong", "(JJII)D", false));
-            numVariable += 2;
 
         } else if (opcodesLongShift.contains(opcodeOrig)) {
             distance.add(new VarInsnNode(Opcodes.ISTORE, numVariable));
@@ -192,7 +196,7 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                     Opcodes.INVOKESTATIC,
                     PackageInfo.getNameWithSlash(ReplaceBitwiseOperator.class),
                     "getInfectionDistanceLong", "(JIII)D", false));
-            numVariable += 1;
+
         }
 
         return distance;
