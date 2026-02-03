@@ -41,6 +41,8 @@ public class AllUsesAnalysis {
     private boolean warnedAboutAbortion = false;
     private final ClassControlFlowGraph ccfg;
 
+    private int methodCallCounter = 0;
+
     // map methods to Sets of definitions that can be active at method
     // return. map according to defined variables name
     private Map<String, Set<Map<String, BytecodeInstruction>>> determinedActiveDefs = new HashMap<>();
@@ -58,7 +60,7 @@ public class AllUsesAnalysis {
      * Given the ClassCallGraph of a class this constructor will build up the
      * corresponding CCFG using the RCFGs from the GraphPool.
      *
-     * @param ccg a {@link org.evosuite.graphs.ccg.ClassCallGraph} object.
+     * @param ccfg a {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph} object.
      */
     public AllUsesAnalysis(ClassControlFlowGraph ccfg) {
         this.ccfg = ccfg;
@@ -232,8 +234,6 @@ public class AllUsesAnalysis {
         long start = System.currentTimeMillis();
         long mingled = timeSpentMingling;
 
-        // TODO get a logger and replace System.outs with logger.debug
-
         LoggingUtils.getEvoLogger().debug("* Searching for pairs in " + methodEntry.getMethod()
                 + " ... ");
 
@@ -243,7 +243,7 @@ public class AllUsesAnalysis {
         Set<DefUseCoverageTestFitness> foundPairs = new HashSet<>();
         Set<Map<String, VariableDefinition>> activeDefs = createInitialActiveDefs();
         Set<BytecodeInstruction> freeUses = new HashSet<>();
-        Stack<MethodCall> callStack = createInitialCallStack(methodEntry);
+        Deque<MethodCall> callStack = createInitialCallStack(methodEntry);
 
         // search
         Integer calls = determineIntraInterMethodPairs(methodEntry,
@@ -255,32 +255,10 @@ public class AllUsesAnalysis {
 
         // check if search was aborted
         Integer rerunCalls = 0;
-        // if (calls >= UPPER_PAIR_SEARCH_INVOCATION_BOUND) {
-        // System.out.println();
-        // System.out.println("* ABORTED pairSearch for method"
-        // + methodEntry.getMethod());
-        //
-        // System.out.print("* Re-Searching for pairs without concidering loops in "
-        // + methodEntry.getMethod()
-        // + " ... ");
-        // // if we previously tried to analyze this method but had to abort
-        // // try to rerun without handling loops
-        // activeDefs = createInitialActiveDefs();
-        // Set<BytecodeInstruction> freeUses2 = new
-        // HashSet<BytecodeInstruction>();
-        // callStack = createInitialCallStack(methodEntry);
-        // rerunCalls = determineInterMethodPairs(methodEntry,
-        // methodEntry.getEntryInstruction(), new HashSet<CCFGNode>(),
-        // new HashSet<CCFGEdge>(), activeDefs, freeUses2, foundPairs,
-        // callStack, 0, false);
-        // freeUses.addAll(freeUses2);
-        //
-        // spentTime = System.currentTimeMillis() - start;
-        // }
 
         mingled = timeSpentMingling - mingled;
 
-        System.out.println("  invocations: " + (calls + rerunCalls) + " took "
+        LoggingUtils.getEvoLogger().debug("  invocations: " + (calls + rerunCalls) + " took "
                 + spentTime + "ms (" + mingled + ") found " + foundPairs.size()
                 + " pairs");
 
@@ -295,10 +273,8 @@ public class AllUsesAnalysis {
             Set<Map<String, VariableDefinition>> activeDefs,
             Set<BytecodeInstruction> freeUses,
             Set<DefUseCoverageTestFitness> foundPairs,
-            Stack<MethodCall> callStack, int invocationCount,
+            Deque<MethodCall> callStack, int invocationCount,
             boolean handleLoops) {
-
-//		LoggingUtils.getEvoLogger().debug("  processing " + node.toString());
 
         handleHandledNodesSet(node, handled);
 
@@ -334,20 +310,7 @@ public class AllUsesAnalysis {
                         handleLoops))
                     continue;
 
-                // System.out.println("  nextChild of "+node.toString()+" is "+child.toString());
-                // for(MethodCall mc : callStack)
-                // System.out.println("    "+mc.toString());
-
-                // we don't want to take every child into account all the time
-                // for example if we previously found a methodCallNode and then
-                // later visit a MethodExitNode we do want to follow the edge
-                // from that node to the MethodReturnNode of our previous
-                // methodCallNode. However we do not want to follow the edge
-                // back to Frame.RETURN. on the other hand if we did not visit a
-                // methodCallNode and find a MethodExitNode we do not want to
-                // follow the edges from there to methodReturnNodes
-
-                Stack<MethodCall> nextCallStack = callStack;
+                Deque<MethodCall> nextCallStack = callStack;
 
                 if (child instanceof CCFGMethodReturnNode) {
                     if (handleReturnNodeChild(child, callStack))
@@ -357,7 +320,7 @@ public class AllUsesAnalysis {
                     continue;
                 } else if (child instanceof CCFGMethodCallNode) {
                     CCFGMethodCallNode callNode = (CCFGMethodCallNode) child;
-                    if (alreadyAnalzedMethod(callNode.getCalledMethod())) {
+                    if (alreadyAnalyzedMethod(callNode.getCalledMethod())) {
 
                         nextCallStack = copyCallStack(callStack);
 
@@ -371,12 +334,6 @@ public class AllUsesAnalysis {
                     }
                 }
 
-                // if (children.size() > 1)
-                // System.out.println("  found branching point: "
-                // + node.toString());
-
-                // only have to copy stuff if current node has more than one
-                // child
                 if (children.size() > 1)
                     invocationCount = determineIntraInterMethodPairs(
                             investigatedMethod, child, new HashSet<>(
@@ -409,9 +366,9 @@ public class AllUsesAnalysis {
             Set<Map<String, VariableDefinition>> activeDefs,
             Set<BytecodeInstruction> freeUses,
             Set<DefUseCoverageTestFitness> foundPairs,
-            Stack<MethodCall> callStack, CCFGMethodEntryNode investigatedMethod) {
+            Deque<MethodCall> callStack, CCFGMethodEntryNode investigatedMethod) {
         // create MethodCall object to avoid weird special cases
-        MethodCall call = MethodCall.constructForCallNode(callNode);
+        MethodCall call = createMethodCall(callNode, callNode.getCalledMethod());
         // since we already analyzed the called method we will
         // use the previously stored information in determinedActiveDefs
         // and determinedFreeUses
@@ -453,7 +410,7 @@ public class AllUsesAnalysis {
      * some nodes more than once in case of a recursive method call for example
      */
     private Set<CCFGNode> handleMethodCallNode(CCFGNode node,
-                                               Stack<MethodCall> callStack, Set<CCFGNode> handled) {
+                                               Deque<MethodCall> callStack, Set<CCFGNode> handled) {
 
         CCFGMethodCallNode callNode = (CCFGMethodCallNode) node;
         updateCallStackForCallNode(callStack, callNode);
@@ -471,7 +428,7 @@ public class AllUsesAnalysis {
      * Otherwise we pop the top of our callStack.
      */
     private void handleMethodReturnNode(CCFGNode node,
-                                        Stack<MethodCall> callStack) {
+                                        Deque<MethodCall> callStack) {
         if (callStack.peek().isInitialMethodCall())
             throw new IllegalStateException(
                     "found method return but had no more method calls on stack");
@@ -508,22 +465,19 @@ public class AllUsesAnalysis {
     }
 
     private void handleFieldCallNode(CCFGMethodEntryNode investigatedMethod,
-                                     CCFGNode node, Stack<MethodCall> callStack,
+                                     CCFGNode node, Deque<MethodCall> callStack,
                                      Set<Map<String, VariableDefinition>> activeDefs,
                                      Set<BytecodeInstruction> freeUses,
                                      Set<DefUseCoverageTestFitness> foundPairs) {
 
         BytecodeInstruction code = ((CCFGCodeNode) node).getCodeInstruction();
 
-//		LoggingUtils.getEvoLogger().debug(
-//				"Processing field call: " + node.toString());
-
         handleDefUse(investigatedMethod, code, callStack, activeDefs, freeUses,
                 foundPairs);
     }
 
     private void handleCodeNode(CCFGMethodEntryNode investigatedMethod,
-                                CCFGNode node, Stack<MethodCall> callStack,
+                                CCFGNode node, Deque<MethodCall> callStack,
                                 Set<Map<String, VariableDefinition>> activeDefs,
                                 Set<BytecodeInstruction> freeUses,
                                 Set<DefUseCoverageTestFitness> foundPairs) {
@@ -535,7 +489,7 @@ public class AllUsesAnalysis {
     }
 
     private void handleDefUse(CCFGMethodEntryNode investigatedMethod,
-                              BytecodeInstruction code, Stack<MethodCall> callStack,
+                              BytecodeInstruction code, Deque<MethodCall> callStack,
                               Set<Map<String, VariableDefinition>> activeDefs,
                               Set<BytecodeInstruction> freeUses,
                               Set<DefUseCoverageTestFitness> foundPairs) {
@@ -551,24 +505,22 @@ public class AllUsesAnalysis {
     }
 
     private void handleDefInstruction(BytecodeInstruction code,
-                                      Stack<MethodCall> callStack,
+                                      Deque<MethodCall> callStack,
                                       Set<Map<String, VariableDefinition>> activeDefMaps) {
 
         VariableDefinition def = new VariableDefinition(code, callStack.peek());
         for (Map<String, VariableDefinition> activeDefMap : activeDefMaps) {
             activeDefMap.put(code.getVariableName(), def);
-            // System.out.println("  setting activeDef:" + def.toString());
         }
     }
 
     private void handleUseInstruction(CCFGMethodEntryNode investigatedMethod,
-                                      BytecodeInstruction code, Stack<MethodCall> callStack,
+                                      BytecodeInstruction code, Deque<MethodCall> callStack,
                                       Set<Map<String, VariableDefinition>> activeDefMaps,
                                       Set<BytecodeInstruction> freeUses,
                                       Set<DefUseCoverageTestFitness> foundPairs) {
 
         String varName = code.getVariableName();
-//		LoggingUtils.getEvoLogger().info("Processing Use for "+varName);
 
         for (Map<String, VariableDefinition> activeDefs : activeDefMaps) {
 
@@ -598,8 +550,6 @@ public class AllUsesAnalysis {
                 // use has a definition-free path from method start
                 if (code.isFieldUse()) {
                     freeUses.add(code);
-                    // System.out.println("  adding free use: " +
-                    // code.toString());
                 }
             }
         }
@@ -779,7 +729,7 @@ public class AllUsesAnalysis {
         return activeDefMapsAfterCurrentCall;
     }
 
-    private boolean alreadyAnalzedMethod(String method) {
+    private boolean alreadyAnalyzedMethod(String method) {
 
         if (determinedFreeUses.get(method) != null) {
             if (determinedActiveDefs.get(method) == null)
@@ -795,17 +745,17 @@ public class AllUsesAnalysis {
      * Creates a new MethodCall object for the given MethodCallNode and pushes
      * it onto the given callStack.
      */
-    private void updateCallStackForCallNode(Stack<MethodCall> callStack,
+    private void updateCallStackForCallNode(Deque<MethodCall> callStack,
                                             CCFGMethodCallNode callNode) {
 
-        MethodCall call = MethodCall.constructForCallNode(callNode);
+        MethodCall call = createMethodCall(callNode, callNode.getCalledMethod());
         updateCallStackForCall(callStack, call);
     }
 
     /**
      * Pushes the given MethodCall object onto the given callStack
      */
-    private void updateCallStackForCall(Stack<MethodCall> callStack,
+    private void updateCallStackForCall(Deque<MethodCall> callStack,
                                         MethodCall call) {
 
         callStack.push(call);
@@ -834,13 +784,11 @@ public class AllUsesAnalysis {
                 activeDef, freeUse, type);
         if (goal != null) {
             foundPairs.add(goal);
-//			System.out.println();
-//			System.out.println("  created goal: " + goal.toString());
         }
     }
 
     private boolean handleReturnNodeChild(CCFGNode child,
-                                          Stack<MethodCall> callStack) {
+                                          Deque<MethodCall> callStack) {
 
         if (callStack.peek().isInitialMethodCall())
             return true;
@@ -877,11 +825,8 @@ public class AllUsesAnalysis {
         determinedFreeUses.get(method).addAll(freeUses);
     }
 
-    private Stack<MethodCall> copyCallStack(Stack<MethodCall> callStack) {
-        Stack<MethodCall> r = new Stack<>();
-        r.setSize(callStack.size());
-        Collections.copy(r, callStack);
-        return r;
+    private Deque<MethodCall> copyCallStack(Deque<MethodCall> callStack) {
+        return new ArrayDeque<>(callStack);
     }
 
     private Set<CCFGNode> filterHandledMapForMethodCallNode(
@@ -925,18 +870,17 @@ public class AllUsesAnalysis {
      * defined by UPPER_PAIR_SEARCH_INVOCATION_BOUND
      */
     private boolean checkInvocationBound(int invocationCount,
-                                         Stack<MethodCall> callStack) {
+                                         Deque<MethodCall> callStack) {
 
         if (invocationCount % (UPPER_PAIR_SEARCH_INVOCATION_BOUND / 10) == 0) {
             int percent = invocationCount
                     / (UPPER_PAIR_SEARCH_INVOCATION_BOUND / 10);
-            System.out.print(percent + "0% .. ");
+            LoggingUtils.getEvoLogger().debug(percent + "0% .. ");
         }
 
         if (invocationCount >= UPPER_PAIR_SEARCH_INVOCATION_BOUND) {
             if (!warnedAboutAbortion) {
-                System.out.println();
-                System.out.println("* ABORTED inter method pair search in "
+                LoggingUtils.getEvoLogger().info("* ABORTED inter method pair search in "
                         + callStack.peek()
                         + "! Reached maximum invocation limit: "
                         + UPPER_PAIR_SEARCH_INVOCATION_BOUND);
@@ -951,14 +895,14 @@ public class AllUsesAnalysis {
      * If the method on top of the callStack differs from the method of the
      * given BytecodeInstruction this methods throws an IllegalStateException
      */
-    private void checkCallStackSanity(Stack<MethodCall> callStack,
+    private void checkCallStackSanity(Deque<MethodCall> callStack,
                                       BytecodeInstruction code) {
 
         if (!callStack.peek().getCalledMethodName()
                 .equals(code.getMethodName())) {
 
             for (MethodCall mc : callStack) {
-                System.out.println("  " + mc.toString());
+                LoggingUtils.getEvoLogger().info("  " + mc.toString());
             }
 
             throw new IllegalStateException(
@@ -1025,13 +969,18 @@ public class AllUsesAnalysis {
         return activeDefs;
     }
 
-    private Stack<MethodCall> createInitialCallStack(
+    private Deque<MethodCall> createInitialCallStack(
             CCFGMethodEntryNode publicMethodEntry) {
-        Stack<MethodCall> callStack = new Stack<>();
+        Deque<MethodCall> callStack = new ArrayDeque<>();
         // null will represent the public method call itself
-        callStack.add(new MethodCall(null, publicMethodEntry.getMethod()));
+        callStack.push(createMethodCall(null, publicMethodEntry.getMethod()));
 
         return callStack;
+    }
+
+    private MethodCall createMethodCall(CCFGMethodCallNode callNode, String methodName) {
+        methodCallCounter++;
+        return new MethodCall(callNode, methodName, methodCallCounter);
     }
 
 }

@@ -21,7 +21,6 @@
 package org.evosuite.instrumentation.mutation;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.mutation.Mutation;
@@ -73,7 +72,7 @@ public class ReplaceVariable implements MutationOperator {
         logger.debug("Starting variable replacement in " + methodName);
 
         try {
-            String origName = getName(mn, instruction.getASMNode());
+            String origName = MutationUtils.getName(mn, instruction.getASMNode());
             int numReplacements = 0;
 
             for (Entry<String, InsnList> mutation : getReplacements(
@@ -112,104 +111,19 @@ public class ReplaceVariable implements MutationOperator {
     private Type getType(MethodNode mn, AbstractInsnNode node)
             throws VariableNotFoundException {
         if (node instanceof VarInsnNode) {
-            LocalVariableNode var = getLocal(mn, node, ((VarInsnNode) node).var);
+            LocalVariableNode var = MutationUtils.getLocal(mn, node, ((VarInsnNode) node).var);
             return Type.getType(var.desc);
         } else if (node instanceof FieldInsnNode) {
             return Type.getType(((FieldInsnNode) node).desc);
         } else if (node instanceof IincInsnNode) {
             IincInsnNode incNode = (IincInsnNode) node;
-            LocalVariableNode var = getLocal(mn, node, incNode.var);
+            LocalVariableNode var = MutationUtils.getLocal(mn, node, incNode.var);
 
             return Type.getType(var.desc);
 
         } else {
             throw new RuntimeException("Unknown variable node: " + node);
         }
-    }
-
-    private String getName(MethodNode mn, AbstractInsnNode node)
-            throws VariableNotFoundException {
-        if (node instanceof VarInsnNode) {
-            LocalVariableNode var = getLocal(mn, node, ((VarInsnNode) node).var);
-            return var.name;
-        } else if (node instanceof FieldInsnNode) {
-            return ((FieldInsnNode) node).name;
-        } else if (node instanceof IincInsnNode) {
-            IincInsnNode incNode = (IincInsnNode) node;
-            LocalVariableNode var = getLocal(mn, node, incNode.var);
-            return var.name;
-
-        } else {
-            throw new RuntimeException("Unknown variable node: " + node);
-        }
-    }
-
-    /**
-     * <p>
-     * copy
-     * </p>
-     *
-     * @param orig a {@link org.objectweb.asm.tree.InsnList} object.
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
-     */
-    public static InsnList copy(InsnList orig) {
-        Iterator<?> it = orig.iterator();
-        InsnList copy = new InsnList();
-        while (it.hasNext()) {
-            AbstractInsnNode node = (AbstractInsnNode) it.next();
-
-            if (node instanceof VarInsnNode) {
-                VarInsnNode vn = (VarInsnNode) node;
-                copy.add(new VarInsnNode(vn.getOpcode(), vn.var));
-            } else if (node instanceof FieldInsnNode) {
-                FieldInsnNode fn = (FieldInsnNode) node;
-                copy.add(new FieldInsnNode(fn.getOpcode(), fn.owner, fn.name, fn.desc));
-            } else if (node instanceof InsnNode) {
-                if (node.getOpcode() != Opcodes.POP)
-                    copy.add(new InsnNode(node.getOpcode()));
-            } else if (node instanceof LdcInsnNode) {
-                copy.add(new LdcInsnNode(((LdcInsnNode) node).cst));
-            } else {
-                throw new RuntimeException("Unexpected node type: " + node.getClass());
-            }
-        }
-        return copy;
-    }
-
-    /**
-     * <p>
-     * addPrimitiveDistanceCheck
-     * </p>
-     *
-     * @param distance a {@link org.objectweb.asm.tree.InsnList} object.
-     * @param type     a {@link org.objectweb.asm.Type} object.
-     * @param mutant   a {@link org.objectweb.asm.tree.InsnList} object.
-     */
-    public static void addPrimitiveDistanceCheck(InsnList distance, Type type,
-                                                 InsnList mutant) {
-        distance.add(cast(type, Type.DOUBLE_TYPE));
-        distance.add(copy(mutant));
-        distance.add(cast(type, Type.DOUBLE_TYPE));
-        distance.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(ReplaceVariable.class),
-                "getDistance", "(DD)D", false));
-    }
-
-    /**
-     * <p>
-     * addReferenceDistanceCheck
-     * </p>
-     *
-     * @param distance a {@link org.objectweb.asm.tree.InsnList} object.
-     * @param type     a {@link org.objectweb.asm.Type} object.
-     * @param mutant   a {@link org.objectweb.asm.tree.InsnList} object.
-     */
-    public static void addReferenceDistanceCheck(InsnList distance, Type type,
-                                                 InsnList mutant) {
-        distance.add(copy(mutant));
-        distance.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(ReplaceVariable.class),
-                "getDistance", "(Ljava/lang/Object;Ljava/lang/Object;)D", false));
     }
 
     /**
@@ -233,9 +147,9 @@ public class ReplaceVariable implements MutationOperator {
             distance.add(new VarInsnNode(node.getOpcode(), node.var));
             if (type.getDescriptor().startsWith("L")
                     || type.getDescriptor().startsWith("["))
-                addReferenceDistanceCheck(distance, type, mutant);
+                MutationUtils.addReferenceDistanceCheck(distance, type, mutant);
             else
-                addPrimitiveDistanceCheck(distance, type, mutant);
+                MutationUtils.addPrimitiveDistanceCheck(distance, type, mutant);
 
         } else if (original instanceof FieldInsnNode) {
             if (original.getOpcode() == Opcodes.GETFIELD)
@@ -246,43 +160,14 @@ public class ReplaceVariable implements MutationOperator {
                     node.desc));
             if (type.getDescriptor().startsWith("L")
                     || type.getDescriptor().startsWith("["))
-                addReferenceDistanceCheck(distance, type, mutant);
+                MutationUtils.addReferenceDistanceCheck(distance, type, mutant);
             else
-                addPrimitiveDistanceCheck(distance, type, mutant);
+                MutationUtils.addPrimitiveDistanceCheck(distance, type, mutant);
 
         } else if (original instanceof IincInsnNode) {
             distance.add(Mutation.getDefaultInfectionDistance());
         }
         return distance;
-    }
-
-    /**
-     * <p>
-     * getDistance
-     * </p>
-     *
-     * @param val1 a double.
-     * @param val2 a double.
-     * @return a double.
-     */
-    public static double getDistance(double val1, double val2) {
-        return val1 == val2 ? 1.0 : 0.0;
-    }
-
-    /**
-     * <p>
-     * getDistance
-     * </p>
-     *
-     * @param obj1 a {@link java.lang.Object} object.
-     * @param obj2 a {@link java.lang.Object} object.
-     * @return a double.
-     */
-    public static double getDistance(Object obj1, Object obj2) {
-        if (obj1 == obj2)
-            return 1.0;
-        else
-            return 0.0;
     }
 
     /**
@@ -299,7 +184,7 @@ public class ReplaceVariable implements MutationOperator {
             VarInsnNode var = (VarInsnNode) node;
 
             try {
-                LocalVariableNode origVar = getLocal(mn, node, var.var);
+                LocalVariableNode origVar = MutationUtils.getLocal(mn, node, var.var);
 
                 //LocalVariableNode origVar = (LocalVariableNode) mn.localVariables.get(var.var);
                 logger.debug("Looking for replacements for " + origVar.name + " of type "
@@ -327,7 +212,7 @@ public class ReplaceVariable implements MutationOperator {
         } else if (node instanceof IincInsnNode) {
             IincInsnNode incNode = (IincInsnNode) node;
             try {
-                LocalVariableNode origVar = getLocal(mn, node, incNode.var);
+                LocalVariableNode origVar = MutationUtils.getLocal(mn, node, incNode.var);
 
                 variables.putAll(getLocalReplacementsInc(mn, origVar.desc, incNode, frame));
             } catch (VariableNotFoundException e) {
@@ -339,24 +224,6 @@ public class ReplaceVariable implements MutationOperator {
         }
 
         return variables;
-    }
-
-    private LocalVariableNode getLocal(MethodNode mn, AbstractInsnNode node, int index)
-            throws VariableNotFoundException {
-        int currentId = mn.instructions.indexOf(node);
-        for (Object v : mn.localVariables) {
-            LocalVariableNode localVar = (LocalVariableNode) v;
-            int startId = mn.instructions.indexOf(localVar.start);
-            int endId = mn.instructions.indexOf(localVar.end);
-            logger.debug("Checking " + localVar.index + " in scope " + startId + " - "
-                    + endId);
-            if (currentId >= startId && currentId <= endId && localVar.index == index)
-                return localVar;
-        }
-
-        throw new VariableNotFoundException("Could not find local variable " + index
-                + " at position " + currentId + ", have variables: "
-                + mn.localVariables.size());
     }
 
     private Map<String, InsnList> getLocalReplacements(MethodNode mn, String desc,
@@ -523,64 +390,6 @@ public class ReplaceVariable implements MutationOperator {
             //e.printStackTrace();
         }
         return alternatives;
-    }
-
-    /**
-     * Generates the instructions to cast a numerical value from one type to
-     * another.
-     *
-     * @param from the type of the top stack value
-     * @param to   the type into which this value must be cast.
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
-     */
-    public static InsnList cast(final Type from, final Type to) {
-        InsnList list = new InsnList();
-
-        if (from != to) {
-            if (from == Type.DOUBLE_TYPE) {
-                if (to == Type.FLOAT_TYPE) {
-                    list.add(new InsnNode(Opcodes.D2F));
-                } else if (to == Type.LONG_TYPE) {
-                    list.add(new InsnNode(Opcodes.D2L));
-                } else {
-                    list.add(new InsnNode(Opcodes.D2I));
-                    list.add(cast(Type.INT_TYPE, to));
-                }
-            } else if (from == Type.FLOAT_TYPE) {
-                if (to == Type.DOUBLE_TYPE) {
-                    list.add(new InsnNode(Opcodes.F2D));
-                } else if (to == Type.LONG_TYPE) {
-                    list.add(new InsnNode(Opcodes.F2L));
-                } else {
-                    list.add(new InsnNode(Opcodes.F2I));
-                    list.add(cast(Type.INT_TYPE, to));
-                }
-            } else if (from == Type.LONG_TYPE) {
-                if (to == Type.DOUBLE_TYPE) {
-                    list.add(new InsnNode(Opcodes.L2D));
-                } else if (to == Type.FLOAT_TYPE) {
-                    list.add(new InsnNode(Opcodes.L2F));
-                } else {
-                    list.add(new InsnNode(Opcodes.L2I));
-                    list.add(cast(Type.INT_TYPE, to));
-                }
-            } else {
-                if (to == Type.BYTE_TYPE) {
-                    list.add(new InsnNode(Opcodes.I2B));
-                } else if (to == Type.CHAR_TYPE) {
-                    list.add(new InsnNode(Opcodes.I2C));
-                } else if (to == Type.DOUBLE_TYPE) {
-                    list.add(new InsnNode(Opcodes.I2D));
-                } else if (to == Type.FLOAT_TYPE) {
-                    list.add(new InsnNode(Opcodes.I2F));
-                } else if (to == Type.LONG_TYPE) {
-                    list.add(new InsnNode(Opcodes.I2L));
-                } else if (to == Type.SHORT_TYPE) {
-                    list.add(new InsnNode(Opcodes.I2S));
-                }
-            }
-        }
-        return list;
     }
 
     /**

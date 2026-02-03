@@ -365,7 +365,12 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     protected void starveRandomly(int limit) {
         while (population.size() > limit) {
             int removePos = Randomness.nextInt(population.size());
-            population.remove(removePos);
+            if (removePos != population.size() - 1) {
+                // Swap with the last element
+                Collections.swap(population, removePos, population.size() - 1);
+            }
+            // Remove the last element
+            population.remove(population.size() - 1);
         }
     }
 
