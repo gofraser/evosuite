@@ -346,7 +346,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         for (LineCoverageTestFitness goal : goals)
             System.out.println(goal);
 
-        assertEquals(8, goals.size());
+        assertEquals(9, goals.size());
     }
 
     @Test
@@ -371,7 +371,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         for (LineCoverageTestFitness goal : goals)
             System.out.println(goal);
 
-        assertEquals(8, goals.size());
+        assertEquals(9, goals.size());
     }
 
     @Test
@@ -395,8 +395,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
             System.out.println(line);
         }
 
-        // lines: 22, 24, 27, 30, 31, 32, 33, 35, 38 
-        Assert.assertEquals(9, lines.size());
+        // lines: 22, 24, 27, 30, 31, 32, 33, 35, 38
+        Assert.assertEquals(11, lines.size());
     }
 
     @Test
@@ -418,7 +418,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         // lines: 22, 24, 27, 30, 31, 32, 33, 35, 38
-        Assert.assertEquals(9, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
+        Assert.assertEquals(11, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
         Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
     }
 }
