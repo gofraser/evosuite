@@ -25,8 +25,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
-import java.util.List;
-
 /**
  * <p>ComparisonTransformation class.</p>
  *
@@ -50,10 +48,8 @@ public class ComparisonTransformation {
      *
      * @return a {@link org.objectweb.asm.tree.ClassNode} object.
      */
-    @SuppressWarnings("unchecked")
     public ClassNode transform() {
-        List<MethodNode> methodNodes = cn.methods;
-        for (MethodNode mn : methodNodes) {
+        for (MethodNode mn : cn.methods) {
             transformMethod(mn);
         }
         return cn;
