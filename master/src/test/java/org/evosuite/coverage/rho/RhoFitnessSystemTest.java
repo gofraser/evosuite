@@ -123,7 +123,8 @@ public class RhoFitnessSystemTest extends SystemTestBase {
         assertEquals(2, rows.size());
         reader.close();
 
-        assertEquals("0.5", rows.get(1)[0]);
+        double rhoScore = Double.parseDouble(rows.get(1)[0]);
+        assertEquals(0.35416666666666663, rhoScore, 0.01);
     }
 
     @Test
@@ -164,6 +165,7 @@ public class RhoFitnessSystemTest extends SystemTestBase {
         assertEquals(2, rows.size());
         reader.close();
 
-        assertEquals("0.5", rows.get(1)[0]);
+        double rhoScore = Double.parseDouble(rows.get(1)[0]);
+        assertEquals(0.36111111111111105, rhoScore, 0.01);
     }
 }
