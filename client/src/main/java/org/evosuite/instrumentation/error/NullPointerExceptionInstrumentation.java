@@ -22,7 +22,6 @@ package org.evosuite.instrumentation.error;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class NullPointerExceptionInstrumentation extends ErrorBranchInstrumenter {
@@ -36,22 +35,12 @@ public class NullPointerExceptionInstrumentation extends ErrorBranchInstrumenter
                                 String desc, boolean itf) {
 
         // If non-static, add a null check
-        // TODO: Do we need to also check INVOKESPECIAL?
-        if (opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE) {
-            Type[] args = Type.getArgumentTypes(desc);
-            Map<Integer, Integer> to = new HashMap<>();
-            for (int i = args.length - 1; i >= 0; i--) {
-                int loc = mv.newLocal(args[i]);
-                mv.storeLocal(loc);
-                to.put(i, loc);
-            }
+        if (opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE ||
+                (opcode == Opcodes.INVOKESPECIAL && !name.equals("<init>"))) {
 
-            mv.dup();//callee
+            Map<Integer, Integer> tempVariables = getMethodCallee(desc);
             insertBranch(Opcodes.IFNONNULL, "java/lang/NullPointerException");
-
-            for (int i = 0; i < args.length; i++) {
-                mv.loadLocal(to.get(i));
-            }
+            restoreMethodParameters(tempVariables, desc);
         }
     }
 
@@ -64,23 +53,26 @@ public class NullPointerExceptionInstrumentation extends ErrorBranchInstrumenter
             insertBranch(Opcodes.IFNONNULL, "java/lang/NullPointerException");
 
         } else if (opcode == Opcodes.PUTFIELD && !methodName.equals("<init>")) {
+            // Stack: objectref, value
             if (Type.getType(desc).getSize() == 2) {
                 // 2 words
-                // v1 v2 v3
+                // v1 v2 v3 (v1=objectref, v2/v3=value)
                 mv.visitInsn(Opcodes.DUP2_X1);
                 // v2 v3 v1 v2 v3
 
                 mv.visitInsn(Opcodes.POP2);
-                // v2 v3 v1
+                // v2 v3 v1 (objectref on top)
 
                 mv.visitInsn(Opcodes.DUP_X2);
-                // v1 v2 v3 v1
+                // v1 v2 v3 v1 (restore original stack, dup objectref on top)
 
             } else {
                 // 1 word
+                // v1 v2 (v1=objectref, v2=value)
                 mv.visitInsn(Opcodes.DUP2);
-                //mv.visitInsn(Opcodes.SWAP);
+                // v1 v2 v1 v2
                 mv.visitInsn(Opcodes.POP);
+                // v1 v2 v1
             }
             insertBranch(Opcodes.IFNONNULL, "java/lang/NullPointerException");
         }

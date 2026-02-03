@@ -51,11 +51,11 @@ public class VectorInstrumentation extends ErrorBranchInstrumenter {
                 // empty
                 Map<Integer, Integer> tempVariables = getMethodCallee(desc);
 
-                //tagBranchStart();
+                tagBranchStart();
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, VECTORNAME,
                         "isEmpty", "()Z", false);
                 insertBranch(Opcodes.IFLE, "java/util/NoSuchElementException");
-                // tagBranchEnd();
+                tagBranchEnd();
                 restoreMethodParameters(tempVariables, desc);
 
             } else if (indexListMethods.contains(name)) {
