@@ -39,115 +39,6 @@ import java.io.ObjectOutputStream;
 import java.util.Objects;
 import java.util.Set;
 
-/*
- * // (0) TODO IDEA FOR AN EVO-SUITE-FEATURE: // given a test(suite) for a
- * class, check how many goals of each coverage criterion it covers // (1) DONE
- * detect which LV in which methodCall // i don't think this needs to be done
- * anymore. its not possible to cover a use in a method call for a LV without
- * covering a definition first // (2) DONE cut ExecutionTrace for
- * branch-fitness-evaluation to Trace of current object only // subTODO: first
- * mark MethodCalls in ExecutionTracer.finished_calls with a methodID and the
- * current objectID // then kick out all non-static MethodCalls for objects
- * other then the one with current objectID // if goalDef is for a LV, also
- * consider MethodCalls individually (OUTDATED! s. above) // (3) DONE cut
- * ExecutionTrace for branch-fitness-evaluation to Trace of a certain path
- * (between goalDef and overwritingDef) // subTODO: in a MethodCall from the
- * ExecutionTracer add another list holding information about the current
- * duConter // then allow for cutting the ExecutionTrace in a way that it only
- * holds data associated for duCounters in a given range // (4) DONE idea: once
- * goalDef is covered, look at all duCounterPositions of goalDef
- * (goalDefPositions): // if goalUse is covered any of these goalDefPositions,
- * return 0 // if not return the minimum over all branchUseFitness in the trace
- * // where the trace is cut between the goalDefPosition and the next
- * overwritingDefinition // turns out you don't need to cut between goalDefs and
- * overwritingDefs // all u need to do is filter out all traces where the
- * goalDef is not active for use-fitness-calculation // (5) DONE: well that
- * didn't turn out too well. you have to consider all passed definitions //
- * separately as described in (3) and (4) after all - see for example
- * MeanTestClass.mean()
- *
- * // Other things one could/should do: (TODO-list) // - display local variable
- * names as in source code // - take different methodIds into account! // -
- * inter.method and inter.class data flow analysis - want to drop intra-part //
- * - implement DefUseCoverageSuiteFitness - DONE first rudimentary
- * implementation // - various optimizations // - DONE: for example one should
- * reuse tests that reach a certain definition or use // when looking for
- * another goal with that definition or use respectively idea: implement some
- * sort of chromosome pool for each CUT - keep track of "good" chromosomes, that
- * cover defs and uses and use them for initial population when looking for
- * goals concerning these DUs - DONE also if one would implement the above point
- * it would be very profitable to order the goals such that easy goals are
- * searched for first and for harder ones (deep in the CDG) later // - fix
- * control dependencies analysis // - implement real ReachingDefinitions
- * algorithm // - even more information in resulting tests? - cool would be to
- * mark the statements in the test that caused the covering hits to goalUse and
- * goalDef! - handle exceptions - worry about rounding errors: all that
- * normalizing is insane - should stretch the range for possible CoverageFitness
- * to something like 0-100 at least - might want to make a fitness bigger/more
- * precise then double - care for integer overflows (especially in alternative
- * fitness calculation) - DONE: private methods don't seem to be a problem at
- * all. they don't need special treatment - TODO: clean up TestSuiteGenerator! -
- * DONE: At least check for all remaining uncovered goals if they are covered by
- * the test that just covered a goal
- *
- * - DONE: Kick out ControlDependencyTestClass-loops that take forever! - handle
- * timeouts in tests - refactor: separate DefUseCoverageGoal and
- * DefUseCoverageTestFitness - implement hashCode() functions? -
- * NoStoppingCondition .. maybe even serialize populations and resume evolving
- * later - now this is more of a theoretical one but still: - how does one find
- * the "perfect" configuration for the GA? - well build another GA to find out,
- * each chromosome is a configuration - mutation and crossovers seems very easy
- * - fitness is calculated depending on covered goals, time needed / goal,
- * consumed resources etc ... i would so love to do that :D - SearchStatistics
- * ... well ... where to start :D - i think the report is a very essential part
- * of EvoSuite - it's the way users will in the end see EvoSuite and maybe even
- * the way they interact with it (TODO? :) ) - there is so much cool stuff one
- * could do: - give a complete analysis of the CUT in terms of different
- * coverage perspectives - provide the user with the possibility to compare
- * different runs - link test run information to analysis - polish test run
- * view: - jump to different parts (fitness, tests, etc) - make things
- * "expandable" (you know hide/show all test cases with a small -/+ next to it
- * and stuff like that) - show TestCase comments - even better: link tests to
- * goals they cover, see analysis part above - mark where in a test a certain
- * goal is covered: - color lines differently depending on goal one hovers his
- * mouse above in the covered goal description - ... i could go on but i guess
- * one gets the point
- *
- * - in order to do all that SearchStatistics should be get a complete
- * refactor-marathon-overhaul: - make distinction between HTML-generation and
- * statistics part, interlink them via .csv-files - maybe don't generate any
- * HTML at all but rather just put all relevant data in .csv-files together with
- * plots in a special directory which in turn can be visualized in all kinds of
- * ways. out the top of my head i'd say PHP would be very suited for that
- *
- * - maybe encapsulate different HTML-generation-parts in separate classes like
- * one for Code, one for plots etc. - well just come up with a nice class model
- * is all i'm trying to say i guess - srsly though, this SearchStatistcs class
- * is a mess :D and buggy as hell too it seems - found a bug: s.
- * ExceptionTestClass: sometimes passedLine is called before enteredMethod in
- * instrumented code - so DefUseCoverage goal computation scales pretty badly,
- * why not separate goal analysis part and test creation like with -setup you
- * could run -analyze_goals or something and it would serialize the goals on
- * disc so the computed goals can be reused in later test creations ... srsly
- * analysis takes minutes on bigger CUTs! - look at
- * MultipleControlDependeciesTestClass.test(): respect that a CFGVertex can have
- * multiple branches it is control dependent on
- *
- *
- * things to write about: - DefUse is just awesome! - better chance of passing
- * hard branches (?) - more thorough tests - #times each branch is executed -
- * infeasible path problem - extract future work from unfinished ToDo-list ;) -
- * why alternative definition - different modes, pro and cons - average doesn't
- * take into account how many overwriting definitions there were - sum seems to
- * be the most reasonable, maybe with stretched single alternative fitness 10? -
- * harder than branch coverage - chromosomes more valuable! - see part above
- * about chromosome pool and initial population and stuff - so it makes sense to
- * recycle chromosomes - which leads to difficulty and preordering
- *
- * Questions: - BranchCoverageGoal also treats root branches with expression
- * value true!
- */
-
 /**
  * Evaluate fitness of a single test case with respect to one Definition-Use
  * pair
@@ -185,7 +76,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     // coverage information
     private Integer coveringObjectId = -1;
-    private final transient ExecutionTrace coveringTrace = null;
     private boolean covered = false;
 
     // constructors
@@ -446,17 +336,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     // 	---			Getter 		---
-
-    /**
-     * <p>
-     * Getter for the field <code>coveringTrace</code>.
-     * </p>
-     *
-     * @return a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
-     */
-    public ExecutionTrace getCoveringTrace() {
-        return coveringTrace;
-    }
 
     /**
      * <p>

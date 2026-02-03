@@ -46,17 +46,17 @@ public class BooleanArrayTransformer extends MethodNodeTransformer {
     @Override
     protected AbstractInsnNode transformMultiANewArrayInsnNode(MethodNode mn,
                                                                MultiANewArrayInsnNode arrayInsnNode) {
-        String new_desc = "";
+        StringBuilder newDesc = new StringBuilder();
         Type t = Type.getType(arrayInsnNode.desc);
         while (t.getSort() == Type.ARRAY) {
-            new_desc += "[";
+            newDesc.append("[");
             t = t.getElementType();
         }
         if (t.equals(Type.BOOLEAN_TYPE))
-            new_desc += "I";
+            newDesc.append("I");
         else
-            new_desc += t.getDescriptor();
-        arrayInsnNode.desc = new_desc;
+            newDesc.append(t.getDescriptor());
+        arrayInsnNode.desc = newDesc.toString();
         return arrayInsnNode;
     }
 
@@ -66,20 +66,19 @@ public class BooleanArrayTransformer extends MethodNodeTransformer {
     @Override
     protected AbstractInsnNode transformTypeInsnNode(MethodNode mn,
                                                      TypeInsnNode typeNode) {
-        String new_desc = "";
+        StringBuilder newDesc = new StringBuilder();
         int pos = 0;
         while (pos < typeNode.desc.length() && typeNode.desc.charAt(pos) == '[') {
-            new_desc += "[";
+            newDesc.append("[");
             pos++;
         }
         String d = typeNode.desc.substring(pos);
         BooleanTestabilityTransformation.logger.info("Unfolded arrays to: " + d);
         if (d.equals("Z"))
-            //if (t.equals(Type.BOOLEAN_TYPE))
-            new_desc += "I";
+            newDesc.append("I");
         else
-            new_desc += d; //t.getInternalName();
-        typeNode.desc = new_desc;
+            newDesc.append(d);
+        typeNode.desc = newDesc.toString();
         return typeNode;
     }
 }

@@ -133,7 +133,7 @@ public class MutationInstrumentation implements MethodInstrumentation {
         int frameIndex = 0;
         int numMutants = 0;
         if (frames.length != mn.instructions.size()) {
-            logger.error("Number of frames does not match number number of bytecode instructions: "
+            logger.error("Number of frames does not match number of bytecode instructions: "
                     + frames.length + "/" + mn.instructions.size());
             logger.error("Skipping mutation of method " + className + "." + methodName);
             return;
@@ -180,7 +180,6 @@ public class MutationInstrumentation implements MethodInstrumentation {
 
             BytecodeInstruction v = instructionMap.get(in);
             if (v != null) {
-                logger.info(v.toString());
                 List<Mutation> mutations = new LinkedList<>();
 
                 // TODO: More than one mutation operator might apply to the same instruction
@@ -192,7 +191,7 @@ public class MutationInstrumentation implements MethodInstrumentation {
                     }
 
                     if (mutationOperator.isApplicable(v)) {
-                        logger.info("Applying mutation operator "
+                        logger.debug("Applying mutation operator "
                                 + mutationOperator.getClass().getSimpleName());
                         List<Mutation> applied = mutationOperator.apply(mn, className,
                                 methodName, v,
@@ -202,7 +201,7 @@ public class MutationInstrumentation implements MethodInstrumentation {
                     }
                 }
                 if (!mutations.isEmpty()) {
-                    logger.info("Adding instrumentation for mutation");
+                    logger.debug("Adding instrumentation for mutation");
                     addInstrumentation(mn, in, mutations);
                 }
             }
@@ -211,16 +210,7 @@ public class MutationInstrumentation implements MethodInstrumentation {
             }
         }
 
-        j = mn.instructions.iterator();
-
-        logger.info("Result of mutation: ");
-        while (j.hasNext()) {
-            AbstractInsnNode in = j.next();
-            logger.info(new BytecodeInstruction(classLoader, className, methodName, 0, 0,
-                    in).toString());
-        }
         logger.info("Done.");
-        // mn.maxStack += 3;
     }
 
     /* (non-Javadoc)

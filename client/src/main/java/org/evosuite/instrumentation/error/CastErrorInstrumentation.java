@@ -33,22 +33,24 @@ public class CastErrorInstrumentation extends ErrorBranchInstrumenter {
 
         if (opcode == Opcodes.CHECKCAST) {
             Label origTarget = new Label();
-            // Label origTarget = new AnnotatedLabel();
-            // origTarget.info = Boolean.FALSE;
+
             mv.visitInsn(Opcodes.DUP);
-            mv.tagBranch();
+            tagBranchStart();
             mv.visitJumpInsn(Opcodes.IFNULL, origTarget);
+
             mv.visitInsn(Opcodes.DUP);
             mv.visitTypeInsn(Opcodes.INSTANCEOF, type);
-            mv.tagBranch();
+            tagBranchStart();
             mv.visitJumpInsn(Opcodes.IFNE, origTarget);
+
             mv.visitTypeInsn(Opcodes.NEW, "java/lang/ClassCastException");
             mv.visitInsn(Opcodes.DUP);
             mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/ClassCastException",
                     "<init>", "()V", false);
             mv.visitInsn(Opcodes.ATHROW);
+
             mv.visitLabel(origTarget);
-            mv.tagBranchExit();
+            tagBranchEnd();
         }
     }
 }

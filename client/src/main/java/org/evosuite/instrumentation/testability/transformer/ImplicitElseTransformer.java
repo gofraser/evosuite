@@ -31,7 +31,6 @@ import org.objectweb.asm.tree.*;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Set;
 
 /**
@@ -58,7 +57,6 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
     @SuppressWarnings("unchecked")
     private boolean isDefinedBefore(MethodNode mn, VarInsnNode var,
                                     AbstractInsnNode position) {
-        // TODO: Iterate over local variables and check if local is defined here
         List<LocalVariableNode> localVar = mn.localVariables;
         if (localVar.isEmpty()) {
             // If we have no debug information, try to guess
@@ -100,15 +98,11 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
         addedNodes.add(dependency);
 
         Set<ControlDependency> dependencies = dependency.getBranch().getInstruction().getControlDependencies();
-        //if (dependencies.size() == 1) {
-        //	ControlDependency dep = dependencies.iterator().next();
         for (ControlDependency dep : dependencies) {
             if (!addedNodes.contains(dep) && dep != dependency)
                 handleDependency(dep, cdg, mn, varNode,
                         dependency.getBranch().getInstruction());
         }
-
-        // TODO: Need to check that there is an assignment in every alternative path through CDG
 
         boolean hasAssignment = false;
         for (BasicBlock block : blocks) {
@@ -152,37 +146,8 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
             AbstractInsnNode newOwnerLoad1 = null;
             AbstractInsnNode newOwnerLoad2 = null;
             if (varNode.getOpcode() == Opcodes.PUTFIELD) {
-                // Need to copy the bloody owner
-                // Check for VarInsn
-                //if (varNode.getPrevious().getOpcode() == Opcodes.ALOAD) {
                 newOwnerLoad1 = new VarInsnNode(Opcodes.ALOAD, 0);
                 newOwnerLoad2 = new VarInsnNode(Opcodes.ALOAD, 0);
-				/*
-				} else {
-				// Else use helper function
-				// Insert DUP and
-				logger.info("Wargh");
-				System.exit(0);
-				fieldOwnerId++;
-				InsnNode dupNode = new InsnNode(Opcodes.DUP);
-				mn.instructions.insertBefore(varNode, new LdcInsnNode(
-				        fieldOwnerId));
-				mn.instructions.insertBefore(varNode, dupNode);
-				registerInstruction(mn, varNode, dupNode);
-				MethodInsnNode storeOwner = new MethodInsnNode(
-				        Opcodes.INVOKESTATIC,
-				        "org/evosuite/instrumentation/BooleanHelper",
-				        "setFieldOwner", "(ILjava/lang/Object;)V");
-				mn.instructions.insertBefore(varNode, storeOwner);
-				registerInstruction(mn, varNode, storeOwner);
-				newOwnerLoad1 = new MethodInsnNode(Opcodes.INVOKESTATIC,
-				        "org/evosuite/instrumentation/BooleanHelper",
-				        "getFieldOwner", "(I)Ljava/lang/Object;");
-				newOwnerLoad2 = new MethodInsnNode(Opcodes.INVOKESTATIC,
-				        "org/evosuite/instrumentation/BooleanHelper",
-				        "getFieldOwner", "(I)Ljava/lang/Object;");
-				}
-				*/
             }
 
             if (dependency.getBranchExpressionValue()) {
@@ -263,15 +228,11 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
         addedNodes.add(dependency);
 
         Set<ControlDependency> dependencies = dependency.getBranch().getInstruction().getControlDependencies();
-        //if (dependencies.size() == 1) {
-        //	ControlDependency dep = dependencies.iterator().next();
         for (ControlDependency dep : dependencies) {
             if (!addedNodes.contains(dep) && dep != dependency)
                 handleDependency(dep, cdg, mn, varNode,
                         dependency.getBranch().getInstruction());
         }
-
-        // TODO: Need to check that there is an assignment in every alternative path through CDG
 
         boolean hasAssignment = false;
         for (BasicBlock block : blocks) {
@@ -386,14 +347,9 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
             int index = mn.instructions.indexOf(fieldNode);
             BooleanTestabilityTransformation.logger.info("Getting bytecode instruction for " + fieldNode.name + "/"
                     + ((FieldInsnNode) mn.instructions.get(index)).name);
-            InsnList nodes = mn.instructions;
-            ListIterator<AbstractInsnNode> it = nodes.iterator();
-            while (it.hasNext()) {
-                BytecodeInstruction in = new BytecodeInstruction(
-                        this.booleanTestabilityTransformation.classLoader, this.booleanTestabilityTransformation.className, mn.name,
-                        0, 0, it.next());
-                BooleanTestabilityTransformation.logger.info(in.toString());
-            }
+
+            // Removed expensive loop here
+
             BytecodeInstruction insn = BytecodeInstructionPool.getInstance(this.booleanTestabilityTransformation.classLoader).getInstruction(this.booleanTestabilityTransformation.className.replace("/",
                             "."),
                     mn.name
@@ -479,21 +435,6 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
                 if (!addedNodes.contains(dep))
                     handleDependency(dep, cdg, mn, varNode, insn);
             }
-
-            // Only do completion if there's only one dependency
-            // Not sure how other cases would look like
-			/*
-							//if (dependencies.size() > 1)
-							//	return varNode;
-							//else
-							if (dependencies.isEmpty())
-								return varNode;
-
-							ControlDependency dep = dependencies.iterator().next();
-							if (!addedNodes.contains(dep))
-								handleDependency(dep, cdg, mn, varNode, insn);
-								*/
-
         }
         return varNode;
     }

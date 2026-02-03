@@ -211,18 +211,22 @@ public class ReplaceComparisonOperator implements MutationOperator {
         return distance;
     }
 
-    /**
-     * <p>getInfectionDistance</p>
-     *
-     * @param left       a int.
-     * @param right      a int.
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a double.
-     */
-    public static double getInfectionDistance(int left, int right, int opcodeOrig,
-                                              int opcodeNew) {
-        long val = (long) left - (long) right;
+    private static int canonicalize(int opcode) {
+        switch (opcode) {
+            case Opcodes.IFLT: return Opcodes.IF_ICMPLT;
+            case Opcodes.IFLE: return Opcodes.IF_ICMPLE;
+            case Opcodes.IFGT: return Opcodes.IF_ICMPGT;
+            case Opcodes.IFGE: return Opcodes.IF_ICMPGE;
+            case Opcodes.IFEQ: return Opcodes.IF_ICMPEQ;
+            case Opcodes.IFNE: return Opcodes.IF_ICMPNE;
+            default: return opcode;
+        }
+    }
+
+    private static double getDistance(long val, int opcodeOrig, int opcodeNew) {
+        opcodeOrig = canonicalize(opcodeOrig);
+        opcodeNew = canonicalize(opcodeNew);
+
         switch (opcodeOrig) {
             case Opcodes.IF_ICMPLT:
                 switch (opcodeNew) {
@@ -351,9 +355,22 @@ public class ReplaceComparisonOperator implements MutationOperator {
                         return val != 0 ? 0.0 : 1.0;
                 }
         }
+        throw new RuntimeException("Unknown operator replacement: " + opcodeOrig + " -> " + opcodeNew);
+    }
 
-        throw new RuntimeException("Unknown operator replacement: " + opcodeOrig + " -> "
-                + opcodeNew);
+    /**
+     * <p>getInfectionDistance</p>
+     *
+     * @param left       a int.
+     * @param right      a int.
+     * @param opcodeOrig a int.
+     * @param opcodeNew  a int.
+     * @return a double.
+     */
+    public static double getInfectionDistance(int left, int right, int opcodeOrig,
+                                              int opcodeNew) {
+        long val = (long) left - (long) right;
+        return getDistance(val, opcodeOrig, opcodeNew);
     }
 
     /**
@@ -366,137 +383,7 @@ public class ReplaceComparisonOperator implements MutationOperator {
      */
     public static double getInfectionDistance(int intVal, int opcodeOrig, int opcodeNew) {
         long val = intVal;
-        switch (opcodeOrig) {
-            case Opcodes.IFLT:
-                switch (opcodeNew) {
-                    case Opcodes.IFLE:
-                        // Only differs for val == 0
-                        return Math.abs(val);
-                    case Opcodes.IFEQ:
-                        // Only differs for val <= 0
-                        return val > 0 ? val : 0.0;
-                    case Opcodes.IFGT:
-                        // Only same for val == 0
-                        return val == 0 ? 1.0 : 0.0;
-                    case Opcodes.IFGE:
-                        // Always differs
-                        return 0.0;
-                    case Opcodes.IFNE:
-                        // Only differs for val > 0
-                        return val <= 0 ? Math.abs(val) + 1.0 : 0.0;
-                    case TRUE:
-                        return val < 0 ? 1.0 : 0.0;
-                    case FALSE:
-                        return val < 0 ? 0.0 : 1.0;
-                }
-            case Opcodes.IFLE:
-                switch (opcodeNew) {
-                    case Opcodes.IFLT:
-                        // Only differs for val == 0
-                        return Math.abs(val);
-                    case Opcodes.IFEQ:
-                        return val >= 0 ? val + 1.0 : 0.0;
-                    case Opcodes.IFGE:
-                        // Only equals for val == 0
-                        return val == 0 ? 1.0 : 0.0;
-                    case Opcodes.IFGT:
-                        // Always differs
-                        return 0.0;
-                    case Opcodes.IFNE:
-                        // Only differs if val >= 0
-                        return val < 0 ? Math.abs(val) : 0.0;
-                    case TRUE:
-                        return val <= 0 ? 1.0 : 0.0;
-                    case FALSE:
-                        return val <= 0 ? 0.0 : 1.0;
-                }
-            case Opcodes.IFGT:
-                switch (opcodeNew) {
-                    case Opcodes.IFGE:
-                        // Only differs for val == 0
-                        return Math.abs(val);
-                    case Opcodes.IFEQ:
-                        // Only differs for val >= 0
-                        return val < 0 ? Math.abs(val) : 0.0;
-                    case Opcodes.IFLT:
-                        // Only same for val == 0
-                        return val == 0 ? 1.0 : 0.0;
-                    case Opcodes.IFLE:
-                        // Always differs
-                        return 0.0;
-                    case Opcodes.IFNE:
-                        // Only differs for val < 0
-                        return val >= 0 ? val + 1.0 : 0.0;
-                    case TRUE:
-                        return val > 0 ? 1.0 : 0.0;
-                    case FALSE:
-                        return val > 0 ? 0.0 : 1.0;
-                }
-            case Opcodes.IFGE:
-                switch (opcodeNew) {
-                    case Opcodes.IFGT:
-                        // Only differs for val == 0
-                        return Math.abs(val);
-                    case Opcodes.IFEQ:
-                        return val <= 0 ? Math.abs(val) + 1.0 : 0.0;
-                    case Opcodes.IFLE:
-                        // Only equals for val == 0
-                        return val == 0 ? 1.0 : 0.0;
-                    case Opcodes.IFLT:
-                        // Always differs
-                        return 0.0;
-                    case Opcodes.IFNE:
-                        // Only differs if val > 0
-                        return val > 0 ? val : 0.0;
-                    case TRUE:
-                        return val >= 0 ? 1.0 : 0.0;
-                    case FALSE:
-                        return val >= 0 ? 0.0 : 1.0;
-                }
-            case Opcodes.IFEQ:
-                switch (opcodeNew) {
-                    case Opcodes.IFLT:
-                        // Only differs if val <= 0
-                        return val > 0 ? val : 0.0;
-                    case Opcodes.IFGT:
-                        // Only differs if val >= 0
-                        return val < 0 ? Math.abs(val) : 0.0;
-                    case Opcodes.IFNE:
-                        // Always differs
-                        return 0.0;
-                    case Opcodes.IFLE:
-                        return val >= 0 ? val + 1.0 : 0.0;
-                    case Opcodes.IFGE:
-                        return val <= 0 ? Math.abs(val) + 1.0 : 0.0;
-                    case TRUE:
-                        return val == 0 ? 1.0 : 0.0;
-                    case FALSE:
-                        return val == 0 ? 0.0 : 1.0;
-                }
-            case Opcodes.IFNE:
-                switch (opcodeNew) {
-                    case Opcodes.IFEQ:
-                        return 0.0;
-                    case Opcodes.IFLT:
-                        // Only differs for val > 0
-                        return val <= 0 ? Math.abs(val) + 1.0 : 0.0;
-                    case Opcodes.IFLE:
-                        // Only differs for val > 0
-                        return val < 0 ? Math.abs(val) : 0.0;
-                    case Opcodes.IFGT:
-                        return val >= 0 ? val + 1.0 : 0.0;
-                    case Opcodes.IFGE:
-                        return val > 0 ? val : 0.0;
-                    case TRUE:
-                        return val != 0 ? 1.0 : 0.0;
-                    case FALSE:
-                        return val != 0 ? 0.0 : 1.0;
-                }
-
-        }
-
-        throw new RuntimeException("Unknown operator replacement: " + opcodeOrig + " -> "
-                + opcodeNew);
+        return getDistance(val, opcodeOrig, opcodeNew);
     }
 
     private Set<Integer> getOperators(int opcode, boolean isBoolean) {
@@ -611,7 +498,7 @@ public class ReplaceComparisonOperator implements MutationOperator {
     }
 
     private Set<Integer> getIntIntReplacement(int opcode) {
-        logger.info("Getting int int replacement");
+        logger.debug("Getting int int replacement");
 
         Set<Integer> replacement = new HashSet<>();
         switch (opcode) {

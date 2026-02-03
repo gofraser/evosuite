@@ -765,18 +765,6 @@ public class TestSuiteWriter implements Opcodes {
             for (TestFitnessFunction goal : coveredGoals) {
                 builder.append(NEWLINE);
                 builder.append("   * Goal " + nr + ". " + goal.toString());
-                // TODO only for debugging purposes
-                if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
-                        && (goal instanceof DefUseCoverageTestFitness)) {
-                    DefUseCoverageTestFitness duGoal = (DefUseCoverageTestFitness) goal;
-                    if (duGoal.getCoveringTrace() != null) {
-                        String traceInformation = duGoal.getCoveringTrace().toDefUseTraceInformation(duGoal.getGoalVariable(),
-                                duGoal.getCoveringObjectId());
-                        traceInformation = traceInformation.replaceAll("\n", "");
-                        builder.append(NEWLINE);
-                        builder.append("     * DUTrace: " + traceInformation);
-                    }
-                }
                 nr++;
             }
 

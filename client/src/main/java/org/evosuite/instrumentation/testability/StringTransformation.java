@@ -30,7 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 
@@ -44,6 +43,9 @@ import java.util.regex.Matcher;
 public class StringTransformation {
 
     private static final Logger logger = LoggerFactory.getLogger(StringTransformation.class);
+    private static final String JAVA_LANG_STRING = "java/lang/String";
+    private static final String JAVA_UTIL_REGEX_PATTERN = "java/util/regex/Pattern";
+    private static final String JAVA_UTIL_REGEX_MATCHER = "java/util/regex/Matcher";
 
     private final ClassNode cn;
 
@@ -65,10 +67,8 @@ public class StringTransformation {
      *
      * @return a {@link org.objectweb.asm.tree.ClassNode} object.
      */
-    @SuppressWarnings("unchecked")
     public ClassNode transform() {
-        List<MethodNode> methodNodes = cn.methods;
-        for (MethodNode mn : methodNodes) {
+        for (MethodNode mn : cn.methods) {
             if (transformMethod(mn)) {
                 mn.maxStack++;
             }
@@ -82,7 +82,6 @@ public class StringTransformation {
      *
      * @param mn
      */
-    @SuppressWarnings("unchecked")
     private boolean transformStrings(MethodNode mn) {
         logger.info("Current method: " + mn.name);
         boolean changed = false;
@@ -91,10 +90,9 @@ public class StringTransformation {
             AbstractInsnNode next = node.getNext();
             if (node instanceof MethodInsnNode) {
                 MethodInsnNode min = (MethodInsnNode) node;
-                if (min.owner.equals("java/lang/String")) {
+                if (min.owner.equals(JAVA_LANG_STRING)) {
                     if (min.name.equals("equals")) {
                         changed = true;
-
                         MethodInsnNode equalCheck = new MethodInsnNode(
                                 Opcodes.INVOKESTATIC,
                                 Type.getInternalName(StringHelper.class),
@@ -104,20 +102,6 @@ public class StringTransformation {
                                         Type.getType(Object.class)), false);
                         mn.instructions.insertBefore(node, equalCheck);
                         mn.instructions.remove(node);
-						/*
-												MethodInsnNode equalCheck = new MethodInsnNode(
-												        Opcodes.INVOKESTATIC,
-												        Type.getInternalName(BooleanHelper.class),
-												        "StringEqualsCharacterDistance",
-												        Type.getMethodDescriptor(Type.DOUBLE_TYPE,
-												                                 new Type[] {
-												                                         Type.getType(String.class),
-												                                         Type.getType(Object.class) }));
-												mn.instructions.insertBefore(node, equalCheck);
-												mn.instructions.insertBefore(node, new LdcInsnNode(0.0));
-												mn.instructions.insertBefore(node, new InsnNode(Opcodes.DCMPG));
-												mn.instructions.remove(node);
-												*/
                         TransformationStatistics.transformedStringComparison();
 
                     } else if (min.name.equals("equalsIgnoreCase")) {
@@ -221,7 +205,7 @@ public class StringTransformation {
                         }
                     }
 
-                } else if (min.owner.equals("java/util/regex/Pattern")) {
+                } else if (min.owner.equals(JAVA_UTIL_REGEX_PATTERN)) {
                     if (min.name.equals("matches")) {
                         changed = true;
                         MethodInsnNode equalCheck = new MethodInsnNode(
@@ -234,7 +218,7 @@ public class StringTransformation {
                         mn.instructions.insertBefore(node, equalCheck);
                         mn.instructions.remove(node);
                     }
-                } else if (min.owner.equals("java/util/regex/Matcher")) {
+                } else if (min.owner.equals(JAVA_UTIL_REGEX_MATCHER)) {
                     if (min.name.equals("matches")) {
                         changed = true;
                         MethodInsnNode equalCheck = new MethodInsnNode(
@@ -254,6 +238,7 @@ public class StringTransformation {
     }
 
     private static boolean isStringMethod(AbstractInsnNode node) {
+        if (node == null) return false;
         if (node.getOpcode() == Opcodes.INVOKESTATIC) {
             MethodInsnNode methodInsnNode = (MethodInsnNode) node;
             return methodInsnNode.owner.equals(Type.getInternalName(StringHelper.class))
@@ -349,7 +334,7 @@ public class StringTransformation {
                     node = next;
                 }
             } catch (Exception e) {
-                logger.warn("EXCEPTION DURING STRING TRANSFORMATION: " + e);
+                logger.error("Error during string transformation", e);
                 return changed;
             }
         }

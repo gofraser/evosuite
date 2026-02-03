@@ -56,6 +56,10 @@ public class DefUsePool {
     private static final Map<Integer, Definition> defuseIdsToDefs = new HashMap<>();
     private static final Map<Integer, Use> defuseIdsToUses = new HashMap<>();
 
+    // Optimized maps for O(1) lookup
+    private static final Map<Integer, Definition> defIdsToDefs = new HashMap<>();
+    private static final Map<Integer, Use> useIdsToUses = new HashMap<>();
+
     // maps objects to IDs
     // register of all known DefUse-, Definition- and Use-IDs
     private static final Map<BytecodeInstruction, Integer> registeredDUs = new HashMap<>();
@@ -191,7 +195,7 @@ public class DefUsePool {
      * After the call isKnown() and isKnownAsUse() are expected to return true
      * for the instruction at hand however.
      *
-     * @param u CFGVertex corresponding to a Use in the CUT
+     * @param f CFGVertex corresponding to a Use in the CUT
      * @return a boolean.
      */
     public static boolean addAsFieldMethodCall(BytecodeInstruction f) {
@@ -277,6 +281,9 @@ public class DefUsePool {
         defuseIdsToDefUses.put(def.getDefUseId(), def);
         defuseIdsToDefs.put(def.getDefUseId(), def);
 
+        // Add to optimized map
+        defIdsToDefs.put(def.getDefId(), def);
+
         logger.debug("Added to DefUsePool as def: " + def);
     }
 
@@ -284,6 +291,9 @@ public class DefUsePool {
         addToUseMap(use);
         defuseIdsToDefUses.put(use.getDefUseId(), use);
         defuseIdsToUses.put(use.getDefUseId(), use);
+
+        // Add to optimized map
+        useIdsToUses.put(use.getUseId(), use);
 
         logger.debug("Added to DefUsePool as use: " + use);
     }
@@ -535,12 +545,7 @@ public class DefUsePool {
      * @return a {@link org.evosuite.coverage.dataflow.Use} object.
      */
     public static Use getUseByUseId(int useId) {
-
-        for (Use use : defuseIdsToUses.values()) {
-            if (use.getUseId() == useId)
-                return use;
-        }
-        return null;
+        return useIdsToUses.get(useId);
     }
 
     /**
@@ -552,12 +557,7 @@ public class DefUsePool {
      * @return a {@link org.evosuite.coverage.dataflow.Definition} object.
      */
     public static Definition getDefinitionByDefId(int defId) {
-
-        for (Definition def : defuseIdsToDefs.values()) {
-            if (def.getDefId() == defId)
-                return def;
-        }
-        return null;
+        return defIdsToDefs.get(defId);
     }
 
     /**
@@ -638,6 +638,8 @@ public class DefUsePool {
         defuseIdsToDefUses.clear();
         defuseIdsToDefs.clear();
         defuseIdsToUses.clear();
+        defIdsToDefs.clear();
+        useIdsToUses.clear();
         registeredDUs.clear();
         registeredDefs.clear();
         registeredUses.clear();

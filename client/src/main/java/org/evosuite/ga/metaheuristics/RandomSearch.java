@@ -60,7 +60,7 @@ public class RandomSearch<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         T newChromosome = chromosomeFactory.getChromosome();
         getFitnessFunction().getFitness(newChromosome);
         notifyEvaluation(newChromosome);
-        if (newChromosome.compareTo(getBestIndividual()) <= 0) {
+        if (isBetterOrEqual(newChromosome, getBestIndividual())) {
             logger.info("New fitness: " + newChromosome.getFitness());
             population.set(0, newChromosome);
         }
