@@ -453,40 +453,6 @@ public class ErrorConditionChecker {
         }
     }
 
-    public static int overflowDistance(double op1, double op2, int opcode) {
-        switch (opcode) {
-
-            case Opcodes.DADD:
-                return overflowDistanceAdd(op1, op2);
-
-            case Opcodes.DSUB:
-                return overflowDistanceSub(op1, op2);
-
-            case Opcodes.DMUL:
-                return overflowDistanceMul(op1, op2);
-
-            case Opcodes.DDIV:
-                return overflowDistanceDiv(op1, op2);
-        }
-        return Integer.MAX_VALUE;
-    }
-
-    public static int underflowDistance(double op1, double op2, int opcode) {
-        switch (opcode) {
-
-            case Opcodes.DADD:
-                return underflowDistanceAdd(op1, op2);
-
-            case Opcodes.DSUB:
-                return underflowDistanceSub(op1, op2);
-
-            case Opcodes.DMUL:
-                return underflowDistanceMul(op1, op2);
-
-        }
-        return Integer.MAX_VALUE;
-    }
-
     protected static int overflowDistanceAdd(double op1, double op2) {
         double result = op1 + op2;
         if (op1 > 0 && op2 > 0) {
@@ -758,34 +724,14 @@ public class ErrorConditionChecker {
 
     protected static int overflowDistanceMul(long op1, long op2) {
         long result = op1 * op2;
-        if ((op1 > 0 && op2 > 0) || (op1 < 0 && op2 < 0)) {
-            BigDecimal bigDecimal = new BigDecimal(op1).multiply(new BigDecimal(op2));
-            BigDecimal maxResult = new BigDecimal(Long.MAX_VALUE);
+        BigDecimal bigDecimal = new BigDecimal(op1).multiply(new BigDecimal(op2));
+        BigDecimal maxResult = new BigDecimal(Long.MAX_VALUE);
 
-            if (bigDecimal.compareTo(maxResult) > 0) {
-                int intResult = -scaleTo(Math.abs(result), HALFWAY);
-                if (result <= 0)
-                    return intResult;
-                else
-                    return Integer.MIN_VALUE;
-            } else {
-                int retval = HALFWAY - scaleTo(result, HALFWAY);
-                if (retval > 0)
-                    return retval;
-                else
-                    return 1;
-            }
-            // result has to be < 0 for overflow
-        } else if (op1 > 0 && op2 < 0) {
-            // In this case we can't have an overflow yet
-            return result > 0 ? Integer.MAX_VALUE : HALFWAY
-                    + scaleTo(Math.abs(op2), HALFWAY);
-        } else if (op1 < 0 && op2 > 0) {
-            return result > 0 ? Integer.MAX_VALUE : HALFWAY
-                    + scaleTo(Math.abs(op1), HALFWAY);
+        if (bigDecimal.compareTo(maxResult) > 0) {
+            return -1; // Overflow happened
         } else {
-            // One of them is zero
-            return HALFWAY;
+            // Minimize (MAX_VALUE - result)
+            return scaleTo((double)Long.MAX_VALUE - (double)result, HALFWAY);
         }
     }
 
@@ -795,17 +741,10 @@ public class ErrorConditionChecker {
         BigDecimal minResult = new BigDecimal(Long.MIN_VALUE);
 
         if (bigDecimal.compareTo(minResult) < 0) {
-            int intResult = -scaleTo(Math.abs(result), HALFWAY);
-            if (result <= 0)
-                return intResult;
-            else
-                return Integer.MIN_VALUE;
+             return -1; // Underflow happened
         } else {
-            int retval = HALFWAY - scaleTo(result, HALFWAY);
-            if (retval > 0)
-                return retval;
-            else
-                return 1;
+            // Minimize (result - MIN_VALUE)
+            return scaleTo((double)result - (double)Long.MIN_VALUE, HALFWAY);
         }
     }
 
@@ -817,6 +756,40 @@ public class ErrorConditionChecker {
             BigDecimal diff2 = new BigDecimal(-1L).subtract(new BigDecimal(op2)).abs();
             return scaleTo(diff1.doubleValue(), HALFWAY) + scaleTo(diff2.doubleValue(), HALFWAY);
         }
+    }
+
+    public static int overflowDistance(double op1, double op2, int opcode) {
+        switch (opcode) {
+
+            case Opcodes.DADD:
+                return overflowDistanceAdd(op1, op2);
+
+            case Opcodes.DSUB:
+                return overflowDistanceSub(op1, op2);
+
+            case Opcodes.DMUL:
+                return overflowDistanceMul(op1, op2);
+
+            case Opcodes.DDIV:
+                return overflowDistanceDiv(op1, op2);
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    public static int underflowDistance(double op1, double op2, int opcode) {
+        switch (opcode) {
+
+            case Opcodes.DADD:
+                return underflowDistanceAdd(op1, op2);
+
+            case Opcodes.DSUB:
+                return underflowDistanceSub(op1, op2);
+
+            case Opcodes.DMUL:
+                return underflowDistanceMul(op1, op2);
+
+        }
+        return Integer.MAX_VALUE;
     }
 
 }
