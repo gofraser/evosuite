@@ -258,7 +258,7 @@ public class AllUsesAnalysis {
 
         mingled = timeSpentMingling - mingled;
 
-        LoggingUtils.getEvoLogger().info("  invocations: " + (calls + rerunCalls) + " took "
+        LoggingUtils.getEvoLogger().debug("  invocations: " + (calls + rerunCalls) + " took "
                 + spentTime + "ms (" + mingled + ") found " + foundPairs.size()
                 + " pairs");
 
