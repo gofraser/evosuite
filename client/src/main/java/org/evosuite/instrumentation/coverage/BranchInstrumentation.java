@@ -154,11 +154,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
             case Opcodes.IFGT:
             case Opcodes.IFLE:
                 instrumentation.add(new InsnNode(Opcodes.DUP));
-                instrumentation.add(new LdcInsnNode(opcode));
-                instrumentation.add(new LdcInsnNode(branchId));
-                instrumentation.add(new LdcInsnNode(instructionId));
-                instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        EXECUTION_TRACER, "passedBranch", "(IIII)V", false));
+                addPassedBranchCall(instrumentation, opcode, branchId, instructionId, "(IIII)V");
                 logger.debug("Adding passedBranch val=?, opcode=" + opcode + ", branch="
                         + branchId + ", bytecode_id=" + instructionId);
 
@@ -170,34 +166,29 @@ public class BranchInstrumentation implements MethodInstrumentation {
             case Opcodes.IF_ICMPGT:
             case Opcodes.IF_ICMPLE:
                 instrumentation.add(new InsnNode(Opcodes.DUP2));
-                instrumentation.add(new LdcInsnNode(opcode));
-                instrumentation.add(new LdcInsnNode(branchId));
-                instrumentation.add(new LdcInsnNode(instructionId));
-                instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        EXECUTION_TRACER, "passedBranch", "(IIIII)V", false));
+                addPassedBranchCall(instrumentation, opcode, branchId, instructionId, "(IIIII)V");
                 break;
             case Opcodes.IF_ACMPEQ:
             case Opcodes.IF_ACMPNE:
                 instrumentation.add(new InsnNode(Opcodes.DUP2));
-                instrumentation.add(new LdcInsnNode(opcode));
-                instrumentation.add(new LdcInsnNode(branchId));
-                instrumentation.add(new LdcInsnNode(instructionId));
-                instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        EXECUTION_TRACER, "passedBranch",
-                        "(Ljava/lang/Object;Ljava/lang/Object;III)V", false));
+                addPassedBranchCall(instrumentation, opcode, branchId, instructionId,
+                        "(Ljava/lang/Object;Ljava/lang/Object;III)V");
                 break;
             case Opcodes.IFNULL:
             case Opcodes.IFNONNULL:
                 instrumentation.add(new InsnNode(Opcodes.DUP));
-                instrumentation.add(new LdcInsnNode(opcode));
-                instrumentation.add(new LdcInsnNode(branchId));
-                instrumentation.add(new LdcInsnNode(instructionId));
-                instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        EXECUTION_TRACER, "passedBranch",
-                        "(Ljava/lang/Object;III)V", false));
+                addPassedBranchCall(instrumentation, opcode, branchId, instructionId,
+                        "(Ljava/lang/Object;III)V");
                 break;
         }
         return instrumentation;
+    }
+
+    private void addPassedBranchCall(InsnList instrumentation, int opcode, int branchId, int instructionId, String descriptor) {
+        instrumentation.add(new LdcInsnNode(opcode));
+        instrumentation.add(new LdcInsnNode(branchId));
+        instrumentation.add(new LdcInsnNode(instructionId));
+        instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, EXECUTION_TRACER, "passedBranch", descriptor, false));
     }
 
     /**

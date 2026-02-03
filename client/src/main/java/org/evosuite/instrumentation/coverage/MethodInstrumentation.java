@@ -35,14 +35,15 @@ public interface MethodInstrumentation {
      * analyze
      * </p>
      *
-     * @param mn         the ASM Node of the method
-     * @param className  the name of current class
-     * @param methodName the name of the current method. This name includes the
-     *                   description of the method and is therefore unique per class.
-     * @param access     the access of the current method (see
-     *                   org.objectweb.asm.ClassAdapter#visitMethod(int access, String
-     *                   name, String descriptor, String signature, String[]
-     *                   exceptions))
+     * @param classLoader the class loader used to resolve classes
+     * @param mn          the ASM Node of the method
+     * @param className   the name of current class
+     * @param methodName  the name of the current method. This name includes the
+     *                    description of the method and is therefore unique per class.
+     * @param access      the access of the current method (see
+     *                    org.objectweb.asm.ClassAdapter#visitMethod(int access, String
+     *                    name, String descriptor, String signature, String[]
+     *                    exceptions))
      */
     void analyze(ClassLoader classLoader, MethodNode mn, String className,
                  String methodName, int access);
@@ -51,7 +52,7 @@ public interface MethodInstrumentation {
      * If this method returns true, the analyze method is also called on public
      * static void main() methods
      *
-     * @return a boolean.
+     * @return true if this instrumentation should also be applied to public static void main() methods.
      */
     boolean executeOnMainMethod();
 
@@ -59,7 +60,7 @@ public interface MethodInstrumentation {
      * if this method returns true the analyze method is also called on methods
      * which are excluded in CFGMethodAdapter.EXCLUDE
      *
-     * @return a boolean.
+     * @return true if this instrumentation should also be applied to methods that are usually excluded.
      */
     boolean executeOnExcludedMethods();
 

@@ -76,15 +76,16 @@ public class DefUseInstrumentation implements MethodInstrumentation {
             instructionMap.put(v.getASMNode(), v);
         }
 
+        boolean shouldInstrument = ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS);
+
         Iterator<AbstractInsnNode> j = mn.instructions.iterator();
         while (j.hasNext()) {
             AbstractInsnNode in = j.next();
             BytecodeInstruction v = instructionMap.get(in);
 
             if (v != null) {
-                if ((ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
-                        || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS))
-                        && v.isDefUse()) {
+                if (shouldInstrument && v.isDefUse()) {
 
                     boolean isValidDU = false;
 
