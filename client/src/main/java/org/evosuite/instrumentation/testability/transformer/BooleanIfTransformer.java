@@ -53,104 +53,62 @@ public class BooleanIfTransformer extends MethodNodeTransformer {
         if (jumpNode.getOpcode() == Opcodes.IFNE) {
             if (this.booleanTestabilityTransformation.isBooleanOnStack(mn, jumpNode, 0)) {
                 TransformationStatistics.transformedBooleanComparison();
-                BooleanTestabilityTransformation.logger.info("Changing IFNE");
+                // BooleanTestabilityTransformation.logger.info("Changing IFNE");
                 jumpNode.setOpcode(Opcodes.IFGT);
             } else {
-                BooleanTestabilityTransformation.logger.info("Not changing IFNE");
-                Frame frame = this.booleanTestabilityTransformation.getFrame(jumpNode);
                 AbstractInsnNode insn = jumpNode.getPrevious();
-                BooleanTestabilityTransformation.logger.info("Current node: " + jumpNode);
-                BooleanTestabilityTransformation.logger.info("Previous node: " + insn);
                 if (insn instanceof MethodInsnNode) {
                     MethodInsnNode mi = (MethodInsnNode) insn;
                     if (Type.getReturnType(DescriptorMapping.getInstance().getMethodDesc(mi.owner,
                             mi.name,
                             mi.desc)) == Type.BOOLEAN_TYPE) {
-                        BooleanTestabilityTransformation.logger.info("Changing IFNE");
+                        // BooleanTestabilityTransformation.logger.info("Changing IFNE");
                         jumpNode.setOpcode(Opcodes.IFGT);
                     }
-                    BooleanTestabilityTransformation.logger.info("Method: " + mi.name);
-                }
-                BooleanTestabilityTransformation.logger.info("Stack size: " + frame.getStackSize());
-
-                //logger.info("Top of stack: " + frame.getStack(0));
-                for (int i = 0; i < frame.getStackSize(); i++) {
-                    BooleanTestabilityTransformation.logger.info(i + " Stack: " + frame.getStack(i));
                 }
             }
         } else if (jumpNode.getOpcode() == Opcodes.IFEQ) {
             if (this.booleanTestabilityTransformation.isBooleanOnStack(mn, jumpNode, 0)) {
                 TransformationStatistics.transformedBooleanComparison();
-                BooleanTestabilityTransformation.logger.info("Changing IFEQ");
+                // BooleanTestabilityTransformation.logger.info("Changing IFEQ");
                 jumpNode.setOpcode(Opcodes.IFLE);
             } else {
-                BooleanTestabilityTransformation.logger.info("Not changing IFEQ");
-                Frame frame = this.booleanTestabilityTransformation.getFrame(jumpNode);
                 AbstractInsnNode insn = jumpNode.getPrevious();
-                BooleanTestabilityTransformation.logger.info("Previous node: " + insn);
                 if (insn instanceof MethodInsnNode) {
                     MethodInsnNode mi = (MethodInsnNode) insn;
-                    BooleanTestabilityTransformation.logger.info("Method: " + mi.name);
                     if (Type.getReturnType(BooleanTestabilityTransformation.getOriginalDesc(mi.owner, mi.name, mi.desc)) == Type.BOOLEAN_TYPE) {
-                        BooleanTestabilityTransformation.logger.info("Changing IFEQ");
+                        // BooleanTestabilityTransformation.logger.info("Changing IFEQ");
                         jumpNode.setOpcode(Opcodes.IFLE);
-                    } else {
-                        BooleanTestabilityTransformation.logger.info("Return type: "
-                                + Type.getReturnType(BooleanTestabilityTransformation.getOriginalDesc(mi.owner,
-                                mi.name, mi.desc)));
                     }
-
-                }
-                BooleanTestabilityTransformation.logger.info("Stack size: " + frame.getStackSize());
-                for (int i = 0; i < frame.getStackSize(); i++) {
-                    BooleanTestabilityTransformation.logger.info(i + " Stack: " + frame.getStack(i));
                 }
             }
-        } else if (jumpNode.getOpcode() == Opcodes.IF_ICMPEQ) {
+        } else if (jumpNode.getOpcode() == Opcodes.IF_ICMPEQ || jumpNode.getOpcode() == Opcodes.IF_ICMPNE) {
             if (this.booleanTestabilityTransformation.isBooleanOnStack(mn, jumpNode, 0)) {
-                InsnList convert = new InsnList();
-                convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        Type.getInternalName(BooleanHelper.class), "pushParameter",
-                        Type.getMethodDescriptor(Type.VOID_TYPE,
-                                Type.INT_TYPE)));
-                convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        Type.getInternalName(BooleanHelper.class), "pushParameter",
-                        Type.getMethodDescriptor(Type.VOID_TYPE,
-                                Type.INT_TYPE)));
-                convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        Type.getInternalName(BooleanHelper.class),
-                        "popParameterBooleanFromInt",
-                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE)));
-                convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        Type.getInternalName(BooleanHelper.class),
-                        "popParameterBooleanFromInt",
-                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE)));
-                mn.instructions.insertBefore(jumpNode, convert);
-                TransformationStatistics.transformedBooleanComparison();
-            }
-        } else if (jumpNode.getOpcode() == Opcodes.IF_ICMPNE) {
-            if (this.booleanTestabilityTransformation.isBooleanOnStack(mn, jumpNode, 0)) {
-                InsnList convert = new InsnList();
-                convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        Type.getInternalName(BooleanHelper.class), "pushParameter",
-                        Type.getMethodDescriptor(Type.VOID_TYPE,
-                                Type.INT_TYPE)));
-                convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        Type.getInternalName(BooleanHelper.class), "pushParameter",
-                        Type.getMethodDescriptor(Type.VOID_TYPE,
-                                Type.INT_TYPE)));
-                convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        Type.getInternalName(BooleanHelper.class),
-                        "popParameterBooleanFromInt",
-                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE)));
-                convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                        Type.getInternalName(BooleanHelper.class),
-                        "popParameterBooleanFromInt",
-                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE)));
-                mn.instructions.insertBefore(jumpNode, convert);
-                TransformationStatistics.transformedBooleanComparison();
+                insertBooleanConversion(mn, jumpNode);
             }
         }
         return jumpNode;
+    }
+
+    private void insertBooleanConversion(MethodNode mn, JumpInsnNode jumpNode) {
+        InsnList convert = new InsnList();
+        convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
+                Type.getInternalName(BooleanHelper.class), "pushParameter",
+                Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.INT_TYPE)));
+        convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
+                Type.getInternalName(BooleanHelper.class), "pushParameter",
+                Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.INT_TYPE)));
+        convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
+                Type.getInternalName(BooleanHelper.class),
+                "popParameterBooleanFromInt",
+                Type.getMethodDescriptor(Type.BOOLEAN_TYPE)));
+        convert.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
+                Type.getInternalName(BooleanHelper.class),
+                "popParameterBooleanFromInt",
+                Type.getMethodDescriptor(Type.BOOLEAN_TYPE)));
+        mn.instructions.insertBefore(jumpNode, convert);
+        TransformationStatistics.transformedBooleanComparison();
     }
 }
