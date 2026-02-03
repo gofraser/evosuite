@@ -63,7 +63,7 @@ public class MuLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T> {
             T t = parent.clone();
 
             do {
-                this.notifyModification(t);
+                this.notifyMutation(t);
                 t.mutate();
             } while (!t.isChanged());
 

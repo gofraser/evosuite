@@ -225,7 +225,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
             offspring.setChanged(changed);
         }
-        this.notifyModification(offspring);
+        this.notifyMutation(offspring);
     }
 
     /**

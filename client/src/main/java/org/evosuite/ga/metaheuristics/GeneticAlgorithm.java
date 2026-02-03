@@ -826,7 +826,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      *
      * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      */
-    protected void notifyModification(T chromosome) {
+    protected void notifyMutation(T chromosome) {
         listeners.forEach(l -> l.modification(chromosome));
     }
 

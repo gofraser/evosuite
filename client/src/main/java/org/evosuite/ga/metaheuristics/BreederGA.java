@@ -94,7 +94,7 @@ public class BreederGA<T extends Chromosome<T>> extends StandardGA<T> {
 
             T offspring = Randomness.choice(offspring1, offspring2);
 
-            notifyModification(offspring);
+            notifyMutation(offspring);
             offspring.mutate();
 
             if (offspring.isChanged()) {

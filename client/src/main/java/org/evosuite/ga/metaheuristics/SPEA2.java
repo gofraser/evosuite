@@ -89,9 +89,9 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             }
 
             if (Randomness.nextDouble() <= Properties.MUTATION_RATE) {
-                this.notifyModification(offspring1);
+                this.notifyMutation(offspring1);
                 offspring1.mutate();
-                this.notifyModification(offspring2);
+                this.notifyMutation(offspring2);
                 offspring2.mutate();
             }
 

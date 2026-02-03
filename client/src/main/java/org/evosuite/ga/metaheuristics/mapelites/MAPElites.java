@@ -193,7 +193,7 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
         if (Properties.MAP_ELITES_MOSA_MUTATIONS) {
             this.mutate(chromosome, parent);
         } else {
-            notifyModification(chromosome);
+            notifyMutation(chromosome);
             chromosome.mutate();
         }
 
@@ -258,7 +258,7 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
             }
             offspring.setChanged(changed);
         }
-        this.notifyModification(offspring);
+        this.notifyMutation(offspring);
     }
 
     private int getFoundVectorCount() {

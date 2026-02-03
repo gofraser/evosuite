@@ -53,7 +53,7 @@ public class OnePlusLambdaLambdaGA<T extends Chromosome<T>> extends AbstractMuLa
         while (mutants.size() < this.lambda) {
             // clone firstly offspring from parent
             T mutationOffspring = parent.clone();
-            notifyModification(mutationOffspring);
+            notifyMutation(mutationOffspring);
 
             // perform mutation operation with high probability
             mutationOffspring.mutate();
