@@ -130,7 +130,7 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
             T bestOffspring = getBestOffspring(offspring1, offspring2);
 
-            notifyMutation(bestOffspring);
+            notifyModification(bestOffspring);
             bestOffspring.mutate();
 
             if (bestOffspring.isChanged()) {

@@ -33,13 +33,13 @@ public class AdapteeListener implements SearchListener<TestChromosome> {
 
     private final GeneticAlgorithm<TestSuiteChromosome> adapter;
     private final boolean notifyEvaluation;
-    private final boolean notifyMutation;
+    private final boolean notifyModification;
 
     public AdapteeListener(GeneticAlgorithm<TestSuiteChromosome> adapter, boolean notifyEvaluation,
-                           boolean notifyMutation) {
+                           boolean notifyModification) {
         this.adapter = Objects.requireNonNull(adapter);
         this.notifyEvaluation = notifyEvaluation;
-        this.notifyMutation = notifyMutation;
+        this.notifyModification = notifyModification;
     }
 
     public AdapteeListener(GeneticAlgorithm<TestSuiteChromosome> adapter) {
@@ -72,7 +72,7 @@ public class AdapteeListener implements SearchListener<TestChromosome> {
     @Override
     public void modification(TestChromosome individual) {
         // The adapter throws currently a exception when notifying a mutation
-        if (notifyMutation)
-            adapter.notifyMutation(individual.toSuite());
+        if (notifyModification)
+            adapter.notifyModification(individual.toSuite());
     }
 }

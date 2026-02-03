@@ -72,9 +72,9 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                     crossoverFunction.crossOver(offspring1, offspring2);
                 }
 
-                notifyMutation(offspring1);
+                notifyModification(offspring1);
                 offspring1.mutate();
-                notifyMutation(offspring2);
+                notifyModification(offspring2);
                 offspring2.mutate();
 
                 if (offspring1.isChanged()) {
@@ -92,6 +92,9 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                 newGeneration.add(offspring1);
             else
                 newGeneration.add(parent1);
+
+            if (isNextPopulationFull(newGeneration))
+                break;
 
             if (!isTooLong(offspring2))
                 newGeneration.add(offspring2);

@@ -51,7 +51,7 @@ public class MuPlusLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T>
         for (int i = 0; i < this.lambda; i++) {
             T parent = this.population.get(i % this.mu);
             T offspring = parent.clone();
-            this.notifyMutation(offspring);
+            this.notifyModification(offspring);
 
             do {
                 offspring.mutate();

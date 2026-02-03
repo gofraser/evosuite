@@ -142,7 +142,7 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final protected void notifyMutation(TestSuiteChromosome chromosome)
+    final protected void notifyModification(TestSuiteChromosome chromosome)
             throws UnsupportedOperationException {
         // In contrast to the adaptee, the adapter does not mutate any chromosomes.
         // Therefore, only the adaptee notifies about mutations

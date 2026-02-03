@@ -653,7 +653,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
 
     /**
-     * Return the individual with the highest fitChromosomeess
+     * Return the individual with the highest fitness
      *
      * @return a {@link org.evosuite.ga.Chromosome} object.
      */
@@ -822,11 +822,11 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * Notify all search listeners of a mutation
+     * Notify all search listeners of a modification (e.g. mutation)
      *
      * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      */
-    protected void notifyMutation(T chromosome) {
+    protected void notifyModification(T chromosome) {
         listeners.forEach(l -> l.modification(chromosome));
     }
 

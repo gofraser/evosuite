@@ -114,9 +114,9 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
                     crossoverFunction.crossOver(offspring1, offspring2);
                 }
 
-                notifyMutation(offspring1);
+                notifyModification(offspring1);
                 offspring1.mutate();
-                notifyMutation(offspring2);
+                notifyModification(offspring2);
                 offspring2.mutate();
 
                 if (offspring1.isChanged()) {

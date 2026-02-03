@@ -102,7 +102,7 @@ public class MIO extends AbstractMOSA {
         assert this.solution != null;
 
         // mutate it
-        notifyMutation(this.solution);
+        notifyModification(this.solution);
         this.solution.mutate();
 
         // evaluate it

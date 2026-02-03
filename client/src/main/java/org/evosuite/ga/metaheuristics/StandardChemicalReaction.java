@@ -282,7 +282,7 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
 
         // mutate it
 
-        this.notifyMutation(moleculeClone);
+        this.notifyModification(moleculeClone);
         moleculeClone.mutate();
         if (!moleculeClone.isChanged()) {
             logger.debug("Mutation failed to change the individual");
@@ -340,9 +340,9 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
 
         // mutate offspring
 
-        this.notifyMutation(offspring1);
+        this.notifyModification(offspring1);
         offspring1.mutate();
-        this.notifyMutation(offspring2);
+        this.notifyModification(offspring2);
         offspring2.mutate();
 
         if (!offspring1.isChanged() && !offspring2.isChanged()) {
@@ -447,9 +447,9 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
 
         // mutate clones
 
-        this.notifyMutation(moleculeClone1);
+        this.notifyModification(moleculeClone1);
         moleculeClone1.mutate();
-        this.notifyMutation(moleculeClone2);
+        this.notifyModification(moleculeClone2);
         moleculeClone2.mutate();
 
         if (!moleculeClone1.isChanged() && !moleculeClone2.isChanged()) {
