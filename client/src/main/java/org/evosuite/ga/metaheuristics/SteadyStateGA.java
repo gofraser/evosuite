@@ -104,12 +104,14 @@ public class SteadyStateGA<T extends Chromosome<T>> extends MonotonicGA<T> {
             logger.debug("Keeping offspring");
 
             if (!isTooLong(offspring1)) {
-                population.remove(parent1);
-                population.add(offspring1);
+                if (population.remove(parent1)) {
+                    population.add(offspring1);
+                }
             }
             if (!isTooLong(offspring2)) {
-                population.remove(parent2);
-                population.add(offspring2);
+                if (population.remove(parent2)) {
+                    population.add(offspring2);
+                }
             }
         } else {
             logger.debug("Keeping parents");
