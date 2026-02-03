@@ -94,6 +94,5 @@ public class TournamentSelectionRankAndCrowdingDistanceComparator<T extends Chro
     @Override
     public void setMaximize(boolean max) {
         super.setMaximize(max);
-        this.comparator.setMaximize(max);
     }
 }

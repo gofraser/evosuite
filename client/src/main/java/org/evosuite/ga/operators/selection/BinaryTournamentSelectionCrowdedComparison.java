@@ -121,6 +121,5 @@ public class BinaryTournamentSelectionCrowdedComparison<T extends Chromosome<T>>
     @Override
     public void setMaximize(boolean max) {
         super.setMaximize(max);
-        this.comparator.setMaximize(max);
     }
 }
