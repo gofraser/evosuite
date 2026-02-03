@@ -54,6 +54,8 @@ public class MIO extends AbstractMOSA {
 
     private TestChromosome solution = null;
 
+    private final List<TestChromosome> finalSolutions = new ArrayList<>();
+
     /**
      * Constructor.
      *
@@ -61,6 +63,7 @@ public class MIO extends AbstractMOSA {
      */
     public MIO(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
+        Properties.ARCHIVE_TYPE = Properties.ArchiveType.MIO;
     }
 
     /**
@@ -201,7 +204,15 @@ public class MIO extends AbstractMOSA {
     }
 
     @Override
+    protected void updateBestIndividualFromArchive() {
+        this.finalSolutions.addAll(Archive.getArchiveInstance().getSolutions());
+    }
+
+    @Override
     public List<TestChromosome> getBestIndividuals() {
+        if (!finalSolutions.isEmpty()) {
+            return new ArrayList<>(finalSolutions);
+        }
         return new ArrayList<>(Archive.getArchiveInstance().getSolutions());
     }
 }

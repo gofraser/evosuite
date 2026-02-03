@@ -40,7 +40,8 @@ public class MIOTestSuiteAdapter extends MOSATestSuiteAdapter {
     public List<TestSuiteChromosome> getBestIndividuals() {
         // get final test suite (i.e., non dominated solutions in Archive)
         TestSuiteChromosome bestTestCases = new TestSuiteChromosome();
-        Set<TestChromosome> solutions = Archive.getArchiveInstance().getSolutions();
+        // Use getAlgorithm().getBestIndividuals() to be robust against Archive reset
+        List<TestChromosome> solutions = getAlgorithm().getBestIndividuals();
         bestTestCases.addTests(solutions);
 
         // compute overall fitness and coverage
@@ -55,7 +56,8 @@ public class MIOTestSuiteAdapter extends MOSATestSuiteAdapter {
     @Override
     public TestSuiteChromosome getBestIndividual() {
         TestSuiteChromosome best = new TestSuiteChromosome();
-        Set<TestChromosome> solutions = Archive.getArchiveInstance().getSolutions();
+        // Use getAlgorithm().getBestIndividuals() to be robust against Archive reset
+        List<TestChromosome> solutions = getAlgorithm().getBestIndividuals();
         best.addTests(solutions);
 
         if (solutions.isEmpty()) {
