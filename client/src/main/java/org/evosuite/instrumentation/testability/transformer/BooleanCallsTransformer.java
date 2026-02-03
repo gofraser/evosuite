@@ -77,8 +77,10 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
                     //                        int numOfPushs = types.length - firstBooleanParameterIndex;
 
                     if (numOfPushs == 0) {
-                        if (!(methodNode.getPrevious().getOpcode() == Opcodes.ICONST_1 || methodNode.getPrevious().getOpcode() == Opcodes.ICONST_0)) {
+                        AbstractInsnNode prev = methodNode.getPrevious();
+                        boolean isConstantBoolean = prev != null && (prev.getOpcode() == Opcodes.ICONST_1 || prev.getOpcode() == Opcodes.ICONST_0);
 
+                        if (!isConstantBoolean) {
                             //the boolean parameter is the last parameter
                             MethodInsnNode booleanHelperInvoke = new MethodInsnNode(
                                     Opcodes.INVOKESTATIC,
@@ -93,41 +95,8 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
                         InsnList insnlist = new InsnList();
 
                         for (int i = 0; i < numOfPushs; i++) {
-                            MethodInsnNode booleanHelperPushParameter;
-                            if (types[types.length - 1 - i] == Type.BOOLEAN_TYPE
-                                    || types[types.length - 1 - i] == Type.CHAR_TYPE
-                                    || types[types.length - 1 - i] == Type.BYTE_TYPE
-                                    || types[types.length - 1 - i] == Type.SHORT_TYPE
-                                    || types[types.length - 1 - i] == Type.INT_TYPE
-                                    || types[types.length - 1 - i] == Type.FLOAT_TYPE
-                                    || types[types.length - 1 - i] == Type.LONG_TYPE
-                                    || types[types.length - 1 - i] == Type.DOUBLE_TYPE) {
-                                if (types[types.length - 1 - i] == Type.BOOLEAN_TYPE) {
-                                    booleanHelperPushParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "pushParameter",
-                                            Type.getMethodDescriptor(Type.VOID_TYPE,
-                                                    Type.INT_TYPE));
-                                } else {
-                                    booleanHelperPushParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "pushParameter",
-                                            Type.getMethodDescriptor(Type.VOID_TYPE,
-                                                    types[types.length
-                                                            - 1 - i]));
-                                }
-                            } else {
-                                booleanHelperPushParameter = new MethodInsnNode(
-                                        Opcodes.INVOKESTATIC,
-                                        Type.getInternalName(BooleanHelper.class),
-                                        "pushParameter",
-                                        Type.getMethodDescriptor(Type.VOID_TYPE,
-                                                Type.getType(Object.class)));
-                            }
-
-                            insnlist.add(booleanHelperPushParameter);
+                            Type type = types[types.length - 1 - i];
+                            addPushParameter(insnlist, type);
                         }
                         for (int i = firstBooleanParameterIndex; i < types.length; i++) {
                             if (i == firstBooleanParameterIndex) {
@@ -139,81 +108,7 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
                                                 Type.INT_TYPE));
                                 insnlist.add(booleanHelperInvoke);
                             } else {
-                                MethodInsnNode booleanHelperPopParameter;
-                                boolean objectNeedCast = false;
-                                if (types[i] == Type.BOOLEAN_TYPE) {
-                                    booleanHelperPopParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "popParameterBooleanFromInt",
-                                            Type.getMethodDescriptor(types[i]
-                                            ));
-                                } else if (types[i] == Type.CHAR_TYPE) {
-                                    booleanHelperPopParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "popParameterChar",
-                                            Type.getMethodDescriptor(types[i]
-                                            ));
-                                } else if (types[i] == Type.BYTE_TYPE) {
-                                    booleanHelperPopParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "popParameterByte",
-                                            Type.getMethodDescriptor(types[i]
-                                            ));
-                                } else if (types[i] == Type.SHORT_TYPE) {
-                                    booleanHelperPopParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "popParameterShort",
-                                            Type.getMethodDescriptor(types[i]
-                                            ));
-                                } else if (types[i] == Type.INT_TYPE) {
-                                    booleanHelperPopParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "popParameterInt",
-                                            Type.getMethodDescriptor(types[i]
-                                            ));
-                                } else if (types[i] == Type.FLOAT_TYPE) {
-                                    booleanHelperPopParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "popParameterFloat",
-                                            Type.getMethodDescriptor(types[i]
-                                            ));
-                                } else if (types[i] == Type.LONG_TYPE) {
-                                    booleanHelperPopParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "popParameterLong",
-                                            Type.getMethodDescriptor(types[i]
-                                            ));
-                                } else if (types[i] == Type.DOUBLE_TYPE) {
-                                    booleanHelperPopParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "popParameterDouble",
-                                            Type.getMethodDescriptor(types[i]
-                                            ));
-                                } else {
-                                    objectNeedCast = true;
-                                    booleanHelperPopParameter = new MethodInsnNode(
-                                            Opcodes.INVOKESTATIC,
-                                            Type.getInternalName(BooleanHelper.class),
-                                            "popParameterObject",
-                                            Type.getMethodDescriptor(Type.getType(Object.class)
-                                            ));
-                                }
-
-                                insnlist.add(booleanHelperPopParameter);
-                                if (objectNeedCast) {
-                                    TypeInsnNode tin = new TypeInsnNode(
-                                            Opcodes.CHECKCAST,
-                                            types[i].getInternalName());
-                                    insnlist.add(tin);
-                                }
+                                addPopParameter(insnlist, types[i]);
                             }
 
                         }
@@ -240,6 +135,63 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
         // For example, we could use flow analysis to determine the point where the value is added to the stack
         // and insert a conversion function there
         return methodNode;
+    }
+
+    private void addPushParameter(InsnList insnList, Type type) {
+        if (isPrimitiveOrWrapper(type)) {
+             String desc = Type.getMethodDescriptor(Type.VOID_TYPE, type == Type.BOOLEAN_TYPE ? Type.INT_TYPE : type);
+             insnList.add(new MethodInsnNode(
+                    Opcodes.INVOKESTATIC,
+                    Type.getInternalName(BooleanHelper.class),
+                    "pushParameter",
+                    desc));
+        } else {
+            insnList.add(new MethodInsnNode(
+                    Opcodes.INVOKESTATIC,
+                    Type.getInternalName(BooleanHelper.class),
+                    "pushParameter",
+                    Type.getMethodDescriptor(Type.VOID_TYPE,
+                            Type.getType(Object.class))));
+        }
+    }
+
+    private void addPopParameter(InsnList insnList, Type type) {
+        String methodName;
+        String desc = Type.getMethodDescriptor(type);
+        boolean objectNeedCast = false;
+
+        if (type == Type.BOOLEAN_TYPE) methodName = "popParameterBooleanFromInt";
+        else if (type == Type.CHAR_TYPE) methodName = "popParameterChar";
+        else if (type == Type.BYTE_TYPE) methodName = "popParameterByte";
+        else if (type == Type.SHORT_TYPE) methodName = "popParameterShort";
+        else if (type == Type.INT_TYPE) methodName = "popParameterInt";
+        else if (type == Type.FLOAT_TYPE) methodName = "popParameterFloat";
+        else if (type == Type.LONG_TYPE) methodName = "popParameterLong";
+        else if (type == Type.DOUBLE_TYPE) methodName = "popParameterDouble";
+        else {
+            methodName = "popParameterObject";
+            desc = Type.getMethodDescriptor(Type.getType(Object.class));
+            objectNeedCast = true;
+        }
+
+        insnList.add(new MethodInsnNode(
+                Opcodes.INVOKESTATIC,
+                Type.getInternalName(BooleanHelper.class),
+                methodName,
+                desc));
+
+        if (objectNeedCast) {
+             insnList.add(new TypeInsnNode(
+                    Opcodes.CHECKCAST,
+                    type.getInternalName()));
+        }
+    }
+
+    private boolean isPrimitiveOrWrapper(Type type) {
+        int sort = type.getSort();
+        return sort == Type.BOOLEAN || sort == Type.CHAR || sort == Type.BYTE
+                || sort == Type.SHORT || sort == Type.INT || sort == Type.FLOAT
+                || sort == Type.LONG || sort == Type.DOUBLE;
     }
 
     /* (non-Javadoc)
