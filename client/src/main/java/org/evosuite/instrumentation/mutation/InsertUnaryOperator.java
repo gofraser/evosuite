@@ -82,26 +82,28 @@ public class InsertUnaryOperator implements MutationOperator {
                 mutationCode.add(mutation);
 
                 if (!mn.localVariables.isEmpty())
-                    descriptions.add("Negation of " + getName(mn, node));
+                    descriptions.add("Negation of " + MutationUtils.getName(mn, node));
                 else
                     descriptions.add("Negation");
 
                 if (node.getOpcode() == Opcodes.ILOAD) {
                     if (frame.getStack(frame.getStackSize() - 1) != BooleanValueInterpreter.BOOLEAN_VALUE) {
                         mutation = new InsnList();
-                        mutation.add(new IincInsnNode(node.var, 1));
                         mutation.add(new VarInsnNode(node.getOpcode(), node.var));
+                        mutation.add(new InsnNode(Opcodes.ICONST_1));
+                        mutation.add(new InsnNode(Opcodes.IADD));
                         if (!mn.localVariables.isEmpty())
-                            descriptions.add("IINC 1 " + getName(mn, node));
+                            descriptions.add("IINC 1 " + MutationUtils.getName(mn, node));
                         else
                             descriptions.add("IINC 1");
                         mutationCode.add(mutation);
 
                         mutation = new InsnList();
-                        mutation.add(new IincInsnNode(node.var, -1));
                         mutation.add(new VarInsnNode(node.getOpcode(), node.var));
+                        mutation.add(new InsnNode(Opcodes.ICONST_M1));
+                        mutation.add(new InsnNode(Opcodes.IADD));
                         if (!mn.localVariables.isEmpty())
-                            descriptions.add("IINC -1 " + getName(mn, node));
+                            descriptions.add("IINC -1 " + MutationUtils.getName(mn, node));
                         else
                             descriptions.add("IINC -1");
                         mutationCode.add(mutation);
@@ -225,38 +227,5 @@ public class InsertUnaryOperator implements MutationOperator {
             default:
                 throw new RuntimeException("Invalid opcode for negation: " + opcode);
         }
-    }
-
-    private String getName(MethodNode mn, AbstractInsnNode node)
-            throws VariableNotFoundException {
-        if (node instanceof VarInsnNode) {
-            LocalVariableNode var = getLocal(mn, node, ((VarInsnNode) node).var);
-            return var.name;
-        } else if (node instanceof FieldInsnNode) {
-            return ((FieldInsnNode) node).name;
-        } else if (node instanceof IincInsnNode) {
-            IincInsnNode incNode = (IincInsnNode) node;
-            LocalVariableNode var = getLocal(mn, node, incNode.var);
-            return var.name;
-
-        } else {
-            throw new RuntimeException("Unknown variable node: " + node);
-        }
-    }
-
-    private LocalVariableNode getLocal(MethodNode mn, AbstractInsnNode node, int index)
-            throws VariableNotFoundException {
-        int currentId = mn.instructions.indexOf(node);
-        for (Object v : mn.localVariables) {
-            LocalVariableNode localVar = (LocalVariableNode) v;
-            int startId = mn.instructions.indexOf(localVar.start);
-            int endId = mn.instructions.indexOf(localVar.end);
-            if (currentId >= startId && currentId <= endId && localVar.index == index)
-                return localVar;
-        }
-
-        throw new VariableNotFoundException("Could not find local variable " + index
-                + " at position " + currentId + ", have variables: "
-                + mn.localVariables.size());
     }
 }

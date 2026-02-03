@@ -365,7 +365,12 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     protected void starveRandomly(int limit) {
         while (population.size() > limit) {
             int removePos = Randomness.nextInt(population.size());
-            population.remove(removePos);
+            if (removePos != population.size() - 1) {
+                // Swap with the last element
+                Collections.swap(population, removePos, population.size() - 1);
+            }
+            // Remove the last element
+            population.remove(population.size() - 1);
         }
     }
 
@@ -653,7 +658,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
 
     /**
-     * Return the individual with the highest fitChromosomeess
+     * Return the individual with the highest fitness
      *
      * @return a {@link org.evosuite.ga.Chromosome} object.
      */
@@ -822,7 +827,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * Notify all search listeners of a mutation
+     * Notify all search listeners of a modification (e.g. mutation)
      *
      * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      */

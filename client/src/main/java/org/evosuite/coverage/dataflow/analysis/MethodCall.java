@@ -33,15 +33,13 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
  * @author Andre Mis
  */
 public class MethodCall {
-    private static int invocations = 0;
     private final CCFGMethodCallNode methodCall;
     private final int invocationNumber;
     private final String calledMethod;
 
-    public MethodCall(CCFGMethodCallNode methodCall, String calledMethod) {
+    public MethodCall(CCFGMethodCallNode methodCall, String calledMethod, int invocationNumber) {
         this.methodCall = methodCall;
-        invocations++;
-        this.invocationNumber = invocations;
+        this.invocationNumber = invocationNumber;
         this.calledMethod = calledMethod;
     }
 
@@ -81,6 +79,7 @@ public class MethodCall {
         } else return methodCall.equals(other.methodCall);
     }
 
+    @Override
     public String toString() {
         if (methodCall == null)
             return "initCall for " + calledMethod + " " + invocationNumber;
@@ -89,12 +88,5 @@ public class MethodCall {
 
     public String getCalledMethodName() {
         return calledMethod;
-    }
-
-    public static MethodCall constructForCallNode(
-            CCFGMethodCallNode callNode) {
-        if (callNode == null)
-            throw new IllegalArgumentException("given call node was null");
-        return new MethodCall(callNode, callNode.getCalledMethod());
     }
 }

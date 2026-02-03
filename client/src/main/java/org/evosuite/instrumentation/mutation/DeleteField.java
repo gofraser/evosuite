@@ -69,7 +69,7 @@ public class DeleteField implements MutationOperator {
             logger.debug("Deleting source of type " + node.owner);
             mutation.add(new InsnNode(Opcodes.POP));
         }
-        mutation.add(getDefault(fieldType));
+        mutation.add(MutationUtils.getDefault(fieldType));
         // insert mutation into pool
         Mutation mutationObject = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).addMutation(className,
                 methodName,
@@ -82,30 +82,6 @@ public class DeleteField implements MutationOperator {
 
         mutations.add(mutationObject);
         return mutations;
-    }
-
-    private static AbstractInsnNode getDefault(Type type) {
-        if (type.equals(Type.BOOLEAN_TYPE)) {
-            return new LdcInsnNode(0);
-        } else if (type.equals(Type.INT_TYPE)) {
-            return new LdcInsnNode(0);
-        } else if (type.equals(Type.BYTE_TYPE)) {
-            return new LdcInsnNode(0);
-        } else if (type.equals(Type.CHAR_TYPE)) {
-            return new LdcInsnNode(0);
-        } else if (type.equals(Type.DOUBLE_TYPE)) {
-            return new LdcInsnNode(0.0);
-        } else if (type.equals(Type.FLOAT_TYPE)) {
-            return new LdcInsnNode(0.0F);
-        } else if (type.equals(Type.LONG_TYPE)) {
-            return new LdcInsnNode(0L);
-        } else if (type.equals(Type.SHORT_TYPE)) {
-            return new LdcInsnNode(0);
-        } else if (type.equals(Type.VOID_TYPE)) {
-            return new LabelNode();
-        } else {
-            return new InsnNode(Opcodes.ACONST_NULL);
-        }
     }
 
     /**
@@ -128,42 +104,12 @@ public class DeleteField implements MutationOperator {
         Type type = Type.getType(original.desc);
 
         if (type.getDescriptor().startsWith("L") || type.getDescriptor().startsWith("[")) {
-            ReplaceVariable.addReferenceDistanceCheck(distance, type, mutant);
+            MutationUtils.addReferenceDistanceCheck(distance, type, mutant);
         } else {
-            ReplaceVariable.addPrimitiveDistanceCheck(distance, type, mutant);
+            MutationUtils.addPrimitiveDistanceCheck(distance, type, mutant);
         }
 
         return distance;
-    }
-
-    /**
-     * <p>
-     * getDistance
-     * </p>
-     *
-     * @param val1 a double.
-     * @param val2 a double.
-     * @return a double.
-     */
-    public static double getDistance(double val1, double val2) {
-        return val1 == val2 ? 1.0 : 0.0;
-    }
-
-    /**
-     * <p>
-     * getDistance
-     * </p>
-     *
-     * @param obj1 a {@link java.lang.Object} object.
-     * @param obj2 a {@link java.lang.Object} object.
-     * @return a double.
-     */
-    public static double getDistance(Object obj1, Object obj2) {
-        if (obj1 == null) {
-            return obj2 == null ? 1.0 : 0.0;
-        } else {
-            return obj1.equals(obj2) ? 1.0 : 0.0;
-        }
     }
 
     /* (non-Javadoc)

@@ -96,6 +96,17 @@ public class InstrumentingClassLoader extends ClassLoader {
         }
     }
 
+    /**
+     * Loads the class with the specified binary name.
+     * <p>
+     * This method checks if the class should be instrumented. If so, it delegates to {@link #instrumentClass(String)}.
+     * Otherwise, it delegates to the parent classloader.
+     * </p>
+     *
+     * @param name The binary name of the class
+     * @return The resulting Class object
+     * @throws ClassNotFoundException If the class was not found
+     */
     @Override
     public Class<?> loadClass(String name) throws ClassNotFoundException {
         synchronized (getClassLoadingLock(name)) {
@@ -127,6 +138,17 @@ public class InstrumentingClassLoader extends ClassLoader {
         return instrumentation.transformBytes(this, className, new ClassReader(is));
     }
 
+    /**
+     * Instrument the class with the given name.
+     * <p>
+     * This method loads the class bytes from the SUT classloader, instruments them
+     * using {@link BytecodeInstrumentation}, and defines the class in this classloader.
+     * </p>
+     *
+     * @param fullyQualifiedTargetClass the name of the class to instrument
+     * @return the instrumented class
+     * @throws ClassNotFoundException if the class cannot be found in the SUT classloader
+     */
     private Class<?> instrumentClass(String fullyQualifiedTargetClass) throws ClassNotFoundException {
         String className = fullyQualifiedTargetClass.replace('.', '/');
 
@@ -142,6 +164,9 @@ public class InstrumentingClassLoader extends ClassLoader {
             logger.info("Loaded class: " + fullyQualifiedTargetClass);
             return result;
         } catch (Throwable t) {
+            // We catch Throwable here because instrumentation or class definition might fail with
+            // LinkageError or other unexpected errors, which we want to wrap as ClassNotFoundException
+            // to conform to the ClassLoader contract and logging.
             logger.error("Error while loading class: " + t.getMessage(), t);
             throw new ClassNotFoundException(t.getMessage(), t);
         }

@@ -143,7 +143,8 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                     // if(Properties.ADAPTIVE_LOCAL_SEARCH ==
                     // AdaptiveLocalSearchTarget.ALL)
                     // applyAdaptiveLocalSearch(offspring1);
-                    newGeneration.add(offspring1);
+                    if (!isNextPopulationFull(newGeneration))
+                        newGeneration.add(offspring1);
                 }
 
                 if (isTooLong(offspring2) || offspring2.size() == 0) {
@@ -152,19 +153,25 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                     // if(Properties.ADAPTIVE_LOCAL_SEARCH ==
                     // AdaptiveLocalSearchTarget.ALL)
                     // applyAdaptiveLocalSearch(offspring2);
-                    newGeneration.add(offspring2);
+                    if (!isNextPopulationFull(newGeneration))
+                        newGeneration.add(offspring2);
                 }
 
-                if (rejected == 1)
-                    newGeneration.add(Randomness.choice(parent1, parent2));
-                else if (rejected == 2) {
-                    newGeneration.add(parent1);
-                    newGeneration.add(parent2);
+                if (rejected == 1) {
+                    if (!isNextPopulationFull(newGeneration))
+                        newGeneration.add(Randomness.choice(parent1, parent2));
+                } else if (rejected == 2) {
+                    if (!isNextPopulationFull(newGeneration))
+                        newGeneration.add(parent1);
+                    if (!isNextPopulationFull(newGeneration))
+                        newGeneration.add(parent2);
                 }
             } else {
                 logger.debug("Keeping parents");
-                newGeneration.add(parent1);
-                newGeneration.add(parent2);
+                if (!isNextPopulationFull(newGeneration))
+                    newGeneration.add(parent1);
+                if (!isNextPopulationFull(newGeneration))
+                    newGeneration.add(parent2);
             }
 
         }
@@ -312,11 +319,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     private double getBestFitness() {
-        T bestIndividual = getBestIndividual();
-        for (FitnessFunction<T> ff : fitnessFunctions) {
-            ff.getFitness(bestIndividual);
-        }
-        return bestIndividual.getFitness();
+        return getBestIndividual().getFitness();
     }
 
     /**
