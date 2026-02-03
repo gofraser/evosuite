@@ -61,16 +61,14 @@ public class RhoAux {
                 continue;
             }
 
-            Set<Integer> lines = new LinkedHashSet<>();
             for (String methodName : LinePool.getKnownMethodsFor(className)) {
-                lines.addAll(LinePool.getLines(className, methodName));
-            }
-
-            for (Integer line : lines) {
-                logger.debug("Adding line {} for class '{}'", line, className);
-                // Properties.TARGET_METHOD as to be used instead of methodName, otherwise
-                // an CFG exception would be thrown
-                goals.add(new LineCoverageTestFitness(className, Properties.TARGET_METHOD, line));
+                if (!Properties.TARGET_METHOD.isEmpty() && !methodName.equals(Properties.TARGET_METHOD)) {
+                    continue;
+                }
+                for (Integer line : LinePool.getLines(className, methodName)) {
+                    logger.debug("Adding line {} for class '{}'", line, className);
+                    goals.add(new LineCoverageTestFitness(className, methodName, line));
+                }
             }
         }
 
