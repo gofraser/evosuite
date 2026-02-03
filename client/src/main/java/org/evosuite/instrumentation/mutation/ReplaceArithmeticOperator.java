@@ -26,7 +26,6 @@ import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.coverage.mutation.MutationPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.Frame;
 
@@ -95,71 +94,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         throw new RuntimeException("Unknown opcode: " + opcode);
     }
 
-    /**
-     * <p>getNextIndex</p>
-     *
-     * @param mn a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @return a int.
-     */
-    public static int getNextIndex(MethodNode mn) {
-        Iterator<LocalVariableNode> it = mn.localVariables.iterator();
-        int max = 0;
-        int next = 0;
-        while (it.hasNext()) {
-            LocalVariableNode var = it.next();
-            int index = var.index;
-            if (index >= max) {
-                max = index;
-                next = max + Type.getType(var.desc).getSize();
-            }
-        }
-        if (next == 0)
-            next = getNextIndexFromLoad(mn);
-        return next;
-    }
-
-    private static int getNextIndexFromLoad(MethodNode mn) {
-        Iterator<AbstractInsnNode> it = mn.instructions.iterator();
-        int index = 0;
-        while (it.hasNext()) {
-            AbstractInsnNode node = it.next();
-            if (node instanceof VarInsnNode) {
-                VarInsnNode varNode = (VarInsnNode) node;
-                int varIndex = varNode.var;
-                switch (varNode.getOpcode()) {
-                    case Opcodes.ALOAD:
-                    case Opcodes.ILOAD:
-                    case Opcodes.FLOAD:
-                    case Opcodes.IALOAD:
-                    case Opcodes.BALOAD:
-                    case Opcodes.CALOAD:
-                    case Opcodes.AALOAD:
-                    case Opcodes.ASTORE:
-                    case Opcodes.ISTORE:
-                    case Opcodes.FSTORE:
-                    case Opcodes.IASTORE:
-                    case Opcodes.BASTORE:
-                    case Opcodes.CASTORE:
-                    case Opcodes.AASTORE:
-                        index = Math.max(index, varIndex + 1);
-                        break;
-                    case Opcodes.DLOAD:
-                    case Opcodes.DSTORE:
-                    case Opcodes.LLOAD:
-                    case Opcodes.LSTORE:
-                    case Opcodes.DALOAD:
-                    case Opcodes.DASTORE:
-                    case Opcodes.LALOAD:
-                    case Opcodes.LASTORE:
-                        index = Math.max(index, varIndex + 2);
-                        break;
-                }
-            }
-        }
-
-        return index;
-    }
-
     /* (non-Javadoc)
      * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, org.evosuite.cfg.BytecodeInstruction)
      */
@@ -171,7 +105,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
 
-        int numVariable = getNextIndex(mn);
+        int numVariable = MutationUtils.getNextIndex(mn);
         List<Mutation> mutations = new LinkedList<>();
 
         InsnNode node = (InsnNode) instruction.getASMNode();
