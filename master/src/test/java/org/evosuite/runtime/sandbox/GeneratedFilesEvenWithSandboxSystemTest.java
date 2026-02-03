@@ -27,10 +27,7 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 
 import com.examples.with.different.packagename.sandbox.OpenStream;
 import com.examples.with.different.packagename.sandbox.OpenStreamInATryCatch;
@@ -60,6 +57,7 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
 
     @Test
     public void testCreateWithNoCatch() {
+        Assume.assumeTrue(Sandbox.isSecurityManagerSupported());
 
         Assert.assertFalse(file.exists());
 
@@ -89,7 +87,7 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
 
     @Test
     public void testCreateInATryCatch() {
-
+        Assume.assumeTrue(Sandbox.isSecurityManagerSupported());
         Assert.assertFalse(file.exists());
 
         EvoSuite evosuite = new EvoSuite();
@@ -119,6 +117,7 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
 
     @Test
     public void testCreateInATryCatchThatDoesNotCatchSecurityException() {
+        Assume.assumeTrue(Sandbox.isSecurityManagerSupported());
 
         Assert.assertFalse(file.exists());
 

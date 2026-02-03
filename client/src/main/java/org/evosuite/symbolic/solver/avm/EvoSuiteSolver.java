@@ -86,7 +86,8 @@ public final class EvoSuiteSolver extends Solver {
                     StringAVM avm = new StringAVM(strVariable, constraints, startTimeMillis, timeout);
                     avm.applyAVM();
                 } else {
-                    throw new RuntimeException("Unknown variable type " + v.getClass().getName());
+                    log.warn("Unknown variable type " + v.getClass().getName());
+                    continue;
                 }
                 distance = DistanceEstimator.getDistance(constraints);
                 if (distance <= 0.0) {
@@ -131,7 +132,7 @@ public final class EvoSuiteSolver extends Solver {
             else if (o instanceof Long)
                 longConstants.add((Long) o);
             else
-                assert (false) : "Unexpected constant type: " + o;
+                log.warn("Unexpected constant type: " + o);
         }
 
         for (Variable<?> v : variables) {

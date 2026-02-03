@@ -227,6 +227,9 @@ public class ExpressionEvaluator implements ExpressionVisitor<Object, Void> {
             case CONTAINS:
                 return first.contains(second) ? TRUE_VALUE : FALSE_VALUE;
             case PATTERNMATCHES:
+                if (first == null || second == null) {
+                    return null;
+                }
                 return second.matches(first) ? TRUE_VALUE : FALSE_VALUE;
             case APACHE_ORO_PATTERN_MATCHES: {
                 Perl5Matcher matcher = new Perl5Matcher();

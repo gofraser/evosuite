@@ -55,6 +55,7 @@ public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
 
     @BeforeClass
     public static void checkStatus() {
+        org.junit.Assume.assumeTrue(Sandbox.isSecurityManagerSupported());
         //such property shouldn't exist
         Assert.assertNull(aProperty);
     }
@@ -110,6 +111,7 @@ public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
 
     @Test
     public void testNoReplace() {
+        org.junit.Assume.assumeTrue(Sandbox.isSecurityManagerSupported());
 
         EvoSuite evosuite = new EvoSuite();
 
