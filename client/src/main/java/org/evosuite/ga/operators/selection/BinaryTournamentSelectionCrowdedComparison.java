@@ -115,11 +115,4 @@ public class BinaryTournamentSelectionCrowdedComparison<T extends Chromosome<T>>
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setMaximize(boolean max) {
-        super.setMaximize(max);
-    }
 }

@@ -88,11 +88,4 @@ public class TournamentSelectionRankAndCrowdingDistanceComparator<T extends Chro
         return population.get(getIndex(population));
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setMaximize(boolean max) {
-        super.setMaximize(max);
-    }
 }
