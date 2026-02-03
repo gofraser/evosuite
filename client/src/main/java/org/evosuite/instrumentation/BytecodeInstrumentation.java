@@ -60,6 +60,15 @@ public class BytecodeInstrumentation {
 
     private static final Logger logger = LoggerFactory.getLogger(BytecodeInstrumentation.class);
 
+    private static final String[] EVOSUITE_PACKAGES = new String[]{
+            PackageInfo.getEvoSuitePackage(),
+            "org.exsyst",
+            "de.unisb.cs.st.testcarver",
+            "de.unisb.cs.st.evosuite",
+            "testing.generation.evosuite",
+            "de.unisl.cs.st.bugex"
+    };
+
     private final Instrumenter testCarvingInstrumenter;
 
     /**
@@ -72,8 +81,7 @@ public class BytecodeInstrumentation {
     }
 
     private static String[] getEvoSuitePackages() {
-        return new String[]{PackageInfo.getEvoSuitePackage(), "org.exsyst", "de.unisb.cs.st.testcarver",
-                "de.unisb.cs.st.evosuite", "testing.generation.evosuite", "de.unisl.cs.st.bugex"};
+        return EVOSUITE_PACKAGES;
     }
 
     /**
@@ -87,7 +95,8 @@ public class BytecodeInstrumentation {
     }
 
     /**
-     * Check if we the class belongs to an EvoSuite package
+     * Check if the class belongs to an EvoSuite package.
+     * This includes the current EvoSuite package and legacy packages from previous versions.
      *
      * @param className a {@link java.lang.String} object.
      * @return a boolean.
@@ -203,37 +212,10 @@ public class BytecodeInstrumentation {
         // Apply transformations to class under test and its owned classes
         if (DependencyAnalysis.shouldAnalyze(classNameWithDots)) {
             logger.debug("Applying target transformation to class " + classNameWithDots);
-            if (!Properties.TEST_CARVING && Properties.MAKE_ACCESSIBLE) {
-                cv = new AccessibleClassAdapter(cv, className);
-            }
-
-            cv = new RemoveFinalClassAdapter(cv);
-
-            cv = new ExecutionPathClassAdapter(cv, className);
-
-            cv = new CFGClassAdapter(classLoader, cv, className);
-
-            if (Properties.EXCEPTION_BRANCHES) {
-                cv = new ExceptionTransformationClassAdapter(cv, className);
-            }
-
-            if (Properties.ERROR_BRANCHES) {
-                cv = new ErrorConditionClassAdapter(cv, className);
-            }
-
+            cv = addTargetTransformationAdapters(cv, className, classLoader);
         } else {
             logger.debug("Not applying target transformation");
-            cv = new NonTargetClassAdapter(cv, className);
-
-            if (Properties.MAKE_ACCESSIBLE) {
-                cv = new AccessibleClassAdapter(cv, className);
-            }
-
-            // If we are doing testability transformation on all classes we need
-            // to create the CFG first
-            if (Properties.TT && classNameWithDots.startsWith(Properties.CLASS_PREFIX)) {
-                cv = new CFGClassAdapter(classLoader, cv, className);
-            }
+            cv = addNonTargetTransformationAdapters(cv, className, classNameWithDots, classLoader);
         }
 
         // Collect constant values for the value pool
@@ -245,27 +227,75 @@ public class BytecodeInstrumentation {
 
         // Mock instrumentation (eg File and TCP).
         if (TestSuiteWriterUtils.needToUseAgent()) {
-            cv = new MethodCallReplacementClassAdapter(cv, className);
-
-            /*
-             * If the class is serializable, then doing any change (adding hashCode, static reset, etc)
-             * will change the serialVersionUID if it is not defined in the class.
-             * Hence, if it is not defined, we have to define it to
-             * avoid problems in serialising the class, as reading Master will not do instrumentation.
-             * The serialVersionUID HAS to be the same as the un-instrumented class
-             */
-            if (RuntimeSettings.applyUIDTransformation)
-                cv = new SerialVersionUIDAdder(cv);
+            cv = addMockingAdapters(cv, className);
         }
 
         return cv;
     }
 
+    private ClassVisitor addTargetTransformationAdapters(ClassVisitor cv, String className, ClassLoader classLoader) {
+        if (!Properties.TEST_CARVING && Properties.MAKE_ACCESSIBLE) {
+            cv = new AccessibleClassAdapter(cv, className);
+        }
+
+        cv = new RemoveFinalClassAdapter(cv);
+
+        cv = new ExecutionPathClassAdapter(cv, className);
+
+        cv = new CFGClassAdapter(classLoader, cv, className);
+
+        if (Properties.EXCEPTION_BRANCHES) {
+            cv = new ExceptionTransformationClassAdapter(cv, className);
+        }
+
+        if (Properties.ERROR_BRANCHES) {
+            cv = new ErrorConditionClassAdapter(cv, className);
+        }
+        return cv;
+    }
+
+    private ClassVisitor addNonTargetTransformationAdapters(ClassVisitor cv, String className, String classNameWithDots, ClassLoader classLoader) {
+        cv = new NonTargetClassAdapter(cv, className);
+
+        if (Properties.MAKE_ACCESSIBLE) {
+            cv = new AccessibleClassAdapter(cv, className);
+        }
+
+        // If we are doing testability transformation on all classes we need
+        // to create the CFG first
+        if (Properties.TT && classNameWithDots.startsWith(Properties.CLASS_PREFIX)) {
+            cv = new CFGClassAdapter(classLoader, cv, className);
+        }
+        return cv;
+    }
+
+    private ClassVisitor addMockingAdapters(ClassVisitor cv, String className) {
+        cv = new MethodCallReplacementClassAdapter(cv, className);
+
+        /*
+         * If the class is serializable, then doing any change (adding hashCode, static reset, etc)
+         * will change the serialVersionUID if it is not defined in the class.
+         * Hence, if it is not defined, we have to define it to
+         * avoid problems in serialising the class, as reading Master will not do instrumentation.
+         * The serialVersionUID HAS to be the same as the un-instrumented class
+         */
+        if (RuntimeSettings.applyUIDTransformation)
+            cv = new SerialVersionUIDAdder(cv);
+        return cv;
+    }
+
     private boolean shouldApplyTestabilityTransformation(String classNameWithDots) {
-        return classNameWithDots.startsWith(Properties.PROJECT_PREFIX)
-                || (!Properties.TARGET_CLASS_PREFIX.isEmpty()
-                && classNameWithDots.startsWith(Properties.TARGET_CLASS_PREFIX))
-                || shouldTransform(classNameWithDots);
+        if (shouldTransform(classNameWithDots)) {
+            return true;
+        }
+        if (classNameWithDots.startsWith(Properties.PROJECT_PREFIX)) {
+            return true;
+        }
+        if (!Properties.TARGET_CLASS_PREFIX.isEmpty()
+                && classNameWithDots.startsWith(Properties.TARGET_CLASS_PREFIX)) {
+            return true;
+        }
+        return false;
     }
 
     private byte[] applyTestabilityTransformation(ClassReader reader, ClassVisitor cv, ClassWriter writer, String className, String classNameWithDots, ClassLoader classLoader, int readFlags) {
@@ -336,7 +366,7 @@ public class BytecodeInstrumentation {
      * @param cv a {@link org.objectweb.asm.ClassVisitor} object.
      * @return a {@link org.objectweb.asm.ClassVisitor} object.
      */
-    private static ClassVisitor handleStaticReset(String className, ClassVisitor cv) {
+    private ClassVisitor handleStaticReset(String className, ClassVisitor cv) {
         // Create a __STATIC_RESET() cloning the original <clinit> method or
         // create one by default
         final CreateClassResetClassAdapter resetClassAdapter;
