@@ -312,11 +312,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     private double getBestFitness() {
-        T bestIndividual = getBestIndividual();
-        for (FitnessFunction<T> ff : fitnessFunctions) {
-            ff.getFitness(bestIndividual);
-        }
-        return bestIndividual.getFitness();
+        return getBestIndividual().getFitness();
     }
 
     /**

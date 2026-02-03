@@ -121,11 +121,13 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     // It is a non-negative number and it quantifies the tolerance of the system accepting a worse
     // solution than the existing one. (field used by Chemical Reaction Optimization algorithms)
+    @Deprecated
     protected double kineticEnergy = Properties.INITIAL_KINETIC_ENERGY;
 
     // When a molecule undergoes a collision, one of the elementary reactions will be triggered and it
     // may experience a change in its molecular structure. It is a record of the total number of collisions
     // a molecule has taken. (field used by Chemical Reaction Optimization algorithms)
+    @Deprecated
     protected int numCollisions = 0;
 
     /**
@@ -238,8 +240,8 @@ public abstract class Chromosome<T extends Chromosome<T>>
      * @param value a double.
      */
     public void setFitness(FitnessFunction<T> ff, double value) throws IllegalArgumentException {
+        // Infinite fitness values are invalid
         if (Double.isNaN(value) || (Double.isInfinite(value))) {
-//				 || ( value < 0 ) || ( ff == null ))
             throw new IllegalArgumentException("Invalid value of Fitness: " + value + ", Fitness: "
                     + ff.getClass().getName());
         }
