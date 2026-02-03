@@ -151,7 +151,7 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             // front contains individuals to insert
             this.crowdingDistance.crowdingDistanceAssignment(front, this.getFitnessFunctions());
 
-            front.sort(new RankAndCrowdingDistanceComparator<>(true));
+            front.sort(new RankAndCrowdingDistanceComparator<>());
 
             for (int k = 0; k < remain; k++)
                 population.add(front.get(k));

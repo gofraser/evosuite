@@ -53,7 +53,7 @@ public class TestCrowdingComparator {
         population.add(c3);
 
         RankAndCrowdingDistanceComparator<NSGAChromosome> cc =
-                new RankAndCrowdingDistanceComparator<>(false);
+                new RankAndCrowdingDistanceComparator<NSGAChromosome>();
         population.sort(cc);
 
         // assert by Rank

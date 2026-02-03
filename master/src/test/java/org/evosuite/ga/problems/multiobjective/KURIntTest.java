@@ -31,6 +31,7 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.metaheuristics.NSGAII;
 import org.evosuite.ga.metaheuristics.RandomFactory;
 import org.evosuite.ga.operators.crossover.SBXCrossover;
+import org.evosuite.ga.operators.ranking.FastNonDominatedSorting;
 import org.evosuite.ga.operators.selection.BinaryTournamentSelectionCrowdedComparison;
 import org.evosuite.ga.problems.Problem;
 import org.evosuite.ga.problems.metrics.GenerationalDistance;
@@ -89,6 +90,7 @@ public class KURIntTest {
                 new BinaryTournamentSelectionCrowdedComparison<>();
         ga.setSelectionFunction(ts);
         ga.setCrossOverFunction(new SBXCrossover());
+        ga.setRankingFunction(new FastNonDominatedSorting<>());
 
         Problem<NSGAChromosome> p = new KUR();
         final FitnessFunction<NSGAChromosome> f1 = p.getFitnessFunctions().get(0);
