@@ -20,7 +20,6 @@
 package org.evosuite.coverage.rho;
 
 import org.evosuite.Properties;
-import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.instrumentation.LinePool;
 import org.slf4j.Logger;
@@ -28,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * RhoAux class.
@@ -54,7 +52,6 @@ public class RhoAux {
      */
     public static List<LineCoverageTestFitness> getLineGoals() {
         List<LineCoverageTestFitness> goals = new ArrayList<>();
-        MethodNameMatcher matcher = new MethodNameMatcher();
 
         for (String className : LinePool.getKnownClasses()) {
             // Only lines in CUT
@@ -63,13 +60,11 @@ public class RhoAux {
             }
 
             for (String methodName : LinePool.getKnownMethodsFor(className)) {
-                if (!matcher.methodMatches(methodName)) {
-                    logger.debug("Method {} does not match criteria, skipping", methodName);
+                if (!Properties.TARGET_METHOD.isEmpty() && !methodName.equals(Properties.TARGET_METHOD)) {
                     continue;
                 }
-                Set<Integer> lines = LinePool.getLines(className, methodName);
-                for (Integer line : lines) {
-                    logger.debug("Adding line {} for class '{}' method '{}'", line, className, methodName);
+                for (Integer line : LinePool.getLines(className, methodName)) {
+                    logger.debug("Adding line {} for class '{}'", line, className);
                     goals.add(new LineCoverageTestFitness(className, methodName, line));
                 }
             }

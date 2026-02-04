@@ -397,7 +397,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
             System.out.println(line);
         }
 
-        // lines: 22, 24, 27, 30, 31, 32, 33, 35, 38 
+        // lines: 22, 24, 27, 30, 31, 32, 33, 35, 38
         Assert.assertEquals(11, lines.size());
     }
 

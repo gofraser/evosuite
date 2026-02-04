@@ -35,20 +35,10 @@ public class RankAndCrowdingDistanceComparator<T extends Chromosome<T>> implemen
 
     private static final long serialVersionUID = -1663917547588039444L;
 
-    @Deprecated
-    private boolean isToMaximize;
-
     public RankAndCrowdingDistanceComparator() {
-        this.isToMaximize = false;
-    }
-
-    @Deprecated
-    public RankAndCrowdingDistanceComparator(boolean maximize) {
-        this.isToMaximize = maximize;
     }
 
     public RankAndCrowdingDistanceComparator(RankAndCrowdingDistanceComparator<?> other) {
-        this.isToMaximize = other.isToMaximize;
     }
 
     /**
@@ -84,13 +74,4 @@ public class RankAndCrowdingDistanceComparator<T extends Chromosome<T>> implemen
         return Double.compare(c2.getDistance(), c1.getDistance());
     }
 
-    /**
-     * Are we maximizing or minimizing fitness?
-     *
-     * @param max a boolean.
-     */
-    @Deprecated
-    public void setMaximize(boolean max) {
-        this.isToMaximize = max;
-    }
 }
