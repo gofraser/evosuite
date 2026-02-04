@@ -34,6 +34,13 @@ import com.examples.with.different.packagename.BMICalculator;
  */
 public class MIOSystemTest extends SystemTestBase {
 
+    @org.junit.Before
+    public void cleanupProperties() {
+        // Avoid properties being overwritten by evosuite.properties
+        java.io.File evoProp = new java.io.File(Properties.OUTPUT_DIR + java.io.File.separator + "evosuite.properties");
+        if (evoProp.exists()) evoProp.delete();
+    }
+
     private void test(double exploitation_starts_at_percent) {
         Properties.ALGORITHM = Properties.Algorithm.MIO;
         Properties.ARCHIVE_TYPE = Properties.ArchiveType.MIO;
@@ -50,7 +57,7 @@ public class MIOSystemTest extends SystemTestBase {
         EvoSuite evoSuite = new EvoSuite();
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(evoSuite.parseCommandLine(command));
-        Assert.assertEquals(TestSuiteAdapter.class, ga.getClass());
+        Assert.assertEquals(MIOTestSuiteAdapter.class, ga.getClass());
 
         @SuppressWarnings("unchecked")
         MIOTestSuiteAdapter mio = (MIOTestSuiteAdapter) ga;
