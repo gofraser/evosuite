@@ -79,7 +79,7 @@ public class TestBinaryTournamentSelectionCrowdedComparison {
         population.add(c1);
         population.add(c2);
 
-        Assert.assertEquals(0, ts.getIndex(population));
+        Assert.assertEquals(1, ts.getIndex(population));
     }
 
     @Test

@@ -35,16 +35,6 @@ public class RankAndCrowdingDistanceComparator<T extends Chromosome<T>> implemen
 
     private static final long serialVersionUID = -1663917547588039444L;
 
-    private final boolean maximize;
-
-    public RankAndCrowdingDistanceComparator() {
-        this(false);
-    }
-
-    public RankAndCrowdingDistanceComparator(boolean maximize) {
-        this.maximize = maximize;
-    }
-
     /**
      * Compares two solutions.
      *
@@ -67,18 +57,10 @@ public class RankAndCrowdingDistanceComparator<T extends Chromosome<T>> implemen
         }
 
         // Rank 0 is always the best (non-dominated front), so we always minimize rank
-        if (maximize) {
-            if (c1.getRank() > c2.getRank()) {
-                return -1;
-            } else if (c1.getRank() < c2.getRank()) {
-                return 1;
-            }
-        } else {
-            if (c1.getRank() < c2.getRank()) {
-                return -1;
-            } else if (c1.getRank() > c2.getRank()) {
-                return 1;
-            }
+        if (c1.getRank() < c2.getRank()) {
+            return -1;
+        } else if (c1.getRank() > c2.getRank()) {
+            return 1;
         }
 
         // If ranks are equal, we check crowding distance
