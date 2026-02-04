@@ -273,7 +273,7 @@ public class NSGAIISystemTest extends SystemTestBase {
 
         CrowdingDistance<NSGAChromosome> crowdingDistance = new CrowdingDistance<>();
         crowdingDistance.crowdingDistanceAssignment(population, fitnessFunctions);
-        population.sort(new RankAndCrowdingDistanceComparator<>(true));
+        population.sort(new RankAndCrowdingDistanceComparator<>());
 
         Assert.assertEquals(population.get(0).getDistance(), Double.POSITIVE_INFINITY, 0.0);
         Assert.assertEquals(population.get(1).getDistance(), Double.POSITIVE_INFINITY, 0.0);

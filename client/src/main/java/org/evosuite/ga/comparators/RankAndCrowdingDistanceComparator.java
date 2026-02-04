@@ -35,12 +35,6 @@ public class RankAndCrowdingDistanceComparator<T extends Chromosome<T>> implemen
 
     private static final long serialVersionUID = -1663917547588039444L;
 
-    public RankAndCrowdingDistanceComparator() {
-    }
-
-    public RankAndCrowdingDistanceComparator(RankAndCrowdingDistanceComparator<?> other) {
-    }
-
     /**
      * Compares two solutions.
      *

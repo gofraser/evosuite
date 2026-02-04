@@ -57,7 +57,7 @@ public class BinaryTournamentSelectionCrowdedComparison<T extends Chromosome<T>>
     public BinaryTournamentSelectionCrowdedComparison(BinaryTournamentSelectionCrowdedComparison<?> other) {
         this.index = other.index;
         this.indexes = other.indexes;
-        this.comparator = new RankAndCrowdingDistanceComparator<>(other.comparator);
+        this.comparator = new RankAndCrowdingDistanceComparator<>();
     }
 
     @Override

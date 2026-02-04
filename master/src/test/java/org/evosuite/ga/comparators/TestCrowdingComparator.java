@@ -89,7 +89,7 @@ public class TestCrowdingComparator {
         population.add(c3);
 
         RankAndCrowdingDistanceComparator<NSGAChromosome> cc =
-                new RankAndCrowdingDistanceComparator<>(true);
+                new RankAndCrowdingDistanceComparator<>();
         population.sort(cc);
 
         // assert by Rank
