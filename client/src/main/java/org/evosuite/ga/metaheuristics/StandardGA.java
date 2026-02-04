@@ -98,7 +98,10 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                 break;
             }
 
-            if (!isTooLong(offspring2)) {
+            if (isNextPopulationFull(newGeneration))
+                break;
+
+            if (!isTooLong(offspring2))
                 newGeneration.add(offspring2);
             } else {
                 newGeneration.add(parent2);
