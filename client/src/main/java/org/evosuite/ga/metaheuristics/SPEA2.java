@@ -250,7 +250,7 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
         double[][] distance = this.euclideanDistanceMatrix(tmpPopulation);
 
-        List<List<Pair<Integer, Double>>> distanceList = new LinkedList<>();
+        List<List<Pair<Integer, Double>>> distanceList = new ArrayList<>();
         for (int i = 0; i < tmpPopulation.size(); i++) {
             List<Pair<Integer, Double>> distanceNodeList = new LinkedList<>();
 
@@ -310,10 +310,11 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             for (List<Pair<Integer, Double>> distances : distanceList) {
                 ListIterator<Pair<Integer, Double>> iterator = distances.listIterator();
                 while (iterator.hasNext()) {
-                    if (iterator.next().getLeft() == minimumIndex) {
+                    Pair<Integer, Double> pair = iterator.next();
+                    if (pair.getLeft() == minimumIndex) {
                         iterator.remove();
-                        // TODO can we break the loop? is there any chance that 'distances'
-                        // has repeated elements?!
+                    } else if (pair.getLeft() > minimumIndex) {
+                        iterator.set(Pair.of(pair.getLeft() - 1, pair.getRight()));
                     }
                 }
             }
