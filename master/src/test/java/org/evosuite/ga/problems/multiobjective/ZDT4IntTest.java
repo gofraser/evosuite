@@ -88,7 +88,7 @@ public class ZDT4IntTest {
      */
     @Test
     public void testZDT4() throws NumberFormatException, IOException {
-        Properties.MUTATION_RATE = 1d / 10d;
+        Properties.MUTATION_RATE = 1.0;
 
         ChromosomeFactory<NSGAChromosome> factory = new RandomFactory(true, 10, -5.0, 5.0);
         GeneticAlgorithm<NSGAChromosome> ga = new NSGAII<>(factory);
