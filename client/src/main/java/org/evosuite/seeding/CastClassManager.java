@@ -301,9 +301,11 @@ public class CastClassManager {
      * Fills the class map with some default classes.
      */
     private void initDefaultClasses() {
-        putCastClass(GenericClassFactory.get(Object.class), 0);
+        putCastClass(GenericClassFactory.get(Object.class), 10);
         putCastClass(GenericClassFactory.get(String.class), 1);
         putCastClass(GenericClassFactory.get(Integer.class), 1);
+        putCastClass(GenericClassFactory.get(java.util.LinkedList.class), 1);
+        putCastClass(GenericClassFactory.get(java.util.ArrayList.class), 1);
     }
 
     /**
@@ -551,6 +553,7 @@ public class CastClassManager {
         // Compute the bound candidates of the type variable.
         final Set<Class<?>> boundCandidates = Arrays.stream(typeVariable.getBounds()) //
                 .map(GenericTypeReflector::erase) //
+                .filter(Objects::nonNull) //
                 .map(CastClassManager::withConcreteClasses) //
                 .flatMap(Collection::stream) //
                 .collect(Collectors.toSet());
