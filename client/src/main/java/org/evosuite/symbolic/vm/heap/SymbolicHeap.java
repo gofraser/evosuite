@@ -105,6 +105,11 @@ public final class SymbolicHeap {
     private final Map<Integer, ReferenceExpression> nonNullRefs = new HashMap<>();
 
     /**
+     * Stores a mapping between identityHashCodes and ReferenceExpression for constants (LDC).
+     */
+    private final Map<Integer, ReferenceExpression> constantRefs = new HashMap<>();
+
+    /**
      * Stores a mapping between Classes and ReferenceTypes. Every
      * time the ReferenceType for a given Object (non String) is needed, this
      * mapping is used.
@@ -373,7 +378,38 @@ public final class SymbolicHeap {
                 }
 
                 initializeReference(conc_ref, ref_constant);
-                nonNullRefs.put(identityHashCode, ref_constant);
+                // initializeReference already adds to nonNullRefs if needed
+                // nonNullRefs.put(identityHashCode, ref_constant);
+                return ref_constant;
+            }
+        }
+    }
+
+    /**
+     * Returns a ReferenceExpression for a constant (e.g. from LDC).
+     * This avoids aliasing with symbolic variables that might share the same object identity.
+     *
+     * @param conc_ref
+     * @return
+     */
+    public ReferenceExpression getConstantReference(Object conc_ref) {
+        if (conc_ref == null) {
+            return ExpressionFactory.NULL_REFERENCE;
+        } else {
+            int identityHashCode = System.identityHashCode(conc_ref);
+            if (constantRefs.containsKey(identityHashCode)) {
+                return constantRefs.get(identityHashCode);
+            } else {
+                final Type type = Type.getType(conc_ref.getClass());
+                ReferenceConstant ref_constant;
+                if (conc_ref.getClass().isArray()) {
+                    ref_constant = buildNewArrayReferenceConstant(type);
+                } else {
+                    ref_constant = buildNewClassReferenceConstant(type);
+                }
+
+                initializeReference(conc_ref, ref_constant, false);
+                constantRefs.put(identityHashCode, ref_constant);
                 return ref_constant;
             }
         }
@@ -406,6 +442,10 @@ public final class SymbolicHeap {
      * @param symbolicReference
      */
     public void initializeReference(Object concreteReference, ReferenceExpression symbolicReference) {
+        initializeReference(concreteReference, symbolicReference, true);
+    }
+
+    private void initializeReference(Object concreteReference, ReferenceExpression symbolicReference, boolean addToMap) {
         if (concreteReference != null) {
             if (!symbolicReference.isInitialized()) {
                 symbolicReference.initializeReference(concreteReference);
@@ -415,10 +455,12 @@ public final class SymbolicHeap {
                 }
             }
 
-            // Fix: Reference variables are initialized when created, so they were never set on the heap reference map.
-            int identityHashCode = symbolicReference.getConcIdentityHashCode();
-            if (!nonNullRefs.containsKey(identityHashCode)) {
-                nonNullRefs.put(identityHashCode, symbolicReference);
+            if (addToMap) {
+                // Fix: Reference variables are initialized when created, so they were never set on the heap reference map.
+                int identityHashCode = symbolicReference.getConcIdentityHashCode();
+                if (!nonNullRefs.containsKey(identityHashCode)) {
+                    nonNullRefs.put(identityHashCode, symbolicReference);
+                }
             }
         }
     }

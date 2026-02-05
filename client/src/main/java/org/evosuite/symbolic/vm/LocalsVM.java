@@ -182,7 +182,7 @@ public final class LocalsVM extends AbstractVM {
             env.topFrame().operandStack.pushNullRef();
         } else {
             ReferenceConstant stringRef = (ReferenceConstant) env.heap
-                    .getReference(x);
+                    .getConstantReference(x);
 
             env.topFrame().operandStack.pushRef(stringRef);
         }
