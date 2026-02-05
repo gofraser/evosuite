@@ -81,10 +81,6 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
         replacePopulations(population, temp_cells);
 
-        for (T individual : population) {
-            assert (((TestSuiteChromosome) individual).totalLengthOfTestCases() < Properties.MAX_SIZE * Properties.CHROMOSOME_LENGTH);
-        }
-
         updateFitnessFunctionsAndValues();
 
         currentIteration++;
@@ -94,10 +90,9 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
      * Evolution process on individuals in the grid
      */
     public void evolve() {
-        // elitism has been shown to positively affect the convergence speed of GAs in various optimisation problems
-        temp_cells = this.elitism();
+        temp_cells = new ArrayList<>();
 
-        int numberIndividualsToCreate = this.population.size() - temp_cells.size();
+        int numberIndividualsToCreate = this.population.size();
         for (int i = 0; i < numberIndividualsToCreate; i++) {
             List<T> neighbors = neighb.getNeighbors(population, i);
 
@@ -158,8 +153,8 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             T tempIndividual = temp.get(i);
 
             for (FitnessFunction<T> fitnessFunction : fitnessFunctions) {
-                fitnessFunction.getFitness(mainIndividual);
-                notifyEvaluation(mainIndividual);
+                // mainIndividual has been evaluated in the previous iteration (or initialization)
+                // so we don't need to evaluate it again.
                 fitnessFunction.getFitness(tempIndividual);
                 notifyEvaluation(tempIndividual);
             }
@@ -344,4 +339,3 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
 }
-
