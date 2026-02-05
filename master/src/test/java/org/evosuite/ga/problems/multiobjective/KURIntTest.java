@@ -81,7 +81,7 @@ public class KURIntTest {
      */
     @Test
     public void testKUR() throws NumberFormatException, IOException {
-        Properties.MUTATION_RATE = 1d / 3d;
+        Properties.MUTATION_RATE = 1.0;
 
         ChromosomeFactory<NSGAChromosome> factory = new RandomFactory(false, 3, -5.0, 5.0);
 

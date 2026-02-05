@@ -77,7 +77,7 @@ public class POLIntTest {
      */
     @Test
     public void testPOL() throws NumberFormatException, IOException {
-        Properties.MUTATION_RATE = 1d / 2d;
+        Properties.MUTATION_RATE = 1.0;
 
         ChromosomeFactory<NSGAChromosome> factory = new RandomFactory(false, 2, -Math.PI, Math.PI);
 
