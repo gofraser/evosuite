@@ -53,7 +53,7 @@ public class MuLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T> {
      * {@inheritDoc}
      */
     @Override
-    protected void evolve() {
+    protected void evolveInternal() {
 
         List<T> offspring = new ArrayList<>(this.lambda);
 

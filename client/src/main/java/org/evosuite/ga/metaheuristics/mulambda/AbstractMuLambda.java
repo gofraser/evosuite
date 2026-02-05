@@ -123,6 +123,8 @@ public abstract class AbstractMuLambda<T extends Chromosome<T>> extends GeneticA
                 lastBestFitness = bestFitness;
             }
 
+            this.updateSecondaryCriterion(starvationCounter);
+
             // update fitness values of all individuals
             this.updateFitnessFunctionsAndValues();
 
@@ -132,4 +134,15 @@ public abstract class AbstractMuLambda<T extends Chromosome<T>> extends GeneticA
         TimeController.execute(this::updateBestIndividualFromArchive, "update from archive", 5_000);
         this.notifySearchFinished();
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void evolve() {
+        evolveInternal();
+        currentIteration++;
+    }
+
+    protected abstract void evolveInternal();
 }

@@ -43,7 +43,7 @@ public class MuPlusLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T>
      * {@inheritDoc}
      */
     @Override
-    protected void evolve() {
+    protected void evolveInternal() {
 
         List<T> offsprings = new ArrayList<>(this.lambda);
 
@@ -83,7 +83,5 @@ public class MuPlusLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T>
         for (T individual : this.population) {
             individual.updateAge(this.currentIteration);
         }
-
-        this.currentIteration++;
     }
 }
