@@ -108,7 +108,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
         String targetClass = FloatLocalSearchExample.class.getCanonicalName();
 
         Properties.TARGET_CLASS = targetClass;
-        // Properties.SEARCH_BUDGET = 20000;
+        Properties.SEARCH_BUDGET = 5000;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
 
