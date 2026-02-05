@@ -30,6 +30,7 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.After;
@@ -63,6 +64,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         Properties.CRITERION = new Properties.Criterion[]{Criterion.LINE};
         oldResetStaticFields = Properties.RESET_STATIC_FIELDS;
         //Properties.MINIMIZE = false;
+        GlobalTimeStoppingCondition.forceReset();
     }
 
     @After
@@ -150,6 +152,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         String targetClass = FlagExample3.class.getCanonicalName();
         Properties.TARGET_CLASS = targetClass;
         Properties.STOPPING_CONDITION = StoppingCondition.MAXTIME;
+        Properties.SEARCH_BUDGET = 60;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
         Object result = evosuite.parseCommandLine(command);
@@ -173,6 +176,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         String targetClass = FlagExample3.class.getCanonicalName();
         Properties.TARGET_CLASS = targetClass;
         Properties.STOPPING_CONDITION = StoppingCondition.MAXTIME;
+        Properties.SEARCH_BUDGET = 60;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
         Object result = evosuite.parseCommandLine(command);
