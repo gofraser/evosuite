@@ -86,6 +86,10 @@ public class PreferenceSortingComparator<T extends Chromosome<T>> implements Com
         value2 = solution2.getFitness(this.objective);
 
         int comparison = Double.compare(value1, value2);
+        // For maximization functions, higher fitness is better, so invert the comparison
+        if (this.objective.isMaximizationFunction()) {
+            comparison = -comparison;
+        }
         if (comparison != 0) {
             return comparison;
         }

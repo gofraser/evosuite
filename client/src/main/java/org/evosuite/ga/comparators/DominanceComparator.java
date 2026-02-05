@@ -39,7 +39,6 @@ public class DominanceComparator<T extends Chromosome<T>> implements Comparator<
 
     private Set<FitnessFunction<T>> objectives;
 
-
     public DominanceComparator() {
         this.objectives = null;
     }
@@ -87,6 +86,10 @@ public class DominanceComparator<T extends Chromosome<T>> implements Comparator<
 
         for (FitnessFunction<T> ff : objectivesToUse) {
             int flag = Double.compare(c1.getFitness(ff), c2.getFitness(ff));
+            // For maximization functions, higher fitness is better, so invert the comparison
+            if (ff.isMaximizationFunction()) {
+                flag = -flag;
+            }
 
             if (flag < 0) {
                 dominate1 = true;

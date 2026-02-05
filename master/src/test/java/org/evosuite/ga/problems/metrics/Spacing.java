@@ -51,11 +51,13 @@ public class Spacing extends Metrics {
             dbar += min;
         }
 
+        // Convert sum to mean for the Spacing formula
+        dbar = dbar / front.length;
+
         double sum = 0.0;
         for (int i = 0; i < front.length; i++)
             sum += Math.pow(d[i] - dbar, 2.0);
 
-        double spacing = Math.sqrt(sum / (front.length - 1));
-        return spacing;
+        return Math.sqrt(sum / (front.length - 1));
     }
 }

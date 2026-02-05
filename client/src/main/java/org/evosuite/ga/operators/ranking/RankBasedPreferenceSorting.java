@@ -122,7 +122,7 @@ public class RankBasedPreferenceSorting<T extends Chromosome<T>> implements Rank
     private List<T> getZeroFront(List<T> solutionSet, Set<? extends FitnessFunction<T>> uncovered_goals) {
         Set<T> zero_front = new LinkedHashSet<>(solutionSet.size());
         for (FitnessFunction<T> f : uncovered_goals) {
-            // for each uncovered goal, peak up the best tests using the proper comparator
+            // for each uncovered goal, pick the best test using the proper comparator
             PreferenceSortingComparator<T> comp = new PreferenceSortingComparator<>(f);
 
             T best = null;

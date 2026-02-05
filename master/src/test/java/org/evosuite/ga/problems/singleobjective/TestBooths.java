@@ -80,7 +80,7 @@ public class TestBooths {
 
         GeneticAlgorithm<NSGAChromosome> ga = new NSGAII<>(factory);
         BinaryTournamentSelectionCrowdedComparison<NSGAChromosome> ts =
-                new BinaryTournamentSelectionCrowdedComparison<>(false);
+                new BinaryTournamentSelectionCrowdedComparison<>();
         //BinaryTournament ts = new BinaryTournament();
         ga.setSelectionFunction(ts);
         ga.setCrossOverFunction(new SBXCrossover());

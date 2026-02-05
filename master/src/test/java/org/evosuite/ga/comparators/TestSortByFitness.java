@@ -53,10 +53,10 @@ public class TestSortByFitness {
         population.sort(new SortByFitness<>(ff, true));
 
         Assert.assertSame(population.get(0), c1);
-        Assert.assertEquals(population.get(0).getFitness(ff), 0.7, 0.0);
+        Assert.assertEquals(0.7, population.get(0).getFitness(ff), 0.0);
 
         Assert.assertSame(population.get(1), c2);
-        Assert.assertEquals(population.get(1).getFitness(ff), 0.3, 0.0);
+        Assert.assertEquals(0.3, population.get(1).getFitness(ff), 0.0);
     }
 
     @Test
@@ -79,9 +79,9 @@ public class TestSortByFitness {
         population.sort(new SortByFitness<>(ff, true));
 
         Assert.assertSame(population.get(0), c2);
-        Assert.assertEquals(population.get(0).getFitness(ff), 0.7, 0.0);
+        Assert.assertEquals(0.7, population.get(0).getFitness(ff), 0.0);
 
-        Assert.assertEquals(population.get(1).getFitness(ff), 0.3, 0.0);
+        Assert.assertEquals(0.3, population.get(1).getFitness(ff), 0.0);
         Assert.assertSame(population.get(1), c1);
     }
 
@@ -105,9 +105,9 @@ public class TestSortByFitness {
         population.sort(new SortByFitness<>(ff, true));
 
         Assert.assertSame(population.get(0), c1);
-        Assert.assertEquals(population.get(0).getFitness(ff), 0.5, 0.0);
+        Assert.assertEquals(0.5, population.get(0).getFitness(ff), 0.0);
 
-        Assert.assertEquals(population.get(1).getFitness(ff), 0.5, 0.0);
+        Assert.assertEquals(0.5, population.get(1).getFitness(ff), 0.0);
         Assert.assertSame(population.get(1), c2);
     }
 }

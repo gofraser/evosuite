@@ -26,9 +26,64 @@ import org.evosuite.testcase.TestChromosome;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import org.evosuite.ga.FitnessFunction;
+
 import static org.junit.Assert.assertEquals;
 
 public class TestPreferenceSortingComparator {
+
+    /**
+     * A maximization fitness function for testing.
+     */
+    @SuppressWarnings("serial")
+    private static class MaximizingFitnessFunction extends FitnessFunction<TestChromosome> {
+        @Override
+        public double getFitness(TestChromosome c) {
+            return 0;
+        }
+
+        @Override
+        public boolean isMaximizationFunction() {
+            return true;
+        }
+    }
+
+    @Test
+    public void compareMaximizationLargerIsBetter() {
+        FitnessFunction<TestChromosome> fitness = new MaximizingFitnessFunction();
+
+        TestChromosome tch1 = new TestChromosome();
+        tch1.setTestCase(new DefaultTestCase());
+        tch1.setFitness(fitness, 2);
+
+        TestChromosome tch2 = new TestChromosome();
+        tch2.setTestCase(new DefaultTestCase());
+        tch2.setFitness(fitness, 1);
+
+        PreferenceSortingComparator<TestChromosome> comparator = new PreferenceSortingComparator<>(fitness);
+        // For maximization, tch1 (fitness 2) is better than tch2 (fitness 1), so should return -1
+        double value = comparator.compare(tch1, tch2);
+        assertEquals(-1, value, 0.0001);
+    }
+
+    @Test
+    public void compareMaximizationSmallerIsWorse() {
+        FitnessFunction<TestChromosome> fitness = new MaximizingFitnessFunction();
+
+        TestChromosome tch1 = new TestChromosome();
+        tch1.setTestCase(new DefaultTestCase());
+        tch1.setFitness(fitness, 0);
+
+        TestChromosome tch2 = new TestChromosome();
+        tch2.setTestCase(new DefaultTestCase());
+        tch2.setFitness(fitness, 1);
+
+        PreferenceSortingComparator<TestChromosome> comparator = new PreferenceSortingComparator<>(fitness);
+        // For maximization, tch1 (fitness 0) is worse than tch2 (fitness 1), so should return +1
+        double value = comparator.compare(tch1, tch2);
+        assertEquals(+1, value, 0.0001);
+    }
+
 
     @Test
     public void compareEqual() {
@@ -43,7 +98,7 @@ public class TestPreferenceSortingComparator {
         tch2.setTestCase(new DefaultTestCase());
         tch2.setFitness(fitness, 1);
 
-        PreferenceSortingComparator comparator = new PreferenceSortingComparator(fitness);
+        PreferenceSortingComparator<TestChromosome> comparator = new PreferenceSortingComparator<>(fitness);
         double value = comparator.compare(tch1, tch2);
         assertEquals(0.0, value, 0.0001);
     }
@@ -61,7 +116,7 @@ public class TestPreferenceSortingComparator {
         tch2.setTestCase(new DefaultTestCase());
         tch2.setFitness(fitness, 1);
 
-        PreferenceSortingComparator comparator = new PreferenceSortingComparator(fitness);
+        PreferenceSortingComparator<TestChromosome> comparator = new PreferenceSortingComparator<>(fitness);
         double value = comparator.compare(tch1, tch2);
         assertEquals(+1, value, 0.0001);
     }
@@ -79,7 +134,7 @@ public class TestPreferenceSortingComparator {
         tch2.setTestCase(new DefaultTestCase());
         tch2.setFitness(fitness, 1);
 
-        PreferenceSortingComparator comparator = new PreferenceSortingComparator(fitness);
+        PreferenceSortingComparator<TestChromosome> comparator = new PreferenceSortingComparator<>(fitness);
         double value = comparator.compare(tch1, tch2);
         assertEquals(-1, value, 0.0001);
     }
@@ -93,7 +148,7 @@ public class TestPreferenceSortingComparator {
         tch1.setTestCase(new DefaultTestCase());
         tch1.setFitness(fitness, 0);
 
-        PreferenceSortingComparator comparator = new PreferenceSortingComparator(fitness);
+        PreferenceSortingComparator<TestChromosome> comparator = new PreferenceSortingComparator<>(fitness);
         double value = comparator.compare(tch1, null);
         assertEquals(-1, value, 0.0001);
 

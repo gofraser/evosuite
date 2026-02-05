@@ -44,20 +44,14 @@ public class BinaryTournamentSelectionCrowdedComparison<T extends Chromosome<T>>
      */
     private int[] indexes;
 
-    private final RankAndCrowdingDistanceComparator<T> comparator;
+    private final RankAndCrowdingDistanceComparator<T> comparator = new RankAndCrowdingDistanceComparator<>();
 
     public BinaryTournamentSelectionCrowdedComparison() {
-        this.comparator = new RankAndCrowdingDistanceComparator<>();
-    }
-
-    public BinaryTournamentSelectionCrowdedComparison(boolean isToMaximize) {
-        this.comparator = new RankAndCrowdingDistanceComparator<>();
     }
 
     public BinaryTournamentSelectionCrowdedComparison(BinaryTournamentSelectionCrowdedComparison<?> other) {
         this.index = other.index;
         this.indexes = other.indexes;
-        this.comparator = new RankAndCrowdingDistanceComparator<>();
     }
 
     @Override
@@ -75,11 +69,11 @@ public class BinaryTournamentSelectionCrowdedComparison<T extends Chromosome<T>>
 
         int flag = this.comparator.compare(p1, p2);
         if (flag < 0)
-            return index1;
+            return this.indexes[index1];
         else if (flag > 0)
-            return index2;
+            return this.indexes[index2];
 
-        return index1; // default
+        return this.indexes[index1]; // default
     }
 
     /**
