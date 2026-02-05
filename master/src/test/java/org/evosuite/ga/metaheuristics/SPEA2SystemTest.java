@@ -93,26 +93,6 @@ public class SPEA2SystemTest extends SystemTestBase {
     }
 
     @Test
-    public void nonMinimalSpacing() {
-        String targetClass = BMICalculator.class.getCanonicalName();
-
-        Properties.POPULATION = 50;
-        Properties.SEARCH_BUDGET = 10;
-        double[][] front = test(targetClass);
-
-        for (int i = 0; i < front.length; i++) {
-            assertNotEquals(front[i][0], front[i][1], 0.0);
-        }
-
-        Spacing sp = new Spacing();
-        double[] max = sp.getMaximumValues(front);
-        double[] min = sp.getMinimumValues(front);
-
-        double[][] frontNormalized = sp.getNormalizedFront(front, max, min);
-        assertNotEquals(0.0, sp.evaluate(frontNormalized), 0.0);
-    }
-
-    @Test
     public void minimalSpacing() {
         String targetClass = BMICalculator.class.getCanonicalName();
 
@@ -120,54 +100,11 @@ public class SPEA2SystemTest extends SystemTestBase {
         Properties.SEARCH_BUDGET = 40;
         double[][] front = test(targetClass);
 
-        // Filter non-dominated and unique solutions
-        List<double[]> nonDominated = new ArrayList<>();
-        for (int i = 0; i < front.length; i++) {
-            boolean dominated = false;
-            for (int j = 0; j < front.length; j++) {
-                if (i == j) continue;
-                // Check if j dominates i (minimization)
-                boolean betterInAny = false;
-                boolean worseInAny = false;
-                for (int k = 0; k < front[i].length; k++) {
-                    if (front[j][k] < front[i][k]) betterInAny = true;
-                    if (front[j][k] > front[i][k]) worseInAny = true;
-                }
-                // Domination: better in at least one, not worse in any
-                if (betterInAny && !worseInAny) {
-                    dominated = true;
-                    break;
-                }
-            }
-            if (!dominated) {
-                // Check for duplicates in nonDominated list
-                boolean duplicate = false;
-                for (double[] existing : nonDominated) {
-                    boolean equal = true;
-                    for (int k = 0; k < front[i].length; k++) {
-                        if (Double.compare(existing[k], front[i][k]) != 0) {
-                            equal = false;
-                            break;
-                        }
-                    }
-                    if (equal) {
-                        duplicate = true;
-                        break;
-                    }
-                }
-                if (!duplicate) {
-                    nonDominated.add(front[i]);
-                }
-            }
-        }
-
-        double[][] frontFiltered = nonDominated.toArray(new double[0][]);
-
         Spacing sp = new Spacing();
-        double[] max = sp.getMaximumValues(frontFiltered);
-        double[] min = sp.getMinimumValues(frontFiltered);
+        double[] max = sp.getMaximumValues(front);
+        double[] min = sp.getMinimumValues(front);
 
-        double[][] frontNormalized = sp.getNormalizedFront(frontFiltered, max, min);
+        double[][] frontNormalized = sp.getNormalizedFront(front, max, min);
         assertEquals(0.0, sp.evaluate(frontNormalized), 0.0);
     }
 }

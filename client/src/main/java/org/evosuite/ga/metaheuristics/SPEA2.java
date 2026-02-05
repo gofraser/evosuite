@@ -162,6 +162,38 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         this.notifySearchFinished();
     }
 
+    @Override
+    public List<T> getBestIndividuals() {
+        if (population.isEmpty()) {
+            return super.getBestIndividuals();
+        }
+
+        List<T> bestIndividuals = new ArrayList<>();
+        for (T individual : population) {
+            // In SPEA2, a raw fitness < 1.0 means the individual is non-dominated
+            if (individual.getDistance() < 1.0) {
+                boolean isDuplicate = false;
+                for (T existing : bestIndividuals) {
+                    if (distanceBetweenObjectives(individual, existing) == 0.0) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+                if (!isDuplicate) {
+                    bestIndividuals.add(individual);
+                }
+            }
+        }
+
+        // If for some reason we have no non-dominated individuals (should not happen in valid state),
+        // fallback to returning all or top rank
+        if (bestIndividuals.isEmpty()) {
+            return new ArrayList<>(population);
+        }
+
+        return bestIndividuals;
+    }
+
     private void updateArchive() {
         List<T> union = new ArrayList<>(2 * Properties.POPULATION);
         union.addAll(population);
