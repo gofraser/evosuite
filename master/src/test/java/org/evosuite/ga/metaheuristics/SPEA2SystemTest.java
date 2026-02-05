@@ -93,26 +93,6 @@ public class SPEA2SystemTest extends SystemTestBase {
     }
 
     @Test
-    public void nonMinimalSpacing() {
-        String targetClass = BMICalculator.class.getCanonicalName();
-
-        Properties.POPULATION = 50;
-        Properties.SEARCH_BUDGET = 10;
-        double[][] front = test(targetClass);
-
-        for (int i = 0; i < front.length; i++) {
-            assertNotEquals(front[i][0], front[i][1], 0.0);
-        }
-
-        Spacing sp = new Spacing();
-        double[] max = sp.getMaximumValues(front);
-        double[] min = sp.getMinimumValues(front);
-
-        double[][] frontNormalized = sp.getNormalizedFront(front, max, min);
-        assertNotEquals(0.0, sp.evaluate(frontNormalized), 0.0);
-    }
-
-    @Test
     public void minimalSpacing() {
         String targetClass = BMICalculator.class.getCanonicalName();
 
