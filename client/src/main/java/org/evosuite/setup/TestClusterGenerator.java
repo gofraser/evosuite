@@ -184,10 +184,17 @@ public class TestClusterGenerator {
     }
 
     private void handleCastClasses() {
+        Set<String> blackList = new LinkedHashSet<>(SetupConstants.PRIMITIVE_TYPES);
+        Set<GenericClass<?>> existingCastClasses = new LinkedHashSet<>(CastClassManager.getInstance().getCastClasses());
+        logger.info("Handling cast classes. Found " + existingCastClasses.size() + " existing classes in CastClassManager.");
+        for (GenericClass<?> clazz : existingCastClasses) {
+            logger.info("Adding existing cast class as dependency: " + clazz.getClassName());
+            addCastClassDependencyIfAccessible(clazz.getClassName(), blackList);
+        }
+
         // If we include type seeding, then we analyze classes to find types in
         // instanceof and cast instructions
         if (Properties.SEED_TYPES) {
-            Set<String> blackList = new LinkedHashSet<>(SetupConstants.PRIMITIVE_TYPES);
 
             Set<String> classNames = new LinkedHashSet<>();
             CastClassAnalyzer analyzer = new CastClassAnalyzer();
