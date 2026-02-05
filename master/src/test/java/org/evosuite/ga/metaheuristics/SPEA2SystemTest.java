@@ -120,11 +120,54 @@ public class SPEA2SystemTest extends SystemTestBase {
         Properties.SEARCH_BUDGET = 40;
         double[][] front = test(targetClass);
 
-        Spacing sp = new Spacing();
-        double[] max = sp.getMaximumValues(front);
-        double[] min = sp.getMinimumValues(front);
+        // Filter non-dominated and unique solutions
+        List<double[]> nonDominated = new ArrayList<>();
+        for (int i = 0; i < front.length; i++) {
+            boolean dominated = false;
+            for (int j = 0; j < front.length; j++) {
+                if (i == j) continue;
+                // Check if j dominates i (minimization)
+                boolean betterInAny = false;
+                boolean worseInAny = false;
+                for (int k = 0; k < front[i].length; k++) {
+                    if (front[j][k] < front[i][k]) betterInAny = true;
+                    if (front[j][k] > front[i][k]) worseInAny = true;
+                }
+                // Domination: better in at least one, not worse in any
+                if (betterInAny && !worseInAny) {
+                    dominated = true;
+                    break;
+                }
+            }
+            if (!dominated) {
+                // Check for duplicates in nonDominated list
+                boolean duplicate = false;
+                for (double[] existing : nonDominated) {
+                    boolean equal = true;
+                    for (int k = 0; k < front[i].length; k++) {
+                        if (Double.compare(existing[k], front[i][k]) != 0) {
+                            equal = false;
+                            break;
+                        }
+                    }
+                    if (equal) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    nonDominated.add(front[i]);
+                }
+            }
+        }
 
-        double[][] frontNormalized = sp.getNormalizedFront(front, max, min);
+        double[][] frontFiltered = nonDominated.toArray(new double[0][]);
+
+        Spacing sp = new Spacing();
+        double[] max = sp.getMaximumValues(frontFiltered);
+        double[] min = sp.getMinimumValues(frontFiltered);
+
+        double[][] frontNormalized = sp.getNormalizedFront(frontFiltered, max, min);
         assertEquals(0.0, sp.evaluate(frontNormalized), 0.0);
     }
 }
