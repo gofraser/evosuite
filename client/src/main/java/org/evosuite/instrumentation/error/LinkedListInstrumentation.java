@@ -33,8 +33,6 @@ public class LinkedListInstrumentation extends ErrorBranchInstrumenter {
 
     private final List<String> emptyListMethods = Arrays.asList("getFirst", "getLast", "removeFirst", "removeLast", "element", "pop");
 
-    private final List<String> indexListMethods = Arrays.asList("get", "set", "add", "remove", "listIterator", "addAll");
-
     public LinkedListInstrumentation(ErrorConditionMethodAdapter mv) {
         super(mv);
     }
@@ -55,28 +53,6 @@ public class LinkedListInstrumentation extends ErrorBranchInstrumenter {
                 //tagBranchEnd();
                 restoreMethodParameters(tempVariables, desc);
 
-            } else if (indexListMethods.contains(name)) {
-                Type[] args = Type.getArgumentTypes(desc);
-                if (args.length == 0)
-                    return;
-                if (!args[0].equals(Type.INT_TYPE))
-                    return;
-
-                Map<Integer, Integer> tempVariables = getMethodCallee(desc);
-                tagBranchStart();
-                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, LISTNAME,
-                        "size", "()I", false);
-
-                // index >= size
-                mv.loadLocal(tempVariables.get(0));
-                insertBranch(Opcodes.IF_ICMPGT, "java/lang/IndexOutOfBoundsException");
-
-                // index < 0
-                mv.loadLocal(tempVariables.get(0));
-                insertBranch(Opcodes.IFGE, "java/lang/IndexOutOfBoundsException");
-                tagBranchEnd();
-
-                restoreMethodParameters(tempVariables, desc);
             }
         }
     }
