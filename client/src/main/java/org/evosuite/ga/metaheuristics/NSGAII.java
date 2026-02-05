@@ -101,6 +101,8 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             if (Randomness.nextDouble() <= Properties.MUTATION_RATE) {
                 notifyMutation(offspring1);
                 offspring1.mutate();
+            }
+            if (Randomness.nextDouble() <= Properties.MUTATION_RATE) {
                 notifyMutation(offspring2);
                 offspring2.mutate();
             }
