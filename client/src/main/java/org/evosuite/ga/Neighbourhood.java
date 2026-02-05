@@ -30,7 +30,7 @@ import java.util.List;
  *
  * @author Nasser Albunian
  */
-public class Neighbourhood<T extends Chromosome<T>> implements NeighborModels<T>, Serializable {
+public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T>, Serializable {
 
     private static final long serialVersionUID = 1L;
 
