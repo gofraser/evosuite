@@ -25,6 +25,7 @@ import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.comparators.RankAndCrowdingDistanceComparator;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
+import org.evosuite.ga.operators.ranking.FastNonDominatedSorting;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,6 +70,7 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     public NSGAII(ChromosomeFactory<T> factory) {
         super(factory);
         this.crowdingDistance = new CrowdingDistance<>();
+        this.rankingFunction = new FastNonDominatedSorting<>();
     }
 
     /**
@@ -98,14 +100,11 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             }
 
             // Mutation
-            if (Randomness.nextDouble() <= Properties.MUTATION_RATE) {
-                notifyMutation(offspring1);
-                offspring1.mutate();
-            }
-            if (Randomness.nextDouble() <= Properties.MUTATION_RATE) {
-                notifyMutation(offspring2);
-                offspring2.mutate();
-            }
+            notifyMutation(offspring1);
+            offspring1.mutate();
+
+            notifyMutation(offspring2);
+            offspring2.mutate();
 
             // Evaluate
             for (final FitnessFunction<T> ff : this.getFitnessFunctions()) {
@@ -123,7 +122,7 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         List<T> union = union(population, offspringPopulation);
 
         // Ranking the union
-        this.rankingFunction.computeRankingAssignment(union, new LinkedHashSet<FitnessFunction<T>>(this.getFitnessFunctions()));
+        this.rankingFunction.computeRankingAssignment(union, new LinkedHashSet<>(this.getFitnessFunctions()));
 
         int remain = population.size();
         int index = 0;
@@ -160,17 +159,7 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
             remain = 0;
         }
-        //archive // TODO does it make any sense to use an archive with NSGA-II?
-        /*updateFitnessFunctionsAndValues();
-		for (T t : population) {
-			if(t.isToBeUpdated()){
-			    for (FitnessFunction<T> fitnessFunction : fitnessFunctions) {
-					fitnessFunction.getFitness(t);
-				}
-			    t.isToBeUpdated(false);
-			}
-		}*/
-        //
+
         currentIteration++;
     }
 
@@ -210,17 +199,10 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     protected List<T> union(List<T> population, List<T> offspringPopulation) {
-        int newSize = population.size() + offspringPopulation.size();
-        if (newSize < Properties.POPULATION)
-            newSize = Properties.POPULATION;
-
         // Create a new population
-        List<T> union = new ArrayList<>(newSize);
+        List<T> union = new ArrayList<>(population.size() + offspringPopulation.size());
         union.addAll(population);
-
-        for (int i = population.size(); i < (population.size() + offspringPopulation.size()); i++)
-            union.add(offspringPopulation.get(i - population.size()));
-
+        union.addAll(offspringPopulation);
         return union;
     }
 }
