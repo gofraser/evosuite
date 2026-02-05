@@ -53,7 +53,7 @@ public class POLIntTest {
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXGENERATIONS;
         Properties.SEARCH_BUDGET = 10_000;
         Properties.CROSSOVER_RATE = 0.9;
-        Properties.RANDOM_SEED = System.currentTimeMillis();
+        Properties.RANDOM_SEED = 1L;
     }
 
     @Test
