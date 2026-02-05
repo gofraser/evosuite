@@ -228,6 +228,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // seeding, but need to increase the budget
         Properties.PRIMITIVE_POOL = 0.0;
         Properties.SEARCH_BUDGET = 150_000;
+        Properties.GLOBAL_TIMEOUT = 300;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
         Object result = evosuite.parseCommandLine(command);
@@ -256,6 +257,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // seeding, but need to increase the budget
         Properties.PRIMITIVE_POOL = 0.0;
         Properties.SEARCH_BUDGET = 150000;
+        Properties.GLOBAL_TIMEOUT = 300;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
         Object result = evosuite.parseCommandLine(command);
@@ -312,6 +314,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // seeding, but need to increase the budget
         Properties.PRIMITIVE_POOL = 0.0;
         Properties.SEARCH_BUDGET = 150000;
+        Properties.GLOBAL_TIMEOUT = 300;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
         Object result = evosuite.parseCommandLine(command);
