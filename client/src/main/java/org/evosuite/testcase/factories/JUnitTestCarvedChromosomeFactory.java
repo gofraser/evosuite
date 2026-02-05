@@ -26,6 +26,7 @@ import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcarver.extraction.CarvingManager;
+import org.evosuite.testcarver.testcase.CarvedTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -74,6 +75,17 @@ public class JUnitTestCarvedChromosomeFactory implements
         final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
         List<TestCase> tests = manager.getTestsForClass(targetClass);
         junitTests.addAll(tests);
+
+        junitTests.sort((t1, t2) -> {
+            if (t1 instanceof CarvedTestCase && t2 instanceof CarvedTestCase) {
+                return ((CarvedTestCase) t1).getName().compareTo(((CarvedTestCase) t2).getName());
+            } else if (t1 instanceof CarvedTestCase) {
+                return -1;
+            } else if (t2 instanceof CarvedTestCase) {
+                return 1;
+            }
+            return Integer.compare(t1.hashCode(), t2.hashCode());
+        });
 
         if (!junitTests.isEmpty()) {
             totalNumberOfTestsCarved = junitTests.size();

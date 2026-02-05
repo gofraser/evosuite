@@ -99,7 +99,13 @@ public class MIO extends AbstractMOSA {
                     test = this.randomFactory.getChromosome();
                 }
             }
-            assert test != null && test.size() != 0;
+            if (test == null || test.size() == 0) {
+                // If we cannot find any solution, we just return and try again later
+                return;
+            }
+
+            test.setNumberOfMutations(0);
+            test.setNumberOfEvaluations(0);
             this.solution = test;
         }
         assert this.solution != null;
@@ -112,6 +118,8 @@ public class MIO extends AbstractMOSA {
         this.calculateFitness(this.solution);
 
         double usedBudget = this.progress();
+        int previousN = this.n;
+
         if (Double.compare(usedBudget, Properties.EXPLOITATION_STARTS_AT_PERCENT) >= 0) {
             // focused search has started
             this.pr = 0.0;
@@ -129,7 +137,10 @@ public class MIO extends AbstractMOSA {
 
         assert this.pr >= 0.0;
         assert this.n >= 1;
-        Archive.getArchiveInstance().shrinkSolutions(this.n);
+
+        if (this.n != previousN) {
+            Archive.getArchiveInstance().shrinkSolutions(this.n);
+        }
 
         this.currentIteration++;
     }
@@ -146,8 +157,15 @@ public class MIO extends AbstractMOSA {
         // At the beginning of the search, the archive will be empty, and so a new test
         // will be randomly generated.
         this.generateInitialPopulation(1);
-        assert this.population.size() == 1;
-        this.solution = this.population.get(0).clone();
+        if (this.population.isEmpty()) {
+            TestChromosome chromosome = this.randomFactory.getChromosome();
+            if (chromosome != null) {
+                this.population.add(chromosome);
+            }
+        }
+        if (!this.population.isEmpty()) {
+            this.solution = this.population.get(0).clone();
+        }
 
         // update fitness values of all individuals
         this.calculateFitnessAndSortPopulation();
@@ -162,8 +180,10 @@ public class MIO extends AbstractMOSA {
     public void generateSolution() {
         if (this.population.isEmpty()) {
             this.initializePopulation();
-            assert !this.population
-                    .isEmpty() : "Initial population is empty, i.e., EvoSuite could not create any test!";
+            if (this.population.isEmpty()) {
+                logger.warn("Initial population is empty, i.e., EvoSuite could not create any test!");
+                return;
+            }
         }
 
         if (Properties.ENABLE_SECONDARY_OBJECTIVE_AFTER > 0
@@ -192,10 +212,10 @@ public class MIO extends AbstractMOSA {
                 this.applyLocalSearch(testSuite);
             }
 
-            logger.info("Updating fitness values");
+            logger.debug("Updating fitness values");
             this.updateFitnessFunctionsAndValues();
 
-            logger.info("Current iteration: " + currentIteration);
+            logger.debug("Current iteration: " + currentIteration);
             this.notifyIteration();
         }
 

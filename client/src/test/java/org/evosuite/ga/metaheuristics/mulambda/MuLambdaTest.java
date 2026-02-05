@@ -108,4 +108,48 @@ public class MuLambdaTest {
         ea.evolve();
         assertEquals("Population size should remain 1", 1, ea.getPopulation().size());
     }
+
+    @Test
+    public void testMuLambdaAgeIncrements() {
+        Randomness.setSeed(42);
+        int mu = 5;
+        int lambda = 10;
+        MuLambdaEA<DummyChromosome> ea = new MuLambdaEA<>(new DummyFactory(), mu, lambda);
+        ea.addFitnessFunction(new MaximizeFitness());
+
+        ea.initializePopulation();
+        assertEquals(0, ea.getAge());
+
+        ea.evolve();
+        assertEquals("Age should increment after evolve", 1, ea.getAge());
+    }
+
+    @Test
+    public void testMuPlusLambdaAgeIncrements() {
+        Randomness.setSeed(42);
+        int mu = 5;
+        int lambda = 10;
+        MuPlusLambdaEA<DummyChromosome> ea = new MuPlusLambdaEA<>(new DummyFactory(), mu, lambda);
+        ea.addFitnessFunction(new MaximizeFitness());
+
+        ea.initializePopulation();
+        assertEquals(0, ea.getAge());
+
+        ea.evolve();
+        assertEquals("Age should increment after evolve", 1, ea.getAge());
+    }
+
+    @Test
+    public void testOnePlusLambdaLambdaAgeIncrements() {
+        Randomness.setSeed(42);
+        int lambda = 10;
+        OnePlusLambdaLambdaGA<DummyChromosome> ea = new OnePlusLambdaLambdaGA<>(new DummyFactory(), lambda);
+        ea.addFitnessFunction(new MaximizeFitness());
+
+        ea.initializePopulation();
+        assertEquals(0, ea.getAge());
+
+        ea.evolve();
+        assertEquals("Age should increment after evolve", 1, ea.getAge());
+    }
 }

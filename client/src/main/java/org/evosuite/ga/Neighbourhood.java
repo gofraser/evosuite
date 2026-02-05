@@ -40,11 +40,6 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
     private final int population_size;
 
     /**
-     * Position values of different neighbourhood based on the direction
-     **/
-    private int _L, _R, _N, _S, _W, _E, _NE, _NW, _SE, _SW, _NN, _SS, _EE, _WW;
-
-    /**
      * An array that represents the grid
      **/
     int[][] neighbour;
@@ -53,11 +48,6 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
      * Number of chromosomes per one row of a grid
      **/
     int columns;
-
-    /**
-     * Collection of cells will be returned by different models of neighbourhood
-     */
-    private final List<T> chromosomes = new ArrayList<>();
 
     public Neighbourhood(int populationSize) {
 
@@ -159,13 +149,15 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
      * @return collection of neighbours
      */
     public List<T> ringTopology(List<T> collection, int position) {
-
+        List<T> chromosomes = new ArrayList<>();
+        int _L;
         if (position - 1 < 0) {
             _L = collection.size() - 1;
         } else {
             _L = position - 1;
         }
 
+        int _R;
         if (position + 1 > collection.size() - 1) {
             _R = 0;
         } else {
@@ -187,10 +179,11 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
      * @return collection of neighbours
      */
     public List<T> linearFive(List<T> collection, int position) {
-        _N = neighbour[position][Positions.N.ordinal()];
-        _S = neighbour[position][Positions.S.ordinal()];
-        _E = neighbour[position][Positions.E.ordinal()];
-        _W = neighbour[position][Positions.W.ordinal()];
+        List<T> chromosomes = new ArrayList<>();
+        int _N = neighbour[position][Positions.N.ordinal()];
+        int _S = neighbour[position][Positions.S.ordinal()];
+        int _E = neighbour[position][Positions.E.ordinal()];
+        int _W = neighbour[position][Positions.W.ordinal()];
 
         chromosomes.add(collection.get(_N));
         chromosomes.add(collection.get(_S));
@@ -209,15 +202,15 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
      * @return collection of neighbours
      */
     public List<T> compactNine(List<T> collection, int position) {
-
-        _N = neighbour[position][Positions.N.ordinal()];
-        _S = neighbour[position][Positions.S.ordinal()];
-        _E = neighbour[position][Positions.E.ordinal()];
-        _W = neighbour[position][Positions.W.ordinal()];
-        _NW = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.W.ordinal()];
-        _SW = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.W.ordinal()];
-        _NE = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.E.ordinal()];
-        _SE = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.E.ordinal()];
+        List<T> chromosomes = new ArrayList<>();
+        int _N = neighbour[position][Positions.N.ordinal()];
+        int _S = neighbour[position][Positions.S.ordinal()];
+        int _E = neighbour[position][Positions.E.ordinal()];
+        int _W = neighbour[position][Positions.W.ordinal()];
+        int _NW = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.W.ordinal()];
+        int _SW = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.W.ordinal()];
+        int _NE = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.E.ordinal()];
+        int _SE = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.E.ordinal()];
 
         chromosomes.add(collection.get(_N));
         chromosomes.add(collection.get(_S));
@@ -240,18 +233,19 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
      * @return collection of neighbours
      */
     public List<T> compactThirteen(List<T> collection, int position) {
-        _N = neighbour[position][Positions.N.ordinal()];
-        _S = neighbour[position][Positions.S.ordinal()];
-        _E = neighbour[position][Positions.E.ordinal()];
-        _W = neighbour[position][Positions.W.ordinal()];
-        _NW = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.W.ordinal()];
-        _SW = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.W.ordinal()];
-        _NE = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.E.ordinal()];
-        _SE = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.E.ordinal()];
-        _NN = neighbour[_N][Positions.N.ordinal()];
-        _SS = neighbour[_S][Positions.S.ordinal()];
-        _EE = neighbour[_E][Positions.E.ordinal()];
-        _WW = neighbour[_W][Positions.W.ordinal()];
+        List<T> chromosomes = new ArrayList<>();
+        int _N = neighbour[position][Positions.N.ordinal()];
+        int _S = neighbour[position][Positions.S.ordinal()];
+        int _E = neighbour[position][Positions.E.ordinal()];
+        int _W = neighbour[position][Positions.W.ordinal()];
+        int _NW = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.W.ordinal()];
+        int _SW = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.W.ordinal()];
+        int _NE = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.E.ordinal()];
+        int _SE = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.E.ordinal()];
+        int _NN = neighbour[_N][Positions.N.ordinal()];
+        int _SS = neighbour[_S][Positions.S.ordinal()];
+        int _EE = neighbour[_E][Positions.E.ordinal()];
+        int _WW = neighbour[_W][Positions.W.ordinal()];
 
         chromosomes.add(collection.get(_N));
         chromosomes.add(collection.get(_S));

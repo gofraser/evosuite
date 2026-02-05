@@ -77,7 +77,7 @@ public class ZDT6IntTest {
      */
     @Test
     public void testZDT6() throws NumberFormatException, IOException {
-        Properties.MUTATION_RATE = 1d / 10d;
+        Properties.MUTATION_RATE = 1.0;
 
         ChromosomeFactory<NSGAChromosome> factory = new RandomFactory(false, 10, 0.0, 1.0);
 

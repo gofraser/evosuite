@@ -137,8 +137,10 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
         // elitism has been shown to positively affect the convergence
         // speed of GAs in various optimisation problems
         population.sort(new SortByFitness<>(this.currentTarget, false));
-        newGeneration.add(population.get(0).clone());
-        newGeneration.add(population.get(1).clone());
+        if (population.size() >= 1)
+            newGeneration.add(population.get(0).clone());
+        if (population.size() >= 2)
+            newGeneration.add(population.get(1).clone());
 
         // new_generation.size() < population_size
         while (newGeneration.size() < Properties.POPULATION) {
@@ -276,7 +278,7 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
      * Initialization of the search process for LIPS
      */
     protected void searchInitialization() {
-        logger.info("generating firts test t0");
+        logger.info("generating first test t0");
         notifySearchStarted();
 
         // keep track of covered goals
@@ -398,70 +400,21 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
      */
     @Override
     public TestChromosome getBestIndividual() {
-        throw new UnsupportedOperationException("LIPS does not provide such functionality");
-		/* TestSuiteChromosome best = new TestSuiteChromosome();
-		for (TestChromosome test : getArchive()) {
-			best.addTest(test);
-		}
-		// compute overall fitness and coverage
-		double coverage = ((double) this.archive.size()) / ((double) this.fitnessFunctions.size());
-		best.setCoverage(suiteFitness, coverage);
-		best.setFitness(suiteFitness,  this.fitnessFunctions.size() - this.archive.size());
-		//suiteFitness.getFitness(best);
-		return best;*/
+        if (!archive.isEmpty()) {
+            return archive.values().iterator().next();
+        }
+        if (!population.isEmpty()) {
+            return population.get(0);
+        }
+        return chromosomeFactory.getChromosome();
     }
-//	public TestChromosome getBestIndividual() {
-//			best.addTest(test);
-//		}
-//		// compute overall fitness and coverage
-//		double coverage = ((double) this.archive.size()) / ((double) this.fitnessFunctions.size());
-//		best.setCoverage(suiteFitness, coverage);
-//		best.setFitness(suiteFitness,  this.fitnessFunctions.size() - this.archive.size());
-//		//suiteFitness.getFitness(best);
-//		return best;
-//	}
 
     protected List<TestChromosome> getArchive() {
         return new ArrayList<>(new HashSet<>(archive.values()));
     }
 
-
-//	@Override
-//	public List<TestChromosome> getBestIndividuals() {
-//		//get final test suite (i.e., non dominated solutions in Archive)
-//		TestSuiteChromosome bestTestCases = new TestSuiteChromosome();
-//		for (TestChromosome test : getFinalTestSuite()) {
-//			bestTestCases.addTest(test);
-//		}
-//		for (TestFitnessFunction f : this.archive.keySet()){
-//			bestTestCases.getCoveredGoals().add(f);
-//		}
-//		// compute overall fitness and coverage
-//		double fitness = this.fitnessFunctions.size() - numberOfCoveredTargets();
-//		double coverage = numberOfCoveredTargets() / ((double) this.fitnessFunctions.size());
-//		bestTestCases.setFitness(suiteFitness, fitness);
-//		bestTestCases.setCoverage(suiteFitness, coverage);
-//		bestTestCases.setNumOfCoveredGoals(suiteFitness, (int) numberOfCoveredTargets());
-//		bestTestCases.setNumOfNotCoveredGoals(suiteFitness, (int) (this.fitnessFunctions.size()-numberOfCoveredTargets()));
-//
-//		List<TestChromosome> bests = new ArrayList<>(1);
-//		bests.add(bestTestCases);
-//		return bests;
-//	}
-
-
-    protected List<TestChromosome> getFinalTestSuite() {
-        // trivial case where there are no branches to cover or the archive is empty
-        if (this.numberOfCoveredTargets() == 0) {
-            return getArchive();
-        }
-
-        if (archive.size() == 0 && population.size() > 0) {
-            ArrayList<TestChromosome> list = new ArrayList<>();
-            list.add(population.get(population.size() - 1));
-            return list;
-        }
-
+    @Override
+    public List<TestChromosome> getBestIndividuals() {
         return getArchive();
     }
 
@@ -474,7 +427,13 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
      * SBi/ni, where  SBi is the remaining budget and  ni is the estimated number of remaining targets to be covered
      */
     protected void updateBudget4Branch() {
-        long budgetLeft = Properties.SEARCH_BUDGET * 1000 - (System.currentTimeMillis() - startGlobalSearch);
+        long budgetLeft;
+        if (Properties.STOPPING_CONDITION == Properties.StoppingCondition.MAXTIME) {
+            budgetLeft = Properties.SEARCH_BUDGET * 1000 - (System.currentTimeMillis() - startGlobalSearch);
+        } else {
+            budgetLeft = Properties.GLOBAL_TIMEOUT * 1000 - (System.currentTimeMillis() - startGlobalSearch);
+        }
+
         long n_targets = this.fitnessFunctions.size() - this.archive.size() - this.alreadyAttemptedBranches.size();
         if (n_targets > 0)
             this.budget4branch = budgetLeft / n_targets;

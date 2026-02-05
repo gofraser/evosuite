@@ -136,10 +136,12 @@ public class NSGAChromosome extends Chromosome<NSGAChromosome> {
     public void mutate() {
         this.increaseNumberOfMutations();
         for (int i = 0; i < this.getNumberOfVariables(); i++) {
-            Variable v = this.getVariable(i);
+            if (Randomness.nextDouble() <= 1.0 / this.getNumberOfVariables()) {
+                Variable v = this.getVariable(i);
 
-            if (v instanceof DoubleVariable)
-                this.mutate((DoubleVariable) v);
+                if (v instanceof DoubleVariable)
+                    this.mutate((DoubleVariable) v);
+            }
         }
     }
 

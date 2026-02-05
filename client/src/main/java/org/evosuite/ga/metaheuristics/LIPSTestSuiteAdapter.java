@@ -63,7 +63,7 @@ public class LIPSTestSuiteAdapter extends TestSuiteAdapter<LIPS> {
     public List<TestSuiteChromosome> getBestIndividuals() {
         //get final test suite (i.e., non dominated solutions in Archive)
         TestSuiteChromosome bestTestCases = new TestSuiteChromosome();
-        for (TestChromosome test : getAlgorithm().getFinalTestSuite()) {
+        for (TestChromosome test : getAlgorithm().getBestIndividuals()) {
             bestTestCases.addTest(test);
         }
         for (TestFitnessFunction f : getAlgorithm().archive.keySet()) {

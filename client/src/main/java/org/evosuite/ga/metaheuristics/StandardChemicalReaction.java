@@ -47,6 +47,8 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
 
     private static final Logger logger = LoggerFactory.getLogger(StandardChemicalReaction.class);
 
+    private static final double EPSILON = 0.000000001;
+
     private double buffer = 0;
 
     private double initialEnergy = 0.0;
@@ -83,11 +85,11 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
                 // decomposition
                 logger.debug("a decomposition has occurred");
 
-                List<T> offsprings = this.decomposition(molecule);
-                if (offsprings != null) {
+                List<T> offspring = this.decomposition(molecule);
+                if (offspring != null) {
                     // remove 'molecule' from population, and add 'offspring1' and 'offspring2' to population
                     this.population.remove(moleculeIndex);
-                    this.population.addAll(offsprings);
+                    this.population.addAll(offspring);
                 }
             } else {
                 // on-wall ineffective collision
@@ -201,7 +203,13 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
                     double bestTotalKineticEnergy = best.getKineticEnergy() + best.getFitness();
                     double moleculeTotalKineticEnergy = molecule.getKineticEnergy() + molecule.getFitness();
                     double dif = bestTotalKineticEnergy - moleculeTotalKineticEnergy;
-                    best.setKineticEnergy(best.getKineticEnergy() - dif);
+                    double newKineticEnergy = best.getKineticEnergy() - dif;
+                    if (newKineticEnergy < 0.0) {
+                        this.buffer += newKineticEnergy; // newKineticEnergy is negative, so this reduces buffer
+                        best.setKineticEnergy(0.0);
+                    } else {
+                        best.setKineticEnergy(newKineticEnergy);
+                    }
                     best.setNumCollisions(molecule.getNumCollisions());
 
                     this.population.remove(moleculeIndex);
@@ -239,7 +247,7 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
                 }
 
                 if (this.buffer < 0.0) {
-                    throw new RuntimeException("Amount of energy in the buffer cannot be negative");
+                    logger.warn("Amount of energy in the buffer is negative: " + this.buffer);
                 }
 
                 // sanity check: re-calculate current amount of energy
@@ -274,7 +282,7 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
      */
     private T onwallIneffectiveCollision(T molecule) {
 
-        double potencialEnergy = molecule.getFitness();
+        double potentialEnergy = molecule.getFitness();
         double kineticEnergy = molecule.getKineticEnergy();
         molecule.increaseNumCollisionsByOne();
 
@@ -300,16 +308,16 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
             this.notifyEvaluation(moleculeClone);
         }
 
-        double potencialEnergyClone = moleculeClone.getFitness();
-        if (potencialEnergy + kineticEnergy >= potencialEnergyClone) {
+        double potentialEnergyClone = moleculeClone.getFitness();
+        if (potentialEnergy + kineticEnergy >= potentialEnergyClone) {
             double a = Randomness.nextDouble(Properties.KINETIC_ENERGY_LOSS_RATE, 1.0);
-            moleculeClone.setKineticEnergy((potencialEnergy - potencialEnergyClone + kineticEnergy) * a);
+            moleculeClone.setKineticEnergy((potentialEnergy - potentialEnergyClone + kineticEnergy) * a);
 
             // the remaining energy is transferred to buffer
-            this.buffer = this.buffer + (potencialEnergy - potencialEnergyClone + kineticEnergy) * (1.0 - a);
+            this.buffer = this.buffer + (potentialEnergy - potentialEnergyClone + kineticEnergy) * (1.0 - a);
 
             logger.debug(
-                    "(" + potencialEnergy + "," + kineticEnergy + ")" + " vs " + "(" + potencialEnergyClone
+                    "(" + potentialEnergy + "," + kineticEnergy + ")" + " vs " + "(" + potentialEnergyClone
                             + "," + moleculeClone.getKineticEnergy() + ")\n" + "Buffer: " + this.buffer);
 
             return moleculeClone;
@@ -332,7 +340,7 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
         // space after enough local search by the ineffective collisions, similar to what mutation does
         // in evolutionary algorithms.
 
-        double potencialEnergy = molecule.getFitness();
+        double potentialEnergy = molecule.getFitness();
         double kineticEnergy = molecule.getKineticEnergy();
 
         T offspring1 = molecule.clone();
@@ -364,13 +372,13 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
             this.notifyEvaluation(offspring2);
         }
 
-        double potencialEnergy1 = offspring1.getFitness();
-        double potencialEnergy2 = offspring2.getFitness();
+        double potentialEnergy1 = offspring1.getFitness();
+        double potentialEnergy2 = offspring2.getFitness();
 
         boolean decomposed = false;
 
-        if (potencialEnergy + kineticEnergy >= potencialEnergy1 + potencialEnergy2) {
-            double eDec = potencialEnergy + kineticEnergy - (potencialEnergy1 + potencialEnergy2);
+        if (potentialEnergy + kineticEnergy >= potentialEnergy1 + potentialEnergy2) {
+            double eDec = potentialEnergy + kineticEnergy - (potentialEnergy1 + potentialEnergy2);
             this.updateMoleculesAfterDecomposition(offspring1, offspring2, eDec);
 
             decomposed = true;
@@ -378,8 +386,8 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
             double delta1 = Randomness.nextDouble();
             double delta2 = Randomness.nextDouble();
 
-            double eDec = (potencialEnergy + kineticEnergy + delta1 * delta2 * this.buffer)
-                    - (potencialEnergy1 + potencialEnergy2);
+            double eDec = (potentialEnergy + kineticEnergy + delta1 * delta2 * this.buffer)
+                    - (potentialEnergy1 + potentialEnergy2);
             if (eDec >= 0) {
                 this.buffer = this.buffer * (1.0 - delta1 * delta2);
 
@@ -398,16 +406,16 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
         }
 
         if (decomposed) {
-            List<T> offsprings = new ArrayList<>(2);
-            offsprings.add(offspring1);
-            offsprings.add(offspring2);
+            List<T> offspring = new ArrayList<>(2);
+            offspring.add(offspring1);
+            offspring.add(offspring2);
 
-            logger.debug("(" + potencialEnergy + "," + kineticEnergy + ")" + " vs " + "("
-                    + potencialEnergy1 + "," + offspring1.getKineticEnergy() + ")" + " --- " + "("
-                    + potencialEnergy2 + "," + offspring2.getKineticEnergy() + ")\n" + "Buffer: "
+            logger.debug("(" + potentialEnergy + "," + kineticEnergy + ")" + " vs " + "("
+                    + potentialEnergy1 + "," + offspring1.getKineticEnergy() + ")" + " --- " + "("
+                    + potentialEnergy2 + "," + offspring2.getKineticEnergy() + ")\n" + "Buffer: "
                     + this.buffer + " of " + this.initialEnergy);
 
-            return offsprings;
+            return offspring;
         }
 
         return null;
@@ -434,11 +442,11 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
      */
     private Pair<T, T> intermolecularIneffectiveCollision(T molecule1, T molecule2) {
 
-        double potencialEnergy1 = molecule1.getFitness();
+        double potentialEnergy1 = molecule1.getFitness();
         double kineticEnergy1 = molecule1.getKineticEnergy();
         molecule1.increaseNumCollisionsByOne();
 
-        double potencialEnergy2 = molecule2.getFitness();
+        double potentialEnergy2 = molecule2.getFitness();
         double kineticEnergy2 = molecule2.getKineticEnergy();
         molecule2.increaseNumCollisionsByOne();
 
@@ -471,20 +479,20 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
             this.notifyEvaluation(moleculeClone2);
         }
 
-        double potencialEnergyClone1 = moleculeClone1.getFitness();
-        double potencialEnergyClone2 = moleculeClone2.getFitness();
+        double potentialEnergyClone1 = moleculeClone1.getFitness();
+        double potentialEnergyClone2 = moleculeClone2.getFitness();
 
-        double eInter = (potencialEnergy1 + potencialEnergy2 + kineticEnergy1 + kineticEnergy2)
-                - (potencialEnergyClone1 + potencialEnergyClone2);
+        double eInter = (potentialEnergy1 + potentialEnergy2 + kineticEnergy1 + kineticEnergy2)
+                - (potentialEnergyClone1 + potentialEnergyClone2);
         if (eInter >= 0) {
             // distribute energy
             double delta4 = Randomness.nextDouble();
             moleculeClone1.setKineticEnergy(eInter * delta4);
             moleculeClone2.setKineticEnergy(eInter * (1.0 - delta4));
 
-            logger.debug("(" + potencialEnergy1 + "," + kineticEnergy1 + ")" + " vs " + "("
-                    + potencialEnergyClone1 + "," + moleculeClone1.getKineticEnergy() + ")\n" + "("
-                    + potencialEnergy2 + "," + kineticEnergy2 + ")" + " vs " + "(" + potencialEnergyClone2
+            logger.debug("(" + potentialEnergy1 + "," + kineticEnergy1 + ")" + " vs " + "("
+                    + potentialEnergyClone1 + "," + moleculeClone1.getKineticEnergy() + ")\n" + "("
+                    + potentialEnergy2 + "," + kineticEnergy2 + ")" + " vs " + "(" + potentialEnergyClone2
                     + "," + moleculeClone2.getKineticEnergy() + ")\n" + "Buffer: " + this.buffer);
 
             return new ImmutablePair<>(moleculeClone1, moleculeClone2);
@@ -506,10 +514,10 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
         // The idea behind synthesis is diversification of solutions, similar to what crossover does in
         // evolutionary algorithms.
 
-        double potencialEnergy1 = molecule1.getFitness();
+        double potentialEnergy1 = molecule1.getFitness();
         double kineticEnergy1 = molecule1.getKineticEnergy();
 
-        double potencialEnergy2 = molecule2.getFitness();
+        double potentialEnergy2 = molecule2.getFitness();
         double kineticEnergy2 = molecule2.getKineticEnergy();
 
         T offspring1 = molecule1.clone();
@@ -541,16 +549,16 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
 
         T offspring = offspring1.getFitness() < offspring2.getFitness() ? offspring1 : offspring2;
 
-        double potencialEnergy = offspring.getFitness();
-        if (potencialEnergy1 + potencialEnergy2 + kineticEnergy1 + kineticEnergy2 >= potencialEnergy) {
+        double potentialEnergy = offspring.getFitness();
+        if (potentialEnergy1 + potentialEnergy2 + kineticEnergy1 + kineticEnergy2 >= potentialEnergy) {
             offspring
-                    .setKineticEnergy((potencialEnergy1 + potencialEnergy2 + kineticEnergy1 + kineticEnergy2)
-                            - potencialEnergy);
+                    .setKineticEnergy((potentialEnergy1 + potentialEnergy2 + kineticEnergy1 + kineticEnergy2)
+                            - potentialEnergy);
             // reset number of collisions
             offspring.resetNumCollisions();
 
-            logger.debug("(" + potencialEnergy1 + "," + kineticEnergy1 + ")" + " --- " + "("
-                    + potencialEnergy2 + "," + kineticEnergy2 + ")" + " vs " + "(" + potencialEnergy + ","
+            logger.debug("(" + potentialEnergy1 + "," + kineticEnergy1 + ")" + " --- " + "("
+                    + potentialEnergy2 + "," + kineticEnergy2 + ")" + " vs " + "(" + potentialEnergy + ","
                     + offspring.getKineticEnergy() + ")\n" + "Buffer: " + this.buffer);
 
             // destroy 'offspring1' and 'offspring2', i.e., 'molecule1' and 'molecule2' must be replaced
@@ -585,6 +593,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
      * @return true if energy has been conserved in the system, false otherwise
      */
     private boolean hasEnergyBeenConserved(double energy) {
-        return Math.abs(this.initialEnergy - energy) < 0.000000001;
+        return Math.abs(this.initialEnergy - energy) < EPSILON;
     }
 }

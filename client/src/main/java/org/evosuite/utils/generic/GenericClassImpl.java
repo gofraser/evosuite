@@ -528,14 +528,16 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             return new GenericClassImpl(this);
         }
 
+        if (isWildcardType()) {
+            logger.debug("Is wildcard type.");
+            return getGenericWildcardInstantiation(typeMap, recursionLevel);
+        }
+
         if(recursionLevel > Properties.MAX_GENERIC_DEPTH) {
             throw new RecursiveConstructionFailedException("RecursionLevel exceeds max generic depth " + Properties.MAX_GENERIC_DEPTH);
         }
 
-        if (isWildcardType()) {
-            logger.debug("Is wildcard type.");
-            return getGenericWildcardInstantiation(typeMap, recursionLevel);
-        } else if (isArray()) {
+        if (isArray()) {
             return getGenericArrayInstantiation(typeMap, recursionLevel);
         } else if (isTypeVariable()) {
             logger.debug("Is type variable ");
@@ -645,7 +647,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         GenericClass<?> selectedClass = CastClassManager.getInstance().selectCastClass((WildcardType) type,
                 recursionLevel < Properties.MAX_GENERIC_DEPTH,
                 typeMap);
-        return selectedClass.getGenericInstantiation(typeMap, recursionLevel + 1);
+        return selectedClass.getGenericInstantiation(new HashMap<>(), recursionLevel + 1);
     }
 
     @Override

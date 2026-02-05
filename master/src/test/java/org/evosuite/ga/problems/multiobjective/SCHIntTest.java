@@ -88,7 +88,7 @@ public class SCHIntTest {
      */
     @Test
     public void testSCH() throws NumberFormatException, IOException {
-        Properties.MUTATION_RATE = 1d / 1d;
+        Properties.MUTATION_RATE = 1.0;
 
         ChromosomeFactory<NSGAChromosome> factory = new RandomFactory(false, 1, Math.pow(-10.0, 3.0), Math.pow(10.0, 3.0));
 

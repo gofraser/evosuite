@@ -44,7 +44,7 @@ public class OnePlusLambdaLambdaGA<T extends Chromosome<T>> extends AbstractMuLa
     }
 
     @Override
-    protected void evolve() {
+    protected void evolveInternal() {
 
         T parent = population.get(0);
 
@@ -95,8 +95,6 @@ public class OnePlusLambdaLambdaGA<T extends Chromosome<T>> extends AbstractMuLa
         this.population.add(nextParent);
 
         updateFitnessFunctionsAndValues();
-
-        currentIteration++;
     }
 
     private void evaluate(List<T> individuals) {
