@@ -22,7 +22,10 @@ package org.evosuite.ga.metaheuristics;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.NoveltyFunction;
+import org.evosuite.ga.archive.Archive;
+import org.evosuite.novelty.BranchNoveltyFunction;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
@@ -30,33 +33,23 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-import static java.util.Collections.reverseOrder;
-import static java.util.Comparator.comparingDouble;
-
 public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
 
     private final static Logger logger = LoggerFactory.getLogger(NoveltySearch.class);
     private static final long serialVersionUID = -1047550745990198972L;
 
     private NoveltyFunction<TestChromosome> noveltyFunction;
+    private final NoveltyFitnessFunction noveltyFitnessFunction = new NoveltyFitnessFunction();
 
     public NoveltySearch(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
 
-        noveltyFunction = null; //(NoveltyFunction<T>) new BranchNoveltyFunction();
-        // setReplacementFunction(new FitnessReplacementFunction());
+        noveltyFunction = new BranchNoveltyFunction();
+        addFitnessFunction(noveltyFitnessFunction);
     }
 
     public void setNoveltyFunction(NoveltyFunction<TestChromosome> function) {
         this.noveltyFunction = function;
-    }
-
-    /**
-     * Sort the population by novelty
-     */
-    protected void sortPopulation(List<TestChromosome> population, Map<TestChromosome, Double> noveltyMap) {
-        // TODO: Handle case when no novelty value is stored in map
-        population.sort(reverseOrder(comparingDouble(noveltyMap::get)));
     }
 
     /**
@@ -65,23 +58,16 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
     protected void calculateNoveltyAndSortPopulation() {
         logger.debug("Calculating novelty for " + population.size() + " individuals");
 
-        Iterator<TestChromosome> iterator = population.iterator();
-        Map<TestChromosome, Double> noveltyMap = new LinkedHashMap<>();
+        List<TestChromosome> union = new ArrayList<>(population);
+        union.addAll(Archive.getArchiveInstance().getSolutions());
 
-        while (iterator.hasNext()) {
-            TestChromosome c = iterator.next();
-            if (isFinished()) {
-                if (c.isChanged())
-                    iterator.remove();
-            } else {
-                // TODO: This needs to take the archive into account
-                double novelty = noveltyFunction.getNovelty(c, population);
-                noveltyMap.put(c, novelty);
-            }
+        for (TestChromosome c : population) {
+            double novelty = noveltyFunction.getNovelty(c, union);
+            c.setFitness(noveltyFitnessFunction, novelty);
         }
 
         // Sort population
-        sortPopulation(population, noveltyMap);
+        this.sortPopulation();
     }
 
     @Override
@@ -135,6 +121,10 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
             else
                 newGeneration.add(parent1);
 
+            if (isNextPopulationFull(newGeneration)) {
+                break;
+            }
+
             if (!isTooLong(offspring2))
                 newGeneration.add(offspring2);
             else
@@ -154,15 +144,13 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
         if (population.isEmpty())
             initializePopulation();
 
-        logger.warn("Starting evolution of novelty search algorithm");
+        logger.info("Starting evolution of novelty search algorithm");
 
         while (!isFinished()) {
-            logger.warn("Current population: " + getAge() + "/" + Properties.SEARCH_BUDGET);
-            //logger.info("Best fitness: " + getBestIndividual().getFitness());
+            logger.info("Current population: " + getAge() + "/" + Properties.SEARCH_BUDGET);
 
             evolve();
 
-            // TODO: Sort by novelty
             calculateNoveltyAndSortPopulation();
 
             this.notifyIteration();
@@ -171,5 +159,19 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
         updateBestIndividualFromArchive();
         notifySearchFinished();
 
+    }
+
+    private static class NoveltyFitnessFunction extends FitnessFunction<TestChromosome> {
+        private static final long serialVersionUID = -2919343715691060010L;
+
+        @Override
+        public double getFitness(TestChromosome individual) {
+            return individual.getFitness(this);
+        }
+
+        @Override
+        public boolean isMaximizationFunction() {
+            return true;
+        }
     }
 }
