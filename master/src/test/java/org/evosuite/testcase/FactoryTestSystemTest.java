@@ -92,12 +92,13 @@ public class FactoryTestSystemTest extends SystemTestBase {
 
     @Test
     public void testIntegerDependency() throws ConstructionFailedException,
-            NoSuchMethodException, SecurityException {
+            NoSuchMethodException, SecurityException, ClassNotFoundException {
         TestFactory testFactory = TestFactory.getInstance();
+        Class<?> sut = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(FactoryExample.class.getCanonicalName());
 
         GenericMethod method = new GenericMethod(
-                FactoryExample.class.getMethod("testByte", byte.class, byte.class),
-                FactoryExample.class);
+                sut.getMethod("testByte", byte.class, byte.class),
+                sut);
         DefaultTestCase test = new DefaultTestCase();
         Properties.PRIMITIVE_REUSE_PROBABILITY = 0.0;
         testFactory.addMethod(test, method, 0, 0);
