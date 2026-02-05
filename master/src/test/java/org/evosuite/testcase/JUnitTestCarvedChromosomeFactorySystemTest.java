@@ -746,9 +746,8 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
         Assert.assertTrue(code.contains("classWithStaticMethod0.testMe"));
     }
 
-    @Ignore // EvoSuite may also cover it without seeding now.
     @Test
-    public void testDifficultClassWithWrongTestFails() {
+    public void testDifficultClassWithPartialTestPasses() {
         EvoSuite evosuite = new EvoSuite();
 
         String targetClass = DifficultClassWithoutCarving.class.getCanonicalName();
@@ -763,7 +762,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertTrue("Did not expect optimal coverage: ", best.getCoverage() < 1d);
+        Assert.assertEquals("Expected optimal coverage: ", 1d, best.getCoverage(), 0.001);
     }
 
     @Test
