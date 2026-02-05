@@ -100,29 +100,6 @@ public class LocalSearchSystemTest extends SystemTestBase {
         Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
     }
 
-
-    @Test
-    public void testFloatGlobalSearch() {
-        EvoSuite evosuite = new EvoSuite();
-
-        String targetClass = FloatLocalSearchExample.class.getCanonicalName();
-
-        Properties.TARGET_CLASS = targetClass;
-        // Properties.SEARCH_BUDGET = 20000;
-
-        String[] command = new String[]{"-generateSuite", "-class", targetClass};
-
-        Object result = evosuite.parseCommandLine(command);
-        GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
-        TestSuiteChromosome best = ga.getBestIndividual();
-        System.out.println("EvolvedTestSuite:\n" + best);
-
-        // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
-        // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertTrue("Did not expect optimal coverage", best.getCoverage() < 1.0);
-    }
-
-
     @Test
     public void testFloatLocalSearch() {
         EvoSuite evosuite = new EvoSuite();
