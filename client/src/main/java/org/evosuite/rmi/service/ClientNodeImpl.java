@@ -187,9 +187,17 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     @Override
     public void waitUntilDone() {
-        try {
-            doneLatch.await();
-        } catch (InterruptedException ignored) {
+        boolean interrupted = false;
+        while (true) {
+            try {
+                doneLatch.await();
+                break;
+            } catch (InterruptedException e) {
+                interrupted = true;
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
         }
     }
 
