@@ -601,7 +601,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         logger.debug("Type map does not contain {}: {}", this, typeMap);
 
         GenericClass<?> selectedClass = CastClassManager.getInstance().selectCastClass((TypeVariable<?>) type,
-                recursionLevel < Properties.MAX_GENERIC_DEPTH,
+                recursionLevel < Properties.MAX_GENERIC_DEPTH - 1,
                 typeMap);
 
         if (selectedClass == null) {
@@ -645,7 +645,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     public GenericClass<?> getGenericWildcardInstantiation(Map<TypeVariable<?>, Type> typeMap, int recursionLevel)
             throws ConstructionFailedException {
         GenericClass<?> selectedClass = CastClassManager.getInstance().selectCastClass((WildcardType) type,
-                recursionLevel < Properties.MAX_GENERIC_DEPTH,
+                recursionLevel < Properties.MAX_GENERIC_DEPTH - 1,
                 typeMap);
         return selectedClass.getGenericInstantiation(new HashMap<>(), recursionLevel + 1);
     }
