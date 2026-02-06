@@ -203,7 +203,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // To see whether there is any guidance we turn off
         // seeding, but need to increase the budget
         Properties.PRIMITIVE_POOL = 0.0;
-        Properties.SEARCH_BUDGET = 500_000;
+        Properties.SEARCH_BUDGET = 100_000;
         Properties.GLOBAL_TIMEOUT = 300;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
@@ -231,7 +231,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // To see whether there is any guidance we turn off
         // seeding, but need to increase the budget
         Properties.PRIMITIVE_POOL = 0.0;
-        Properties.SEARCH_BUDGET = 150_000;
+        Properties.SEARCH_BUDGET = 50_000;
         Properties.GLOBAL_TIMEOUT = 300;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
@@ -260,7 +260,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // To see whether there is any guidance we turn off
         // seeding, but need to increase the budget
         Properties.PRIMITIVE_POOL = 0.0;
-        Properties.SEARCH_BUDGET = 150000;
+        Properties.SEARCH_BUDGET = 50_000;
         Properties.GLOBAL_TIMEOUT = 300;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
@@ -289,7 +289,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // To see whether there is any guidance we turn off
         // seeding, but need to increase the budget
         Properties.PRIMITIVE_POOL = 0.0;
-        Properties.SEARCH_BUDGET = 150000;
+        Properties.SEARCH_BUDGET = 50_000;
         Properties.GLOBAL_TIMEOUT = 300;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
@@ -317,7 +317,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // To see whether there is any guidance we turn off
         // seeding, but need to increase the budget
         Properties.PRIMITIVE_POOL = 0.0;
-        Properties.SEARCH_BUDGET = 150000;
+        Properties.SEARCH_BUDGET = 50_000;
         Properties.GLOBAL_TIMEOUT = 300;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
