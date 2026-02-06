@@ -187,9 +187,17 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     @Override
     public void waitUntilDone() {
-        try {
-            doneLatch.await();
-        } catch (InterruptedException ignored) {
+        boolean interrupted = false;
+        while (true) {
+            try {
+                doneLatch.await();
+                break;
+            } catch (InterruptedException e) {
+                interrupted = true;
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -333,6 +341,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     public void stop() {
         if (statisticsThread != null) {
             statisticsThread.interrupt();
+            // Drain queue while thread might be still running
             List<OutputVariable> vars = new ArrayList<>();
             outputVariableQueue.drainTo(vars);
             for (OutputVariable ov : vars) {
@@ -350,6 +359,22 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 logger.error("Failed to stop statisticsThread in time");
             }
             statisticsThread = null;
+        }
+
+        /*
+         * Fix for hanging processes: ensure queue is completely empty before finishing.
+         * The queue might still contain elements if the statisticsThread was null or if
+         * new elements were added concurrently.
+         */
+        List<OutputVariable> vars = new ArrayList<>();
+        outputVariableQueue.drainTo(vars);
+        for (OutputVariable ov : vars) {
+            try {
+                masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
+            } catch (RemoteException e) {
+                logger.error("Error when exporting statistics: " + ov.variable + "=" + ov.value, e);
+                break;
+            }
         }
 
         changeState(ClientState.FINISHED);

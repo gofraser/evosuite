@@ -90,6 +90,8 @@ public class ClientServices<T extends Chromosome<T>> {
                      * forcely stop the client, we need to wait
                      */
                     done = UnicastRemoteObject.unexportObject(clientNode, false);
+                    if (done) break;
+
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
@@ -97,7 +99,8 @@ public class ClientServices<T extends Chromosome<T>> {
                     }
                     i++;
                     if (i >= tries) {
-                        logger.error("Tried " + tries + " times to stop RMI ClientNode, giving up");
+                        logger.error("Tried " + tries + " times to stop RMI ClientNode, now forcing unexport.");
+                        UnicastRemoteObject.unexportObject(clientNode, true);
                         break;
                     }
                 }
