@@ -67,7 +67,7 @@ public class ZDT4 implements Problem<NSGAChromosome> {
                 double g = 0.0;
                 for (int i = 1; i < c.getNumberOfVariables(); i++) {
                     DoubleVariable dv = (DoubleVariable) c.getVariable(i);
-                    g += Math.pow(dv.getValue(), 2.0) - 10.0 * Math.cos(4.0 * Math.PI * dv.getValue() / 180.0);
+                    g += Math.pow(dv.getValue(), 2.0) - 10.0 * Math.cos(4.0 * Math.PI * dv.getValue());
                 }
                 g += 1.0 + 10.0 * (c.getNumberOfVariables() - 1);
 

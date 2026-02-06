@@ -77,7 +77,7 @@ public class ZDT4IntTest {
         Assert.assertEquals(((DoubleVariable) c.getVariables().get(9)).getValue(), 3.0, 0.0);
 
         Assert.assertEquals(f1.getFitness(c), 0.5, 0.0);
-        Assert.assertEquals(f2.getFitness(c), 65.68459221202592, 0.0);
+        Assert.assertEquals(f2.getFitness(c), 64.08392021690038, 0.0);
     }
 
     /**
