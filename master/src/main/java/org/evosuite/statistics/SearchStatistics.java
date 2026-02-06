@@ -66,7 +66,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     /**
      * Singleton instance
      */
-    private static final Map<String, SearchStatistics> instances = new LinkedHashMap<>();
+    private static final Map<String, SearchStatistics> instances = Collections.synchronizedMap(new LinkedHashMap<>());
 
     private static final Logger logger = LoggerFactory.getLogger(SearchStatistics.class);
 
@@ -83,7 +83,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     /**
      * Output variables and their values
      */
-    private final Map<String, OutputVariable<?>> outputVariables = new TreeMap<>();
+    private final Map<String, OutputVariable<?>> outputVariables = Collections.synchronizedMap(new TreeMap<>());
 
     /**
      * Variable factories to extract output variables from chromosomes
@@ -106,7 +106,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
 
     private final long startTime = System.currentTimeMillis();
 
-    private final List<List<TestGenerationResult>> results = new ArrayList<>();
+    private final List<List<TestGenerationResult>> results = Collections.synchronizedList(new ArrayList<>());
 
     private SearchStatistics() {
         backend = StatisticsBackendFactory.getStatisticsBackend(Properties.STATISTICS_BACKEND);
@@ -163,7 +163,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         return getInstance(ClientProcess.DEFAULT_CLIENT_NAME);
     }
 
-    public static SearchStatistics getInstance(String rmiClientIdentifier) {
+    public static synchronized SearchStatistics getInstance(String rmiClientIdentifier) {
         SearchStatistics instance = instances.get(rmiClientIdentifier);
         if (instance == null) {
             instance = new SearchStatistics();
@@ -172,11 +172,11 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         return instance;
     }
 
-    public static void clearInstance() {
+    public static synchronized void clearInstance() {
         clearInstance(ClientProcess.DEFAULT_CLIENT_NAME);
     }
 
-    public static void clearInstance(String rmiClientIdentifier) {
+    public static synchronized void clearInstance(String rmiClientIdentifier) {
         instances.remove(rmiClientIdentifier);
     }
 
@@ -186,7 +186,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      *
      * @param individual best individual of current generation
      */
-    public void currentIndividual(Chromosome<?> individual) {
+    public synchronized void currentIndividual(Chromosome<?> individual) {
         if (backend == null)
             return;
 
@@ -342,7 +342,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      *
      * @return true if the writing was successful
      */
-    public boolean writeStatistics() {
+    public synchronized boolean writeStatistics() {
         logger.info("Writing statistics");
         if (backend == null)
             return false;
@@ -410,7 +410,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      *
      * @return true if the writing was successful
      */
-    public boolean writeStatisticsForAnalysis() {
+    public synchronized boolean writeStatisticsForAnalysis() {
         logger.info("Writing statistics");
         if (backend == null) {
             LoggingUtils.getEvoLogger().info("Backend is null");
@@ -440,7 +440,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * Process status update event received from client
      */
     @Override
-    public void receiveEvent(ClientStateInformation information) {
+    public synchronized void receiveEvent(ClientStateInformation information) {
         if (information.getState() != currentState) {
             logger.info("Received status update: " + information);
             if (information.getState() == ClientState.SEARCH) {
