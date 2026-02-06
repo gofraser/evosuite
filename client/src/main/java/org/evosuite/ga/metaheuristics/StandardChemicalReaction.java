@@ -200,6 +200,12 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
                     int moleculeIndex = Randomness.nextInt(this.population.size());
                     T molecule = this.population.get(moleculeIndex);
 
+                    // If the molecule in the population is better than the elite one,
+                    // we should not replace it.
+                    if (isBetterOrEqual(molecule, best)) {
+                        continue;
+                    }
+
                     double bestTotalKineticEnergy = best.getKineticEnergy() + best.getFitness();
                     double moleculeTotalKineticEnergy = molecule.getKineticEnergy() + molecule.getFitness();
                     double dif = bestTotalKineticEnergy - moleculeTotalKineticEnergy;
