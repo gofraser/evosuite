@@ -600,6 +600,9 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
         logger.debug("Type map does not contain {}: {}", this, typeMap);
 
+        // If we select a recursive type here, its parameter instantiation will happen at recursionLevel + 1.
+        // Therefore, we must ensure that recursionLevel + 1 is still strictly less than MAX_GENERIC_DEPTH
+        // to avoid exceeding the depth limit in the next step.
         GenericClass<?> selectedClass = CastClassManager.getInstance().selectCastClass((TypeVariable<?>) type,
                 recursionLevel < Properties.MAX_GENERIC_DEPTH - 1,
                 typeMap);
@@ -644,6 +647,9 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      */
     public GenericClass<?> getGenericWildcardInstantiation(Map<TypeVariable<?>, Type> typeMap, int recursionLevel)
             throws ConstructionFailedException {
+        // If we select a recursive type here, its parameter instantiation will happen at recursionLevel + 1.
+        // Therefore, we must ensure that recursionLevel + 1 is still strictly less than MAX_GENERIC_DEPTH
+        // to avoid exceeding the depth limit in the next step.
         GenericClass<?> selectedClass = CastClassManager.getInstance().selectCastClass((WildcardType) type,
                 recursionLevel < Properties.MAX_GENERIC_DEPTH - 1,
                 typeMap);
