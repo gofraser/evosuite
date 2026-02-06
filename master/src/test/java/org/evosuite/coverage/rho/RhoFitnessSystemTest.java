@@ -39,6 +39,7 @@ import org.evosuite.Properties.Strategy;
 import org.evosuite.Properties.TestFactory;
 import org.evosuite.SystemTestBase;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.utils.Randomness;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -82,8 +83,9 @@ public class RhoFitnessSystemTest extends SystemTestBase {
                 Properties.Criterion.RHO
         };
         Properties.STRATEGY = Strategy.ENTBUG;
-        Properties.STOPPING_CONDITION = StoppingCondition.MAXTIME;
-        Properties.SEARCH_BUDGET = 60;
+        Properties.STOPPING_CONDITION = StoppingCondition.MAXSTATEMENTS;
+        Properties.SEARCH_BUDGET = 5000;
+        Randomness.setSeed(42L);
 
         Properties.TEST_ARCHIVE = false;
         Properties.TEST_FACTORY = TestFactory.RANDOM;
@@ -124,7 +126,7 @@ public class RhoFitnessSystemTest extends SystemTestBase {
         reader.close();
 
         double rhoScore = Double.parseDouble(rows.get(1)[0]);
-        assertEquals(0.35416666666666663, rhoScore, 0.01);
+        assertEquals(0.19444444444444453, rhoScore, 0.01);
     }
 
     @Test
@@ -166,6 +168,6 @@ public class RhoFitnessSystemTest extends SystemTestBase {
         reader.close();
 
         double rhoScore = Double.parseDouble(rows.get(1)[0]);
-        assertEquals(0.36111111111111105, rhoScore, 0.01);
+        assertEquals(0.2666666666666666, rhoScore, 0.01);
     }
 }
