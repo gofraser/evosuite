@@ -44,14 +44,34 @@ public class LineCoverageSuiteFitness extends AbstractLineCoverageSuiteFitness {
 
     public LineCoverageSuiteFitness() {
         super();
-        initializeControlDependencies();
+        updateControlDependencies();
+    }
+
+    @Override
+    public boolean updateCoveredGoals() {
+        boolean changed = super.updateCoveredGoals();
+        if (changed) {
+            updateControlDependencies();
+        }
+        return changed;
     }
 
     /**
      * Add guidance to the fitness function by including branch distances on
      * all control dependencies
      */
-    private void initializeControlDependencies() {
+    private void updateControlDependencies() {
+        branchesToCoverTrue.clear();
+        branchesToCoverFalse.clear();
+        branchesToCoverBoth.clear();
+
+        Set<Integer> activeLines = new HashSet<>();
+        for (TestFitnessFunction ff : lineGoals.values()) {
+            if (ff instanceof LineCoverageTestFitness) {
+                activeLines.add(((LineCoverageTestFitness) ff).getLine());
+            }
+        }
+
         // In case we target more than one class (context, or inner classes)
         Set<String> targetClasses = new LinkedHashSet<>();
         for (TestFitnessFunction ff : lineGoals.values()) {
@@ -65,6 +85,10 @@ public class LineCoverageSuiteFitness extends AbstractLineCoverageSuiteFitness {
                 continue;
             }
             for (BytecodeInstruction bi : instructions) {
+                if (!activeLines.contains(bi.getLineNumber())) {
+                    continue;
+                }
+
                 if (bi.getBasicBlock() == null) {
                     // Labels get no basic block. TODO - why?
                     continue;
