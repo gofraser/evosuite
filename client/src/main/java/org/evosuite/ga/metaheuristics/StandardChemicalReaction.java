@@ -202,7 +202,7 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
 
                     // If the molecule in the population is better than the elite one,
                     // we should not replace it.
-                    if (molecule.compareTo(best) < 0) {
+                    if (isBetterOrEqual(molecule, best)) {
                         continue;
                     }
 
