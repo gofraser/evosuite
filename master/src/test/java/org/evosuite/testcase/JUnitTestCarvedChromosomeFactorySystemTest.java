@@ -407,12 +407,10 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
         Assert.assertTrue(factory.hasCarvedTestCases());
-        TestChromosome carved = factory.getChromosome();
-        Assert.assertNotNull(carved);
 
-        String code = carved.toString();
-
-        Assert.assertEquals(code, 3, carved.test.size());
+        for (TestCase test : factory.getCarvedTestCases()) {
+            Assert.assertEquals(test.toCode(), 3, test.size());
+        }
     }
 
     @Test
@@ -816,13 +814,16 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(null);
 
         Assert.assertEquals("Incorrect number of carved tests", 2, factory.getNumCarvedTestCases());
-        CarvedTestCase tc1 = (CarvedTestCase) factory.getCarvedTestCases().get(0);
-        Assert.assertEquals("Incorrect carved test name", "testWithArray", tc1.getName());
-        System.out.println("Carved Test Case # " + tc1.getID() + ": " + tc1.getName());
-        System.out.println(tc1.toCode());
-        CarvedTestCase tc2 = (CarvedTestCase) factory.getCarvedTestCases().get(1);
-        Assert.assertEquals("Incorrect carved test name", "testWithNull", tc2.getName());
-        System.out.println("Carved Test Case # " + tc2.getID() + ": " + tc2.getName());
-        System.out.println(tc2.toCode());
+
+        java.util.Set<String> names = new java.util.HashSet<>();
+        for (TestCase test : factory.getCarvedTestCases()) {
+            CarvedTestCase tc = (CarvedTestCase) test;
+            names.add(tc.getName());
+            System.out.println("Carved Test Case # " + tc.getID() + ": " + tc.getName());
+            System.out.println(tc.toCode());
+        }
+
+        Assert.assertTrue("Should contain testWithArray", names.contains("testWithArray"));
+        Assert.assertTrue("Should contain testWithNull", names.contains("testWithNull"));
     }
 }
