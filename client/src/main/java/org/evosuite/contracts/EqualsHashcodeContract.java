@@ -22,6 +22,7 @@ package org.evosuite.contracts;
 
 import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveExpression;
@@ -77,17 +78,21 @@ public class EqualsHashcodeContract extends Contract {
                 continue;
             }
 
-            if (object1.equals(object2)) {
-                if (object1.hashCode() != object2.hashCode()) {
-                    return new ContractViolation(this, statement, exception,
-                            pair.object1, pair.object2);
+            ExecutionTracer.disable();
+            try {
+                if (object1.equals(object2)) {
+                     int h1 = object1.hashCode();
+                     int h2 = object2.hashCode();
+                    if (h1 != h2) {
+                        ExecutionTracer.enable();
+                        return new ContractViolation(this, statement, exception,
+                                pair.object1, pair.object2);
+                    }
                 }
-            } else {
-                if (object1.hashCode() == object2.hashCode()) {
-                    return new ContractViolation(this, statement, exception,
-                            pair.object1, pair.object2);
-                }
+            } catch (Throwable t) {
+                // ignore
             }
+            ExecutionTracer.enable();
         }
         return null;
     }
