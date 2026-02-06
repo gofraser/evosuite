@@ -26,7 +26,7 @@ import java.util.List;
  *
  * @author Nasser Albunian
  */
-public interface NeighborModels<T extends Chromosome<T>> {
+public interface NeighbourModels<T extends Chromosome<T>> {
 
     List<T> ringTopology(List<T> collection, int position);
 

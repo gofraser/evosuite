@@ -203,9 +203,6 @@ public class TestCluster {
             while (iter.hasNext()) {
                 GenericAccessibleObject<?> gao = iter.next();
 
-                // TODO: This is not working correctly. Until we have figured out
-                // the problem here, we either need to deactivate this entirely,
-                // or at least make sure that we don't delete constructors.
                 if (gao.isConstructor() || gao.isStatic()) {
                     continue;
                 }
@@ -216,17 +213,20 @@ public class TestCluster {
                     continue;
                 }
 
+                boolean canGenerateOwnerWithoutY = false;
                 for (GenericAccessibleObject<?> genOwner : generatorCache.get(owner)) {
-                    if (genOwner.isStatic()) {
-                        continue; //as there is no need to instantiate X, it is not an issue
-                    }
-                    //is any generator for X using as input an instance of Y?
-                    final boolean b = Arrays.stream(genOwner.getGenericParameterTypes())
+                    // Check if this generator for X requires Y
+                    boolean requiresY = Arrays.stream(genOwner.getGenericParameterTypes())
                             .anyMatch(t -> t.equals(entry.getKey().getType()));
-                    if (b) {
-                        iter.remove();
+
+                    if (!requiresY) {
+                        canGenerateOwnerWithoutY = true;
                         break;
                     }
+                }
+
+                if (!canGenerateOwnerWithoutY) {
+                    iter.remove();
                 }
             }
 
