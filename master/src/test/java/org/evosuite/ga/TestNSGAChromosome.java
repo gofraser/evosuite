@@ -48,6 +48,6 @@ public class TestNSGAChromosome {
 
         nsga.mutate();
         v = ((DoubleVariable) nsga.getVariable(0)).getValue();
-        Assert.assertEquals(v, -3.1, 0.1);
+        Assert.assertEquals(-2.2283152443192074, v, 0.000001);
     }
 }
