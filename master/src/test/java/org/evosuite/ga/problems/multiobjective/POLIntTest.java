@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.evosuite.Properties;
+import org.evosuite.utils.Randomness;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.NSGAChromosome;
@@ -54,6 +55,7 @@ public class POLIntTest {
         Properties.SEARCH_BUDGET = 10_000;
         Properties.CROSSOVER_RATE = 0.9;
         Properties.RANDOM_SEED = 1L;
+        Randomness.setSeed(Properties.RANDOM_SEED);
     }
 
     @Test
