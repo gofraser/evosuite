@@ -304,7 +304,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * @param skip_missing whether or not to skip missing output variables
      * @return <code>null</code> if some data is missing
      */
-    private Map<String, OutputVariable<?>> getOutputVariables(TestSuiteChromosome individual, boolean skip_missing) {
+    private synchronized Map<String, OutputVariable<?>> getOutputVariables(TestSuiteChromosome individual, boolean skip_missing) {
         Map<String, OutputVariable<?>> variables = new LinkedHashMap<>();
 
         for (String variableName : getOutputVariableNames()) {

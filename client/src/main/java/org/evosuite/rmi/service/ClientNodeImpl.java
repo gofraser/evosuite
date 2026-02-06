@@ -333,6 +333,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     public void stop() {
         if (statisticsThread != null) {
             statisticsThread.interrupt();
+            // Drain queue while thread might be still running
             List<OutputVariable> vars = new ArrayList<>();
             outputVariableQueue.drainTo(vars);
             for (OutputVariable ov : vars) {
