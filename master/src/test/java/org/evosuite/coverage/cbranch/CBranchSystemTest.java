@@ -22,10 +22,7 @@ package org.evosuite.coverage.cbranch;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.setup.DependencyAnalysis;
-import java.util.Arrays;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.SystemTestBase;
@@ -78,15 +75,6 @@ public class CBranchSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         System.out.println("EvolvedTestSuite:\n" + best);
-
-        if (DependencyAnalysis.getCallGraph() == null) {
-            try {
-                DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, Arrays.asList(ClassPathHandler.getInstance().getClassPathElementsForTargetProject()));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assert.assertEquals(7, goals);
         Assert.assertEquals(5, best.size());
