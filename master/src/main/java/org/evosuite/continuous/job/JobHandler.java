@@ -244,6 +244,8 @@ public class JobHandler extends Thread {
         // Add module access flags needed for VirtualNetwork (Java 9+)
         commands.add("--add-opens");
         commands.add("java.base/java.net=ALL-UNNAMED");
+        commands.add("--add-opens");
+        commands.add("java.desktop/java.awt=ALL-UNNAMED");
 
         /*
          * FIXME for seeding, need to setup classpath of generated test suites

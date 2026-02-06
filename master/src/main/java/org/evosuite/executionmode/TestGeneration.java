@@ -316,6 +316,8 @@ public class TestGeneration {
         // Add module access flags needed for VirtualNetwork (Java 9+)
         cmdLine.add("--add-opens");
         cmdLine.add("java.base/java.net=ALL-UNNAMED");
+        cmdLine.add("--add-opens");
+        cmdLine.add("java.desktop/java.awt=ALL-UNNAMED");
 
         for (String arg : args) {
             if (!arg.startsWith("-DCP=")) {
