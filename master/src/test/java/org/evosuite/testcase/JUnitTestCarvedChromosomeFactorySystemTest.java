@@ -817,11 +817,11 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         Assert.assertEquals("Incorrect number of carved tests", 2, factory.getNumCarvedTestCases());
         CarvedTestCase tc1 = (CarvedTestCase) factory.getCarvedTestCases().get(0);
-        Assert.assertEquals("Incorrect carved test name", "testWithNull", tc1.getName());
+        Assert.assertEquals("Incorrect carved test name", "testWithArray", tc1.getName());
         System.out.println("Carved Test Case # " + tc1.getID() + ": " + tc1.getName());
         System.out.println(tc1.toCode());
         CarvedTestCase tc2 = (CarvedTestCase) factory.getCarvedTestCases().get(1);
-        Assert.assertEquals("Incorrect carved test name", "testWithArray", tc2.getName());
+        Assert.assertEquals("Incorrect carved test name", "testWithNull", tc2.getName());
         System.out.println("Carved Test Case # " + tc2.getID() + ": " + tc2.getName());
         System.out.println(tc2.toCode());
     }
