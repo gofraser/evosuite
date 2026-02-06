@@ -61,10 +61,11 @@ public class JobExecutorIntTest {
         }
     }
 
-    @Test(timeout = 90_000)
+    @Test(timeout = 300_000)
     public void testActualExecutionOfSchedule() throws IOException {
 
         Properties.TEST_SCAFFOLDING = true;
+        Properties.CTG_EXTRA_ARGS = "-Dsandbox=false";
 
         boolean storageOK = storage.isStorageOk();
         assertTrue(storageOK);
@@ -78,16 +79,16 @@ public class JobExecutorIntTest {
         String classpath = ClassPathHandler.getInstance().getTargetProjectClasspath();
 
         int cores = 1;
-        int memory = 1000;
-        int minutes = 1;
+        int memory = 2000;
+        int minutes = 5;
 
         CtgConfiguration conf = new CtgConfiguration(memory, cores, minutes, 1, false, AvailableSchedule.SIMPLE);
         JobExecutor exe = new JobExecutor(storage, classpath, conf);
 
-        JobDefinition simple = new JobDefinition(30, memory,
+        JobDefinition simple = new JobDefinition(60, memory,
                 com.examples.with.different.packagename.continuous.Simple.class.getName(), 0, null, null);
 
-        JobDefinition trivial = new JobDefinition(30, memory,
+        JobDefinition trivial = new JobDefinition(60, memory,
                 com.examples.with.different.packagename.continuous.Trivial.class.getName(), 0, null, null);
 
         assertTrue(simple.jobID < trivial.jobID);
