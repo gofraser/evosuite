@@ -36,6 +36,7 @@ import org.evosuite.result.TestGenerationResult;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
@@ -99,6 +100,7 @@ public class SystemTestBase {
         Properties.getInstance().resetToDefaults();
         ExceptionCoverageFactory.getGoals().clear();
         Archive.getArchiveInstance().reset();
+        DependencyAnalysis.clear();
     }
 
     @Before

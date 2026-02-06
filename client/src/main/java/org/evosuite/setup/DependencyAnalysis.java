@@ -62,6 +62,13 @@ public class DependencyAnalysis {
 
     private static Set<String> targetClasses = null;
 
+    public static void clear() {
+        classCache.clear();
+        callGraphs.clear();
+        inheritanceTree = null;
+        targetClasses = null;
+    }
+
     /**
      * @return the inheritanceTree
      */
