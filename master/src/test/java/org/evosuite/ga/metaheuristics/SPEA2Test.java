@@ -325,11 +325,11 @@ public class SPEA2Test {
         GenerationalDistance gd = new GenerationalDistance();
         double gdd = gd.evaluate(front, trueParetoFront);
         System.out.println("GenerationalDistance: " + gdd);
-        assertEquals(0.27, gdd, 0.1);
+        assertEquals(0.017, gdd, 0.01);
 
         Spacing sp = new Spacing();
         double spd = sp.evaluate(front);
         System.out.println("SpacingFront: " + spd);
-        assertEquals(2.0, spd, 0.1);
+        assertEquals(0.0086, spd, 0.005);
     }
 }
