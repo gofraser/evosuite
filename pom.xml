@@ -39,10 +39,6 @@
         <module>shaded</module>
     </modules>
 
-    <prerequisites>
-        <maven>3.1</maven>
-    </prerequisites>
-
     <developers>
         <developer>
             <id>fraser</id>
