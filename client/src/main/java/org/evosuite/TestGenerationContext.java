@@ -180,6 +180,7 @@ public class TestGenerationContext {
 
         // TODO: After this, the test cluster is empty until
         // DependencyAnalysis.analyse is called
+        DependencyAnalysis.clear();
         TestCluster.reset();
         CastClassManager.getInstance().clear();
         ConcreteClassAnalyzer.getInstance().clear();
