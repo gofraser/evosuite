@@ -37,6 +37,7 @@ import org.evosuite.ga.problems.Problem;
 import org.evosuite.ga.problems.metrics.GenerationalDistance;
 import org.evosuite.ga.problems.metrics.Metrics;
 import org.evosuite.ga.problems.metrics.Spacing;
+import org.evosuite.utils.Randomness;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,6 +55,7 @@ public class POLIntTest {
         Properties.SEARCH_BUDGET = 10_000;
         Properties.CROSSOVER_RATE = 0.9;
         Properties.RANDOM_SEED = 1L;
+        Randomness.setSeed(Properties.RANDOM_SEED);
     }
 
     @Test
