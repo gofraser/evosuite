@@ -36,12 +36,10 @@
         <dependency>
             <groupId>com.sun.xml.bind</groupId>
             <artifactId>jaxb-impl</artifactId>
-            <version>2.3.0</version>
         </dependency>
         <dependency>
             <groupId>javax.xml.bind</groupId>
             <artifactId>jaxb-api</artifactId>
-            <version>2.3.0</version>
         </dependency>
     </dependencies>
 
@@ -95,7 +93,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.4</version>
                 <configuration>
                     <skipTests>true</skipTests>
                 </configuration>
@@ -103,7 +100,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.5.4</version>
                 <configuration>
                     <includes>
                         <include>**/*IntTest.java</include>
@@ -113,22 +109,22 @@
                     <dependency>
                         <groupId>javax.xml.bind</groupId>
                         <artifactId>jaxb-api</artifactId>
-                        <version>2.3.0</version>
+                        <version>${jaxb.version}</version>
                     </dependency>
                     <dependency>
                         <groupId>com.sun.xml.bind</groupId>
                         <artifactId>jaxb-core</artifactId>
-                        <version>2.3.0</version>
+                        <version>${jaxb.version}</version>
                     </dependency>
                     <dependency>
                         <groupId>com.sun.xml.bind</groupId>
                         <artifactId>jaxb-impl</artifactId>
-                        <version>2.3.0</version>
+                        <version>${jaxb.version}</version>
                     </dependency>
                     <dependency>
                         <groupId>javax.activation</groupId>
                         <artifactId>javax.activation-api</artifactId>
-                        <version>1.2.0</version>
+                        <version>${activation.version}</version>
                     </dependency>
                 </dependencies>
                 <executions>

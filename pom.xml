@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -184,6 +184,12 @@
                         <artifactId>mockito-core</artifactId>
                         <version>5.21.0</version>
                     </dependency>
+                    <dependency>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-classic</artifactId>
+                        <version>1.5.27</version>
+                        <optional>true</optional>
+                    </dependency>
                 </dependencies>
             </dependencyManagement>
         </profile>
@@ -211,19 +217,19 @@
             <dependency>
                 <groupId>com.sun.xml.bind</groupId>
                 <artifactId>jaxb-core</artifactId>
-                <version>2.3.0</version>
+                <version>${jaxb.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.sun.xml.bind</groupId>
                 <artifactId>jaxb-impl</artifactId>
-                <version>2.3.0</version>
+                <version>${jaxb.version}</version>
             </dependency>
             <dependency>
                 <!-- GPL, but classpath exception -->
                 <groupId>javax.xml.bind</groupId>
                 <artifactId>jaxb-api</artifactId>
-                <version>2.3.0</version>
+                <version>${jaxb.version}</version>
             </dependency>
             <dependency>
                 <!-- Apache 2 -->
@@ -247,19 +253,16 @@
                 <!-- EPL/LGPL -->
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
-                <!-- Unfortunately, recent versions (eg 1.1.6 and 1.1.7) hang
-                    on Windows, making EvoSuite unusable. If want to try to
-                    update it (eg after 1.1.7), need to make sure tests (eg,
-                    JobExecutorIntTest and all the Maven ones) work fine
-                    on Windows -->
-                <version>1.5.27</version>
+                <!-- For Java 8 compatibility, use 1.2.x. 1.3+ requires Java 11 -->
+                <version>1.2.13</version>
                 <optional>true</optional>
             </dependency>
             <dependency>
                 <!-- MIT -->
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-core</artifactId>
-                <version>5.21.0</version>
+                <!-- For Java 8 compatibility, use 4.x. 5+ requires Java 11 -->
+                <version>4.11.0</version>
             </dependency>
             <dependency>
                 <!-- Common Public License Version 1.0 -->
@@ -374,9 +377,40 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
+                <!-- Apache 2 -->
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-exec</artifactId>
+                <version>1.3</version>
+            </dependency>
+            <dependency>
                 <groupId>com.github.stefanbirkner</groupId>
                 <artifactId>system-rules</artifactId>
                 <version>1.19.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.platform</groupId>
+                <artifactId>junit-platform-runner</artifactId>
+                <version>1.8.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.vintage</groupId>
+                <artifactId>junit-vintage-engine</artifactId>
+                <version>5.8.0</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.xml.ws</groupId>
+                <artifactId>jaxws-api</artifactId>
+                <version>2.3.1</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>1.3.2</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.activation</groupId>
+                <artifactId>javax.activation-api</artifactId>
+                <version>${activation.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -498,7 +532,7 @@
                 <configuration>
                     <header>src/etc/header.txt</header>
                     <properties>
-                        <year>2010-2018</year>
+                        <year>2010-2026</year>
                     </properties>
                     <excludes>
                         <exclude>DSC_LICENSE.txt</exclude>
@@ -772,14 +806,16 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <deployURL>Needs to be fixed in Jenkins</deployURL>
-        <!-- empty by default. activated through profile -->
-        <!-- systemTests></systemTests>
-        <integrationTests></integrationTests -->
 
         <systemTests>**/*SystemTest.java</systemTests>
         <integrationTests>**/*IntTest.java</integrationTests>
         <rerunFailingTestsCount>0</rerunFailingTestsCount>
 
+        <compiler.target>1.8</compiler.target>
+        <compiler.source>1.8</compiler.source>
+
+        <jaxb.version>2.3.0</jaxb.version>
+        <activation.version>1.2.0</activation.version>
     </properties>
 
 </project>
