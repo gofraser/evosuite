@@ -58,7 +58,6 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
             else
                 p.randomize();
 
-            logger.info("Probing string " + originalValue + " ->" + p.getCode());
             int result = objective.hasChanged(test);
             if (result < 0) {
                 backup(test, p);
@@ -67,7 +66,6 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
             }
             if (result != 0) {
                 affected = true;
-                logger.info("String affects fitness");
                 break;
             }
         }
@@ -76,26 +74,18 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
 
             boolean hasImproved = false;
 
-            logger.info("Applying local search to string " + p.getCode());
             // First try to remove each of the characters
-            logger.info("Removing characters");
             if (removeCharacters(objective, test, p, statement))
                 hasImproved = true;
-            logger.info("Statement: " + p.getCode());
 
             // Second, try to replace each of the characters with each of the 64 possible characters
-            logger.info("Replacing characters");
             if (replaceCharacters(objective, test, p, statement))
                 hasImproved = true;
-            logger.info("Statement: " + p.getCode());
 
             // Third, try to add characters
-            logger.info("Adding characters");
             if (addCharacters(objective, test, p, statement))
                 hasImproved = true;
-            logger.info("Statement: " + p.getCode());
 
-            logger.info("Resulting string: " + p.getValue());
             return hasImproved;
             //} else {
             //	logger.info("Not applying local search to string as it does not improve fitness");
@@ -107,7 +97,6 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
     private boolean replaceCharacters(LocalSearchObjective<TestChromosome> objective,
                                       TestChromosome test, StringPrimitiveStatement p, int statement) {
 
-        logger.info(" -> In replacement");
         boolean improvement = false;
         backup(test, p);
         for (int i = 0; i < oldValue.length(); i++) {
@@ -122,10 +111,8 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
                 }
                 done = true;
                 // Try +1
-                logger.debug("Trying increment of " + p.getCode());
 
                 char oldChar = oldValue.charAt(i);
-                logger.info(" -> Character " + i + ": " + oldChar);
                 char[] characters = oldValue.toCharArray();
                 char replacement = oldChar;
 
@@ -149,13 +136,10 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
                     test.setLastExecutionResult(oldResult);
                     test.setChanged(false);
 
-                    logger.debug("Trying decrement of " + p.getCode());
                     replacement -= 2;
                     characters[i] = replacement;
                     newString = new String(characters);
                     p.setValue(newString);
-                    logger.info(" " + i + " " + oldValue + "/" + oldValue.length()
-                            + " -> " + newString + "/" + newString.length());
 
                     if (objective.hasImproved(test)) {
                         done = false;
@@ -183,9 +167,7 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
         oldValue = p.getValue();
         ExecutionResult oldResult = test.getLastExecutionResult();
 
-        logger.debug("Trying increment " + delta + " of " + p.getCode());
         char oldChar = oldValue.charAt(character);
-        logger.info(" -> Character " + character + ": " + oldChar);
         char[] characters = oldValue.toCharArray();
         char replacement = oldChar;
 
@@ -202,19 +184,15 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
             oldResult = test.getLastExecutionResult();
             improvement = true;
             delta = 2 * delta;
-            logger.info(" " + character + " " + oldValue + "/" + oldValue.length()
-                    + " -> " + newString + "/" + newString.length());
             replacement += delta;
             characters[character] = replacement;
             newString = new String(characters);
             p.setValue(newString);
         }
-        logger.debug("No improvement on " + p.getCode());
 
         p.setValue(oldValue);
         test.setLastExecutionResult(oldResult);
         test.setChanged(false);
-        logger.debug("Final value of this iteration: " + p.getValue());
 
         return improvement;
 
