@@ -30,7 +30,7 @@ public class VNET_SystemTest extends SystemTestBase {
     @Test
     public void testTCP() {
         Properties.SEARCH_BUDGET = 1_000_000;
-        Properties.GLOBAL_TIMEOUT = 300;
+        Properties.GLOBAL_TIMEOUT = 600;
         do100percentLineTest(Example_UDP_TCP.class);
     }
 

@@ -419,7 +419,16 @@ public class VirtualNetwork {
         EndPointInfo local = new EndPointInfo(localAddress, localPort, ConnectionType.TCP);
         Queue<NativeTcp> queue = incomingConnections.get(local);
         if (queue == null || queue.isEmpty()) {
-            return null;
+            /*
+             * If we bind to port 0, then we are assigned a random port.
+             * However, NetworkHandling might have set up a connection to port 0
+             * as it does not know the assigned port yet.
+             */
+            EndPointInfo wildcard = new EndPointInfo(localAddress, 0, ConnectionType.TCP);
+            queue = incomingConnections.get(wildcard);
+            if (queue == null || queue.isEmpty()) {
+                return null;
+            }
         }
 
         NativeTcp connection = queue.poll();
