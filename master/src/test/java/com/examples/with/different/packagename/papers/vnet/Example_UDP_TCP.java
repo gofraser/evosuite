@@ -33,7 +33,7 @@ public class Example_UDP_TCP {
     public String getMessage(int port) throws IOException {
 
         //defines message to send in UDP broadcast
-        InetAddress addr = InetAddress.getByName("192.168.0.1");
+        InetAddress addr = InetAddress.getByName("192.168.1.42");
         String handShake = "HAND_SHAKE";
         String outMsg = addr + ":" + port + ":" + handShake;
         byte[] data = outMsg.getBytes();
