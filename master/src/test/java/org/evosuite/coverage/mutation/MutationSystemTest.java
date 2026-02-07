@@ -200,7 +200,7 @@ public class MutationSystemTest extends SystemTestBase {
         Properties.TEST_ARCHIVE = true;
         Properties.CRITERION = new Properties.Criterion[]{Criterion.STRONGMUTATION};
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXSTATEMENTS;
-        Properties.SEARCH_BUDGET = 50000;
+        Properties.SEARCH_BUDGET = 100000;
 
         String targetClass = SimpleMutationExample2.class.getCanonicalName();
 
@@ -224,7 +224,7 @@ public class MutationSystemTest extends SystemTestBase {
         Properties.TEST_ARCHIVE = false;
         Properties.CRITERION = new Properties.Criterion[]{Criterion.STRONGMUTATION};
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXSTATEMENTS;
-        Properties.SEARCH_BUDGET = 50000;
+        Properties.SEARCH_BUDGET = 100000;
 
         String targetClass = SimpleMutationExample2.class.getCanonicalName();
 
