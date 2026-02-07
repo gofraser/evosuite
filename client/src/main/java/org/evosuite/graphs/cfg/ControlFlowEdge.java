@@ -80,6 +80,15 @@ public class ControlFlowEdge extends DefaultEdge {
     }
 
     /**
+     * <p>setControlDependency</p>
+     *
+     * @param cd a {@link org.evosuite.graphs.cfg.ControlDependency} object.
+     */
+    public void setControlDependency(ControlDependency cd) {
+        this.cd = cd;
+    }
+
+    /**
      * <p>hasControlDependency</p>
      *
      * @return a boolean.
