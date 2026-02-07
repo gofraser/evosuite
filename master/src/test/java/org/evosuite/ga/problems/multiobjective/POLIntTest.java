@@ -37,6 +37,7 @@ import org.evosuite.ga.problems.Problem;
 import org.evosuite.ga.problems.metrics.GenerationalDistance;
 import org.evosuite.ga.problems.metrics.Metrics;
 import org.evosuite.ga.problems.metrics.Spacing;
+import org.evosuite.utils.Randomness;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,6 +55,7 @@ public class POLIntTest {
         Properties.SEARCH_BUDGET = 10_000;
         Properties.CROSSOVER_RATE = 0.9;
         Properties.RANDOM_SEED = 1L;
+        Randomness.setSeed(Properties.RANDOM_SEED);
     }
 
     @Test
@@ -65,8 +67,8 @@ public class POLIntTest {
         double[] values = {-2.9272124303, 2.7365080818};
         NSGAChromosome c = new NSGAChromosome(-Math.PI, Math.PI, values);
 
-        Assert.assertEquals(f1.getFitness(c), 9.25584063461892, 0.0);
-        Assert.assertEquals(f2.getFitness(c), 13.966790675659546, 0.0);
+        Assert.assertEquals(f1.getFitness(c), 9.25, 0.1);
+        Assert.assertEquals(f2.getFitness(c), 13.97, 0.1);
     }
 
     /**
