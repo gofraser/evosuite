@@ -63,9 +63,6 @@ import java.util.Set;
  * the minimum over all distances for evaluating one of the Branches that the
  * given Branch is control dependent on is returned, after adding one to that
  * distance's approach level.
- * <p>
- * TODO make method that just takes a BytecodeInstruction and returns the
- * minimum over all distances to it's control dependent branches
  *
  * @author Andre Mis
  */
@@ -73,12 +70,13 @@ public class ControlFlowDistanceCalculator {
 
     private static final Logger logger = LoggerFactory.getLogger(ControlFlowDistanceCalculator.class);
 
-    private static final int TIMEOUT_APPROACH_LEVEL = 20;
+    // Using a large value to indicate unreachable or timed out approach level.
+    // 1000 should be larger than any realistic control dependence graph depth.
+    private static final int TIMEOUT_APPROACH_LEVEL = 1000;
 
-    // DONE hold intermediately calculated ControlFlowDistances in
-    // ExecutionResult during computation in order to speed up things -
-    // experiment at least
-    // ... did that, but no real speed up observed
+    private ControlFlowDistanceCalculator() {
+        // Prevent instantiation
+    }
 
     /**
      * Calculates the ControlFlowDistance indicating how far away the given
@@ -144,16 +142,9 @@ public class ControlFlowDistanceCalculator {
 
     private static ControlFlowDistance worstPossibleDistanceForMethod(Branch branch) {
         ControlFlowDistance d = new ControlFlowDistance();
-        if (branch == null) {
-            d.setApproachLevel(TIMEOUT_APPROACH_LEVEL);
-        } else {
-            int cdgDepth = getCDGDepth(branch);
-            if (cdgDepth == Integer.MAX_VALUE) {
-                d.setApproachLevel(TIMEOUT_APPROACH_LEVEL);
-            } else {
-                d.setApproachLevel(cdgDepth + 2);
-            }
-        }
+        // Always return the large approach level for timeouts, cycles, or unreachable code.
+        // This ensures consistency and prevents cycles from appearing more attractive than deep but reachable paths.
+        d.setApproachLevel(TIMEOUT_APPROACH_LEVEL);
         return d;
     }
 
@@ -161,8 +152,9 @@ public class ControlFlowDistanceCalculator {
      * If there is an exception in a superconstructor, then the corresponding
      * constructor might not be included in the execution trace
      *
-     * @param results
-     * @param callCount
+     * @param result
+     * @param className
+     * @param methodName
      */
     private static boolean hasConstructorException(ExecutionResult result,
                                                    String className, String methodName) {
@@ -226,7 +218,6 @@ public class ControlFlowDistanceCalculator {
             if (call.className.equals(className) && call.methodName.equals(methodName)) {
                 ControlFlowDistance d2;
                 Set<Branch> handled = new HashSet<>();
-                //				result.intermediateDistances = new HashMap<Branch,ControlFlowDistance>();
                 d2 = getNonRootDistance(result, call, branch, value, className,
                         methodName, handled);
                 if (d2.compareTo(r) < 0) {
@@ -248,21 +239,14 @@ public class ControlFlowDistanceCalculator {
         if (call == null)
             throw new IllegalArgumentException("null given");
 
-        //		ControlFlowDistance r = result.intermediateDistances.get(branch);
-
         if (handled.contains(branch)) {
-            //			if(r== null)
             return worstPossibleDistanceForMethod(branch);
-            //			else {
-            //				return r;
-            //			}
         }
         handled.add(branch);
 
         List<Double> trueDistances = call.trueDistanceTrace;
         List<Double> falseDistances = call.falseDistanceTrace;
 
-        // IDEA:
         // if this goal's branch is traced in the given path, return the
         // true_/false_distance, depending on this.value
         // otherwise, look at all Branches this.branch is control dependent on
@@ -287,7 +271,6 @@ public class ControlFlowDistanceCalculator {
             if (r.getBranchDistance() == Double.MAX_VALUE)
                 throw new IllegalStateException("should be impossible");
 
-            //			result.intermediateDistances.put(branch, r);
             return r;
         }
 
@@ -299,8 +282,6 @@ public class ControlFlowDistanceCalculator {
                 handled);
 
         controlDependenceDistance.increaseApproachLevel();
-
-        //		result.intermediateDistances.put(branch, controlDependenceDistance);
 
         return controlDependenceDistance;
     }
@@ -316,8 +297,8 @@ public class ControlFlowDistanceCalculator {
                 methodName,
                 handled);
 
-        if (cdDistances == null)
-            throw new IllegalStateException("expect cdDistances to never be null");
+        if (cdDistances == null || cdDistances.isEmpty())
+             throw new IllegalStateException("cdDistances should not be empty");
 
         return Collections.min(cdDistances);
     }
@@ -326,7 +307,7 @@ public class ControlFlowDistanceCalculator {
      * Returns a set containing the ControlFlowDistances in the given result for
      * all branches the given instruction is control dependent on
      *
-     * @param handled
+     * @param handled branches already visited in the recursion stack
      */
     private static Set<ControlFlowDistance> getDistancesForControlDependentBranchesOf(
             ExecutionResult result, MethodCall call, BytecodeInstruction instruction,
@@ -334,6 +315,17 @@ public class ControlFlowDistanceCalculator {
 
         Set<ControlFlowDistance> r = new HashSet<>();
         Set<ControlDependency> nextToLookAt = instruction.getControlDependencies();
+
+        if (nextToLookAt.isEmpty()) {
+            // instruction only dependent on root branch
+            // since this method is called by getNonRootDistance(MethodCall)
+            // which in turn is only called when a MethodCall for this branch's
+            // method was found in the given result, i can safely assume that
+            // the 0-distance is a control dependence distance for the given
+            // instruction.
+            r.add(new ControlFlowDistance());
+            return r;
+        }
 
         for (ControlDependency next : nextToLookAt) {
             if (instruction.equals(next.getBranch().getInstruction()))
@@ -344,41 +336,53 @@ public class ControlFlowDistanceCalculator {
                     next.getBranch(),
                     nextValue, className,
                     methodName, handled);
-            assert (nextDistance != null);
-            r.add(nextDistance);
+            if (nextDistance != null) {
+                r.add(nextDistance);
+            }
         }
 
         if (r.isEmpty()) {
-            // instruction only dependent on root branch
-            // since this method is called by getNonRootDistance(MethodCall)
-            // which in turn is only called when a MethodCall for this branch's
-            // method was found in the given result, i can safely assume that
-            // the 0-distance is a control dependence distance for the given
-            // instruction ... right?
-            r.add(new ControlFlowDistance());
+            // If all control dependencies were filtered (e.g., due to self-loops or cycles),
+            // the branch is effectively unreachable via control dependencies from the root.
+            // We return the worst possible distance to penalize this scenario.
+             r.add(new ControlFlowDistance(TIMEOUT_APPROACH_LEVEL, 0.0));
         }
 
         return r;
     }
 
-    static int getCDGDepth(Branch branch) {
+    /**
+     * Calculates the minimum depth of the Control Dependence Graph (CDG) starting from the given branch.
+     * The depth represents the minimum number of control dependencies to traverse to reach a root dependency.
+     *
+     * @param branch the branch to calculate depth for
+     * @return the minimum CDG depth, or {@link Integer#MAX_VALUE} if a cycle is detected.
+     */
+    public static int getCDGDepth(Branch branch) {
         return computeCDGDepth(branch.getInstruction(), new HashSet<>());
     }
 
     private static int computeCDGDepth(BytecodeInstruction instruction,
                                         Set<BytecodeInstruction> visited) {
         if (!visited.add(instruction)) return Integer.MAX_VALUE; // cycle
-        Set<ControlDependency> deps = instruction.getControlDependencies();
-        if (deps.isEmpty()) return 0; // root dependent
-        int minDepth = Integer.MAX_VALUE;
-        for (ControlDependency cd : deps) {
-            BytecodeInstruction parent = cd.getBranch().getInstruction();
-            if (parent.equals(instruction)) continue;
-            int parentDepth = computeCDGDepth(parent, new HashSet<>(visited));
-            if (parentDepth != Integer.MAX_VALUE)
-                minDepth = Math.min(minDepth, parentDepth + 1);
+
+        try {
+            Set<ControlDependency> deps = instruction.getControlDependencies();
+            if (deps.isEmpty()) return 0; // root dependent
+
+            int minDepth = Integer.MAX_VALUE;
+            for (ControlDependency cd : deps) {
+                BytecodeInstruction parent = cd.getBranch().getInstruction();
+                if (parent.equals(instruction)) continue;
+
+                int parentDepth = computeCDGDepth(parent, visited);
+                if (parentDepth != Integer.MAX_VALUE)
+                    minDepth = Math.min(minDepth, parentDepth + 1);
+            }
+            return minDepth;
+        } finally {
+            visited.remove(instruction); // backtrack
         }
-        return minDepth;
     }
 
     private static Set<Integer> determineBranchTracePositions(MethodCall call,
@@ -387,7 +391,7 @@ public class ControlFlowDistanceCalculator {
         Set<Integer> r = new HashSet<>();
         List<Integer> path = call.branchTrace;
         for (int pos = 0; pos < path.size(); pos++) {
-            if (path.get(pos) == branch.getActualBranchId()) { //.getActualBranchId()); {
+            if (path.get(pos) == branch.getActualBranchId()) {
                 r.add(pos);
             }
         }

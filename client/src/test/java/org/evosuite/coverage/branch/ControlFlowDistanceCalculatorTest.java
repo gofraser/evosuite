@@ -29,6 +29,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testcase.execution.MethodCall;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.junit.After;
 import org.junit.Before;
@@ -239,5 +240,25 @@ public class ControlFlowDistanceCalculatorTest {
 
         assertEquals(0, ControlFlowDistanceCalculator.getCDGDepth(outer));
         assertEquals(1, ControlFlowDistanceCalculator.getCDGDepth(inner));
+    }
+
+    @Test
+    public void testTimeoutDistance() {
+        Branch outer = findBranchAtLine(OUTER_LINE);
+
+        ExecutionResult result = createResult(
+                Collections.emptyList(),
+                Collections.emptySet(),
+                Collections.emptySet(),
+                Collections.emptySet());
+
+        // Simulate timeout at end of test (size 0 for mock)
+        result.reportNewThrownException(0, new TestCaseExecutor.TimeoutExceeded());
+
+        ControlFlowDistance d = ControlFlowDistanceCalculator.getDistance(
+                result, outer, true, CLASS_NAME, METHOD_NAME);
+
+        // Expect TIMEOUT_APPROACH_LEVEL (1000)
+        assertEquals(1000, d.getApproachLevel());
     }
 }
