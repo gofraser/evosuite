@@ -98,8 +98,6 @@ public class SystemTestBase {
         ClassReInitializer.resetSingleton();
         System.setProperties(currentProperties);
         Properties.getInstance().resetToDefaults();
-        Properties.STOPPING_CONDITION = StoppingCondition.MAXSTATEMENTS;
-        Properties.SEARCH_BUDGET = 30000;
         ExceptionCoverageFactory.getGoals().clear();
         Archive.getArchiveInstance().reset();
         DependencyAnalysis.clear();
