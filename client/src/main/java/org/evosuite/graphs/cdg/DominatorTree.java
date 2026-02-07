@@ -146,7 +146,7 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
         // "local"
         for (V child : cfg.getChildren(currentNode.node)) {
             DominatorNode<V> y = getDominatorNodeFor(child);
-            if (y.immediateDominator != null && y.immediateDominator.n != currentNode.n) {
+            if (y.immediateDominator == null || y.immediateDominator.n != currentNode.n) {
                 logger.debug("  LOCAL adding to DFs: " + y.node);
                 dominatingFrontier.add(y.node);
             }
@@ -158,7 +158,7 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
             if (childDF != null) {
                 for (V y : childDF) {
                     DominatorNode<V> yDomNode = getDominatorNodeFor(y);
-                    if (yDomNode.immediateDominator != null && yDomNode.immediateDominator.n != currentNode.n) {
+                    if (yDomNode.immediateDominator == null || yDomNode.immediateDominator.n != currentNode.n) {
                         logger.debug("  UP adding to DFs: " + y);
                         dominatingFrontier.add(y);
                     }

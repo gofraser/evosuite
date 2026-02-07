@@ -1,0 +1,401 @@
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+package org.evosuite.graphs.cdg;
+
+import com.examples.with.different.packagename.cdg.*;
+import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
+import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.graphs.GraphPool;
+import org.evosuite.graphs.cfg.BasicBlock;
+import org.evosuite.graphs.cfg.BytecodeInstruction;
+import org.evosuite.graphs.cfg.ControlDependency;
+import org.evosuite.graphs.cfg.ControlFlowEdge;
+import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.testcase.execution.reset.ClassReInitializer;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.io.File;
+import java.util.*;
+
+import static org.junit.Assert.*;
+
+/**
+ * Integration tests that build CDGs from real Java bytecode via
+ * DependencyAnalysis and verify structural properties against
+ * known source code patterns.
+ */
+public class ControlDependenceGraphIntegrationTest {
+
+    @Before
+    public void setUp() {
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
+        Properties.getInstance().resetToDefaults();
+        Properties.TARGET_CLASS = "";
+        TestGenerationContext.getInstance().resetContext();
+        ClassReInitializer.resetSingleton();
+    }
+
+    @After
+    public void tearDown() {
+        TestGenerationContext.getInstance().resetContext();
+        ClassReInitializer.resetSingleton();
+        Properties.getInstance().resetToDefaults();
+    }
+
+    // ── Helper methods ──────────────────────────────────────────────
+
+    /**
+     * Instruments the given class, retrieves and returns the CDG for the
+     * specified method descriptor.
+     */
+    private ControlDependenceGraph loadAndGetCDG(Class<?> clazz, String methodDescriptor)
+            throws ClassNotFoundException {
+        String className = clazz.getCanonicalName();
+        Properties.TARGET_CLASS = className;
+
+        String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
+        DependencyAnalysis.analyzeClass(className, Arrays.asList(cp.split(File.pathSeparator)));
+
+        ClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        return GraphPool.getInstance(classLoader).getCDG(className, methodDescriptor);
+    }
+
+    /**
+     * Finds a BasicBlock in the CDG whose line range includes the given line number.
+     * Skips entry/exit blocks. Returns null if not found.
+     */
+    private BasicBlock findBlockAtLine(ControlDependenceGraph cdg, int lineNumber) {
+        for (BasicBlock block : cdg.vertexSet()) {
+            if (block.isEntryBlock() || block.isExitBlock()) continue;
+            int first = block.getFirstLine();
+            int last = block.getLastLine();
+            if (first <= lineNumber && lineNumber <= last) {
+                return block;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Finds all BasicBlocks whose line range includes the given line number.
+     */
+    private List<BasicBlock> findAllBlocksAtLine(ControlDependenceGraph cdg, int lineNumber) {
+        List<BasicBlock> result = new ArrayList<>();
+        for (BasicBlock block : cdg.vertexSet()) {
+            if (block.isEntryBlock() || block.isExitBlock()) continue;
+            int first = block.getFirstLine();
+            int last = block.getLastLine();
+            if (first <= lineNumber && lineNumber <= last) {
+                result.add(block);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Returns the source line numbers of branch instructions controlling
+     * the given block (via CDG edges).
+     */
+    private Set<Integer> getControllingBranchLines(ControlDependenceGraph cdg, BasicBlock block) {
+        Set<Integer> lines = new LinkedHashSet<>();
+        for (ControlDependency cd : cdg.getControlDependentBranches(block)) {
+            BytecodeInstruction branchIns = cd.getBranch().getInstruction();
+            if (branchIns.hasLineNumberSet()) {
+                lines.add(branchIns.getLineNumber());
+            }
+        }
+        return lines;
+    }
+
+    /**
+     * Dumps CDG structure for debugging purposes.
+     */
+    private String dumpCDG(ControlDependenceGraph cdg) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("CDG for ").append(cdg.getMethodName()).append(":\n");
+        sb.append("  Vertices (").append(cdg.vertexCount()).append("):\n");
+        for (BasicBlock b : cdg.vertexSet()) {
+            sb.append("    ").append(b.getName())
+              .append(" lines=").append(b.getFirstLine()).append("-").append(b.getLastLine())
+              .append(" entry=").append(b.isEntryBlock())
+              .append(" rootDep=").append(!b.isEntryBlock() && cdg.isRootDependent(b))
+              .append("\n");
+            if (!b.isEntryBlock() && !b.isExitBlock()) {
+                Set<ControlDependency> deps = cdg.getControlDependentBranches(b);
+                for (ControlDependency cd : deps) {
+                    sb.append("      depends on branch at line ")
+                      .append(cd.getBranch().getInstruction().getLineNumber())
+                      .append(" (value=").append(cd.getBranchExpressionValue()).append(")\n");
+                }
+            }
+        }
+        sb.append("  Edges (").append(cdg.edgeCount()).append("):\n");
+        for (ControlFlowEdge e : cdg.edgeSet()) {
+            BasicBlock src = cdg.getEdgeSource(e);
+            BasicBlock tgt = cdg.getEdgeTarget(e);
+            sb.append("    ").append(src.getName()).append(" -> ").append(tgt.getName()).append("\n");
+        }
+        return sb.toString();
+    }
+
+    // ── Test: SimpleIfElse ──────────────────────────────────────────
+
+    @Test
+    public void testSimpleIfElse() throws ClassNotFoundException {
+        // Source (SimpleIfElse.java):
+        //   line 23: public int abs(int x) {
+        //   line 24:     if (x >= 0) {         <-- BRANCH
+        //   line 25:         return x;          <-- dependent on branch (true)
+        //   line 27:         return -x;         <-- dependent on branch (false)
+        ControlDependenceGraph cdg = loadAndGetCDG(SimpleIfElse.class, "abs(I)I");
+        assertNotNull("CDG should not be null", cdg);
+
+        String dump = dumpCDG(cdg);
+
+        // The branch is at the if-condition line
+        // Find blocks for the then and else bodies
+        BasicBlock thenBlock = findBlockAtLine(cdg, 25);
+        BasicBlock elseBlock = findBlockAtLine(cdg, 27);
+
+        assertNotNull("Should find block for 'return x' (line 25): " + dump, thenBlock);
+        assertNotNull("Should find block for 'return -x' (line 27): " + dump, elseBlock);
+
+        // Both then and else should NOT be root dependent
+        assertFalse("Then block should not be root dependent: " + dump,
+                cdg.isRootDependent(thenBlock));
+        assertFalse("Else block should not be root dependent: " + dump,
+                cdg.isRootDependent(elseBlock));
+
+        // Both should be control dependent on the same branch (the if condition)
+        Set<ControlDependency> thenDeps = cdg.getControlDependentBranches(thenBlock);
+        Set<ControlDependency> elseDeps = cdg.getControlDependentBranches(elseBlock);
+
+        assertFalse("Then block should have control dependencies: " + dump, thenDeps.isEmpty());
+        assertFalse("Else block should have control dependencies: " + dump, elseDeps.isEmpty());
+
+        // The branch instruction for both should be on the same line (the if condition)
+        Set<Integer> thenBranchLines = getControllingBranchLines(cdg, thenBlock);
+        Set<Integer> elseBranchLines = getControllingBranchLines(cdg, elseBlock);
+        assertEquals("Then and else should depend on same branch lines: " + dump,
+                thenBranchLines, elseBranchLines);
+
+        // They should have opposite branch expression values
+        boolean thenValue = thenDeps.iterator().next().getBranchExpressionValue();
+        boolean elseValue = elseDeps.iterator().next().getBranchExpressionValue();
+        assertNotEquals("Then and else should have opposite branch values: " + dump,
+                thenValue, elseValue);
+    }
+
+    // ── Test: NestedConditions ──────────────────────────────────────
+
+    @Test
+    public void testNestedConditions() throws ClassNotFoundException {
+        // Source (NestedConditions.java):
+        //   line 24:     if (x > 0) {             <-- OUTER BRANCH
+        //   line 25:         if (x > 100) {        <-- INNER BRANCH
+        //   line 26:             return "big";      <-- dependent on inner
+        //   line 28:             return "small";    <-- dependent on inner
+        //   line 31:         return "non-positive"; <-- dependent on outer only
+        ControlDependenceGraph cdg = loadAndGetCDG(NestedConditions.class, "classify(I)Ljava/lang/String;");
+        assertNotNull("CDG should not be null", cdg);
+
+        String dump = dumpCDG(cdg);
+
+        BasicBlock bigBlock = findBlockAtLine(cdg, 26);
+        BasicBlock smallBlock = findBlockAtLine(cdg, 28);
+        BasicBlock nonPosBlock = findBlockAtLine(cdg, 31);
+
+        assertNotNull("Should find block for 'big' (line 26): " + dump, bigBlock);
+        assertNotNull("Should find block for 'small' (line 28): " + dump, smallBlock);
+        assertNotNull("Should find block for 'non-positive' (line 31): " + dump, nonPosBlock);
+
+        // "big" and "small" should both depend on the inner branch (line 25)
+        Set<Integer> bigBranchLines = getControllingBranchLines(cdg, bigBlock);
+        Set<Integer> smallBranchLines = getControllingBranchLines(cdg, smallBlock);
+        assertTrue("'big' should depend on inner branch at line 25: " + dump,
+                bigBranchLines.contains(25));
+        assertTrue("'small' should depend on inner branch at line 25: " + dump,
+                smallBranchLines.contains(25));
+
+        // "non-positive" should depend on the outer branch (line 24)
+        Set<Integer> nonPosBranchLines = getControllingBranchLines(cdg, nonPosBlock);
+        assertTrue("'non-positive' should depend on outer branch at line 24: " + dump,
+                nonPosBranchLines.contains(24));
+
+        // "non-positive" should NOT depend on the inner branch
+        assertFalse("'non-positive' should not depend on inner branch: " + dump,
+                nonPosBranchLines.contains(25));
+    }
+
+    // ── Test: WhileLoop ─────────────────────────────────────────────
+
+    @Test
+    public void testWhileLoop() throws ClassNotFoundException {
+        // Source (WhileLoop.java):
+        //   line 24:     int sum = 0;
+        //   line 25:     int i = 0;
+        //   line 26:     while (i < n) {      <-- BRANCH (loop condition)
+        //   line 27:         sum += i;         <-- dependent on while
+        //   line 28:         i++;
+        //   line 30:     return sum;           <-- root dependent
+        ControlDependenceGraph cdg = loadAndGetCDG(WhileLoop.class, "sumUpTo(I)I");
+        assertNotNull("CDG should not be null", cdg);
+
+        String dump = dumpCDG(cdg);
+
+        // The loop body (line 27-28) should be control dependent on the while condition
+        BasicBlock loopBody = findBlockAtLine(cdg, 27);
+        assertNotNull("Should find block for loop body (line 27): " + dump, loopBody);
+        assertFalse("Loop body should not be root dependent: " + dump,
+                cdg.isRootDependent(loopBody));
+
+        Set<Integer> loopBodyBranches = getControllingBranchLines(cdg, loopBody);
+        assertTrue("Loop body should depend on while condition at line 26: " + dump,
+                loopBodyBranches.contains(26));
+
+        // The return statement (after the loop) is control dependent on the
+        // while condition — when the condition evaluates to true (loop exits),
+        // execution reaches the return. It is NOT root dependent.
+        BasicBlock returnBlock = findBlockAtLine(cdg, 30);
+        assertNotNull("Should find block for return (line 30): " + dump, returnBlock);
+        assertFalse("Return should not be root dependent (it depends on loop exit): " + dump,
+                cdg.isRootDependent(returnBlock));
+    }
+
+    // ── Test: SwitchMethod ──────────────────────────────────────────
+
+    @Test
+    public void testSwitchMethod() throws ClassNotFoundException {
+        // Source (SwitchMethod.java):
+        //   line 24:     switch (day) {              <-- SWITCH BRANCH
+        //   line 25:         case 1: return "Monday";
+        //   line 26:         case 2: return "Tuesday";
+        //   line 27:         case 3: return "Wednesday";
+        //   line 28:         default: return "other";
+        ControlDependenceGraph cdg = loadAndGetCDG(SwitchMethod.class, "dayType(I)Ljava/lang/String;");
+        assertNotNull("CDG should not be null", cdg);
+
+        String dump = dumpCDG(cdg);
+
+        // Each case should be control dependent (not root dependent)
+        BasicBlock mondayBlock = findBlockAtLine(cdg, 25);
+        BasicBlock tuesdayBlock = findBlockAtLine(cdg, 26);
+        BasicBlock wednesdayBlock = findBlockAtLine(cdg, 27);
+        BasicBlock defaultBlock = findBlockAtLine(cdg, 28);
+
+        assertNotNull("Should find block for Monday (line 25): " + dump, mondayBlock);
+        assertNotNull("Should find block for Tuesday (line 26): " + dump, tuesdayBlock);
+        assertNotNull("Should find block for Wednesday (line 27): " + dump, wednesdayBlock);
+        assertNotNull("Should find block for default (line 28): " + dump, defaultBlock);
+
+        // All case blocks should not be root dependent
+        assertFalse("Monday should not be root dependent: " + dump,
+                cdg.isRootDependent(mondayBlock));
+        assertFalse("Tuesday should not be root dependent: " + dump,
+                cdg.isRootDependent(tuesdayBlock));
+        assertFalse("Wednesday should not be root dependent: " + dump,
+                cdg.isRootDependent(wednesdayBlock));
+        assertFalse("Default should not be root dependent: " + dump,
+                cdg.isRootDependent(defaultBlock));
+
+        // All case blocks should have control dependencies
+        assertFalse("Monday should have control deps: " + dump,
+                cdg.getControlDependentBranches(mondayBlock).isEmpty());
+        assertFalse("Tuesday should have control deps: " + dump,
+                cdg.getControlDependentBranches(tuesdayBlock).isEmpty());
+        assertFalse("Wednesday should have control deps: " + dump,
+                cdg.getControlDependentBranches(wednesdayBlock).isEmpty());
+        assertFalse("Default should have control deps: " + dump,
+                cdg.getControlDependentBranches(defaultBlock).isEmpty());
+    }
+
+    // ── Test: SequentialBranches ─────────────────────────────────────
+
+    @Test
+    public void testSequentialBranches() throws ClassNotFoundException {
+        // Source (SequentialBranches.java):
+        //   line 24:     int result = 0;
+        //   line 25:     if (x > 0) {            <-- BRANCH 1
+        //   line 26:         result += 1;         <-- dependent on branch 1
+        //   line 28:         result -= 1;         <-- dependent on branch 1
+        //   line 30:     if (y > 0) {             <-- BRANCH 2
+        //   line 31:         result += 10;        <-- dependent on branch 2
+        //   line 33:         result -= 10;        <-- dependent on branch 2
+        //   line 35:     return result;            <-- root dependent
+        ControlDependenceGraph cdg = loadAndGetCDG(SequentialBranches.class, "process(II)I");
+        assertNotNull("CDG should not be null", cdg);
+
+        String dump = dumpCDG(cdg);
+
+        BasicBlock addOneBlock = findBlockAtLine(cdg, 26);
+        BasicBlock subOneBlock = findBlockAtLine(cdg, 28);
+        BasicBlock addTenBlock = findBlockAtLine(cdg, 31);
+        BasicBlock subTenBlock = findBlockAtLine(cdg, 33);
+        BasicBlock returnBlock = findBlockAtLine(cdg, 35);
+
+        assertNotNull("Should find block for result += 1 (line 26): " + dump, addOneBlock);
+        assertNotNull("Should find block for result -= 1 (line 28): " + dump, subOneBlock);
+        assertNotNull("Should find block for result += 10 (line 31): " + dump, addTenBlock);
+        assertNotNull("Should find block for result -= 10 (line 33): " + dump, subTenBlock);
+        assertNotNull("Should find block for return (line 35): " + dump, returnBlock);
+
+        // First if branches depend on branch 1 (line 25)
+        Set<Integer> addOneBranches = getControllingBranchLines(cdg, addOneBlock);
+        Set<Integer> subOneBranches = getControllingBranchLines(cdg, subOneBlock);
+        assertTrue("result += 1 should depend on branch 1 at line 25: " + dump,
+                addOneBranches.contains(25));
+        assertTrue("result -= 1 should depend on branch 1 at line 25: " + dump,
+                subOneBranches.contains(25));
+
+        // Second if branches depend on branch 2 (line 30)
+        Set<Integer> addTenBranches = getControllingBranchLines(cdg, addTenBlock);
+        Set<Integer> subTenBranches = getControllingBranchLines(cdg, subTenBlock);
+        assertTrue("result += 10 should depend on branch 2 at line 30: " + dump,
+                addTenBranches.contains(30));
+        assertTrue("result -= 10 should depend on branch 2 at line 30: " + dump,
+                subTenBranches.contains(30));
+
+        // First if branches should NOT depend on branch 2
+        assertFalse("result += 1 should not depend on branch 2: " + dump,
+                addOneBranches.contains(30));
+        assertFalse("result -= 1 should not depend on branch 2: " + dump,
+                subOneBranches.contains(30));
+
+        // Second if branches should NOT depend on branch 1
+        assertFalse("result += 10 should not depend on branch 1: " + dump,
+                addTenBranches.contains(25));
+        assertFalse("result -= 10 should not depend on branch 1: " + dump,
+                subTenBranches.contains(25));
+
+        // The return block is NOT root dependent — in the CDG it has no
+        // incoming edges (it's at a join point after the second if-else).
+        // Verify it has no control dependencies from either branch.
+        assertFalse("return should not be root dependent: " + dump,
+                cdg.isRootDependent(returnBlock));
+        Set<Integer> returnBranches = getControllingBranchLines(cdg, returnBlock);
+        assertFalse("return should not depend on branch 1: " + dump,
+                returnBranches.contains(25));
+        assertFalse("return should not depend on branch 2: " + dump,
+                returnBranches.contains(30));
+    }
+}

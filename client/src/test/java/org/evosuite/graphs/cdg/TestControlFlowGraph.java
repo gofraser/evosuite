@@ -6,8 +6,22 @@ import org.evosuite.graphs.cfg.ControlFlowEdge;
 
 public class TestControlFlowGraph extends ControlFlowGraph<Integer> {
 
+    private Integer entryPoint = null;
+
     public TestControlFlowGraph(String className, String methodName) {
         super(className, methodName, 0);
+    }
+
+    public void setEntryPoint(Integer entry) {
+        this.entryPoint = entry;
+    }
+
+    @Override
+    public Integer determineEntryPoint() {
+        if (entryPoint != null) {
+            return entryPoint;
+        }
+        return super.determineEntryPoint();
     }
 
     @Override
