@@ -408,25 +408,43 @@ public class VirtualNetwork {
     }
 
     /**
-     * Return a TCP connection for the given local address if there is any inbound remote connection to it
+     * Return a TCP connection for the given local address if there is any inbound remote connection to it.
+     * 
+     * <p>If no exact match (host + port) is found, this method will try to find a connection
+     * registered for the same host with any port. This allows tests where the port in the
+     * NetworkHandling.sendDataOnTcp() call doesn't exactly match the SUT's ServerSocket port.
      *
      * @param localAddress
      * @param localPort
-     * @return {@code null} if the test case has not set up it an incoming TCP connection
+     * @return {@code null} if the test case has not set up an incoming TCP connection
      */
     public synchronized NativeTcp pullTcpConnection(String localAddress, int localPort) {
 
+        // First, try exact match (host + port)
         EndPointInfo local = new EndPointInfo(localAddress, localPort, ConnectionType.TCP);
         Queue<NativeTcp> queue = incomingConnections.get(local);
-        if (queue == null || queue.isEmpty()) {
-            return null;
+        if (queue != null && !queue.isEmpty()) {
+            NativeTcp connection = queue.poll();
+            openedTcpConnections.add(connection);
+            return connection;
         }
 
-        NativeTcp connection = queue.poll();
-        openedTcpConnections.add(connection);
+        // If no exact match, try host-only matching (ignore port)
+        // This handles cases where the GA hasn't discovered the exact port yet
+        for (EndPointInfo key : incomingConnections.keySet()) {
+            if (key.getType() == ConnectionType.TCP && key.getHost().equals(localAddress)) {
+                Queue<NativeTcp> hostQueue = incomingConnections.get(key);
+                if (hostQueue != null && !hostQueue.isEmpty()) {
+                    NativeTcp connection = hostQueue.poll();
+                    openedTcpConnections.add(connection);
+                    return connection;
+                }
+            }
+        }
 
-        return connection;
+        return null;
     }
+
 
 
     /**
