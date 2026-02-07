@@ -180,6 +180,16 @@ public class PropertiesSuiteGAFactory
                     return new MOSATestSuiteAdapter(new MOSA(new RandomLengthTestFactory()));
                 }
             case DYNAMOSA:
+                if (!ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH)) {
+                    logger.warn("DynaMOSA requires BRANCH in Properties.CRITERION for structural "
+                            + "dependency tracking. Falling back to MOSA.");
+                    if (factory instanceof TestSuiteChromosomeFactory) {
+                        final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
+                        return new MOSATestSuiteAdapter(new MOSA(tscf.getTestChromosomeFactory()));
+                    } else {
+                        return new MOSATestSuiteAdapter(new MOSA(new RandomLengthTestFactory()));
+                    }
+                }
                 logger.info("Chosen search algorithm: DynaMOSA");
                 if (factory instanceof TestSuiteChromosomeFactory) {
                     final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
