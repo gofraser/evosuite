@@ -20,6 +20,8 @@
 
 package org.evosuite.coverage.cbranch;
 
+import org.evosuite.Properties;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.setup.CallContext;
@@ -29,10 +31,8 @@ import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.io.File;
+import java.util.*;
 
 /**
  * @author Gordon Fraser, mattia
@@ -52,6 +52,19 @@ public class CBranchFitnessFactory extends AbstractFitnessFactory<CBranchTestFit
         BranchCoverageFactory branchFactory = new BranchCoverageFactory();
         List<BranchCoverageTestFitness> branchGoals = branchFactory.getCoverageGoals();
         CallGraph callGraph = DependencyAnalysis.getCallGraph();
+        if (callGraph == null) {
+            String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
+            try {
+                DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, Arrays.asList(cp.split(File.pathSeparator)));
+            } catch (Exception e) {
+                logger.error("Failed to initialize DependencyAnalysis", e);
+            }
+            callGraph = DependencyAnalysis.getCallGraph();
+        }
+
+        if (callGraph == null) {
+            return new ArrayList<>();
+        }
 
         // try to find all occurrences of this branch in the call tree
         for (BranchCoverageTestFitness branchGoal : branchGoals) {
