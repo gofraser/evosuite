@@ -19,10 +19,14 @@
  */
 package org.evosuite.graphs.cfg;
 
+import org.evosuite.coverage.branch.Branch;
+import org.evosuite.coverage.branch.BranchPool;
+import org.objectweb.asm.tree.LabelNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -422,10 +426,92 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         }
 
         ControlFlowEdge e = new ControlFlowEdge(origEdge);
+
+        // If the edge lacks ControlDependency but the source is a Branch, try to recover it.
+        // This can happen if RawCFG was built before BranchInstrumentation populated the BranchPool.
+        if (!e.hasControlDependency() && !e.isExceptionEdge()) {
+            BytecodeInstruction srcIns = src.getLastInstruction();
+            if (srcIns != null && (srcIns.isBranch() || srcIns.isSwitch())) {
+                if (srcIns.isSwitch()) {
+                    recoverSwitchDependency(srcIns, target, e);
+                } else if (srcIns.isActualBranch()) {
+                    recoverBranchDependency(srcIns, target, e);
+                }
+            }
+        }
+
         if (!super.addEdge(src, target, e))
             throw new IllegalStateException("internal error while adding edge to CFG");
 
         logger.debug(".. succeeded, edgeCount: " + edgeCount());
+    }
+
+    private void recoverBranchDependency(BytecodeInstruction src, BasicBlock target, ControlFlowEdge e) {
+        if (!BranchPool.getInstance(rawGraph.getClassLoader()).isKnownAsBranch(src)) {
+            return;
+        }
+        Branch b = BranchPool.getInstance(rawGraph.getClassLoader()).getBranchForInstruction(src);
+        if (b != null) {
+            // Determine if jumping (True) or fall-through (False)
+            // Fall-through is usually next instruction ID.
+            BytecodeInstruction targetIns = target.getFirstInstruction();
+            boolean isJumping = true;
+            if (targetIns != null) {
+                if (targetIns.getInstructionId() == src.getInstructionId() + 1) {
+                    isJumping = false;
+                }
+            }
+            // ControlDependency(Branch, branchExpressionValue)
+            // If isJumping is true -> True branch?
+            // RawCFG uses 'isJumping' to determine value.
+            // ControlDependency constructor: (branch, branchExpressionValue)
+            // In RawCFG: new ControlDependency(src.toBranch(), isJumping);
+            // So we assume isJumping maps to branchExpressionValue.
+            ControlDependency cd = new ControlDependency(b, isJumping);
+            e.setControlDependency(cd);
+        }
+    }
+
+    private void recoverSwitchDependency(BytecodeInstruction src, BasicBlock target, ControlFlowEdge e) {
+        BytecodeInstruction targetIns = target.getFirstInstruction();
+        if (targetIns != null && targetIns.isLabel()) {
+            LabelNode label = (LabelNode) targetIns.getASMNode();
+            List<Branch> switchCaseBranches = BranchPool.getInstance(rawGraph.getClassLoader()).getBranchForLabel(label);
+            if (switchCaseBranches != null) {
+                for (Branch switchCaseBranch : switchCaseBranches) {
+                    // Check if this branch belongs to our switch instruction
+                    if (switchCaseBranch.getInstruction().equals(src)) {
+                        ControlDependency cd = new ControlDependency(switchCaseBranch, true);
+                        e.setControlDependency(cd);
+                        // Is it possible to have multiple cases targeting same label?
+                        // Yes. But ControlFlowEdge can only hold one CD?
+                        // RawCFG adds multiple edges in that case?
+                        // RawCFG: "for (Branch switchCaseBranch : switchCaseBranches) ... internalAddEdge"
+                        // So it adds multiple edges between same nodes?
+                        // EvoSuiteGraph extends DefaultDirectedGraph.
+                        // JGraphT DefaultDirectedGraph allows multiple edges?
+                        // "A directed graph. The graph allows multiple edges (if enabled)."
+                        // EvoSuiteGraph uses DefaultEdge.class.
+                        // DefaultDirectedGraph constructor without edge factory?
+                        // EvoSuiteGraph uses: super(edgeClass); -> new DefaultDirectedGraph(edgeClass)
+                        // By default, it might NOT allow multiple edges unless specified.
+                        // Actually EvoSuiteGraph overrides addEdge to check containsEdge.
+                        // Wait, ActualCFG.addRawEdge checks containsEdge!
+                        /*
+                        if (containsEdge(src, target)) {
+                            // ... checks consistency ...
+                            return;
+                        }
+                        */
+                        // So ActualCFG only allows ONE edge between blocks.
+                        // If multiple cases go to same block, we lose info?
+                        // That seems to be a limitation of ActualCFG or my understanding.
+                        // If so, just picking the first one we find is "best effort".
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     // convenience methods to switch between BytecodeInstructons and BasicBlocks

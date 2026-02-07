@@ -411,6 +411,11 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
                         throw new IllegalStateException("internal error while adding CD edge");
 
                     logger.debug("  " + cd.getName());
+                } else if (cd.isEntryBlock()) {
+                    if (!addEdge(cd, b, new ControlFlowEdge()))
+                        throw new IllegalStateException("internal error while adding CD edge");
+
+                    logger.debug("  " + cd.getName());
                 } else {
                     logger.debug("orig is null, cannot add CD edge for " + cd + " -> " + b);
                 }
