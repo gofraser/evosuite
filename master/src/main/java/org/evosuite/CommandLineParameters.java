@@ -21,7 +21,7 @@ package org.evosuite;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
+
 import org.apache.commons.cli.Options;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.executionmode.*;
@@ -76,6 +76,44 @@ public class CommandLineParameters {
         if (junitSuffix != null && !junitSuffix.endsWith("Test")) {
             throw new IllegalArgumentException("A JUnit suffix should always end with a 'Test'");
         }
+
+        validateAlgorithmStrategyConsistency();
+    }
+
+    /**
+     * Validate that the selected algorithm is compatible with the selected strategy.
+     */
+    private static void validateAlgorithmStrategyConsistency() {
+        Properties.Algorithm algo = Properties.ALGORITHM;
+        Properties.Strategy strategy = Properties.STRATEGY;
+
+        // Many-objective algorithms require MOSUITE strategy
+        if (isManyObjectiveAlgorithm(algo) && strategy != Properties.Strategy.MOSUITE) {
+            LoggingUtils.getEvoLogger().warn(
+                "* WARNING: Algorithm {} is designed for MOSUITE strategy, but {} is selected. " +
+                "Consider using -Dstrategy=MOSUITE", algo, strategy);
+        }
+
+        // MAP_ELITES algorithm requires MAP_ELITES strategy
+        if (algo == Properties.Algorithm.MAP_ELITES && strategy != Properties.Strategy.MAP_ELITES) {
+            throw new IllegalArgumentException(
+                "Algorithm MAP_ELITES requires strategy MAP_ELITES. " +
+                "Use -Dstrategy=MAP_ELITES or choose a different algorithm.");
+        }
+
+        // MAP_ELITES strategy requires MAP_ELITES algorithm
+        if (strategy == Properties.Strategy.MAP_ELITES && algo != Properties.Algorithm.MAP_ELITES) {
+            throw new IllegalArgumentException(
+                "Strategy MAP_ELITES requires algorithm MAP_ELITES. " +
+                "Use -Dalgorithm=MAP_ELITES or choose a different strategy.");
+        }
+    }
+
+    private static boolean isManyObjectiveAlgorithm(Properties.Algorithm algo) {
+        return algo == Properties.Algorithm.MOSA
+            || algo == Properties.Algorithm.DYNAMOSA
+            || algo == Properties.Algorithm.LIPS
+            || algo == Properties.Algorithm.MIO;
     }
 
 
@@ -129,8 +167,12 @@ public class CommandLineParameters {
         parallel.setArgName("n i x");
 
 
-        @SuppressWarnings("static-access")
-        Option property = OptionBuilder.withArgName("property=value").hasArgs(2).withValueSeparator().withDescription("use value for given property").create("D");
+        Option property = Option.builder("D")
+                .argName("property=value")
+                .numberOfArgs(2)
+                .valueSeparator()
+                .desc("use value for given property")
+                .get();
 
         for (Option option : generateOptions) {
             options.addOption(option);

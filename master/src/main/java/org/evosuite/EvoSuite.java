@@ -145,7 +145,7 @@ public class EvoSuite {
 
 
         // create the parser
-        CommandLineParser parser = new GnuParser();
+        CommandLineParser parser = new DefaultParser();
         try {
             // parse the command line arguments
             CommandLine line = parser.parse(options, args);
