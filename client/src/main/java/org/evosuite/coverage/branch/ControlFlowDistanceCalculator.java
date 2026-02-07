@@ -147,7 +147,12 @@ public class ControlFlowDistanceCalculator {
         if (branch == null) {
             d.setApproachLevel(TIMEOUT_APPROACH_LEVEL);
         } else {
-            d.setApproachLevel(branch.getInstruction().getActualCFG().getDiameter() + 2);
+            int cdgDepth = getCDGDepth(branch);
+            if (cdgDepth == Integer.MAX_VALUE) {
+                d.setApproachLevel(TIMEOUT_APPROACH_LEVEL);
+            } else {
+                d.setApproachLevel(cdgDepth + 2);
+            }
         }
         return d;
     }
@@ -209,7 +214,12 @@ public class ControlFlowDistanceCalculator {
         String methodName = branch.getMethodName();
 
         ControlFlowDistance r = new ControlFlowDistance();
-        r.setApproachLevel(branch.getInstruction().getActualCFG().getDiameter() + 1);
+        int cdgDepth = getCDGDepth(branch);
+        if (cdgDepth == Integer.MAX_VALUE) {
+            r.setApproachLevel(TIMEOUT_APPROACH_LEVEL);
+        } else {
+            r.setApproachLevel(cdgDepth + 1);
+        }
 
         // Minimal distance between target node and path
         for (MethodCall call : result.getTrace().getMethodCalls()) {
@@ -349,6 +359,26 @@ public class ControlFlowDistanceCalculator {
         }
 
         return r;
+    }
+
+    static int getCDGDepth(Branch branch) {
+        return computeCDGDepth(branch.getInstruction(), new HashSet<>());
+    }
+
+    private static int computeCDGDepth(BytecodeInstruction instruction,
+                                        Set<BytecodeInstruction> visited) {
+        if (!visited.add(instruction)) return Integer.MAX_VALUE; // cycle
+        Set<ControlDependency> deps = instruction.getControlDependencies();
+        if (deps.isEmpty()) return 0; // root dependent
+        int minDepth = Integer.MAX_VALUE;
+        for (ControlDependency cd : deps) {
+            BytecodeInstruction parent = cd.getBranch().getInstruction();
+            if (parent.equals(instruction)) continue;
+            int parentDepth = computeCDGDepth(parent, new HashSet<>(visited));
+            if (parentDepth != Integer.MAX_VALUE)
+                minDepth = Math.min(minDepth, parentDepth + 1);
+        }
+        return minDepth;
     }
 
     private static Set<Integer> determineBranchTracePositions(MethodCall call,
