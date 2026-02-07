@@ -174,8 +174,11 @@ public class MeasureCoverage {
         if (handler.startProcess(newArgs)) {
             Set<ClientNodeRemote> clients = null;
             try {
-                clients = new CopyOnWriteArraySet<>(MasterServices.getInstance().getMasterNode()
-                        .getClientsOnceAllConnected(10000).values());
+                java.util.Map<String, ClientNodeRemote> connectedClients = MasterServices.getInstance().getMasterNode()
+                        .getClientsOnceAllConnected(10000);
+                if (connectedClients != null) {
+                    clients = new CopyOnWriteArraySet<>(connectedClients.values());
+                }
             } catch (InterruptedException e) {
             }
             if (clients == null) {

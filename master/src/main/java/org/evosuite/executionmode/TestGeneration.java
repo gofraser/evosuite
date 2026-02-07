@@ -509,8 +509,11 @@ public class TestGeneration {
             Set<ClientNodeRemote> clients = null;
             try {
                 //FIXME: timeout here should be handled by TimeController
-                clients = new CopyOnWriteArraySet<>(MasterServices.getInstance().getMasterNode()
-                        .getClientsOnceAllConnected(60000).values());
+                java.util.Map<String, ClientNodeRemote> connectedClients = MasterServices.getInstance().getMasterNode()
+                        .getClientsOnceAllConnected(60000);
+                if (connectedClients != null) {
+                    clients = new CopyOnWriteArraySet<>(connectedClients.values());
+                }
             } catch (InterruptedException e) {
             }
             if (clients == null) {
