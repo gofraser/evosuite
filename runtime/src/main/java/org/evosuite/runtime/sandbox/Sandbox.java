@@ -159,7 +159,7 @@ public class Sandbox {
 
     public static void goingToExecuteSUTCode() {
         if (!isSecurityManagerInitialized()) {
-            if (checkForInitialization) {
+            if (checkForInitialization && SECURITY_MANAGER_SUPPORTED) {
                 logger.error("Sandbox is not initialized!");
             }
             return;
@@ -170,7 +170,7 @@ public class Sandbox {
 
     public static void doneWithExecutingSUTCode() {
         if (!isSecurityManagerInitialized()) {
-            if (checkForInitialization) {
+            if (checkForInitialization && SECURITY_MANAGER_SUPPORTED) {
                 logger.error("Sandbox is not initialized!");
             }
             return;
