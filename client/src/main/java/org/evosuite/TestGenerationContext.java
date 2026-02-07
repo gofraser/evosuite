@@ -180,6 +180,7 @@ public class TestGenerationContext {
 
         // TODO: After this, the test cluster is empty until
         // DependencyAnalysis.analyse is called
+        DependencyAnalysis.clear();
         TestCluster.reset();
         CastClassManager.getInstance().clear();
         ConcreteClassAnalyzer.getInstance().clear();
@@ -203,10 +204,7 @@ public class TestGenerationContext {
         CarvingManager.getInstance().clear();
 
         // TODO: Why are we doing this?
-        if (Properties.INSTRUMENT_CONTEXT || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.DEFUSE)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.IBRANCH)) {
-            // || ArrayUtil.contains(Properties.CRITERION,
-            // Properties.Criterion.CBRANCH)) {
+        if (Properties.INSTRUMENT_CONTEXT || !Properties.TARGET_CLASS.isEmpty()) {
             try {
                 // 1. Initialize the callGraph before using
                 String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
