@@ -91,20 +91,21 @@ public class TestSuiteLocalSearchObjective implements LocalSearchObjective<TestC
      * Creates a new <code>TestSuiteLocalSearchObjective</code> for a given list
      * of fitness functions, a test suite and a <code>testIndex</code> for
      * replacing an optimised test case (i.e. a test case over which was applied
-     * local search)
+     * local search).
      *
      * @param fitness the list of fitness functions to be used on the modified test
      *                suite
      * @param suite   the original test suite
      * @param index   the index (between 0 and the suite length) that will be
      *                replaced with a new test case
-     * @return
+     * @param <T>     a T object.
+     * @return a {@link org.evosuite.testsuite.localsearch.TestSuiteLocalSearchObjective} object.
      */
     public static <T extends Chromosome<T>> TestSuiteLocalSearchObjective
-    buildNewTestSuiteLocalSearchObjective(
-            List<FitnessFunction<T>> fitness,
-            TestSuiteChromosome suite,
-            int index) {
+            buildNewTestSuiteLocalSearchObjective(
+                    List<FitnessFunction<T>> fitness,
+                    TestSuiteChromosome suite,
+                    int index) {
         List<TestSuiteFitnessFunction> ffs = new ArrayList<>();
         for (FitnessFunction<T> ff : fitness) {
             TestSuiteFitnessFunction tff = (TestSuiteFitnessFunction) ff;
@@ -130,14 +131,15 @@ public class TestSuiteLocalSearchObjective implements LocalSearchObjective<TestC
 
     /**
      * Returns true if all the fitness functions are minimising and the fitness
-     * value for each of them is 0.0
+     * value for each of them is 0.0.
      */
     @Override
     public boolean isDone() {
 
         for (TestSuiteFitnessFunction fitness : fitnessFunctions) {
-            if (fitness.isMaximizationFunction() || fitness.getFitness(suite) != 0.0)
+            if (fitness.isMaximizationFunction() || fitness.getFitness(suite) != 0.0) {
                 return false;
+            }
         }
         return true;
     }
@@ -154,7 +156,7 @@ public class TestSuiteLocalSearchObjective implements LocalSearchObjective<TestC
     /**
      * Returns true if by replacing the test case at position
      * <code>testIndex</code> with the argument <code>testCase</code>, the
-     * resulting test suite has not worsened the fitness
+     * resulting test suite has not worsened the fitness.
      */
     @Override
     public boolean hasNotWorsened(TestChromosome testCase) {
@@ -188,8 +190,9 @@ public class TestSuiteLocalSearchObjective implements LocalSearchObjective<TestC
         testCase.setChanged(true);
         suite.setTestChromosome(testIndex, testCase);
         LocalSearchBudget.getInstance().countFitnessEvaluation();
-        for (TestSuiteFitnessFunction fitnessFunction : fitnessFunctions)
+        for (TestSuiteFitnessFunction fitnessFunction : fitnessFunctions) {
             fitnessFunction.getFitness(suite);
+        }
         double newFitness = suite.getFitness();
 
         if (isFitnessBetter(newFitness, lastFitnessSum)) {
@@ -215,7 +218,7 @@ public class TestSuiteLocalSearchObjective implements LocalSearchObjective<TestC
      * this local search objective, this function should not belong. TODO: Why
      * not simply returning the fitness functions of the suite?
      *
-     * @return
+     * @return a {@link java.util.List} object.
      */
     @Override
     public List<FitnessFunction<TestChromosome>> getFitnessFunctions() {

@@ -55,7 +55,7 @@ public class TestSuiteReplacementFunction extends ReplacementFunction<TestSuiteC
 
     /**
      * <p>
-     * getLengthSum
+     * getLengthSum.
      * </p>
      *
      * @param chromosome1 a {@link org.evosuite.testsuite.AbstractTestSuiteChromosome}

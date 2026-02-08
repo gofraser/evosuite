@@ -37,7 +37,7 @@ public class FixedSizeTestSuiteChromosomeFactory implements
     private static final long serialVersionUID = 6269582177138945987L;
 
     /**
-     * Factory to manipulate and generate method sequences
+     * Factory to manipulate and generate method sequences.
      */
     private final ChromosomeFactory<TestChromosome> testChromosomeFactory;
 

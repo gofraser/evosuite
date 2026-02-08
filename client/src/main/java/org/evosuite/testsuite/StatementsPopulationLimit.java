@@ -41,14 +41,18 @@ public class StatementsPopulationLimit<T extends Chromosome<T>>
     }
 
     /**
-     * Copy Constructor
+     * Copy Constructor.
+     *
      * <p>
      * This constructor is used by {@link org.evosuite.ga.metaheuristics.TestSuiteAdapter} to adapt the generic type
      * parameter.
+     * </p>
+     *
      * <p>
      * This constructor shall preserve the current state of the StatementsPopulationLimit (if existing).
+     * </p>
      *
-     * @param other
+     * @param other a {@link org.evosuite.testsuite.StatementsPopulationLimit} object.
      */
     public StatementsPopulationLimit(StatementsPopulationLimit<?> other) {
     }
@@ -63,12 +67,14 @@ public class StatementsPopulationLimit<T extends Chromosome<T>>
     @Override
     public boolean isPopulationFull(List<T> population) {
         int numStatements = population.stream().map(x -> {
-                    if (x instanceof TestSuiteChromosome)
-                        return x;
-                    if (x instanceof TestChromosome)
-                        return ((TestChromosome) x).toSuite();
-                    throw new IllegalArgumentException("Could not transform population to TestSuites");
-                })
+            if (x instanceof TestSuiteChromosome) {
+                return x;
+            }
+            if (x instanceof TestChromosome) {
+                return ((TestChromosome) x).toSuite();
+            }
+            throw new IllegalArgumentException("Could not transform population to TestSuites");
+        })
                 .mapToInt(x -> ((TestSuiteChromosome) x).totalLengthOfTestCases())
                 .sum();
         return numStatements >= Properties.POPULATION;

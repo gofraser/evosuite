@@ -72,11 +72,11 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
 
     /**
      * Naive similarity comparison between suites simply consists of merging all tests to a single test
-     * for each suite, and then comparing these tests
+     * for each suite, and then comparing these tests.
      *
-     * @param suite1
-     * @param suite2
-     * @return
+     * @param suite1 a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
+     * @param suite2 a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
+     * @return a double.
      */
     public static double getSuiteSimilarity(TestSuiteChromosome suite1, TestSuiteChromosome suite2) {
         TestCase test1 = new DefaultTestCase();
@@ -100,24 +100,27 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
     // TODO: Similarity based on vectors of types of calls
 
     /**
-     * Sequence alignment based distance
+     * Sequence alignment based distance.
      *
-     * @param test1
-     * @param test2
-     * @return
+     * @param test1 a {@link org.evosuite.testcase.TestCase} object.
+     * @param test2 a {@link org.evosuite.testcase.TestCase} object.
+     * @return a double.
      */
     public static double getNeedlemanWunschScore(TestCase test1, TestCase test2) {
         int[][] matrix = new int[test1.size() + 1][test2.size() + 1];
 
-        for (int i = 0; i <= test1.size(); i++)
+        for (int i = 0; i <= test1.size(); i++) {
             matrix[i][0] = GAP_PENALTY * i;
+        }
 
-        for (int i = 0; i <= test2.size(); i++)
+        for (int i = 0; i <= test2.size(); i++) {
             matrix[0][i] = GAP_PENALTY * i;
+        }
 
         for (int x = 1; x <= test1.size(); x++) {
             for (int y = 1; y <= test2.size(); y++) {
-                int upLeft = matrix[x - 1][y - 1] + getStatementSimilarity(test1.getStatement(x - 1), test2.getStatement(y - 1));
+                int upLeft = matrix[x - 1][y - 1] + getStatementSimilarity(test1.getStatement(x - 1),
+                        test2.getStatement(y - 1));
                 int insert = matrix[x - 1][y] + GAP_PENALTY;
                 int delete = matrix[x][y - 1] + GAP_PENALTY;
                 matrix[x][y] = Math.max(upLeft, Math.max(delete, insert));
@@ -138,17 +141,25 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
         if (s1.getClass() == s2.getClass()) {
             similarity += 1;
             if (s1 instanceof ConstructorStatement) {
-                if (getUnderlyingType((ConstructorStatement) s1).equals(getUnderlyingType((ConstructorStatement) s2)))
+                if (getUnderlyingType((ConstructorStatement) s1).equals(
+                        getUnderlyingType((ConstructorStatement) s2))) {
                     similarity += 1;
+                }
             } else if (s1 instanceof PrimitiveStatement) {
-                if (getUnderlyingType((PrimitiveStatement<?>) s1).equals(getUnderlyingType((PrimitiveStatement<?>) s2)))
+                if (getUnderlyingType((PrimitiveStatement<?>) s1).equals(
+                        getUnderlyingType((PrimitiveStatement<?>) s2))) {
                     similarity += 1;
+                }
             } else if (s1 instanceof MethodStatement) {
-                if (getUnderlyingType((MethodStatement) s1).equals(getUnderlyingType((MethodStatement) s2)))
+                if (getUnderlyingType((MethodStatement) s1).equals(
+                        getUnderlyingType((MethodStatement) s2))) {
                     similarity += 1;
+                }
             } else if (s1 instanceof FieldStatement) {
-                if (getUnderlyingType((FieldStatement) s1).equals(getUnderlyingType((FieldStatement) s2)))
+                if (getUnderlyingType((FieldStatement) s1).equals(
+                        getUnderlyingType((FieldStatement) s2))) {
                     similarity += 1;
+                }
             }
             // TODO: If underlying type is the same, further benefit
         } else {

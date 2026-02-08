@@ -38,67 +38,73 @@ public class RelativeSuiteLengthBloatControl<T extends Chromosome<T>> implements
     private static final long serialVersionUID = -2352882640530431653L;
 
     /**
-     * Longest individual in current generation
+     * Longest individual in current generation.
      */
-    protected int current_max;
+    protected int currentMax;
 
-    protected double best_fitness;
+    protected double bestFitness;
 
     public RelativeSuiteLengthBloatControl() {
-        current_max = 0;
-        best_fitness = Double.MAX_VALUE; // FIXXME: Assuming
+        currentMax = 0;
+        bestFitness = Double.MAX_VALUE; // FIXXME: Assuming
         // minimizing fitness!
     }
 
     public RelativeSuiteLengthBloatControl(final RelativeSuiteLengthBloatControl<?> that) {
-        this.current_max = that.current_max;
-        this.best_fitness = that.best_fitness;
+        this.currentMax = that.currentMax;
+        this.bestFitness = that.bestFitness;
     }
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Reject individuals that are larger than twice the length of the current
-     * best individual
+     *
+     * <p>Reject individuals that are larger than twice the length of the current
+     * best individual.</p>
      */
     @Override
     public boolean isTooLong(T chromosome) {
 
         // Always accept if fitness is better
-        if (chromosome.getFitness() < best_fitness)
+        if (chromosome.getFitness() < bestFitness) {
             return false;
+        }
 
-        // logger.debug("Current - max: "+((TestSuiteChromosome)chromosome).length()+" - "+current_max);
-        if (current_max > 0) {
+        // logger.debug("Current - max: "+((TestSuiteChromosome)chromosome).length()+" - "+currentMax);
+        if (currentMax > 0) {
             // if(((TestSuiteChromosome)chromosome).length() > bloat_factor *
-            // current_max)
+            // currentMax)
             // logger.debug("Bloat control: "+((TestSuiteChromosome)chromosome).length()
-            // +" > "+ bloat_factor * current_max);
+            // +" > "+ bloat_factor * currentMax);
 
             int length = 0;
-            if (chromosome instanceof TestSuiteChromosome)
+            if (chromosome instanceof TestSuiteChromosome) {
                 length = ((TestSuiteChromosome) chromosome).totalLengthOfTestCases();
-            if (chromosome instanceof TestChromosome)
+            }
+            if (chromosome instanceof TestChromosome) {
                 length = chromosome.size();
-            return length > (Properties.BLOAT_FACTOR * current_max);
-        } else
+            }
+            return length > (Properties.BLOAT_FACTOR * currentMax);
+        } else {
             return false; // Don't know max length so can't reject!
+        }
 
     }
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Set current max length to max of best chromosome
+     *
+     * <p>Set current max length to max of best chromosome.</p>
      */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
         T best = algorithm.getBestIndividual();
-        if (best instanceof TestSuiteChromosome)
-            current_max = ((TestSuiteChromosome) best).totalLengthOfTestCases();
-        if (best instanceof TestChromosome)
-            current_max = best.size();
-        best_fitness = best.getFitness();
+        if (best instanceof TestSuiteChromosome) {
+            currentMax = ((TestSuiteChromosome) best).totalLengthOfTestCases();
+        }
+        if (best instanceof TestChromosome) {
+            currentMax = best.size();
+        }
+        bestFitness = best.getFitness();
     }
 
     /**

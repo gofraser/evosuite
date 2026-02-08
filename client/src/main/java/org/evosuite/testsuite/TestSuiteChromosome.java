@@ -37,15 +37,17 @@ import static java.util.stream.Collectors.toCollection;
  * TestSuiteChromosome class.
  * </p>
  *
- * @author Gordon Fraser
  * <p>
  * Final in order to prevent breaking of self type.
+ * </p>
+ *
+ * @author Gordon Fraser
  */
 public final class TestSuiteChromosome
         extends AbstractTestSuiteChromosome<TestSuiteChromosome, TestChromosome> {
 
     /**
-     * Secondary objectives used during ranking
+     * Secondary objectives used during ranking.
      */
     private static final List<SecondaryObjective<TestSuiteChromosome>>
             secondaryObjectives = new ArrayList<>();
@@ -54,7 +56,7 @@ public final class TestSuiteChromosome
 
     /**
      * Add an additional secondary objective to the end of the list of
-     * objectives
+     * objectives.
      *
      * @param objective a {@link org.evosuite.ga.SecondaryObjective} object.
      */
@@ -71,13 +73,15 @@ public final class TestSuiteChromosome
     }
 
     public static void disableFirstSecondaryObjective() {
-        if (secondaryObjIndex != 1)
+        if (secondaryObjIndex != 1) {
             secondaryObjIndex = 1;
+        }
     }
 
     public static void enableFirstSecondaryObjective() {
-        if (secondaryObjIndex != 0)
+        if (secondaryObjIndex != 0) {
             secondaryObjIndex = 0;
+        }
     }
 
     public static void reverseSecondaryObjective() {
@@ -85,7 +89,7 @@ public final class TestSuiteChromosome
     }
 
     /**
-     * Remove secondary objective from list, if it is there
+     * Remove secondary objective from list, if it is there.
      *
      * @param objective a {@link org.evosuite.ga.SecondaryObjective} object.
      */
@@ -135,9 +139,10 @@ public final class TestSuiteChromosome
     }
 
     /**
-     * Add a test to a test suite
+     * Add a test to a test suite.
      *
      * @param test a {@link org.evosuite.testcase.TestCase} object.
+     * @return a {@link org.evosuite.testcase.TestChromosome} object.
      */
     public TestChromosome addTest(TestCase test) {
         TestChromosome c = new TestChromosome();
@@ -160,10 +165,10 @@ public final class TestSuiteChromosome
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Create a deep copy of this test suite
      *
-     * @return
+     * <p>Create a deep copy of this test suite.</p>
+     *
+     * @return a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     @Override
     public TestSuiteChromosome clone() {
@@ -183,8 +188,9 @@ public final class TestSuiteChromosome
         int c = 0;
         while (c == 0 && objective < secondaryObjectives.size()) {
             SecondaryObjective<TestSuiteChromosome> so = secondaryObjectives.get(objective++);
-            if (so == null)
+            if (so == null) {
                 break;
+            }
             c = so.compareChromosomes(this.self(), o);
         }
         return c;
@@ -192,7 +198,7 @@ public final class TestSuiteChromosome
 
 
     /**
-     * For manual algorithm
+     * For manual algorithm.
      *
      * @param testCase to remove
      */
@@ -204,7 +210,7 @@ public final class TestSuiteChromosome
 
     /**
      * <p>
-     * getCoveredGoals
+     * getCoveredGoals.
      * </p>
      *
      * @return a {@link java.util.Set} object.
@@ -224,7 +230,7 @@ public final class TestSuiteChromosome
 
     /**
      * <p>
-     * getTests
+     * getTests.
      * </p>
      *
      * @return a {@link java.util.List} object.
@@ -244,8 +250,8 @@ public final class TestSuiteChromosome
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Apply mutation on test suite level
+     *
+     * <p>Apply mutation on test suite level.</p>
      */
     @Override
     public void mutate() {
@@ -254,17 +260,15 @@ public final class TestSuiteChromosome
         }
     }
 
-    /**
-     * {@inheritDoc}
-     * <p>
-     * Determine relative ordering of this chromosome to another chromosome If
-     * fitness is equal, the shorter chromosome comes first
-     */
     /*
      * public int compareTo(Chromosome o) { if(RANK_LENGTH && getFitness() ==
      * o.getFitness()) { return (int) Math.signum((length() -
      * ((TestSuiteChromosome)o).length())); } else return (int)
      * Math.signum(getFitness() - o.getFitness()); }
+     */
+
+    /**
+     * {@inheritDoc}
      */
     @Override
     public String toString() {
