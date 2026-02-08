@@ -19,8 +19,8 @@
  */
 package org.evosuite.rmi.service;
 
-import org.evosuite.Properties;
 import org.evosuite.*;
+import org.evosuite.Properties;
 import org.evosuite.Properties.NoSuchParameterException;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.ClassStatisticsPrinter;
@@ -53,27 +53,27 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     private static final long serialVersionUID = 485858845631346580L;
 
     /**
-     * The current state/phase in which this client process is (eg, search or assertion generation)
+     * The current state/phase in which this client process is (eg, search or assertion generation).
      */
     private volatile ClientState state;
 
     /**
-     * RMI reference used to communicate with the master node
+     * RMI reference used to communicate with the master node.
      */
     private MasterNodeRemote masterNode;
 
     /**
-     * A unique identifier for this client process (needed if running several clients in parallel)
+     * A unique identifier for this client process (needed if running several clients in parallel).
      */
     private String clientRmiIdentifier;
 
     /**
-     * A latch used to wait till the test generation is done
+     * A latch used to wait till the test generation is done.
      */
     protected volatile CountDownLatch doneLatch;
 
     /**
-     * A latch used to wait for this process to be fully finished
+     * A latch used to wait for this process to be fully finished.
      */
     protected volatile CountDownLatch finishedLatch;
 
@@ -190,26 +190,31 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         try {
             doneLatch.await();
         } catch (InterruptedException ignored) {
+            // ignored
         }
     }
 
     @Override
     public void emigrate(Set<T> immigrants) {
         try {
-            logger.debug(ClientProcess.getPrettyPrintIdentifier() + "Sending " + immigrants.size() + " immigrants");
+            logger.debug(ClientProcess.getPrettyPrintIdentifier() + "Sending "
+                    + immigrants.size() + " immigrants");
             masterNode.evosuite_migrate(clientRmiIdentifier, immigrants);
         } catch (RemoteException e) {
-            logger.error(ClientProcess.getPrettyPrintIdentifier() + "Cannot send immigrating individuals to master", e);
+            logger.error(ClientProcess.getPrettyPrintIdentifier()
+                    + "Cannot send immigrating individuals to master", e);
         }
     }
 
     @Override
     public void sendBestSolution(Set<T> solutions) {
         try {
-            logger.debug(ClientProcess.getPrettyPrintIdentifier() + "sending best solutions to " + ClientProcess.DEFAULT_CLIENT_NAME);
+            logger.debug(ClientProcess.getPrettyPrintIdentifier() + "sending best solutions to "
+                    + ClientProcess.DEFAULT_CLIENT_NAME);
             masterNode.evosuite_collectBestSolutions(clientRmiIdentifier, solutions);
         } catch (RemoteException e) {
-            logger.error(ClientProcess.getPrettyPrintIdentifier() + "Cannot send best solution to master", e);
+            logger.error(ClientProcess.getPrettyPrintIdentifier()
+                    + "Cannot send best solution to master", e);
         }
     }
 
@@ -221,7 +226,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     @Override
     public void changeState(ClientState state, ClientStateInformation information) {
         if (this.state != state) {
-            logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client changing state from " + this.state + " to " + state);
+            logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client changing state from "
+                    + this.state + " to " + state);
         }
 
         this.state = state;

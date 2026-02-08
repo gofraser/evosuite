@@ -22,7 +22,7 @@ package org.evosuite.rmi.service;
 import org.evosuite.Properties;
 
 /**
- * FIXME: sync with ProgressMonitor, and finish set it in all client code
+ * FIXME: sync with ProgressMonitor, and finish set it in all client code.
  *
  * @author arcuri
  */
@@ -39,7 +39,8 @@ public enum ClientState {
     MINIMIZING_VALUES("Minimizing values", "Minimizing primitive values in the tests", 6),
     MINIMIZATION("Minimizing", "Minimizing size/length of test cases", 7),
     //TODO, question: why is it before ASSERTION?
-    COVERAGE_ANALYSIS("Coverage Analysis", "Compute and the different coverage criteria of the generated test suite", 8),
+    COVERAGE_ANALYSIS("Coverage Analysis",
+            "Compute and the different coverage criteria of the generated test suite", 8),
     ASSERTION_GENERATION("Generating assertions", "Adding assertions to the test cases", 9),
     JUNIT_CHECK("Check JUnit", "Validate and fix the generated tests", 10),
     WRITING_TESTS("JUnit", "Writing JUnit tests to disk", 11),
@@ -88,8 +89,9 @@ public enum ClientState {
 
     public int getPhaseProgress() {
         int divisor = maxProgress - startProgress;
-        if (divisor == 0)
+        if (divisor == 0) {
             return 0;
+        }
         return (progress - startProgress) / divisor;
     }
 
