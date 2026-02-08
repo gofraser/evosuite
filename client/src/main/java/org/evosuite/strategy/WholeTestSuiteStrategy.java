@@ -44,7 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Regular whole test suite generation
+ * Regular whole test suite generation.
  *
  * @author gordon
  */
@@ -59,8 +59,9 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
         PropertiesSuiteGAFactory algorithmFactory = new PropertiesSuiteGAFactory();
         GeneticAlgorithm<TestSuiteChromosome> algorithm = algorithmFactory.getSearchAlgorithm();
 
-        if (Properties.SERIALIZE_GA || Properties.CLIENT_ON_THREAD)
+        if (Properties.SERIALIZE_GA || Properties.CLIENT_ON_THREAD) {
             TestGenerationResultBuilder.getInstance().setGeneticAlgorithm(algorithm);
+        }
 
         long startTime = System.currentTimeMillis() / 1000;
 
@@ -72,15 +73,17 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
         // FIXME progressMonitor may cause client hang if EvoSuite is executed with -prefix!
         algorithm.addListener(getProgressMonitor());
 
-        if (Properties.TRACK_DIVERSITY)
+        if (Properties.TRACK_DIVERSITY) {
             algorithm.addListener(new DiversityObserver());
+        }
 
         if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT)
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.RHO)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.AMBIGUITY))
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.AMBIGUITY)) {
             ExecutionTracer.enableTraceCalls();
+        }
 
         algorithm.resetStoppingConditions();
 
@@ -96,7 +99,8 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
          * Proceed with search if CRITERION=EXCEPTION, even if goals is empty
          */
         TestSuiteChromosome testSuite;
-        if (!(Properties.STOP_ZERO && goals.isEmpty()) || ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
+        if (!(Properties.STOP_ZERO && goals.isEmpty())
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
             // Perform search
             LoggingUtils.getEvoLogger().info("* Using seed {}", Randomness.getSeed());
             LoggingUtils.getEvoLogger().info("* Starting evolution");
@@ -119,11 +123,13 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
         // Newline after progress bar
-        if (Properties.SHOW_PROGRESS)
+        if (Properties.SHOW_PROGRESS) {
             LoggingUtils.getEvoLogger().info("");
+        }
 
         if (!Properties.IS_RUNNING_A_SYSTEM_TEST) { //avoid printing time related info in system tests due to lack of determinism
-            LoggingUtils.getEvoLogger().info("* Search finished after {}s and {} generations, {} statements, best individual has fitness: {}",
+            LoggingUtils.getEvoLogger().info(
+                    "* Search finished after {}s and {} generations, {} statements, best individual has fitness: {}",
                     (endTime - startTime),
                     algorithm.getAge(),
                     MaxStatementsStoppingCondition.getNumExecutedStatements(),
@@ -147,8 +153,9 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
             if (verbose) {
                 LoggingUtils.getEvoLogger().info("* Total number of test goals: {}", factory.getCoverageGoals().size());
                 if (Properties.PRINT_GOALS) {
-                    for (TestFitnessFunction goal : factory.getCoverageGoals())
+                    for (TestFitnessFunction goal : factory.getCoverageGoals()) {
                         LoggingUtils.getEvoLogger().info("{}", goal);
+                    }
                 }
             }
         } else {
@@ -160,11 +167,13 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
                 goals.addAll(goalFactory.getCoverageGoals());
 
                 if (verbose) {
-                    LoggingUtils.getEvoLogger().info("  - {} {}", goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
+                    LoggingUtils.getEvoLogger().info("  - {} {}",
+                            goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
                             goalFactory.getCoverageGoals().size());
                     if (Properties.PRINT_GOALS) {
-                        for (TestFitnessFunction goal : goalFactory.getCoverageGoals())
+                        for (TestFitnessFunction goal : goalFactory.getCoverageGoals()) {
                             LoggingUtils.getEvoLogger().info("{}", goal);
+                        }
                     }
                 }
             }

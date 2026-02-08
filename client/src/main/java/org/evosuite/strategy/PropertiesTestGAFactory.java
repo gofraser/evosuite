@@ -28,20 +28,39 @@ import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessReplacementFunction;
-import org.evosuite.ga.metaheuristics.*;
+import org.evosuite.ga.metaheuristics.BreederGA;
+import org.evosuite.ga.metaheuristics.CellularGA;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.LIPS;
+import org.evosuite.ga.metaheuristics.MonotonicGA;
+import org.evosuite.ga.metaheuristics.NSGAII;
+import org.evosuite.ga.metaheuristics.RandomSearch;
+import org.evosuite.ga.metaheuristics.SPEA2;
+import org.evosuite.ga.metaheuristics.StandardChemicalReaction;
+import org.evosuite.ga.metaheuristics.StandardGA;
+import org.evosuite.ga.metaheuristics.SteadyStateGA;
 import org.evosuite.ga.metaheuristics.mapelites.MAPElites;
-import org.evosuite.ga.populationlimit.IndividualPopulationLimit;
-import org.evosuite.ga.populationlimit.PopulationLimit;
-import org.evosuite.ga.populationlimit.SizePopulationLimit;
 import org.evosuite.ga.metaheuristics.mulambda.MuLambdaEA;
 import org.evosuite.ga.metaheuristics.mulambda.MuPlusLambdaEA;
 import org.evosuite.ga.metaheuristics.mulambda.OnePlusLambdaLambdaGA;
 import org.evosuite.ga.metaheuristics.mulambda.OnePlusOneEA;
-import org.evosuite.ga.operators.crossover.*;
+import org.evosuite.ga.operators.crossover.CrossOverFunction;
+import org.evosuite.ga.operators.crossover.SinglePointCrossOver;
+import org.evosuite.ga.operators.crossover.SinglePointFixedCrossOver;
+import org.evosuite.ga.operators.crossover.SinglePointRelativeCrossOver;
+import org.evosuite.ga.operators.crossover.UniformCrossOver;
 import org.evosuite.ga.operators.ranking.FastNonDominatedSorting;
 import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
 import org.evosuite.ga.operators.ranking.RankingFunction;
-import org.evosuite.ga.operators.selection.*;
+import org.evosuite.ga.operators.selection.BinaryTournamentSelectionCrowdedComparison;
+import org.evosuite.ga.operators.selection.FitnessProportionateSelection;
+import org.evosuite.ga.operators.selection.RankSelection;
+import org.evosuite.ga.operators.selection.SelectionFunction;
+import org.evosuite.ga.operators.selection.TournamentSelection;
+import org.evosuite.ga.operators.selection.TournamentSelectionRankAndCrowdingDistanceComparator;
+import org.evosuite.ga.populationlimit.IndividualPopulationLimit;
+import org.evosuite.ga.populationlimit.PopulationLimit;
+import org.evosuite.ga.populationlimit.SizePopulationLimit;
 import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
@@ -57,7 +76,7 @@ import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.utils.ArrayUtil;
 
 /**
- * Factory for GA for tests
+ * Factory for GA for tests.
  *
  * @author gordon
  */
@@ -79,6 +98,7 @@ public class PropertiesTestGAFactory
                         return new JUnitTestCarvedChromosomeFactory(new RandomLengthTestFactory());
                     default:
                 }
+                // fall through
             case ENTBUG:
                 return new RandomLengthTestFactory();
             default:
@@ -227,26 +247,27 @@ public class PropertiesTestGAFactory
         // FIXXME
         GeneticAlgorithm<TestChromosome> ga = getGeneticAlgorithm(factory);
 
-        if (Properties.NEW_STATISTICS)
+        if (Properties.NEW_STATISTICS) {
             ga.addListener(new org.evosuite.statistics.StatisticsListener<>());
+        }
 
         // How to select candidates for reproduction
-        SelectionFunction<TestChromosome> selection_function = getSelectionFunction();
-        selection_function.setMaximize(false);
-        ga.setSelectionFunction(selection_function);
+        SelectionFunction<TestChromosome> selectionFunction = getSelectionFunction();
+        selectionFunction.setMaximize(false);
+        ga.setSelectionFunction(selectionFunction);
 
-        RankingFunction<TestChromosome> ranking_function = getRankingFunction();
-        ga.setRankingFunction(ranking_function);
+        RankingFunction<TestChromosome> rankingFunction = getRankingFunction();
+        ga.setRankingFunction(rankingFunction);
 
         // When to stop the search
-        StoppingCondition<TestChromosome> stopping_condition = getStoppingCondition();
-        ga.setStoppingCondition(stopping_condition);
+        StoppingCondition<TestChromosome> stoppingCondition = getStoppingCondition();
+        ga.setStoppingCondition(stoppingCondition);
         // ga.addListener(stopping_condition);
         if (Properties.STOP_ZERO) {
             ga.addStoppingCondition(new ZeroFitnessStoppingCondition<>());
         }
 
-        if (!(stopping_condition instanceof MaxTimeStoppingCondition)) {
+        if (!(stoppingCondition instanceof MaxTimeStoppingCondition)) {
             ga.addStoppingCondition(new GlobalTimeStoppingCondition<>());
         }
 
@@ -258,18 +279,18 @@ public class PropertiesTestGAFactory
         ga.setPopulationLimit(getPopulationLimit());
 
         // How to cross over
-        CrossOverFunction<TestChromosome> crossover_function = getCrossoverFunction();
-        ga.setCrossOverFunction(crossover_function);
+        CrossOverFunction<TestChromosome> crossoverFunction = getCrossoverFunction();
+        ga.setCrossOverFunction(crossoverFunction);
 
         // What to do about bloat
         // MaxLengthBloatControl bloat_control = new MaxLengthBloatControl();
         // ga.setBloatControl(bloat_control);
 
         if (Properties.CHECK_BEST_LENGTH) {
-            RelativeTestLengthBloatControl<TestChromosome> bloat_control =
+            RelativeTestLengthBloatControl<TestChromosome> bloatControl =
                     new RelativeTestLengthBloatControl<>();
-            ga.addBloatControl(bloat_control);
-            ga.addListener(bloat_control);
+            ga.addBloatControl(bloatControl);
+            ga.addListener(bloatControl);
         }
 
         TestCaseSecondaryObjective.setSecondaryObjectives();
@@ -281,19 +302,23 @@ public class PropertiesTestGAFactory
             // TODO also, question: is branchMap.size() really intended here?
             // I think BranchPool.getBranchCount() was intended
             Properties.SEARCH_BUDGET = Properties.SEARCH_BUDGET
-                    * (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumBranchlessMethods(Properties.TARGET_CLASS) + BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchCountForClass(Properties.TARGET_CLASS) * 2);
-            stopping_condition.setLimit(Properties.SEARCH_BUDGET);
+                    * (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getNumBranchlessMethods(Properties.TARGET_CLASS)
+                    + BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getBranchCountForClass(Properties.TARGET_CLASS) * 2);
+            stoppingCondition.setLimit(Properties.SEARCH_BUDGET);
             logger.info("Setting dynamic length limit to " + Properties.SEARCH_BUDGET);
         }
 
         // TODO: This seems to be whole test suite specific
         // if (Properties.LOCAL_SEARCH_RESTORE_COVERAGE) {
-        // 	ga.addListener(BranchCoverageMap.getInstance());
+        //     ga.addListener(BranchCoverageMap.getInstance());
         // }
 
         if (Properties.RECYCLE_CHROMOSOMES) {
-            if (Properties.STRATEGY == Strategy.ONEBRANCH)
+            if (Properties.STRATEGY == Strategy.ONEBRANCH) {
                 ga.addListener(TestCaseRecycler.getInstance());
+            }
         }
 
         // ga.addListener(new ResourceController<TestChromosome>());

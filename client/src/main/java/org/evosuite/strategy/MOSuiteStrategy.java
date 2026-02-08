@@ -47,7 +47,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Test generation with MOSA
+ * Test generation with MOSA.
  *
  * @author Annibale, Fitsum
  */
@@ -73,8 +73,9 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
                 new TestSuiteChromosomeFactoryMock(new RandomLengthTestFactory());
         algorithm.setChromosomeFactory(factory);
 
-        if (Properties.SERIALIZE_GA || Properties.CLIENT_ON_THREAD)
+        if (Properties.SERIALIZE_GA || Properties.CLIENT_ON_THREAD) {
             TestGenerationResultBuilder.getInstance().setGeneticAlgorithm(algorithm);
+        }
 
         long startTime = System.currentTimeMillis() / 1000;
 
@@ -99,27 +100,32 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
                 Properties.ALGORITHM.name(), fitnessFunctions.size());
 
         if (!canGenerateTestsForSUT()) {
-            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}", Properties.TARGET_CLASS);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, fitnessFunctions.size());
+            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}",
+                    Properties.TARGET_CLASS);
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals,
+                    fitnessFunctions.size());
 
             return new TestSuiteChromosome();
         }
 
-        if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) ||
-                ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS) ||
-                ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT) ||
-                ArrayUtil.contains(Properties.CRITERION, Criterion.RHO) ||
-                ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH) ||
-                ArrayUtil.contains(Properties.CRITERION, Criterion.AMBIGUITY))
+        if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.RHO)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.AMBIGUITY)) {
             ExecutionTracer.enableTraceCalls();
+        }
 
         algorithm.resetStoppingConditions();
 
         TestSuiteChromosome testSuite;
 
-        if (!(Properties.STOP_ZERO && fitnessFunctions.isEmpty()) || ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
+        if (!(Properties.STOP_ZERO && fitnessFunctions.isEmpty())
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
             // Perform search
-            LoggingUtils.getEvoLogger().info("* {}Using seed {}", ClientProcess.getPrettyPrintIdentifier(), Randomness.getSeed());
+            LoggingUtils.getEvoLogger().info("* {}Using seed {}",
+                    ClientProcess.getPrettyPrintIdentifier(), Randomness.getSeed());
             LoggingUtils.getEvoLogger().info("* {}Starting evolution", ClientProcess.getPrettyPrintIdentifier());
             ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
 
@@ -127,7 +133,8 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
 
             testSuite = algorithm.getBestIndividual();
             if (testSuite.getTestChromosomes().isEmpty()) {
-                LoggingUtils.getEvoLogger().warn("{}Could not generate any test case", ClientProcess.getPrettyPrintIdentifier());
+                LoggingUtils.getEvoLogger().warn("{}Could not generate any test case",
+                        ClientProcess.getPrettyPrintIdentifier());
             }
         } else {
             getZeroFitness().setFinished();
@@ -140,8 +147,9 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
         long endTime = System.currentTimeMillis() / 1000;
 
         // Newline after progress bar
-        if (Properties.SHOW_PROGRESS)
+        if (Properties.SHOW_PROGRESS) {
             LoggingUtils.getEvoLogger().info("");
+        }
 
         String text = " statements, best individual has fitness: ";
         LoggingUtils.getEvoLogger().info("* {}Search finished after {}s and {} generations, {}{}{}",
@@ -158,7 +166,8 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
         // the end of the search. This is because the number of coverage targets may vary
         // when the criterion Properties.Criterion.EXCEPTION is used (exception coverage
         // goal are dynamically added when the generated tests trigger some exceptions
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, algorithm.getFitnessFunctions().size());
+        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals,
+                algorithm.getFitnessFunctions().size());
 
         return testSuite;
     }
