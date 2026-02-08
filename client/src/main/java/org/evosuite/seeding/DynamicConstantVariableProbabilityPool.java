@@ -107,17 +107,20 @@ public class DynamicConstantVariableProbabilityPool implements ConstantPool {
     @Override
     public void add(Object object) {
         // We don't add null because this is explicitly handled in the TestFactory
-        if (object == null)
+        if (object == null) {
             return;
+        }
 
         if (object instanceof String) {
             String string = (String) object;
-            if (string.length() > Properties.MAX_STRING)
+            if (string.length() > Properties.MAX_STRING) {
                 return;
+            }
             // String literals are constrained to 65535 bytes
             // as they are stored in the constant pool
-            if (string.length() > 65535)
+            if (string.length() > 65535) {
                 return;
+            }
             stringPool.restrictedAdd(string);
         } else if (object instanceof Type) {
             typePool.restrictedAdd((Type) object);

@@ -36,19 +36,21 @@ public class FrequencyBasedPool<T> {
 
     public void addConstant(T value) {
         numConstants++;
-        if (!constants.containsKey(value))
+        if (!constants.containsKey(value)) {
             constants.put(value, 1);
-        else
+        } else {
             constants.put(value, constants.get(value) + 1);
+        }
     }
 
     public void removeConstant(T value) {
         if (constants.containsKey(value)) {
             int num = constants.get(value);
-            if (num <= 1)
+            if (num <= 1) {
                 constants.remove(value);
-            else
+            } else {
                 constants.put(value, num - 1);
+            }
         }
     }
 

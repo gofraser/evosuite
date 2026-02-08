@@ -42,8 +42,9 @@ public class CastClassAnalyzer {
     public Map<Type, Integer> analyze(String className) {
         ClassNode targetClass = DependencyAnalysis.getClassNode(className);
 
-        if (targetClass != null)
+        if (targetClass != null) {
             handle(targetClass, 0);
+        }
         if (Properties.INSTRUMENT_PARENT) {
             handleSuperClasses(targetClass);
         }
@@ -52,18 +53,20 @@ public class CastClassAnalyzer {
 
     /**
      * If we want to have the calltree also for the superclasses, we need to
-     * determine which methods are callable
+     * determine which methods are callable.
      *
-     * @param targetClass
+     * @param targetClass the target class
      */
     @SuppressWarnings("unchecked")
     public void handleSuperClasses(ClassNode targetClass) {
         String superClassName = targetClass.superName;
-        if (superClassName == null || superClassName.isEmpty())
+        if (superClassName == null || superClassName.isEmpty()) {
             return;
+        }
 
-        if (superClassName.equals("java/lang/Object"))
+        if (superClassName.equals("java/lang/Object")) {
             return;
+        }
 
         logger.debug("Getting casts for superclass: " + superClassName);
         ClassNode superClass = DependencyAnalysis.getClassNode(superClassName);
@@ -72,14 +75,17 @@ public class CastClassAnalyzer {
             logger.debug("Method: " + mn.name);
 
             // Do not check super-constructors
-            if (mn.name.equals("<init>"))
+            if (mn.name.equals("<init>")) {
                 continue;
-            if (mn.name.equals("<clinit>"))
+            }
+            if (mn.name.equals("<clinit>")) {
                 continue;
+            }
 
             // Skip abstract etc
-            if ((mn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT)
+            if ((mn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT) {
                 continue;
+            }
 
             // Do not handle classes if they are overridden by the subclass
             if ((mn.access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC) {
@@ -121,23 +127,25 @@ public class CastClassAnalyzer {
         handleClassSignature(targetClass);
         List<MethodNode> methods = targetClass.methods;
         for (MethodNode mn : methods) {
-            if (methodName.equals(mn.name + mn.desc))
+            if (methodName.equals(mn.name + mn.desc)) {
                 handleMethodNode(targetClass, mn, depth);
+            }
         }
     }
 
     public void handle(String className, String methodName, int depth) {
         ClassNode cn = DependencyAnalysis.getClassNode(className);
-        if (cn == null)
+        if (cn == null) {
             return;
+        }
 
         handle(cn, methodName, depth);
     }
 
     /**
-     * Add all possible calls for a given method
+     * Add all possible calls for a given method.
      *
-     * @param mn
+     * @param mn the method node
      */
     @SuppressWarnings("unchecked")
     public void handleMethodNode(ClassNode cn, MethodNode mn, int depth) {
@@ -169,8 +177,9 @@ public class CastClassAnalyzer {
                     castType = castType.getElementType();
                 }
                 logger.debug("Adding new cast class from cast: " + castType);
-                if (!castClassMap.containsKey(castType))
+                if (!castClassMap.containsKey(castType)) {
                     castClassMap.put(castType, depth + 1);
+                }
             } else if (insn.getOpcode() == Opcodes.INSTANCEOF) {
                 TypeInsnNode typeNode = (TypeInsnNode) insn;
                 Type castType = Type.getObjectType(typeNode.desc);
@@ -178,8 +187,9 @@ public class CastClassAnalyzer {
                     castType = castType.getElementType();
                 }
                 logger.debug("Adding new cast class from instanceof: " + castType);
-                if (!castClassMap.containsKey(castType))
+                if (!castClassMap.containsKey(castType)) {
                     castClassMap.put(castType, depth + 1);
+                }
             } else if (insn.getOpcode() == Opcodes.LDC) {
                 LdcInsnNode ldcNode = (LdcInsnNode) insn;
                 if (ldcNode.cst instanceof Type) {
@@ -187,8 +197,9 @@ public class CastClassAnalyzer {
                     while (type.getSort() == Type.ARRAY) {
                         type = type.getElementType();
                     }
-                    if (!castClassMap.containsKey(type))
+                    if (!castClassMap.containsKey(type)) {
                         castClassMap.put(type, depth + 1);
+                    }
                 }
 
             }

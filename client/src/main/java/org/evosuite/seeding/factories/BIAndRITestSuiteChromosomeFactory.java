@@ -26,6 +26,8 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
 
 /**
+ * Factory for TestSuiteChromosome using Best Individual and Random.
+ *
  * @author Thomas White
  */
 public class BIAndRITestSuiteChromosomeFactory implements
@@ -38,9 +40,7 @@ public class BIAndRITestSuiteChromosomeFactory implements
     private boolean seeded = false;
 
     /**
-     * <p>
      * Constructor for BestIndividualAndRandomTestSuiteChromosomeFactory.
-     * </p>
      *
      * @param defaultFactory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */

@@ -30,6 +30,8 @@ import org.evosuite.utils.Randomness;
 import java.util.List;
 
 /**
+ * Factory for TestSuiteChromosome using Mutated Method Seeding from Best Individual.
+ *
  * @author Thomas White
  */
 public class BIMutatedMethodSeedingTestSuiteChromosomeFactory implements
@@ -41,11 +43,10 @@ public class BIMutatedMethodSeedingTestSuiteChromosomeFactory implements
     private final TestSuiteChromosome bestIndividual;
 
     /**
-     * <p>
-     * Constructor for JUnitTestSuiteChromosomeFactory.
-     * </p>
+     * Constructor.
      *
      * @param defaultFactory a {@link org.evosuite.ga.ChromosomeFactory} object.
+     * @param bestIndividual the best individual
      */
     public BIMutatedMethodSeedingTestSuiteChromosomeFactory(
             ChromosomeFactory<TestSuiteChromosome> defaultFactory,

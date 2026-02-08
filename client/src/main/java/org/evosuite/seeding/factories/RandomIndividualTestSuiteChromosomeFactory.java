@@ -26,6 +26,8 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
 
 /**
+ * Factory for TestSuiteChromosome using Random Individual.
+ *
  * @author Thomas White
  */
 public class RandomIndividualTestSuiteChromosomeFactory implements
@@ -37,11 +39,10 @@ public class RandomIndividualTestSuiteChromosomeFactory implements
     private final GeneticAlgorithm<TestSuiteChromosome> geneticAlgorithm;
 
     /**
-     * <p>
-     * Constructor for JUnitTestSuiteChromosomeFactory.
-     * </p>
+     * Constructor.
      *
      * @param defaultFactory a {@link org.evosuite.ga.ChromosomeFactory} object.
+     * @param geneticAlgorithm the genetic algorithm
      */
     public RandomIndividualTestSuiteChromosomeFactory(
             ChromosomeFactory<TestSuiteChromosome> defaultFactory,

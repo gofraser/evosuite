@@ -24,6 +24,8 @@ import org.evosuite.Properties;
 import org.evosuite.utils.Randomness;
 
 /**
+ * Manages the constant pools.
+ *
  * @author Gordon Fraser
  */
 public class ConstantPoolManager {

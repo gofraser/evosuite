@@ -30,6 +30,8 @@ import org.evosuite.utils.Randomness;
 import java.util.List;
 
 /**
+ * Factory for TestSuiteChromosome using Random Method Seeding.
+ *
  * @author Thomas White
  */
 public class RandomMethodSeedingTestSuiteChromosomeFactory implements
@@ -41,11 +43,10 @@ public class RandomMethodSeedingTestSuiteChromosomeFactory implements
     private final GeneticAlgorithm<TestSuiteChromosome> geneticAlgorithm;
 
     /**
-     * <p>
-     * Constructor for JUnitTestSuiteChromosomeFactory.
-     * </p>
+     * Constructor.
      *
      * @param defaultFactory a {@link org.evosuite.ga.ChromosomeFactory} object.
+     * @param geneticAlgorithm the genetic algorithm
      */
     public RandomMethodSeedingTestSuiteChromosomeFactory(
             ChromosomeFactory<TestSuiteChromosome> defaultFactory,
