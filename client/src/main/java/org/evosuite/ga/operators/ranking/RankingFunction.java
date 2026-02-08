@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -42,10 +42,10 @@ public interface RankingFunction<T extends Chromosome<T>> extends Serializable {
      * used for computing the ranking is defined by subclasses implementing this interface.
      *
      * @param solutions       the population to rank
-     * @param uncovered_goals the set of coverage goals to consider for the ranking assignment
+     * @param uncoveredGoals  the set of coverage goals to consider for the ranking assignment
      */
     void computeRankingAssignment(List<T> solutions,
-                                  Set<? extends FitnessFunction<T>> uncovered_goals);
+                                  Set<? extends FitnessFunction<T>> uncoveredGoals);
 
     /**
      * Returns the sub-front of {@link org.evosuite.ga.Chromosome} objects of the given rank. Sub-

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -27,7 +27,7 @@ import java.util.*;
 
 /**
  * This class ranks the test cases according to the
- * the "PreferenceCriterion" defined for the MOSA algorithm
+ * "PreferenceCriterion" defined for the MOSA algorithm.
  *
  * @author Annibale Panichella, Fitsum M. Kifetew
  */
@@ -37,33 +37,33 @@ public class FastNonDominatedSorting<T extends Chromosome<T>> implements Ranking
     private static final long serialVersionUID = -5649595833522859850L;
 
     /**
-     * An array containing all the fronts found during the search
+     * An array containing all the fronts found during the search.
      */
     private List<List<T>> ranking;
 
     @Override
     public void computeRankingAssignment(List<T> solutions,
-                                         Set<? extends FitnessFunction<T>> uncovered_goals) {
-        ranking = getNextNonDominatedFronts(solutions, uncovered_goals);
+                                         Set<? extends FitnessFunction<T>> uncoveredGoals) {
+        ranking = getNextNonDominatedFronts(solutions, uncoveredGoals);
     }
 
 
     /**
-     * This method ranks the remaining test cases using the traditional "Non-Dominated Sorting Algorithm"
+     * This method ranks the remaining test cases using the traditional "Non-Dominated Sorting Algorithm".
      *
      * @param solutionSet     set of test cases to rank with "Non-Dominated Sorting Algorithm"
-     * @param uncovered_goals set of goals
+     * @param uncoveredGoals  set of goals
      * @return the list of fronts according to the uncovered goals
      */
     private List<List<T>> getNextNonDominatedFronts(List<T> solutionSet,
-                                                    Set<? extends FitnessFunction<T>> uncovered_goals) {
-        DominanceComparator<T> criterion = new DominanceComparator<>(uncovered_goals);
+                                                    Set<? extends FitnessFunction<T>> uncoveredGoals) {
+        DominanceComparator<T> criterion = new DominanceComparator<>(uncoveredGoals);
 
         // dominateMe[i] contains the number of solutions dominating i
         int[] dominateMe = new int[solutionSet.size()];
 
-        // iDominate[k] contains the list of solutions dominated by k
-        List<List<Integer>> iDominate = new ArrayList<>(solutionSet.size());
+        // dominatedList[k] contains the list of solutions dominated by k
+        List<List<Integer>> dominatedList = new ArrayList<>(solutionSet.size());
 
         // front[i] contains the list of individuals belonging to the front i
         List<List<Integer>> front = new ArrayList<>(solutionSet.size() + 1);
@@ -72,8 +72,9 @@ public class FastNonDominatedSorting<T extends Chromosome<T>> implements Ranking
         int flagDominate;
 
         // Initialize the fronts
-        for (int i = 0; i < solutionSet.size() + 1; i++)
+        for (int i = 0; i < solutionSet.size() + 1; i++) {
             front.add(new LinkedList<>());
+        }
 
         // Initialize distance
         for (T solution : solutionSet) {
@@ -84,7 +85,7 @@ public class FastNonDominatedSorting<T extends Chromosome<T>> implements Ranking
         for (int p = 0; p < solutionSet.size(); p++) {
             // Initialize the list of individuals that i dominate and the number
             // of individuals that dominate me
-            iDominate.add(new LinkedList<>());
+            dominatedList.add(new LinkedList<>());
             dominateMe[p] = 0;
         }
 
@@ -94,10 +95,10 @@ public class FastNonDominatedSorting<T extends Chromosome<T>> implements Ranking
                 flagDominate = criterion.compare(solutionSet.get(p), solutionSet.get(q));
 
                 if (flagDominate == -1) {
-                    iDominate.get(p).add(q);
+                    dominatedList.get(p).add(q);
                     dominateMe[q]++;
                 } else if (flagDominate == 1) {
-                    iDominate.get(q).add(p);
+                    dominatedList.get(q).add(p);
                     dominateMe[p]++;
                 }
             }
@@ -112,12 +113,13 @@ public class FastNonDominatedSorting<T extends Chromosome<T>> implements Ranking
 
         // Obtain the rest of fronts
         int i = 0;
-        Iterator<Integer> it1, it2; // Iterators
+        Iterator<Integer> it1;
+        Iterator<Integer> it2; // Iterators
         while (front.get(i).size() != 0) {
             i++;
             it1 = front.get(i - 1).iterator();
             while (it1.hasNext()) {
-                it2 = iDominate.get(it1.next()).iterator();
+                it2 = dominatedList.get(it1.next()).iterator();
                 while (it2.hasNext()) {
                     int index = it2.next();
                     dominateMe[index]--;

@@ -51,8 +51,8 @@ public class BinomialMutation extends MutationDistribution {
      * Number of bits to be mutated (in our context, number of test cases to be mutated) according to
      * a binomial distribution.
      *
-     * @param numTrials
-     * @param probability
+     * @param numTrials   a int.
+     * @param probability a double.
      * @return number of test cases to be mutated
      */
     private int howManyBits(int numTrials, double probability) {

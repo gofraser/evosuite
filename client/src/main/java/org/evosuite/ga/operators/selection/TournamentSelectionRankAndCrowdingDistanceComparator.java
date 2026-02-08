@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -55,24 +55,25 @@ public class TournamentSelectionRankAndCrowdingDistanceComparator<T extends Chro
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Perform the tournament on the population, return one index
+     *
+     * <p>Perform the tournament on the population, return one index.
      */
     @Override
     public int getIndex(List<T> population) {
-        int new_num = Randomness.nextInt(population.size());
-        int winner = new_num;
+        int newNum = Randomness.nextInt(population.size());
+        int winner = newNum;
 
         int round = 0;
 
         while (round < Properties.TOURNAMENT_SIZE - 1) {
-            new_num = Randomness.nextInt(population.size());
-            if (new_num == winner)
-                new_num = (new_num + 1) % population.size();
-            T selected = population.get(new_num);
+            newNum = Randomness.nextInt(population.size());
+            if (newNum == winner) {
+                newNum = (newNum + 1) % population.size();
+            }
+            T selected = population.get(newNum);
             int flag = comparator.compare(selected, population.get(winner));
             if (flag < 0) {
-                winner = new_num;
+                winner = newNum;
             }
             round++;
         }

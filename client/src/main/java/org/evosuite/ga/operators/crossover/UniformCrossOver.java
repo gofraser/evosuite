@@ -38,8 +38,8 @@ public class UniformCrossOver<T extends Chromosome<T>> extends CrossOverFunction
     /**
      * {@inheritDoc}
      *
-     * @param parent1
-     * @param parent2
+     * @param parent1 a T object.
+     * @param parent2 a T object.
      */
     @Override
     public void crossOver(T parent1, T parent2)

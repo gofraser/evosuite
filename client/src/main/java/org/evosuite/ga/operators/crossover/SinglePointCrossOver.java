@@ -24,7 +24,7 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.utils.Randomness;
 
 /**
- * Select one random point in each individual and cross over (TPX)
+ * Select one random point in each individual and cross over (TPX).
  *
  * @author Gordon Fraser
  */
@@ -34,11 +34,11 @@ public class SinglePointCrossOver<T extends Chromosome<T>> extends CrossOverFunc
 
     /**
      * {@inheritDoc}
-     * <p>
-     * A different splitting point is selected for each individual
      *
-     * @param parent1
-     * @param parent2
+     * <p>A different splitting point is selected for each individual
+     *
+     * @param parent1 a T object.
+     * @param parent2 a T object.
      */
     @Override
     public void crossOver(T parent1, T parent2)

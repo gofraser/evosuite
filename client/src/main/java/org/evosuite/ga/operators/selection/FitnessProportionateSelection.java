@@ -27,7 +27,7 @@ import java.util.stream.DoubleStream;
 
 
 /**
- * Roulette wheel selection
+ * Roulette wheel selection.
  *
  * @author Gordon Fraser
  */
@@ -45,7 +45,7 @@ public class FitnessProportionateSelection<T extends Chromosome<T>> extends Sele
 
     /**
      * Sum of fitness values, depending on minimization/maximization of the
-     * fitness function
+     * fitness function.
      */
     private double sumValue = 0.0;
 
@@ -66,13 +66,15 @@ public class FitnessProportionateSelection<T extends Chromosome<T>> extends Sele
         for (int i = 0; i < population.size(); i++) {
             double fit = population.get(i).getFitness();
 
-            if (!maximize)
+            if (!maximize) {
                 fit = invert(fit);
+            }
 
-            if (fit >= rnd)
+            if (fit >= rnd) {
                 return i;
-            else
+            } else {
                 rnd = rnd - fit;
+            }
         }
 
         //now this should never happens, but possible issues with rounding errors in for example "rnd = rnd - fit"
@@ -83,13 +85,15 @@ public class FitnessProportionateSelection<T extends Chromosome<T>> extends Sele
     }
 
     /**
-     * Calculate total sum of fitnesses
+     * Calculate total sum of fitnesses.
      *
-     * @param population
+     * @param population a {@link java.util.List} object.
      */
     private void setSum(List<T> population) {
         DoubleStream fitnessValues = population.stream().mapToDouble(Chromosome::getFitness);
-        if (!maximize) fitnessValues = fitnessValues.map(FitnessProportionateSelection::invert);
+        if (!maximize) {
+            fitnessValues = fitnessValues.map(FitnessProportionateSelection::invert);
+        }
         sumValue = fitnessValues.sum();
     }
 
@@ -102,8 +106,8 @@ public class FitnessProportionateSelection<T extends Chromosome<T>> extends Sele
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Return n parents
+     *
+     * <p>Return n parents.
      */
     @Override
     public List<T> select(List<T> population, int number) {

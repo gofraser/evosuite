@@ -27,7 +27,7 @@ import java.util.List;
 
 
 /**
- * Select an individual from a population as winner of a number of tournaments
+ * Select an individual from a population as winner of a number of tournaments.
  *
  * @author Gordon Fraser
  */
@@ -44,27 +44,27 @@ public class TournamentSelection<T extends Chromosome<T>> extends SelectionFunct
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Perform the tournament on the population, return one index
+     *
+     * <p>Perform the tournament on the population, return one index.
      */
     @Override
     public int getIndex(List<T> population) {
-        int new_num = Randomness.nextInt(population.size());
-        int winner = new_num;
+        int newNum = Randomness.nextInt(population.size());
+        int winner = newNum;
 
         int round = 0;
 
         while (round < Properties.TOURNAMENT_SIZE - 1) {
-            new_num = Randomness.nextInt(population.size());
-            T selected = population.get(new_num);
+            newNum = Randomness.nextInt(population.size());
+            T selected = population.get(newNum);
 
             if (maximize) {
                 if (selected.getFitness() > population.get(winner).getFitness()) {
-                    winner = new_num;
+                    winner = newNum;
                 }
             } else {
                 if (selected.getFitness() < population.get(winner).getFitness()) {
-                    winner = new_num;
+                    winner = newNum;
                 }
             }
             round++;

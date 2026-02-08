@@ -26,7 +26,7 @@ import org.evosuite.utils.Randomness;
 import java.util.List;
 
 /**
- * Select an individual from a population using a Crowd Comparison Operator
+ * Select an individual from a population using a Crowd Comparison Operator.
  *
  * @author José Campos
  */
@@ -35,12 +35,12 @@ public class BinaryTournamentSelectionCrowdedComparison<T extends Chromosome<T>>
     private static final long serialVersionUID = -6887165634607218631L;
 
     /**
-     * index stores the actual index for selection
+     * index stores the actual index for selection.
      */
     private int index = 0;
 
     /**
-     * indexes stores a permutation of ints
+     * indexes stores a permutation of ints.
      */
     private int[] indexes;
 
@@ -56,8 +56,9 @@ public class BinaryTournamentSelectionCrowdedComparison<T extends Chromosome<T>>
 
     @Override
     public int getIndex(List<T> population) {
-        if (this.index == 0) // Create the permutation
+        if (this.index == 0) { // Create the permutation
             this.indexes = intPermutation(population.size());
+        }
 
         int index1 = this.index;
         T p1 = population.get(this.indexes[index1]);
@@ -68,16 +69,17 @@ public class BinaryTournamentSelectionCrowdedComparison<T extends Chromosome<T>>
         this.index = (this.index + 2) % (population.size());
 
         int flag = this.comparator.compare(p1, p2);
-        if (flag < 0)
+        if (flag < 0) {
             return this.indexes[index1];
-        else if (flag > 0)
+        } else if (flag > 0) {
             return this.indexes[index2];
+        }
 
         return this.indexes[index1]; // default
     }
 
     /**
-     * Returns a permutation vector between the 0 and (length - 1)
+     * Returns a permutation vector between the 0 and (length - 1).
      */
     private int[] intPermutation(int length) {
         int[] aux = new int[length];

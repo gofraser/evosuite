@@ -30,26 +30,26 @@ public abstract class MutationDistribution implements Serializable {
     private static final long serialVersionUID = -5800252656232641574L;
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(MutationDistribution.class);
 
     protected int sizeOfDistribution;
 
     /**
-     * Check whether a particular chromosome is allowed to be mutated
+     * Check whether a particular chromosome is allowed to be mutated.
      *
-     * @param index
+     * @param index a int.
      * @return true if mutation is allowed, false otherwise
      */
     public abstract boolean toMutate(int index);
 
     /**
      * Get mutation distribution defined in
-     * {@link org.evosuite.Properties.MutationProbabilityDistribution}
+     * {@link org.evosuite.Properties.MutationProbabilityDistribution}.
      *
-     * @param sizeOfDistribution
-     * @return
+     * @param sizeOfDistribution a int.
+     * @return a {@link org.evosuite.ga.operators.mutation.MutationDistribution} object.
      */
     public static MutationDistribution getMutationDistribution(int sizeOfDistribution) {
         switch (Properties.MUTATION_PROBABILITY_DISTRIBUTION) {

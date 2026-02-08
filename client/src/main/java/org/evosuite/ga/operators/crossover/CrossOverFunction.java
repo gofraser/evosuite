@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Serializable;
 
 /**
- * Cross over two individuals
+ * Cross over two individuals.
  *
  * @author Gordon Fraser
  */
@@ -36,12 +36,12 @@ public abstract class CrossOverFunction<T extends Chromosome<T>> implements Seri
     private static final long serialVersionUID = -4765602400132319324L;
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(CrossOverFunction.class);
 
     /**
-     * Replace parents with crossed over individuals
+     * Replace parents with crossed over individuals.
      *
      * @param parent1 a {@link Chromosome} object.
      * @param parent2 a {@link Chromosome} object.
