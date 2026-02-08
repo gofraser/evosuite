@@ -36,8 +36,8 @@ public class ConstantPoolManager {
     private static final int NON_SUT_POOL_INDEX = 1;
     private static final int DYNAMIC_POOL_INDEX = 2;
 
-    private ConstantPool[] pools;
-    private double[] probabilities;
+    private volatile ConstantPool[] pools;
+    private volatile double[] probabilities;
 
     private ConstantPoolManager() {
         init();

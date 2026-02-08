@@ -352,6 +352,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             statisticsThread = null;
         }
 
+        searchExecutor.shutdownNow();
+
         changeState(ClientState.FINISHED);
     }
 
