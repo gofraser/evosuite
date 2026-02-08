@@ -19,6 +19,7 @@
  */
 package org.evosuite.coverage.branch;
 
+import com.examples.with.different.packagename.cdg.ExceptionalControlFlow;
 import com.examples.with.different.packagename.cdg.NestedConditions;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
@@ -50,11 +51,23 @@ public class ControlFlowDistanceCalculatorTest {
     private static final String METHOD_NAME = "classify(I)Ljava/lang/String;";
     private static final String FULL_METHOD = CLASS_NAME + "." + METHOD_NAME;
 
+    private static final String EXC_CLASS_NAME = ExceptionalControlFlow.class.getCanonicalName();
+    private static final String EXC_METHOD_NAME = "classify(I)Ljava/lang/String;";
+    private static final String EXC_FULL_METHOD = EXC_CLASS_NAME + "." + EXC_METHOD_NAME;
+
     // Bytecode line numbers (from NestedConditions source):
     //   Line 24: if (x > 0)   -> outer branch, IFLE, CDG depth 0 (root-dependent)
     //   Line 25: if (x > 100) -> inner branch, IF_ICMPLE, CDG depth 1 (depends on outer)
     private static final int OUTER_LINE = 24;
     private static final int INNER_LINE = 25;
+
+    // Bytecode line numbers (from ExceptionalControlFlow source):
+    //   Line 25: if (x < 0)   -> try-throw guard
+    //   Line 28: if (x == 0)  -> try branch
+    //   Line 33: if (x < -10) -> catch branch
+    private static final int TRY_THROW_LINE = 25;
+    private static final int TRY_ZERO_LINE = 28;
+    private static final int CATCH_LINE = 33;
 
     @Before
     public void setUp() throws ClassNotFoundException {
@@ -83,16 +96,16 @@ public class ControlFlowDistanceCalculatorTest {
         DependencyAnalysis.analyzeClass(className, Arrays.asList(cp.split(File.pathSeparator)));
     }
 
-    private Branch findBranchAtLine(int line) {
+    private Branch findBranchAtLine(String className, int line) {
         ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
         BranchPool pool = BranchPool.getInstance(cl);
         for (Branch b : pool.getAllBranches()) {
-            if (b.getClassName().equals(CLASS_NAME)
+            if (b.getClassName().equals(className)
                     && b.getInstruction().getLineNumber() == line) {
                 return b;
             }
         }
-        fail("No branch found at line " + line);
+        fail("No branch found at line " + line + " for class " + className);
         return null;
     }
 
@@ -134,7 +147,7 @@ public class ControlFlowDistanceCalculatorTest {
     @Test
     public void testBranchCoveredExact() {
         // Outer branch reached and covered in the desired direction (false = fall-through = x > 0)
-        Branch outer = findBranchAtLine(OUTER_LINE);
+        Branch outer = findBranchAtLine(CLASS_NAME, OUTER_LINE);
         int branchId = outer.getActualBranchId();
 
         MethodCall call = new MethodCall(CLASS_NAME, METHOD_NAME, 0, 0, 0);
@@ -156,7 +169,7 @@ public class ControlFlowDistanceCalculatorTest {
     @Test
     public void testBranchReachedWrongDirection() {
         // Outer branch reached but wrong direction: true taken (x <= 0), want false (x > 0)
-        Branch outer = findBranchAtLine(OUTER_LINE);
+        Branch outer = findBranchAtLine(CLASS_NAME, OUTER_LINE);
         int branchId = outer.getActualBranchId();
 
         MethodCall call = new MethodCall(CLASS_NAME, METHOD_NAME, 0, 0, 0);
@@ -179,8 +192,8 @@ public class ControlFlowDistanceCalculatorTest {
     public void testImmediateControlDependencyReached() {
         // Inner branch NOT reached; outer branch reached in wrong direction.
         // Inner is control-dependent on outer with branchExpressionValue=false.
-        Branch inner = findBranchAtLine(INNER_LINE);
-        Branch outer = findBranchAtLine(OUTER_LINE);
+        Branch inner = findBranchAtLine(CLASS_NAME, INNER_LINE);
+        Branch outer = findBranchAtLine(CLASS_NAME, OUTER_LINE);
         int outerBranchId = outer.getActualBranchId();
 
         MethodCall call = new MethodCall(CLASS_NAME, METHOD_NAME, 0, 0, 0);
@@ -201,7 +214,7 @@ public class ControlFlowDistanceCalculatorTest {
     @Test
     public void testMethodNotCalled_RootDependentBranch() {
         // Outer branch (CDG depth 0), method never called -> approach = 0 + 1 = 1
-        Branch outer = findBranchAtLine(OUTER_LINE);
+        Branch outer = findBranchAtLine(CLASS_NAME, OUTER_LINE);
 
         ExecutionResult result = createResult(
                 Collections.emptyList(),
@@ -218,7 +231,7 @@ public class ControlFlowDistanceCalculatorTest {
     @Test
     public void testMethodNotCalled_NestedBranch() {
         // Inner branch (CDG depth 1), method never called -> approach = 1 + 1 = 2
-        Branch inner = findBranchAtLine(INNER_LINE);
+        Branch inner = findBranchAtLine(CLASS_NAME, INNER_LINE);
 
         ExecutionResult result = createResult(
                 Collections.emptyList(),
@@ -234,10 +247,69 @@ public class ControlFlowDistanceCalculatorTest {
 
     @Test
     public void testCDGDepthComputation() {
-        Branch outer = findBranchAtLine(OUTER_LINE);
-        Branch inner = findBranchAtLine(INNER_LINE);
+        Branch outer = findBranchAtLine(CLASS_NAME, OUTER_LINE);
+        Branch inner = findBranchAtLine(CLASS_NAME, INNER_LINE);
 
         assertEquals(0, ControlFlowDistanceCalculator.getCDGDepth(outer));
         assertEquals(1, ControlFlowDistanceCalculator.getCDGDepth(inner));
+    }
+
+    @Test
+    public void testCatchBranchNotReachedWithoutException() throws ClassNotFoundException {
+        analyzeClass(ExceptionalControlFlow.class);
+
+        Branch tryThrow = findBranchAtLine(EXC_CLASS_NAME, TRY_THROW_LINE);
+        Branch catchBranch = findBranchAtLine(EXC_CLASS_NAME, CATCH_LINE);
+
+        MethodCall call = new MethodCall(EXC_CLASS_NAME, EXC_METHOD_NAME, 0, 0, 0);
+        addBranchHit(call, tryThrow.getActualBranchId(), 5.0, 0.0);
+
+        ExecutionResult result = createResult(
+                Collections.singletonList(call),
+                Collections.emptySet(),
+                Collections.emptySet(),
+                Collections.singleton(EXC_FULL_METHOD));
+
+        ControlFlowDistance d = ControlFlowDistanceCalculator.getDistance(
+                result, catchBranch, false, EXC_CLASS_NAME, EXC_METHOD_NAME);
+
+        assertEquals(1, d.getApproachLevel());
+        assertEquals(0.0, d.getBranchDistance(), 0.001);
+    }
+
+    @Test
+    public void testCatchBranchCoveredAfterException() throws ClassNotFoundException {
+        analyzeClass(ExceptionalControlFlow.class);
+
+        Branch tryThrow = findBranchAtLine(EXC_CLASS_NAME, TRY_THROW_LINE);
+        Branch catchBranch = findBranchAtLine(EXC_CLASS_NAME, CATCH_LINE);
+
+        int tryBranchId = tryThrow.getActualBranchId();
+        int catchBranchId = catchBranch.getActualBranchId();
+
+        MethodCall call = new MethodCall(EXC_CLASS_NAME, EXC_METHOD_NAME, 0, 0, 0);
+        addBranchHit(call, tryBranchId, 0.0, 3.0);
+        addBranchHit(call, catchBranchId, 2.0, 0.0);
+
+        ExecutionResult result = createResult(
+                Collections.singletonList(call),
+                Collections.singleton(tryBranchId),
+                Collections.singleton(catchBranchId),
+                Collections.singleton(EXC_FULL_METHOD));
+
+        ControlFlowDistance d = ControlFlowDistanceCalculator.getDistance(
+                result, catchBranch, false, EXC_CLASS_NAME, EXC_METHOD_NAME);
+
+        assertEquals(0, d.getApproachLevel());
+        assertEquals(0.0, d.getBranchDistance(), 0.001);
+    }
+
+    @Test
+    public void testCDGDepthForCatchBranch() throws ClassNotFoundException {
+        analyzeClass(ExceptionalControlFlow.class);
+
+        Branch catchBranch = findBranchAtLine(EXC_CLASS_NAME, CATCH_LINE);
+
+        assertEquals(0, ControlFlowDistanceCalculator.getCDGDepth(catchBranch));
     }
 }

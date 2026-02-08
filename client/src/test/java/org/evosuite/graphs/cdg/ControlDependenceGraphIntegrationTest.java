@@ -398,4 +398,63 @@ public class ControlDependenceGraphIntegrationTest {
         assertFalse("return should not depend on branch 2: " + dump,
                 returnBranches.contains(30));
     }
+
+    // ── Test: ExceptionalControlFlow ───────────────────────────────
+
+    @Test
+    public void testExceptionalControlFlow() throws ClassNotFoundException {
+        // Source (ExceptionalControlFlow.java):
+        //   line 25: if (x < 0) { throw ... }   <-- try guard
+        //   line 28: if (x == 0) { return "zero"; }
+        //   line 33: if (x < -10) { return "very-neg"; }
+        ControlDependenceGraph cdg = loadAndGetCDG(ExceptionalControlFlow.class, "classify(I)Ljava/lang/String;");
+        assertNotNull("CDG should not be null", cdg);
+
+        String dump = dumpCDG(cdg);
+
+        BasicBlock zeroBlock = findBlockAtLine(cdg, 29);
+        BasicBlock posBlock = findBlockAtLine(cdg, 31);
+        BasicBlock veryNegBlock = findBlockAtLine(cdg, 34);
+        BasicBlock negBlock = findBlockAtLine(cdg, 36);
+
+        assertNotNull("Should find block for 'zero' (line 29): " + dump, zeroBlock);
+        assertNotNull("Should find block for 'pos' (line 31): " + dump, posBlock);
+        assertNotNull("Should find block for 'very-neg' (line 34): " + dump, veryNegBlock);
+        assertNotNull("Should find block for 'neg' (line 36): " + dump, negBlock);
+
+        Set<Integer> zeroDeps = getControllingBranchLines(cdg, zeroBlock);
+        assertTrue("'zero' should depend on try guard (line 25): " + dump, zeroDeps.contains(25));
+        assertTrue("'zero' should depend on zero-check (line 28): " + dump, zeroDeps.contains(28));
+
+        Set<Integer> posDeps = getControllingBranchLines(cdg, posBlock);
+        assertTrue("'pos' should depend on try guard (line 25): " + dump, posDeps.contains(25));
+        assertTrue("'pos' should depend on zero-check (line 28): " + dump, posDeps.contains(28));
+
+        Set<Integer> veryNegDeps = getControllingBranchLines(cdg, veryNegBlock);
+        assertTrue("'very-neg' should depend on catch guard (line 33): " + dump, veryNegDeps.contains(33));
+        assertTrue("'very-neg' should depend on try guard (line 25): " + dump, veryNegDeps.contains(25));
+
+        Set<Integer> negDeps = getControllingBranchLines(cdg, negBlock);
+        assertTrue("'neg' should depend on catch guard (line 33): " + dump, negDeps.contains(33));
+        assertTrue("'neg' should depend on try guard (line 25): " + dump, negDeps.contains(25));
+    }
+
+    // ── Test: ImplicitExceptionControlFlow ─────────────────────────
+
+    @Test
+    public void testImplicitExceptionControlFlow() throws ClassNotFoundException {
+        // Source (ImplicitExceptionControlFlow.java):
+        //   line 25: if (flag) { s.length(); }  <-- implicit NPE
+        //   line 31: catch returns "npe"
+        ControlDependenceGraph cdg = loadAndGetCDG(ImplicitExceptionControlFlow.class, "classify(Z)Ljava/lang/String;");
+        assertNotNull("CDG should not be null", cdg);
+
+        String dump = dumpCDG(cdg);
+
+        BasicBlock npeBlock = findBlockAtLine(cdg, 31);
+        assertNotNull("Should find block for 'npe' (line 31): " + dump, npeBlock);
+
+        Set<Integer> npeDeps = getControllingBranchLines(cdg, npeBlock);
+        assertTrue("'npe' should depend on flag branch (line 25): " + dump, npeDeps.contains(25));
+    }
 }
