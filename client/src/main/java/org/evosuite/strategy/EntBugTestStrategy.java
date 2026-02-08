@@ -33,7 +33,6 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,24 +41,30 @@ import java.util.List;
 import java.util.Set;
 
 /**
+ * Strategy for Entropy-Based Test Generation.
+ *
  * @author José Campos
- * @inproceedings{Campos:2013, author = {Campos, Jos{\'e} and Abreu, Rui and Fraser, Gordon and d'Amorim, Marcelo},
- * title = {{Entropy-Based Test Generation for Improved Fault Localization}},
- * booktitle = {Proceedings of the 28th IEEE/ACM International Conference on
- * Automated Software Engineering},
- * series = {ASE 2013},
- * year = {2013},
- * isbn = {978-1-4799-0215-6},
- * location = {Palo Alto, USA},
- * pages = {257--267},
- * numpages = {10},
- * url = {},
- * doi = {},
- * acmid = {},
- * publisher = {ACM},
- * address = {New York, NY, USA},
- * keywords = {Fault localization, test case generation},
+ *
+ * <pre>
+ * {@literal @}inproceedings{Campos:2013,
+ *     author = {Campos, Jos{\'e} and Abreu, Rui and Fraser, Gordon and d'Amorim, Marcelo},
+ *     title = {{Entropy-Based Test Generation for Improved Fault Localization}},
+ *     booktitle = {Proceedings of the 28th IEEE/ACM International Conference on
+ *     Automated Software Engineering},
+ *     series = {ASE 2013},
+ *     year = {2013},
+ *     isbn = {978-1-4799-0215-6},
+ *     location = {Palo Alto, USA},
+ *     pages = {257--267},
+ *     numpages = {10},
+ *     url = {},
+ *     doi = {},
+ *     acmid = {},
+ *     publisher = {ACM},
+ *     address = {New York, NY, USA},
+ *     keywords = {Fault localization, test case generation},
  * }
+ * </pre>
  */
 public class EntBugTestStrategy extends TestGenerationStrategy {
 
@@ -121,11 +126,12 @@ public class EntBugTestStrategy extends TestGenerationStrategy {
 
             bestFitness = best.getFitness(rhoTestFitnessFunction);
 
-            if ((bestFitness < previousFitness) || // we've found a better test case
-                    (bestFitness <= Properties.EPSON)) // or this new test case is not so bad (i.e., < Properties.EPSON)
-            {
+            if ((bestFitness < previousFitness)
+                    || (bestFitness <= Properties.EPSON)) { // we've found a better test case
+                // or this new test case is not so bad (i.e., < Properties.EPSON)
                 // GOOD
-                logger.info("  * new best (previous fitness: " + previousFitness + " | best_fitness: " + bestFitness + ")");
+                logger.info(
+                        "  * new best (previous fitness: " + previousFitness + " | best_fitness: " + bestFitness + ")");
 
                 ExecutionResult exec = best.getLastExecutionResult();
                 ExecutionTrace trace = exec.getTrace();
@@ -140,7 +146,9 @@ public class EntBugTestStrategy extends TestGenerationStrategy {
                 previousFitness = bestFitness; // update global fitness
             } else {
                 // BAD
-                logger.info("  * new test case ignored (previous fitness: " + previousFitness + " | best_fitness: " + bestFitness + ")");
+                logger.info(
+                        "  * new test case ignored (previous fitness: " + previousFitness + " | best_fitness: "
+                                + bestFitness + ")");
             }
         }
 

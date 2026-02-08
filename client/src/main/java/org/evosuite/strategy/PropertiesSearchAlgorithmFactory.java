@@ -31,7 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Factory class for GAs
+ * Factory class for GAs.
  *
  * @param <T> the {@code Chromosome} type used by the genetic algorithm
  * @author gordon

@@ -30,7 +30,20 @@ import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessReplacementFunction;
 import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
-import org.evosuite.ga.metaheuristics.*;
+import org.evosuite.ga.metaheuristics.BreederGA;
+import org.evosuite.ga.metaheuristics.CellularGA;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.LIPS;
+import org.evosuite.ga.metaheuristics.LIPSTestSuiteAdapter;
+import org.evosuite.ga.metaheuristics.MIO;
+import org.evosuite.ga.metaheuristics.MIOTestSuiteAdapter;
+import org.evosuite.ga.metaheuristics.MonotonicGA;
+import org.evosuite.ga.metaheuristics.NSGAII;
+import org.evosuite.ga.metaheuristics.RandomSearch;
+import org.evosuite.ga.metaheuristics.SPEA2;
+import org.evosuite.ga.metaheuristics.StandardChemicalReaction;
+import org.evosuite.ga.metaheuristics.StandardGA;
+import org.evosuite.ga.metaheuristics.SteadyStateGA;
 import org.evosuite.ga.metaheuristics.mosa.DynaMOSA;
 import org.evosuite.ga.metaheuristics.mosa.MOSA;
 import org.evosuite.ga.metaheuristics.mosa.MOSATestSuiteAdapter;
@@ -38,13 +51,29 @@ import org.evosuite.ga.metaheuristics.mulambda.MuLambdaEA;
 import org.evosuite.ga.metaheuristics.mulambda.MuPlusLambdaEA;
 import org.evosuite.ga.metaheuristics.mulambda.OnePlusLambdaLambdaGA;
 import org.evosuite.ga.metaheuristics.mulambda.OnePlusOneEA;
-import org.evosuite.ga.operators.crossover.*;
+import org.evosuite.ga.operators.crossover.CrossOverFunction;
+import org.evosuite.ga.operators.crossover.SinglePointCrossOver;
+import org.evosuite.ga.operators.crossover.SinglePointFixedCrossOver;
+import org.evosuite.ga.operators.crossover.SinglePointRelativeCrossOver;
+import org.evosuite.ga.operators.crossover.UniformCrossOver;
 import org.evosuite.ga.operators.ranking.FastNonDominatedSorting;
 import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
 import org.evosuite.ga.operators.ranking.RankingFunction;
-import org.evosuite.ga.operators.selection.*;
+import org.evosuite.ga.operators.selection.BestKSelection;
+import org.evosuite.ga.operators.selection.BinaryTournamentSelectionCrowdedComparison;
+import org.evosuite.ga.operators.selection.FitnessProportionateSelection;
+import org.evosuite.ga.operators.selection.RandomKSelection;
+import org.evosuite.ga.operators.selection.RankSelection;
+import org.evosuite.ga.operators.selection.SelectionFunction;
+import org.evosuite.ga.operators.selection.TournamentSelection;
+import org.evosuite.ga.operators.selection.TournamentSelectionRankAndCrowdingDistanceComparator;
 import org.evosuite.ga.populationlimit.PopulationLimit;
-import org.evosuite.ga.stoppingconditions.*;
+import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
+import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
+import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
+import org.evosuite.ga.stoppingconditions.SocketStoppingCondition;
+import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
@@ -61,7 +90,7 @@ import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.ResourceController;
 
 /**
- * Factory for GA on test suites
+ * Factory for GA on test suites.
  *
  * @author gordon
  */
@@ -120,11 +149,13 @@ public class PropertiesSuiteGAFactory
                 return new MuPlusLambdaEA<>(factory, Properties.MU, Properties.LAMBDA);
             case MU_LAMBDA_EA:
                 logger.info("Chosen search algorithm: (Mu,Lambda)EA");
-                return new MuLambdaEA<>(factory, Properties.MU, Properties.LAMBDA);
+                return new MuLambdaEA<>(factory, Properties.MU,
+                        Properties.LAMBDA);
             case MONOTONIC_GA: {
                 logger.info("Chosen search algorithm: MonotonicGA");
                 MonotonicGA<TestSuiteChromosome> ga = new MonotonicGA<>(factory);
-                if (Properties.REPLACEMENT_FUNCTION == TheReplacementFunction.FITNESSREPLACEMENT) {
+                if (Properties.REPLACEMENT_FUNCTION
+                        == TheReplacementFunction.FITNESSREPLACEMENT) {
                     // user has explicitly asked for this replacement function
                     ga.setReplacementFunction(new FitnessReplacementFunction<>());
                 } else {
@@ -290,46 +321,48 @@ public class PropertiesSuiteGAFactory
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGeneticAlgorithm(factory);
 
-        if (Properties.NEW_STATISTICS)
+        if (Properties.NEW_STATISTICS) {
             ga.addListener(new StatisticsListener<>());
+        }
 
         // How to select candidates for reproduction
         SelectionFunction<TestSuiteChromosome> selectionFunction = getSelectionFunction();
         selectionFunction.setMaximize(false);
         ga.setSelectionFunction(selectionFunction);
 
-        RankingFunction<TestSuiteChromosome> ranking_function = getRankingFunction();
-        ga.setRankingFunction(ranking_function);
+        RankingFunction<TestSuiteChromosome> rankingFunction = getRankingFunction();
+        ga.setRankingFunction(rankingFunction);
 
         // When to stop the search
-        StoppingCondition<TestSuiteChromosome> stopping_condition = getStoppingCondition();
-        ga.setStoppingCondition(stopping_condition);
+        StoppingCondition<TestSuiteChromosome> stoppingCondition = getStoppingCondition();
+        ga.setStoppingCondition(stoppingCondition);
 
         if (Properties.STOP_ZERO) {
             ga.addStoppingCondition(new ZeroFitnessStoppingCondition<>());
         }
 
-        if (!(stopping_condition instanceof MaxTimeStoppingCondition)) {
+        if (!(stoppingCondition instanceof MaxTimeStoppingCondition)) {
             ga.addStoppingCondition(new GlobalTimeStoppingCondition<>());
         }
 
         if (ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)) {
-            if (Properties.STRATEGY == Strategy.ONEBRANCH)
+            if (Properties.STRATEGY == Strategy.ONEBRANCH) {
                 ga.addStoppingCondition(new MutationTimeoutStoppingCondition<>());
+            }
         }
         ga.resetStoppingConditions();
         ga.setPopulationLimit(getPopulationLimit());
 
         // How to cross over
-        CrossOverFunction<TestSuiteChromosome> crossover_function = getCrossoverFunction();
-        ga.setCrossOverFunction(crossover_function);
+        CrossOverFunction<TestSuiteChromosome> crossoverFunction = getCrossoverFunction();
+        ga.setCrossOverFunction(crossoverFunction);
 
         if (Properties.CHECK_BEST_LENGTH) {
-            RelativeSuiteLengthBloatControl<TestSuiteChromosome> bloat_control =
+            RelativeSuiteLengthBloatControl<TestSuiteChromosome> bloatControl =
                     new RelativeSuiteLengthBloatControl<>();
-            ga.addBloatControl(bloat_control);
-            ga.addListener(bloat_control);
+            ga.addBloatControl(bloatControl);
+            ga.addListener(bloatControl);
         }
 
         TestSuiteSecondaryObjective.setSecondaryObjectives();
@@ -340,8 +373,11 @@ public class PropertiesSuiteGAFactory
             // TODO also, question: is branchMap.size() really intended here?
             // I think BranchPool.getBranchCount() was intended
             Properties.SEARCH_BUDGET = Properties.SEARCH_BUDGET
-                    * (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumBranchlessMethods(Properties.TARGET_CLASS) + BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchCountForClass(Properties.TARGET_CLASS) * 2);
-            stopping_condition.setLimit(Properties.SEARCH_BUDGET);
+                    * (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getNumBranchlessMethods(Properties.TARGET_CLASS)
+                    + BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getBranchCountForClass(Properties.TARGET_CLASS) * 2);
+            stoppingCondition.setLimit(Properties.SEARCH_BUDGET);
             logger.info("Setting dynamic length limit to {}", Properties.SEARCH_BUDGET);
         }
 

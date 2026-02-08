@@ -24,7 +24,13 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.FitnessFunctionsUtils;
 import org.evosuite.coverage.TestFitnessFactory;
-import org.evosuite.ga.stoppingconditions.*;
+import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
+import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
+import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
+import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
+import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.ga.stoppingconditions.StoppingConditionFactory;
+import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.rmi.ClientServices;
@@ -39,47 +45,51 @@ import java.util.List;
 /**
  * This is the abstract superclass of all techniques to generate a set of tests
  * for a target class, which does not necessarily require the use of a GA.
+ *
  * <p>
  * Postprocessing is not done as part of the test generation strategy.
+ * </p>
  *
  * @author gordon
  */
 public abstract class TestGenerationStrategy {
 
     /**
-     * There should only be one progress monitor
+     * There should only be one progress monitor.
      */
     private final ProgressMonitor<TestSuiteChromosome> progressMonitor = new ProgressMonitor<>();
 
     /**
-     * Stopping condition for zero fitness (coverage goals satisfied)
+     * Stopping condition for zero fitness (coverage goals satisfied).
      */
     private final ZeroFitnessStoppingCondition<TestSuiteChromosome> zeroFitness =
             new ZeroFitnessStoppingCondition<>();
 
     /**
-     * Global timeout stopping condition
+     * Global timeout stopping condition.
      */
     private final StoppingCondition<TestSuiteChromosome> globalTime =
             new GlobalTimeStoppingCondition<>();
 
     /**
-     * Generate a set of tests; assume that all analyses are already completed
+     * Generate a set of tests; assume that all analyses are already completed.
      *
      * @return the generated test suite
      */
     public abstract TestSuiteChromosome generateTests();
 
     /**
-     * Send execution statistics to the master process
+     * Send execution statistics to the master process.
      */
     protected void sendExecutionStatistics() {
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Statements_Executed, MaxStatementsStoppingCondition.getNumExecutedStatements());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Tests_Executed, MaxTestsStoppingCondition.getNumExecutedTests());
+        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Statements_Executed,
+                MaxStatementsStoppingCondition.getNumExecutedStatements());
+        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Tests_Executed,
+                MaxTestsStoppingCondition.getNumExecutedTests());
     }
 
     /**
-     * Convert criterion names to test suite fitness functions
+     * Convert criterion names to test suite fitness functions.
      *
      * @return list of test suite fitness functions
      */
@@ -88,7 +98,7 @@ public abstract class TestGenerationStrategy {
     }
 
     /**
-     * Convert criterion names to factories for test case fitness functions
+     * Convert criterion names to factories for test case fitness functions.
      *
      * @return list of fitness factories
      */
@@ -118,7 +128,7 @@ public abstract class TestGenerationStrategy {
     }
 
     /**
-     * Convert property to actual stopping condition
+     * Convert property to actual stopping condition.
      *
      * @return the configured stopping condition
      */
@@ -143,7 +153,7 @@ public abstract class TestGenerationStrategy {
     }
 
     /**
-     * Get the progress monitor
+     * Get the progress monitor.
      *
      * @return the progress monitor
      */
@@ -152,7 +162,7 @@ public abstract class TestGenerationStrategy {
     }
 
     /**
-     * Get the zero fitness stopping condition
+     * Get the zero fitness stopping condition.
      *
      * @return the zero fitness stopping condition
      */
@@ -161,7 +171,7 @@ public abstract class TestGenerationStrategy {
     }
 
     /**
-     * Get the global time stopping condition
+     * Get the global time stopping condition.
      *
      * @return the global time stopping condition
      */

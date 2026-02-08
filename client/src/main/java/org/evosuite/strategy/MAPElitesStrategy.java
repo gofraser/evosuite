@@ -1,21 +1,29 @@
 /**
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
+ *
  * <p>
  * This file is part of EvoSuite.
+ * </p>
+ *
  * <p>
  * EvoSuite is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation, either version 3.0 of the License, or
  * (at your option) any later version.
+ * </p>
+ *
  * <p>
  * EvoSuite is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser Public License for more details.
+ * </p>
+ *
  * <p>
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ * </p>
  */
 package org.evosuite.strategy;
 
@@ -43,19 +51,24 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * MAP-Elites Strategy.
+ */
 public class MAPElitesStrategy extends TestGenerationStrategy {
     private static final Logger logger = LoggerFactory.getLogger(MAPElitesStrategy.class);
 
     @Override
     public TestSuiteChromosome generateTests() {
         // Set up search algorithm
-        LoggingUtils.getEvoLogger().info("* Setting up search algorithm for MAP-Elites search with choice {}", Properties.MAP_ELITES_CHOICE.name());
+        LoggingUtils.getEvoLogger().info("* Setting up search algorithm for MAP-Elites search with choice {}",
+                Properties.MAP_ELITES_CHOICE.name());
 
         PropertiesMapElitesSearchFactory algorithmFactory = new PropertiesMapElitesSearchFactory();
         MAPElites algorithm = algorithmFactory.getSearchAlgorithm();
 
-        if (Properties.SERIALIZE_GA || Properties.CLIENT_ON_THREAD)
+        if (Properties.SERIALIZE_GA || Properties.CLIENT_ON_THREAD) {
             TestGenerationResultBuilder.getInstance().setGeneticAlgorithm(algorithm);
+        }
 
         long startTime = System.currentTimeMillis() / 1000;
 
@@ -72,8 +85,9 @@ public class MAPElitesStrategy extends TestGenerationStrategy {
                 || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.ALLDEFS)
                 || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.STATEMENT)
                 || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.RHO)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.AMBIGUITY))
+                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.AMBIGUITY)) {
             ExecutionTracer.enableTraceCalls();
+        }
 
         algorithm.resetStoppingConditions();
 
@@ -103,8 +117,9 @@ public class MAPElitesStrategy extends TestGenerationStrategy {
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
         // Newline after progress bar
-        if (Properties.SHOW_PROGRESS)
+        if (Properties.SHOW_PROGRESS) {
             LoggingUtils.getEvoLogger().info("");
+        }
 
         if (!Properties.IS_RUNNING_A_SYSTEM_TEST) { //avoid printing time related info in system tests due to lack of determinism
             LoggingUtils.getEvoLogger().info("* Search finished after "
@@ -129,7 +144,8 @@ public class MAPElitesStrategy extends TestGenerationStrategy {
         return suite;
     }
 
-    private TestSuiteChromosome getSuiteWithFitness(GeneticAlgorithm<TestChromosome> algorithm, List<TestSuiteFitnessFunction> fitnessFunctions) {
+    private TestSuiteChromosome getSuiteWithFitness(GeneticAlgorithm<TestChromosome> algorithm,
+                                                    List<TestSuiteFitnessFunction> fitnessFunctions) {
         List<TestChromosome> population = algorithm.getPopulation();
         TestSuiteChromosome suite = createMergedSolution(population);
         for (TestSuiteFitnessFunction fitnessFunction : fitnessFunctions) {

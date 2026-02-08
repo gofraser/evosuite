@@ -48,7 +48,7 @@ import java.util.List;
  */
 public class FixedNumRandomTestStrategy extends TestGenerationStrategy {
 
-    private final static Logger logger = LoggerFactory.getLogger(FixedNumRandomTestStrategy.class);
+    private static final Logger logger = LoggerFactory.getLogger(FixedNumRandomTestStrategy.class);
 
     @Override
     public TestSuiteChromosome generateTests() {
@@ -69,7 +69,8 @@ public class FixedNumRandomTestStrategy extends TestGenerationStrategy {
         LoggingUtils.getEvoLogger().info("* Total number of test goals: ");
         for (TestFitnessFactory<? extends TestFitnessFunction> goalFactory : goalFactories) {
             goals.addAll(goalFactory.getCoverageGoals());
-            LoggingUtils.getEvoLogger().info("  - " + goalFactory.getClass().getSimpleName().replace("CoverageFactory", "")
+            LoggingUtils.getEvoLogger().info("  - "
+                    + goalFactory.getClass().getSimpleName().replace("CoverageFactory", "")
                     + " " + goalFactory.getCoverageGoals().size());
         }
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
