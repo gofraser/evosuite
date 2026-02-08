@@ -23,7 +23,7 @@ import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 
 /**
- * Stop the search when the fitness has reached 0 (assuming minimization)
+ * Stop the search when the fitness has reached 0 (assuming minimization).
  *
  * @author Gordon Fraser
  */
@@ -32,7 +32,7 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
     private static final long serialVersionUID = -6925872054053635256L;
 
     /**
-     * Keep track of lowest fitness seen so far
+     * Keep track of lowest fitness seen so far.
      */
     private double lastFitness;
 
@@ -51,8 +51,8 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Update information on currently lowest fitness
+     *
+     * <p>Update information on currently lowest fitness.</p>
      */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
@@ -61,8 +61,8 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Returns true if best individual has fitness <= 0.0
+     *
+     * <p>Returns true if best individual has fitness &lt;= 0.0.</p>
      */
     @Override
     public boolean isFinished() {
@@ -71,8 +71,8 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Reset currently observed best fitness
+     *
+     * <p>Reset currently observed best fitness.</p>
      */
     @Override
     public void reset() {
@@ -117,7 +117,7 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
     }
 
     /**
-     * <p>setFinished</p>
+     * <p>setFinished.</p>
      */
     public void setFinished() {
         lastFitness = 0.0;

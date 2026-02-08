@@ -30,26 +30,26 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
     private static final long serialVersionUID = -7029615280866928031L;
 
     /**
-     * Assume the search has not started until start_time != 0
+     * Assume the search has not started until start_time != 0.
      */
     protected long startTime;
 
     /**
-     * Time at which the best fitness value was last improved
+     * Time at which the best fitness value was last improved.
      */
     protected long lastImprovement;
 
     /**
-     * Time at which the fitness value was last checked
+     * Time at which the fitness value was last checked.
      */
     protected long lastGeneration;
 
     /**
-     * Best fitness value observed so far
+     * Best fitness value observed so far.
      */
     protected double lastFitness;
 
-    private final static Logger logger = LoggerFactory.getLogger(TimeDeltaStoppingCondition.class);
+    private static final Logger logger = LoggerFactory.getLogger(TimeDeltaStoppingCondition.class);
 
     public TimeDeltaStoppingCondition() {
         startTime = 0L;
@@ -110,8 +110,8 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
      */
     @Override
     public long getCurrentValue() {
-        long current_time = System.currentTimeMillis();
-        return (int) ((current_time - startTime) / 1000);
+        long currentTime = System.currentTimeMillis();
+        return (int) ((currentTime - startTime) / 1000);
     }
 
     /* (non-Javadoc)
@@ -123,9 +123,9 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
      */
     @Override
     public boolean isFinished() {
-        long current_time = System.currentTimeMillis();
+        long currentTime = System.currentTimeMillis();
         if (Properties.GLOBAL_TIMEOUT != 0 && startTime != 0
-                && (current_time - startTime) / 1000 > (Properties.GLOBAL_TIMEOUT)) {
+                && (currentTime - startTime) / 1000 > (Properties.GLOBAL_TIMEOUT)) {
             // Global timeout reached
             logger.info("Global timeout reached");
             return true;
@@ -137,13 +137,13 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
             }
 
             // If we haven't managed to evolve one generation in the time since the last iteration, also continue
-            if ((current_time - lastGeneration) / 1000 > Properties.SEARCH_BUDGET) {
+            if ((currentTime - lastGeneration) / 1000 > Properties.SEARCH_BUDGET) {
                 logger.info("Waiting for at least a generation within the timeout.");
                 return false;
             }
 
             // Check time since last improvement
-            if ((current_time - lastImprovement) / 1000 > Properties.SEARCH_BUDGET) {
+            if ((currentTime - lastImprovement) / 1000 > Properties.SEARCH_BUDGET) {
                 logger.info("No improvement timeout.");
                 return true;
             }
@@ -160,8 +160,9 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
      */
     @Override
     public void reset() {
-        if (startTime == 0)
+        if (startTime == 0) {
             startTime = System.currentTimeMillis();
+        }
     }
 
     /* (non-Javadoc)

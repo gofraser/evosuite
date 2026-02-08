@@ -38,12 +38,12 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
     private static final long serialVersionUID = -3375236459377313641L;
 
     /**
-     * Current number of tests
+     * Current number of tests.
      */
     protected static final AtomicLong numTests = new AtomicLong(0);
 
     /**
-     * Maximum number of evaluations
+     * Maximum number of evaluations.
      */
     protected long maxTests;
 
@@ -61,7 +61,7 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
     }
 
     /**
-     * <p>getNumExecutedTests</p>
+     * <p>getNumExecutedTests.</p>
      *
      * @return a long.
      */
@@ -70,7 +70,7 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
     }
 
     /**
-     * <p>testExecuted</p>
+     * <p>testExecuted.</p>
      */
     public static void testExecuted() {
         numTests.incrementAndGet();

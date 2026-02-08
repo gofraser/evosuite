@@ -28,7 +28,7 @@ import java.text.NumberFormat;
 
 
 /**
- * Base class of decision functions that stop the search
+ * Base class of decision functions that stop the search.
  *
  * @author Gordon Fraser
  */
@@ -47,7 +47,7 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
     /**
      * {@inheritDoc}
      *
-     * Default no-op implementation.
+     * <p>Default no-op implementation.</p>
      */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
@@ -57,7 +57,7 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
     /**
      * {@inheritDoc}
      *
-     * Default no-op implementation.
+     * <p>Default no-op implementation.</p>
      */
     @Override
     public void fitnessEvaluation(T chromosome) {
@@ -73,7 +73,7 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
     /**
      * {@inheritDoc}
      *
-     * Default no-op implementation.
+     * <p>Default no-op implementation.</p>
      */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
@@ -89,7 +89,7 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
     /**
      * {@inheritDoc}
      *
-     * Default no-op implementation.
+     * <p>Default no-op implementation.</p>
      */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
@@ -107,7 +107,7 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
     /**
      * {@inheritDoc}
      *
-     * Default no-op implementation.
+     * <p>Default no-op implementation.</p>
      */
     @Override
     public void modification(T individual) {
@@ -125,14 +125,15 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
         type = StringUtils.rightPad(type, 24);
         r.append(type);
         r.append(getValueString());
-        if (isFinished())
+        if (isFinished()) {
             r.append(" Finished!");
+        }
 
         return r.toString();
     }
 
     /**
-     * <p>getType</p>
+     * <p>getType.</p>
      *
      * @return a {@link java.lang.String} object.
      */
@@ -141,16 +142,18 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
         try { // just to make sure
             type = type.substring(type.lastIndexOf(".") + 1);
         } catch (Exception e) {
+            // ignored
         }
         // cut away "StoppingCondition" suffix
-        if (type.endsWith("StoppingCondition"))
+        if (type.endsWith("StoppingCondition")) {
             type = type.substring(0, type.length() - 17);
+        }
 
         return type;
     }
 
     /**
-     * <p>getValueString</p>
+     * <p>getValueString.</p>
      *
      * @return a {@link java.lang.String} object.
      */

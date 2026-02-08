@@ -23,6 +23,8 @@ import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 
 /**
+ * Stopping condition that can be triggered via RMI.
+ *
  * @author Gordon Fraser
  */
 public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCondition<T> {
