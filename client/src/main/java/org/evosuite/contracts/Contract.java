@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Based on ObjectContract / Randoop
+     * Based on ObjectContract / Randoop.
  *
  * @author Gordon Fraser
  */
@@ -58,7 +58,7 @@ public abstract class Contract {
 
     /**
      * <p>
-     * getAllObjects
+     * getAllObjects.
      * </p>
      *
      * @param scope a {@link org.evosuite.testcase.execution.Scope} object.
@@ -82,7 +82,7 @@ public abstract class Contract {
 
     /**
      * <p>
-     * getAllObjectPairs
+     * getAllObjectPairs.
      * </p>
      *
      * @param scope a {@link org.evosuite.testcase.execution.Scope} object.
@@ -118,7 +118,7 @@ public abstract class Contract {
     }
 
     /**
-     * Check if this statement is related to the unit under test
+     * Check if this statement is related to the unit under test.
      *
      * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
      * @return a boolean.
@@ -145,7 +145,7 @@ public abstract class Contract {
 
     /**
      * Run the test against this contract and determine whether it reports a
-     * failure
+     * failure.
      *
      * @param test a {@link org.evosuite.testcase.TestCase} object.
      * @return a boolean.
@@ -162,7 +162,7 @@ public abstract class Contract {
     }
 
     /**
-     * Check the contract on the current statement in the current scope
+     * Check the contract on the current statement in the current scope.
      *
      * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
      * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
@@ -177,9 +177,9 @@ public abstract class Contract {
      * should fail on a contract violation, and pass if the contract is
      * satisfied.
      *
-     * @param statement
-     * @param variables
-     * @param exception
+     * @param statement the statement to add assertion to.
+     * @param variables the variables involved in the statement.
+     * @param exception the exception thrown, if any.
      */
     public abstract void addAssertionAndComments(Statement statement,
                                                  List<VariableReference> variables, Throwable exception);

@@ -31,14 +31,15 @@ import java.util.List;
 
 
 /**
- * An object must never equal null
+ * An object must never equal null.
  *
  * @author Gordon Fraser
  */
 public class EqualsNullContract extends Contract {
 
     /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.TestCase, org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.TestCase,
+     * org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -50,15 +51,17 @@ public class EqualsNullContract extends Contract {
             logger.debug("Current variable: " + var);
             Object object = scope.getObject(var);
             logger.debug("Current object: " + object);
-            if (object == null)
+            if (object == null) {
                 continue;
+            }
 
             // We do not want to call equals if it is the default implementation
             Class<?>[] parameters = {Object.class};
             try {
                 Method equalsMethod = object.getClass().getMethod("equals", parameters);
-                if (equalsMethod.getDeclaringClass().equals(Object.class))
+                if (equalsMethod.getDeclaringClass().equals(Object.class)) {
                     continue;
+                }
 
             } catch (SecurityException e1) {
                 continue;

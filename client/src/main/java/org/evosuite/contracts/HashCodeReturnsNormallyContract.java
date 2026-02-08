@@ -41,7 +41,8 @@ import java.util.List;
 public class HashCodeReturnsNormallyContract extends Contract {
 
     /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.Statement,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -51,15 +52,17 @@ public class HashCodeReturnsNormallyContract extends Contract {
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
         for (VariableReference var : getAllVariables(scope)) {
             Object object = scope.getObject(var);
-            if (object == null)
+            if (object == null) {
                 continue;
+            }
 
             // We do not want to call hashCode if it is the default implementation
             Class<?>[] parameters = {};
             try {
                 Method equalsMethod = object.getClass().getMethod("hashCode", parameters);
-                if (equalsMethod.getDeclaringClass().equals(Object.class))
+                if (equalsMethod.getDeclaringClass().equals(Object.class)) {
                     continue;
+                }
 
             } catch (SecurityException | NoSuchMethodException e1) {
                 continue;
@@ -70,8 +73,9 @@ public class HashCodeReturnsNormallyContract extends Contract {
                 object.hashCode();
 
             } catch (Throwable t) {
-                if (!(t instanceof TimeoutExceeded))
+                if (!(t instanceof TimeoutExceeded)) {
                     return new ContractViolation(this, statement, t, var);
+                }
             }
         }
 

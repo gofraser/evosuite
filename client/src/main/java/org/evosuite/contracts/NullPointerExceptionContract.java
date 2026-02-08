@@ -41,7 +41,8 @@ import java.util.List;
 public class NullPointerExceptionContract extends Contract {
 
     /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.TestCase, org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.TestCase,
+     * org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -49,8 +50,9 @@ public class NullPointerExceptionContract extends Contract {
      */
     @Override
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
-        if (!isTargetStatement(statement))
+        if (!isTargetStatement(statement)) {
             return null;
+        }
 
         try {
             if (exception != null) {

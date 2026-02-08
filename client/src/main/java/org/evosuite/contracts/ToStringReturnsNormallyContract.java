@@ -41,7 +41,8 @@ import java.util.List;
 public class ToStringReturnsNormallyContract extends Contract {
 
     /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.TestCase, org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.TestCase,
+     * org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -62,8 +63,9 @@ public class ToStringReturnsNormallyContract extends Contract {
             Class<?>[] parameters = {};
             try {
                 Method equalsMethod = object.getClass().getMethod("toString", parameters);
-                if (equalsMethod.getDeclaringClass().equals(Object.class))
+                if (equalsMethod.getDeclaringClass().equals(Object.class)) {
                     continue;
+                }
 
             } catch (SecurityException e1) {
                 continue;

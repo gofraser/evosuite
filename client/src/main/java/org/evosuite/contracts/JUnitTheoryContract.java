@@ -43,8 +43,9 @@ public class JUnitTheoryContract extends Contract {
     public JUnitTheoryContract(GenericMethod theoryMethod) throws InstantiationException, IllegalAccessException {
         this.theoryMethod = theoryMethod;
         this.theoryReceiver = theoryMethod.getDeclaringClass().newInstance();
-        if (theoryMethod.getParameterTypes().length != 1)
+        if (theoryMethod.getParameterTypes().length != 1) {
             throw new IllegalArgumentException("Number of arguments needs to be one");
+        }
     }
 
     @Override
@@ -94,7 +95,8 @@ public class JUnitTheoryContract extends Contract {
             Statement st1 = new ConstructorStatement(test, constructor, new ArrayList<>());
             VariableReference receiver = test.addStatement(st1, position + 1);
 
-            Statement st2 = new MethodStatement(test, theoryMethod, receiver, Arrays.asList(test.getStatement(pos).getReturnValue()));
+            Statement st2 = new MethodStatement(test, theoryMethod, receiver,
+                    Arrays.asList(test.getStatement(pos).getReturnValue()));
             test.addStatement(st2, position + 2);
             st2.addComment("Violates theory: " + theoryMethod.getName());
 

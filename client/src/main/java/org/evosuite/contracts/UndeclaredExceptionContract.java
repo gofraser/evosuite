@@ -39,7 +39,8 @@ import java.util.Set;
 public class UndeclaredExceptionContract extends Contract {
 
     /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -47,15 +48,17 @@ public class UndeclaredExceptionContract extends Contract {
      */
     @Override
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
-        if (!isTargetStatement(statement))
+        if (!isTargetStatement(statement)) {
             return null;
+        }
 
         if (exception != null) {
             Set<Class<?>> exceptions = statement.getDeclaredExceptions();
 
             if (!exceptions.contains(exception.getClass())) {
-                if (exception instanceof CodeUnderTestException)
+                if (exception instanceof CodeUnderTestException) {
                     return null;
+                }
 
                 StackTraceElement element = exception.getStackTrace()[0];
 
@@ -65,8 +68,9 @@ public class UndeclaredExceptionContract extends Contract {
                 }
 
                 // Assertion errors are checked by a different contract
-                if (exception instanceof AssertionError)
+                if (exception instanceof AssertionError) {
                     return null;
+                }
 
                 if (statement instanceof MethodStatement) {
                     // hashCode and toString are covered already

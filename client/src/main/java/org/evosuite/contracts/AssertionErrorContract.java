@@ -29,17 +29,18 @@ import java.util.List;
 
 
 /**
- * No method should throw an AssertionError
- * <p>
- * Note: this case is bit tricky, because assertions are disabled by default.
- * They need to be enabled when the JVM is started
+ * No method should throw an AssertionError.
+ *
+ * <p>Note: this case is bit tricky, because assertions are disabled by default.
+ * They need to be enabled when the JVM is started</p>
  *
  * @author Gordon Fraser
  */
 public class AssertionErrorContract extends Contract {
 
     /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.Statement,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -52,8 +53,9 @@ public class AssertionErrorContract extends Contract {
                     "Cannot check for assert errors if they are not enabled");
         }
 
-        if (!isTargetStatement(statement))
+        if (!isTargetStatement(statement)) {
             return null;
+        }
 
         if (exception != null) {
             // method throws no AssertionError

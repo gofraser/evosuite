@@ -38,7 +38,7 @@ public class SingleContractChecker extends ExecutionObserver {
 
     private final Contract contract;
 
-    private final static Logger logger = LoggerFactory.getLogger(SingleContractChecker.class);
+    private static final Logger logger = LoggerFactory.getLogger(SingleContractChecker.class);
 
     private boolean valid = true;
 
@@ -55,7 +55,7 @@ public class SingleContractChecker extends ExecutionObserver {
 
     /**
      * <p>
-     * isValid
+     * isValid.
      * </p>
      *
      * @return a boolean.
@@ -78,7 +78,8 @@ public class SingleContractChecker extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#statement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.testcase.ExecutionObserver#statement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -99,7 +100,8 @@ public class SingleContractChecker extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope)
+     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope)
      */
     @Override
     public void beforeStatement(Statement statement, Scope scope) {
