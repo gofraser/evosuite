@@ -27,7 +27,7 @@ import java.util.List;
 /**
  * <p>PopulationLimit interface.</p>
  *
- * Defines a strategy to determine if the population is full.
+ * <p>Defines a strategy to determine if the population is full.</p>
  *
  * @param <T> the type of chromosome
  * @author Gordon Fraser
