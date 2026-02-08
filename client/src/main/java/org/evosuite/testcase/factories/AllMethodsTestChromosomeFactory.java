@@ -87,7 +87,7 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
     /**
      * Create a random individual.
      *
-     * @param size .
+     * @param size the size.
      */
     private TestCase getRandomTestCase(int size) {
         boolean tracerEnabled = ExecutionTracer.isEnabled();

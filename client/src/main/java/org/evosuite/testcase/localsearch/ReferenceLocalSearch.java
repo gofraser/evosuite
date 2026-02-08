@@ -138,8 +138,8 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     /**
      * Add a method call on the return value of the object at position statement.
      *
-     * @param test .
-     * @param statement .
+     * @param test the test case.
+     * @param statement the statement.
      */
     private boolean addCall(TestChromosome test, int statement) {
 
@@ -159,8 +159,8 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     /**
      * Replace the call with a completely different call.
      *
-     * @param test .
-     * @param statement .
+     * @param test the test case.
+     * @param statement the statement.
      * @return .
      */
     private boolean replace(TestChromosome test, int statement) {
@@ -204,8 +204,8 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     /**
      * Switch parameter/callee variables with other available objects.
      *
-     * @param test .
-     * @param statement .
+     * @param test the test case.
+     * @param statement the statement.
      * @return .
      */
     private boolean changeParameters(TestChromosome test, int statement) {
@@ -226,8 +226,8 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     /**
      * Go through parameters of method call and apply local search.
      *
-     * @param test .
-     * @param statement .
+     * @param test the test case.
+     * @param statement the statement.
      */
     private boolean replaceMethodParameter(TestChromosome test, MethodStatement statement) {
 
@@ -286,8 +286,8 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     /**
      * Go through parameters of constructor call and apply local search.
      *
-     * @param test .
-     * @param statement .
+     * @param test the test case.
+     * @param statement the statement.
      */
     private boolean replaceConstructorParameter(TestChromosome test,
                                                 ConstructorStatement statement) {
@@ -329,8 +329,8 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     /**
      * Try to replace source of field with all possible choices.
      *
-     * @param test .
-     * @param statement .
+     * @param test the test case.
+     * @param statement the statement.
      */
     private boolean replaceFieldSource(TestChromosome test, FieldStatement statement) {
         if (!statement.isStatic()) {

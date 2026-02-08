@@ -91,7 +91,7 @@ public class AssignmentStatement extends AbstractStatement {
      * setValue
      * </p>
      *
-     * @param value .
+     * @param value the value.
      */
     public void setValue(VariableReference value) {
         this.parameter = value;
@@ -166,7 +166,7 @@ public class AssignmentStatement extends AbstractStatement {
              * Returns true of the retval of the assignment is a field reference (i.e. expr.f)
              * such that expr==null.
              *
-             * @param scope .
+             * @param scope the scope.
              * @return .
              * @throws CodeUnderTestException (cause is NullPointerException)
              */

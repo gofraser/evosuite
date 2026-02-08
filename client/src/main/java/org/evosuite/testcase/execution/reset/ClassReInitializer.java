@@ -135,8 +135,8 @@ public class ClassReInitializer {
      * This method is invoked after a test execution has ended. The classes to
      * be resetted will depend on the value of the reset_a.
      *
-     * @param executedTestCase .
-     * @param testCaseResult .
+     * @param executedTestCase the executed test case.
+     * @param testCaseResult the result of the test case.
      */
     public void reInitializeClassesAfterTestExecution(TestCase executedTestCase, ExecutionResult testCaseResult) {
         // first collect the initialized classes during this test execution
@@ -189,7 +189,7 @@ public class ClassReInitializer {
      * Indicates if we should re-initialize all observed classes of only those
      * with GETSTATIC/PUTSTATIC calls affecting their state.
      *
-     * @param reInitializeAllClasses .
+     * @param reInitializeAllClasses whether to re-initialize all classes.
      */
     public void setReInitializeAllClasses(boolean reInitializeAllClasses) {
         reset_all_observed_classes = reInitializeAllClasses;
@@ -210,7 +210,7 @@ public class ClassReInitializer {
     /**
      * Adds in order those classes that were not already initialized.
      *
-     * @param classNamesWithDots .
+     * @param classNamesWithDots the class names with dots.
      */
     public void addInitializedClasses(List<String> classNamesWithDots) {
         for (String classNameWithDots : classNamesWithDots) {

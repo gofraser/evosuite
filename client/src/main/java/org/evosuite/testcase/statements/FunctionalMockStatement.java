@@ -754,8 +754,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                  * Object, and so those get boxed. However, a Character cannot be used for a "int",
                  * so we need to be sure to convert it here.
                  *
-                 * @param value .
-                 * @param expectedType .
+                 * @param value the value.
+                 * @param expectedType the expected type.
                  * @return .
                  */
                 private Object fixBoxing(Object value, Class<?> expectedType) {

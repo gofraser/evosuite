@@ -50,8 +50,8 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
      * Returns true iff the test reaches a decision (if/while) with an uncovered
      * branch.
      *
-     * @param test .
-     * @param uncoveredBranches .
+     * @param test the test case.
+     * @param uncoveredBranches the uncovered branches.
      * @return .
      */
     private static boolean hasUncoveredBranch(TestChromosome test, Set<Branch> uncoveredBranches) {
@@ -133,7 +133,7 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
      * Creates a DSE local search for a test case that belongs to a whole test
      * suite.
      *
-     * @param suite .
+     * @param suite the suite.
      */
     public DSETestCaseLocalSearch(TestSuiteChromosome suite) {
         this.suite = suite;
@@ -142,7 +142,7 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
     /**
      * Returns those branches that are reached but are not covered.
      *
-     * @param coveredBranches .
+     * @param coveredBranches the covered branches.
      * @return .
      */
     private static Set<Branch> collectUncoveredBranches(Set<Branch> coveredBranches) {
@@ -285,7 +285,7 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
     /**
      * Returns the set covered branches by this suite.
      *
-     * @param suite .
+     * @param suite the suite.
      * @return .
      */
     private static <E extends AbstractTestChromosome<E>> Set<Branch> collectCoveredBranches(AbstractTestSuiteChromosome<?, E> suite) {
@@ -301,7 +301,7 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
     /**
      * Returns the set of covered branches by this test.
      *
-     * @param test .
+     * @param test the test case.
      * @return .
      */
     private static <E extends AbstractTestChromosome<E>> Set<Branch> getCoveredBranches(E test) {

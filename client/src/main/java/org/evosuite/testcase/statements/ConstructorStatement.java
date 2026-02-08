@@ -349,8 +349,8 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     /**
      * Go through parameters of constructor call and apply local search.
      *
-     * @param test .
-     * @param factory .
+     * @param test the test case.
+     * @param factory the factory.
      */
     /* (non-Javadoc)
      * @see org.evosuite.testcase.AbstractStatement#mutate(org.evosuite.testcase.TestCase, org.evosuite.testcase.TestFactory)

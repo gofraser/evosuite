@@ -191,7 +191,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     /**
      * Get the last object of the defined type.
      *
-     * @param type .
+     * @param type the type.
      * @return .
      * @throws ConstructionFailedException .
      */
@@ -201,7 +201,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     /**
      * Get the last object of the defined type.
      *
-     * @param type .
+     * @param type the type.
      * @return .
      * @throws ConstructionFailedException .
      */
@@ -381,7 +381,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     /**
      * Check if the current test case does cover the given goal.
      *
-     * @param goal .
+     * @param goal the goal.
      * @return .
      */
     boolean isGoalCovered(TestFitnessFunction goal);
@@ -455,7 +455,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     /**
      * Define whether this test case is unstable or not.
      *
-     * @param unstable .
+     * @param unstable whether the test is unstable.
      */
     void setUnstable(boolean unstable);
 

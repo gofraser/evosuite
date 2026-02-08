@@ -184,7 +184,7 @@ public abstract class TestFitnessFunction
     /**
      * Helper function if this is used without a chromosome.
      *
-     * @param result .
+     * @param result the execution result.
      * @return .
      */
     public boolean isCovered(ExecutionResult result) {

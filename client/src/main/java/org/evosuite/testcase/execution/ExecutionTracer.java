@@ -508,7 +508,7 @@ public class ExecutionTracer {
     /**
      * This method is added in the transformed bytecode.
      *
-     * @param className .
+     * @param className the name of the class.
      */
     public static void exitClassInit(String className) {
 
@@ -529,8 +529,8 @@ public class ExecutionTracer {
 
     /**
      * Summary.
-     * @param classNameWithDots .
-     * @param fieldName .
+     * @param classNameWithDots the class name with dots.
+     * @param fieldName the name of the field.
      */
     public static void passedGetStatic(String classNameWithDots, String fieldName) {
         ExecutionTracer tracer = getExecutionTracer();
@@ -755,8 +755,8 @@ public class ExecutionTracer {
      * definition or a use when the instrumentation was initially added this
      * method will redirect the call accordingly.
      *
-     * @param caller .
-     * @param defuseId .
+     * @param caller the caller.
+     * @param defuseId the def-use ID.
      */
     public static void passedFieldMethodCall(Object callee, Object caller, int defuseId) {
         ExecutionTracer tracer = getExecutionTracer();

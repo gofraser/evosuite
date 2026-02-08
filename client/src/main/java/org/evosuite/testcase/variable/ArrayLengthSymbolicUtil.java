@@ -44,8 +44,8 @@ public class ArrayLengthSymbolicUtil {
     /**
      * Creates the expression for an array length.
      *
-     * @param length .
-     * @param arraySymbolicLengthName .
+     * @param length the length.
+     * @param arraySymbolicLengthName the symbolic length name.
      * @return .
      */
     public static IntegerValue buildArraySymbolicLengthExpression(int length, ArraySymbolicLengthName arraySymbolicLengthName) {

@@ -70,8 +70,8 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
      * Constructor needed for Functional Mocks where the number of input parameters
      * might vary during the search, ie not constant, and starts with 0.
      *
-     * @param tc .
-     * @param retval .
+     * @param tc the tc.
+     * @param retval the retval.
      */
     protected EntityWithParametersStatement(TestCase tc, VariableReference retval) {
         super(tc, retval);
@@ -84,8 +84,8 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
      * Constructor needed for Functional Mocks where the number of input parameters
      * might vary during the search, ie not constant, and starts with 0.
      *
-     * @param tc .
-     * @param type .
+     * @param tc the tc.
+     * @param type the type.
      */
     protected EntityWithParametersStatement(TestCase tc, Type type) {
         super(tc, type);

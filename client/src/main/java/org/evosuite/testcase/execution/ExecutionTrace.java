@@ -552,16 +552,16 @@ public interface ExecutionTrace {
     /**
      * Record a PUTSTATIC statement.
      *
-     * @param classNameWithDots .
-     * @param fieldName .
+     * @param classNameWithDots the class name with dots.
+     * @param fieldName the name of the field.
      */
     void putStaticPassed(String classNameWithDots, String fieldName);
 
     /**
      * Record a GETSTATIC statement.
      *
-     * @param classNameWithDots .
-     * @param fieldName .
+     * @param classNameWithDots the class name with dots.
+     * @param fieldName the name of the field.
      */
     void getStaticPassed(String classNameWithDots, String fieldName);
 
@@ -582,7 +582,7 @@ public interface ExecutionTrace {
     /**
      * Logs that a <clinit> was completed during this test execution.
      *
-     * @param classNameWithDots .
+     * @param classNameWithDots the class name with dots.
      */
     void classInitialized(String classNameWithDots);
 

@@ -87,9 +87,9 @@ public class ParameterLocalSearch extends StatementLocalSearch {
     /**
      * Go through parameters of method call and apply local search.
      *
-     * @param test .
-     * @param statement .
-     * @param objective .
+     * @param test the test case.
+     * @param statement the statement.
+     * @param objective the objective.
      */
     private boolean doSearch(TestChromosome test, MethodStatement statement,
                              LocalSearchObjective<TestChromosome> objective) {
@@ -172,9 +172,9 @@ public class ParameterLocalSearch extends StatementLocalSearch {
     /**
      * Go through parameters of constructor call and apply local search.
      *
-     * @param test .
-     * @param statement .
-     * @param objective .
+     * @param test the test case.
+     * @param statement the statement.
+     * @param objective the objective.
      */
     private boolean doSearch(TestChromosome test, ConstructorStatement statement,
                              LocalSearchObjective<TestChromosome> objective) {
@@ -219,9 +219,9 @@ public class ParameterLocalSearch extends StatementLocalSearch {
     /**
      * Try to replace source of field with all possible choices.
      *
-     * @param test .
-     * @param statement .
-     * @param objective .
+     * @param test the test case.
+     * @param statement the statement.
+     * @param objective the objective.
      */
     private boolean doSearch(TestChromosome test, FieldStatement statement,
                              LocalSearchObjective<TestChromosome> objective) {

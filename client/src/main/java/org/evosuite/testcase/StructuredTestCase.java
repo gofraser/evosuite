@@ -68,7 +68,7 @@ public class StructuredTestCase extends DefaultTestCase {
     /**
      * Determine if the given statement is part of the setup code.
      *
-     * @param position .
+     * @param position the position in the test case.
      * @return .
      */
     public boolean isSetupStatement(int position) {
@@ -80,7 +80,7 @@ public class StructuredTestCase extends DefaultTestCase {
     /**
      * Determine if the given statement is part of the exercised code.
      *
-     * @param position .
+     * @param position the position in the test case.
      * @return .
      */
     public boolean isExerciseStatement(int position) {
@@ -99,7 +99,7 @@ public class StructuredTestCase extends DefaultTestCase {
     /**
      * Tag a new statement as exercising statement.
      *
-     * @param position .
+     * @param position the position in the test case.
      */
     public void setExerciseStatement(int position) {
         targetStatements.add(position);

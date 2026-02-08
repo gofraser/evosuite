@@ -88,8 +88,8 @@ public abstract class ExecutionObserver {
     /**
      * Called immediately before a statement is executed.
      *
-     * @param statement .
-     * @param scope .
+     * @param statement the statement.
+     * @param scope the scope.
      */
     public abstract void beforeStatement(Statement statement, Scope scope);
 

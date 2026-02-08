@@ -109,9 +109,9 @@ public class FieldStatement extends AbstractStatement {
     /**
      * Try to replace source of field with all possible choices.
      *
-     * @param test .
-     * @param statement .
-     * @param objective .
+     * @param test the test case.
+     * @param statement the statement.
+     * @param objective the objective.
      */
     /* (non-Javadoc)
      * @see org.evosuite.testcase.AbstractStatement#mutate(org.evosuite.testcase.TestCase, org.evosuite.testcase.TestFactory)

@@ -59,9 +59,9 @@ public class ConstraintHelper {
     /**
      * This ignores the input parameters.
      *
-     * @param test .
-     * @param klass .
-     * @param methodName .
+     * @param test the test case.
+     * @param klass the class.
+     * @param methodName the name of the method.
      * @return .
      * @throws IllegalArgumentException .
      */
@@ -84,9 +84,9 @@ public class ConstraintHelper {
 
     /**
      * Summary.
-     * @param test .
-     * @param className .
-     * @param methodName .
+     * @param test the test case.
+     * @param className the name of the class.
+     * @param methodName the name of the method.
      * @return a negative value if it is not present
      */
     public static int getLastPositionOfMethodCall(TestCase test, String className, String methodName, int lastPosition) {
@@ -109,8 +109,8 @@ public class ConstraintHelper {
 
     /**
      * Summary.
-     * @param s .
-     * @param c .
+     * @param s the string.
+     * @param c the character.
      * @return an array of size 2
      */
     public static String[] getClassAndMethod(String s, Class<?> c) {

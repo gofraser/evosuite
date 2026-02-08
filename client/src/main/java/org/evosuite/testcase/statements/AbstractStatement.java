@@ -187,7 +187,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
      * in throwableClasses.
      *
      * @param concreteThrowable true if concreteThrowable is assignable
-     * @param throwableClasses .
+     * @param throwableClasses the throwable classes.
      * @return .
      */
     private boolean isAssignableFrom(Throwable concreteThrowable,

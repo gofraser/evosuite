@@ -294,7 +294,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * {@inheritDoc}
      *
-     * @param objective .
+     * @param objective the objective.
      */
     @Override
     public boolean localSearch(LocalSearchObjective<TestChromosome> objective) {

@@ -387,7 +387,7 @@ public class ValueMinimizer extends TestVisitor {
      * If a better string is found that doesn't negatively impact the fitness value,
      * statement will be overwritten to use the new improved value.
      *
-     * @param constantValue .
+     * @param constantValue the constant value.
      */
     private void replaceWithLanguageModel(ConstantValue constantValue) {
         assert (constantValue.getValue() instanceof String);

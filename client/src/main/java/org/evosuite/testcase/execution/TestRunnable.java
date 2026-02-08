@@ -253,9 +253,9 @@ public class TestRunnable implements InterfaceTestRunnable {
     /**
      * Iterate over all statements in the test case, and execute them one at a time.
      *
-     * @param result .
-     * @param out .
-     * @param num .
+     * @param result the execution result.
+     * @param out the output stream.
+     * @param num the number.
      * @throws TimeoutException .
      * @throws InvocationTargetException .
      * @throws IllegalAccessException .

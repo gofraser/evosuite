@@ -255,7 +255,7 @@ public class TestFactory {
      *
      * @param test           the test case in which to insert
      * @param constructor    the constructor for which to add the call
-     * @param exactType .
+     * @param exactType the exact type.
      * @param position       the position at which to insert
      * @param recursionDepth the current recursion depth
      * @return a reference to the result of the constructor call
@@ -359,10 +359,10 @@ public class TestFactory {
     /**
      * Add method at given position if max recursion depth has not been reached.
      *
-     * @param test .
-     * @param field .
-     * @param position .
-     * @param recursionDepth .
+     * @param test the test case.
+     * @param field the field.
+     * @param position the position in the test case.
+     * @param recursionDepth the current recursion depth.
      * @return .
      * @throws ConstructionFailedException .
      */
@@ -409,10 +409,10 @@ public class TestFactory {
     /**
      * Add reference to a field of variable "callee".
      *
-     * @param test .
-     * @param callee .
-     * @param field .
-     * @param position .
+     * @param test the test case.
+     * @param callee the callee object.
+     * @param field the field.
+     * @param position the position in the test case.
      * @return .
      * @throws ConstructionFailedException .
      */
@@ -591,8 +591,8 @@ public class TestFactory {
      * <p>
      * Called from TestChromosome when doing crossover
      *
-     * @param test .
-     * @param statement .
+     * @param test the test case.
+     * @param statement the statement.
      */
     public void appendStatement(TestCase test, Statement statement)
             throws ConstructionFailedException {
@@ -615,10 +615,10 @@ public class TestFactory {
     /**
      * Assign a value to an array index.
      *
-     * @param test .
-     * @param array .
-     * @param arrayIndex .
-     * @param position .
+     * @param test the test case.
+     * @param array the array.
+     * @param arrayIndex the index in the array.
+     * @param position the position in the test case.
      * @throws ConstructionFailedException .
      */
     public void assignArray(TestCase test, VariableReference array, int arrayIndex,
@@ -657,11 +657,11 @@ public class TestFactory {
     /**
      * Assign a value to an array index for a given set of objects.
      *
-     * @param test .
-     * @param array .
-     * @param arrayIndex .
-     * @param position .
-     * @param objects .
+     * @param test the test case.
+     * @param array the array.
+     * @param arrayIndex the index in the array.
+     * @param position the position in the test case.
+     * @param objects the list of objects.
      * @throws ConstructionFailedException .
      */
     protected void assignArray(TestCase test, VariableReference array, int arrayIndex,
@@ -718,11 +718,11 @@ public class TestFactory {
     /**
      * Try to generate an object of a given type.
      *
-     * @param test .
-     * @param type .
-     * @param position .
-     * @param recursionDepth .
-     * @param allowNull .
+     * @param test the test case.
+     * @param type the type.
+     * @param position the position in the test case.
+     * @param recursionDepth the current recursion depth.
+     * @param allowNull whether null is allowed.
      * @return .
      * @throws ConstructionFailedException .
      */
@@ -894,9 +894,9 @@ public class TestFactory {
     /**
      * Replace the statement with a new statement using given call.
      *
-     * @param test .
-     * @param statement .
-     * @param call .
+     * @param test the test case.
+     * @param statement the statement.
+     * @param call the call.
      * @throws ConstructionFailedException .
      */
     public void changeCall(TestCase test, Statement statement,
@@ -1214,7 +1214,7 @@ public class TestFactory {
      * @param type                  represents the type of the object to create
      * @param position              the position in {@code test} at which to insert the reference to the object
      * @param recursionDepth        the current recursion depth (see above)
-     * @param generatorRefToExclude .
+     * @param generatorRefToExclude the generator reference to exclude.
      * @return a reference to the generated object
      * @throws ConstructionFailedException if generation was not possible
      */
@@ -1253,7 +1253,7 @@ public class TestFactory {
      * @param type                  the type of the object to create
      * @param position              the position at which to insert the created object
      * @param recursionDepth        the current recursion depth (see above)
-     * @param generatorRefToExclude .
+     * @param generatorRefToExclude the generator reference to exclude.
      * @param allowNull             whether to allow the creation of {@code null} objects
      * @param canUseFunctionalMocks whether to allow the creation of mocks
      * @param canReuseVariables     whether to allow the reuse of already existing objects of
@@ -1400,11 +1400,11 @@ public class TestFactory {
      * In the given {@code test} case, tries to create a new variable of type {@code parameterType}
      * at the given {@code position} or reuse an existing variable of matching type.
      *
-     * @param test .
-     * @param parameterType .
-     * @param position .
-     * @param recursionDepth .
-     * @param exclude .
+     * @param test the test case.
+     * @param parameterType the type of the parameter.
+     * @param position the position in the test case.
+     * @param recursionDepth the current recursion depth.
+     * @param exclude the variable to exclude.
      * @return .
      * @throws ConstructionFailedException .
      */
@@ -1489,9 +1489,9 @@ public class TestFactory {
      * @param parameterType             represents the type of the variable to create
      * @param position                  the desired position for the insertion of the variable
      * @param recursionDepth            the current recursion depth (see above)
-     * @param exclude .
+     * @param exclude the variable to exclude.
      * @param allowNull                 whether to allow the generation of {@code null} variables
-     * @param excludeCalleeGenerators .
+     * @param excludeCalleeGenerators whether to exclude callee generators.
      * @param canUseMocks               whether to allow the generation of mocks
      * @param canReuseExistingVariables whether to allow the reuse of already existing variables
      * @return a reference to the created variable
@@ -1663,7 +1663,7 @@ public class TestFactory {
      * @param test           the test in which to insert
      * @param position       the position at which to insert
      * @param recursionDepth the current recursion depth (see above)
-     * @param exclude .
+     * @param exclude the variable to exclude.
      * @param allowNull      whether to allow the assignment of {@code null} to the created variable
      * @param canUseMocks    whether to allow mocks on the right-hand side for the created variable
      * @return a reference to the created variable
@@ -1693,8 +1693,8 @@ public class TestFactory {
      * Delete the statement at position from the test case and remove all
      * references to it.
      *
-     * @param test .
-     * @param position .
+     * @param test the test case.
+     * @param position the position in the test case.
      * @return false if it was not possible to delete the statement
      * @throws ConstructionFailedException .
      */
@@ -1786,8 +1786,8 @@ public class TestFactory {
 
     /**
      * Summary.
-     * @param test .
-     * @param position .
+     * @param test the test case.
+     * @param position the position in the test case.
      * @return true if statements was deleted or any dependency was modified
      * @throws ConstructionFailedException .
      */
@@ -1920,8 +1920,8 @@ public class TestFactory {
      * Determine if the set of objects is sufficient to satisfy the set of
      * dependencies.
      *
-     * @param dependencies .
-     * @param objects .
+     * @param dependencies the set of dependencies.
+     * @param objects the list of objects.
      * @return .
      */
     private static boolean dependenciesSatisfied(Set<Type> dependencies,
@@ -1944,7 +1944,7 @@ public class TestFactory {
     /**
      * Retrieve the dependencies for a constructor.
      *
-     * @param constructor .
+     * @param constructor the constructor.
      * @return .
      */
     private static Set<Type> getDependencies(GenericConstructor constructor) {
@@ -1954,7 +1954,7 @@ public class TestFactory {
     /**
      * Retrieve the dependencies for a field.
      *
-     * @param field .
+     * @param field the field.
      * @return .
      */
     private static Set<Type> getDependencies(GenericField field) {
@@ -1969,7 +1969,7 @@ public class TestFactory {
     /**
      * Retrieve the dependencies for a method.
      *
-     * @param method .
+     * @param method the method.
      * @return .
      */
     private static Set<Type> getDependencies(GenericMethod method) {
@@ -1986,8 +1986,8 @@ public class TestFactory {
      * Retrieve all the replacement calls that can be inserted at this position
      * without changing the length.
      *
-     * @param returnType .
-     * @param objects .
+     * @param returnType the return type.
+     * @param objects the list of objects.
      * @return .
      */
     private List<GenericAccessibleObject<?>> getPossibleCalls(Type returnType,
@@ -2152,8 +2152,8 @@ public class TestFactory {
      * statement of {@code test} before the insertion. Returns the updated position of the last
      * valid statement after a successful insertion, or a negative value if there was an error.
      *
-     * @param test .
-     * @param lastValidPosition .
+     * @param test the test case.
+     * @param lastValidPosition the last valid position.
      * @return the position where the insertion happened, or a negative value otherwise
      */
     public int insertRandomCallOnEnvironment(TestCase test, int lastValidPosition) {
@@ -2414,11 +2414,11 @@ public class TestFactory {
      * to the objects or values . If there are no parameters, simply returns the empty list. If.
      * there was an error, throws a {@code ConstructionFailedException}.
      *
-     * @param test .
-     * @param parameterTypes .
-     * @param parameterList .
-     * @param position .
-     * @param recursionDepth .
+     * @param test the test case.
+     * @param parameterTypes the parameter types.
+     * @param parameterList the list of parameters.
+     * @param position the position in the test case.
+     * @param recursionDepth the current recursion depth.
      * @return .
      * @throws ConstructionFailedException .
      */

@@ -56,7 +56,7 @@ class ClassReInitializeExecutor {
      * Resets the classes in the list using the Class Loader from the current
      * Test Generation context.
      *
-     * @param classesToReset .
+     * @param classesToReset the classes to reset.
      */
     public void resetClasses(List<String> classesToReset) {
         ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
@@ -66,8 +66,8 @@ class ClassReInitializeExecutor {
     /**
      * Resets the classes passes in the list using the given class loader.
      *
-     * @param classesToReset .
-     * @param loader .
+     * @param classesToReset the classes to reset.
+     * @param loader the class loader.
      */
     public void resetClasses(List<String> classesToReset, ClassLoader loader) {
         // try to reset each collected class

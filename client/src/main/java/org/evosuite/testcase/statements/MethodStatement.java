@@ -593,8 +593,8 @@ public class MethodStatement extends EntityWithParametersStatement {
     /**
      * Go through parameters of method call and apply local search.
      *
-     * @param test .
-     * @param factory .
+     * @param test the test case.
+     * @param factory the factory.
      */
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {

@@ -560,9 +560,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * Summary.
-     * @param branch .
-     * @param true_distance .
-     * @param false_distance .
+     * @param branch the branch.
+     * @param true_distance the true branch distance.
+     * @param false_distance the false branch distance.
      */
     private void updateBranchContextMaps(int branch, double true_distance, double false_distance) {
         if (!coveredPredicateContext.containsKey(branch)) {
@@ -799,9 +799,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * Summary.
-     * @param className .
-     * @param methodName .
-     * @param caller .
+     * @param className the name of the class.
+     * @param methodName the name of the method.
+     * @param caller the caller.
      */
     private void updateMethodContextMaps(String className, String methodName, Object caller) {
         String id = className + "." + methodName;
