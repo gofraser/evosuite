@@ -28,9 +28,9 @@ import java.util.List;
 
 /**
  * Creates an output variable that represents a sequence of values extracted from
- * a test suite
+ * a test suite.
  *
- * @param <T>
+ * @param <T> the type of the variable value
  * @author gordon
  */
 public abstract class SequenceOutputVariableFactory<T extends Number> {
@@ -53,7 +53,7 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
     protected abstract T getValue(TestSuiteChromosome individual);
 
     /**
-     * Interpolate between two values
+     * Interpolate between two values.
      * @param v1 start value
      * @param v2 end value
      * @param ratio position (0..1)
@@ -62,7 +62,8 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
     protected abstract T interpolate(T v1, T v2, double ratio);
 
     /**
-     * Value to return when no data is available
+     * Value to return when no data is available.
+     * @return the zero value
      */
     protected abstract T getZeroValue();
 
@@ -102,16 +103,16 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
         try {
             index = Integer.parseInt(name.substring(name.lastIndexOf("_T") + 2));
         } catch (Exception e) {
-             // Fallback or error? original code assumed split worked.
-             // Original: int index = Integer.parseInt((name.split("_T"))[1]);
-             // name is like "Coverage_T1", split("_T") -> ["Coverage", "1"]
-             // if name is "My_Var_T1", split("_T") -> ["My_Var", "1"]
-             String[] split = name.split("_T");
-             if (split.length > 1) {
-                 index = Integer.parseInt(split[split.length - 1]);
-             } else {
-                 return getZeroValue();
-             }
+            // Fallback or error? original code assumed split worked.
+            // Original: int index = Integer.parseInt((name.split("_T"))[1]);
+            // name is like "Coverage_T1", split("_T") -> ["Coverage", "1"]
+            // if name is "My_Var_T1", split("_T") -> ["My_Var", "1"]
+            String[] split = name.split("_T");
+            if (split.length > 1) {
+                index = Integer.parseInt(split[split.length - 1]);
+            } else {
+                return getZeroValue();
+            }
         }
 
         long preferredTime = interval * index;
@@ -155,8 +156,8 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
             long timeDelta = timeStamps.get(i) - timeStamps.get(i - 1);
 
             if (timeDelta > 0) {
-                double tRatio = (double) (preferredTime - timeStamps.get(i - 1)) / timeDelta;
-                return interpolate(values.get(i - 1), values.get(i), tRatio);
+                double timeRatio = (double) (preferredTime - timeStamps.get(i - 1)) / timeDelta;
+                return interpolate(values.get(i - 1), values.get(i), timeRatio);
             }
         }
 

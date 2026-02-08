@@ -22,9 +22,9 @@ package org.evosuite.statistics;
 import org.evosuite.testsuite.TestSuiteChromosome;
 
 /**
- * Factory to create an output variable when given a test suite chromosome
+ * Factory to create an output variable when given a test suite chromosome.
  *
- * @param <T>
+ * @param <T> the type of the variable value
  * @author gordon
  */
 public abstract class ChromosomeOutputVariableFactory<T> {

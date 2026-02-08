@@ -44,9 +44,9 @@ public class DirectSequenceOutputVariableFactory<T extends Number> extends Seque
     }
 
     /**
-     * Sets value directly
+     * Sets value directly.
      *
-     * @param value
+     * @param value the value to set
      */
     public void setValue(T value) {
         this.value = value;

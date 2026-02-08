@@ -19,184 +19,180 @@
  */
 package org.evosuite.statistics;
 
-import org.evosuite.Properties;
-import org.evosuite.Properties.Criterion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
 /**
- * <p>
- * This enumeration defines all the runtime variables we want to store in
+ * <p>This enumeration defines all the runtime variables we want to store in
  * the CSV files.
- * A runtime variable is either an output of the search (e.g., obtained branch coverage)
- * or something that can only be determined once the CUT is analyzed (e.g., the number of branches)
+ * A runtime variable is either an output of the search (e.g., obtained branch coverage).
+ * or something that can only be determined once the CUT is analyzed (e.g., the number of branches).</p>
  *
- * <p>
- * Note, it is perfectly fine to add new runtime variables in this enum, in any position.
- * But it is essential to provide JavaDoc <b>descriptions</b> for each new variable
+ * <p>Note, it is perfectly fine to add new runtime variables in this enum, in any position.
+ * But it is essential to provide JavaDoc <b>descriptions</b> for each new variable.</p>
  *
- * <p>
- * WARNING: do not change the name of any variable! If you do, current R
+ * <p>WARNING: do not change the name of any variable! If you do, current R
  * scripts will break. If you really need to change a name, please first
- * contact Andrea Arcuri.
+ * contact Andrea Arcuri.</p>
  *
  * @author arcuri
  */
 public enum RuntimeVariable {
 
     /**
-     * Number of predicates in CUT
+     * Number of predicates in CUT.
      */
     Predicates,
     /**
-     * Number of added jump conditions through instrumentation
+     * Number of added jump conditions through instrumentation.
      */
     Instrumented_Predicates,
     /**
-     * Number of classes in classpath
+     * Number of classes in classpath.
      */
     Classpath_Classes,
     /**
-     * Number of classes analyzed for test cluster
+     * Number of classes analyzed for test cluster.
      */
     Analyzed_Classes,
     /**
-     * Total number of generators
+     * Total number of generators.
      */
     Generators,
     /**
-     * Total number of modifiers
+     * Total number of modifiers.
      */
     Modifiers,
     /**
-     * Total number of branches in CUT
+     * Total number of branches in CUT.
      */
     Total_Branches,
     /**
-     * Number of covered branches in CUT
+     * Number of covered branches in CUT.
      */
     Covered_Branches,
     /**
-     * Total number of gradient branches
+     * Total number of gradient branches.
      */
     Gradient_Branches,
     /**
-     * Total number of covered gradient branches
+     * Total number of covered gradient branches.
      */
     Gradient_Branches_Covered,
     /**
-     * The number of lines in the CUT
+     * The number of lines in the CUT.
      */
     Lines,
     /**
-     * The actual covered line numbers
+     * The actual covered line numbers.
      */
     Covered_Lines,
     /**
-     * Total number of methods in CUT
+     * Total number of methods in CUT.
      */
     Total_Methods,
     /**
-     * Number of methods covered
+     * Number of methods covered.
      */
     Covered_Methods,
     /**
-     * Number of methods without any predicates
+     * Number of methods without any predicates.
      */
     Branchless_Methods,
     /**
-     * Number of methods without predicates covered
+     * Number of methods without predicates covered.
      */
     Covered_Branchless_Methods,
     /**
-     * Total number of coverage goals for current criterion
+     * Total number of coverage goals for current criterion.
      */
     Total_Goals,
     /**
-     * Total number of covered goals
+     * Total number of covered goals.
      */
     Covered_Goals,
     /**
-     * Number of mutants
+     * Number of mutants.
      */
     Mutants,
     /**
-     * Total number of statements executed
+     * Total number of statements executed.
      */
     Statements_Executed,
     /**
-     * The total number of tests executed during the search
+     * The total number of tests executed during the search.
      */
     Tests_Executed,
     /**
-     * The total number of fitness evaluations during the search
+     * The total number of fitness evaluations during the search.
      */
     Fitness_Evaluations,
     /**
-     * Number of generations the search algorithm has been evolving
+     * Number of generations the search algorithm has been evolving.
      */
     Generations,
     /**
-     * Obtained coverage of the chosen testing criterion
+     * Obtained coverage of the chosen testing criterion.
      */
     Coverage,
     /**
-     * A bit string (0/1) representing whether goals (in order) are covered
+     * A bit string (0/1) representing whether goals (in order) are covered.
      */
     CoverageBitString,
     /**
-     * Fitness value of the best individual
+     * Fitness value of the best individual.
      */
     Fitness,
     /**
-     * Obtained coverage (of the chosen testing criterion) at different points in time
+     * Obtained coverage (of the chosen testing criterion) at different points in time.
      */
     CoverageTimeline,
     /**
-     * Obtained fitness values at different points in time
+     * Obtained fitness values at different points in time.
      */
     FitnessTimeline,
     /**
-     * Population similarity values at different points in time
+     * Population similarity values at different points in time.
      */
     DiversityTimeline,
     /**
-     * Obtained size values at different points in time
+     * Obtained size values at different points in time.
      */
     Size_T0,
     SizeTimeline,
     /**
-     * Obtained length values at different points in time
+     * Obtained length values at different points in time.
      */
     LengthTimeline,
     /**
-     * The obtained statement coverage
+     * The obtained statement coverage.
      */
     StatementCoverage,
     /**
-     * A bit string (0/1) representing whether statements (in order) are covered
+     * A bit string (0/1) representing whether statements (in order) are covered.
      */
     StatementCoverageBitString,
     /**
-     * The obtained rho coverage
+     * The obtained rho coverage.
      */
     RhoScore,
     RhoScore_T0,
     RhoScoreTimeline,
     /**
-     * The obtained ambiguity coverage
+     * The obtained ambiguity coverage.
      */
     AmbiguityScore,
     AmbiguityScore_T0,
     AmbiguityScoreTimeline,
     /**
-     * Not only the covered branches ratio, but also including the branchless methods. FIXME: this will need to be changed
+     * Not only the covered branches ratio, but also including the branchless methods.
+     * FIXME: this will need to be changed.
      */
     BranchCoverage,
     /**
-     * Coverage of instrumented branches
+     * Coverage of instrumented branches.
      */
     Total_Branches_Real,
     Total_Branches_Instrumented,
@@ -205,7 +201,7 @@ public enum RuntimeVariable {
     TryCatchCoverage,
     BranchCoverageTimeline,
     /**
-     * A bit string (0/1) representing whether branches (in order) are covered
+     * A bit string (0/1) representing whether branches (in order) are covered.
      */
     BranchCoverageBitString,
     /**
@@ -225,149 +221,149 @@ public enum RuntimeVariable {
     IBranchGoalsTimeline,
     IBranchCoverageBitString,
     /**
-     * The obtained method coverage (method calls anywhere in trace)
+     * The obtained method coverage (method calls anywhere in trace).
      */
     MethodTraceCoverage,
     MethodTraceFitnessTimeline,
     MethodTraceCoverageTimeline,
     MethodTraceCoverageBitString,
     /**
-     * The obtained method coverage
+     * The obtained method coverage.
      */
     MethodCoverage,
     MethodFitnessTimeline,
     MethodCoverageTimeline,
     MethodCoverageBitString,
     /**
-     * The obtained method coverage (only normal behaviour)
+     * The obtained method coverage (only normal behaviour).
      */
     MethodNoExceptionCoverage,
     MethodNoExceptionFitnessTimeline,
     MethodNoExceptionCoverageTimeline,
     MethodNoExceptionCoverageBitString,
     /**
-     * The obtained line coverage
+     * The obtained line coverage.
      */
     LineCoverage,
     LineFitnessTimeline,
     LineCoverageTimeline,
     LineCoverageBitString,
     /**
-     * The obtained output value coverage
+     * The obtained output value coverage.
      */
     OutputCoverage,
     OutputFitnessTimeline,
     OutputCoverageTimeline,
     OutputCoverageBitString,
     /**
-     * The input value coverage
+     * The input value coverage.
      */
     InputCoverage,
     InputFitnessTimeline,
     InputCoverageTimeline,
     InputCoverageBitString,
     /**
-     * The obtained exception coverage
+     * The obtained exception coverage.
      */
     ExceptionCoverage,
     ExceptionFitnessTimeline,
     ExceptionCoverageTimeline,
     ExceptionCoverageBitString,
     /**
-     * The obtained score for weak mutation testing
+     * The obtained score for weak mutation testing.
      */
     WeakMutationScore,
     WeakMutationCoverageTimeline,
     WeakMutationCoverageBitString,
     /**
-     * Only mutation = only infection distance
+     * Only mutation = only infection distance.
      */
     OnlyMutationScore,
     OnlyMutationFitnessTimeline,
     OnlyMutationCoverageTimeline,
     OnlyMutationCoverageBitString,
     /**
-     * The obtained score for (strong) mutation testing
+     * The obtained score for (strong) mutation testing.
      */
     MutationScore,
     MutationCoverageBitString,
     /**
-     * The total time EvoSuite spent generating the test cases
+     * The total time EvoSuite spent generating the test cases.
      */
     Total_Time,
     /**
-     * Number of tests in resulting test suite
+     * Number of tests in resulting test suite.
      */
     Size,
     /**
-     * Total number of statements in final test suite
+     * Total number of statements in final test suite.
      */
     Length,
     /**
-     * Number of tests in resulting test suite before minimization
+     * Number of tests in resulting test suite before minimization.
      */
     Result_Size,
     /**
-     * Total number of statements in final test suite before minimization
+     * Total number of statements in final test suite before minimization.
      */
     Result_Length,
     /**
-     * Either use {@link RuntimeVariable#Size}
+     * Either use {@link RuntimeVariable#Size}.
      */
     @Deprecated
     Minimized_Size,
     /**
-     * Either use  {@link RuntimeVariable#Length}
+     * Either use  {@link RuntimeVariable#Length}.
      */
     @Deprecated
     Minimized_Length,
     /**
-     * The random seed used during the search. A random one was used if none was specified at the beginning
+     * The random seed used during the search. A random one was used if none was specified at the beginning.
      */
     Random_Seed,
     /**
-     * How many tests were carved, ie used as input seeds for the search
+     * How many tests were carved, ie used as input seeds for the search.
      */
     CarvedTests,
     /**
-     * The branch coverage of the carved tests
+     * The branch coverage of the carved tests.
      */
     CarvedCoverage,
     /**
-     * Was any test unstable in the generated JUnit files?
+     * Was any test unstable in the generated JUnit files.
      */
     HadUnstableTests,
     /**
-     * Number of unstable tests in the generated JUnit files
+     * Number of unstable tests in the generated JUnit files.
      */
     NumUnstableTests,
     /**
-     * An estimate (ie not precise) of the maximum number of threads running at the same time in the CUT
+     * An estimate (ie not precise) of the maximum number of threads running at the same time in the CUT.
      */
     Threads,
     /**
-     * Number of top-level methods throwing an undeclared exception explicitly with a 'throw new'
+     * Number of top-level methods throwing an undeclared exception explicitly with a 'throw new'.
      */
     Explicit_MethodExceptions,
     /**
-     * Number of undeclared exception types that were explicitly thrown with a 'throw new' at least once
+     * Number of undeclared exception types that were explicitly thrown with a 'throw new' at least once.
      */
     Explicit_TypeExceptions,
     /**
-     * Number of top-level methods throwing an undeclared exception implicitly (ie, no 'new throw')
+     * Number of top-level methods throwing an undeclared exception implicitly (ie, no 'new throw').
      */
     Implicit_MethodExceptions,
     /**
-     * Number of undeclared exception types that were implicitly thrown (ie, no 'new throw') at least once
+     * Number of undeclared exception types that were implicitly thrown (ie, no 'new throw') at least once.
      */
     Implicit_TypeExceptions,
     /**
-     * Total number of exceptions covered
+     * Total number of exceptions covered.
      */
     TotalExceptionsTimeline,
 
     /**
-     * Map Elites
+     * Map Elites.
      */
     DensityTimeline,
     FeaturePartitionCount,
@@ -394,7 +390,7 @@ public enum RuntimeVariable {
     OtherPermission,
     /* -------------------------------------------------------------------- */
     /**
-     * Timings
+     * Timings.
      */
     Time_Assertion,
     Time_Coverage,
@@ -402,28 +398,28 @@ public enum RuntimeVariable {
     Time_Diversity,
     /* -------------------------------------------------------------------- */
     /**
-     * Count of branch comparison types in bytecode (static)
+     * Count of branch comparison types in bytecode (static).
      */
     Cmp_IntZero,
     Cmp_IntInt,
     Cmp_RefNull,
     Cmp_RefRef,
     /**
-     * Count of branch comparisons reached (dynamic)
+     * Count of branch comparisons reached (dynamic).
      */
     Reached_IntZero,
     Reached_IntInt,
     Reached_RefNull,
     Reached_RefRef,
     /**
-     * Count of branch comparisons covered (dynamic)
+     * Count of branch comparisons covered (dynamic).
      */
     Covered_IntZero,
     Covered_IntInt,
     Covered_RefNull,
     Covered_RefRef,
     /**
-     * Count of bytecode instructions (static)
+     * Count of bytecode instructions (static).
      */
     BC_lcmp,
     BC_fcmpl,
@@ -431,7 +427,7 @@ public enum RuntimeVariable {
     BC_dcmpl,
     BC_dcmpg,
     /**
-     * Count of bytecode instructions reached (dynamic)
+     * Count of bytecode instructions reached (dynamic).
      */
     Reached_lcmp,
     Reached_fcmpl,
@@ -439,7 +435,7 @@ public enum RuntimeVariable {
     Reached_dcmpl,
     Reached_dcmpg,
     /**
-     * Count of bytecode instructions reached (dynamic)
+     * Count of bytecode instructions reached (dynamic).
      */
     Covered_lcmp,
     Covered_fcmpl,
@@ -447,13 +443,14 @@ public enum RuntimeVariable {
     Covered_dcmpl,
     Covered_dcmpg,
     /**
-     * For sanity-checking purposes
+     * For sanity-checking purposes.
      */
     RSM_OverMinimized,
     /* -------------------------------------------------------------------- */
     /* TODO following needs to be implemented/updated. Currently they are not (necessarily) supported */
     /**
-     * (FIXME: need to be implemented) The number of serialized objects that EvoSuite is going to use for seeding strategies
+     * (FIXME: need to be implemented) The number of serialized objects that EvoSuite is going
+     * to use for seeding strategies.
      */
     NumberOfInputPoolObjects,
     Error_Predicates,
@@ -500,129 +497,129 @@ public enum RuntimeVariable {
     CoveredAliasParameterPairs,
     /* -------------------------------------------------------------------- */
     /**
-     * The number of constraint made of integer constraints and no other type
+     * The number of constraint made of integer constraints and no other type.
      */
     IntegerOnlyConstraints,
     /**
-     * The number of constraint made of real constraints and no other type
+     * The number of constraint made of real constraints and no other type.
      */
     RealOnlyConstraints,
     /**
-     * The number of constraint made of real constraints and no other type
+     * The number of constraint made of real constraints and no other type.
      */
     StringOnlyConstraints,
     /**
-     * The number of constraint made of reference constraints and no other type
+     * The number of constraint made of reference constraints and no other type.
      */
-	ReferenceOnlyConstraints,
+    ReferenceOnlyConstraints,
     /**
-     * The number of constraint made of integer and real constraints
+     * The number of constraint made of integer and real constraints.
      */
     IntegerAndRealConstraints,
     /**
-     * The number of constraint made of integer and string constraints
+     * The number of constraint made of integer and string constraints.
      */
     IntegerAndStringConstraints,
     /**
-     * The number of constraint made of real and string constraints
+     * The number of constraint made of real and string constraints.
      */
     RealAndStringConstraints,
     /**
-     * The number of constraint made of integer constraints and reference constraints
+     * The number of constraint made of integer constraints and reference constraints.
      */
-	IntegerAndReferenceConstraints,
-	/**
-     * The number of constraint made of real constraints and reference constraints
+    IntegerAndReferenceConstraints,
+    /**
+     * The number of constraint made of real constraints and reference constraints.
      */
-	RealAndReferenceConstraints,
-	/**
-     * The number of constraint made of real constraints and reference constraints
+    RealAndReferenceConstraints,
+    /**
+     * The number of constraint made of real constraints and reference constraints.
      */
-	StringAndReferenceConstraints,
-	/**
-     * The number of constraint made of integer, real and reference constraints
+    StringAndReferenceConstraints,
+    /**
+     * The number of constraint made of integer, real and reference constraints.
      */
-	IntegerRealAndReferenceConstraints,
-	/**
-     * The number of constraint made of integer, string and reference constraints
+    IntegerRealAndReferenceConstraints,
+    /**
+     * The number of constraint made of integer, string and reference constraints.
      */
-	IntegerStringAndReferenceConstraints,
-	/**
-     * The number of constraint made of real, string and reference constraints
+    IntegerStringAndReferenceConstraints,
+    /**
+     * The number of constraint made of real, string and reference constraints.
      */
-	RealStringAndReferenceConstraints,
-	/**
-     * Number of constraints containing integer, real and string constraints
+    RealStringAndReferenceConstraints,
+    /**
+     * Number of constraints containing integer, real and string constraints.
      */
     IntegerRealAndStringConstraints,
     /**
-     * Number of constraints containing all four types altogether
+     * Number of constraints containing all four types altogether.
      */
-	IntegerRealStringAndReferenceConstraints,
-    /** The total number of constraints during the execution of the Genetic Algorithm*/
+    IntegerRealStringAndReferenceConstraints,
     /**
-     * This total should be the sum of all the other types of constraints
+     * The total number of constraints during the execution of the Genetic Algorithm.
+     * This total should be the sum of all the other types of constraints.
      */
     TotalNumberOfConstraints,
 
     /* -------------------------------------------------------------------- */
     /**
-     * The number of SAT answers to Solver queries
+     * The number of SAT answers to Solver queries.
      */
     NumberOfSATQueries,
     /**
-     * The number of UNSAT answers to Solver queries
+     * The number of UNSAT answers to Solver queries.
      */
     NumberOfUNSATQueries,
     /**
-     * The number of TIMEOUTs when solving queries
+     * The number of TIMEOUTs when solving queries.
      */
     NumberOfTimeoutQueries,
     /**
-     * How many SAT queries led to Useful (i.e. better fitness) new tests
+     * How many SAT queries led to Useful (i.e. better fitness) new tests.
      */
     NumberOfUsefulNewTests,
     /**
-     * How many SAT queries led to Unuseful (i.e. no better fitness) new tests
+     * How many SAT queries led to Unuseful (i.e. no better fitness) new tests.
      */
     NumberOfUnusefulNewTests,
     /**
-     * How much time was spent solving constraints on the SMT solver
+     * How much time was spent solving constraints on the SMT solver.
      */
     TotalTimeSpentSolvingConstraints,
 
     /* -------------------------------------------------------------------- */
-    /** Search budget needed to reach the maximum coverage */
     /**
-     * Used in the comparison between LISP and MOSA
+     * Search budget needed to reach the maximum coverage.
+     * Used in the comparison between LISP and MOSA.
      */
     Time2MaxCoverage,
 
     /* -------------------------------------------------------------------- */
-    /******* DSE related section *******/
+    /*       DSE related section       */
 
     /**
-     * Path condition related
+     * Path condition related.
      */
     MaxPathConditionLength,
     MinPathConditionLength,
     AvgPathConditionLength,
 
     /**
-     * Path explotarion related
+     * Path explotarion related.
      */
     NumberOfPathsExplored,
     NumberOfPathsDiverged,
 
     /**
-     * How much time was spent executing tests
+     * How much time was spent executing tests.
      */
     TotalTimeSpentExecutingConcolicaly,
     TotalTimeSpentExecutingTestCases,
     TotalTimeSpentExecutingNonConcolicTestCases,
 
     /**
-     * Solver Cache Statistics
+     * Solver Cache Statistics.
      */
     QueryCacheSize,
     QueryCacheCalls,
@@ -633,11 +630,11 @@ public enum RuntimeVariable {
     private static final Logger logger = LoggerFactory.getLogger(RuntimeVariable.class);
 
     /**
-     * check if the variables do satisfy a set of predefined constraints: eg, the
-     * number of covered targets cannot be higher than their total number
+     * Checks if the variables do satisfy a set of predefined constraints: eg, the
+     * number of covered targets cannot be higher than their total number.
      *
      * @param map from (key->variable name) to (value -> output variable)
-     * @return
+     * @return true if valid
      * @deprecated Use {@link StatisticsValidator#validateRuntimeVariables(Map)} instead.
      */
     @Deprecated
