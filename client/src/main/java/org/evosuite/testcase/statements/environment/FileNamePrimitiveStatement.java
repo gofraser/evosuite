@@ -32,7 +32,7 @@ import java.io.ObjectOutputStream;
 
 
 /**
- * This class is a wrapper for a string that represents a filename
+ * This class is a wrapper for a string that represents a filename.
  *
  * @author fraser
  */

@@ -53,7 +53,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
- * A test case is a list of statements
+ * A test case is a list of statements.
  *
  * @author Gordon Fraser
  */
@@ -68,17 +68,17 @@ public class DefaultTestCase implements TestCase, Serializable {
     private final AccessedEnvironment accessedEnvironment = new AccessedEnvironment();
 
     /**
-     * The statements
+     * The statements.
      */
     protected final ListenableList<Statement> statements;
 
     /**
-     * Coverage goals this test covers
+     * Coverage goals this test covers.
      */
     private transient Set<TestFitnessFunction> coveredGoals = new LinkedHashSet<>();
 
     /**
-     * Violations revealed by this test
+     * Violations revealed by this test.
      */
     private transient Set<ContractViolation> contractViolations = new LinkedHashSet<>();
 
@@ -128,8 +128,9 @@ public class DefaultTestCase implements TestCase, Serializable {
     public void addAssertions(TestCase other) {
         for (int i = 0; i < statements.size() && i < other.size(); i++) {
             for (Assertion a : other.getStatement(i).getAssertions()) {
-                if (!statements.get(i).getAssertions().contains(a) && a != null)
+                if (!statements.get(i).getAssertions().contains(a) && a != null) {
                     statements.get(i).getAssertions().add(a.clone(this));
+                }
             }
         }
     }
@@ -312,8 +313,9 @@ public class DefaultTestCase implements TestCase, Serializable {
         int lastPosition = var.getStPosition();
         // Add all statements that use this var
         for (VariableReference ref : getReferences(var)) {
-            if (ref.getStPosition() > lastPosition)
+            if (ref.getStPosition() > lastPosition) {
                 lastPosition = ref.getStPosition();
+            }
             dependentStatements.add(statements.get(ref.getStPosition()));
         }
 
@@ -359,6 +361,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Create a copy of the test case
      */
@@ -395,19 +398,23 @@ public class DefaultTestCase implements TestCase, Serializable {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         DefaultTestCase other = (DefaultTestCase) obj;
 
         if (statements == null) {
             return other.statements == null;
         } else {
-            if (statements.size() != other.statements.size())
+            if (statements.size() != other.statements.size()) {
                 return false;
+            }
             // if (!statements.equals(other.statements))
             for (int i = 0; i < statements.size(); i++) {
                 if (!statements.get(i).equals(other.statements.get(i))) {
@@ -435,9 +442,9 @@ public class DefaultTestCase implements TestCase, Serializable {
                     while (clazz.isMemberClass()) {
                         //accessed_classes.add(clazz);
                         clazz = clazz.getEnclosingClass();
-                    }
-                    while (clazz.isArray())
+                    } while (clazz.isArray()) {
                         clazz = clazz.getComponentType();
+                    }
                     accessedClasses.add(clazz);
                 }
             }
@@ -522,12 +529,14 @@ public class DefaultTestCase implements TestCase, Serializable {
     public Set<VariableReference> getDependencies(VariableReference var) {
         Set<VariableReference> dependencies = new LinkedHashSet<>();
 
-        if (var == null || var.getStPosition() == -1)
+        if (var == null || var.getStPosition() == -1) {
             return dependencies;
+        }
 
         Set<Statement> dependentStatements = new LinkedHashSet<>();
-        if (statements.size() > var.getStPosition())
+        if (statements.size() > var.getStPosition()) {
             dependentStatements.add(statements.get(var.getStPosition()));
+        }
 
         for (int i = var.getStPosition(); i >= 0; i--) {
             Set<Statement> newStatements = new LinkedHashSet<>();
@@ -555,8 +564,9 @@ public class DefaultTestCase implements TestCase, Serializable {
         for (int i = statements.size() - 1; i >= position; i--) {
             Statement statement = statements.get(i);
             VariableReference var = statement.getReturnValue();
-            if (var.isAssignableTo(type))
+            if (var.isAssignableTo(type)) {
                 return var;
+            }
         }
         throw new ConstructionFailedException("Found no variables of type " + type);
     }
@@ -591,8 +601,9 @@ public class DefaultTestCase implements TestCase, Serializable {
         for (int i = 0; i < position && i < statements.size(); i++) {
             VariableReference value = statements.get(i).getReturnValue();
 
-            if (value == null)
+            if (value == null) {
                 continue;
+            }
             // TODO: Need to support arrays that were not self-created
             if (value instanceof ArrayReference) { // &&
                 for (int index = 0; index < ((ArrayReference) value).getArrayLength(); index++) {
@@ -624,13 +635,15 @@ public class DefaultTestCase implements TestCase, Serializable {
         for (int i = 0; i < position && i < size(); i++) {
             Statement statement = statements.get(i);
             if (statement instanceof MethodStatement) {
-                if (((MethodStatement) statement).getMethod().getName().equals("hashCode"))
+                if (((MethodStatement) statement).getMethod().getName().equals("hashCode")) {
                     continue;
+                }
             }
             VariableReference value = statement.getReturnValue();
 
-            if (value == null)
+            if (value == null) {
                 continue;
+            }
             if (value instanceof ArrayReference) {
 
                 // For some reason, TypeUtils/ClassUtils sometimes claims
@@ -655,9 +668,10 @@ public class DefaultTestCase implements TestCase, Serializable {
                     }
 
                     for (int index = 0; index < ((ArrayReference) value).getArrayLength(); index++) {
-                        if (((ArrayReference) value).isInitialized(index, position))
+                        if (((ArrayReference) value).isInitialized(index, position)) {
                             variables.add(new ArrayIndex(this, (ArrayReference) value,
                                     index));
+                        }
                     }
                 }
             } else if (value instanceof ArrayIndex) {
@@ -689,18 +703,25 @@ public class DefaultTestCase implements TestCase, Serializable {
         Iterator<VariableReference> iterator = variables.iterator();
         while (iterator.hasNext()) {
             VariableReference var = iterator.next();
-            if (var instanceof NullReference)
+            if (var instanceof NullReference) {
                 iterator.remove();
-            else if (getStatement(var.getStPosition()) instanceof PrimitiveStatement)
+            } else  {
+                if (getStatement(var.getStPosition()) instanceof PrimitiveStatement)
                 iterator.remove();
-            else if (var.isPrimitive() || var.isWrapperType())
+            else  {
+                if (var.isPrimitive() || var.isWrapperType())
                 iterator.remove();
-            else if (this.getStatement(var.getStPosition()) instanceof FunctionalMockStatement && !(this.getStatement(var.getStPosition()) instanceof FunctionalMockForAbstractClassStatement))
+            else  {
+                if (this.getStatement(var.getStPosition()) instanceof FunctionalMockStatement && !(this.getStatement(var.getStPosition()) instanceof FunctionalMockForAbstractClassStatement))
                 iterator.remove();
+            }
+            }
+            }
         }
-        if (variables.isEmpty())
+        if (variables.isEmpty()) {
             throw new ConstructionFailedException("Found no variables of type " + type
                     + " at position " + position);
+        }
 
         return Randomness.choice(variables);
     }
@@ -722,9 +743,10 @@ public class DefaultTestCase implements TestCase, Serializable {
             final Statement statement = this.getStatement(ref.getStPosition());
             return ref instanceof NullReference || statement instanceof FunctionalMockStatement;
         });
-        if (variables.isEmpty())
+        if (variables.isEmpty()) {
             throw new ConstructionFailedException("Found no variables of type " + type
                     + " at position " + position);
+        }
 
         return Randomness.choice(variables);
     }
@@ -751,8 +773,9 @@ public class DefaultTestCase implements TestCase, Serializable {
     @Override
     public VariableReference getRandomObject(int position) {
         List<VariableReference> variables = getObjects(position);
-        if (variables.isEmpty())
+        if (variables.isEmpty()) {
             return null;
+        }
 
         return Randomness.choice(variables);
     }
@@ -782,9 +805,10 @@ public class DefaultTestCase implements TestCase, Serializable {
             throws ConstructionFailedException {
         assert (type != null);
         List<VariableReference> variables = getObjects(type, position);
-        if (variables.isEmpty())
+        if (variables.isEmpty()) {
             throw new ConstructionFailedException("Found no variables of type " + type
                     + " at position " + position);
+        }
 
         return Randomness.choice(variables);
     }
@@ -800,22 +824,27 @@ public class DefaultTestCase implements TestCase, Serializable {
     public Set<VariableReference> getReferences(VariableReference var) {
         Set<VariableReference> references = new LinkedHashSet<>();
 
-        if (var == null || var.getStPosition() == -1)
+        if (var == null || var.getStPosition() == -1) {
             return references;
+        }
 
         // references.add(var);
 
         for (int i = var.getStPosition() + 1; i < statements.size(); i++) {
             Set<VariableReference> temp = new LinkedHashSet<>();
-            if (statements.get(i).references(var))
+            if (statements.get(i).references(var)) {
                 temp.add(statements.get(i).getReturnValue());
-            else if (statements.get(i).references(var.getAdditionalVariableReference()))
+            } else  {
+                if (statements.get(i).references(var.getAdditionalVariableReference()))
                 temp.add(statements.get(i).getReturnValue());
+            }
             for (VariableReference v : references) {
-                if (statements.get(i).references(v))
+                if (statements.get(i).references(v)) {
                     temp.add(statements.get(i).getReturnValue());
-                else if (statements.get(i).references(v.getAdditionalVariableReference()))
+                } else  {
+                    if (statements.get(i).references(v.getAdditionalVariableReference()))
                     temp.add(statements.get(i).getReturnValue());
+                }
             }
             references.addAll(temp);
         }
@@ -889,6 +918,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Equality check
      */
@@ -911,8 +941,9 @@ public class DefaultTestCase implements TestCase, Serializable {
     public boolean hasObject(Type type, int position) {
         for (int i = 0; i < position && i < size(); i++) {
             Statement st = statements.get(i);
-            if (st.getReturnValue() == null)
-                continue; // Nop
+            if (st.getReturnValue() == null) {
+                continue;
+            } // Nop
             if (st.getReturnValue().isAssignableTo(type)) {
                 return true;
             }
@@ -929,16 +960,19 @@ public class DefaultTestCase implements TestCase, Serializable {
      */
     @Override
     public boolean hasReferences(VariableReference var) {
-        if (var == null || var.getStPosition() == -1)
+        if (var == null || var.getStPosition() == -1) {
             return false;
+        }
 
         for (int i = var.getStPosition() + 1; i < statements.size(); i++) {
-            if (statements.get(i).references(var))
+            if (statements.get(i).references(var)) {
                 return true;
+            }
         }
         for (Assertion assertion : statements.get(var.getStPosition()).getAssertions()) {
-            if (assertion.getReferencedVariables().contains(var))
+            if (assertion.getReferencedVariables().contains(var)) {
                 return true;
+            }
         }
         return false;
     }
@@ -946,7 +980,7 @@ public class DefaultTestCase implements TestCase, Serializable {
     private boolean isClassUtilsBug(Class<?> rawClass, Class<?> arrayClass) {
         while (arrayClass != null && arrayClass.isArray()) {
             if (rawClass.isAssignableFrom(arrayClass.getComponentType())) {
-                //			if (arrayClass.getComponentType().equals(rawClass)) {
+                //            if (arrayClass.getComponentType().equals(rawClass)) {
                 return true;
             }
             arrayClass = arrayClass.getComponentType();
@@ -990,8 +1024,9 @@ public class DefaultTestCase implements TestCase, Serializable {
      */
     @Override
     public boolean isPrefix(TestCase t) {
-        if (statements.size() > t.size())
+        if (statements.size() > t.size()) {
             return false;
+        }
 
         for (int i = 0; i < statements.size(); i++) {
             if (!statements.get(i).same(t.getStatement(i))) {

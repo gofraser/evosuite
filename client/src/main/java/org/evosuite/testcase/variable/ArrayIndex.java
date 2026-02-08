@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * This class defines an reference to an array element. E.g. foo[3]
+ * This class defines an reference to an array element. E.g. foo[3].
  *
  * @author Sebastian Steenbuck
  */
@@ -44,18 +44,18 @@ public class ArrayIndex extends VariableReferenceImpl {
     private static final long serialVersionUID = -4492869536935582711L;
 
     /**
-     * Index in the array
+     * Index in the array.
      */
     private List<Integer> indices;
 
     /**
      * If this variable is contained in an array, this is the reference to the
-     * array
+     * array.
      */
     protected ArrayReference array = null;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @param array    a {@link ArrayReference} object.
@@ -114,7 +114,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     }
 
     /**
-     * Return true if variable is an array
+     * Return true if variable is an array.
      *
      * @return a boolean.
      */
@@ -166,6 +166,7 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return name for source code representation
      */
@@ -213,27 +214,33 @@ public class ArrayIndex extends VariableReferenceImpl {
      */
     @Override
     public boolean same(VariableReference r) {
-        if (r == null)
+        if (r == null) {
             return false;
+        }
 
-        if (!(r instanceof ArrayIndex))
+        if (!(r instanceof ArrayIndex)) {
             return false;
+        }
 
         ArrayIndex other = (ArrayIndex) r;
-        if (this.getStPosition() != r.getStPosition())
+        if (this.getStPosition() != r.getStPosition()) {
             return false;
+        }
 
-        if (!this.array.same(other.getArray()))
+        if (!this.array.same(other.getArray())) {
             return false;
+        }
 
-        if (!indices.equals(other.indices))
+        if (!indices.equals(other.indices)) {
             return false;
+        }
 
         return this.type.equals(r.getGenericClass());
     }
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return the actual object represented by this variable for a given scope
      */
@@ -264,7 +271,9 @@ public class ArrayIndex extends VariableReferenceImpl {
         } else if (object instanceof Character) {
             return (int) (Character) object;
         } else
+             {
             return 0;
+        }
     }
 
     private Short getShortValue(Object object) {
@@ -275,7 +284,9 @@ public class ArrayIndex extends VariableReferenceImpl {
         } else if (object instanceof Character) {
             return (short) ((Character) object).charValue();
         } else
+             {
             return 0;
+        }
     }
 
     private Byte getByteValue(Object object) {
@@ -286,7 +297,9 @@ public class ArrayIndex extends VariableReferenceImpl {
         } else if (object instanceof Character) {
             return (byte) ((Character) object).charValue();
         } else
+             {
             return 0;
+        }
     }
 
     private Long getLongValue(Object object) {
@@ -297,7 +310,9 @@ public class ArrayIndex extends VariableReferenceImpl {
         } else if (object instanceof Character) {
             return (long) (Character) object;
         } else
+             {
             return 0L;
+        }
     }
 
     private Float getFloatValue(Object object) {
@@ -308,7 +323,9 @@ public class ArrayIndex extends VariableReferenceImpl {
         } else if (object instanceof Character) {
             return (float) (Character) object;
         } else
+             {
             return 0F;
+        }
     }
 
     private Double getDoubleValue(Object object) {
@@ -319,7 +336,9 @@ public class ArrayIndex extends VariableReferenceImpl {
         } else if (object instanceof Character) {
             return (double) (Character) object;
         } else
+             {
             return 0.0;
+        }
     }
 
     private Character getCharValue(Object object) {
@@ -330,11 +349,14 @@ public class ArrayIndex extends VariableReferenceImpl {
         } else if (object instanceof Number) {
             return (char) ((Number) object).intValue();
         } else
+             {
             return '0';
+        }
     }
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Set the actual object represented by this variable in a given scope
      */
@@ -354,57 +376,83 @@ public class ArrayIndex extends VariableReferenceImpl {
             if (value == null && arrayObject.getClass().getComponentType().isPrimitive()) {
                 throw new CodeUnderTestException(new NullPointerException());
             }
-            if (arrayObject.getClass().getComponentType().equals(int.class))
+            if (arrayObject.getClass().getComponentType().equals(int.class)) {
                 Array.setInt(arrayObject, indices.get(indices.size() - 1),
                         getIntValue(value));
-            else if (arrayObject.getClass().getComponentType().equals(boolean.class))
+            } else  {
+                if (arrayObject.getClass().getComponentType().equals(boolean.class))
                 Array.setBoolean(arrayObject, indices.get(indices.size() - 1),
                         (Boolean) value);
             else if (arrayObject.getClass().getComponentType().equals(char.class)) {
                 Array.setChar(arrayObject, indices.get(indices.size() - 1),
                         getCharValue(value));
-            } else if (arrayObject.getClass().getComponentType().equals(double.class))
+            } else  {
+                if (arrayObject.getClass().getComponentType().equals(double.class))
                 Array.setDouble(arrayObject, indices.get(indices.size() - 1),
                         getDoubleValue(value));
-            else if (arrayObject.getClass().getComponentType().equals(float.class))
+            else  {
+                if (arrayObject.getClass().getComponentType().equals(float.class))
                 Array.setFloat(arrayObject, indices.get(indices.size() - 1),
                         getFloatValue(value));
-            else if (arrayObject.getClass().getComponentType().equals(long.class))
+            else  {
+                if (arrayObject.getClass().getComponentType().equals(long.class))
                 Array.setLong(arrayObject, indices.get(indices.size() - 1),
                         getLongValue(value));
-            else if (arrayObject.getClass().getComponentType().equals(short.class))
+            else  {
+                if (arrayObject.getClass().getComponentType().equals(short.class))
                 Array.setShort(arrayObject, indices.get(indices.size() - 1),
                         getShortValue(value));
-            else if (arrayObject.getClass().getComponentType().equals(byte.class))
+            else  {
+                if (arrayObject.getClass().getComponentType().equals(byte.class))
                 Array.setByte(arrayObject, indices.get(indices.size() - 1),
                         getByteValue(value));
                 // We also need to check if we are assigning to a wrapper type, because autoboxing
                 // only seems to work from int -> Integer, but e.g. not from byte -> Integer
-            else if (arrayObject.getClass().getComponentType().equals(Integer.class))
+            else  {
+                if (arrayObject.getClass().getComponentType().equals(Integer.class))
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getIntValue(value));
-            else if (arrayObject.getClass().getComponentType().equals(Boolean.class))
+            else  {
+                if (arrayObject.getClass().getComponentType().equals(Boolean.class))
                 Array.set(arrayObject, indices.get(indices.size() - 1), value);
             else if (arrayObject.getClass().getComponentType().equals(Character.class)) {
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getCharValue(value));
-            } else if (arrayObject.getClass().getComponentType().equals(Double.class))
+            } else  {
+                if (arrayObject.getClass().getComponentType().equals(Double.class))
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getDoubleValue(value));
-            else if (arrayObject.getClass().getComponentType().equals(Float.class))
+            else  {
+                if (arrayObject.getClass().getComponentType().equals(Float.class))
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getFloatValue(value));
-            else if (arrayObject.getClass().getComponentType().equals(Long.class))
+            else  {
+                if (arrayObject.getClass().getComponentType().equals(Long.class))
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getLongValue(value));
-            else if (arrayObject.getClass().getComponentType().equals(Short.class))
+            else  {
+                if (arrayObject.getClass().getComponentType().equals(Short.class))
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getShortValue(value));
-            else if (arrayObject.getClass().getComponentType().equals(Byte.class))
+            else  {
+                if (arrayObject.getClass().getComponentType().equals(Byte.class))
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getByteValue(value));
             else {
                 Array.set(arrayObject, indices.get(indices.size() - 1), value);
+            }
+            }
+            }
+            }
+            }
+            }
+            }
+            }
+            }
+            }
+            }
+            }
+            }
             }
         } catch (ArrayIndexOutOfBoundsException e) {
             throw new CodeUnderTestException(e);
@@ -413,6 +461,7 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Create a copy of the current variable
      */
@@ -438,10 +487,12 @@ public class ArrayIndex extends VariableReferenceImpl {
      */
     @Override
     public VariableReference getAdditionalVariableReference() {
-        if (array.getAdditionalVariableReference() == null)
+        if (array.getAdditionalVariableReference() == null) {
             return array;
-        else
+        } else
+             {
             return array.getAdditionalVariableReference();
+        }
     }
 
     /* (non-Javadoc)
@@ -476,7 +527,9 @@ public class ArrayIndex extends VariableReferenceImpl {
             // ArrayReferences.
             // Such a replacement should only happen as part of a graceful delete
         } else
+             {
             array.replaceAdditionalVariableReference(var1, var2);
+        }
     }
 
     /* (non-Javadoc)
@@ -506,18 +559,24 @@ public class ArrayIndex extends VariableReferenceImpl {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (!super.equals(obj))
+        }
+        if (!super.equals(obj)) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         ArrayIndex other = (ArrayIndex) obj;
         if (array == null) {
-            if (other.array != null)
+            if (other.array != null) {
                 return false;
-        } else if (!array.equals(other.array))
+            }
+        } else  {
+            if (!array.equals(other.array))
             return false;
+        }
         return indices.equals(other.indices);
     }
 
@@ -530,8 +589,9 @@ public class ArrayIndex extends VariableReferenceImpl {
      */
     public void setArrayIndices(List<Integer> indices) {
         this.indices = new ArrayList<>();
-        for (Integer i : indices)
+        for (Integer i : indices) {
             this.indices.add(i);
+        }
     }
 
     /**

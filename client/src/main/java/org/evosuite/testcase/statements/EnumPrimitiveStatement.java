@@ -60,8 +60,9 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         super(tc, clazz, null);
         enumClass = clazz;
         boolean tracerEnabled = ExecutionTracer.isEnabled();
-        if (tracerEnabled)
+        if (tracerEnabled) {
             ExecutionTracer.disable();
+        }
 
         try {
             if (clazz.getEnumConstants().length > 0) {
@@ -76,8 +77,9 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
             // Loading the Enum class might fail
             constants = (T[]) new Enum[0];
         }
-        if (tracerEnabled)
+        if (tracerEnabled) {
             ExecutionTracer.enable();
+        }
     }
 
     /**
@@ -92,26 +94,34 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
     public EnumPrimitiveStatement(TestCase tc, T value) {
         super(tc, value.getClass(), value);
         boolean tracerEnabled = ExecutionTracer.isEnabled();
-        if (tracerEnabled)
+        if (tracerEnabled) {
             ExecutionTracer.disable();
+        }
 
         enumClass = (Class<T>) retrieveEnumClass(value.getClass());
         constants = (T[]) retrieveEnumClass(value.getClass()).getEnumConstants();
 
-        if (tracerEnabled)
+        if (tracerEnabled) {
             ExecutionTracer.enable();
+        }
 
     }
 
     private static Class<?> retrieveEnumClass(Class<?> clazz) {
-        if (clazz.isEnum())
+        if (clazz.isEnum()) {
             return clazz;
-        else if (clazz.getEnclosingClass() != null && clazz.getEnclosingClass().isEnum())
+        } else  {
+            if (clazz.getEnclosingClass() != null && clazz.getEnclosingClass().isEnum())
             return clazz.getEnclosingClass();
-        else if (clazz.getDeclaringClass() != null && clazz.getDeclaringClass().isEnum())
+        else  {
+            if (clazz.getDeclaringClass() != null && clazz.getDeclaringClass().isEnum())
             return clazz.getDeclaringClass();
         else
+             {
             throw new RuntimeException("Cannot find enum class: " + clazz);
+        }
+        }
+        }
     }
 
     /**
@@ -187,8 +197,9 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
      */
     @Override
     public void zero() {
-        if (constants.length == 0)
+        if (constants.length == 0) {
             return;
+        }
 
         value = constants[0];
     }
@@ -271,8 +282,9 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
             if (enumClass.getEnumConstants().length > 0) {
                 this.value = enumClass.getEnumConstants()[0];
                 constants = enumClass.getEnumConstants();
-                if (constants.length > 0)
+                if (constants.length > 0) {
                     value = constants[pos];
+                }
 
             } else {
                 // Coping with empty enums is a bit of a mess

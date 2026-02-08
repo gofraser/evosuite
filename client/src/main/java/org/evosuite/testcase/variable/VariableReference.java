@@ -31,10 +31,11 @@ import java.lang.reflect.Type;
 import java.util.Map;
 
 /**
- * This class represents a variable in a test case
+ * This class represents a variable in a test case.
+ *
  * <p>
  * TODO: Store generic types in this variable - we know at creation what it is
- * (from method calls)
+ * (from method calls).
  *
  * @author Gordon Fraser
  */
@@ -50,28 +51,28 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
 
     /**
      * Distance metric used to select variables for mutation based on how close
-     * they are to the SUT
+     * they are to the SUT.
      *
      * @return a int.
      */
     int getDistance();
 
     /**
-     * Set the distance metric
+     * Set the distance metric.
      *
      * @param distance a int.
      */
     void setDistance(int distance);
 
     /**
-     * Create a copy of the current variable
+     * Create a copy of the current variable.
      *
      * @return a {@link VariableReference} object.
      */
     VariableReference clone();
 
     /**
-     * Create a copy of the current variable for new test
+     * Create a copy of the current variable for new test.
      *
      * @param newTest a {@link org.evosuite.testcase.TestCase} object.
      * @return a {@link VariableReference} object.
@@ -79,7 +80,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     VariableReference clone(TestCase newTest);
 
     /**
-     * Create a copy of the current variable for new test
+     * Create a copy of the current variable for new test.
      *
      * @param newTest a {@link org.evosuite.testcase.TestCase} object.
      * @param offset  a int.
@@ -88,14 +89,14 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     VariableReference copy(TestCase newTest, int offset);
 
     /**
-     * Return simple class name
+     * Return simple class name.
      *
      * @return a {@link java.lang.String} object.
      */
     String getSimpleClassName();
 
     /**
-     * Return class name
+     * Return class name.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -138,70 +139,70 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     TestCase getTestCase();
 
     /**
-     * Return true if variable is an enumeration
+     * Return true if variable is an enumeration.
      *
      * @return a boolean.
      */
     boolean isEnum();
 
     /**
-     * Return true if variable is a primitive type
+     * Return true if variable is a primitive type.
      *
      * @return a boolean.
      */
     boolean isPrimitive();
 
     /**
-     * Return true if variable is void
+     * Return true if variable is void.
      *
      * @return a boolean.
      */
     boolean isVoid();
 
     /**
-     * Return true if variable is an array
+     * Return true if variable is an array.
      *
      * @return a boolean.
      */
     boolean isArray();
 
     /**
-     * Return true if this is an index into an array variable
+     * Return true if this is an index into an array variable.
      *
      * @return a boolean
      */
     boolean isArrayIndex();
 
     /**
-     * Return true if this is a reference to a public field
+     * Return true if this is a reference to a public field.
      *
      * @return a boolean
      */
     boolean isFieldReference();
 
     /**
-     * Return true if variable is a string
+     * Return true if variable is a string.
      *
      * @return a boolean.
      */
     boolean isString();
 
     /**
-     * Return true if type of variable is a primitive wrapper
+     * Return true if type of variable is a primitive wrapper.
      *
      * @return a boolean.
      */
     boolean isWrapperType();
 
     /**
-     * Return true if we can validly access this variable. This might not be the case for a field reference if the owner class is not accessible
+     * Return true if we can validly access this variable. This might not be the case for a field reference if the owner class is not accessible.
      *
-     * @return
+     * @return .
      */
     boolean isAccessible();
 
     /**
-     * Return true if other type can be assigned to this variable
+     * Return true if other type can be assigned to this variable.
      *
      * @param other Right hand side of the assignment
      * @return a boolean.
@@ -209,7 +210,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     boolean isAssignableFrom(Type other);
 
     /**
-     * Return true if this variable can by assigned to a variable of other type
+     * Return true if this variable can by assigned to a variable of other type.
      *
      * @param other Left hand side of the assignment
      * @return a boolean.
@@ -217,7 +218,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     boolean isAssignableTo(Type other);
 
     /**
-     * Return true if other type can be assigned to this variable
+     * Return true if other type can be assigned to this variable.
      *
      * @param other Right hand side of the assignment
      * @return a boolean.
@@ -225,7 +226,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     boolean isAssignableFrom(VariableReference other);
 
     /**
-     * Return true if this variable can by assigned to a variable of other type
+     * Return true if this variable can by assigned to a variable of other type.
      *
      * @param other Left hand side of the assignment
      * @return a boolean.
@@ -233,35 +234,35 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     boolean isAssignableTo(VariableReference other);
 
     /**
-     * Return type of this variable
+     * Return type of this variable.
      *
      * @return a {@link java.lang.reflect.Type} object.
      */
     Type getType();
 
     /**
-     * Set type of this variable
+     * Set type of this variable.
      *
      * @param type a {@link java.lang.reflect.Type} object.
      */
     void setType(Type type);
 
     /**
-     * Return raw class of this variable
+     * Return raw class of this variable.
      *
      * @return a {@link java.lang.Class} object.
      */
     Class<?> getVariableClass();
 
     /**
-     * Return raw class of this variable's component
+     * Return raw class of this variable's component.
      *
      * @return a {@link java.lang.Class} object.
      */
     Class<?> getComponentClass();
 
     /**
-     * Return the actual object represented by this variable for a given scope
+     * Return the actual object represented by this variable for a given scope.
      *
      * @param scope The scope of the test case execution
      * @return a {@link java.lang.Object} object.
@@ -281,7 +282,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     String getOriginalCode();
 
     /**
-     * Set the actual object represented by this variable in a given scope
+     * Set the actual object represented by this variable in a given scope.
      *
      * @param scope The scope of the test case execution
      * @param value The value to be assigned
@@ -300,6 +301,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return string representation of the variable
      */
@@ -307,7 +309,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     String toString();
 
     /**
-     * Return name for source code representation
+     * Return name for source code representation.
      *
      * @return a {@link java.lang.String} object.
      */

@@ -58,7 +58,7 @@ public class TestCaseUpdater {
     public static final int DEFAULT_STRING_LENGTH = 10;
     public static final int ARRAY_DIMENSION_LOWER_BOUND = 0;
     /**
-     * TODO (ilebrero): At some point there can be an empirical study about the max length that arrays usually have in open source projects
+     * TODO (ilebrero): At some point there can be an empirical study about the max length that arrays usually have in open source projects.
      */
     public static final int DEFAULT_ARRAY_LENGTH_UPPER_BOUND = 20;
 
@@ -166,14 +166,15 @@ public class TestCaseUpdater {
 
     /**
      * Updates the test case values that are stored on the array.
+     *
      * <p>
      * TODO (ilebrero):
-     *     Is there a case where the empty array happends after the test case contains an already setted array?
+     *     Is there a case where the empty array happends after the test case contains an already setted array?.
      *
-     * @param test
-     * @param newTest
-     * @param symbolicArrayVariableName
-     * @param updatedArray
+     * @param test the test case.
+     * @param newTest the new test.
+     * @param symbolicArrayVariableName the symbolic array variable name.
+     * @param updatedArray the updated array.
      */
     private static void processArray(TestCase test, TestCase newTest, String symbolicArrayVariableName, Object updatedArray) {
         String arrayVariableName = symbolicArrayVariableName.replace("__SYM", "");
@@ -195,7 +196,8 @@ public class TestCaseUpdater {
     }
 
     /**
-     * Updates the assignment of an element of an array
+     * Updates the assignment of an element of an array.
+     *
      * <p>
      * ***** General algorithm *****
      * if (! exists assignment statement for the current index)
@@ -203,13 +205,13 @@ public class TestCaseUpdater {
      * Create primitive variable and assign new value (i.e. x = val)     | PrimitiveStatement
      * Create assignment and use the previous variable (i.e. arr[i] = x) | AssignmentStatement
      * else
-     * update current primitive variable value
+     * update current primitive variable value.
      *
-     * @param newTest
-     * @param arrayReference
-     * @param arrayVariableName
-     * @param indexes
-     * @param newValue
+     * @param newTest the new test.
+     * @param arrayReference the array reference.
+     * @param arrayVariableName the array variable name.
+     * @param indexes the indexes.
+     * @param newValue the new value.
      */
     private static void processArrayElement(TestCase newTest, ArrayReference arrayReference, String arrayVariableName, int[] indexes, Object newValue) {
         // TODO (ilebrero): Improve this as we have to recreate the list on each iteration
@@ -239,10 +241,10 @@ public class TestCaseUpdater {
     }
 
     /**
-     * Updates a statement
+     * Updates a statement.
      *
-     * @param newValue
-     * @param valueStatement
+     * @param newValue the new value.
+     * @param valueStatement the value statement.
      */
     private static void updateStatement(Object newValue, PrimitiveStatement valueStatement) {
         if (Long.class.getName().equals(newValue.getClass().getName())) {
@@ -260,10 +262,10 @@ public class TestCaseUpdater {
     }
 
     /**
-     * Transforms an array of integer to a list of Integer objects
+     * Transforms an array of integer to a list of Integer objects.
      *
-     * @param indexes
-     * @return
+     * @param indexes the indexes.
+     * @return .
      */
     private static List<Integer> getIntegerList(int[] indexes) {
         List<Integer> elements = new ArrayList();
@@ -276,12 +278,12 @@ public class TestCaseUpdater {
     }
 
     /**
-     * Updates the corresponding real statement given a symbolic variable and its updated value
+     * Updates the corresponding real statement given a symbolic variable and its updated value.
      *
-     * @param test
-     * @param newTest
-     * @param symbolicVariableName
-     * @param updateValue
+     * @param test the test case.
+     * @param newTest the new test.
+     * @param symbolicVariableName the symbolic variable name.
+     * @param updateValue the update value.
      */
     private static void processRealValue(TestCase test, TestCase newTest, String symbolicVariableName, Object updateValue) {
         Double value = (Double) updateValue;
@@ -298,21 +300,21 @@ public class TestCaseUpdater {
     /**
      * Update Algorithm for reference variables. It executes the following high level idea:
      *  1) Does the current variable already have a definition statement?
-     *    - No => We a create a nullStatement for it
+     *    - No => We a create a nullStatement for it.
      *
      *  2) Is the current instance already created?
      *    - Yes => Assign that one
      *    - No =>
      *      3) if it's a null statement, it has to be a constructor?
-     *        - Yes => build a new constructor statement for it
+     *        - Yes => build a new constructor statement for it.
      *
      *      4) if it's a constructor statement, it has to be null?
-     *        - Yes => Build a new null statement for the variable
+     *        - Yes => Build a new null statement for the variable.
      *
-     * @param newTest
-     * @param symbolicVariableName
-     * @param updateValue
-     * @param createdInstances
+     * @param newTest the new test.
+     * @param symbolicVariableName the symbolic variable name.
+     * @param updateValue the update value.
+     * @param createdInstances the created instances.
      */
     private static void processObjectValue(TestCase newTest, String symbolicVariableName, Long updateValue, HashMap<Long, Object> createdInstances) {
          String statementName = symbolicVariableName.split("\\_")[1];
@@ -348,12 +350,12 @@ public class TestCaseUpdater {
     }
 
     /**
-     * Updates the corresponding string statement given a symbolic variable and its updated value
+     * Updates the corresponding string statement given a symbolic variable and its updated value.
      *
-     * @param test
-     * @param newTest
-     * @param symbolicVariableName
-     * @param updateValue
+     * @param test the test case.
+     * @param newTest the new test.
+     * @param symbolicVariableName the symbolic variable name.
+     * @param updateValue the update value.
      */
     private static void processStringValue(TestCase test, TestCase newTest, String symbolicVariableName, Object updateValue) {
         String name = symbolicVariableName.replace("__SYM", "");
@@ -362,18 +364,20 @@ public class TestCaseUpdater {
         // val);
         assert (p != null) : "Could not find variable " + name + " in test: " + newTest.toCode()
                 + " / Orig test: " + test.toCode() + ", seed: " + Randomness.getSeed();
-        if (p.getValue().getClass().equals(Character.class))
+        if (p.getValue().getClass().equals(Character.class)) {
             p.setValue((char) Integer.parseInt(updateValue.toString()));
-        else
+        } else
+             {
             p.setValue(updateValue.toString());
+        }
     }
 
     /**
-     * Updates the corresponding long statement given a symbolic variable and its updated value
+     * Updates the corresponding long statement given a symbolic variable and its updated value.
      *
-     * @param newTest
-     * @param symbolicVariableName
-     * @param updateValue
+     * @param newTest the new test.
+     * @param symbolicVariableName the symbolic variable name.
+     * @param updateValue the update value.
      */
     private static void processLongValue(TestCase newTest, String symbolicVariableName, Object updateValue) {
         Long value = (Long) updateValue;
@@ -386,11 +390,11 @@ public class TestCaseUpdater {
     }
 
     /**
-     * Updates the corresponding array length statement given a symbolic variable and its updated value
+     * Updates the corresponding array length statement given a symbolic variable and its updated value.
      *
-     * @param newTest
-     * @param symbolicVariableName
-     * @param updateValue
+     * @param newTest the new test.
+     * @param symbolicVariableName the symbolic variable name.
+     * @param updateValue the update value.
      */
     private static void processArrayLengthValue(TestCase newTest, String symbolicVariableName, Long updateValue) {
         ArraySymbolicLengthName arraySymbolicLengthName = new ArraySymbolicLengthName(symbolicVariableName);
@@ -402,10 +406,10 @@ public class TestCaseUpdater {
     }
 
     /**
-     * Builds a default test case for a static target method
+     * Builds a default test case for a static target method.
      *
-     * @param targetStaticMethod
-     * @return
+     * @param targetStaticMethod the target static method.
+     * @return .
      */
     public static DefaultTestCase buildTestCaseWithDefaultValues(Method targetStaticMethod) {
         TestCaseBuilder testCaseBuilder = new TestCaseBuilder();
@@ -489,10 +493,10 @@ public class TestCaseUpdater {
     }
 
     /**
-     * Builds a random test case for a static target method
+     * Builds a random test case for a static target method.
      *
-     * @param targetStaticMethod
-     * @return
+     * @param targetStaticMethod the target static method.
+     * @return .
      */
     public static DefaultTestCase buildTestCaseWithRandomValues(Method targetStaticMethod) {
         TestCaseBuilder testCaseBuilder = new TestCaseBuilder();
@@ -577,51 +581,54 @@ public class TestCaseUpdater {
     }
 
     /**
-     * Get the statement that defines this variable
+     * Get the statement that defines this variable.
      *
-     * @param test
-     * @param name
-     * @return
+     * @param test the test case.
+     * @param name the name.
+     * @return .
      */
     public static Statement getUncheckedStatement(TestCase test, String name) {
       for (Statement statement : test) {
-        if (statement.getReturnValue().getName().equals(name))
+        if (statement.getReturnValue().getName().equals(name)) {
           return statement;
+        }
       }
       return null;
     }
 
     /**
-     * Get the statement that defines this variable
+     * Get the statement that defines this variable.
      *
-     * @param test
-     * @param name
-     * @return
+     * @param test the test case.
+     * @param name the name.
+     * @return .
      */
     public static PrimitiveStatement<?> getPrimitiveStatement(TestCase test, String name) {
         for (Statement statement : test) {
 
             if (statement instanceof PrimitiveStatement<?>) {
-                if (statement.getReturnValue().getName().equals(name))
+                if (statement.getReturnValue().getName().equals(name)) {
                     return (PrimitiveStatement<?>) statement;
+                }
             }
         }
         return null;
     }
 
     /**
-     * Get the statement that defines this variable
+     * Get the statement that defines this variable.
      *
-     * @param test
-     * @param name
-     * @param typeCheckFunction
-     * @return
+     * @param test the test case.
+     * @param name the name.
+     * @param typeCheckFunction the type check function.
+     * @return .
      */
     public static Statement getStatement(TestCase test, String name, StatementClassChecker typeCheckFunction) {
         for (Statement statement : test) {
             if (typeCheckFunction.checkClassType(statement)) {
-                if (statement.getReturnValue().getName().equals(name))
+                if (statement.getReturnValue().getName().equals(name)) {
                     return statement;
+                }
             }
         }
         return null;
@@ -631,9 +638,9 @@ public class TestCaseUpdater {
      * Finds the position of a given statement on the Test Case.
      * In case the statement is not there, we return the first position after the last one.
      *
-     * @param newTest
-     * @param name
-     * @return
+     * @param newTest the new test.
+     * @param name the name.
+     * @return .
      */
     public static int getStatementPosition(TestCase newTest, String name) {
         int index = 0;
@@ -650,10 +657,10 @@ public class TestCaseUpdater {
     }
 
     /**
-     * Updates an integer statement
+     * Updates an integer statement.
      *
-     * @param value
-     * @param statement
+     * @param value the value.
+     * @param statement the statement.
      */
     private static void updateIntegerValueStatement(Long value, PrimitiveStatement statement) {
         if (statement.getValue().getClass().equals(Character.class)) {
@@ -671,29 +678,35 @@ public class TestCaseUpdater {
             statement.setValue(value.byteValue());
 
         } else
+             {
             logger.warn(NEW_INTEGER_VALUE_IS_OF_AN_UNSUPPORTED_TYPE + statement.getValue().getClass() + value);
+        }
     }
 
     /**
-     * Updates a real statement
+     * Updates a real statement.
      *
-     * @param value
-     * @param p
+     * @param value the value.
+     * @param p the parameter.
      */
     private static void updateRealValueStatement(Double value, PrimitiveStatement p) {
-        if (p.getValue().getClass().equals(Double.class))
+        if (p.getValue().getClass().equals(Double.class)) {
             p.setValue(value);
-        else if (p.getValue().getClass().equals(Float.class))
+        } else  {
+            if (p.getValue().getClass().equals(Float.class))
             p.setValue(value.floatValue());
         else
+             {
             logger.warn(NEW_REAL_VALUE_IS_OF_AN_UNSUPPORTED_TYPE + value);
+        }
+        }
     }
 
     /**
-     * Updates a string statement
+     * Updates a string statement.
      *
-     * @param newValue
-     * @param p
+     * @param newValue the new value.
+     * @param p the parameter.
      */
     private static void updateStringValueStatement(String newValue, PrimitiveStatement p) {
         p.setValue(newValue);

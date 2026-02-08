@@ -125,8 +125,9 @@ public class ArrayLocalSearch extends StatementLocalSearch {
                     if (valueStatement instanceof PrimitiveStatement
                             || valueStatement instanceof NullStatement) {
                         if (!test.getTestCase().hasReferences(valueStatement.getReturnValue())) {
-                            if (valueStatement.getPosition() < statement.getPosition())
+                            if (valueStatement.getPosition() < statement.getPosition()) {
                                 differenceDelta = 1;
+                            }
                             currentDelta = 1;
                             logger.debug("Deleting primitive statement assigned to this array at "
                                     + valueStatement.getPosition());

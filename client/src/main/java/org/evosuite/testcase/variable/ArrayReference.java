@@ -31,11 +31,13 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
+ * Summary.
  * @author Gordon Fraser
  */
 
 /**
  * Represents a reference to an array in the test case.
+ *
  * <p>
  * Note: The array length is currently stored in both ArrayReference and ArrayStatement (if created by one).
  * This duplication should be addressed in future refactorings to avoid inconsistencies.
@@ -130,8 +132,9 @@ public class ArrayReference extends VariableReferenceImpl {
      */
     public void setLengths(int[] lengths) {
         this.lengths = new int[lengths.length];
-        for (int i = 0; i < lengths.length; i++)
+        for (int i = 0; i < lengths.length; i++) {
             this.lengths[i] = lengths[i];
+        }
     }
 
     /**
@@ -148,6 +151,7 @@ public class ArrayReference extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Create a copy of the current variable
      */
@@ -226,15 +230,17 @@ public class ArrayReference extends VariableReferenceImpl {
     public boolean isInitialized(int index, int position) {
         int pos = 0;
         for (Statement s : testCase) {
-            if (pos++ >= position)
+            if (pos++ >= position) {
                 return false;
+            }
 
             if (s instanceof AssignmentStatement) {
                 VariableReference ret = s.getReturnValue();
                 if (ret instanceof ArrayIndex) {
                     ArrayIndex ai = (ArrayIndex) ret;
-                    if (ai.getArray().equals(this) && ai.getArrayIndex() == index)
+                    if (ai.getArray().equals(this) && ai.getArrayIndex() == index) {
                         return true;
+                    }
                 }
             }
         }

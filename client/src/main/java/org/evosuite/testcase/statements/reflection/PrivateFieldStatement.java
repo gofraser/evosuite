@@ -45,6 +45,7 @@ import java.util.List;
 /**
  * Statement representing the setting of a private field, which is done through reflection in the
  * generated JUnit tests.
+ *
  * <p>
  * Created by foo on 20/02/15.
  */
@@ -99,8 +100,9 @@ public class PrivateFieldStatement extends MethodStatement {
     private void determineIfFieldIsStatic(Class<?> klass, String fieldName) {
         try {
             Field f = klass.getDeclaredField(fieldName);
-            if (Modifier.isStatic(f.getModifiers()))
+            if (Modifier.isStatic(f.getModifiers())) {
                 isStaticField = true;
+            }
         } catch (NoSuchFieldException f) {
             // This should never happen
             throw new RuntimeException("EvoSuite bug", f);
@@ -147,8 +149,9 @@ public class PrivateFieldStatement extends MethodStatement {
         if (!isStaticField) {
             try {
                 Object receiver = parameters.get(1).getObject(scope);
-                if (receiver == null)
+                if (receiver == null) {
                     return new CodeUnderTestException(new NullPointerException());
+                }
             } catch (CodeUnderTestException e) {
                 return e;
             }

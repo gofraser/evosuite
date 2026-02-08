@@ -57,7 +57,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
     private static final long serialVersionUID = -7721106626421922833L;
 
     /**
-     * The value
+     * The value.
      */
     protected transient T value;
 
@@ -76,7 +76,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
     }
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param value a T object.
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
@@ -93,7 +93,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
     }
 
     /**
-     * Access the value
+     * Access the value.
      *
      * @return a T object.
      */
@@ -102,7 +102,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
     }
 
     /**
-     * Set the value
+     * Set the value.
      *
      * @param val a T object.
      */
@@ -120,7 +120,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 
     /**
      * Generate a primitive statement for given type initialized with default
-     * value (0)
+     * value (0).
      *
      * @param tc           a {@link org.evosuite.testcase.TestCase} object.
      * @param genericClass a {@link java.lang.reflect.Type} object.
@@ -178,28 +178,28 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
                 statement = new ClassPrimitiveStatement(tc);
             }
             /*
-						if (genericClass.hasWildcardTypes()) {
-							Class<?> bound = GenericTypeReflector.erase(TypeUtils.getImplicitUpperBounds((WildcardType) typeParameter)[0]);
-							if (!bound.equals(Object.class)) {
-								Set<Class<?>> assignableClasses = TestClusterGenerator.getConcreteClasses(bound,
-								                                                                          DependencyAnalysis.getInheritanceTree());
-								statement = new ClassPrimitiveStatement(tc, genericClass,
-								        assignableClasses);
-							} else {
-								statement = new ClassPrimitiveStatement(tc);
-							}
-						} else {
-						*/
-			/*
-			if (typeParameter instanceof Class<?>) {
-				logger.debug("Creating class primitive with value " + typeParameter);
-				statement = new ClassPrimitiveStatement(tc, (Class<?>) typeParameter);
-			} else {
-				logger.debug("Creating class primitive with random value / "
-				        + typeParameter);
-				statement = new ClassPrimitiveStatement(tc);
-			}
-			*/
+                        if (genericClass.hasWildcardTypes()) {
+                            Class<?> bound = GenericTypeReflector.erase(TypeUtils.getImplicitUpperBounds((WildcardType) typeParameter)[0]);
+                            if (!bound.equals(Object.class)) {
+                                Set<Class<?>> assignableClasses = TestClusterGenerator.getConcreteClasses(bound,
+                                                                                                          DependencyAnalysis.getInheritanceTree());
+                                statement = new ClassPrimitiveStatement(tc, genericClass,
+                                        assignableClasses);
+                            } else {
+                                statement = new ClassPrimitiveStatement(tc);
+                            }
+                        } else {
+                        */
+            /*
+            if (typeParameter instanceof Class<?>) {
+                logger.debug("Creating class primitive with value " + typeParameter);
+                statement = new ClassPrimitiveStatement(tc, (Class<?>) typeParameter);
+            } else {
+                logger.debug("Creating class primitive with random value / "
+                        + typeParameter);
+                statement = new ClassPrimitiveStatement(tc);
+            }
+            */
             //}
         } else {
             throw new RuntimeException("Getting unknown type: " + clazz + " / "
@@ -209,7 +209,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
     }
 
     /**
-     * Create random primitive statement
+     * Create random primitive statement.
      *
      * @param tc       a {@link org.evosuite.testcase.TestCase} object.
      * @param clazz    a {@link java.lang.reflect.Type} object.
@@ -280,12 +280,15 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
      */
     @Override
     public boolean equals(Object s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         PrimitiveStatement<?> ps = (PrimitiveStatement<?>) s;
         return (retval.equals(ps.retval) && value.equals(ps.value));
@@ -303,12 +306,12 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
     }
 
     /**
-     * Add a random delta to the value
+     * Add a random delta to the value.
      */
     public abstract void delta();
 
     /**
-     * Reset value to default value 0
+     * Reset value to default value 0.
      */
     public abstract void zero();
 
@@ -325,12 +328,15 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
      */
     @Override
     public boolean same(Statement s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         PrimitiveStatement<?> ps = (PrimitiveStatement<?>) s;
 
@@ -376,8 +382,9 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
                     }
                 }
             }
-            if (!done)
+            if (!done) {
                 randomize();
+            }
         } else {
             randomize();
         }
@@ -388,8 +395,9 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
      */
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
-        if (!hasMoreThanOneValue())
+        if (!hasMoreThanOneValue()) {
             return false;
+        }
 
         T oldVal = value;
 
@@ -403,18 +411,22 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
                         this.negate();
 
                     } else
+                         {
                         randomize();
+                    }
                 } else {
                     randomize();
                 }
             } else
+                 {
                 delta();
+            }
         }
         return true;
     }
 
     /**
-     * Set to a random value
+     * Set to a random value.
      */
     public abstract void randomize();
 

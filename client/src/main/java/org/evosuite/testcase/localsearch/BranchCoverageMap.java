@@ -45,8 +45,9 @@ public class BranchCoverageMap implements SearchListener<TestSuiteChromosome> {
     }
 
     public static BranchCoverageMap getInstance() {
-        if (instance == null)
+        if (instance == null) {
             instance = new BranchCoverageMap();
+        }
 
         return instance;
     }

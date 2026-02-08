@@ -83,7 +83,7 @@ import static org.mockito.Mockito.withSettings;
  *
  * <p>
  * Calls to "listener" are essential during the search (eg when the statement is executed),
- * but will not be part of the final generated JUnit tests (ie not part of toCode())
+ * but will not be part of the final generated JUnit tests (ie not part of toCode()).
  *
  * <p>
  * Initially, a functional mock will have 0 input parameters, and no "when" call.
@@ -107,13 +107,13 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     private static final Logger logger = LoggerFactory.getLogger(FunctionalMockStatement.class);
 
     /**
-     * This list needs to be kept sorted
+     * This list needs to be kept sorted.
      */
     protected final List<MethodDescriptor> mockedMethods;
 
     /**
      * key -> MethodDescriptor id,
-     * Value -> min,max  inclusive of indices on super.parameters
+     * Value -> min,max  inclusive of indices on super.parameters.
      */
     protected final Map<String, int[]> methodParameters;
 
@@ -287,9 +287,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     /**
      * Check if the last execution of the test case has led a change in the usage of the mock.
-     * This will result in adding/removing variable references
+     * This will result in adding/removing variable references.
      *
-     * @return
+     * @return .
      */
     public boolean doesNeedToUpdateInputs() {
         if (listener == null) {
@@ -752,11 +752,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 /**
                  * a "char" can be used for a "int". But problem is that Mockito takes as input
                  * Object, and so those get boxed. However, a Character cannot be used for a "int",
-                 * so we need to be sure to convert it here
+                 * so we need to be sure to convert it here.
                  *
-                 * @param value
-                 * @param expectedType
-                 * @return
+                 * @param value the value.
+                 * @param expectedType the expected type.
+                 * @return .
                  */
                 private Object fixBoxing(Object value, Class<?> expectedType) {
 
@@ -877,25 +877,31 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     @Override
     public boolean same(Statement s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         FunctionalMockStatement fms = (FunctionalMockStatement) s;
 
-        if (fms.parameters.size() != parameters.size())
+        if (fms.parameters.size() != parameters.size()) {
             return false;
-
-        for (int i = 0; i < parameters.size(); i++) {
-            if (!parameters.get(i).same(fms.parameters.get(i)))
-                return false;
         }
 
-        if (!retval.same(fms.retval))
+        for (int i = 0; i < parameters.size(); i++) {
+            if (!parameters.get(i).same(fms.parameters.get(i))) {
+                return false;
+            }
+        }
+
+        if (!retval.same(fms.retval)) {
             return false;
+        }
 
         if (!targetClass.equals(fms.targetClass)) {
             return false;

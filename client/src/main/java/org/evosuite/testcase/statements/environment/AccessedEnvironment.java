@@ -30,7 +30,8 @@ import java.util.Set;
 
 /**
  * Class used to keep track of what environment components (local files, remote URLs, etc)
- * a test case has accessed to
+ * a test case has accessed to.
+ *
  * <p>
  * Created by arcuri on 12/12/14.
  */
@@ -39,25 +40,25 @@ public class AccessedEnvironment implements Serializable {
     private static final long serialVersionUID = 2653568611955383431L;
 
     /**
-     * Paths of accessed local files
+     * Paths of accessed local files.
      */
     private final Set<String> localFiles;
 
 
     /**
-     * URL of remote resources
+     * URL of remote resources.
      */
     private final Set<String> remoteURLs;
 
     /**
-     * TCP/UDP sockets opened by the SUT
+     * TCP/UDP sockets opened by the SUT.
      */
     private final Set<EndPointInfo> localListeningPorts;
 
 
     /**
      * Remote addr/ports the SUT has contacted (ie initialized communication)
-     * via TCP/UDP
+     * via TCP/UDP.
      */
     private final Set<EndPointInfo> remoteContactedPorts;
 

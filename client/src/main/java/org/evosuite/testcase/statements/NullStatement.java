@@ -130,12 +130,15 @@ public class NullStatement extends PrimitiveStatement<Void> {
      */
     @Override
     public boolean same(Statement s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         NullStatement ns = (NullStatement) s;
         return retval.same(ns.retval);

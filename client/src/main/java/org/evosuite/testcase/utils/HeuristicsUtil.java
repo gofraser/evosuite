@@ -3,7 +3,7 @@ import java.util.ArrayList;
 
 public class HeuristicsUtil {
     /**
-     * List of particles of a method name that can be excluded or avoided when syggesting names
+     * List of particles of a method name that can be excluded or avoided when syggesting names.
      */
     private static ArrayList<String> avoidableParticles = new ArrayList<String>(){
         {
@@ -17,7 +17,7 @@ public class HeuristicsUtil {
 
     /**
      * Returns a boolean value that indicates if the first word of a method can be avoided/excluded
-     * on method name suggestion
+     * on method name suggestion.
      * @return boolean
      */
 
@@ -25,7 +25,7 @@ public class HeuristicsUtil {
         return avoidableParticles.contains(firstWord);
     }
     /**
-     * Separates camelcase strings and retrieves the parts in a list
+     * Separates camelcase strings and retrieves the parts in a list.
      * @return ArrayList<String>
      */
     public static ArrayList<String> separateByCamelCase(String name){

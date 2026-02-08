@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * Summary.
  * @author Gordon Fraser
  */
 public class ReferenceLocalSearch extends StatementLocalSearch {
@@ -94,8 +95,9 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
             switch (m) {
                 case REPLACE:
                     replace(test, statement);
-                    if (test.size() > oldLength)
+                    if (test.size() > oldLength) {
                         delta = test.size() - oldLength;
+                    }
                     break;
                 case PARAMETER:
                     changeParameters(test, statement);
@@ -134,10 +136,10 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     }
 
     /**
-     * Add a method call on the return value of the object at position statement
+     * Add a method call on the return value of the object at position statement.
      *
-     * @param test
-     * @param statement
+     * @param test the test case.
+     * @param statement the statement.
      */
     private boolean addCall(TestChromosome test, int statement) {
 
@@ -155,11 +157,11 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     }
 
     /**
-     * Replace the call with a completely different call
+     * Replace the call with a completely different call.
      *
-     * @param test
-     * @param statement
-     * @return
+     * @param test the test case.
+     * @param statement the statement.
+     * @return .
      */
     private boolean replace(TestChromosome test, int statement) {
 
@@ -200,11 +202,11 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     }
 
     /**
-     * Switch parameter/callee variables with other available objects
+     * Switch parameter/callee variables with other available objects.
      *
-     * @param test
-     * @param statement
-     * @return
+     * @param test the test case.
+     * @param statement the statement.
+     * @return .
      */
     private boolean changeParameters(TestChromosome test, int statement) {
         logger.debug("Changing parameters");
@@ -222,16 +224,17 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     }
 
     /**
-     * Go through parameters of method call and apply local search
+     * Go through parameters of method call and apply local search.
      *
-     * @param test
-     * @param statement
+     * @param test the test case.
+     * @param statement the statement.
      */
     private boolean replaceMethodParameter(TestChromosome test, MethodStatement statement) {
 
         List<VariableReference> parameters = statement.getParameterReferences();
-        if (parameters.isEmpty())
+        if (parameters.isEmpty()) {
             return false;
+        }
 
         int max = parameters.size();
         if (!statement.isStatic()) {
@@ -244,8 +247,9 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
             List<VariableReference> objects = test.getTestCase().getObjects(callee.getType(),
                     statement.getPosition());
             objects.remove(callee);
-            if (objects.isEmpty())
+            if (objects.isEmpty()) {
                 return false;
+            }
 
             VariableReference replacement = Randomness.choice(objects);
             statement.setCallee(replacement);
@@ -259,11 +263,13 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
             objects.remove(statement.getReturnValue());
             NullStatement nullStatement = new NullStatement(test.getTestCase(),
                     parameter.getType());
-            if (!parameter.isPrimitive())
+            if (!parameter.isPrimitive()) {
                 objects.add(nullStatement.getReturnValue());
+            }
 
-            if (objects.isEmpty())
+            if (objects.isEmpty()) {
                 return false;
+            }
 
             VariableReference replacement = Randomness.choice(objects);
             if (replacement == nullStatement.getReturnValue()) {
@@ -278,17 +284,18 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     }
 
     /**
-     * Go through parameters of constructor call and apply local search
+     * Go through parameters of constructor call and apply local search.
      *
-     * @param test
-     * @param statement
+     * @param test the test case.
+     * @param statement the statement.
      */
     private boolean replaceConstructorParameter(TestChromosome test,
                                                 ConstructorStatement statement) {
 
         List<VariableReference> parameters = statement.getParameterReferences();
-        if (parameters.isEmpty())
+        if (parameters.isEmpty()) {
             return false;
+        }
 
         int numParameter = Randomness.nextInt(parameters.size());
         VariableReference parameter = parameters.get(numParameter);
@@ -300,11 +307,13 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
 
         NullStatement nullStatement = new NullStatement(test.getTestCase(),
                 parameter.getType());
-        if (!parameter.isPrimitive())
+        if (!parameter.isPrimitive()) {
             objects.add(nullStatement.getReturnValue());
+        }
 
-        if (objects.isEmpty())
+        if (objects.isEmpty()) {
             return false;
+        }
 
         VariableReference replacement = Randomness.choice(objects);
         if (replacement == nullStatement.getReturnValue()) {
@@ -318,10 +327,10 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     }
 
     /**
-     * Try to replace source of field with all possible choices
+     * Try to replace source of field with all possible choices.
      *
-     * @param test
-     * @param statement
+     * @param test the test case.
+     * @param statement the statement.
      */
     private boolean replaceFieldSource(TestChromosome test, FieldStatement statement) {
         if (!statement.isStatic()) {
