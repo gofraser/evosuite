@@ -28,8 +28,8 @@ import java.util.List;
  * Represents a local search objective that will be used during local search to
  * assess the success (or failure) of a local search to a given chromosome
  * (it could be TestSuiteChromosome or TestChromosome).
- * <p>
- * The local search objective contains a list of fitness functions that are used
+ *
+ * <p>The local search objective contains a list of fitness functions that are used
  * to compute the fitness of an individual.
  *
  * @author Gordon Fraser
@@ -37,24 +37,24 @@ import java.util.List;
 public interface LocalSearchObjective<T extends Chromosome<T>> {
 
     /**
-     * true if the objective was achieved
+     * true if the objective was achieved.
      *
-     * @return
+     * @return true if the objective was achieved.
      */
     boolean isDone();
 
     /**
      * Returns true if all the fitness functions are maximising functions
      * (Observe that it is not possible to store simultaneously maximising and
-     * minimising fitness functions)
+     * minimising fitness functions).
      *
-     * @return
+     * @return true if all fitness functions are maximization functions.
      */
     boolean isMaximizationObjective();
 
     /**
      * Returns true if the individual has improved due to the applied local
-     * search
+     * search.
      *
      * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      * @return a boolean.
@@ -63,7 +63,7 @@ public interface LocalSearchObjective<T extends Chromosome<T>> {
 
     /**
      * Returns true if the individual has not worsened due to the applied local
-     * search
+     * search.
      *
      * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      * @return a boolean.
@@ -71,7 +71,7 @@ public interface LocalSearchObjective<T extends Chromosome<T>> {
     boolean hasNotWorsened(T chromosome);
 
     /**
-     * Checks if the individual has changed since local search started
+     * Checks if the individual has changed since local search started.
      *
      * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      * @return an integer indicating status: -1 if improved, 1 if worsened, 0 if unchanged.
@@ -82,7 +82,7 @@ public interface LocalSearchObjective<T extends Chromosome<T>> {
 
     /**
      * Returns a list with all the fitness functions stored in this local search
-     * objective
+     * objective.
      *
      * @return a {@link org.evosuite.ga.FitnessFunction} object.
      */

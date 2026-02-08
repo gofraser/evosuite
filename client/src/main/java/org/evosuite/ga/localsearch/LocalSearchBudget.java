@@ -42,7 +42,7 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
 
     private static final long serialVersionUID = 9152147170303160131L;
 
-    private final static Logger logger = LoggerFactory.getLogger(LocalSearchBudget.class);
+    private static final Logger logger = LoggerFactory.getLogger(LocalSearchBudget.class);
 
     // Singleton instance
     private static volatile LocalSearchBudget<?> instance = null;
@@ -77,7 +77,7 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
 
     /**
      * Resolve the singleton instance during deserialization.
-     * @return the singleton instance
+     * @return the singleton instance.
      * @throws ObjectStreamException if an error occurs
      */
     private Object readResolve() throws ObjectStreamException {
@@ -85,16 +85,15 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
     }
 
     /**
-     * <p>
-     * isFinished
-     * </p>
+     * Checks if the budget is exhausted.
      *
      * @return a boolean.
      */
     public boolean isFinished() {
         // If the global search is finished then we don't want local search either
-        if (ga != null && ga.isFinished())
+        if (ga != null && ga.isFinished()) {
             return true;
+        }
 
         switch (Properties.LOCAL_SEARCH_BUDGET_TYPE) {
             case FITNESS_EVALUATIONS:
@@ -110,7 +109,8 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
                 }
                 break;
             case STATEMENTS:
-                if (MaxStatementsStoppingCondition.getNumExecutedStatements() > executedStart + Properties.LOCAL_SEARCH_BUDGET) {
+                if (MaxStatementsStoppingCondition.getNumExecutedStatements()
+                        > executedStart + Properties.LOCAL_SEARCH_BUDGET) {
                     logger.info("Local search budget used up; type: " + Properties.LOCAL_SEARCH_BUDGET_TYPE);
                     return true;
                 }
@@ -135,7 +135,7 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
     }
 
     /**
-     * Reports that a fitness evaluation was consumed
+     * Reports that a fitness evaluation was consumed.
      */
     public void countFitnessEvaluation() {
         fitnessEvaluations++;
@@ -214,7 +214,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
 
     /**
      * {@inheritDoc}
-     *
      * Not used by LocalSearchBudget.
      */
     @Override
@@ -228,7 +227,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
 
     /**
      * {@inheritDoc}
-     *
      * Not used by LocalSearchBudget.
      */
     @Override

@@ -91,7 +91,7 @@ public class DefaultLocalSearchObjective<T extends Chromosome<T>> implements Loc
     /**
      * {@inheritDoc}
      *
-     * @return
+     * @return the list of fitness functions.
      */
     @Override
     public List<FitnessFunction<T>> getFitnessFunctions() {
