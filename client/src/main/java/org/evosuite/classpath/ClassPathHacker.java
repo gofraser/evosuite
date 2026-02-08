@@ -55,11 +55,10 @@ public class ClassPathHacker {
     /**
      * Locate and add to classpath the tools.jar.
      * It is important that tools.jar ends up in the classpath of the <emp>system</emp> classloader,
-     * otherwise exceptions in EvoSuite classes using tools.jar
+     * otherwise exceptions in EvoSuite classes using tools.jar.
      *
-     * <p>
-     * If we need to activate JavaAgent (eg to handle environment in generated tests), we need
-     * to be sure we can use tools.jar
+     * <p>If we need to activate JavaAgent (eg to handle environment in generated tests), we need
+     * to be sure we can use tools.jar.</p>
      */
     public static void initializeToolJar() {
         if (SystemUtils.isJavaVersionAtLeast(org.apache.commons.lang3.JavaVersion.JAVA_9)) {
@@ -90,7 +89,7 @@ public class ClassPathHacker {
     }
 
     /**
-     * <p>addFile</p>
+     * <p>addFile.</p>
      *
      * @param s a {@link java.lang.String} object.
      * @throws java.io.IOException if any.
@@ -101,7 +100,7 @@ public class ClassPathHacker {
     }
 
     /**
-     * <p>addFile</p>
+     * <p>addFile.</p>
      *
      * @param f a {@link java.io.File} object.
      * @throws java.io.IOException if any.
@@ -111,7 +110,7 @@ public class ClassPathHacker {
     }
 
     /**
-     * <p>addURL</p>
+     * <p>addURL.</p>
      *
      * @param u a {@link java.net.URL} object.
      * @throws java.io.IOException if any.
@@ -170,7 +169,7 @@ public class ClassPathHacker {
     }
 
     /**
-     * get a classLoader that can load the cuts for continuous integration
+     * get a classLoader that can load the cuts for continuous integration.
      */
     public static ClassLoader getContinuousClassLoader() {
         return continuousClassLoader != null ? continuousClassLoader : Thread.currentThread().getContextClassLoader();
