@@ -23,9 +23,7 @@ import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.*;
 
 /**
- * <p>
  * PrimitiveClassAdapter class.
- * </p>
  *
  * @author Gordon Fraser
  */
@@ -43,14 +41,12 @@ public class PrimitiveClassAdapter extends ClassVisitor {
     private final ConstantPoolManager poolManager = ConstantPoolManager.getInstance();
 
     /**
-     * Skip methods on enums - at least some
+     * Skip methods on enums - at least some.
      */
     private boolean isEnum = false;
 
     /**
-     * <p>
      * Constructor for PrimitiveClassAdapter.
-     * </p>
      *
      * @param visitor   a {@link org.objectweb.asm.ClassVisitor} object.
      * @param className a {@link java.lang.String} object.
@@ -61,7 +57,8 @@ public class PrimitiveClassAdapter extends ClassVisitor {
     }
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.ClassAdapter#visit(int, int, java.lang.String, java.lang.String, java.lang.String, java.lang.String[])
+     * @see org.objectweb.asm.ClassAdapter#visit(int, int, java.lang.String, java.lang.String, java.lang.String,
+     * java.lang.String[])
      */
 
     /**
@@ -71,8 +68,9 @@ public class PrimitiveClassAdapter extends ClassVisitor {
     public void visit(int version, int access, String name, String signature,
                       String superName, String[] interfaces) {
         super.visit(version, access, name, signature, superName, interfaces);
-        if (superName.equals("java/lang/Enum"))
+        if (superName.equals("java/lang/Enum")) {
             isEnum = true;
+        }
     }
 
     /**
@@ -92,8 +90,8 @@ public class PrimitiveClassAdapter extends ClassVisitor {
             }
             if (isEnum) {
                 // static final values in enums are likely enum values
-                if ((access & Opcodes.ACC_FINAL) == Opcodes.ACC_FINAL &&
-                        (access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC) {
+                if ((access & Opcodes.ACC_FINAL) == Opcodes.ACC_FINAL
+                        && (access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC) {
                     if (DependencyAnalysis.isTargetClassName(className)) {
                         poolManager.addSUTConstant(name);
                     } else {
@@ -122,14 +120,14 @@ public class PrimitiveClassAdapter extends ClassVisitor {
         MethodVisitor mv = super.visitMethod(methodAccess, name, descriptor, signature,
                 exceptions);
 
-		/*
-		String classNameWithDots = Utils.getClassNameFromResourcePath(className);
-		if (REPLACE_STRING
-		        && (classNameWithDots.equals(target_class) || (classNameWithDots.startsWith(target_class
-		                + "$")))) {
-			mv = new StringReplacementMethodAdapter(methodAccess, descriptor, mv);
-		}
-		*/
+        /*
+        String classNameWithDots = Utils.getClassNameFromResourcePath(className);
+        if (REPLACE_STRING
+                && (classNameWithDots.equals(target_class) || (classNameWithDots.startsWith(target_class
+                        + "$")))) {
+            mv = new StringReplacementMethodAdapter(methodAccess, descriptor, mv);
+        }
+        */
         if (DependencyAnalysis.isTargetClassName(className)) {
             for (Type argumentType : Type.getArgumentTypes(descriptor)) {
                 poolManager.addSUTConstant(argumentType);

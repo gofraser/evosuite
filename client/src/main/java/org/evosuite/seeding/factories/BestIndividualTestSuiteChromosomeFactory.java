@@ -24,6 +24,8 @@ import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
 
 /**
+ * Factory for TestSuiteChromosome using Best Individual.
+ *
  * @author Thomas White
  */
 public class BestIndividualTestSuiteChromosomeFactory implements
@@ -36,11 +38,10 @@ public class BestIndividualTestSuiteChromosomeFactory implements
     private boolean seeded = false;
 
     /**
-     * <p>
-     * Constructor for JUnitTestSuiteChromosomeFactory.
-     * </p>
+     * Constructor.
      *
      * @param defaultFactory a {@link org.evosuite.ga.ChromosomeFactory} object.
+     * @param bestIndividual the best individual
      */
     public BestIndividualTestSuiteChromosomeFactory(
             ChromosomeFactory<TestSuiteChromosome> defaultFactory,

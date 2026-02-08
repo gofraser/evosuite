@@ -30,11 +30,13 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
+ * Collects parameter types from a signature.
+ *
  * @author Gordon Fraser
  */
 public class CollectParameterTypesVisitor extends SignatureVisitor {
 
-    private final static Logger logger = LoggerFactory.getLogger(CollectParameterTypesVisitor.class);
+    private static final Logger logger = LoggerFactory.getLogger(CollectParameterTypesVisitor.class);
 
     private final Set<Type> classes = new LinkedHashSet<>();
 
@@ -47,7 +49,9 @@ public class CollectParameterTypesVisitor extends SignatureVisitor {
     }
 
     /**
-     * @param className
+     * Constructor.
+     *
+     * @param className the name of the class
      */
     public CollectParameterTypesVisitor(String className) {
         super(Opcodes.ASM9);
@@ -101,10 +105,11 @@ public class CollectParameterTypesVisitor extends SignatureVisitor {
     public void visitClassType(String name) {
         logger.debug("  visitClassType(" + name + ")");
 
-        if (topLevel)
+        if (topLevel) {
             topLevel = false;
-        else if (!name.equals(className))
+        } else if (!name.equals(className)) {
             classes.add(Type.getObjectType(name));
+        }
 
         super.visitClassType(name);
     }

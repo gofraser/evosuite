@@ -23,68 +23,56 @@ package org.evosuite.seeding;
 import org.objectweb.asm.Type;
 
 /**
+ * Interface for constant pools.
+ *
  * @author Gordon Fraser
  */
 public interface ConstantPool {
 
     /**
-     * <p>
-     * getRandomString
-     * </p>
+     * Returns a random string.
      *
      * @return a {@link java.lang.String} object.
      */
     String getRandomString();
 
     /**
-     * <p>
-     * getRandomType
-     * </p>
+     * Returns a random type.
      *
      * @return a {@link org.objectweb.asm.Type} object.
      */
     Type getRandomType();
 
     /**
-     * <p>
-     * getRandomInt
-     * </p>
+     * Returns a random int.
      *
      * @return a int.
      */
     int getRandomInt();
 
     /**
-     * <p>
-     * getRandomFloat
-     * </p>
+     * Returns a random float.
      *
      * @return a float.
      */
     float getRandomFloat();
 
     /**
-     * <p>
-     * getRandomDouble
-     * </p>
+     * Returns a random double.
      *
      * @return a double.
      */
     double getRandomDouble();
 
     /**
-     * <p>
-     * getRandomLong
-     * </p>
+     * Returns a random long.
      *
      * @return a long.
      */
     long getRandomLong();
 
     /**
-     * <p>
-     * add
-     * </p>
+     * Adds an object to the pool.
      *
      * @param object a {@link java.lang.Object} object.
      */

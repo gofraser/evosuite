@@ -31,13 +31,13 @@ import java.util.Set;
 
 /**
  * This singleton class serves as a pool for TestChromosomes that are worth
- * recycling
- * <p>
- * Whenever a TestFitnessFunction detects, that a TestChromosome covers it, the
+ * recycling.
+ *
+ * <p>Whenever a TestFitnessFunction detects, that a TestChromosome covers it, the
  * TestFitnessFunction will notify this Class by calling
  * testIsInterestingForGoal()
- * <p>
- * Then whenever a genetic algorithm fills it's initial population it will ask
+ *
+ * <p>Then whenever a genetic algorithm fills it's initial population it will ask
  * this class for interesting TestChromosomes concerning it's current
  * fitness_function getRecycableChromosomes() then returns to the GA a set of
  * all TestChromosomes that were interesting for TestFitnessFunctions that were
@@ -58,9 +58,7 @@ public final class TestCaseRecycler<T extends Chromosome<T>> implements SearchLi
     private final Set<TestCase> testPool;
 
     /**
-     * <p>
      * Getter for the field <code>instance</code>.
-     * </p>
      *
      * @return a {@link org.evosuite.seeding.TestCaseRecycler} object.
      */

@@ -50,7 +50,8 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
     }
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodAdapter#visitLookupSwitchInsn(org.objectweb.asm.Label, int[], org.objectweb.asm.Label[])
+     * @see org.objectweb.asm.MethodAdapter#visitLookupSwitchInsn(org.objectweb.asm.Label,
+     * int[], org.objectweb.asm.Label[])
      */
     @Override
     public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
@@ -137,6 +138,8 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
                 break;
             case Opcodes.FCONST_2:
                 constant = 2f;
+                break;
+            default:
                 break;
         }
         if (constant != null) {

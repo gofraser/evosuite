@@ -72,9 +72,7 @@ public class StaticConstantVariableProbabilityPool implements ConstantPool {
     }
 
     /**
-     * <p>
-     * getRandomString
-     * </p>
+     * Returns a random string.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -89,9 +87,7 @@ public class StaticConstantVariableProbabilityPool implements ConstantPool {
     }
 
     /**
-     * <p>
-     * getRandomInt
-     * </p>
+     * Returns a random int.
      *
      * @return a int.
      */
@@ -101,9 +97,7 @@ public class StaticConstantVariableProbabilityPool implements ConstantPool {
     }
 
     /**
-     * <p>
-     * getRandomFloat
-     * </p>
+     * Returns a random float.
      *
      * @return a float.
      */
@@ -113,9 +107,7 @@ public class StaticConstantVariableProbabilityPool implements ConstantPool {
     }
 
     /**
-     * <p>
-     * getRandomDouble
-     * </p>
+     * Returns a random double.
      *
      * @return a double.
      */
@@ -125,9 +117,7 @@ public class StaticConstantVariableProbabilityPool implements ConstantPool {
     }
 
     /**
-     * <p>
-     * getRandomLong
-     * </p>
+     * Returns a random long.
      *
      * @return a long.
      */
@@ -137,26 +127,27 @@ public class StaticConstantVariableProbabilityPool implements ConstantPool {
     }
 
     /**
-     * <p>
-     * add
-     * </p>
+     * Adds an object to the pool.
      *
      * @param object a {@link java.lang.Object} object.
      */
     @Override
     public void add(Object object) {
         // We don't add null because this is explicitly handled in the TestFactory
-        if (object == null)
+        if (object == null) {
             return;
+        }
 
         if (object instanceof String) {
             String string = (String) object;
-            if (string.length() > Properties.MAX_STRING)
+            if (string.length() > Properties.MAX_STRING) {
                 return;
+            }
             // String literals are constrained to 65535 bytes
             // as they are stored in the constant pool
-            if (string.length() > 65535)
+            if (string.length() > 65535) {
                 return;
+            }
             stringPool.addConstant(string);
         } else if (object instanceof Type) {
             while (((Type) object).getSort() == Type.ARRAY) {

@@ -35,7 +35,7 @@ import java.io.*;
 import java.util.*;
 
 /**
- * Pool of interesting method sequences for different objects
+ * Pool of interesting method sequences for different objects.
  *
  * @author Gordon Fraser
  */
@@ -44,14 +44,14 @@ public class ObjectPool implements Serializable {
     private static final long serialVersionUID = 2016387518459994272L;
 
     /**
-     * The actual object pool
+     * The actual object pool.
      */
     protected final Map<GenericClass<?>, Set<TestCase>> pool = new HashMap<>();
 
     protected static final Logger logger = LoggerFactory.getLogger(ObjectPool.class);
 
     /**
-     * Insert a new sequence for given Type
+     * Insert a new sequence for given Type.
      *
      * @param clazz    a {@link java.lang.reflect.Type} object.
      * @param sequence a {@link TestCase} object.
@@ -62,19 +62,19 @@ public class ObjectPool implements Serializable {
     }
 
     /**
-     * Helper method to add sequences
+     * Helper method to add sequences.
      *
-     * @param sequence
+     * @param sequence the sequence to add
      */
     private void addSequence(ObjectSequence sequence) {
         pool.computeIfAbsent(sequence.getGeneratedClass(), k -> new HashSet<>())
-            .add(sequence.getSequence());
+                .add(sequence.getSequence());
         logger.info("Added new sequence for {}", sequence.getGeneratedClass());
         logger.debug("Sequence code:\n{}", sequence.getSequence().toCode());
     }
 
     /**
-     * Randomly choose a sequence for a given Type
+     * Randomly choose a sequence for a given Type.
      *
      * @param clazz a {@link java.lang.reflect.Type} object.
      * @return a {@link org.evosuite.testcase.TestCase} object.
@@ -88,19 +88,21 @@ public class ObjectPool implements Serializable {
     }
 
     /**
-     * Retrieve all possible sequences for a given Type
+     * Retrieve all possible sequences for a given Type.
      *
      * @param clazz a {@link java.lang.reflect.Type} object.
      * @return a {@link java.util.Set} object.
      */
     public Set<TestCase> getSequences(GenericClass<?> clazz) {
-        if (pool.containsKey(clazz))
+        if (pool.containsKey(clazz)) {
             return pool.get(clazz);
+        }
 
         Set<Set<TestCase>> candidates = new LinkedHashSet<>();
         for (Map.Entry<GenericClass<?>, Set<TestCase>> entry : pool.entrySet()) {
-            if (entry.getKey().isAssignableTo(clazz))
+            if (entry.getKey().isAssignableTo(clazz)) {
                 candidates.add(entry.getValue());
+            }
         }
 
         if (candidates.isEmpty()) {
@@ -115,14 +117,15 @@ public class ObjectPool implements Serializable {
     }
 
     /**
-     * Check if there are sequences for given Type
+     * Check if there are sequences for given Type.
      *
      * @param clazz a {@link java.lang.reflect.Type} object.
      * @return a boolean.
      */
     public boolean hasSequence(GenericClass<?> clazz) {
-        if (pool.containsKey(clazz) && !pool.get(clazz).isEmpty())
+        if (pool.containsKey(clazz) && !pool.get(clazz).isEmpty()) {
             return true;
+        }
 
         return pool.entrySet().stream()
                 .anyMatch(entry -> entry.getKey().isAssignableTo(clazz) && !entry.getValue().isEmpty());
@@ -141,13 +144,14 @@ public class ObjectPool implements Serializable {
     }
 
     /**
-     * Read a serialized pool
+     * Read a serialized pool.
      *
-     * @param fileName
+     * @param fileName the name of the file
+     * @return the object pool
      */
     public static ObjectPool getPoolFromFile(String fileName) {
         try (InputStream in = new FileInputStream(fileName);
-             ObjectInputStream objectIn = new ObjectInputStream(in)) {
+                ObjectInputStream objectIn = new ObjectInputStream(in)) {
             ObjectPool pool = (ObjectPool) objectIn.readObject();
             // TODO: Do we also need to call that in the other factory methods?
             pool.filterUnaccessibleTests();
@@ -172,9 +176,10 @@ public class ObjectPool implements Serializable {
     }
 
     /**
-     * Convert a test suite to a pool
+     * Convert a test suite to a pool.
      *
-     * @param testSuite
+     * @param testSuite the test suite
+     * @return the object pool
      */
     public static ObjectPool getPoolFromTestSuite(TestSuiteChromosome testSuite) {
         ObjectPool pool = new ObjectPool();
@@ -196,17 +201,19 @@ public class ObjectPool implements Serializable {
 
     /**
      * Execute all tests in a JUnit test suite and add resulting sequences from
-     * carver
+     * carver.
      *
-     * @param targetClass
-     * @param testSuite
+     * @param targetClass the target class
+     * @param testSuite   the test suite
+     * @return the object pool
      */
     public static ObjectPool getPoolFromJUnit(GenericClass<?> targetClass, Class<?> testSuite) {
         final JUnitCore runner = new JUnitCore();
         final CarvingRunListener listener = new CarvingRunListener();
         runner.addListener(listener);
 
-        final org.evosuite.testcarver.extraction.CarvingClassLoader classLoader = new org.evosuite.testcarver.extraction.CarvingClassLoader();
+        final org.evosuite.testcarver.extraction.CarvingClassLoader classLoader =
+                new org.evosuite.testcarver.extraction.CarvingClassLoader();
 
         try {
             // instrument target class

@@ -1,19 +1,19 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
- * <p>
+ *
  * This file is part of EvoSuite.
- * <p>
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation, either version 3.0 of the License, or
  * (at your option) any later version.
- * <p>
+ *
  * EvoSuite is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -40,11 +40,11 @@ public class Prioritization<T> {
     private Comparator<T> comparator;
 
     /**
-     * Initialize the priority collection with a {@param baseComparator}.
+     * Initialize the priority collection with a {@code baseComparator}.
      * This comparator is extended with a comparator that compares the priorities of the elements, if the
      * base comparator is undecided.
-     * <p>
-     * For details on the sorting see {@link TreeSet#TreeSet(Comparator)}.
+     *
+     * <p>For details on the sorting see {@link TreeSet#TreeSet(Comparator)}.
      *
      * @param baseComparator the base comparator
      */
@@ -53,18 +53,20 @@ public class Prioritization<T> {
     }
 
     /**
-     * Initialize the priority collection with a {@param baseComparator}.
+     * Initialize the priority collection with a {@code baseComparator}.
      * This comparator is extended with a comparator that compares the priorities of the elements, if the
      * base comparator is undecided.
-     * <p>
-     * For details on the sorting see {@link TreeSet#TreeSet(Comparator)}.
+     *
+     * <p>For details on the sorting see {@link TreeSet#TreeSet(Comparator)}.
      *
      * @param baseComparator the base comparator
      * @param reversed       reverse the comparator before initializing the SortedSet.
      */
     public Prioritization(Comparator<T> baseComparator, boolean reversed) {
         comparator = baseComparator.thenComparingInt(this::getPriority);
-        if (reversed) comparator = comparator.reversed();
+        if (reversed) {
+            comparator = comparator.reversed();
+        }
     }
 
     /**
@@ -97,8 +99,9 @@ public class Prioritization<T> {
     }
 
     /**
-     * Collect all elements for which {@param filter} evaluates to true.
+     * Collect all elements for which {@code filter} evaluates to true.
      *
+     * @param filter the filter to apply
      * @return an (ordered) list.
      */
     public List<T> toSortedList(Predicate<T> filter) {
@@ -106,7 +109,7 @@ public class Prioritization<T> {
     }
 
     /**
-     * Check if this priority collection contains (at least) one element that matches {@param matcher}.
+     * Check if this priority collection contains (at least) one element that matches {@code matcher}.
      *
      * @param matcher A predicate taking an element as input.
      * @return Whether at least one element has been found.
@@ -122,12 +125,15 @@ public class Prioritization<T> {
      * @return the priority of the element.
      */
     private int getPriority(T element) {
-        if (!priorities.containsKey(element))
+        if (!priorities.containsKey(element)) {
             throw new IllegalArgumentException("Priority for " + element + "not found");
+        }
         return priorities.get(element);
     }
 
     /**
+     * Returns a view of all the elements in the priority collection.
+     *
      * @return view of all the elements in the priority collection
      */
     public Set<T> getElements() {
@@ -135,7 +141,7 @@ public class Prioritization<T> {
     }
 
     /**
-     * clears this collection
+     * Clears this collection.
      */
     public void clear() {
         priorities.clear();

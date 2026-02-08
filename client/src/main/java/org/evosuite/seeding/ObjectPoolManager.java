@@ -53,27 +53,30 @@ public class ObjectPoolManager extends ObjectPool {
     public void addPool(ObjectPool pool) {
         for (GenericClass<?> clazz : pool.getClasses()) {
             Set<TestCase> tests = pool.getSequences(clazz);
-            if (this.pool.containsKey(clazz))
+            if (this.pool.containsKey(clazz)) {
                 this.pool.get(clazz).addAll(tests);
-            else
+            } else {
                 this.pool.put(clazz, tests);
+            }
         }
     }
 
     public void initialisePool() {
         if (!Properties.OBJECT_POOLS.isEmpty()) {
             String[] poolFiles = Properties.OBJECT_POOLS.split(File.pathSeparator);
-            if (poolFiles.length > 1)
+            if (poolFiles.length > 1) {
                 logger.info("* Reading object pools:");
-            else
+            } else {
                 logger.info("* Reading object pool:");
+            }
             for (String fileName : poolFiles) {
                 logger.info("Adding object pool from file {}", fileName);
                 ObjectPool pool = ObjectPool.getPoolFromFile(fileName);
                 if (pool == null) {
                     logger.error("Failed to load object from {}", fileName);
                 } else {
-                    logger.info(" - Object pool {}: {} sequences for {} classes", fileName, pool.getNumberOfSequences(), pool.getNumberOfClasses());
+                    logger.info(" - Object pool {}: {} sequences for {} classes", fileName, pool.getNumberOfSequences(),
+                            pool.getNumberOfClasses());
                     addPool(pool);
                 }
             }
