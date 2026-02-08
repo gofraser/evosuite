@@ -35,7 +35,7 @@ import java.util.Set;
 
 
 /**
- * <p>JUnitTestSuite class.</p>
+ * JUnitTestSuite class.
  *
  * @author Gordon Fraser
  */
@@ -52,7 +52,7 @@ public class JUnitTestSuite {
     private final TestCaseExecutor executor = TestCaseExecutor.getInstance();
 
     /**
-     * <p>runSuite</p>
+     * Run suite.
      *
      * @param name a {@link java.lang.String} object.
      */
@@ -69,8 +69,9 @@ public class JUnitTestSuite {
             coveredBranchesFalse = trace.getCoveredFalseBranches();
 
             for (String methodName : trace.getCoveredMethods()) {
-                if (!methodName.contains("$"))
+                if (!methodName.contains("$")) {
                     coveredMethods.add(methodName);
+                }
             }
 
         } catch (ClassNotFoundException e) {
@@ -79,7 +80,7 @@ public class JUnitTestSuite {
     }
 
     /**
-     * <p>runSuite</p>
+     * Run suite.
      *
      * @param chromosome a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
@@ -97,7 +98,7 @@ public class JUnitTestSuite {
     }
 
     /**
-     * <p>Getter for the field <code>coveredMethods</code>.</p>
+     * Getter for the field <code>coveredMethods</code>.
      *
      * @return a {@link java.util.Set} object.
      */
@@ -106,7 +107,7 @@ public class JUnitTestSuite {
     }
 
     /**
-     * <p>getTrueCoveredBranches</p>
+     * getTrueCoveredBranches.
      *
      * @return a {@link java.util.Set} object.
      */
@@ -115,7 +116,7 @@ public class JUnitTestSuite {
     }
 
     /**
-     * <p>getFalseCoveredBranches</p>
+     * getFalseCoveredBranches.
      *
      * @return a {@link java.util.Set} object.
      */
@@ -124,7 +125,7 @@ public class JUnitTestSuite {
     }
 
     /**
-     * <p>runTest</p>
+     * runTest.
      *
      * @param test a {@link org.evosuite.testcase.TestCase} object.
      * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.

@@ -24,7 +24,7 @@ import org.evosuite.TestGenerationContext;
 import java.util.Arrays;
 
 /**
- * Should be used as MethodRule
+ * Should be used as MethodRule.
  */
 public class StaticStateResetter extends BaseRule {
 
@@ -51,6 +51,7 @@ public class StaticStateResetter extends BaseRule {
             try {
                 org.evosuite.runtime.classhandling.ClassResetter.getInstance().reset(classNameToReset);
             } catch (Throwable t) {
+                // Ignored
             }
         }
     }

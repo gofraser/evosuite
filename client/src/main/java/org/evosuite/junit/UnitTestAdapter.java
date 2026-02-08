@@ -29,21 +29,21 @@ import java.util.Map;
 
 
 /**
- * <p>UnitTestAdapter interface.</p>
+ * UnitTestAdapter interface.
  *
  * @author fraser
  */
 public interface UnitTestAdapter extends JUnitAnnotationProvider {
 
     /**
-     * Get all the framework dependent imports
+     * Get all the framework dependent imports.
      *
      * @return a {@link java.lang.String} object.
      */
     String getImports();
 
     /**
-     * Get the framework specific definition of the test class
+     * Get the framework specific definition of the test class.
      *
      * @param testName a {@link java.lang.String} object.
      * @return a {@link java.lang.String} object.
@@ -51,7 +51,7 @@ public interface UnitTestAdapter extends JUnitAnnotationProvider {
     String getClassDefinition(String testName);
 
     /**
-     * Get the framework specific definition of a test method
+     * Get the framework specific definition of a test method.
      *
      * @param testName a {@link java.lang.String} object.
      * @return a {@link java.lang.String} object.
@@ -59,7 +59,7 @@ public interface UnitTestAdapter extends JUnitAnnotationProvider {
     String getMethodDefinition(String testName);
 
     /**
-     * Get the class definition of a test suite
+     * Get the class definition of a test suite.
      *
      * @param tests a {@link java.util.List} object.
      * @return a {@link java.lang.String} object.
@@ -67,7 +67,7 @@ public interface UnitTestAdapter extends JUnitAnnotationProvider {
     String getSuite(List<String> tests);
 
     /**
-     * Return the sequence of method calls for a test
+     * Return the sequence of method calls for a test.
      *
      * @param test       a {@link org.evosuite.testcase.TestCase} object.
      * @param exceptions a {@link java.util.Map} object.
@@ -77,7 +77,7 @@ public interface UnitTestAdapter extends JUnitAnnotationProvider {
     String getTestString(int id, TestCase test, Map<Integer, Throwable> exceptions);
 
     /**
-     * Return the sequence of method calls for a test
+     * Return the sequence of method calls for a test.
      *
      * @param test       a {@link org.evosuite.testcase.TestCase} object.
      * @param exceptions a {@link java.util.Map} object.

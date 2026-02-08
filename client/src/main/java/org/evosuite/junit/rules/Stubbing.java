@@ -32,7 +32,8 @@ public class Stubbing extends BaseRule {
 
     private final Set<String> propertiesToClear = new LinkedHashSet<>();
 
-    private static final java.util.Properties defaultProperties = (java.util.Properties) java.lang.System.getProperties().clone();
+    private static final java.util.Properties defaultProperties = (java.util.Properties) java.lang.System
+            .getProperties().clone();
 
     private PrintStream systemOut = null;
 
