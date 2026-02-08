@@ -29,7 +29,6 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Serializable;
 import java.util.*;
 
 import static java.util.stream.Collectors.*;
@@ -48,8 +47,8 @@ public class MIOArchive extends Archive {
 
     /**
      * Map used to store all targets (keys of the map) and the corresponding covering solutions
-     * (values of the map)
-     **/
+     * (values of the map).
+     */
     protected final Map<TestFitnessFunction, Population> archive = new LinkedHashMap<>();
 
     public static final MIOArchive instance = new MIOArchive();
@@ -182,7 +181,7 @@ public class MIOArchive extends Archive {
     /**
      * {@inheritDoc}
      *
-     * @return
+     * @return a set of solutions
      */
     @Override
     public Set<TestChromosome> getSolutions() {
@@ -290,8 +289,8 @@ public class MIOArchive extends Archive {
                     if (!solutionsSampledFromArchive.contains(t)) {
                         solutionsSampledFromArchive.add(t);
 
-                        TestChromosome tClone = t.clone();
-                        mergedSolution.addTest(tClone);
+                        TestChromosome clonedChromosome = t.clone();
+                        mergedSolution.addTest(clonedChromosome);
                     }
                 }
             }

@@ -54,7 +54,8 @@ public final class ArchiveUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(ArchiveUtils.class);
 
-    private static final Map<Properties.Criterion, Class<?>> criterionClasses = new EnumMap<>(Properties.Criterion.class);
+    private static final Map<Properties.Criterion, Class<?>> criterionClasses =
+            new EnumMap<>(Properties.Criterion.class);
 
     static {
         criterionClasses.put(Properties.Criterion.EXCEPTION, ExceptionCoverageTestFitness.class);
