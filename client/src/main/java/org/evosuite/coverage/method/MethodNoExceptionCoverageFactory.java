@@ -22,8 +22,8 @@ package org.evosuite.coverage.method;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 
 /**
- * <p>
- * MethodNoExceptionCoverageFactory class.
+ *
+ * <p>MethodNoExceptionCoverageFactory class.
  * </p>
  *
  * @author Gordon Fraser, Andre Mis, Jose Miguel Rojas
@@ -62,9 +62,10 @@ public class MethodNoExceptionCoverageFactory extends AbstractMethodCoverageFact
      */
     public static MethodNoExceptionCoverageTestFitness createMethodTestFitness(
             BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
 
+        }
         return createMethodTestFitness(instruction.getClassName(),
                 instruction.getMethodName());
     }

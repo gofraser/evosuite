@@ -46,7 +46,7 @@ public class RhoAux {
     }
 
     /**
-     * Returns the list of lines goals of the CUT
+     * Returns the list of lines goals of the CUT.
      *
      * @return list of line coverage goals
      */

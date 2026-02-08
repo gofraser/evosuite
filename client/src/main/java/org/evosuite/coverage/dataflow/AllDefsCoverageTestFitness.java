@@ -29,9 +29,9 @@ import java.util.Map;
 
 /**
  * Evaluate fitness of a single test case with respect to one Definition-Use
- * pair
- * <p>
- * For more information look at the comment from method getDistance()
+ * pair.
+ *
+ * <p>For more information look at the comment from method getDistance()
  *
  * @author Andre Mis
  */
@@ -48,8 +48,8 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     private final Map<Use, DefUseCoverageTestFitness> uses;
 
     /**
-     * <p>
-     * Constructor for AllDefsCoverageTestFitness.
+     *
+     * <p>Constructor for AllDefsCoverageTestFitness.
      * </p>
      *
      * @param def  a {@link org.evosuite.coverage.dataflow.Definition} object.
@@ -76,9 +76,10 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         }
         Properties.TEST_ARCHIVE = archive;
 
-        if (defFitness > 0)
+        if (defFitness > 0) {
             return 1 + normalize(defFitness);
 
+        }
         // TODO: filter all objects
         // TODO: compute minimum over all use-fitnesses
         // TODO: return that minimum after normalization, stop once a use-fitness is 0
@@ -87,10 +88,12 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         double min = Double.MAX_VALUE;
         for (Use use : uses.keySet()) {
             double useFitness = uses.get(use).getFitness(individual, result);
-            if (useFitness == 0)
+            if (useFitness == 0) {
                 return 0;
-            if (useFitness < min)
+            }
+            if (useFitness < min) {
                 min = useFitness;
+            }
         }
 
         return min;
@@ -112,12 +115,15 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         AllDefsCoverageTestFitness other = (AllDefsCoverageTestFitness) obj;
         if (targetDef == null) {
             return other.targetDef == null;

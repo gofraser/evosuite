@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
+ *
  * <p>MutationPool class.</p>
  *
  * @author fraser
@@ -83,9 +84,9 @@ public class MutationPool {
     }
 
     /**
-     * Returns a List containing all mutants in the given class and method
-     * <p>
-     * Should no such mutant exist an empty List is returned
+     * Returns a List containing all mutants in the given class and method.
+     *
+     * <p>Should no such mutant exist an empty List is returned.
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -95,16 +96,19 @@ public class MutationPool {
                                                     String methodName) {
         List<Mutation> r = new ArrayList<>();
         Map<String, List<Mutation>> methods = mutationMap.get(className);
-        if (methods == null)
+        if (methods == null) {
             return r;
 
+        }
         List<Mutation> mutants = methods.get(methodName);
-        if (mutants != null)
+        if (mutants != null) {
             r.addAll(mutants);
+        }
         return r;
     }
 
     /**
+     *
      * <p>getMutants</p>
      *
      * @return a {@link java.util.List} object.
@@ -118,7 +122,7 @@ public class MutationPool {
     }
 
     /**
-     * Remove all known mutants
+     * Remove all known mutants.
      */
     public synchronized void clear() {
         mutationMap.clear();
@@ -127,7 +131,7 @@ public class MutationPool {
     }
 
     /**
-     * Returns the number of currently known mutants
+     * Returns the number of currently known mutants.
      *
      * @return The number of currently known mutants
      */

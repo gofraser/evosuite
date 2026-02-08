@@ -30,13 +30,13 @@ public class MethodNameMatcher {
      * <li>It is contained in the semi-colon separated list Propertires.TARGET_METHOD_LIST</li>
      * <li>Its prefix matches Properties.TARGET_METHOD_PREFIX (if setted)</li>
      * </ol>
-     * The format of the method name is identifier(ASM signature). For example: foo_bar1(Ljava/lang/String;)Z
-     * <p>
-     * Fully qualified method name example: com.examples.with.different.packagename.TargetMethodPrefix.<init>()V
-     * com.examples.with.different.packagename.Foo.foo_bar1(Ljava/lang/String;)Z
-     * <p>
-     * prefix "foo_bar1"
-     * com.examples.with.different.packagename.Foo.foo_bar1(Ljava/lang/String;)Z
+     * The format of the method name is identifier(ASM signature). For example: foo_bar1(Ljava/lang/String;)Z.
+     *
+     * <p>Fully qualified method name example: com.examples.with.different.packagename.TargetMethodPrefix.<init>()V
+     * com.examples.with.different.packagename.Foo.foo_bar1(Ljava/lang/String;)Z.
+     *
+     * <p>prefix "foo_bar1"
+     * com.examples.with.different.packagename.Foo.foo_bar1(Ljava/lang/String;)Z.
      *
      * @param fullyQualifiedMethodName
      * @return
@@ -44,11 +44,12 @@ public class MethodNameMatcher {
     public boolean fullyQualifiedMethodMatches(String fullyQualifiedMethodName) {
         String methodName;
         int lastIndexOf = fullyQualifiedMethodName.lastIndexOf('.');
-        if (lastIndexOf == -1)
+        if (lastIndexOf == -1) {
             methodName = fullyQualifiedMethodName;
-        else
+        } else {
             methodName = fullyQualifiedMethodName.substring(lastIndexOf + 1);
 
+        }
         return methodMatches(methodName);
     }
 
@@ -67,23 +68,26 @@ public class MethodNameMatcher {
      */
     public boolean methodMatches(String methodName) {
         String targetMethod = Properties.TARGET_METHOD;
-        if (!targetMethod.isEmpty() && methodName.equals(targetMethod))
+        if (!targetMethod.isEmpty() && methodName.equals(targetMethod)) {
             return true;
 
+        }
         final String targetMethodList = Properties.TARGET_METHOD_LIST;
         if (!targetMethodList.isEmpty()) {
             String[] targetMethods = targetMethodList.split(":");
             for (String targetMethodInList : targetMethods) {
-                if (methodName.equals(targetMethodInList))
+                if (methodName.equals(targetMethodInList)) {
                     return true;
+                }
             }
         }
 
         final String targetMethodPrefix = Properties.TARGET_METHOD_PREFIX;
         if (!targetMethodPrefix.isEmpty()
-                && methodName.startsWith(targetMethodPrefix))
+                && methodName.startsWith(targetMethodPrefix)) {
             return true;
 
+        }
         final boolean noMethodTargetSpecified = targetMethod.isEmpty() && targetMethodList.isEmpty()
                 && targetMethodPrefix.isEmpty();
         return noMethodTargetSpecified;

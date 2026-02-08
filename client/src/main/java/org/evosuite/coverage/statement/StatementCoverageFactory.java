@@ -47,17 +47,20 @@ public class StatementCoverageFactory extends
 
         for (String className : pool.knownClasses()) {
 
-            if (!(targetClass.equals("") || className.endsWith(targetClass)))
+            if (!(targetClass.equals("") || className.endsWith(targetClass))) {
                 continue;
 
+            }
             for (String methodName : pool.knownMethods(className)) {
 
-                if (!matcher.methodMatches(methodName))
+                if (!matcher.methodMatches(methodName)) {
                     continue;
 
+                }
                 for (BytecodeInstruction ins : pool.getInstructionsIn(className, methodName)) {
-                    if (isUsable(ins))
+                    if (isUsable(ins)) {
                         goals.add(new StatementCoverageTestFitness(ins.getClassName(), ins.getMethodName(), ins.getInstructionId()));
+                    }
                 }
             }
         }

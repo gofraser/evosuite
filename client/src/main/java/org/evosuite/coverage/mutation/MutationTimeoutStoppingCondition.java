@@ -31,6 +31,7 @@ import java.util.Set;
 
 
 /**
+ *
  * <p>MutationTimeoutStoppingCondition class.</p>
  *
  * @author Gordon Fraser
@@ -68,6 +69,7 @@ public class MutationTimeoutStoppingCondition<T extends Chromosome<T>>
     }
 
     /**
+     *
      * <p>isDisabled</p>
      *
      * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
@@ -154,6 +156,7 @@ public class MutationTimeoutStoppingCondition<T extends Chromosome<T>>
     }
 
     /**
+     *
      * <p>timeOut</p>
      *
      * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
@@ -167,9 +170,10 @@ public class MutationTimeoutStoppingCondition<T extends Chromosome<T>>
             }
             timeouts.put(mutation, t);
 
-            //		timeouts++;
-            if (t >= MAX_TIMEOUTS)
+            //        timeouts++;
+            if (t >= MAX_TIMEOUTS) {
                 disabled.add(mutation);
+            }
         } else {
             timeout++;
             if (timeout >= MAX_TIMEOUTS) {
@@ -181,6 +185,7 @@ public class MutationTimeoutStoppingCondition<T extends Chromosome<T>>
     // TODO: Still need a good way to call this
 
     /**
+     *
      * <p>raisedException</p>
      *
      * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.

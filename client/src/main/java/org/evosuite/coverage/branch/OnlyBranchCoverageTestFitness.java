@@ -29,7 +29,7 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import java.util.Objects;
 
 /**
- * Fitness function for a single test on a single branch
+ * Fitness function for a single test on a single branch.
  *
  * @author Gordon Fraser, Jose Miguel Rojas
  */
@@ -39,12 +39,12 @@ public class OnlyBranchCoverageTestFitness extends TestFitnessFunction {
     private static final long serialVersionUID = -7540212369784578236L;
 
     /**
-     * Target branch
+     * Target branch.
      */
     private final BranchCoverageGoal goal;
 
     /**
-     * Constructor - fitness is specific to a branch
+     * Constructor - fitness is specific to a branch.
      *
      * @param goal a {@link org.evosuite.coverage.branch.BranchCoverageGoal}
      *             object.
@@ -54,8 +54,8 @@ public class OnlyBranchCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getBranch
+     *
+     * <p>getBranch
      * </p>
      *
      * @return a {@link org.evosuite.coverage.branch.Branch} object.
@@ -73,8 +73,8 @@ public class OnlyBranchCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getClassName
+     *
+     * <p>getClassName
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -84,8 +84,8 @@ public class OnlyBranchCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getMethod
+     *
+     * <p>getMethod
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -95,8 +95,8 @@ public class OnlyBranchCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getBranchExpressionValue
+     *
+     * <p>getBranchExpressionValue
      * </p>
      *
      * @return a boolean.
@@ -107,8 +107,8 @@ public class OnlyBranchCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Calculate approach level + branch distance
+     *
+     * <p>Calculate approach level + branch distance.
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
@@ -118,7 +118,7 @@ public class OnlyBranchCoverageTestFitness extends TestFitnessFunction {
 
         // If there is an undeclared exception it is a failing test
         //if (result.hasUndeclaredException())
-        //	fitness += 1;
+        //    fitness += 1;
 
         logger.debug("Approach level: " + distance.getApproachLevel()
                 + " / branch distance: " + distance.getBranchDistance() + ", fitness = "
@@ -137,13 +137,13 @@ public class OnlyBranchCoverageTestFitness extends TestFitnessFunction {
         return fitness;
     }
 
-    //	@Override
-    //	public int getDifficulty() {
-    //		if (goal == null)
-    //			return 1;
-    //		else
-    //			return goal.getDifficulty();
-    //	}
+    //    @Override
+    //    public int getDifficulty() {
+    //        if (goal == null)
+    //            return 1;
+    //        else
+    //            return goal.getDifficulty();
+    //    }
 
     /**
      * {@inheritDoc}
@@ -169,12 +169,15 @@ public class OnlyBranchCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         OnlyBranchCoverageTestFitness other = (OnlyBranchCoverageTestFitness) obj;
         if (goal == null) {
             return other.goal == null;

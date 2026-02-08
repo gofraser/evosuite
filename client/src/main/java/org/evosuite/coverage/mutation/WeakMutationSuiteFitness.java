@@ -31,8 +31,8 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * <p>
- * WeakMutationSuiteFitness class.
+ *
+ * <p>WeakMutationSuiteFitness class.
  * </p>
  *
  * @author fraser

@@ -36,8 +36,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * <p>
- * Abstract MutationSuiteFitness class.
+ *
+ * <p>Abstract MutationSuiteFitness class.
  * </p>
  *
  * @author Gordon Fraser
@@ -71,8 +71,9 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
 
         for (MutationTestFitness goal : factory.getCoverageGoals()) {
             mutantMap.put(goal.getMutation().getId(), goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
 
         this.numMutants = this.mutantMap.size();
@@ -108,8 +109,8 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * <p>
-     * runTest
+     *
+     * <p>runTest
      * </p>
      *
      * @param test   a {@link org.evosuite.testcase.TestCase} object.

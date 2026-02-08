@@ -25,8 +25,8 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 
 /**
- * <p>
- * WeakMutationTestFitness class.
+ *
+ * <p>WeakMutationTestFitness class.
  * </p>
  *
  * @author fraser
@@ -36,8 +36,8 @@ public class WeakMutationTestFitness extends MutationTestFitness {
     private static final long serialVersionUID = 7468742584904580204L;
 
     /**
-     * <p>
-     * Constructor for WeakMutationTestFitness.
+     *
+     * <p>Constructor for WeakMutationTestFitness.
      * </p>
      *
      * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
@@ -60,11 +60,12 @@ public class WeakMutationTestFitness extends MutationTestFitness {
         double executionDistance = diameter;
 
         // Get control flow distance
-        if (!result.getTrace().wasMutationTouched(mutation.getId()))
+        if (!result.getTrace().wasMutationTouched(mutation.getId())) {
             executionDistance = getExecutionDistance(result);
-        else
+        } else {
             executionDistance = 0.0;
 
+        }
         double infectionDistance = 1.0;
 
         infectionDistance = calculateInfectionDistance(result, executionDistance);

@@ -34,7 +34,7 @@ import java.util.*;
 /**
  * Exception fitness is different from the others, as we do not know a priori how
  * many exceptions could be thrown in the SUT. In other words, we cannot really
- * speak about coverage percentage here
+ * speak about coverage percentage here.
  */
 public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
@@ -77,8 +77,8 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
             return 0.0;
         }
 
-        int nExc = getNumExceptions(implicitTypesOfExceptions) + getNumExceptions(explicitTypesOfExceptions) +
-                getNumExceptions(declaredTypesOfExceptions);
+        int nExc = getNumExceptions(implicitTypesOfExceptions) + getNumExceptions(explicitTypesOfExceptions)
+                + getNumExceptions(declaredTypesOfExceptions);
 
         if (nExc > maxExceptionsCovered) {
             logger.info("(Exceptions) Best individual covers " + nExc + " exceptions");
@@ -91,11 +91,12 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
         double exceptionFitness = 1d / (1d + nExc);
 
         suite.setFitness(this, exceptionFitness);
-        if (maxExceptionsCovered > 0)
+        if (maxExceptionsCovered > 0) {
             suite.setCoverage(this, nExc / maxExceptionsCovered);
-        else
+        } else {
             suite.setCoverage(this, 1.0);
 
+        }
         return exceptionFitness;
     }
 
@@ -117,9 +118,9 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         MethodNameMatcher matcher = new MethodNameMatcher();
 
-        if (results == null || implicitTypesOfExceptions == null || explicitTypesOfExceptions == null ||
-                !implicitTypesOfExceptions.isEmpty() || !explicitTypesOfExceptions.isEmpty() ||
-                declaredTypesOfExceptions == null || !declaredTypesOfExceptions.isEmpty()) {
+        if (results == null || implicitTypesOfExceptions == null || explicitTypesOfExceptions == null
+                || !implicitTypesOfExceptions.isEmpty() || !explicitTypesOfExceptions.isEmpty()
+                || declaredTypesOfExceptions == null || !declaredTypesOfExceptions.isEmpty()) {
             throw new IllegalArgumentException();
         }
 

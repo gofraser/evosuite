@@ -33,8 +33,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * <p>
- * BranchCoverageFactory class.
+ *
+ * <p>BranchCoverageFactory class.
  * </p>
  *
  * @author Gordon Fraser, Andre Mis
@@ -46,7 +46,7 @@ public class BranchCoverageFactory extends
 
 
     /**
-     * return coverage goals of the target class or of all the contextual branches, depending on the limitToCUT parameter
+     * return coverage goals of the target class or of all the contextual branches, depending on the limitToCUT parameter.
      *
      * @param limitToCUT whether to consider the class under test only ({@code true}) or all known
      *                   classes ({@code false})
@@ -61,10 +61,11 @@ public class BranchCoverageFactory extends
         // logger.info("Getting branches");
         for (String className : branchPool.knownClasses()) {
             //when limitToCUT== true, if not the class under test of a inner/anonymous class, continue
-            if (limitToCUT && !isCUT(className)) continue;
+            if (limitToCUT && !isCUT(className)) { continue; }
             //when limitToCUT==false, consider all classes, but excludes libraries ones according the INSTRUMENT_LIBRARIES property
-            if (!limitToCUT && (!Properties.INSTRUMENT_LIBRARIES && !DependencyAnalysis.isTargetProject(className)))
+            if (!limitToCUT && (!Properties.INSTRUMENT_LIBRARIES && !DependencyAnalysis.isTargetProject(className))) {
                 continue;
+            }
             final MethodNameMatcher matcher = new MethodNameMatcher();
             // Branchless methods
             for (String method : branchPool.getBranchlessMethods(className)) {
@@ -170,9 +171,10 @@ public class BranchCoverageFactory extends
      */
     public static BranchCoverageTestFitness createRootBranchTestFitness(
             BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
 
+        }
         return createRootBranchTestFitness(instruction.getClassName(),
                 instruction.getMethodName());
     }

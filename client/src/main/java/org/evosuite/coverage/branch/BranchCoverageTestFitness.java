@@ -32,7 +32,7 @@ import org.evosuite.utils.ArrayUtil;
 import java.util.Objects;
 
 /**
- * Fitness function for a single test on a single branch
+ * Fitness function for a single test on a single branch.
  *
  * @author Gordon Fraser
  */
@@ -41,12 +41,12 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
     private static final long serialVersionUID = -6310967747257242580L;
 
     /**
-     * Target branch
+     * Target branch.
      */
     private final BranchCoverageGoal goal;
 
     /**
-     * Constructor - fitness is specific to a branch
+     * Constructor - fitness is specific to a branch.
      *
      * @param goal a {@link org.evosuite.coverage.branch.BranchCoverageGoal}
      *             object.
@@ -56,8 +56,8 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getBranch
+     *
+     * <p>getBranch
      * </p>
      *
      * @return a {@link org.evosuite.coverage.branch.Branch} object.
@@ -75,8 +75,8 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getClassName
+     *
+     * <p>getClassName
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -86,8 +86,8 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getMethod
+     *
+     * <p>getMethod
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -97,8 +97,8 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getBranchExpressionValue
+     *
+     * <p>getBranchExpressionValue
      * </p>
      *
      * @return a boolean.
@@ -110,8 +110,8 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Calculate approach level + branch distance
+     *
+     * <p>Calculate approach level + branch distance.
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
@@ -134,8 +134,9 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
             // the next if condition is needed for DynaMOSA when branch coverage is not
             // set as coverage criterion to optimize. However, branches are
             // the backbone for all other criteria and thus they are always used in DynaMOSA
-            if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.BRANCH))
+            if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.BRANCH)) {
                 Archive.getArchiveInstance().updateArchive(this, individual, fitness);
+            }
         }
 
         return fitness;
@@ -166,12 +167,15 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         BranchCoverageTestFitness other = (BranchCoverageTestFitness) obj;
         if (goal == null) {
             return other.goal == null;

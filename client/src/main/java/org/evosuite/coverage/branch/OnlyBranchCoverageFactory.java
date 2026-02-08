@@ -31,8 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * <p>
- * BranchCoverageFactory class.
+ *
+ * <p>BranchCoverageFactory class.
  * </p>
  *
  * @author Gordon Fraser, Andre Mis, Jose Miguel Rojas
@@ -59,7 +59,7 @@ public class OnlyBranchCoverageFactory extends
 
         // logger.info("Getting branches");
         for (String className : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownClasses()) {
-            if (!Properties.TARGET_CLASS.equals("") && !className.equals(Properties.TARGET_CLASS)) continue;
+            if (!Properties.TARGET_CLASS.equals("") && !className.equals(Properties.TARGET_CLASS)) { continue; }
             final MethodNameMatcher matcher = new MethodNameMatcher();
 
             // Branches

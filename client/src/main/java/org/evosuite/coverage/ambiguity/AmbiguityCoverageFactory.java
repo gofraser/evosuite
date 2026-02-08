@@ -57,7 +57,7 @@ public class AmbiguityCoverageFactory extends
     private static double max_ambiguity_score = Double.MAX_VALUE;
 
     /**
-     * Read the coverage of a test suite from a file
+     * Read the coverage of a test suite from a file.
      */
     protected static void loadCoverage() {
 

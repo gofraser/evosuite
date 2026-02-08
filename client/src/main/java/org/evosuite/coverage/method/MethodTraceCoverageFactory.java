@@ -22,11 +22,11 @@ package org.evosuite.coverage.method;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 
 /**
- * <p>
- * MethodTraceCoverageFactory class.
+ *
+ * <p>MethodTraceCoverageFactory class.
  * </p>
- * <p>
- * Measures coverage of methods by analysing execution traces,
+ *
+ * <p>Measures coverage of methods by analysing execution traces,
  * that is, the method can be covered by indirect calls, not
  * necessarily be an statement in a test case.
  *
@@ -66,9 +66,10 @@ public class MethodTraceCoverageFactory extends AbstractMethodCoverageFactory<Me
      */
     public static MethodTraceCoverageTestFitness createMethodTestFitness(
             BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
 
+        }
         return createMethodTestFitness(instruction.getClassName(),
                 instruction.getMethodName());
     }

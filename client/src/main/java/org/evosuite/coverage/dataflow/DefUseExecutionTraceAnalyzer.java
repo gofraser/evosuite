@@ -30,7 +30,7 @@ import java.util.*;
 
 /**
  * This class is a library holding all methods needed to analyze an
- * ExecutionTrace with respect to DefUseCoverage fitness calculation
+ * ExecutionTrace with respect to DefUseCoverage fitness calculation.
  *
  * @author Andre Mis
  */
@@ -43,9 +43,9 @@ public abstract class DefUseExecutionTraceAnalyzer {
 
     /**
      * Determines the definitionId for targetVar before tagetDUPos in the given
-     * ExecutionTrace
-     * <p>
-     * If no such definition exists -1 is returned
+     * ExecutionTrace.
+     *
+     * <p>If no such definition exists -1 is returned.
      *
      * @param targetVariable a {@link java.lang.String} object.
      * @param objectTrace    a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
@@ -59,22 +59,23 @@ public abstract class DefUseExecutionTraceAnalyzer {
         int prevPos = -1;
         int prevDef = -1;
         Map<Integer, Integer> defMap = objectTrace.getPassedDefinitions(targetVariable).get(objectId);
-        for (Integer duPos : defMap.keySet())
+        for (Integer duPos : defMap.keySet()) {
             if (duPos < targetDUPos && duPos > prevPos) {
                 prevDef = defMap.get(duPos);
                 prevPos = duPos;
             }
 
+        }
         return prevDef;
     }
 
     /**
-     * Determines the overwriting definition for the given goalDefPos
-     * <p>
-     * An overwriting definition position is the duCounter position of the next
-     * definition for goalVariable that was not the goalDefinition
-     * <p>
-     * If no such definition exists Integer.MAX_VALUE is returned
+     * Determines the overwriting definition for the given goalDefPos.
+     *
+     * <p>An overwriting definition position is the duCounter position of the next
+     * definition for goalVariable that was not the goalDefinition.
+     *
+     * <p>If no such definition exists Integer.MAX_VALUE is returned.
      *
      * @param targetDefinition a {@link org.evosuite.coverage.dataflow.Definition} object.
      * @param objectTrace      a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
@@ -87,21 +88,25 @@ public abstract class DefUseExecutionTraceAnalyzer {
 
         int lastPos = Integer.MAX_VALUE;
         Map<Integer, HashMap<Integer, Integer>> objectMap = objectTrace.getPassedDefinitions(targetDefinition.getVariableName());
-        if (objectMap == null)
+        if (objectMap == null) {
             return lastPos;
+        }
         Map<Integer, Integer> defMap = objectMap.get(objectId);
-        if (defMap == null)
+        if (defMap == null) {
             return lastPos;
-        for (Integer defPos : defMap.keySet())
+        }
+        for (Integer defPos : defMap.keySet()) {
             if (defPos > goalDefPos && defPos < lastPos
-                    && defMap.get(defPos) != targetDefinition.getDefId())
+                    && defMap.get(defPos) != targetDefinition.getDefId()) {
                 lastPos = defPos;
 
+            }
+        }
         return lastPos;
     }
 
     /**
-     * Returns all the duCounterPositions of the targetUse in the given trace
+     * Returns all the duCounterPositions of the targetUse in the given trace.
      *
      * @param targetUse a {@link org.evosuite.coverage.dataflow.Use} object.
      * @param trace     a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
@@ -112,20 +117,24 @@ public abstract class DefUseExecutionTraceAnalyzer {
                                                 int objectId) {
         ArrayList<Integer> r = new ArrayList<>();
         Map<Integer, HashMap<Integer, Integer>> objectMap = trace.getPassedUses(targetUse.getVariableName());
-        if (objectMap == null)
+        if (objectMap == null) {
             return r;
+        }
         Map<Integer, Integer> useMap = objectMap.get(objectId);
-        if (useMap == null)
+        if (useMap == null) {
             return r;
-        for (Integer usePos : useMap.keySet())
-            if (useMap.get(usePos) == targetUse.getUseId())
+        }
+        for (Integer usePos : useMap.keySet()) {
+            if (useMap.get(usePos) == targetUse.getUseId()) {
                 r.add(usePos);
 
+            }
+        }
         return r;
     }
 
     /**
-     * Returns all the duCounterPositions of the goalUse in the given trace
+     * Returns all the duCounterPositions of the goalUse in the given trace.
      *
      * @param targetDefinition a {@link org.evosuite.coverage.dataflow.Definition} object.
      * @param trace            a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
@@ -137,15 +146,19 @@ public abstract class DefUseExecutionTraceAnalyzer {
 
         ArrayList<Integer> r = new ArrayList<>();
         Map<Integer, HashMap<Integer, Integer>> objectMap = trace.getPassedDefinitions(targetDefinition.getVariableName());
-        if (objectMap == null)
+        if (objectMap == null) {
             return r;
+        }
         Map<Integer, Integer> defMap = objectMap.get(objectId);
-        if (defMap == null)
+        if (defMap == null) {
             return r;
-        for (Integer defPos : defMap.keySet())
-            if (defMap.get(defPos) == targetDefinition.getDefId())
+        }
+        for (Integer defPos : defMap.keySet()) {
+            if (defMap.get(defPos) == targetDefinition.getDefId()) {
                 r.add(defPos);
 
+            }
+        }
         return r;
     }
 
@@ -153,8 +166,8 @@ public abstract class DefUseExecutionTraceAnalyzer {
      * Returns the a map of definitionIds from all definitions that overwrite
      * the goal definition in the given duCounter-range pointing to the duPos at
      * which they first overwrote.
-     * <p>
-     * This method expects the given ExecutionTrace not to contain any trace
+     *
+     * <p>This method expects the given ExecutionTrace not to contain any trace
      * information for the targetDefinition in the given range. If such a trace
      * is detected this method throws an IllegalStateException!
      *
@@ -169,31 +182,37 @@ public abstract class DefUseExecutionTraceAnalyzer {
             Definition targetDefinition, ExecutionTrace trace, int startingDUPos,
             int endDUPos, int objectId) {
 
-        if (startingDUPos > endDUPos)
+        if (startingDUPos > endDUPos) {
             throw new IllegalArgumentException("start must be lower or equal end");
+        }
         Map<Integer, Integer> r = new HashMap<>();
         Map<Integer, HashMap<Integer, Integer>> objectMap = trace.getPassedDefinitions(targetDefinition.getVariableName());
-        if (objectMap == null)
+        if (objectMap == null) {
             return r;
+        }
         Map<Integer, Integer> defMap = objectMap.get(objectId);
-        if (defMap == null)
+        if (defMap == null) {
             return r;
+        }
         for (Integer defPos : defMap.keySet()) {
-            if (defPos < startingDUPos || defPos > endDUPos)
+            if (defPos < startingDUPos || defPos > endDUPos) {
                 continue;
+            }
             int defId = defMap.get(defPos);
-            if (defId == targetDefinition.getDefId())
+            if (defId == targetDefinition.getDefId()) {
                 throw new IllegalStateException(
                         "expect given trace not to have passed goalDefinition in the given duCounter-range");
-            if (r.get(defId) == null)
+            }
+            if (r.get(defId) == null) {
                 r.put(defId, defPos);
+            }
         }
         return r;
     }
 
     /**
-     * <p>
-     * getDefinitionsIn
+     *
+     * <p>getDefinitionsIn
      * </p>
      *
      * @param targetVariable a {@link java.lang.String} object.
@@ -204,20 +223,22 @@ public abstract class DefUseExecutionTraceAnalyzer {
                                                             Set<BytecodeInstruction> vertices) {
         Set<BytecodeInstruction> r = new HashSet<>();
         for (BytecodeInstruction vertex : vertices) {
-            //			if (!vertex.isDefinition())
-            //				continue;
-            if (!DefUsePool.isKnownAsDefinition(vertex))
+            //            if (!vertex.isDefinition())
+            //                continue;
+            if (!DefUsePool.isKnownAsDefinition(vertex)) {
                 continue;
+            }
             Definition currentDefinition = DefUseFactory.makeDefinition(vertex);
-            if (currentDefinition.getVariableName().equals(targetVariable))
+            if (currentDefinition.getVariableName().equals(targetVariable)) {
                 r.add(vertex);
+            }
         }
         return r;
     }
 
     /**
      * Returns a Set containing all elements in the given vertex set that are
-     * overwriting definitions for the given targetDefinition
+     * overwriting definitions for the given targetDefinition.
      *
      * @param targetDefinition a {@link org.evosuite.coverage.dataflow.Definition} object.
      * @param vertices         a {@link java.util.Collection} object.
@@ -227,20 +248,22 @@ public abstract class DefUseExecutionTraceAnalyzer {
             Definition targetDefinition, Collection<BytecodeInstruction> vertices) {
         Set<BytecodeInstruction> r = new HashSet<>();
         for (BytecodeInstruction vertex : vertices) {
-            if (!vertex.isDefinition())
+            if (!vertex.isDefinition()) {
                 continue;
+            }
             BytecodeInstruction vertexInOtherGraph = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getRawCFG(vertex.getClassName(),
                     vertex.getMethodName()).getInstruction(vertex.getInstructionId());
             Definition currentDefinition = DefUseFactory.makeDefinition(vertexInOtherGraph);
-            if (isOverwritingDefinition(targetDefinition, currentDefinition))
+            if (isOverwritingDefinition(targetDefinition, currentDefinition)) {
                 r.add(vertex);
+            }
         }
         return r;
     }
 
     /**
      * Determines if the two given Definitions refer to the same variable but
-     * are different
+     * are different.
      *
      * @param targetDefinition a {@link org.evosuite.coverage.dataflow.Definition} object.
      * @param definition       a {@link org.evosuite.coverage.dataflow.Definition} object.
@@ -249,16 +272,17 @@ public abstract class DefUseExecutionTraceAnalyzer {
     public static boolean isOverwritingDefinition(Definition targetDefinition,
                                                   Definition definition) {
 
-        if (definition.getDefId() == -1)
+        if (definition.getDefId() == -1) {
             throw new IllegalArgumentException(
                     "expect given Definition to have it's defId set");
+        }
         return targetDefinition.getVariableName().equals(definition.getVariableName())
                 && targetDefinition.getDefId() != definition.getDefId();
     }
 
     /**
      * Returns the defID of the Definition that is active in the given trace at
-     * usePos
+     * usePos.
      *
      * @param targetVariable a {@link java.lang.String} object.
      * @param trace          a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
@@ -272,14 +296,17 @@ public abstract class DefUseExecutionTraceAnalyzer {
         int lastDef = -1;
         int lastPos = -1;
         Map<Integer, HashMap<Integer, Integer>> objectMap = trace.getPassedDefinitions(targetVariable);
-        if (objectMap == null)
+        if (objectMap == null) {
             return -1;
+        }
         Map<Integer, Integer> defMap = objectMap.get(objectId);
-        if (defMap == null)
+        if (defMap == null) {
             return -1;
+        }
         for (Integer defPos : defMap.keySet()) {
-            if (defPos > usePos)
+            if (defPos > usePos) {
                 continue;
+            }
             if (lastPos < defPos) {
                 lastDef = defMap.get(defPos);
                 lastPos = defPos;
@@ -297,14 +324,17 @@ public abstract class DefUseExecutionTraceAnalyzer {
         Object lastDef = null;
         int lastPos = -1;
         Map<Integer, HashMap<Integer, Object>> objectMap = defDataObjects.get(targetVariable);
-        if (objectMap == null)
+        if (objectMap == null) {
             return -1;
+        }
         Map<Integer, Object> defMap = objectMap.get(objectId);
-        if (defMap == null)
+        if (defMap == null) {
             return -1;
+        }
         for (Integer defPos : defMap.keySet()) {
-            if (defPos > usePos)
+            if (defPos > usePos) {
                 continue;
+            }
             if (lastPos < defPos) {
                 lastDef = defMap.get(defPos);
                 lastPos = defPos;
@@ -323,14 +353,17 @@ public abstract class DefUseExecutionTraceAnalyzer {
         Object lastDef = null;
         int lastPos = -1;
         Map<Integer, HashMap<Integer, Object>> objectMap = defDataObjects.get(targetVariable);
-        if (objectMap == null)
+        if (objectMap == null) {
             return -1;
+        }
         Map<Integer, Object> defMap = objectMap.get(objectId);
-        if (defMap == null)
+        if (defMap == null) {
             return -1;
+        }
         for (Integer defPos : defMap.keySet()) {
-            if (defPos > usePos)
+            if (defPos > usePos) {
                 continue;
+            }
             if (lastPos < defPos) {
                 lastDef = defMap.get(defPos);
                 lastPos = defPos;
@@ -342,7 +375,7 @@ public abstract class DefUseExecutionTraceAnalyzer {
 
     /**
      * Prints all information found concerning finished calls of the given
-     * ExecutionTrace
+     * ExecutionTrace.
      *
      * @param trace a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
      */
@@ -362,8 +395,8 @@ public abstract class DefUseExecutionTraceAnalyzer {
     }
 
     /**
-     * <p>
-     * getCoveredGoals
+     *
+     * <p>getCoveredGoals
      * </p>
      *
      * @param results a {@link java.util.List} object.
@@ -420,7 +453,7 @@ public abstract class DefUseExecutionTraceAnalyzer {
         // so we have 25% more executed statements, which means this will stay
         // enabled
 
-        //		System.out.println("start");
+        //        System.out.println("start");
         long start = System.currentTimeMillis();
 
         Set<DefUseCoverageTestFitness> r = new HashSet<>();
@@ -431,14 +464,14 @@ public abstract class DefUseExecutionTraceAnalyzer {
         }
 
         timeGetCoveredGoals += System.currentTimeMillis() - start;
-        //		System.out.println("end");
+        //        System.out.println("end");
 
         return r;
     }
 
     /**
-     * <p>
-     * getCoveredGoals
+     *
+     * <p>getCoveredGoals
      * </p>
      *
      * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -452,12 +485,14 @@ public abstract class DefUseExecutionTraceAnalyzer {
         Map<String, HashMap<Integer, HashMap<Integer, Integer>>> passedUses = result.getTrace().getUseData();
 
         for (String goalVariable : passedDefs.keySet()) {
-            if (passedUses.get(goalVariable) == null)
+            if (passedUses.get(goalVariable) == null) {
                 continue;
+            }
             for (Integer objectId : passedDefs.get(goalVariable).keySet()) {
-                if (passedUses.get(goalVariable).get(objectId) == null)
+                if (passedUses.get(goalVariable).get(objectId) == null) {
                     continue;
 
+                }
                 // DONE sort use map too, merge to one big trace => way better
                 // performance
                 Map<Integer, Integer> currentDefMap = passedDefs.get(goalVariable).get(objectId);
@@ -466,7 +501,7 @@ public abstract class DefUseExecutionTraceAnalyzer {
                 List<Integer> duCounterTrace = new ArrayList<>(
                         currentDefMap.keySet());
                 duCounterTrace.addAll(currentUseMap.keySet());
-                //				System.out.println(duCounterTrace.size()); oO for ncs.Bessj these can be up to 50k entries big
+                //                System.out.println(duCounterTrace.size()); oO for ncs.Bessj these can be up to 50k entries big
                 Collections.sort(duCounterTrace);
                 int traceLength = duCounterTrace.size();
                 Integer[] sortedDefDUTrace = duCounterTrace.toArray(new Integer[traceLength]);
@@ -481,8 +516,9 @@ public abstract class DefUseExecutionTraceAnalyzer {
                         int currentUse = currentUseMap.get(currentDUCounter);
                         DefUseCoverageTestFitness currentGoal = DefUseCoverageFactory.retrieveGoal(activeDef,
                                 currentUse);
-                        if (currentGoal != null)
+                        if (currentGoal != null) {
                             r.add(currentGoal);
+                        }
                     }
                 }
             }

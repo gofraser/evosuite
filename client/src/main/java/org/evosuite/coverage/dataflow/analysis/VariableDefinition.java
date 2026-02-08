@@ -24,11 +24,11 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
 /**
  * A VariableDefinition consisting of a defining BytecodeInstruction and a
  * MethodCall.
- * <p>
- * Used in Inter-Method pair search algorithm to differentiate between
+ *
+ * <p>Used in Inter-Method pair search algorithm to differentiate between
  * Intra-Method pairs and Inter-Method Pairs.
- * <p>
- * More or less just a pair of a BytecodeInstruction and a Methodcall.
+ *
+ * <p>More or less just a pair of a BytecodeInstruction and a Methodcall.
  *
  * @author Andre Mis
  */
@@ -62,16 +62,20 @@ public class VariableDefinition {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         VariableDefinition other = (VariableDefinition) obj;
         if (call == null) {
-            if (other.call != null)
+            if (other.call != null) {
                 return false;
+            }
         } else if (!call.equals(other.call))
             return false;
         if (definition == null) {

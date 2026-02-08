@@ -63,13 +63,15 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
         String targetClass = Properties.TARGET_CLASS;
 
         for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownClasses()) {
-            if (!(targetClass.equals("") || className.endsWith(targetClass)))
+            if (!(targetClass.equals("") || className.endsWith(targetClass))) {
                 continue;
 
+            }
             for (Method method : TestClusterUtils.getClass(className).getDeclaredMethods()) {
                 String methodName = method.getName() + Type.getMethodDescriptor(method);
-                if (!TestUsageChecker.canUse(method) || methodName.equals("hashCode()I"))
+                if (!TestUsageChecker.canUse(method) || methodName.equals("hashCode()I")) {
                     continue;
+                }
                 logger.info("Adding goals for method " + className + "." + methodName);
                 Type returnType = Type.getReturnType(method);
 

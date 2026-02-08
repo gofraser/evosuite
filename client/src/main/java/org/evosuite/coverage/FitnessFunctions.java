@@ -61,7 +61,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * factory class for fitness functions
+ * factory class for fitness functions.
  *
  * @author mattia
  */
@@ -204,8 +204,8 @@ public class FitnessFunctions {
     }
 
     /**
-     * <p>
-     * getFitnessFunction
+     *
+     * <p>getFitnessFunction
      * </p>
      *
      * @param criterion a {@link org.evosuite.Properties.Criterion} object.
@@ -221,8 +221,8 @@ public class FitnessFunctions {
     }
 
     /**
-     * <p>
-     * getFitnessFactory
+     *
+     * <p>getFitnessFactory
      * </p>
      *
      * @param crit a {@link org.evosuite.Properties.Criterion} object.

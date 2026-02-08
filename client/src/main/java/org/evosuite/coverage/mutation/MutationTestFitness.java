@@ -38,8 +38,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * <p>
- * Abstract MutationTestFitness class.
+ *
+ * <p>Abstract MutationTestFitness class.
  * </p>
  *
  * @author Gordon Fraser
@@ -57,8 +57,8 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
     protected final int diameter;
 
     /**
-     * <p>
-     * Constructor for MutationTestFitness.
+     *
+     * <p>Constructor for MutationTestFitness.
      * </p>
      *
      * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
@@ -73,8 +73,8 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>mutation</code>.
+     *
+     * <p>Getter for the field <code>mutation</code>.
      * </p>
      *
      * @return a {@link org.evosuite.coverage.mutation.Mutation} object.
@@ -92,8 +92,8 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * runTest
+     *
+     * <p>runTest
      * </p>
      *
      * @param test   a {@link org.evosuite.testcase.TestCase} object.
@@ -105,18 +105,21 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         ExecutionResult result = new ExecutionResult(test, mutant);
 
         try {
-            if (mutant != null)
+            if (mutant != null) {
                 logger.debug("Executing test for mutant " + mutant.getId() + ": \n"
                         + test.toCode());
-            else
+            } else {
                 logger.debug("Executing test witout mutant");
 
-            if (mutant != null)
+            }
+            if (mutant != null) {
                 MutationObserver.activateMutation(mutant);
+            }
             result = TestCaseExecutor.getInstance().execute(test);
-            if (mutant != null)
+            if (mutant != null) {
                 MutationObserver.deactivateMutation(mutant);
 
+            }
             int num = test.size();
             if (!result.noThrownExceptions()) {
                 num = result.getFirstPositionOfThrownException();
@@ -133,8 +136,8 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getExecutionDistance
+     *
+     * <p>getExecutionDistance
      * </p>
      *
      * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -142,9 +145,10 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
      */
     protected double getExecutionDistance(ExecutionResult result) {
         double fitness = 0.0;
-        if (!result.getTrace().wasMutationTouched(mutation.getId()))
+        if (!result.getTrace().wasMutationTouched(mutation.getId())) {
             fitness += diameter;
 
+        }
         // Get control flow distance
         if (controlDependencies.isEmpty()) {
             // If mutant was not executed, this can be either because of an exception, or because the method was not executed
@@ -161,11 +165,12 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
             for (BranchCoverageGoal dependency : controlDependencies) {
                 logger.debug("Checking dependency...");
                 ControlFlowDistance distance = dependency.getDistance(result);
-                if (cfgDistance == null)
+                if (cfgDistance == null) {
                     cfgDistance = distance;
-                else {
-                    if (distance.compareTo(cfgDistance) < 0)
+                } else {
+                    if (distance.compareTo(cfgDistance) < 0) {
                         cfgDistance = distance;
+                    }
                 }
             }
             if (cfgDistance != null) {
@@ -252,20 +257,25 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         MutationTestFitness other = (MutationTestFitness) obj;
         if (controlDependencies == null) {
-            if (other.controlDependencies != null)
+            if (other.controlDependencies != null) {
                 return false;
+            }
         } else if (!controlDependencies.equals(other.controlDependencies))
             return false;
-        if (diameter != other.diameter)
+        if (diameter != other.diameter) {
             return false;
+        }
         return mutantId == other.mutantId;
     }
 

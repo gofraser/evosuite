@@ -41,12 +41,12 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
     private static final long serialVersionUID = 6630097528288524492L;
 
     /**
-     * Target goal
+     * Target goal.
      */
     private final InputCoverageGoal goal;
 
     /**
-     * Constructor - fitness is specific to a method
+     * Constructor - fitness is specific to a method.
      *
      * @param goal the coverage goal
      */
@@ -69,8 +69,8 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getClassName
+     *
+     * <p>getClassName
      * </p>
      *
      * @return a {@link String} object.
@@ -80,8 +80,8 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getMethod
+     *
+     * <p>getMethod
      * </p>
      *
      * @return a {@link String} object.
@@ -91,8 +91,8 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getValue
+     *
+     * <p>getValue
      * </p>
      *
      * @return a {@link String} object.
@@ -102,8 +102,8 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getValue
+     *
+     * <p>getValue
      * </p>
      *
      * @return a {@link String} object.
@@ -115,7 +115,7 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
     /**
      * {@inheritDoc}
      * <p/>
-     * Calculate fitness
+     * Calculate fitness.
      *
      * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
      * @param result     a {@link ExecutionResult} object.
@@ -280,12 +280,15 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         InputCoverageTestFitness other = (InputCoverageTestFitness) obj;
         return this.goal.equals(other.goal);
     }

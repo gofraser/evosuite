@@ -62,13 +62,15 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
         String targetClass = Properties.TARGET_CLASS;
 
         for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownClasses()) {
-            if (!(targetClass.equals("") || className.endsWith(targetClass)))
+            if (!(targetClass.equals("") || className.endsWith(targetClass))) {
                 continue;
 
+            }
             for (Method method : TestClusterUtils.getClass(className).getDeclaredMethods()) {
                 String methodName = method.getName() + Type.getMethodDescriptor(method);
-                if (!TestUsageChecker.canUse(method))
+                if (!TestUsageChecker.canUse(method)) {
                     continue;
+                }
                 logger.info("Adding input goals for method " + className + "." + methodName);
 
                 Type[] argumentTypes = Type.getArgumentTypes(method);

@@ -31,8 +31,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * <p>
- * Mutation class.
+ *
+ * <p>Mutation class.
  * </p>
  *
  * @author Gordon Fraser
@@ -56,8 +56,8 @@ public class Mutation implements Comparable<Mutation> {
     private final int lineNo;
 
     /**
-     * <p>
-     * Constructor for Mutation.
+     *
+     * <p>Constructor for Mutation.
      * </p>
      *
      * @param className    a {@link java.lang.String} object.
@@ -82,8 +82,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * Constructor for Mutation.
+     *
+     * <p>Constructor for Mutation.
      * </p>
      *
      * @param className    a {@link java.lang.String} object.
@@ -107,8 +107,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>id</code>.
+     *
+     * <p>Getter for the field <code>id</code>.
      * </p>
      *
      * @return a int.
@@ -118,8 +118,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>className</code>.
+     *
+     * <p>Getter for the field <code>className</code>.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -129,8 +129,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>methodName</code>.
+     *
+     * <p>Getter for the field <code>methodName</code>.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -144,8 +144,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>mutationName</code>.
+     *
+     * <p>Getter for the field <code>mutationName</code>.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -155,8 +155,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * Returns a formatted description of the mutation.
+     *
+     * <p>Returns a formatted description of the mutation.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -166,8 +166,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * getControlDependencies
+     *
+     * <p>getControlDependencies
      * </p>
      *
      * @return a {@link java.util.Set} object.
@@ -182,8 +182,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * getOriginalNode
+     *
+     * <p>getOriginalNode
      * </p>
      *
      * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
@@ -193,8 +193,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>mutation</code>.
+     *
+     * <p>Getter for the field <code>mutation</code>.
      * </p>
      *
      * @return a {@link org.objectweb.asm.tree.InsnList} object.
@@ -204,8 +204,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * getInfectionDistance
+     *
+     * <p>getInfectionDistance
      * </p>
      *
      * @return a {@link org.objectweb.asm.tree.InsnList} object.
@@ -215,8 +215,8 @@ public class Mutation implements Comparable<Mutation> {
     }
 
     /**
-     * <p>
-     * getDefaultInfectionDistance
+     *
+     * <p>getDefaultInfectionDistance
      * </p>
      *
      * @return a {@link org.objectweb.asm.tree.InsnList} object.
@@ -268,25 +268,32 @@ public class Mutation implements Comparable<Mutation> {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         Mutation other = (Mutation) obj;
         if (className == null) {
-            if (other.className != null)
+            if (other.className != null) {
                 return false;
+            }
         } else if (!className.equals(other.className))
             return false;
-        if (id != other.id)
+        if (id != other.id) {
             return false;
-        if (lineNo != other.lineNo)
+        }
+        if (lineNo != other.lineNo) {
             return false;
+        }
         if (methodName == null) {
-            if (other.methodName != null)
+            if (other.methodName != null) {
                 return false;
+            }
         } else if (!methodName.equals(other.methodName))
             return false;
         if (mutationName == null) {

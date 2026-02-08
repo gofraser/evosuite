@@ -67,7 +67,7 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
      * <p/>
      * <p/>
      * Otherwise this goal will try to reach the given branch and if value is
-     * true, make the branchInstruction jump and visa versa
+     * true, make the branchInstruction jump and visa versa.
      *
      * @param className       a {@link java.lang.String} object.
      * @param methodName      a {@link java.lang.String} object.
@@ -79,9 +79,10 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
     }
 
     public OutputCoverageGoal(String className, String methodName, Type type, String valueDescriptor, Number numericValue) {
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalArgumentException("null given");
 
+        }
         this.className = className;
         this.methodName = methodName;
         this.type = type.toString();
@@ -126,7 +127,7 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
     /**
      * {@inheritDoc}
      * <p/>
-     * Readable representation
+     * Readable representation.
      */
     @Override
     public String toString() {
@@ -146,24 +147,30 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
 
+        }
         OutputCoverageGoal other = (OutputCoverageGoal) obj;
 
-        if (!Objects.equals(this.className, other.className))
+        if (!Objects.equals(this.className, other.className)) {
             return false;
 
-        if (!Objects.equals(this.methodName, other.methodName))
+        }
+        if (!Objects.equals(this.methodName, other.methodName)) {
             return false;
 
-        if (!Objects.equals(this.type, other.type))
+        }
+        if (!Objects.equals(this.type, other.type)) {
             return false;
 
+        }
         return Objects.equals(this.valueDescriptor, other.valueDescriptor);
     }
 
@@ -175,27 +182,27 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
      * @return true if class name and method name match
      */
     public boolean isSameArgument(OutputCoverageGoal other) {
-        if (this == other) return true;
-        if (other == null) return false;
-        if (!Objects.equals(this.className, other.className)) return false;
-        if (!Objects.equals(this.methodName, other.methodName)) return false;
+        if (this == other) { return true; }
+        if (other == null) { return false; }
+        if (!Objects.equals(this.className, other.className)) { return false; }
+        if (!Objects.equals(this.methodName, other.methodName)) { return false; }
         return true;
     }
 
     @Override
     public int compareTo(OutputCoverageGoal o) {
         int diff = className.compareTo(o.className);
-        if (diff != 0) return diff;
+        if (diff != 0) { return diff; }
 
         diff = methodName.compareTo(o.methodName);
-        if (diff != 0) return diff;
+        if (diff != 0) { return diff; }
 
         diff = type.compareTo(o.type);
-        if (diff != 0) return diff;
+        if (diff != 0) { return diff; }
 
-        if (valueDescriptor == null && o.valueDescriptor == null) return 0;
-        if (valueDescriptor == null) return -1;
-        if (o.valueDescriptor == null) return 1;
+        if (valueDescriptor == null && o.valueDescriptor == null) { return 0; }
+        if (valueDescriptor == null) { return -1; }
+        if (o.valueDescriptor == null) { return 1; }
         return valueDescriptor.compareTo(o.valueDescriptor);
     }
 
@@ -203,11 +210,13 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
 
         Set<OutputCoverageGoal> goals = new LinkedHashSet<>();
 
-        if (!DependencyAnalysis.isTargetClassName(className))
+        if (!DependencyAnalysis.isTargetClassName(className)) {
             return goals;
-        if (methodName.equals("hashCode"))
+        }
+        if (methodName.equals("hashCode")) {
             return goals;
 
+        }
         String methodNameWithDesc = methodName + methodDesc;
         Type returnType = Type.getReturnType(methodDesc);
 
@@ -225,12 +234,13 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
             case Type.CHAR:
                 char c = (char) returnValue;
                 Number numberValue = (int) c;
-                if (Character.isAlphabetic(c))
+                if (Character.isAlphabetic(c)) {
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_ALPHA, numberValue));
-                else if (Character.isDigit(c))
+                } else if (Character.isDigit(c)) {
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_DIGIT, numberValue));
-                else
+                } else {
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_OTHER, numberValue));
+                }
                 break;
             case Type.BYTE:
             case Type.SHORT:
@@ -246,17 +256,17 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
                 }
                 break;
             case Type.ARRAY:
-                if (returnValue == null)
+                if (returnValue == null) {
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NULL));
-                else {
+                } else {
                     String arrDesc = (Array.getLength(returnValue) == 0) ? ARRAY_EMPTY : ARRAY_NONEMPTY;
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, arrDesc));
                 }
                 break;
             case Type.OBJECT:
-                if (returnValue == null)
+                if (returnValue == null) {
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NULL));
-                else {
+                } else {
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NONNULL));
                     if (returnType.getClassName().equals("java.lang.String")) {
                         String valDesc = ((String) returnValue).isEmpty() ? STRING_EMPTY : STRING_NONEMPTY;

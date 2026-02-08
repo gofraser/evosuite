@@ -41,20 +41,21 @@ public class MethodTraceCoverageSuiteFitness extends MethodCoverageSuiteFitness 
     private final static Logger logger = LoggerFactory.getLogger(MethodTraceCoverageSuiteFitness.class);
 
     /**
-     * Initialize the set of known coverage goals
+     * Initialize the set of known coverage goals.
      */
     @Override
     protected void determineCoverageGoals() {
         List<MethodTraceCoverageTestFitness> goals = new MethodTraceCoverageFactory().getCoverageGoals();
         for (MethodTraceCoverageTestFitness goal : goals) {
             methodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
     }
 
     /**
-     * Some useful debug information
+     * Some useful debug information.
      *
      * @param coveredMethods
      * @param fitness

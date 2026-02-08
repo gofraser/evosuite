@@ -27,8 +27,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * <p>
- * AllDefsCoverageFactory class.
+ *
+ * <p>AllDefsCoverageFactory class.
  * </p>
  *
  * @author Andre Mis

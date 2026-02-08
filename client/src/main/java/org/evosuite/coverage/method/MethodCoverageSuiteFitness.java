@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * Fitness function for a whole test suite for all methods, including exceptional behaviour
+ * Fitness function for a whole test suite for all methods, including exceptional behaviour.
  *
  * @author Gordon Fraser, Jose Miguel Rojas
  */
@@ -57,8 +57,8 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
     protected double bestFitness = Double.MAX_VALUE;
 
     /**
-     * <p>
-     * Constructor for MethodCoverageSuiteFitness.
+     *
+     * <p>Constructor for MethodCoverageSuiteFitness.
      * </p>
      */
     public MethodCoverageSuiteFitness() {
@@ -68,20 +68,21 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * Initialize the set of known coverage goals
+     * Initialize the set of known coverage goals.
      */
     protected void determineCoverageGoals() {
         List<MethodCoverageTestFitness> goals = new MethodCoverageFactory().getCoverageGoals();
         for (MethodCoverageTestFitness goal : goals) {
             methodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
     }
 
     /**
      * If there is an exception in a super-constructor, then the corresponding
-     * constructor might not be included in the execution trace
+     * constructor might not be included in the execution trace.
      *
      * @param test
      * @param result
@@ -90,9 +91,10 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
     protected void handleConstructorExceptions(TestChromosome test, ExecutionResult result, Set<String> calledMethods) {
 
         if (result.hasTimeout() || result.hasTestException()
-                || result.noThrownExceptions())
+                || result.noThrownExceptions()) {
             return;
 
+        }
         Integer exceptionPosition = result.getFirstPositionOfThrownException();
         Statement statement = result.test.getStatement(exceptionPosition);
         if (statement instanceof ConstructorStatement) {
@@ -118,7 +120,7 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * Iterate over all execution results and summarize statistics
+     * Iterate over all execution results and summarize statistics.
      *
      * @param results
      * @param calledMethods
@@ -157,8 +159,8 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Execute all tests and count covered branches
+     *
+     * <p>Execute all tests and count covered branches.
      */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
@@ -178,11 +180,12 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         printStatusMessages(suite, totalMethods - missingMethods, fitness);
 
-        if (totalMethods > 0)
+        if (totalMethods > 0) {
             suite.setCoverage(this, (double) coveredMethods / (double) totalMethods);
-        else
+        } else {
             suite.setCoverage(this, 1.0);
 
+        }
         suite.setNumOfCoveredGoals(this, coveredMethods);
 
         if (hasTimeoutOrTestException) {
@@ -204,7 +207,7 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * Some useful debug information
+     * Some useful debug information.
      *
      * @param coveredMethods
      * @param fitness

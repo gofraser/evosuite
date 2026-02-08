@@ -21,6 +21,7 @@
 package org.evosuite.coverage.mutation;
 
 /**
+ *
  * <p>MutationExecutionResult class.</p>
  *
  * @author fraser
@@ -46,6 +47,7 @@ public class MutationExecutionResult {
     }
 
     /**
+     *
      * <p>Getter for the field <code>numAssertions</code>.</p>
      *
      * @return the numAssertions
@@ -55,6 +57,7 @@ public class MutationExecutionResult {
     }
 
     /**
+     *
      * <p>Setter for the field <code>numAssertions</code>.</p>
      *
      * @param numAssertions the numAssertions to set
@@ -64,6 +67,7 @@ public class MutationExecutionResult {
     }
 
     /**
+     *
      * <p>Getter for the field <code>impact</code>.</p>
      *
      * @return the impact
@@ -73,6 +77,7 @@ public class MutationExecutionResult {
     }
 
     /**
+     *
      * <p>Setter for the field <code>impact</code>.</p>
      *
      * @param impact the impact to set
@@ -82,6 +87,7 @@ public class MutationExecutionResult {
     }
 
     /**
+     *
      * <p>hasTimeout</p>
      *
      * @return the hasTimeout
@@ -91,6 +97,7 @@ public class MutationExecutionResult {
     }
 
     /**
+     *
      * <p>Setter for the field <code>hasTimeout</code>.</p>
      *
      * @param hasTimeout the hasTimeout to set
@@ -100,6 +107,7 @@ public class MutationExecutionResult {
     }
 
     /**
+     *
      * <p>hasException</p>
      *
      * @return the hasException
@@ -109,6 +117,7 @@ public class MutationExecutionResult {
     }
 
     /**
+     *
      * <p>Setter for the field <code>hasException</code>.</p>
      *
      * @param hasException a boolean.

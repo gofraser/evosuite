@@ -47,7 +47,7 @@ public class RhoCoverageFactory extends
     private static List<LineCoverageTestFitness> goals = new ArrayList<>();
 
     /**
-     * Variables to calculate Rho value
+     * Variables to calculate Rho value.
      */
     private static int numberOfOnes = 0;
     private static int numberOfTestCases = 0;
@@ -59,7 +59,7 @@ public class RhoCoverageFactory extends
     private static final List<List<Integer>> matrix = new ArrayList<>();
 
     /**
-     * Read the coverage of a test suite from a file
+     * Read the coverage of a test suite from a file.
      */
     protected static synchronized void loadCoverage() {
 

@@ -39,7 +39,7 @@ import java.util.*;
 import java.util.stream.Stream;
 
 /**
- * Fitness function for a single test on a single line
+ * Fitness function for a single test on a single line.
  *
  * @author Gordon Fraser, Jose Miguel Rojas
  */
@@ -48,7 +48,7 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
     private static final long serialVersionUID = 3624503060256855484L;
 
     /**
-     * Target line
+     * Target line.
      */
     private final String className;
     private final String methodName;
@@ -58,7 +58,7 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
     protected transient List<BranchCoverageTestFitness> branchFitnesses = new ArrayList<>();
 
     /**
-     * Constructor - fitness is specific to a method
+     * Constructor - fitness is specific to a method.
      *
      * @param className  the class name
      * @param methodName the method name
@@ -73,8 +73,8 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getClassName
+     *
+     * <p>getClassName
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -84,8 +84,8 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getMethod
+     *
+     * <p>getMethod
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -95,8 +95,8 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getLine
+     *
+     * <p>getLine
      * </p>
      *
      * @return a {@link java.lang.Integer} object.
@@ -124,19 +124,22 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
             branchFitnesses.add(fitness);
         }
 
-        if (goalInstruction.isRootBranchDependent())
+        if (goalInstruction.isRootBranchDependent()) {
             branchFitnesses.add(BranchCoverageFactory.createRootBranchTestFitness(goalInstruction));
 
-        if (cds.isEmpty() && !goalInstruction.isRootBranchDependent())
+        }
+        if (cds.isEmpty() && !goalInstruction.isRootBranchDependent()) {
             throw new IllegalStateException(
                     "expect control dependencies to be empty only for root dependent instructions: "
                             + this);
 
-        if (branchFitnesses.isEmpty())
+        }
+        if (branchFitnesses.isEmpty()) {
             throw new IllegalStateException(
                     "an instruction is at least on the root branch of its method: " + this);
 
 
+        }
         branchFitnesses.sort(Comparator.naturalOrder());
     }
 
@@ -148,8 +151,8 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Calculate fitness
+     *
+     * <p>Calculate fitness.
      *
      * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
      * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -181,8 +184,9 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
                 } else {
                     newFitness = 1.0 + normalize(newFitness);
                 }
-                if (newFitness < r)
+                if (newFitness < r) {
                     r = newFitness;
+                }
             }
 
             fitness = r;
@@ -222,16 +226,19 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         LineCoverageTestFitness other = (LineCoverageTestFitness) obj;
-        return Objects.equals(className, other.className) &&
-               Objects.equals(methodName, other.methodName) &&
-               Objects.equals(line, other.line);
+        return Objects.equals(className, other.className)
+               && Objects.equals(methodName, other.methodName)
+               && Objects.equals(line, other.line);
     }
 
     /* (non-Javadoc)
@@ -239,15 +246,16 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public int compareTo(TestFitnessFunction other) {
-        if (other == null) return 1;
+        if (other == null) { return 1; }
         if (other instanceof LineCoverageTestFitness) {
             LineCoverageTestFitness otherLineFitness = (LineCoverageTestFitness) other;
-            if (className.compareTo(otherLineFitness.getClassName()) != 0)
+            if (className.compareTo(otherLineFitness.getClassName()) != 0) {
                 return className.compareTo(otherLineFitness.getClassName());
-            else if (methodName.compareTo(otherLineFitness.getMethod()) != 0)
+            } else if (methodName.compareTo(otherLineFitness.getMethod()) != 0) {
                 return methodName.compareTo(otherLineFitness.getMethod());
-            else
+            } else {
                 return line.compareTo(otherLineFitness.getLine());
+            }
         }
         return compareClassName(other);
     }

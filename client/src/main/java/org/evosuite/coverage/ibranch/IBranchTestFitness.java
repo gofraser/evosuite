@@ -191,16 +191,20 @@ public class IBranchTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         IBranchTestFitness other = (IBranchTestFitness) obj;
         if (branchGoal == null) {
-            if (other.branchGoal != null)
+            if (other.branchGoal != null) {
                 return false;
+            }
         } else if (!branchGoal.equals(other.branchGoal))
             return false;
         if (context == null) {

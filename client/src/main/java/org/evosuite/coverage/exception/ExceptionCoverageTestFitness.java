@@ -31,7 +31,7 @@ import java.util.Objects;
 
 
 /**
- * Fitness function for a single test on a single exception
+ * Fitness function for a single test on a single exception.
  *
  * @author Gordon Fraser, Jose Miguel Rojas
  */
@@ -42,15 +42,15 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
 
     public enum ExceptionType {
         /**
-         * unexpected exception directly thrown with a "throw new..."
+         * unexpected exception directly thrown with a "throw new...".
          */
         EXPLICIT,
         /**
-         * unexpected exception not thrown directly in the SUT, eg NPE on variable access
+         * unexpected exception not thrown directly in the SUT, eg NPE on variable access.
          */
         IMPLICIT,
         /**
-         * Thrown exception which is expected, because declared in signature with "throws"
+         * Thrown exception which is expected, because declared in signature with "throws".
          */
         DECLARED
     }
@@ -58,19 +58,19 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
     protected final String className;
 
     /**
-     * name+descriptor
+     * name+descriptor.
      */
     protected final String methodIdentifier;
 
     /**
-     * The class representing the thrown exception, eg NPE an IAE
+     * The class representing the thrown exception, eg NPE an IAE.
      */
     protected final GenericClass<?> exceptionClass;
 
     protected final ExceptionType type;
 
     /**
-     * Constructor - fitness is specific to a method
+     * Constructor - fitness is specific to a method.
      *
      * @param methodIdentifier the method name
      * @param exceptionClass   the exception class
@@ -90,8 +90,8 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * getMethod
+     *
+     * <p>getMethod
      * </p>
      *
      * @return a {@link String} object.
@@ -106,8 +106,8 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Calculate fitness
+     *
+     * <p>Calculate fitness.
      *
      * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
      * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -120,9 +120,10 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
         // Using private reflection can lead to false positives
         // that represent unrealistic behaviour. Thus, we only
         // use reflection for basic criteria, not for exception
-        if (result.calledReflection())
+        if (result.calledReflection()) {
             return fitness;
 
+        }
         //iterate on the indexes of the statements that resulted in an exception
         for (Integer i : result.getPositionsWhereExceptionsWereThrown()) {
             if (ExceptionCoverageHelper.shouldSkip(result, i)) {
@@ -139,8 +140,8 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
 
                 ExceptionType type = ExceptionCoverageHelper.getType(result, i);
 
-                if (this.methodIdentifier.equals(methodIdentifier) && this.exceptionClass.getRawClass().equals(exceptionClass) &&
-                        this.type.equals(type)) {
+                if (this.methodIdentifier.equals(methodIdentifier) && this.exceptionClass.getRawClass().equals(exceptionClass)
+                        && this.type.equals(type)) {
                     fitness = 0.0;
                     break;
                 }
@@ -186,26 +187,32 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         ExceptionCoverageTestFitness other = (ExceptionCoverageTestFitness) obj;
         if (className == null) {
-            if (other.className != null)
+            if (other.className != null) {
                 return false;
+            }
         } else if (!className.equals(other.className))
             return false;
         if (methodIdentifier == null) {
-            if (other.methodIdentifier != null)
+            if (other.methodIdentifier != null) {
                 return false;
+            }
         } else if (!methodIdentifier.equals(other.methodIdentifier))
             return false;
         if (exceptionClass == null) {
-            if (other.exceptionClass != null)
+            if (other.exceptionClass != null) {
                 return false;
+            }
         } else if (!exceptionClass.equals(other.exceptionClass))
             return false;
         return type == other.type;

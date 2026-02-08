@@ -108,20 +108,25 @@ public class RhoCoverageTestFitness extends TestFitnessFunction {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         RhoCoverageTestFitness other = (RhoCoverageTestFitness) obj;
         if (coverageMatrixGeneratedSoFar == null) {
-            if (other.coverageMatrixGeneratedSoFar != null)
+            if (other.coverageMatrixGeneratedSoFar != null) {
                 return false;
+            }
         } else if (!coverageMatrixGeneratedSoFar.equals(other.coverageMatrixGeneratedSoFar))
             return false;
-        if (previousNumberOfOnes != other.previousNumberOfOnes)
+        if (previousNumberOfOnes != other.previousNumberOfOnes) {
             return false;
+        }
         return previousNumberOfTestCases == other.previousNumberOfTestCases;
     }
 

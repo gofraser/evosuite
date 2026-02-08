@@ -37,8 +37,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 /**
- * <p>
- * StrongMutationTestFitness class.
+ *
+ * <p>StrongMutationTestFitness class.
  * </p>
  *
  * @author fraser
@@ -63,8 +63,8 @@ public class StrongMutationTestFitness extends MutationTestFitness {
             new NullTraceObserver(), new ArrayTraceObserver(), new ArrayLengthObserver()};
 
     /**
-     * <p>
-     * Constructor for StrongMutationTestFitness.
+     *
+     * <p>Constructor for StrongMutationTestFitness.
      * </p>
      *
      * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
@@ -93,18 +93,21 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         ExecutionResult result = new ExecutionResult(test, mutant);
 
         try {
-            if (mutant != null)
+            if (mutant != null) {
                 logger.debug("Executing test for mutant " + mutant.getId() + ": \n"
                         + test.toCode());
-            else
+            } else {
                 logger.debug("Executing test without mutant");
 
-            if (mutant != null)
+            }
+            if (mutant != null) {
                 MutationObserver.activateMutation(mutant);
+            }
             result = TestCaseExecutor.getInstance().execute(test);
-            if (mutant != null)
+            if (mutant != null) {
                 MutationObserver.deactivateMutation(mutant);
 
+            }
             int num = test.size();
             if (!result.noThrownExceptions()) {
                 num = result.getFirstPositionOfThrownException();
@@ -157,9 +160,10 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         Set<String> differ = new HashSet<>();
 
         for (Entry<String, Map<String, Map<Integer, Integer>>> entry : orig.entrySet()) {
-            if (!handled.containsKey(entry.getKey()))
+            if (!handled.containsKey(entry.getKey())) {
                 handled.put(entry.getKey(), new HashSet<>());
 
+            }
             for (Entry<String, Map<Integer, Integer>> method_entry : entry.getValue().entrySet()) {
                 if (!mutant.containsKey(entry.getKey())) {
                     // Class was not executed on mutant, so add method
@@ -209,7 +213,7 @@ public class StrongMutationTestFitness extends MutationTestFitness {
     }
 
     /**
-     * Compare two coverage maps
+     * Compare two coverage maps.
      *
      * @param orig
      * @param mutant
@@ -272,8 +276,9 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 
             if (orig == null) {
                 String msg = "No trace for " + observerClass + ". Traces: ";
-                for (OutputTrace<?> t : origResult.getTraces())
+                for (OutputTrace<?> t : origResult.getTraces()) {
                     msg += " " + t.toString();
+                }
                 logger.error(msg);
             } else {
                 num += orig.numDiffer(trace);
@@ -321,11 +326,12 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         double executionDistance = diameter;
 
         // Get control flow distance
-        if (!result.getTrace().getTouchedMutants().contains(mutation.getId()))
+        if (!result.getTrace().getTouchedMutants().contains(mutation.getId())) {
             executionDistance = normalize(getExecutionDistance(result));
-        else
+        } else {
             executionDistance = 0.0;
 
+        }
         double infectionDistance = 1.0;
 
         double impactDistance = 1.0;
@@ -384,13 +390,14 @@ public class StrongMutationTestFitness extends MutationTestFitness {
             }
         }
 
-        if (!exceptionCase)
+        if (!exceptionCase) {
             fitness = impactDistance + infectionDistance + executionDistance;
+        }
         logger.debug("Individual fitness: " + impactDistance + " + " + infectionDistance
                 + " + " + executionDistance + " = " + fitness);
         //if (fitness == 0.0) {
-        //	assert (getNumAssertions(individual.getLastExecutionResult(),
-        //	                         individual.getLastExecutionResult(mutation)) > 0);
+        //    assert (getNumAssertions(individual.getLastExecutionResult(),
+        //                             individual.getLastExecutionResult(mutation)) > 0);
         //}
 
         updateIndividual(individual, fitness);

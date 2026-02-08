@@ -60,7 +60,7 @@ public class InputCoverageGoal implements Serializable, Comparable<InputCoverage
      * <p/>
      * <p/>
      * Otherwise this goal will try to reach the given branch and if value is
-     * true, make the branchInstruction jump and visa versa
+     * true, make the branchInstruction jump and visa versa.
      *
      * @param className       a {@link String} object.
      * @param methodName      a {@link String} object.
@@ -73,9 +73,10 @@ public class InputCoverageGoal implements Serializable, Comparable<InputCoverage
     }
 
     public InputCoverageGoal(String className, String methodName, int argIndex, Type type, String valueDescriptor, Number numericValue) {
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalArgumentException("null given");
 
+        }
         this.className = className;
         this.methodName = methodName;
         this.argIndex = argIndex;
@@ -129,7 +130,7 @@ public class InputCoverageGoal implements Serializable, Comparable<InputCoverage
     /**
      * {@inheritDoc}
      * <p/>
-     * Readable representation
+     * Readable representation.
      */
     @Override
     public String toString() {
@@ -149,27 +150,34 @@ public class InputCoverageGoal implements Serializable, Comparable<InputCoverage
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
 
+        }
         InputCoverageGoal other = (InputCoverageGoal) obj;
 
-        if (this.argIndex != other.argIndex)
+        if (this.argIndex != other.argIndex) {
             return false;
 
-        if (!Objects.equals(this.className, other.className))
+        }
+        if (!Objects.equals(this.className, other.className)) {
             return false;
 
-        if (!Objects.equals(this.methodName, other.methodName))
+        }
+        if (!Objects.equals(this.methodName, other.methodName)) {
             return false;
 
-        if (!Objects.equals(this.type, other.type))
+        }
+        if (!Objects.equals(this.type, other.type)) {
             return false;
 
+        }
         return Objects.equals(this.valueDescriptor, other.valueDescriptor);
     }
 
@@ -181,31 +189,31 @@ public class InputCoverageGoal implements Serializable, Comparable<InputCoverage
      * @return true if class name, method name, and argument index match
      */
     public boolean isSameArgument(InputCoverageGoal other) {
-        if (this == other) return true;
-        if (other == null) return false;
-        if (this.argIndex != other.argIndex) return false;
-        if (!Objects.equals(this.className, other.className)) return false;
-        if (!Objects.equals(this.methodName, other.methodName)) return false;
+        if (this == other) { return true; }
+        if (other == null) { return false; }
+        if (this.argIndex != other.argIndex) { return false; }
+        if (!Objects.equals(this.className, other.className)) { return false; }
+        if (!Objects.equals(this.methodName, other.methodName)) { return false; }
         return true;
     }
 
     @Override
     public int compareTo(InputCoverageGoal o) {
         int diff = className.compareTo(o.className);
-        if (diff != 0) return diff;
+        if (diff != 0) { return diff; }
 
         diff = methodName.compareTo(o.methodName);
-        if (diff != 0) return diff;
+        if (diff != 0) { return diff; }
 
         diff = Integer.compare(argIndex, o.argIndex);
-        if (diff != 0) return diff;
+        if (diff != 0) { return diff; }
 
         diff = type.compareTo(o.type);
-        if (diff != 0) return diff;
+        if (diff != 0) { return diff; }
 
-        if (valueDescriptor == null && o.valueDescriptor == null) return 0;
-        if (valueDescriptor == null) return -1;
-        if (o.valueDescriptor == null) return 1;
+        if (valueDescriptor == null && o.valueDescriptor == null) { return 0; }
+        if (valueDescriptor == null) { return -1; }
+        if (o.valueDescriptor == null) { return 1; }
         return valueDescriptor.compareTo(o.valueDescriptor);
     }
 
@@ -244,12 +252,13 @@ public class InputCoverageGoal implements Serializable, Comparable<InputCoverage
                 case Type.CHAR:
                     char c = (char) argValue;
                     numberValue = (int) c; // Suite fitness uses the numeric representation to estimate distances
-                    if (Character.isAlphabetic(c))
+                    if (Character.isAlphabetic(c)) {
                         argValueDesc = CHAR_ALPHA;
-                    else if (Character.isDigit(c))
+                    } else if (Character.isDigit(c)) {
                         argValueDesc = CHAR_DIGIT;
-                    else
+                    } else {
                         argValueDesc = CHAR_OTHER;
+                    }
                     goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType, argValueDesc, numberValue));
                     break;
                 case Type.BYTE:

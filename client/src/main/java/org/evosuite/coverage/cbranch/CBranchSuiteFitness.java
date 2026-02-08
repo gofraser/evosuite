@@ -63,9 +63,10 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
 
     private void initMaps() {
         for (CBranchTestFitness goal : branchGoals) {
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
 
+            }
             if (goal.getBranchGoal() != null && goal.getBranchGoal().getBranch() != null) {
                 int branchId = goal.getBranchGoal().getBranch().getActualBranchId();
 
@@ -98,8 +99,9 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
         } else if (methodsMap.get(classAndMethodName) == null
                 || methodsMap.get(classAndMethodName).get(context) == null)
             return null;
-        else
+        else {
             return methodsMap.get(classAndMethodName).get(context);
+        }
     }
 
     private CBranchTestFitness getContextGoal(Integer branchId, CallContext context, boolean value) {
@@ -112,12 +114,13 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
         } else if (contextGoalsMap.get(branchId) == null
                 || contextGoalsMap.get(branchId).get(context) == null)
             return null;
-        else
+        else {
             for (CBranchTestFitness cBranchTestFitness : contextGoalsMap.get(branchId).get(context)) {
                 if (cBranchTestFitness.getValue() == value) {
                     return cBranchTestFitness;
                 }
             }
+        }
         return null;
     }
 
@@ -159,16 +162,18 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
 
                 for (CallContext context : trueMap.keySet()) {
                     CBranchTestFitness goalT = getContextGoal(branchId, context, true);
-                    if (goalT == null)
+                    if (goalT == null) {
                         continue;
 
+                    }
                     double distanceT = normalize(trueMap.get(context));
                     if (distanceMap.get(goalT) == null || distanceMap.get(goalT) > distanceT) {
                         distanceMap.put(goalT, distanceT);
                     }
                     if (Double.compare(distanceT, 0.0) == 0) {
-                        if (removedGoals.contains(goalT))
+                        if (removedGoals.contains(goalT)) {
                             continue;
+                        }
                         test.getTestCase().addCoveredGoal(goalT);
                         toRemoveGoals.add(goalT);
                     }
@@ -179,16 +184,18 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
 
                 for (CallContext context : falseMap.keySet()) {
                     CBranchTestFitness goalF = getContextGoal(branchId, context, false);
-                    if (goalF == null)
+                    if (goalF == null) {
                         continue;
 
+                    }
                     double distanceF = normalize(falseMap.get(context));
                     if (distanceMap.get(goalF) == null || distanceMap.get(goalF) > distanceF) {
                         distanceMap.put(goalF, distanceF);
                     }
                     if (Double.compare(distanceF, 0.0) == 0) {
-                        if (removedGoals.contains(goalF))
+                        if (removedGoals.contains(goalF)) {
                             continue;
+                        }
                         test.getTestCase().addCoveredGoal(goalF);
                         toRemoveGoals.add(goalF);
                     }
@@ -226,16 +233,18 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
                     .getMethodContextCount().entrySet()) {
                 for (Entry<CallContext, Integer> value : entry.getValue().entrySet()) {
                     CBranchTestFitness goal = getContextGoal(entry.getKey(), value.getKey());
-                    if (goal == null)
+                    if (goal == null) {
                         continue;
+                    }
                     int count = value.getValue();
                     if (callCounter.get(goal.hashCode()) == null
                             || callCounter.get(goal.hashCode()) < count) {
                         callCounter.put(goal.hashCode(), count);
                     }
                     if (count > 0) {
-                        if (removedGoals.contains(goal))
+                        if (removedGoals.contains(goal)) {
                             continue;
+                        }
                         test.getTestCase().addCoveredGoal(goal);
                         toRemoveGoals.add(goal);
                     }
@@ -248,12 +257,14 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
 
         int numCoveredGoals = removedGoals.size();
         for (CBranchTestFitness goal : branchGoals) {
-            if (removedGoals.contains(goal))
+            if (removedGoals.contains(goal)) {
                 continue;
+            }
             Double distance = distanceMap.get(goal);
-            if (distance == null)
+            if (distance == null) {
                 distance = 1.0;
 
+            }
             if (goal.getBranch() == null) {
                 Integer count = callCounter.get(goal.hashCode());
                 if (count == null || count == 0) {
@@ -263,13 +274,13 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
                 }
             } else {
                 Integer count = branchCounter.get(goal.getGenericContextBranchIdentifier());
-                if (count == null || count == 0)
+                if (count == null || count == 0) {
                     fitness += 1;
                     // If the branch was executed but not covered, we add 0.5 to the fitness
                     // to distinguish it from a branch that was not executed at all.
-                else if (count == 1)
+                } else if (count == 1) {
                     fitness += 0.5;
-                else {
+                } else {
                     if (Double.compare(distance, 0.0) == 0) {
                         numCoveredGoals++;
                     }

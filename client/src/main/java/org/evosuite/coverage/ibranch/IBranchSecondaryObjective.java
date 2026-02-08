@@ -23,8 +23,8 @@ import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.testsuite.TestSuiteChromosome;
 
 /**
- * <p>
- * IBranchSecondaryObjective class.
+ *
+ * <p>IBranchSecondaryObjective class.
  * </p>
  *
  * @author mattia
@@ -61,15 +61,19 @@ public class IBranchSecondaryObjective extends SecondaryObjective<TestSuiteChrom
             logger.debug("Comparing sizes: {}, {} vs {}, {}", parent1.size(), parent2.size(),
                     child1.size(), child2.size());
         }
-        if (!parent1.hasExecutedFitness(ff) || parent1.isChanged())
+        if (!parent1.hasExecutedFitness(ff) || parent1.isChanged()) {
             ff.getFitness(parent1);
-        if (!parent2.hasExecutedFitness(ff) || parent2.isChanged())
+        }
+        if (!parent2.hasExecutedFitness(ff) || parent2.isChanged()) {
             ff.getFitness(parent2);
-        if (!child1.hasExecutedFitness(ff) || child1.isChanged())
+        }
+        if (!child1.hasExecutedFitness(ff) || child1.isChanged()) {
             ff.getFitness(child1);
-        if (!child2.hasExecutedFitness(ff) || child2.isChanged())
+        }
+        if (!child2.hasExecutedFitness(ff) || child2.isChanged()) {
             ff.getFitness(child2);
 
+        }
         double minParents = Math.min(parent1.getFitness(ff), parent2.getFitness(ff));
         double minChildren = Math.min(child1.getFitness(ff), child2.getFitness(ff));
         return Double.compare(minParents, minChildren);

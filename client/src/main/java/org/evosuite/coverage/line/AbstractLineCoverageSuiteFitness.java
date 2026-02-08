@@ -36,8 +36,9 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
         List<LineCoverageTestFitness> goals = new LineCoverageFactory().getCoverageGoals();
         for (LineCoverageTestFitness goal : goals) {
             lineGoals.put(goal.getLine(), goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
         this.numLines = lineGoals.size();
         logger.info("Total line coverage goals: " + this.numLines);
@@ -67,7 +68,7 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
     }
 
     /**
-     * Iterate over all execution results and summarize statistics
+     * Iterate over all execution results and summarize statistics.
      *
      * @param results
      * @param coveredLines
@@ -113,8 +114,8 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Execute all tests and count covered lines
+     *
+     * <p>Execute all tests and count covered lines.
      */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
@@ -141,11 +142,12 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
 
         printStatusMessages(suite, numCoveredLines, fitness);
 
-        if (totalLines > 0)
+        if (totalLines > 0) {
             suite.setCoverage(this, (double) numCoveredLines / (double) totalLines);
-        else
+        } else {
             suite.setCoverage(this, 1.0);
 
+        }
         suite.setNumOfCoveredGoals(this, numCoveredLines);
         suite.setNumOfNotCoveredGoals(this, totalLines - numCoveredLines);
 
@@ -167,7 +169,7 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
     }
 
     /**
-     * Some useful debug information
+     * Some useful debug information.
      *
      * @param coveredLines
      * @param fitness

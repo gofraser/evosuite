@@ -42,15 +42,16 @@ public class MethodNoExceptionCoverageSuiteFitness extends MethodCoverageSuiteFi
     private final static Logger logger = LoggerFactory.getLogger(MethodNoExceptionCoverageSuiteFitness.class);
 
     /**
-     * Initialize the set of known coverage goals
+     * Initialize the set of known coverage goals.
      */
     @Override
     protected void determineCoverageGoals() {
         List<MethodNoExceptionCoverageTestFitness> goals = new MethodNoExceptionCoverageFactory().getCoverageGoals();
         for (MethodNoExceptionCoverageTestFitness goal : goals) {
             methodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
     }
 
@@ -60,7 +61,7 @@ public class MethodNoExceptionCoverageSuiteFitness extends MethodCoverageSuiteFi
     }
 
     /**
-     * Some useful debug information
+     * Some useful debug information.
      *
      * @param coveredMethods
      * @param fitness

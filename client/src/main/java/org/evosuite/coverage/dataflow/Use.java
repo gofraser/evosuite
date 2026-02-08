@@ -23,8 +23,8 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
 
 /**
  * An object of this class corresponds to a Use inside the class under test.
- * <p>
- * Uses are created by the DefUseFactory via the DefUsePool.
+ *
+ * <p>Uses are created by the DefUseFactory via the DefUsePool.
  *
  * @author Andre Mis
  */
@@ -34,8 +34,9 @@ public class Use extends DefUse {
 
     Use(BytecodeInstruction wrap) {
         super(wrap);
-        if (!DefUsePool.isKnownAsUse(wrap))
+        if (!DefUsePool.isKnownAsUse(wrap)) {
             throw new IllegalArgumentException("Instruction must be known as a Use by the DefUsePool");
+        }
     }
 
 }

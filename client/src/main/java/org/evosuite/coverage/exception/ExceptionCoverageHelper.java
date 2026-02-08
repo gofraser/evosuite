@@ -122,21 +122,22 @@ public class ExceptionCoverageHelper {
         }
 
         /*
-			Ignore exceptions thrown in the test code itself. Eg, due to mutation we
-			can end up with tests like:
+            Ignore exceptions thrown in the test code itself. Eg, due to mutation we
+            can end up with tests like:
 
-			Foo foo = null:
-			foo.bar();
-		 */
+            Foo foo = null:
+            foo.bar();
+         */
         if (t instanceof CodeUnderTestException) {
             return true;
         }
 
         if (t.getStackTrace() != null && t.getStackTrace().length > 0 && t.getStackTrace()[0] != null) {
             // This is to cover cases not handled by CodeUnderTestException, or if bug in EvoSuite itself
-            if (t.getStackTrace()[0].getClassName().startsWith(PackageInfo.getEvoSuitePackage() + ".testcase"))
+            if (t.getStackTrace()[0].getClassName().startsWith(PackageInfo.getEvoSuitePackage() + ".testcase")) {
                 return true;
 
+            }
             // Enum valueOf exceptions are not interesting, they just result from invalid strings
             return t.getStackTrace()[0].getClassName().startsWith(Enum.class.getCanonicalName()) && t.getStackTrace()[0].getMethodName().startsWith("valueOf");
         }

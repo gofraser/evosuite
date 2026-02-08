@@ -34,8 +34,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * <p>
- * LineCoverageFactory class.
+ *
+ * <p>LineCoverageFactory class.
  * </p>
  *
  * @author Gordon Fraser, Andre Mis, Jose Miguel Rojas
@@ -81,9 +81,10 @@ public class LineCoverageFactory extends
 
         for (String className : LinePool.getKnownClasses()) {
             // Only lines in CUT
-            if (!isCUT(className))
+            if (!isCUT(className)) {
                 continue;
 
+            }
             for (String methodName : LinePool.getKnownMethodsFor(className)) {
                 if (isEnumDefaultConstructor(className, methodName)) {
                     continue;
@@ -134,9 +135,10 @@ public class LineCoverageFactory extends
      */
     public static LineCoverageTestFitness createLineTestFitness(
             BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
 
+        }
         return createLineTestFitness(instruction.getClassName(),
                 instruction.getMethodName(), instruction.getLineNumber());
     }

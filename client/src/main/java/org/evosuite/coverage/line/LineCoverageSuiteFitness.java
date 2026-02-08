@@ -58,7 +58,7 @@ public class LineCoverageSuiteFitness extends AbstractLineCoverageSuiteFitness {
 
     /**
      * Add guidance to the fitness function by including branch distances on
-     * all control dependencies
+     * all control dependencies.
      */
     private void updateControlDependencies() {
         branchesToCoverTrue.clear();

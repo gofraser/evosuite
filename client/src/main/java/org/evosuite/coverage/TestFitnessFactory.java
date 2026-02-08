@@ -39,7 +39,7 @@ import java.util.List;
 public interface TestFitnessFactory<T extends TestFitnessFunction> {
 
     /**
-     * Generate a list of goals to cover
+     * Generate a list of goals to cover.
      *
      * @return a {@link java.util.List} object.
      */

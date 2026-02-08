@@ -61,7 +61,7 @@ public class ClassStatisticsPrinter {
 
     /**
      * Identify all JUnit tests starting with the given name prefix, instrument
-     * and run tests
+     * and run tests.
      */
     public static void printClassStatistics() {
         ExecutionTracer.disable();
@@ -86,8 +86,9 @@ public class ClassStatisticsPrinter {
             int staticMethods = 0;
             int staticFields = 0;
             for (Method method : targetClass.getDeclaredMethods()) {
-                if (method.getName().equals(ClassResetter.STATIC_RESET))
+                if (method.getName().equals(ClassResetter.STATIC_RESET)) {
                     continue;
+                }
                 if (Modifier.isPublic(method.getModifiers())) {
                     publicMethods++;
                 } else {
@@ -142,8 +143,9 @@ public class ClassStatisticsPrinter {
         int maxComplexity = 0;
         for (Entry<String, RawControlFlowGraph> entry : GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getRawCFGs(Properties.TARGET_CLASS).entrySet()) {
             int c = entry.getValue().getCyclomaticComplexity();
-            if (c > maxComplexity)
+            if (c > maxComplexity) {
                 maxComplexity = c;
+            }
             complexity += c;
             // LoggingUtils.getEvoLogger().info("* Complexity of method "+entry.getKey()+": "+entry.getValue().getCyclomaticComplexity());
         }

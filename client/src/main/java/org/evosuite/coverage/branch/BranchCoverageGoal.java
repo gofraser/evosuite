@@ -32,7 +32,7 @@ import java.io.Serializable;
 
 /**
  * A single branch coverage goal Either true/false evaluation of a jump
- * condition, or a method entry
+ * condition, or a method entry.
  *
  * @author Gordon Fraser, Andre Mis
  */
@@ -69,13 +69,11 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
      * Can be used to create an arbitrary {@code BranchCoverageGoal} trying to cover the
      * given {@code Branch}.
      *
-     * <p>
-     * If the given branch is {@code null}, this goal will try to cover the root branch
+     * <p>If the given branch is {@code null}, this goal will try to cover the root branch
      * of the method identified by the given name - meaning it will just try to
      * call the method at hand.
      *
-     * <p>
-     * Otherwise this goal will try to reach the given branch and if value is
+     * <p>Otherwise this goal will try to reach the given branch and if value is
      * true, make the branchInstruction jump and visa versa.
      *
      * @param branch     a {@link org.evosuite.coverage.branch.Branch} object.
@@ -85,12 +83,14 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
      */
     public BranchCoverageGoal(Branch branch, boolean value, String className,
                               String methodName) {
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalArgumentException("null given");
-        if (branch == null && !value)
+        }
+        if (branch == null && !value) {
             throw new IllegalArgumentException(
                     "expect goals for a root branch to always have value set to true");
 
+        }
         this.branch = branch;
         this.value = value;
 
@@ -100,9 +100,10 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
         if (branch != null) {
             lineNumber = branch.getInstruction().getLineNumber();
             if (!branch.getMethodName().equals(methodName)
-                    || !branch.getClassName().equals(className))
+                    || !branch.getClassName().equals(className)) {
                 throw new IllegalArgumentException(
                         "expect explicitly given information about a branch to coincide with the information given by that branch");
+            }
         } else {
             lineNumber = BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                     .getFirstLineNumberOfMethod(className, methodName);
@@ -121,12 +122,14 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
     public BranchCoverageGoal(Branch branch, boolean value, String className,
                               String methodName, int lineNumber) {
 
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalArgumentException("null given");
 
-        if (branch == null && !value)
+        }
+        if (branch == null && !value) {
             throw new IllegalArgumentException("expect goals for a root branch to always have value set to true");
 
+        }
         this.branch = branch;
         this.value = value;
         this.className = className;
@@ -135,8 +138,8 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
     }
 
     /**
-     * <p>
-     * Constructor for BranchCoverageGoal.
+     *
+     * <p>Constructor for BranchCoverageGoal.
      * </p>
      *
      * @param cd         a {@link org.evosuite.graphs.cfg.ControlDependency} object.
@@ -149,7 +152,7 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
 
     /**
      * Methods that have no branches don't need a cfg, so we just set the cfg to
-     * null
+     * null.
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -200,14 +203,14 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
     }
 
     /**
-     * Determines whether this goals is connected to the given goal
-     * <p>
-     * This is the case when this goals target branch is control dependent on
-     * the target branch of the given goal or visa versa
-     * <p>
-     * This is used in the ChromosomeRecycler to determine if tests produced to
+     * Determines whether this goals is connected to the given goal.
+     *
+     * <p>This is the case when this goals target branch is control dependent on
+     * the target branch of the given goal or visa versa.
+     *
+     * <p>This is used in the ChromosomeRecycler to determine if tests produced to
      * cover one goal should be used initially when trying to cover the other
-     * goal
+     * goal.
      *
      * @param goal a {@link org.evosuite.coverage.branch.BranchCoverageGoal}
      *             object.
@@ -226,8 +229,8 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
     }
 
     /**
-     * <p>
-     * getDistance
+     *
+     * <p>getDistance
      * </p>
      *
      * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -258,18 +261,19 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Readable representation
+     *
+     * <p>Readable representation.
      */
     @Override
     public String toString() {
         String name = className + "." + methodName + ":";
         if (branch != null) {
             name += " " + branch;
-            if (value)
+            if (value) {
                 name += " - true";
-            else
+            } else {
                 name += " - false";
+            }
         } else
             name += " root-Branch";
 
@@ -297,18 +301,22 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
 
+        }
         BranchCoverageGoal other = (BranchCoverageGoal) obj;
         // are we both root goals?
         if (this.branch == null) {
-            if (other.branch != null)
+            if (other.branch != null) {
                 return false;
+            }
             // i don't have to check for value at this point, because if
             // branch is null we are talking about the root branch here
             return this.methodName.equals(other.methodName)
@@ -316,14 +324,16 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
         }
 
         // well i am not, if you are we are different
-        if (other.branch == null)
+        if (other.branch == null) {
             return false;
 
+        }
         // so we both have a branch to cover, let's look at that branch and the
         // way we want it to be evaluated
-        if (!this.branch.equals(other.branch))
+        if (!this.branch.equals(other.branch)) {
             return false;
 
+        }
         return this.value == other.value;
     }
 
@@ -332,11 +342,11 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
         if (this.branch == null && o.branch == null) {
             // Both are root branches
             int classComp = this.className.compareTo(o.className);
-            if (classComp != 0) return classComp;
+            if (classComp != 0) { return classComp; }
             return this.methodName.compareTo(o.methodName);
         }
-        if (this.branch == null) return -1;
-        if (o.branch == null) return 1;
+        if (this.branch == null) { return -1; }
+        if (o.branch == null) { return 1; }
 
         if (branch.isInstrumented() != o.getBranch().isInstrumented()) {
              if (branch.isInstrumented()) {
@@ -347,10 +357,10 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
         }
 
         int diff = Integer.compare(this.lineNumber, o.lineNumber);
-        if (diff != 0) return diff;
+        if (diff != 0) { return diff; }
 
         diff = this.branch.compareTo(o.branch);
-        if (diff != 0) return diff;
+        if (diff != 0) { return diff; }
 
         if (this.value != o.value) {
             return this.value ? 1 : -1;
@@ -362,10 +372,11 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
     private void writeObject(ObjectOutputStream oos) throws IOException {
         oos.defaultWriteObject();
         // Write/save additional fields
-        if (branch != null)
+        if (branch != null) {
             oos.writeInt(branch.getActualBranchId());
-        else
+        } else {
             oos.writeInt(-1);
+        }
     }
 
     // assumes "static java.util.Date aDate;" declared
@@ -374,10 +385,11 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
         ois.defaultReadObject();
 
         int branchId = ois.readInt();
-        if (branchId >= 0)
+        if (branchId >= 0) {
             this.branch = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranch(branchId);
-        else
+        } else {
             this.branch = null;
+        }
     }
 
 }

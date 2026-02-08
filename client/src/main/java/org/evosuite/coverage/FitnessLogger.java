@@ -36,6 +36,7 @@ import java.util.List;
 
 
 /**
+ *
  * <p>FitnessLogger class.</p>
  *
  * @author Gordon Fraser
@@ -104,9 +105,10 @@ public class FitnessLogger<T extends Chromosome<T>> implements SearchListener<T>
      */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
-        if (algorithm.getPopulation().isEmpty())
+        if (algorithm.getPopulation().isEmpty()) {
             return;
 
+        }
         evaluations_history.add(evaluations);
         statements_history.add(MaxStatementsStoppingCondition.getNumExecutedStatements());
         fitness_history.add(algorithm.getBestIndividual().getFitness());
@@ -122,9 +124,10 @@ public class FitnessLogger<T extends Chromosome<T>> implements SearchListener<T>
      */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
-        if (name == null)
+        if (name == null) {
             return;
 
+        }
         File f = new File(name);
         try {
             BufferedWriter out = new BufferedWriter(new FileWriter(f, true));

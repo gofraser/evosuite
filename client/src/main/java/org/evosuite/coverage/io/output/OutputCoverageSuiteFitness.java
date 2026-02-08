@@ -70,21 +70,22 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * Initialize the set of known coverage goals
+     * Initialize the set of known coverage goals.
      */
     private void determineCoverageGoals() {
         List<OutputCoverageTestFitness> goals = new OutputCoverageFactory().getCoverageGoals();
         for (OutputCoverageTestFitness goal : goals) {
             outputCoverageGoals.add(goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
     }
 
     /**
      * {@inheritDoc}
      * <p/>
-     * Execute all tests and count covered output goals
+     * Execute all tests and count covered output goals.
      */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
@@ -110,11 +111,12 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         int coveredGoals = setOfCoveredGoals.size() + removedGoals.size();
 
-        if (totalGoals > 0)
+        if (totalGoals > 0) {
             suite.setCoverage(this, (double) coveredGoals / (double) totalGoals);
-        else
+        } else {
             suite.setCoverage(this, 1.0);
 
+        }
         suite.setNumOfCoveredGoals(this, coveredGoals);
 
         printStatusMessages(suite, coveredGoals, fitness);
@@ -190,7 +192,7 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * Some useful debug information
+     * Some useful debug information.
      *
      * @param coveredGoals
      * @param fitness

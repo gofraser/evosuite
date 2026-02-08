@@ -63,7 +63,7 @@ public class IBranchFitnessFactory extends AbstractFitnessFactory<IBranchTestFit
             for (CallContext context : callGraph.getAllContextsFromTargetClass(branchGoal.getClassName(),
                     branchGoal.getMethod())) {
                 //if is not possible to reach this branch from the target class, continue.
-                if (context.isEmpty()) continue;
+                if (context.isEmpty()) { continue; }
                 goals.add(new IBranchTestFitness(branchGoal.getBranchGoal(), context));
             }
         }

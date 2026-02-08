@@ -34,7 +34,7 @@ public class MethodTraceCoverageTestFitness extends AbstractMethodTestFitness {
     private static final long serialVersionUID = -8880071948317243336L;
 
     /**
-     * Constructor - fitness is specific to a method
+     * Constructor - fitness is specific to a method.
      *
      * @param className  the class name
      * @param methodName the method name
@@ -45,8 +45,8 @@ public class MethodTraceCoverageTestFitness extends AbstractMethodTestFitness {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Calculate fitness
+     *
+     * <p>Calculate fitness.
      *
      * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
      * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.

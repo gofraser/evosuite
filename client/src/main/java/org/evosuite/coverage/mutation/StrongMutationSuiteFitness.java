@@ -30,8 +30,8 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * <p>
- * StrongMutationSuiteFitness class.
+ *
+ * <p>StrongMutationSuiteFitness class.
  * </p>
  *
  * @author fraser
@@ -133,9 +133,10 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
             // Using private reflection can lead to false positives
             // that represent unrealistic behaviour. Thus, we only
             // use reflection for basic criteria, not for mutation
-            if (result.calledReflection())
+            if (result.calledReflection()) {
                 continue;
 
+            }
             ExecutionTrace trace = result.getTrace();
             touchedMutants.addAll(trace.getTouchedMutants());
             logger.debug("Tests touched " + touchedMutants.size() + " mutants");

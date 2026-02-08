@@ -133,8 +133,8 @@ public class DefUseFitnessCalculator {
      */
     public double calculateDUFitness() {
 
-        //		if (!goalVariable.equals("targetField"))
-        //			return 0.0;
+        //        if (!goalVariable.equals("targetField"))
+        //            return 0.0;
 
         // at first handle special cases where definition is assumed to be
         // covered if use is covered:
@@ -154,11 +154,11 @@ public class DefUseFitnessCalculator {
         // if the use was not passed at all just calculate the fitness
         // over all objects without any filtering
 
-		/* FIXXME: This doesn't seem to make much sense
-		if (!hasEntriesForId(result.getTrace().getPassedUses(goalVariable),
-		                     goalUse.getUseId()))
-			return calculateUseFitnessForCompleteTrace();
-			*/
+        /* FIXXME: This doesn't seem to make much sense
+        if (!hasEntriesForId(result.getTrace().getPassedUses(goalVariable),
+                             goalUse.getUseId()))
+            return calculateUseFitnessForCompleteTrace();
+            */
 
         // Case 3.
         // filter the trace for each considerable object that passed both the
@@ -670,8 +670,8 @@ public class DefUseFitnessCalculator {
             // use not reached
             if (usePositions.size() == 0)
                 continue;
-            //			if (goalUse.isParameterUse())
-            //				return true;
+            //            if (goalUse.isParameterUse())
+            //                return true;
             if (isSpecialDefinition(goalDefinition))
                 return true;
 

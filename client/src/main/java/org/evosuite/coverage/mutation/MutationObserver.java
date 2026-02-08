@@ -21,6 +21,7 @@
 package org.evosuite.coverage.mutation;
 
 /**
+ *
  * <p>MutationObserver class.</p>
  *
  * @author Gordon Fraser
@@ -33,6 +34,7 @@ public class MutationObserver {
     public static int activeMutation = -1;
 
     /**
+     *
      * <p>mutationTouched</p>
      *
      * @param mutationID a int.
@@ -42,16 +44,19 @@ public class MutationObserver {
     }
 
     /**
+     *
      * <p>activateMutation</p>
      *
      * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public static void activateMutation(Mutation mutation) {
-        if (mutation != null)
+        if (mutation != null) {
             activeMutation = mutation.getId();
+        }
     }
 
     /**
+     *
      * <p>activateMutation</p>
      *
      * @param id a int.
@@ -61,6 +66,7 @@ public class MutationObserver {
     }
 
     /**
+     *
      * <p>deactivateMutation</p>
      */
     public static void deactivateMutation() {
@@ -68,6 +74,7 @@ public class MutationObserver {
     }
 
     /**
+     *
      * <p>deactivateMutation</p>
      *
      * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.

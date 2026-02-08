@@ -41,7 +41,7 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
     private static final long serialVersionUID = 5222436175279169394L;
 
     /**
-     * Target statement
+     * Target statement.
      */
     private final String className;
     private final String methodName;
@@ -52,8 +52,8 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
     protected transient BytecodeInstruction goalInstruction;
 
     /**
-     * <p>
-     * Constructor for StatementCoverageTestFitness.
+     *
+     * <p>Constructor for StatementCoverageTestFitness.
      * </p>
      *
      * @param goalInstruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -69,8 +69,8 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * Constructor for StatementCoverageTestFitness.
+     *
+     * <p>Constructor for StatementCoverageTestFitness.
      * </p>
      *
      * @param className     the class name
@@ -97,17 +97,20 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
             this.branchFitnesses.add(fitness);
         }
 
-        if (goalInstruction.isRootBranchDependent())
+        if (goalInstruction.isRootBranchDependent()) {
             this.branchFitnesses.add(BranchCoverageFactory.createRootBranchTestFitness(goalInstruction));
 
-        if (cds.isEmpty() && !goalInstruction.isRootBranchDependent())
+        }
+        if (cds.isEmpty() && !goalInstruction.isRootBranchDependent()) {
             throw new IllegalStateException(
                     "expect control dependencies to be empty only for root dependent instructions: "
                             + this);
 
-        if (this.branchFitnesses.isEmpty())
+        }
+        if (this.branchFitnesses.isEmpty()) {
             throw new IllegalStateException(
                     "an instruction is at least on the root branch of it's method");
+        }
     }
 
     /**
@@ -115,10 +118,11 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
-        if (this.branchFitnesses.isEmpty())
+        if (this.branchFitnesses.isEmpty()) {
             throw new IllegalStateException(
                     "expect to know at least one fitness for goalInstruction");
 
+        }
         if (result.hasTimeout() || result.hasTestException()) {
             updateIndividual(individual, Double.MAX_VALUE);
             return Double.MAX_VALUE;
@@ -157,8 +161,9 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
                     continue;
                 }
             }
-            if (newFitness < r)
+            if (newFitness < r) {
                 r = newFitness;
+            }
         }
 
         Properties.TEST_ARCHIVE = archive;
@@ -222,8 +227,8 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
     @Override
     public int hashCode() {
         final int iConst = 13;
-        return 51 * iConst + this.getTargetClass().hashCode() * iConst +
-                this.getTargetMethod().hashCode() * iConst + this.instructionID * iConst;
+        return 51 * iConst + this.getTargetClass().hashCode() * iConst
+                + this.getTargetMethod().hashCode() * iConst + this.instructionID * iConst;
     }
 
     public List<BranchCoverageTestFitness> getBranchFitnesses() {
@@ -232,12 +237,15 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         StatementCoverageTestFitness other = (StatementCoverageTestFitness) obj;
         if (!this.className.equals(other.className)) {
             return false;

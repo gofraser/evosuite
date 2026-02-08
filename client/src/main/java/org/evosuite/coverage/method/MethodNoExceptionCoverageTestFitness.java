@@ -42,7 +42,7 @@ public class MethodNoExceptionCoverageTestFitness extends AbstractMethodTestFitn
     private static final long serialVersionUID = 3624503060256855484L;
 
     /**
-     * Constructor - fitness is specific to a method
+     * Constructor - fitness is specific to a method.
      *
      * @param className  the class name
      * @param methodName the method name
@@ -53,8 +53,8 @@ public class MethodNoExceptionCoverageTestFitness extends AbstractMethodTestFitn
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Calculate fitness
+     *
+     * <p>Calculate fitness.
      *
      * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
      * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -78,10 +78,11 @@ public class MethodNoExceptionCoverageTestFitness extends AbstractMethodTestFitn
 
         for (Statement stmt : result.test) {
             if (exceptionPositions.contains(stmt.getPosition())) {
-                if (Properties.BREAK_ON_EXCEPTION)
+                if (Properties.BREAK_ON_EXCEPTION) {
                     break; // if we look at the first exception, then no need to iterate over the remaining statements
-                else
+                } else {
                     continue; // otherwise we simple skip statements throwing an exception
+                }
             }
             if ((stmt instanceof MethodStatement || stmt instanceof ConstructorStatement)) {
                 EntityWithParametersStatement ps = (EntityWithParametersStatement) stmt;

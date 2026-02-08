@@ -31,8 +31,8 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * <p>
- * OnlyMutationSuiteFitness class.
+ *
+ * <p>OnlyMutationSuiteFitness class.
  * </p>
  *
  * @author fraser
@@ -131,8 +131,9 @@ public class OnlyMutationSuiteFitness extends MutationSuiteFitness {
             }
 
             fitness += normalize(distance);
-            if (distance == 0.0)
+            if (distance == 0.0) {
                 covered++;
+            }
         }
 
         updateIndividual(individual, fitness);
