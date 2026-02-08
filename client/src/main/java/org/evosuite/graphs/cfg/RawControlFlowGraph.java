@@ -139,6 +139,11 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
     private ControlFlowEdge addBranchEdge(BytecodeInstruction src,
                                           BytecodeInstruction target, boolean isExceptionEdge) {
 
+        if (isExceptionEdge) {
+            // Exception edges are not governed by the branch decision.
+            return internalAddEdge(src, target, new ControlFlowEdge(true));
+        }
+
         boolean isJumping = !isNonJumpingEdge(src, target);
         ControlDependency cd = new ControlDependency(src.toBranch(), isJumping);
 
@@ -149,6 +154,10 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     private ControlFlowEdge addSwitchBranchEdge(BytecodeInstruction src,
                                                 BytecodeInstruction target, boolean isExceptionEdge) {
+        if (isExceptionEdge) {
+            // Exception edges are not governed by switch case decisions.
+            return internalAddEdge(src, target, new ControlFlowEdge(true));
+        }
         if (!target.isLabel())
             throw new IllegalStateException(
                     "expect control flow edges from switch statements to always target labelNodes");

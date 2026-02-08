@@ -53,6 +53,10 @@ public class ControlDependenceGraphTest {
         when(cfg.vertexSet()).thenReturn(vertices);
         when(exit.isExitBlock()).thenReturn(true);
         when(entry.isExitBlock()).thenReturn(false);
+        // Avoid CDG warnings by providing a minimal outgoing edge set for Exit
+        ControlFlowEdge exitEdge1 = new ControlFlowEdge();
+        ControlFlowEdge exitEdge2 = new ControlFlowEdge();
+        when(cfg.outgoingEdgesOf(exit)).thenReturn(new LinkedHashSet<>(Arrays.asList(exitEdge1, exitEdge2)));
 
         ControlDependenceGraph cdg = new ControlDependenceGraph(cfg);
 
@@ -125,6 +129,10 @@ public class ControlDependenceGraphTest {
         // Forward cfg.getEdge: used for direct edges in computeControlDependence
         when(cfg.getEdge(branch, thenBlock)).thenReturn(edgeBranchThen);
         when(cfg.getEdge(branch, elseBlock)).thenReturn(edgeBranchElse);
+        // Avoid CDG warnings by providing a minimal outgoing edge set for Exit
+        ControlFlowEdge exitEdge1 = new ControlFlowEdge();
+        ControlFlowEdge exitEdge2 = new ControlFlowEdge();
+        when(cfg.outgoingEdgesOf(exit)).thenReturn(new LinkedHashSet<>(Arrays.asList(exitEdge1, exitEdge2)));
 
         // Reverse CFG structure (all forward edges reversed)
         // In reverse: exit is the entry point
@@ -228,6 +236,10 @@ public class ControlDependenceGraphTest {
         when(cfg.getEdge(b1, f1)).thenReturn(edgeB1F1);
         when(cfg.getEdge(b2, t2)).thenReturn(edgeB2T2);
         when(cfg.getEdge(b2, f2)).thenReturn(edgeB2F2);
+        // Avoid CDG warnings by providing a minimal outgoing edge set for Exit
+        ControlFlowEdge exitEdge1 = new ControlFlowEdge();
+        ControlFlowEdge exitEdge2 = new ControlFlowEdge();
+        when(cfg.outgoingEdgesOf(exit)).thenReturn(new LinkedHashSet<>(Arrays.asList(exitEdge1, exitEdge2)));
 
         // Reverse CFG: all edges reversed
         // Forward: Entry->B1, B1->T1, B1->F1, T1->J1, F1->J1, J1->B2,

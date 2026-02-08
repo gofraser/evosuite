@@ -23,6 +23,7 @@ import org.evosuite.coverage.ControlFlowDistance;
 import org.evosuite.coverage.TestCoverageGoal;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.ControlDependency;
+import org.evosuite.graphs.cfg.ControlFlowEdge;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.MethodCall;
 import org.evosuite.testcase.statements.ConstructorStatement;
@@ -332,6 +333,12 @@ public class ControlFlowDistanceCalculator {
             ExecutionResult result, MethodCall call, BytecodeInstruction instruction,
             String className, String methodName, Set<Branch> handled) {
 
+        if (isExceptionHandlerEntry(instruction)) {
+            Set<ControlFlowDistance> r = new HashSet<>();
+            r.add(new ControlFlowDistance());
+            return r;
+        }
+
         Set<ControlFlowDistance> r = new HashSet<>();
         Set<ControlDependency> nextToLookAt = instruction.getControlDependencies();
 
@@ -362,7 +369,11 @@ public class ControlFlowDistanceCalculator {
     }
 
     static int getCDGDepth(Branch branch) {
-        return computeCDGDepth(branch.getInstruction(), new HashSet<>());
+        BytecodeInstruction instruction = branch.getInstruction();
+        if (isExceptionHandlerEntry(instruction)) {
+            return 0;
+        }
+        return computeCDGDepth(instruction, new HashSet<>());
     }
 
     private static int computeCDGDepth(BytecodeInstruction instruction,
@@ -379,6 +390,17 @@ public class ControlFlowDistanceCalculator {
                 minDepth = Math.min(minDepth, parentDepth + 1);
         }
         return minDepth;
+    }
+
+    private static boolean isExceptionHandlerEntry(BytecodeInstruction instruction) {
+        if (instruction == null || !instruction.hasBasicBlockSet())
+            return false;
+        try {
+            return instruction.getCDG().incomingEdgesOf(instruction.getBasicBlock())
+                    .stream().anyMatch(ControlFlowEdge::isExceptionEdge);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static Set<Integer> determineBranchTracePositions(MethodCall call,

@@ -133,7 +133,35 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         if (insBlock.hasControlDependenciesSet())
             return insBlock.getControlDependencies();
 
-        return retrieveControlDependencies(insBlock, new LinkedHashSet<>());
+        Set<ControlDependency> direct = retrieveControlDependencies(insBlock, new LinkedHashSet<>());
+        if (direct.isEmpty())
+            return direct;
+
+        // Expand with transitive control dependencies (e.g., nested branches).
+        Set<ControlDependency> expanded = new LinkedHashSet<>(direct);
+        Set<BasicBlock> visited = new LinkedHashSet<>();
+        for (ControlDependency cd : direct) {
+            expandTransitiveDependencies(expanded,
+                    cd.getBranch().getInstruction().getBasicBlock(),
+                    visited);
+        }
+        return expanded;
+    }
+
+    private void expandTransitiveDependencies(Set<ControlDependency> out,
+                                              BasicBlock start,
+                                              Set<BasicBlock> visited) {
+        if (start == null || !visited.add(start))
+            return;
+
+        Set<ControlDependency> deps = retrieveControlDependencies(start, new LinkedHashSet<>());
+        for (ControlDependency cd : deps) {
+            if (out.add(cd)) {
+                expandTransitiveDependencies(out,
+                        cd.getBranch().getInstruction().getBasicBlock(),
+                        visited);
+            }
+        }
     }
 
     private Set<ControlDependency> retrieveControlDependencies(BasicBlock insBlock,
@@ -147,12 +175,13 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
             handled.add(e);
 
             ControlDependency cd = e.getControlDependency();
-            if (cd != null)
+            if (cd != null) {
                 r.add(cd);
-            else {
+            } else {
                 BasicBlock in = getEdgeSource(e);
-                if (!in.equals(insBlock))
+                if (!in.equals(insBlock)) {
                     r.addAll(retrieveControlDependencies(in, handled));
+                }
             }
 
         }
@@ -386,6 +415,10 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
                     for (ControlFlowEdge e : candidates) {
                         if (!e.hasControlDependency()) {
+                            // Ignore exception edges when determining the controlling branch.
+                            if (e.isExceptionEdge()) {
+                                continue;
+                            }
                             skip = true;
                             break;
                         }
