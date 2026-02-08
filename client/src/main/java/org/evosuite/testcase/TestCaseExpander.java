@@ -187,8 +187,9 @@ public class TestCaseExpander {
         position = statement.getPosition() + 1;
 
         for (int i = 0; i < statement.size(); i++) {
-            if (assignments.contains(i))
+            if (assignments.contains(i)) {
                 continue;
+            }
 
             ArrayIndex index = new ArrayIndex(test, arrRef, i);
             VariableReference retVal = null;

@@ -60,8 +60,9 @@ public class FloatLocalSearch<T extends Number> extends NumericalLocalSearch<T> 
 
         int maxPrecision = p.getValue().getClass().equals(Float.class) ? 7 : 15;
         for (int precision = 1; precision <= maxPrecision; precision++) {
-            if (LocalSearchBudget.getInstance().isFinished())
+            if (LocalSearchBudget.getInstance().isFinished()) {
                 break;
+            }
 
             roundPrecision(test, objective, precision, p);
             logger.debug("Current precision: " + precision);
@@ -91,10 +92,12 @@ public class FloatLocalSearch<T extends Number> extends NumericalLocalSearch<T> 
         oldValue = p.getValue();
         ExecutionResult oldResult = test.getLastExecutionResult();
 
-        if (p.getValue().getClass().equals(Float.class))
+        if (p.getValue().getClass().equals(Float.class)) {
             p.setValue((T) Float.valueOf((float)newValue));
-        else
+        } else
+             {
             p.setValue((T) Double.valueOf(newValue));
+        }
 
         logger.info("Trying to chop precision " + precision + ": " + value + " -> "
                 + newValue);

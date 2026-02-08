@@ -32,21 +32,21 @@ import org.evosuite.symbolic.expr.bv.IntegerVariable;
 public class ArrayLengthSymbolicUtil {
 
     /**
-     * Represents the minimum value that an array dimension could have
+     * Represents the minimum value that an array dimension could have.
      */
     public static final int ARRAY_DIMENSION_LENGTH_MIN_VALUE = 0;
 
     /**
-     * Position of the dimension of an uni-dimensional array
+     * Position of the dimension of an uni-dimensional array.
      */
     public static final int UNIDIMENSIONAL_ARRAY_VALUE = 0;
 
     /**
      * Creates the expression for an array length.
      *
-     * @param length
-     * @param arraySymbolicLengthName
-     * @return
+     * @param length .
+     * @param arraySymbolicLengthName .
+     * @return .
      */
     public static IntegerValue buildArraySymbolicLengthExpression(int length, ArraySymbolicLengthName arraySymbolicLengthName) {
         IntegerValue lengthExpression;
@@ -69,7 +69,7 @@ public class ArrayLengthSymbolicUtil {
     /**
      * Checks if support for symbolic arrays is enabled.
      *
-     * @return
+     * @return .
      */
     public static boolean isSymbolicArraysSupportEnabled() {
         return Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED;

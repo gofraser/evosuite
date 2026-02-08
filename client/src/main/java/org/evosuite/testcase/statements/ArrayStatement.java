@@ -164,16 +164,20 @@ public class ArrayStatement extends AbstractStatement {
      */
     @Override
     public boolean equals(Object s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         ArrayStatement as = (ArrayStatement) s;
-        if (!Arrays.equals(lengths, as.lengths))
+        if (!Arrays.equals(lengths, as.lengths)) {
             return false;
+        }
         return retval.equals(as.retval);
 
         // if (!Arrays.equals(variables, other.variables))
@@ -193,8 +197,9 @@ public class ArrayStatement extends AbstractStatement {
         // Add array variable to pool
         try {
             Class<?> componentType = retval.getComponentClass();
-            while (componentType.isArray())
+            while (componentType.isArray()) {
                 componentType = componentType.getComponentType();
+            }
             retval.setObject(scope, Array.newInstance(componentType, lengths));
 
         } catch (CodeUnderTestException e) {
@@ -339,16 +344,19 @@ public class ArrayStatement extends AbstractStatement {
             } else {
                 int max = Math.min(Math.abs(lengths[dim] - maxAssignment - 1),
                         Properties.MAX_DELTA);
-                if (max > 0)
+                if (max > 0) {
                     newLength = lengths[dim] + Randomness.nextInt(2 * max) - max;
-                else
+                } else
+                     {
                     newLength = lengths[dim] + Randomness.nextInt(Properties.MAX_DELTA);
+                }
             }
         }
 
         // TODO: Need to make sure this doesn't happen by construction
-        if (newLength <= 0)
+        if (newLength <= 0) {
             newLength = 1;
+        }
 
         lengths[dim] = newLength;
         ((ArrayReference) retval).setLengths(lengths);
@@ -371,16 +379,20 @@ public class ArrayStatement extends AbstractStatement {
      */
     @Override
     public boolean same(Statement s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         ArrayStatement as = (ArrayStatement) s;
-        if (!Arrays.equals(lengths, as.lengths))
+        if (!Arrays.equals(lengths, as.lengths)) {
             return false;
+        }
         return retval.same(as.retval);
     }
 

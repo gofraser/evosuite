@@ -37,58 +37,59 @@ public class ExecutionResult implements Cloneable {
     private static final Logger logger = LoggerFactory.getLogger(ExecutionResult.class);
 
     /**
-     * Test case that produced this execution result
+     * Test case that produced this execution result.
      */
     public TestCase test;
 
     /**
-     * Mutation that was active during execution
+     * Mutation that was active during execution.
      */
     public Mutation mutation;
 
     /**
-     * Map statement number to raised exception
+     * Map statement number to raised exception.
      */
     protected Map<Integer, Throwable> exceptions = new HashMap<>();
 
     /**
-     * Record for each exception if it was explicitly thrown
+     * Record for each exception if it was explicitly thrown.
      */
     private Map<Integer, Boolean> explicitExceptions = new HashMap<>();
 
     /**
-     * Trace recorded during execution
+     * Trace recorded during execution.
      */
     protected ExecutionTrace trace;
 
     /**
-     * Duration of execution
+     * Duration of execution.
      */
     protected long executionTime = 0L;
 
     /**
-     * Number of statements executed
+     * Number of statements executed.
      */
     protected int executedStatements = 0;
 
     /**
-     * Was there a permission denied during execution?
+     * Was there a permission denied during execution?.
      */
     protected boolean hasSecurityException = false;
 
     /**
-     * Set of System properties that were read during test execution
+     * Set of System properties that were read during test execution.
      */
     protected Set<String> readProperties;
 
     /**
-     * Keep track of whether any System property was written
+     * Keep track of whether any System property was written.
      */
     protected boolean wasAnyPropertyWritten;
 
     private List<FeatureVector> featureVectors = new ArrayList<>(1);
 
     /**
+     * Summary.
      * @return the executedStatements
      */
     public int getExecutedStatements() {
@@ -96,6 +97,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
+     * Summary.
      * @param executedStatements the executedStatements to set
      */
     public void setExecutedStatements(int executedStatements) {
@@ -103,7 +105,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Output traces produced by observers
+     * Output traces produced by observers.
      */
     protected final Map<Class<?>, OutputTrace<?>> traces = new HashMap<>();
 
@@ -112,10 +114,10 @@ public class ExecutionResult implements Cloneable {
     private Map<Integer, Set<OutputCoverageGoal>> outputGoals = new LinkedHashMap<>();
 
     // experiment .. tried to remember intermediately calculated ControlFlowDistances .. no real speed up
-    //	public Map<Branch, ControlFlowDistance> intermediateDistances;
+    //    public Map<Branch, ControlFlowDistance> intermediateDistances;
 
     /**
-     * Default constructor when executing without mutation
+     * Default constructor when executing without mutation.
      *
      * @param t a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -233,6 +235,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
+     * Summary.
      * @return Mapping of statement indexes and thrown exceptions.
      */
     public Map<Integer, Throwable> getCopyOfExceptionMapping() {
@@ -240,7 +243,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Constructor when executing with mutation
+     * Constructor when executing with mutation.
      *
      * @param t a {@link org.evosuite.testcase.TestCase} object.
      * @param m a {@link org.evosuite.coverage.mutation.Mutation} object.
@@ -252,7 +255,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Accessor to the execution trace
+     * Accessor to the execution trace.
      *
      * @return a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
      */
@@ -261,7 +264,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Set execution trace to different value
+     * Set execution trace to different value.
      *
      * @param trace a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
      */
@@ -273,7 +276,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Store a new output trace
+     * Store a new output trace.
      *
      * @param trace a {@link org.evosuite.assertion.OutputTrace} object.
      * @param clazz a {@link java.lang.Class} object.
@@ -283,7 +286,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Accessor for output trace produced by an observer of a particular class
+     * Accessor for output trace produced by an observer of a particular class.
      *
      * @param clazz a {@link java.lang.Class} object.
      * @return a {@link org.evosuite.assertion.OutputTrace} object.
@@ -293,7 +296,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Accessor for the output traces produced by observers
+     * Accessor for the output traces produced by observers.
      *
      * @return a {@link java.util.Collection} object.
      */
@@ -302,13 +305,14 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Was the reason for termination a timeout?
+     * Was the reason for termination a timeout?.
      *
      * @return a boolean.
      */
     public boolean hasTimeout() {
-        if (test == null)
+        if (test == null) {
             return false;
+        }
 
         final int size = test.size();
         return exceptions.containsKey(size)
@@ -316,45 +320,49 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Does the test contain an exception caused in the test itself?
+     * Does the test contain an exception caused in the test itself?.
      *
      * @return a boolean.
      */
     public boolean hasTestException() {
-        if (test == null)
+        if (test == null) {
             return false;
+        }
 
         return exceptions.values().stream()
                 .anyMatch(t -> t instanceof CodeUnderTestException);
     }
 
     /**
-     * Is there an undeclared exception in the trace?
+     * Is there an undeclared exception in the trace?.
      *
      * @return a boolean.
      */
     public boolean hasUndeclaredException() {
-        if (test == null)
+        if (test == null) {
             return false;
+        }
 
         for (int i : exceptions.keySet()) {
             Throwable t = exceptions.get(i);
             // Exceptions can be placed at test.size(), e.g. for timeouts
             assert i >= 0 && i <= test.size() : "Exception " + t + " at position " + i + " in test of length " + test.size() + ": " + test.toCode(exceptions);
-            if (i >= test.size())
+            if (i >= test.size()) {
                 continue;
+            }
 
-            if (!test.getStatement(i).getDeclaredExceptions().contains(t.getClass()))
+            if (!test.getStatement(i).getDeclaredExceptions().contains(t.getClass())) {
                 return true;
+            }
         }
 
         return false;
     }
 
     /**
-     * Returns true if any of the executed statements was a reflection statement
+     * Returns true if any of the executed statements was a reflection statement.
      *
-     * @return
+     * @return .
      */
     public boolean calledReflection() {
         return IntStream.range(0, getExecutedStatements())
@@ -364,9 +372,9 @@ public class ExecutionResult implements Cloneable {
 
 
     /**
-     * check if the test case threw any security exception
+     * check if the test case threw any security exception.
      *
-     * @return
+     * @return .
      */
     public boolean hasSecurityException() {
         return hasSecurityException;
@@ -378,6 +386,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
+     * Summary.
      * @return the executionTime
      */
     public long getExecutionTime() {
@@ -385,6 +394,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
+     * Summary.
      * @param executionTime the executionTime to set
      */
     public void setExecutionTime(long executionTime) {
@@ -461,7 +471,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Add a feature vector for MAPElites
+     * Add a feature vector for MAPElites.
      *
      * @param vector The feature vector.
      */
@@ -470,7 +480,7 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
-     * Get the feature vectors for MAPElites
+     * Get the feature vectors for MAPElites.
      *
      * @return The feature vector if set or {@code null}
      */

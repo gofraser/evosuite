@@ -29,6 +29,7 @@ import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.utils.Randomness;
 
 /**
+ * Summary.
  * @author Gordon Fraser
  */
 public class StringAVMLocalSearch extends AbstractStringLocalSearch {
@@ -53,10 +54,12 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
 
 
         for (int i = 0; i < Properties.LOCAL_SEARCH_PROBES; i++) {
-            if (Randomness.nextDouble() > 0.5)
+            if (Randomness.nextDouble() > 0.5) {
                 p.increment();
-            else
+            } else
+                 {
                 p.randomize();
+            }
 
             int result = objective.hasChanged(test);
             if (result < 0) {
@@ -75,20 +78,23 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
             boolean hasImproved = false;
 
             // First try to remove each of the characters
-            if (removeCharacters(objective, test, p, statement))
+            if (removeCharacters(objective, test, p, statement)) {
                 hasImproved = true;
+            }
 
             // Second, try to replace each of the characters with each of the 64 possible characters
-            if (replaceCharacters(objective, test, p, statement))
+            if (replaceCharacters(objective, test, p, statement)) {
                 hasImproved = true;
+            }
 
             // Third, try to add characters
-            if (addCharacters(objective, test, p, statement))
+            if (addCharacters(objective, test, p, statement)) {
                 hasImproved = true;
+            }
 
             return hasImproved;
             //} else {
-            //	logger.info("Not applying local search to string as it does not improve fitness");
+            //    logger.info("Not applying local search to string as it does not improve fitness");
         }
 
         return false;

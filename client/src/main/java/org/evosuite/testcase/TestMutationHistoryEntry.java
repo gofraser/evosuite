@@ -59,8 +59,9 @@ public class TestMutationHistoryEntry implements MutationHistoryEntry, Serializa
     }
 
     public TestMutationHistoryEntry clone(TestCase newTest) {
-        if (statement == null)
+        if (statement == null) {
             return new TestMutationHistoryEntry(mutationType);
+        }
 
         return new TestMutationHistoryEntry(mutationType,
                 newTest.getStatement(statement.getPosition()));

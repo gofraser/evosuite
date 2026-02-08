@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
+ * Summary.
  * @author Gordon Fraser
  */
 public class ConcreteValueObserver extends ExecutionObserver {

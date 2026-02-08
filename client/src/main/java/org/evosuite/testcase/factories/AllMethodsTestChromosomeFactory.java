@@ -61,22 +61,22 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
     protected static final Logger logger = LoggerFactory.getLogger(AllMethodsTestChromosomeFactory.class);
 
     /**
-     * Methods we have already seen
+     * Methods we have already seen.
      */
     private final Set<GenericAccessibleObject<?>> attemptedMethods = new LinkedHashSet<>();
 
     /**
-     * Methods we have not already seen
+     * Methods we have not already seen.
      */
     private final List<GenericAccessibleObject<?>> remainingMethods = new ArrayList<>();
 
     /**
-     * Methods we have to cover
+     * Methods we have to cover.
      */
     private final List<GenericAccessibleObject<?>> allMethods = new LinkedList<>();
 
     /**
-     * Create a list of all methods
+     * Create a list of all methods.
      */
     public AllMethodsTestChromosomeFactory() {
         allMethods.addAll(TestCluster.getInstance().getTestCalls());
@@ -85,22 +85,24 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
     }
 
     /**
-     * Create a random individual
+     * Create a random individual.
      *
-     * @param size
+     * @param size .
      */
     private TestCase getRandomTestCase(int size) {
         boolean tracerEnabled = ExecutionTracer.isEnabled();
-        if (tracerEnabled)
+        if (tracerEnabled) {
             ExecutionTracer.disable();
+        }
 
         TestCase test = getNewTestCase();
         int num = 0;
 
         // Choose a random length in 0 - size
         int length = Randomness.nextInt(size);
-        while (length == 0)
+        while (length == 0) {
             length = Randomness.nextInt(size);
+        }
 
         // Then add random stuff
         while (test.size() < length && num < Properties.MAX_ATTEMPTS) {
@@ -133,17 +135,20 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
             }
             num++;
         }
-        if (logger.isDebugEnabled())
+        if (logger.isDebugEnabled()) {
             logger.debug("Randomized test case:" + test.toCode());
+        }
 
-        if (tracerEnabled)
+        if (tracerEnabled) {
             ExecutionTracer.enable();
+        }
 
         return test;
     }
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Generate a random chromosome
      */
@@ -156,7 +161,7 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
 
     /**
      * Provided so that subtypes of this factory type can modify the returned
-     * TestCase
+     * TestCase.
      *
      * @return a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -165,7 +170,7 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
     }
 
     /**
-     * How many methods do we still need to cover?
+     * How many methods do we still need to cover?.
      *
      * @return a int.
      */
@@ -174,7 +179,7 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
     }
 
     /**
-     * Forget which calls we have already attempted
+     * Forget which calls we have already attempted.
      */
     public void reset() {
         remainingMethods.clear();

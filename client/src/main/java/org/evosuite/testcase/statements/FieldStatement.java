@@ -107,11 +107,11 @@ public class FieldStatement extends AbstractStatement {
     }
 
     /**
-     * Try to replace source of field with all possible choices
+     * Try to replace source of field with all possible choices.
      *
-     * @param test
-     * @param statement
-     * @param objective
+     * @param test .
+     * @param statement .
+     * @param objective .
      */
     /* (non-Javadoc)
      * @see org.evosuite.testcase.AbstractStatement#mutate(org.evosuite.testcase.TestCase, org.evosuite.testcase.TestFactory)
@@ -119,8 +119,9 @@ public class FieldStatement extends AbstractStatement {
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
 
-        if (Randomness.nextDouble() >= Properties.P_CHANGE_PARAMETER)
+        if (Randomness.nextDouble() >= Properties.P_CHANGE_PARAMETER) {
             return false;
+        }
 
         if (!isStatic()) {
             VariableReference source = getSource();
@@ -150,8 +151,9 @@ public class FieldStatement extends AbstractStatement {
 
     @Override
     public boolean isAccessible() {
-        if (!field.isAccessible())
+        if (!field.isAccessible()) {
             return false;
+        }
 
         return super.isAccessible();
     }
@@ -172,10 +174,12 @@ public class FieldStatement extends AbstractStatement {
      */
     @Override
     public int getNumParameters() {
-        if (isStatic())
+        if (isStatic()) {
             return 0;
-        else
+        } else
+             {
             return 1;
+        }
     }
 
     /**
@@ -224,7 +228,7 @@ public class FieldStatement extends AbstractStatement {
                             throw new CodeUnderTestException(new NullPointerException());
                         }
                         //} catch (CodeUnderTestException e) {
-                        //	throw CodeUnderTestException.throwException(e.getCause());
+                        //    throw CodeUnderTestException.throwException(e.getCause());
                     } catch (CodeUnderTestException e) {
                         throw e;
                     } catch (Throwable e) {
@@ -270,8 +274,9 @@ public class FieldStatement extends AbstractStatement {
         references.add(retval);
         if (!isStatic()) {
             references.add(source);
-            if (source.getAdditionalVariableReference() != null)
+            if (source.getAdditionalVariableReference() != null) {
                 references.add(source.getAdditionalVariableReference());
+            }
         }
         return references;
 
@@ -287,10 +292,12 @@ public class FieldStatement extends AbstractStatement {
     @Override
     public void replace(VariableReference var1, VariableReference var2) {
         if (!field.isStatic()) {
-            if (source.equals(var1))
+            if (source.equals(var1)) {
                 source = var2;
-            else
+            } else
+                 {
                 source.replaceAdditionalVariableReference(var1, var2);
+            }
         }
     }
 
@@ -299,19 +306,24 @@ public class FieldStatement extends AbstractStatement {
      */
     @Override
     public boolean equals(Object s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         FieldStatement fs = (FieldStatement) s;
-        if (!field.isStatic())
+        if (!field.isStatic()) {
             return source.equals(fs.source) && retval.equals(fs.retval)
                     && field.equals(fs.field);
-        else
+        } else
+             {
             return retval.equals(fs.retval) && field.equals(fs.field);
+        }
     }
 
     /**
@@ -369,19 +381,24 @@ public class FieldStatement extends AbstractStatement {
      */
     @Override
     public boolean same(Statement s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         FieldStatement fs = (FieldStatement) s;
-        if (!field.isStatic())
+        if (!field.isStatic()) {
             return source.same(fs.source) && retval.same(fs.retval)
                     && field.equals(fs.field);
-        else
+        } else
+             {
             return retval.same(fs.retval) && field.equals(fs.field);
+        }
     }
 
     /**

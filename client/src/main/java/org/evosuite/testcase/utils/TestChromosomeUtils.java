@@ -54,7 +54,7 @@ public class TestChromosomeUtils {
      * primitive variables that are not used as input (or to store the output) of method calls.
      * Thus, this method removes all these "trash" statements.
      *
-     * @param chromosome
+     * @param chromosome .
      * @return true or false depending on whether "unused variables" are removed
      */
     public static boolean removeUnusedVariables(TestChromosome chromosome) {

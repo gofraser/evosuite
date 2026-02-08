@@ -24,7 +24,7 @@ import org.evosuite.testcase.TestCase;
 import java.lang.reflect.Type;
 
 /**
- * Special case of VariableInstance pointing to null
+ * Special case of VariableInstance pointing to null.
  *
  * @author Gordon Fraser
  */

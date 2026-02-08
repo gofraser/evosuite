@@ -71,11 +71,13 @@ public class ValueMinimizer extends TestVisitor {
             double newFitness = fitness.getFitness(individual);
             boolean worse = false;
             if (fitness.isMaximizationFunction()) {
-                if (newFitness < lastFitness)
+                if (newFitness < lastFitness) {
                     worse = true;
+                }
             } else {
-                if (newFitness > lastFitness)
+                if (newFitness > lastFitness) {
                     worse = true;
+                }
             }
 
             if (!worse) {
@@ -126,11 +128,13 @@ public class ValueMinimizer extends TestVisitor {
             // individual.setChanged(true);
             boolean worse = false;
             if (fitness.isMaximizationFunction()) {
-                if (newFitness < lastFitness)
+                if (newFitness < lastFitness) {
                     worse = true;
+                }
             } else {
-                if (newFitness > lastFitness)
+                if (newFitness > lastFitness) {
                     worse = true;
+                }
             }
             if (!worse) {
                 logger.debug("Fitness changed from " + lastFitness + " to " + newFitness);
@@ -383,7 +387,7 @@ public class ValueMinimizer extends TestVisitor {
      * If a better string is found that doesn't negatively impact the fitness value,
      * statement will be overwritten to use the new improved value.
      *
-     * @param constantValue
+     * @param constantValue .
      */
     private void replaceWithLanguageModel(ConstantValue constantValue) {
         assert (constantValue.getValue() instanceof String);

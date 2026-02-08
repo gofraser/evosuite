@@ -37,6 +37,7 @@ import java.util.*;
 /**
  * A common superclass for statements that contain a call to an executable entity, i.e.,
  * methods, constructors and functional mocks.
+ *
  * <p>
  * Created by Andrea Arcuri on 04/07/15.
  */
@@ -67,10 +68,10 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
 
     /**
      * Constructor needed for Functional Mocks where the number of input parameters
-     * might vary during the search, ie not constant, and starts with 0
+     * might vary during the search, ie not constant, and starts with 0.
      *
-     * @param tc
-     * @param retval
+     * @param tc .
+     * @param retval .
      */
     protected EntityWithParametersStatement(TestCase tc, VariableReference retval) {
         super(tc, retval);
@@ -81,10 +82,10 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
 
     /**
      * Constructor needed for Functional Mocks where the number of input parameters
-     * might vary during the search, ie not constant, and starts with 0
+     * might vary during the search, ie not constant, and starts with 0.
      *
-     * @param tc
-     * @param type
+     * @param tc .
+     * @param type .
      */
     protected EntityWithParametersStatement(TestCase tc, Type type) {
         super(tc, type);
@@ -127,10 +128,12 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
 
         for (int i = 0; i < parameters.size(); i++) {
 
-            if (parameters.get(i).equals(var1))
+            if (parameters.get(i).equals(var1)) {
                 parameters.set(i, var2);
-            else
+            } else
+                 {
                 parameters.get(i).replaceAdditionalVariableReference(var1, var2);
+            }
         }
     }
 
@@ -141,8 +144,9 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         references.add(retval);
         references.addAll(parameters);
         for (VariableReference param : parameters) {
-            if (param instanceof ArrayIndex)
+            if (param instanceof ArrayIndex) {
                 references.add(((ArrayIndex) param).getArray());
+            }
         }
         return references;
 
@@ -161,8 +165,9 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
                 continue;
             }
             references.add(param);
-            if (param.getAdditionalVariableReference() != null)
+            if (param.getAdditionalVariableReference() != null) {
                 references.add(param.getAdditionalVariableReference());
+            }
         }
         references.addAll(getAssertionReferences());
 
@@ -197,7 +202,7 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
     }
 
     /**
-     * Check if the given var is bounded in this method/constructor as input parameter
+     * Check if the given var is bounded in this method/constructor as input parameter.
      *
      * @param var the variable reference to check
      * @return true if the variable is bounded
@@ -219,8 +224,9 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
     protected int getNumParametersOfType(Class<?> clazz) {
         int num = 0;
         for (VariableReference var : parameters) {
-            if (var.getVariableClass().equals(clazz))
+            if (var.getVariableClass().equals(clazz)) {
                 num++;
+            }
         }
         return num;
     }
@@ -266,8 +272,9 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
             objects.add(copy.getReturnValue());
         }
 
-        if (objects.isEmpty())
+        if (objects.isEmpty()) {
             return false;
+        }
 
         VariableReference replacement = Randomness.choice(objects);
         if (replacement == nullStatement.getReturnValue()) {

@@ -39,7 +39,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Test case statement representing a reflection call to a private method of the SUT
+ * Test case statement representing a reflection call to a private method of the SUT.
+ *
  * <p>
  * Created by Andrea Arcuri on 22/02/15.
  */
@@ -118,8 +119,9 @@ public class PrivateMethodStatement extends MethodStatement {
             VariableReference callee = parameters.get(1);
             try {
                 Object calleeObject = callee.getObject(scope);
-                if (calleeObject == null)
+                if (calleeObject == null) {
                     return new CodeUnderTestException(new NullPointerException());
+                }
             } catch (CodeUnderTestException e) {
                 return e;
             }

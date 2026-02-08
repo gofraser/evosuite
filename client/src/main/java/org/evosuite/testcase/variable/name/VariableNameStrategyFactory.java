@@ -4,6 +4,7 @@ import org.evosuite.Properties;
 
 /**
  * This class encapsulates the logic of creating a new naming strategy.
+ *
  * <p>
  * With the use of method get we can create a new variable naming strategy
  * using the default configuration or by providing the desired naming strategy.
@@ -27,14 +28,14 @@ public class VariableNameStrategyFactory {
         }
         if (Properties.VariableNamingStrategy.HEURISTICS_BASED.equals(identifierNamingStrategy)) {
             return new HeuristicsVariableNameStrategy();
-        }
-        else {
+        } else {
             throw new IllegalArgumentException(String.format("Unknown variable naming strategy: %s", identifierNamingStrategy));
         }
     }
 
     /**
      * Get the currently selected variable naming strategy.
+     *
      * <p>
      * The select strategy is defined in {@link Properties#VARIABLE_NAMING_STRATEGY}.
      *

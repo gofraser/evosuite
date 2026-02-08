@@ -57,7 +57,7 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.toCollection;
 
 /**
- * Chromosome representation of test cases
+ * Chromosome representation of test cases.
  *
  * @author Gordon Fraser
  */
@@ -69,12 +69,12 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
 
     /**
-     * To keep track of what has changed since last fitness evaluation
+     * To keep track of what has changed since last fitness evaluation.
      */
     protected MutationHistory<TestMutationHistoryEntry> mutationHistory = new MutationHistory<>();
 
     /**
-     * Secondary objectives used during ranking
+     * Secondary objectives used during ranking.
      */
     private static final List<SecondaryObjective<TestChromosome>> secondaryObjectives =
             new ArrayList<>();
@@ -85,8 +85,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      */
     @Override
     public void setLastExecutionResult(ExecutionResult lastExecutionResult) {
-        if (lastExecutionResult == null)
+        if (lastExecutionResult == null) {
             return;
+        }
         assert lastExecutionResult.test.equals(this.test);
         this.lastExecutionResult = lastExecutionResult;
     }
@@ -109,6 +110,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Create a deep copy of the chromosome
      */
@@ -123,8 +125,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         c.setLocalSearchApplied(hasLocalSearchBeenApplied());
         if (Properties.LOCAL_SEARCH_SELECTIVE) {
             for (TestMutationHistoryEntry mutation : mutationHistory) {
-                if (test.contains(mutation.getStatement()))
+                if (test.contains(mutation.getStatement())) {
                     c.mutationHistory.addMutationEntry(mutation.clone(c.getTestCase()));
+                }
             }
         }
         c.setNumberOfMutations(this.getNumberOfMutations());
@@ -145,8 +148,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      */
     @Override
     public void copyCachedResults(TestChromosome other) {
-        if (test == null)
+        if (test == null) {
             throw new RuntimeException("Test is null!");
+        }
 
         if (other.lastExecutionResult != null) {
             this.lastExecutionResult = other.lastExecutionResult.clone();
@@ -165,6 +169,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Single point cross over
      */
@@ -193,21 +198,27 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Two chromosomes are equal if their tests are equal
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         TestChromosome other = (TestChromosome) obj;
         if (test == null) {
             return other.test == null;
-        } else return test.equals(other.test);
+        } else  {
+            return test.equals(other.test);
+        }
     }
 
     /**
@@ -237,8 +248,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         int lastPosition = test.size() - 1;
         if (lastExecutionResult != null && !isChanged()) {
             Integer lastPos = lastExecutionResult.getFirstPositionOfThrownException();
-            if (lastPos != null)
+            if (lastPos != null) {
                 lastPosition = lastPos;
+            }
         }
 
         for (TestMutationHistoryEntry mutation : mutationHistory) {
@@ -247,8 +259,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             if (mutation.getMutationType() != TestMutationHistoryEntry.TestMutation.DELETION
                     && mutation.getStatement().getPosition() <= lastPosition) {
                 if (Properties.LOCAL_SEARCH_SELECTIVE_PRIMITIVES) {
-                    if (!(mutation.getStatement() instanceof PrimitiveStatement<?>))
+                    if (!(mutation.getStatement() instanceof PrimitiveStatement<?>)) {
                         continue;
+                    }
                 }
                 final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
 
@@ -281,7 +294,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * {@inheritDoc}
      *
-     * @param objective
+     * @param objective .
      */
     @Override
     public boolean localSearch(LocalSearchObjective<TestChromosome> objective) {
@@ -292,6 +305,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Each statement is mutated with probability 1/l
      */
@@ -312,22 +326,25 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         // Delete
         if (Randomness.nextDouble() <= Properties.P_TEST_DELETE) {
             logger.debug("Mutation: delete");
-            if (mutationDelete())
+            if (mutationDelete()) {
                 changed = true;
+            }
         }
 
         // Change
         if (Randomness.nextDouble() <= Properties.P_TEST_CHANGE) {
             logger.debug("Mutation: change");
-            if (mutationChange())
+            if (mutationChange()) {
                 changed = true;
+            }
         }
 
         // Insert
         if (Randomness.nextDouble() <= Properties.P_TEST_INSERT) {
             logger.debug("Mutation: insert");
-            if (mutationInsert())
+            if (mutationInsert()) {
                 changed = true;
+            }
         }
 
         if (changed) {
@@ -342,14 +359,14 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     private boolean mockChange() {
 
-		/*
-			Be sure to update the mocked values if there has been any change in
-			behavior in the last execution.
+        /*
+            Be sure to update the mocked values if there has been any change in
+            behavior in the last execution.
 
-			Note: mock "expansion" cannot be done after a test has been mutated and executed,
-			as the expansion itself might have side effects. Therefore, it has to be done
-			before a test is evaluated.
-		 */
+            Note: mock "expansion" cannot be done after a test has been mutated and executed,
+            as the expansion itself might have side effects. Therefore, it has to be done
+            before a test is evaluated.
+         */
 
         boolean changed = false;
 
@@ -414,9 +431,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * Each statement is deleted with probability 1/length
+     * Each statement is deleted with probability 1/length.
      *
-     * @return
+     * @return .
      */
     private boolean mutationDelete() {
 
@@ -465,9 +482,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * Each statement is replaced with probability 1/length
+     * Each statement is replaced with probability 1/length.
      *
-     * @return
+     * @return .
      */
     private boolean mutationChange() {
         boolean changed = false;
@@ -491,8 +508,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
                     Statement statement = test.getStatement(position);
 
-                    if (statement.isReflectionStatement())
+                    if (statement.isReflectionStatement()) {
                         continue;
+                    }
 
                     int oldDistance = statement.getReturnValue().getDistance();
 
@@ -526,9 +544,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     /**
      * With exponentially decreasing probability, insert statements at random
-     * position
+     * position.
      *
-     * @return
+     * @return .
      */
     public boolean mutationInsert() {
         boolean changed = false;
@@ -555,9 +573,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     /**
      * Collect path constraints and negate one of them to derive new integer
-     * inputs
+     * inputs.
      *
-     * @return
+     * @return .
      */
     private boolean mutationConcolic() {
         logger.info("Applying DSE mutation");
@@ -566,8 +584,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         // Apply DSE to gather constraints
         List<BranchCondition> branches = new ConcolicExecutorImpl().getSymbolicPath(this);
         logger.debug("Conditions: {}", branches);
-        if (branches.isEmpty())
+        if (branches.isEmpty()) {
             return false;
+        }
 
         boolean mutated = false;
 
@@ -603,6 +622,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * The size of a chromosome is the length of its test case
      */
@@ -664,8 +684,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         while (c == 0 && objective < secondaryObjectives.size()) {
 
             SecondaryObjective<TestChromosome> so = secondaryObjectives.get(objective++);
-            if (so == null)
+            if (so == null) {
                 break;
+            }
             c = so.compareChromosomes(this.self(), o);
         }
         return c;
@@ -673,7 +694,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     /**
      * Add an additional secondary objective to the end of the list of
-     * objectives
+     * objectives.
      *
      * @param objective a {@link org.evosuite.ga.SecondaryObjective} object.
      */
@@ -694,6 +715,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     /**
      * Clear the list of secondary objectives.
+     *
      * <p>
      * This method should be called to avoid state pollution when running unit tests involving this class.
      */

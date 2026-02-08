@@ -43,9 +43,9 @@ public abstract class TestCaseLocalSearch<T extends Chromosome<T>> implements Lo
 
     /**
      * The factory method that returns the type of Local Search that is supposed
-     * to be applied on the Test Case
+     * to be applied on the Test Case.
      *
-     * @return
+     * @return .
      */
     public static TestCaseLocalSearch<TestChromosome> selectTestCaseLocalSearch() {
         final double nextDouble = Randomness.nextDouble();

@@ -34,7 +34,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Remove all statements from a test case that do not contribute to the fitness
+ * Remove all statements from a test case that do not contribute to the fitness.
  *
  * @author Gordon Fraser
  */
@@ -45,7 +45,7 @@ public class TestCaseMinimizer {
     private final TestFitnessFunction fitnessFunction;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param fitnessFunction Fitness function with which to measure whether a statement is
      *                        necessary
@@ -55,7 +55,7 @@ public class TestCaseMinimizer {
     }
 
     /**
-     * Remove all unreferenced variables
+     * Remove all unreferenced variables.
      *
      * @param t The test case
      * @return True if something was deleted
@@ -84,16 +84,19 @@ public class TestCaseMinimizer {
     private static boolean isWorse(FitnessFunction<TestChromosome> fitness,
                                    TestChromosome oldChromosome, TestChromosome newChromosome) {
         if (fitness.isMaximizationFunction()) {
-            if (oldChromosome.getFitness(fitness) > fitness.getFitness(newChromosome))
+            if (oldChromosome.getFitness(fitness) > fitness.getFitness(newChromosome)) {
                 return true;
+            }
         } else {
-            if (fitness.getFitness(newChromosome) > oldChromosome.getFitness(fitness))
+            if (fitness.getFitness(newChromosome) > oldChromosome.getFitness(fitness)) {
                 return true;
+            }
         }
 
         for (SecondaryObjective<TestChromosome> objective : TestChromosome.getSecondaryObjectives()) {
-            if (objective.compareChromosomes(oldChromosome, newChromosome) < 0)
+            if (objective.compareChromosomes(oldChromosome, newChromosome) < 0) {
                 return true;
+            }
         }
 
         return false;

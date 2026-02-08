@@ -25,7 +25,7 @@ package org.evosuite.testcase.execution;
  * method evosuite.something() which throws and error. If the error is of the
  * type EvosuiteError the exception is thrown. If it is of any other type, the
  * exception is catched and it is assumed, that the exception was thrown by the
- * class under test
+ * class under test.
  *
  * @author Sebastian Steenbuck
  */

@@ -39,7 +39,7 @@ public class FixedLengthTestChromosomeFactory implements
     protected static final Logger logger = LoggerFactory.getLogger(FixedLengthTestChromosomeFactory.class);
 
     /**
-     * Constructor
+     * Constructor.
      */
     public FixedLengthTestChromosomeFactory() {
     }
@@ -71,6 +71,7 @@ public class FixedLengthTestChromosomeFactory implements
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Generate a random chromosome
      */

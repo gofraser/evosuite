@@ -108,6 +108,7 @@ public interface Statement {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Equality check
      */
@@ -136,35 +137,35 @@ public interface Statement {
      * Returns the accessibleObject which is used to generate this kind of
      * statement, e.g., the Field of a FieldStatement, the Method of a
      * MethodStatement and so on. MAY return NULL (for example for
-     * NullStatements)
+     * NullStatements).
      *
      * @return a {@link java.lang.reflect.AccessibleObject} object.
      */
     GenericAccessibleObject<?> getAccessibleObject();
 
     /**
-     * Get Java code representation of assertions
+     * Get Java code representation of assertions.
      *
      * @return String representing all assertions attached to this statement
      */
     String getAssertionCode();
 
     /**
-     * Return list of assertions
+     * Return list of assertions.
      *
      * @return a {@link java.util.Set} object.
      */
     Set<Assertion> getAssertions();
 
     /**
-     * Create a string representing the statement as Java code
+     * Create a string representing the statement as Java code.
      *
      * @return a {@link java.lang.String} object.
      */
     String getCode();
 
     /**
-     * Create a string representing the statement as Java code
+     * Create a string representing the statement as Java code.
      *
      * @param exception a {@link java.lang.Throwable} object.
      * @return a {@link java.lang.String} object.
@@ -172,9 +173,9 @@ public interface Statement {
     String getCode(Throwable exception);
 
     /**
-     * Retrieve comment for this statement
+     * Retrieve comment for this statement.
      *
-     * @return
+     * @return .
      */
     String getComment();
 
@@ -189,9 +190,9 @@ public interface Statement {
     Set<Class<?>> getDeclaredExceptions();
 
     /**
-     * Retrieve the number of parameters of this statement
+     * Retrieve the number of parameters of this statement.
      *
-     * @return
+     * @return .
      */
     int getNumParameters();
 
@@ -232,9 +233,9 @@ public interface Statement {
     VariableReference getReturnValue();
 
     /**
-     * Retrieve the test case this statement is part of
+     * Retrieve the test case this statement is part of.
      *
-     * @return
+     * @return .
      */
     TestCase getTestCase();
 
@@ -257,7 +258,7 @@ public interface Statement {
     Set<VariableReference> getVariableReferences();
 
     /**
-     * Check if there are assertions
+     * Check if there are assertions.
      *
      * @return True if there are assertions
      */
@@ -265,6 +266,7 @@ public interface Statement {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Generate hash code
      */
@@ -272,9 +274,9 @@ public interface Statement {
     int hashCode();
 
     /**
-     * Determine if the underlying reflection object is currently accessible
+     * Determine if the underlying reflection object is currently accessible.
      *
-     * @return
+     * @return .
      */
     boolean isAccessible();
 
@@ -282,7 +284,7 @@ public interface Statement {
      * Returns true if this statement should be handled as an
      * AssignmentStatement. This method was added to allow the wrapping of
      * AssignmentStatements (in which case "a instanceof AssignmentStatement" is
-     * no longer working)
+     * no longer working).
      *
      * @return a boolean.
      */
@@ -303,7 +305,7 @@ public interface Statement {
     /**
      * Various consistency checks. This method might also return with an
      * assertionError Functionality might depend on the status of
-     * enableAssertions in this JVM
+     * enableAssertions in this JVM.
      *
      * @return a boolean.
      */
@@ -321,7 +323,7 @@ public interface Statement {
     boolean mutate(TestCase test, TestFactory factory);
 
     /**
-     * Check if the statement makes use of var
+     * Check if the statement makes use of var.
      *
      * @param var Variable we are checking for
      * @return True if var is referenced
@@ -329,19 +331,19 @@ public interface Statement {
     boolean references(VariableReference var);
 
     /**
-     * Delete assertion attached to this statement
+     * Delete assertion attached to this statement.
      *
      * @param assertion a {@link org.evosuite.assertion.Assertion} object.
      */
     void removeAssertion(Assertion assertion);
 
     /**
-     * Delete all assertions attached to this statement
+     * Delete all assertions attached to this statement.
      */
     void removeAssertions();
 
     /**
-     * Replace a VariableReference with another one
+     * Replace a VariableReference with another one.
      *
      * @param oldVar The old variable
      * @param newVar The new variable
@@ -360,7 +362,7 @@ public interface Statement {
     boolean same(Statement s);
 
     /**
-     * Sets the set of assertions to statement
+     * Sets the set of assertions to statement.
      *
      * @param assertions a {@link java.util.Set} object.
      */

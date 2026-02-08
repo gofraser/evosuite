@@ -30,7 +30,8 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericMethod;
 
 /**
- * Class used to help the verification and proper use of constraints
+ * Class used to help the verification and proper use of constraints.
+ *
  * <p>
  * Created by Andrea Arcuri on 29/06/15.
  */
@@ -56,13 +57,13 @@ public class ConstraintHelper {
     }
 
     /**
-     * This ignores the input parameters
+     * This ignores the input parameters.
      *
-     * @param test
-     * @param klass
-     * @param methodName
-     * @return
-     * @throws IllegalArgumentException
+     * @param test .
+     * @param klass .
+     * @param methodName .
+     * @return .
+     * @throws IllegalArgumentException .
      */
     public static int countNumberOfMethodCalls(TestCase test, Class<?> klass, String methodName) throws IllegalArgumentException {
         Inputs.checkNull(test, klass);
@@ -82,9 +83,10 @@ public class ConstraintHelper {
     }
 
     /**
-     * @param test
-     * @param className
-     * @param methodName
+     * Summary.
+     * @param test .
+     * @param className .
+     * @param methodName .
      * @return a negative value if it is not present
      */
     public static int getLastPositionOfMethodCall(TestCase test, String className, String methodName, int lastPosition) {
@@ -106,8 +108,9 @@ public class ConstraintHelper {
     }
 
     /**
-     * @param s
-     * @param c
+     * Summary.
+     * @param s .
+     * @param c .
      * @return an array of size 2
      */
     public static String[] getClassAndMethod(String s, Class<?> c) {

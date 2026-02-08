@@ -43,7 +43,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * An assignment statement assigns values to variables. This is only used to assign to array indices
+ * An assignment statement assigns values to variables. This is only used to assign to array indices.
  * or to public member variables of objects, e.g., {@code var1[0] = 42} or {@code var2.maxSize =
  * 1337}. Assignment statements do not define new values.
  *
@@ -91,7 +91,7 @@ public class AssignmentStatement extends AbstractStatement {
      * setValue
      * </p>
      *
-     * @param value
+     * @param value .
      */
     public void setValue(VariableReference value) {
         this.parameter = value;
@@ -164,10 +164,10 @@ public class AssignmentStatement extends AbstractStatement {
 
             /**
              * Returns true of the retval of the assignment is a field reference (i.e. expr.f)
-             * such that expr==null
+             * such that expr==null.
              *
-             * @param scope
-             * @return
+             * @param scope .
+             * @return .
              * @throws CodeUnderTestException (cause is NullPointerException)
              */
             private boolean checkNullDereference(final Scope scope) throws CodeUnderTestException {
@@ -204,10 +204,12 @@ public class AssignmentStatement extends AbstractStatement {
         vars.add(retval);
         vars.add(parameter);
 
-        if (retval.getAdditionalVariableReference() != null)
+        if (retval.getAdditionalVariableReference() != null) {
             vars.add(retval.getAdditionalVariableReference());
-        if (parameter.getAdditionalVariableReference() != null)
+        }
+        if (parameter.getAdditionalVariableReference() != null) {
             vars.add(parameter.getAdditionalVariableReference());
+        }
         vars.addAll(getAssertionReferences());
 
         return vars;
@@ -222,10 +224,12 @@ public class AssignmentStatement extends AbstractStatement {
      */
     @Override
     public void replace(VariableReference var1, VariableReference var2) {
-        if (parameter.equals(var1))
+        if (parameter.equals(var1)) {
             parameter = var2;
-        else
+        } else
+             {
             parameter.replaceAdditionalVariableReference(var1, var2);
+        }
     }
 
     /**
@@ -244,21 +248,29 @@ public class AssignmentStatement extends AbstractStatement {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         AssignmentStatement other = (AssignmentStatement) obj;
         if (parameter == null) {
-            if (other.parameter != null)
+            if (other.parameter != null) {
                 return false;
-        } else if (!parameter.equals(other.parameter))
+            }
+        } else  {
+            if (!parameter.equals(other.parameter))
             return false;
+        }
         if (retval == null) {
             return other.retval == null;
-        } else return retval.equals(other.retval);
+        } else  {
+            return retval.equals(other.retval);
+        }
     }
 
     /*
@@ -295,36 +307,45 @@ public class AssignmentStatement extends AbstractStatement {
      */
     @Override
     public boolean same(Statement s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         AssignmentStatement other = (AssignmentStatement) s;
         if (parameter == null) {
-            if (other.parameter != null)
+            if (other.parameter != null) {
                 return false;
-        } else if (!parameter.same(other.parameter))
+            }
+        } else  {
+            if (!parameter.same(other.parameter))
             return false;
+        }
         if (retval == null) {
             return other.retval == null;
-        } else return retval.same(other.retval);
+        } else  {
+            return retval.same(other.retval);
+        }
     }
 
     /**
      * Retrieve the set of FieldReference and ArrayIndex variables that can
-     * serve as a replacement for retval
+     * serve as a replacement for retval.
      *
-     * @return
+     * @return .
      */
     private Set<VariableReference> getSourceReplacements() {
         Set<VariableReference> variables = new LinkedHashSet<>();
         for (int i = 0; i < retval.getStPosition() && i < tc.size(); i++) {
             VariableReference value = tc.getReturnValue(i);
-            if (value == null)
+            if (value == null) {
                 continue;
+            }
             if (value instanceof ArrayReference) {
                 if (GenericClassUtils.isAssignable(value.getComponentType(),
                         parameter.getType())) {
@@ -341,8 +362,9 @@ public class AssignmentStatement extends AbstractStatement {
                 if (!value.isPrimitive() && !(value instanceof NullReference)) {
                     // add fields of this object to list
                     for (Field field : TestClusterUtils.getAccessibleFields(value.getVariableClass())) {
-                        if (TestClusterGenerator.isFinalField(field))
+                        if (TestClusterGenerator.isFinalField(field)) {
                             continue;
+                        }
                         FieldReference f = new FieldReference(tc, new GenericField(field,
                                 value.getGenericClass()), value);
                         if (f.getDepth() <= 2) {
@@ -440,8 +462,9 @@ public class AssignmentStatement extends AbstractStatement {
     public int getPosition() {
         int pos = 0;
         for (Statement s : getTestCase()) {
-            if (this == s)
+            if (this == s) {
                 return pos;
+            }
             pos++;
         }
         throw new RuntimeException("Could not find position of assignment statement");

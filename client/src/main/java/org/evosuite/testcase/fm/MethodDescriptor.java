@@ -52,7 +52,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
     private final String inputParameterMatchers;
     private final String className;
     /**
-     * How often the method was called
+     * How often the method was called.
      */
     private int counter;
 
@@ -62,6 +62,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
 
 
     /**
+     * Summary.
      * @param method     the one that is going to be mocked
      * @param retvalType type of the class the mocked method belongs to. The type might be parameterized (ie generics)
      */
@@ -149,9 +150,9 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
     }
 
     /**
-     * For example, do not mock methods with no return value
+     * For example, do not mock methods with no return value.
      *
-     * @return
+     * @return .
      */
     public boolean shouldBeMocked() {
 

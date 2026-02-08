@@ -28,7 +28,7 @@ import org.evosuite.testcase.statements.Statement;
 
 /**
  * Applies the AVM local search algorithm described in
- * http://dx.doi.org/10.1016/j.jss.2014.05.032 at the test case level
+ * http://dx.doi.org/10.1016/j.jss.2014.05.032 at the test case level.
  *
  * @author galeotti
  */
@@ -47,8 +47,9 @@ public class AVMTestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
         int lastPosition = individual.size() - 1;
         if (individual.getLastExecutionResult() != null && !individual.isChanged()) {
             Integer lastPos = individual.getLastExecutionResult().getFirstPositionOfThrownException();
-            if (lastPos != null)
+            if (lastPos != null) {
                 lastPosition = lastPos;
+            }
         }
         TestCase test = individual.getTestCase();
 
@@ -56,8 +57,9 @@ public class AVMTestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
         // added during the search (see NullReferenceSearch).
 
         for (int i = lastPosition; i >= 0; i--) {
-            if (LocalSearchBudget.getInstance().isFinished())
+            if (LocalSearchBudget.getInstance().isFinished()) {
                 break;
+            }
 
             if (objective.isDone()) {
                 break;

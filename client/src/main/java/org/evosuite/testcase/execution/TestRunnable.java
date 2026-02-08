@@ -98,6 +98,7 @@ public class TestRunnable implements InterfaceTestRunnable {
      * before test case execution we should check which are the threads that are
      * running.
      * </p>
+     *
      * <p>
      * WARNING: The sandbox might prevent accessing thread informations, so best
      * to call this method from outside this class
@@ -117,7 +118,7 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     /**
-     * Inform all observers that we are going to execute the input statement
+     * Inform all observers that we are going to execute the input statement.
      *
      * @param s the statement to execute
      */
@@ -131,7 +132,7 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     /**
-     * Inform all observers that input statement has been executed
+     * Inform all observers that input statement has been executed.
      *
      * @param s               the executed statement
      * @param exceptionThrown the exception thrown when executing the statement, if any (can
@@ -167,7 +168,7 @@ public class TestRunnable implements InterfaceTestRunnable {
         runFinished = false;
         ExecutionResult result = new ExecutionResult(test, null);
         // TODO: Moved this to TestCaseExecutor so it is not part of the test execution timeout
-        //		Runtime.getInstance().resetRuntime();
+        //        Runtime.getInstance().resetRuntime();
         ExecutionTracer.enable();
 
         PrintStream out = (Properties.PRINT_TO_SYSTEM ? System.out : new PrintStream(byteStream));
@@ -250,17 +251,17 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     /**
-     * Iterate over all statements in the test case, and execute them one at a time
+     * Iterate over all statements in the test case, and execute them one at a time.
      *
-     * @param result
-     * @param out
-     * @param num
-     * @throws TimeoutException
-     * @throws InvocationTargetException
-     * @throws IllegalAccessException
-     * @throws InstantiationException
-     * @throws VMError
-     * @throws EvosuiteError
+     * @param result .
+     * @param out .
+     * @param num .
+     * @throws TimeoutException .
+     * @throws InvocationTargetException .
+     * @throws IllegalAccessException .
+     * @throws InstantiationException .
+     * @throws VMError .
+     * @throws EvosuiteError .
      */
     private void executeStatements(ExecutionResult result, PrintStream out,
                                    AtomicInteger num) throws TimeoutException,

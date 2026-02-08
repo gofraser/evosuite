@@ -45,7 +45,7 @@ import java.util.Set;
 import static java.util.stream.Collectors.joining;
 
 /**
- * Abstract superclass of test case statements
+ * Abstract superclass of test case statements.
  *
  * @author Gordon Fraser
  */
@@ -74,7 +74,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
          * thrown to a higher layer. If the others are thrown or returned by
          * AbstractStatement.executer()/1 is to be defined by executer()/1.
          *
-         * @return
+         * @return .
          */
         public Set<Class<? extends Throwable>> throwableExceptions() {
             return new HashSet<>();
@@ -171,10 +171,12 @@ public abstract class AbstractStatement implements Statement, Serializable {
              */
             throw e;
         } catch (Error | RuntimeException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            if (isAssignableFrom(e, code.throwableExceptions()))
+            if (isAssignableFrom(e, code.throwableExceptions())) {
                 throw e;
-            else
+            } else
+                 {
                 return e;
+            }
         }
 
         return null;
@@ -182,11 +184,11 @@ public abstract class AbstractStatement implements Statement, Serializable {
 
     /**
      * Tests if concreteThrowable.getClass is assignable to any of the classes
-     * in throwableClasses
+     * in throwableClasses.
      *
      * @param concreteThrowable true if concreteThrowable is assignable
-     * @param throwableClasses
-     * @return
+     * @param throwableClasses .
+     * @return .
      */
     private boolean isAssignableFrom(Throwable concreteThrowable,
                                      Set<Class<? extends Throwable>> throwableClasses) {
@@ -325,6 +327,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Create copies of all attached assertions
      */

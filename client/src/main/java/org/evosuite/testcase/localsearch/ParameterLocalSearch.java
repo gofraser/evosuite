@@ -36,9 +36,10 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 
 /**
- * Local search on the parameters of a function call
+ * Local search on the parameters of a function call.
+ *
  * <p>
- * 1. null/non-null 2. Other assignable values in test case 3. Type hierarchy
+ * 1. null/non-null 2. Other assignable values in test case 3. Type hierarchy.
  *
  * @author Gordon Fraser
  */
@@ -84,11 +85,11 @@ public class ParameterLocalSearch extends StatementLocalSearch {
     }
 
     /**
-     * Go through parameters of method call and apply local search
+     * Go through parameters of method call and apply local search.
      *
-     * @param test
-     * @param statement
-     * @param objective
+     * @param test .
+     * @param statement .
+     * @param objective .
      */
     private boolean doSearch(TestChromosome test, MethodStatement statement,
                              LocalSearchObjective<TestChromosome> objective) {
@@ -116,8 +117,9 @@ public class ParameterLocalSearch extends StatementLocalSearch {
                     restore(test, statement);
                 }
             }
-            if (!done)
+            if (!done) {
                 statement.setCallee(callee);
+            }
         }
 
         int numParameter = 0;
@@ -153,8 +155,9 @@ public class ParameterLocalSearch extends StatementLocalSearch {
                         restore(test, statement);
                     }
                 }
-                if (!done)
+                if (!done) {
                     statement.replaceParameterReference(parameter, numParameter);
+                }
 
             } else {
                 hasImproved = true;
@@ -167,11 +170,11 @@ public class ParameterLocalSearch extends StatementLocalSearch {
     }
 
     /**
-     * Go through parameters of constructor call and apply local search
+     * Go through parameters of constructor call and apply local search.
      *
-     * @param test
-     * @param statement
-     * @param objective
+     * @param test .
+     * @param statement .
+     * @param objective .
      */
     private boolean doSearch(TestChromosome test, ConstructorStatement statement,
                              LocalSearchObjective<TestChromosome> objective) {
@@ -200,8 +203,9 @@ public class ParameterLocalSearch extends StatementLocalSearch {
                         break;
                     }
                 }
-                if (!done)
+                if (!done) {
                     statement.replaceParameterReference(parameter, numParameter);
+                }
 
             } else {
                 hasImproved = true;
@@ -213,11 +217,11 @@ public class ParameterLocalSearch extends StatementLocalSearch {
     }
 
     /**
-     * Try to replace source of field with all possible choices
+     * Try to replace source of field with all possible choices.
      *
-     * @param test
-     * @param statement
-     * @param objective
+     * @param test .
+     * @param statement .
+     * @param objective .
      */
     private boolean doSearch(TestChromosome test, FieldStatement statement,
                              LocalSearchObjective<TestChromosome> objective) {
