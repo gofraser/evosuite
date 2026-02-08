@@ -30,12 +30,12 @@ public class UtilsRMI {
     /**
      * This is a wrapper over UnicastRemoteObject.exportObject,
      * as it does not properly handle anonymous/ephemeral ports.
-     * <p>
-     * In particular, "exportObject(Remote obj)" returns a RemoteStub, and not a Remote reference.
      *
-     * @param obj
-     * @return
-     * @throws RemoteException
+     * <p>In particular, "exportObject(Remote obj)" returns a RemoteStub, and not a Remote reference.
+     *
+     * @param obj the object to export
+     * @return the remote object
+     * @throws RemoteException if export fails
      */
     public static Remote exportObject(Remote obj) throws RemoteException {
         int port = 2000;
@@ -47,6 +47,7 @@ public class UtilsRMI {
                 int candidatePort = port + i;
                 return UnicastRemoteObject.exportObject(obj, candidatePort);
             } catch (RemoteException e) {
+                // ignored
             }
         }
 
@@ -59,14 +60,12 @@ public class UtilsRMI {
      * address 127.0.0.1. But, if there are network interfaces, depending
      * on the operating system the "localhost" can bind to them.
      *
-     * <p>
-     * So, if we start EvoSuite with a connection on (eg WiFi), losing such connection
+     * <p>So, if we start EvoSuite with a connection on (eg WiFi), losing such connection
      * would mess up EvoSuite. Even worse, if EvoSuite is started from Eclipse, Eclipse
      * will always use the binding it used at it start! In that case, Eclipse would need
      * to be restarted each time connection change.
      *
-     * <p>
-     * For these reasons, here we try to force to always bind to 127.0.0.1
+     * <p>For these reasons, here we try to force to always bind to 127.0.0.1
      */
     public static void ensureRegistryOnLoopbackAddress() {
         /*

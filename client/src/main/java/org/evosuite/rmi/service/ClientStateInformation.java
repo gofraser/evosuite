@@ -28,12 +28,12 @@ public class ClientStateInformation implements Serializable {
     private ClientState state;
 
     /**
-     * Progress 0-100
+     * Progress 0-100.
      */
     private int progress = 0;
 
     /**
-     * Achieved coverage 0-100
+     * Achieved coverage 0-100.
      */
     private int coverage = 0;
 

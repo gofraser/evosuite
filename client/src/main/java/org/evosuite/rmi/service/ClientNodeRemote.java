@@ -38,10 +38,12 @@ public interface ClientNodeRemote<T extends Chromosome<T>> extends Remote {
     void cancelCurrentSearch() throws RemoteException;
 
     /**
+     * Waits until the client finishes its task or timeout occurs.
+     *
      * @param timeoutInMs maximum amount of time we can wait for the client to finish
      * @return <code>true</code> if client is finished
-     * @throws RemoteException
-     * @throws InterruptedException
+     * @throws RemoteException if communication fails
+     * @throws InterruptedException if interrupted while waiting
      */
     boolean waitUntilFinished(long timeoutInMs) throws RemoteException,
             InterruptedException;

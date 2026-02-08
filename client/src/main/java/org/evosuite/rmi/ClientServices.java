@@ -110,7 +110,7 @@ public class ClientServices<T extends Chromosome<T>> {
     }
 
     /**
-     * Shorthand for the commonly used trackOutputVariable method
+     * Shorthand for the commonly used trackOutputVariable method.
      *
      * @param outputVariable The runtime variable to track
      * @param value          The value of the runtime variable
