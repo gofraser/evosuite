@@ -80,7 +80,7 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
     private ExplorationAlgorithmBase dse = null;
 
     /**
-     * Did test generation succeed?
+     * Did test generation succeed.
      */
     public Status getTestGenerationStatus() {
         return status;
@@ -91,7 +91,7 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
     }
 
     /**
-     * If there was an error, this contains the error message
+     * If there was an error, this contains the error message.
      */
     public String getErrorMessage() {
         return errorMessage;
@@ -103,7 +103,7 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
     }
 
     /**
-     * The entire GA in its final state
+     * The entire GA in its final state.
      */
     public GeneticAlgorithm<T> getGeneticAlgorithm() {
         return ga;
@@ -114,7 +114,7 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
     }
 
     /**
-     * The entire DSEA in tirs final state
+     * The entire DSEA in its final state.
      */
     public ExplorationAlgorithmBase getDSEAlgorithm() {
         return dse;
@@ -125,7 +125,7 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
     }
 
     /**
-     * Map from test method to ContractViolation
+     * Map from test method to ContractViolation.
      */
     public Set<Failure> getContractViolations(String name) {
         return contractViolations.get(name);
@@ -162,7 +162,7 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
     }
 
     /**
-     * Map from test method to EvoSuite test case
+     * Map from test method to EvoSuite test case.
      */
     public TestCase getTestCase(String name) {
         return testCases.get(name);
@@ -173,7 +173,7 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
     }
 
     /**
-     * Map from test method to EvoSuite test case
+     * Map from test method to EvoSuite test case.
      */
     public String getTestCode(String name) {
         return testCode.get(name);
@@ -184,7 +184,7 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
     }
 
     /**
-     * JUnit test suite source code
+     * JUnit test suite source code.
      */
     public String getTestSuiteCode() {
         return testSuiteCode;
@@ -195,7 +195,7 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
     }
 
     /**
-     * Lines covered by final test suite
+     * Lines covered by final test suite.
      */
     public Set<Integer> getCoveredLines() {
         return coveredLines;

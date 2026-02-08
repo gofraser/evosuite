@@ -81,8 +81,9 @@ public class TestGenerationResultBuilder {
     }
 
     public static TestGenerationResultBuilder getInstance() {
-        if (instance == null)
+        if (instance == null) {
             instance = new TestGenerationResultBuilder();
+        }
 
         return instance;
     }
@@ -95,11 +96,13 @@ public class TestGenerationResultBuilder {
         testCases.clear();
         contractViolations.clear();
         uncoveredLines = LinePool.getAllLines();
-        for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllBranches()) {
+        for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getAllBranches()) {
             uncoveredBranches.add(new BranchInfo(b, true));
             uncoveredBranches.add(new BranchInfo(b, false));
         }
-        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutants()) {
+        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getMutants()) {
             uncoveredMutants.add(new MutationInfo(m));
         }
     }
@@ -107,15 +110,17 @@ public class TestGenerationResultBuilder {
     private void fillInformationFromConfiguration(TestGenerationResultImpl<?> result) {
         result.setClassUnderTest(Properties.TARGET_CLASS);
         String[] criteria = new String[Properties.CRITERION.length];
-        for (int i = 0; i < Properties.CRITERION.length; i++)
+        for (int i = 0; i < Properties.CRITERION.length; i++) {
             criteria[i] = Properties.CRITERION[i].name();
+        }
         result.setTargetCriterion(criteria);
     }
 
     private <T extends Chromosome<T>> void fillInformationFromTestData(TestGenerationResultImpl<T> result) {
 
         Set<MutationInfo> exceptionMutants = new LinkedHashSet<>();
-        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutants()) {
+        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getMutants()) {
             if (MutationTimeoutStoppingCondition.isDisabled(m)) {
                 MutationInfo info = new MutationInfo(m);
                 exceptionMutants.add(info);
@@ -194,21 +199,25 @@ public class TestGenerationResultBuilder {
 
         Set<BranchInfo> branchCoverage = new LinkedHashSet<>();
         for (int branchId : result.getTrace().getCoveredFalseBranches()) {
-            Branch branch = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranch(branchId);
+            Branch branch = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getBranch(branchId);
             if (branch == null) {
                 LoggingUtils.getEvoLogger().warn("Branch is null: " + branchId);
                 continue;
             }
-            BranchInfo info = new BranchInfo(branch.getClassName(), branch.getMethodName(), branch.getInstruction().getLineNumber(), false);
+            BranchInfo info = new BranchInfo(branch.getClassName(), branch.getMethodName(),
+                    branch.getInstruction().getLineNumber(), false);
             branchCoverage.add(info);
         }
         for (int branchId : result.getTrace().getCoveredTrueBranches()) {
-            Branch branch = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranch(branchId);
+            Branch branch = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getBranch(branchId);
             if (branch == null) {
                 LoggingUtils.getEvoLogger().warn("Branch is null: " + branchId);
                 continue;
             }
-            BranchInfo info = new BranchInfo(branch.getClassName(), branch.getMethodName(), branch.getInstruction().getLineNumber(), true);
+            BranchInfo info = new BranchInfo(branch.getClassName(), branch.getMethodName(),
+                    branch.getInstruction().getLineNumber(), true);
             branchCoverage.add(info);
         }
         testBranchCoverage.put(name, branchCoverage);
@@ -240,7 +249,8 @@ public class TestGenerationResultBuilder {
 
     public void setDSEAlgorithm(ExplorationAlgorithmBase dse) {
         this.dse = dse;
-        for (Map.Entry<FitnessFunction<TestSuiteChromosome>, Double> e : dse.getGeneratedTestSuite().getCoverageValues().entrySet()) {
+        for (Map.Entry<FitnessFunction<TestSuiteChromosome>, Double> e : dse.getGeneratedTestSuite()
+                .getCoverageValues().entrySet()) {
             targetCoverages.put(e.getKey(), e.getValue());
         }
     }
