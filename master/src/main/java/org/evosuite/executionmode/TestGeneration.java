@@ -57,7 +57,7 @@ public class TestGeneration {
 
         Strategy strategy = getChosenStrategy(javaOpts, line);
 
-        /** Updating properties strategy */
+        /* Updating properties strategy */
         if(strategy == null) {
             strategy = Strategy.MOSUITE;
         }

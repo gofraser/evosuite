@@ -76,14 +76,12 @@ public class Setup {
             }
         }
 
-        if (args.length > 0) {
-            for (final String arg : args) {
-                String element = arg.trim();
-                if (element.isEmpty()) {
-                    continue;
-                }
-                addEntryToCP(element);
+        for (final String arg : args) {
+            String element = arg.trim();
+            if (element.isEmpty()) {
+                continue;
             }
+            addEntryToCP(element);
         }
 
         Properties.MIN_FREE_MEM = 0; //TODO why this is done???
@@ -103,7 +101,7 @@ public class Setup {
                  * As the relative path will be given to a File object, this will work also on a Windows machine
                  */
                 Properties.getInstance().setValue("inheritance_file",
-                        Properties.OUTPUT_DIR + "/"
+                        Properties.OUTPUT_DIR + File.separator
                                 + "inheritance.xml.gz");
             } catch (IOException | IllegalArgumentException | NoSuchParameterException | IllegalAccessException e) {
                 LoggingUtils.getEvoLogger().error("* Error while creating inheritance tree: " + e.getMessage());
@@ -119,6 +117,4 @@ public class Setup {
                 + File.separator
                 + "evosuite.properties");
     }
-
-
 }

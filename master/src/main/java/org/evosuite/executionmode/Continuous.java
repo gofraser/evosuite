@@ -31,6 +31,7 @@ import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.SpawnProcessKeepAliveChecker;
 
 import java.io.*;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
@@ -94,7 +95,7 @@ public class Continuous {
             File file = new File(Properties.CTG_SELECTED_CUTS_FILE_LOCATION);
             if (file.exists()) {
                 String cutLine = null;
-                try (InputStream in = new BufferedInputStream(new FileInputStream(file))) {
+                try (InputStream in = new BufferedInputStream(Files.newInputStream(file.toPath()))) {
                     Scanner scanner = new Scanner(in);
                     cutLine = scanner.nextLine();
                 } catch (Exception e) {

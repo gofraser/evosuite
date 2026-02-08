@@ -67,7 +67,7 @@ public class ConsoleProgressBar implements Listener<ClientStateInformation> {
             }
         }
 
-        bar.append(Math.min(100, percent) + "%] [Cov:");
+        bar.append(Math.min(100, percent)).append("%] [Cov:");
 
         for (int i = 0; i < 35; i++) {
             if (i < (int) (coverage * 0.35)) {
@@ -79,7 +79,7 @@ public class ConsoleProgressBar implements Listener<ClientStateInformation> {
             }
         }
 
-        bar.append(coverage + "%]");
+        bar.append(coverage).append("%]");
 
         System.out.print("\r" + bar);
 

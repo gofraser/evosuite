@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -51,18 +52,11 @@ import java.util.List;
  */
 public class EvoSuite {
 
-    /**
-     * Functional moved to @{@link JavaExecCmdUtil#getJavaBinExecutablePath()}
-     * Constant
-     * <code>JAVA_CMD="javaHome + separator + bin + separatorj"{trunked}</code>
-     */
-    //public final static String JAVA_CMD = javaHome + separator + "bin" + separator + "java";
-
     public static String base_dir_path = System.getProperty("user.dir");
+
     private static final Logger logger = LoggerFactory.getLogger(EvoSuite.class);
 
-    private static final String separator = System.getProperty("file.separator");
-    //private static String javaHome = System.getProperty("java.home");
+    private static final String separator = FileSystems.getDefault().getSeparator();
 
     static {
         LoggingUtils.loadLogbackForEvoSuite();
@@ -115,7 +109,7 @@ public class EvoSuite {
     }
 
     private void setupProperties() {
-        if (base_dir_path.equals("")) {
+        if (base_dir_path.isEmpty()) {
             Properties.getInstanceSilent();
         } else {
             Properties.getInstanceSilent().loadProperties(base_dir_path
@@ -245,7 +239,7 @@ public class EvoSuite {
                 }
             }
 
-            if (Properties.JEE == true) {
+            if (Properties.JEE) {
                 throw new IllegalStateException("JEE is not supported due to the Java 9+ update of EvoSuite");
             }
 
