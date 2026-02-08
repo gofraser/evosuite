@@ -57,12 +57,15 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 
     @Override
     public void createMethodCallStmt(final CaptureLog log, final int logRecNo) {
-        if (log == null)
+        if (log == null) {
             throw new IllegalArgumentException("captured log must not be null");
-        if (logRecNo <= -1)
+        }
+        if (logRecNo <= -1) {
             throw new IllegalArgumentException("log record number is invalid: " + logRecNo);
-        if (isMaximumLengthReached())
+        }
+        if (isMaximumLengthReached()) {
             return;
+        }
 
         // assumption: all necessary statements are created and there is one variable for each referenced object
         final int oid = log.objectIds.get(logRecNo);
@@ -97,8 +100,8 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 
                     GenericMethod genericMethod = new GenericMethod(
                             this.getDeclaredMethod(type, methodName,
-                                    methodParamTypeClasses)
-                            , type);
+                                    methodParamTypeClasses),
+                            type);
 
                     MethodStatement m = new MethodStatement(testCase, genericMethod,
                             this.oidToVarRefMap.get(oid), args);
@@ -128,7 +131,9 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
             logger.info("Test case so far: " + testCase.toCode());
             logger.info(log.toString());
 
-            CodeGeneratorException.propagateError(e, "[logRecNo = %s] - an unexpected error occurred while creating method call stmt for %s.", logRecNo, methodName);
+            CodeGeneratorException.propagateError(e,
+                    "[logRecNo = %s] - an unexpected error occurred while creating method call stmt for %s.",
+                    logRecNo, methodName);
         }
     }
 
@@ -144,21 +149,22 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
     }
 
     private ArrayList<VariableReference> getArguments(final Object[] methodArgs,
-                                                      final Class<?>[] methodParamTypeClasses) throws IllegalArgumentException {
+                                                      final Class<?>[] methodParamTypeClasses)
+            throws IllegalArgumentException {
 
         ArrayList<VariableReference> args = new ArrayList<>();
 
-        Integer argOID; // is either an oid or null
+        Integer argOid; // is either an oid or null
         for (int i = 0; i < methodArgs.length; i++) {
-            argOID = (Integer) methodArgs[i];
-            if (argOID == null) {
+            argOid = (Integer) methodArgs[i];
+            if (argOid == null) {
                 args.add(testCase.addStatement(new NullStatement(testCase,
                         methodParamTypeClasses[i])));
             } else {
-                VariableReference ref = this.oidToVarRefMap.get(argOID);
+                VariableReference ref = this.oidToVarRefMap.get(argOid);
                 if (ref == null) {
-                    throw new RuntimeException("VariableReference is null for argOID "
-                            + argOID + "; have oids: " + this.oidToVarRefMap.keySet());
+                    throw new RuntimeException("VariableReference is null for argOid "
+                            + argOid + "; have oids: " + this.oidToVarRefMap.keySet());
                 } else {
                     args.add(ref);
                 }
@@ -185,7 +191,6 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         final VariableReference varRef;
 
         if (value instanceof Class) {
-            // final PrimitiveStatement cps = ClassPrimitiveStatement.getPrimitiveStatement(testCase, getClassForName(type));
             final PrimitiveStatement cps = new ClassPrimitiveStatement(testCase,
                     getClassForName(type));
             cps.setValue(value);
@@ -216,7 +221,10 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
             final PrimitiveStatement stringRep = new ImmutableStringPrimitiveStatement(testCase, (String) value);
             final VariableReference stringRepRef = testCase.addStatement(stringRep);
 
-            final MethodStatement m = new MethodStatement(testCase, new GenericMethod(EvoSuiteXStream.class.getMethod("fromString", String.class), EvoSuiteXStream.class), null, Arrays.asList(stringRepRef));
+            final MethodStatement m = new MethodStatement(testCase,
+                    new GenericMethod(EvoSuiteXStream.class.getMethod("fromString", String.class),
+                            EvoSuiteXStream.class),
+                    null, Arrays.asList(stringRepRef));
             this.oidToVarRefMap.put(oid, testCase.addStatement(m));
         } catch (final Exception e) {
             throw new RuntimeException(e);
@@ -262,7 +270,9 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
                 this.oidToVarRefMap.put(arg, varRef);
             }
         } catch (final Exception e) {
-            CodeGeneratorException.propagateError(e, "[logRecNo = %s] - an unexpected error occurred while creating field write access stmt. Log: %s", logRecNo, log);
+            CodeGeneratorException.propagateError(e,
+                    "[logRecNo = %s] - an unexpected error occurred while creating field write access stmt. Log: %s",
+                    logRecNo, log);
         }
     }
 
@@ -273,36 +283,29 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         final int captureId = log.captureIds.get(logRecNo);
 
         final Object returnValue = log.returnValues.get(logRecNo);
-        if (!CaptureLog.RETURN_TYPE_VOID.equals(returnValue)) // TODO necessary?
-        {
-            Integer returnValueOID = (Integer) returnValue;
-//			final String descriptor = log.descList.get(logRecNo);
-//			final org.objectweb.asm.Type fieldTypeType = org.objectweb.asm.Type.getType(descriptor);
+        // TODO necessary?
+        if (!CaptureLog.RETURN_TYPE_VOID.equals(returnValue)) {
+            Integer returnValueOid = (Integer) returnValue;
             final String typeName = log.getTypeName(oid);
             final String fieldName = log.getNameOfAccessedFields(captureId);
 
             try {
-//				final Class<?> fieldType = getClassFromType(fieldTypeType);
                 final Class<?> type = getClassForName(typeName);
 
-//				final FieldReference valueRef = new FieldReference(testCase,
-//				        new GenericField(getDeclaredField(type, fieldName), type));
-//				final VariableReference targetVar = new VariableReferenceImpl(testCase,
-//				        fieldType);
-
-                final FieldStatement fieldStatement = new FieldStatement(testCase, new GenericField(FieldUtils.getField(type, fieldName, true), type), this.oidToVarRefMap.get(oid));
-                //final AssignmentStatement assignment = new AssignmentStatement(testCase,
-                //        targetVar, valueRef);
-                // VariableReference varRef = testCase.addStatement(assignment);
+                final FieldStatement fieldStatement = new FieldStatement(testCase,
+                        new GenericField(FieldUtils.getField(type, fieldName, true), type),
+                        this.oidToVarRefMap.get(oid));
                 VariableReference varRef = testCase.addStatement(fieldStatement);
 
-                this.oidToVarRefMap.put(returnValueOID, varRef);
+                this.oidToVarRefMap.put(returnValueOid, varRef);
 
             } catch (final Exception e) {
                 logger.debug("Error while trying to get field "
                         + fieldName + " of class "
                         + getClassForName(typeName) + ": " + e);
-                CodeGeneratorException.propagateError(e, "[logRecNo = %s] - an unexpected error occurred while creating field read access stmt. Log: %s", logRecNo, log);
+                CodeGeneratorException.propagateError(e,
+                        "[logRecNo = %s] - an unexpected error occurred while creating field read access stmt. Log: %s",
+                        logRecNo, log);
             }
         }
     }
@@ -348,15 +351,7 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
             }
         }
 
-        //		try
-        //		{
         return getClassForName(type.getClassName());
-        //			return Class.forName(type.getClassName(), true, StaticTestCluster.classLoader);
-        //		}
-        //		catch (final ClassNotFoundException e)
-        //		{
-        //			throw new RuntimeException(e);
-        //		}
     }
 
     private Class<?> getClassForName(String type) {
@@ -429,7 +424,6 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 
     private Method getDeclaredMethod(final Class<?> clazz, final String methodName,
                                      Class<?>[] paramTypes) throws NoSuchMethodException {
-        // logger.info("Trying to get method "+methodName +" from class "+clazz+" with parameters "+Arrays.asList(paramTypes));
         if (clazz == null || Object.class.equals(clazz)) {
             throw new NoSuchMethodException(methodName + "(" + Arrays.toString(paramTypes)
                     + ")");
@@ -473,15 +467,15 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         AssignmentStatement assignStmt;
         ArrayIndex arrIndex;
         VariableReference valueRef;
-        Integer argOID; // is either an oid or null
+        Integer argOid; // is either an oid or null
         for (int i = 0; i < params.length; i++) {
-            argOID = (Integer) params[i];
-            if (argOID == null) {
+            argOid = (Integer) params[i];
+            if (argOid == null) {
                 valueRef = testCase.addStatement(new NullStatement(testCase, arrCompClass));
             } else {
-                valueRef = this.oidToVarRefMap.get(argOID);
+                valueRef = this.oidToVarRefMap.get(argOid);
                 if (valueRef == null) {
-                    logger.info("ValueREF is NULL for " + argOID);
+                    logger.info("ValueREF is NULL for " + argOid);
                     continue;
                 }
             }
@@ -524,7 +518,8 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
                     collTypeName = ArrayDeque.class.getName();
                     collType = ArrayDeque.class;
                 } else {
-                    CodeGeneratorException.propagateError("[logRecNo = %s] - collection %s is not supported", logRecNo, collType);
+                    CodeGeneratorException.propagateError("[logRecNo = %s] - collection %s is not supported",
+                            logRecNo, collType);
                 }
             }
 
@@ -541,19 +536,19 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
             // --- fill collection
 
             MethodStatement methodStmt;
-            Integer argOID; // is either an oid or null
+            Integer argOid; // is either an oid or null
             ArrayList<VariableReference> paramList;
             Method method;
 
             for (final Object param : params) {
                 paramList = new ArrayList<>(1);
-                argOID = (Integer) param;
+                argOid = (Integer) param;
                 final VariableReference var;
-                if (argOID == null || !this.oidToVarRefMap.containsKey(argOID)) {
+                if (argOid == null || !this.oidToVarRefMap.containsKey(argOid)) {
                     var = testCase.addStatement(new NullStatement(testCase,
                             Object.class));
                 } else {
-                    var = this.oidToVarRefMap.get(argOID);
+                    var = this.oidToVarRefMap.get(argOid);
                 }
                 paramList.add(var);
 
@@ -563,12 +558,16 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
                 testCase.addStatement(methodStmt);
             }
         } catch (final Exception e) {
-            CodeGeneratorException.propagateError("[logRecNo = %s] - an unexpected error occurred while creating collection init stmt", logRecNo, e);
+            CodeGeneratorException.propagateError(
+                    "[logRecNo = %s] - an unexpected error occurred while creating collection init stmt",
+                    logRecNo, e);
         }
     }
 
     private void replaceNullWithNullReferences(List<VariableReference> paramList, Class<?>... paramTypes) {
-        CodeGeneratorException.check(paramList.size() == paramTypes.length, "[paramList = %s, paramTypes] - number of params does not correspond number of paramTypes", paramList, Arrays.toString(paramTypes));
+        CodeGeneratorException.check(paramList.size() == paramTypes.length,
+                "[paramList = %s, paramTypes] - number of params does not correspond number of paramTypes",
+                paramList, Arrays.toString(paramTypes));
 
         Object v;
         for (int j = 0; j < paramList.size(); j++) {
@@ -607,18 +606,18 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
             // --- fill collection
 
             MethodStatement methodStmt;
-            Integer argOID; // is either an oid or null
+            Integer argOid; // is either an oid or null
             ArrayList<VariableReference> paramList = new ArrayList<>();
 
             for (int i = 0; i < params.length; i++) {
-                argOID = (Integer) params[i];
-                if (argOID == null) {
+                argOid = (Integer) params[i];
+                if (argOid == null) {
 
                     paramList.add(testCase.addStatement(new NullStatement(testCase,
                             Object.class)));
 
                 } else {
-                    paramList.add(this.oidToVarRefMap.get(argOID));
+                    paramList.add(this.oidToVarRefMap.get(argOid));
                 }
 
                 if (i % 2 == 1) {
@@ -636,7 +635,8 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 
             }
         } catch (final Exception e) {
-            CodeGeneratorException.propagateError(e, "[logRecNo = %s] - an unexpected error occurred while creating map init stmt", logRecNo);
+            CodeGeneratorException.propagateError(e,
+                    "[logRecNo = %s] - an unexpected error occurred while creating map init stmt", logRecNo);
         }
     }
 

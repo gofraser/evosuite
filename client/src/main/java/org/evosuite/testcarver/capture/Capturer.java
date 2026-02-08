@@ -63,55 +63,7 @@ public final class Capturer {
 
     @Deprecated
     public static void postProcess() {
-		/*
-		if(! Capturer.isCapturing())
-		{
-			if(! logs.isEmpty())
-			{
-				try
-				{
-		//					   LOG.info("Saving captured log to {}", DEFAULT_SAVE_LOC);
-		//					   final File targetFile = new File(DEFAULT_SAVE_LOC);
-		//					   Capturer.save(new FileOutputStream(targetFile));
-
-					   PostProcessor.init();
-
-					   final ArrayList<String>     pkgNames    = new ArrayList<String>();
-					   final ArrayList<Class<?>[]> obsClasses = new ArrayList<Class<?>[]>();
-
-					   int searchIndex;
-					   for(String[] classNames : Capturer.classesToBeObserved)
-					   {
-						   searchIndex = classNames[0].lastIndexOf('.');
-						   if(searchIndex > -1)
-						   {
-							   pkgNames.add(classNames[0].substring(0, searchIndex));  
-						   }
-						   else
-						   {
-							   pkgNames.add("");
-						   }
-
-						   final Class<?> [] clazzes = new Class<?>[classNames.length];
-						   for(int j = 0; j < classNames.length; j++)
-						   {
-							   clazzes[j] = Class.forName(classNames[j]);
-						   }
-						   obsClasses.add(clazzes);
-					   }
-
-
-					   PostProcessor.process(logs, pkgNames, obsClasses);
-
-					   Capturer.clear();
-				}
-				catch(final Exception e)
-				{
-					logger.error("an error occurred while post proccessin", e);
-				}
-			}
-		}
-		 */
+        // deprecated
     }
 
     public static void save(final OutputStream out) throws IOException {
@@ -157,7 +109,7 @@ public final class Capturer {
         currentLog = new CaptureLog();
         isCaptureStarted = true;
 
-        FieldRegistry.restoreForegoingGETSTATIC();
+        FieldRegistry.restoreForegoingGetStatic();
 
         logger.info("Capturer has been started successfully");
 
@@ -191,15 +143,9 @@ public final class Capturer {
             throw new IllegalStateException("Capture has already been started");
         }
 
-		/*
-		 * TODO need refactoring
-		 * 
-		if(! isShutdownHookAdded)
-		{
-			initShutdownHook();
-			isShutdownHookAdded = true;
-		}
-		 */
+        /*
+         * TODO need refactoring
+         */
         currentLog = new CaptureLog();
         isCaptureStarted = true;
 
@@ -210,7 +156,7 @@ public final class Capturer {
         }
         Capturer.classesToBeObserved.add(clazzes);
 
-        FieldRegistry.restoreForegoingGETSTATIC();
+        FieldRegistry.restoreForegoingGetStatic();
 
         logger.info("Capturer has been started successfully");
     }
@@ -248,7 +194,7 @@ public final class Capturer {
     public static void capture(final int captureId, final Object receiver,
                                final String methodName, final String methodDesc, final Object[] methodParams) {
         if (receiver != null && receiver.getClass().getName().contains("Person")) {
-             logger.error("CAPTURED call on Person: " + methodName);
+            logger.error("CAPTURED call on Person: " + methodName);
         }
         try {
             if (isCapturing()) {
@@ -256,15 +202,17 @@ public final class Capturer {
                 setCapturing(false);
 
                 if (logger.isDebugEnabled()) {
-                    logger.debug("Method call captured:  captureId={} receiver={} type={} method={} methodDesc={} params={}",
+                    logger.debug(
+                            "Method call captured:  captureId={} receiver={} type={} method={} methodDesc={} params={}",
                             captureId, System.identityHashCode(receiver),
                             receiver.getClass().getName(), methodName,
                             methodDesc, Arrays.toString(methodParams));
                 }
 
                 currentLog.log(captureId, receiver, methodName, methodDesc, methodParams);
-                if (TimeController.getInstance().isThereStillTimeInThisPhase())
+                if (TimeController.getInstance().isThereStillTimeInThisPhase()) {
                     setCapturing(true);
+                }
                 //}
             }
         } catch (Throwable t) {

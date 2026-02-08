@@ -40,22 +40,17 @@ public class Calendar extends java.util.Calendar {
         wrappedCalendar = cal;
     }
 
-//	protected Calendar() {
-//		super();
-//		Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "<init>", "()V", new Object[] {});
-//		FieldRegistry.register(this);
-//		Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);		
-//	}
-
     public java.util.Date getTime_final() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getTime", "()Ljava/util/Date;", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getTime", "()Ljava/util/Date;",
+                new Object[]{});
         java.util.Date ret = new Date(wrappedCalendar.getTimeInMillis());
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public final void setTime_final(java.util.Date date) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setTime", "(Ljava/util/Date;)V", new Object[]{date});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setTime", "(Ljava/util/Date;)V",
+                new Object[]{date});
         wrappedCalendar.setTime(date);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
 
@@ -63,7 +58,8 @@ public class Calendar extends java.util.Calendar {
 
 
     public static java.util.Date getTime(java.util.Calendar cal) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, "getTime", "()Ljava/util/Date;", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, "getTime", "()Ljava/util/Date;",
+                new Object[]{});
         Date date = new Date(cal.getTimeInMillis());
         FieldRegistry.register(date);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, date);
@@ -71,49 +67,46 @@ public class Calendar extends java.util.Calendar {
     }
 
     public static java.util.Calendar getInstance() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"), "getInstance", "()Ljava/util/Calendar;", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"),
+                "getInstance", "()Ljava/util/Calendar;", new Object[]{});
         Calendar ret = new Calendar(java.util.Calendar.getInstance());
         FieldRegistry.register(ret);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"), ret);
         return ret;
     }
 
-
-//    protected Calendar(TimeZone zone, Locale aLocale)
-//    {
-//    	super(zone, aLocale);
-//		Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "<init>", "(Ljava/util/TimeZone;Ljava/util/Locale;)V", new Object[] {zone, aLocale});
-//		FieldRegistry.register(this);
-//		Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
-//    }
-
     public static java.util.Calendar getInstance(TimeZone zone) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"), "getInstance", "(Ljava/util/TimeZone;)Ljava/util/Calendar;", new Object[]{zone});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"),
+                "getInstance", "(Ljava/util/TimeZone;)Ljava/util/Calendar;", new Object[]{zone});
         Calendar ret = new Calendar(java.util.Calendar.getInstance(zone));
         FieldRegistry.register(ret);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"), ret);
         return ret;
     }
 
-    public static java.util.Calendar getInstance(Locale aLocale) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"), "getInstance", "(Ljava/util/Locale;)Ljava/util/Calendar;", new Object[]{aLocale});
-        Calendar ret = new Calendar(java.util.Calendar.getInstance(aLocale));
+    public static java.util.Calendar getInstance(Locale locale) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"),
+                "getInstance", "(Ljava/util/Locale;)Ljava/util/Calendar;", new Object[]{locale});
+        Calendar ret = new Calendar(java.util.Calendar.getInstance(locale));
         FieldRegistry.register(ret);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"), ret);
         return ret;
     }
 
     public static java.util.Calendar getInstance(TimeZone zone,
-                                                 Locale aLocale) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"), "getInstance", "(Ljava/util/TimeZone;Ljava/util/Locale;)Ljava/util/Calendar;", new Object[]{zone, aLocale});
-        Calendar ret = new Calendar(java.util.Calendar.getInstance(zone, aLocale));
+                                                 Locale locale) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"),
+                "getInstance", "(Ljava/util/TimeZone;Ljava/util/Locale;)Ljava/util/Calendar;",
+                new Object[]{zone, locale});
+        Calendar ret = new Calendar(java.util.Calendar.getInstance(zone, locale));
         FieldRegistry.register(ret);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"), ret);
         return ret;
     }
 
     public static synchronized Locale[] getAvailableLocales() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"), "getAvailableLocales", "()[Ljava/util/Locale;", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"),
+                "getAvailableLocales", "()[Ljava/util/Locale;", new Object[]{});
         Locale[] ret = java.util.Calendar.getAvailableLocales();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, CaptureUtil.loadClass("java/util/Calendar"), ret);
         return ret;
@@ -128,7 +121,8 @@ public class Calendar extends java.util.Calendar {
     }
 
     public void setTimeInMillis(long millis) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setTimeInMillis", "(J)V", new Object[]{millis});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setTimeInMillis", "(J)V",
+                new Object[]{millis});
         wrappedCalendar.setTimeInMillis(millis);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -147,20 +141,23 @@ public class Calendar extends java.util.Calendar {
     }
 
     public final void set_final(int year, int month, int date) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "set", "(III)V", new Object[]{year, month, date});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "set", "(III)V",
+                new Object[]{year, month, date});
         wrappedCalendar.set(year, month, date);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
 
     public final void set_final(int year, int month, int date, int hourOfDay, int minute) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "set", "(IIIII)V", new Object[]{year, month, date, hourOfDay, minute});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "set", "(IIIII)V",
+                new Object[]{year, month, date, hourOfDay, minute});
         wrappedCalendar.set(year, month, date, hourOfDay, minute);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
 
     public final void set_final(int year, int month, int date, int hourOfDay, int minute,
                                 int second) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "set", "(IIIIII)V", new Object[]{year, month, date, hourOfDay, minute, second});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "set", "(IIIIII)V",
+                new Object[]{year, month, date, hourOfDay, minute, second});
         wrappedCalendar.set(year, month, date, hourOfDay, minute, second);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -185,21 +182,24 @@ public class Calendar extends java.util.Calendar {
     }
 
     public String getDisplayName(int field, int style, Locale locale) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getDisplayName", "(IILjava/util/Locale;)Ljava/lang/String;", new Object[]{field, style, locale});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getDisplayName",
+                "(IILjava/util/Locale;)Ljava/lang/String;", new Object[]{field, style, locale});
         String ret = wrappedCalendar.getDisplayName(field, style, locale);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public Map<String, Integer> getDisplayNames(int field, int style, Locale locale) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getDisplayNames", "(IILjava/util/Locale;)Ljava/util/Map;", new Object[]{field, style, locale});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getDisplayNames",
+                "(IILjava/util/Locale;)Ljava/util/Map;", new Object[]{field, style, locale});
         Map<String, Integer> ret = wrappedCalendar.getDisplayNames(field, style, locale);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public boolean equals(Object obj) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "equals", "(Ljava/lang/Object;)Z", new Object[]{obj});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "equals", "(Ljava/lang/Object;)Z",
+                new Object[]{obj});
         boolean ret = wrappedCalendar.equals(obj);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
@@ -213,47 +213,54 @@ public class Calendar extends java.util.Calendar {
     }
 
     public boolean before(Object when) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "before", "(Ljava/lang/Object;)Z", new Object[]{when});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "before", "(Ljava/lang/Object;)Z",
+                new Object[]{when});
         boolean ret = wrappedCalendar.before(when);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public boolean after(Object when) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "after", "(Ljava/lang/Object;)Z", new Object[]{when});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "after", "(Ljava/lang/Object;)Z",
+                new Object[]{when});
         boolean ret = wrappedCalendar.after(when);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public int compareTo(java.util.Calendar anotherCalendar) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "compareTo", "(Ljava/util/Calendar;)I", new Object[]{anotherCalendar});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "compareTo", "(Ljava/util/Calendar;)I",
+                new Object[]{anotherCalendar});
         int ret = wrappedCalendar.compareTo(anotherCalendar);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public void roll(int field, int amount) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "roll", "(II)V", new Object[]{field, amount});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "roll", "(II)V",
+                new Object[]{field, amount});
         wrappedCalendar.roll(field, amount);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
 
     public void setTimeZone(TimeZone value) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setTimeZone", "(Ljava/util/TimeZone;)V", new Object[]{value});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setTimeZone", "(Ljava/util/TimeZone;)V",
+                new Object[]{value});
         wrappedCalendar.setTimeZone(value);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
 
     public TimeZone getTimeZone() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getTimeZone", "()Ljava/util/TimeZone;", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getTimeZone", "()Ljava/util/TimeZone;",
+                new Object[]{});
         TimeZone ret = wrappedCalendar.getTimeZone();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public void setLenient(boolean lenient) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setLenient", "(Z)V", new Object[]{lenient});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setLenient", "(Z)V",
+                new Object[]{lenient});
         wrappedCalendar.setLenient(lenient);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -266,7 +273,8 @@ public class Calendar extends java.util.Calendar {
     }
 
     public void setFirstDayOfWeek(int value) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setFirstDayOfWeek", "(I)V", new Object[]{value});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setFirstDayOfWeek", "(I)V",
+                new Object[]{value});
         wrappedCalendar.setFirstDayOfWeek(value);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -279,20 +287,23 @@ public class Calendar extends java.util.Calendar {
     }
 
     public void setMinimalDaysInFirstWeek(int value) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setMinimalDaysInFirstWeek", "(I)V", new Object[]{value});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setMinimalDaysInFirstWeek", "(I)V",
+                new Object[]{value});
         wrappedCalendar.setMinimalDaysInFirstWeek(value);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
 
     public int getMinimalDaysInFirstWeek() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getMinimalDaysInFirstWeek", "()I", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getMinimalDaysInFirstWeek", "()I",
+                new Object[]{});
         int ret = wrappedCalendar.getMinimalDaysInFirstWeek();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public boolean isWeekDateSupported() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "isWeekDateSupported", "()Z", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "isWeekDateSupported", "()Z",
+                new Object[]{});
         boolean ret = wrappedCalendar.isWeekDateSupported();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
@@ -306,41 +317,47 @@ public class Calendar extends java.util.Calendar {
     }
 
     public void setWeekDate(int weekYear, int weekOfYear, int dayOfWeek) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setWeekDate", "(III)V", new Object[]{weekYear, weekOfYear, dayOfWeek});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setWeekDate", "(III)V",
+                new Object[]{weekYear, weekOfYear, dayOfWeek});
         wrappedCalendar.setWeekDate(weekYear, weekOfYear, dayOfWeek);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
 
     public int getWeeksInWeekYear() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getWeeksInWeekYear", "()I", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getWeeksInWeekYear", "()I",
+                new Object[]{});
         int ret = wrappedCalendar.getWeeksInWeekYear();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public int getActualMinimum(int field) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getActualMinimum", "(I)I", new Object[]{field});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getActualMinimum", "(I)I",
+                new Object[]{field});
         int ret = wrappedCalendar.getActualMinimum(field);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public int getActualMaximum(int field) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getActualMaximum", "(I)I", new Object[]{field});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getActualMaximum", "(I)I",
+                new Object[]{field});
         int ret = wrappedCalendar.getActualMaximum(field);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public Object clone() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "clone", "()Ljava/lang/Object;", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "clone", "()Ljava/lang/Object;",
+                new Object[]{});
         Object ret = new Calendar((java.util.Calendar) wrappedCalendar.clone());
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
     }
 
     public String toString() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "toString", "()Ljava/lang/String;", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "toString", "()Ljava/lang/String;",
+                new Object[]{});
         String ret = wrappedCalendar.toString();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
@@ -387,7 +404,8 @@ public class Calendar extends java.util.Calendar {
 
     @Override
     public int getGreatestMinimum(int field) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getGreatestMinimum", "(I)V", new Object[]{field});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getGreatestMinimum", "(I)V",
+                new Object[]{field});
         int ret = wrappedCalendar.getGreatestMinimum(field);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
@@ -395,7 +413,8 @@ public class Calendar extends java.util.Calendar {
 
     @Override
     public int getLeastMaximum(int field) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getLeastMaximum", "(I)V", new Object[]{field});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getLeastMaximum", "(I)V",
+                new Object[]{field});
         int ret = wrappedCalendar.getLeastMaximum(field);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;

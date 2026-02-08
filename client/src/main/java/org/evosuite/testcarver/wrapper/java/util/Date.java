@@ -46,7 +46,8 @@ public class Date extends java.util.Date {
     @SuppressWarnings("deprecation")
     public Date(int year, int month, int date) {
         super(year, month, date);
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "<init>", "(III)V", new Object[]{year, month, date});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "<init>", "(III)V",
+                new Object[]{year, month, date});
         FieldRegistry.register(this);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -54,7 +55,8 @@ public class Date extends java.util.Date {
     @SuppressWarnings("deprecation")
     public Date(String s) {
         super(s);
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "<init>", "(Ljava/lang/String;)V", new Object[]{s});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "<init>", "(Ljava/lang/String;)V",
+                new Object[]{s});
         FieldRegistry.register(this);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -62,7 +64,8 @@ public class Date extends java.util.Date {
     @SuppressWarnings("deprecation")
     public Date(int year, int month, int date, int hrs, int min) {
         super(year, month, date, hrs, min);
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "<init>", "(IIIII)V", new Object[]{year, month, date, hrs, min});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "<init>", "(IIIII)V",
+                new Object[]{year, month, date, hrs, min});
         FieldRegistry.register(this);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -70,7 +73,8 @@ public class Date extends java.util.Date {
     @SuppressWarnings("deprecation")
     public Date(int year, int month, int date, int hrs, int min, int sec) {
         super(year, month, date, hrs, min, sec);
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "<init>", "(IIIIII)V", new Object[]{year, month, date, hrs, min});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "<init>", "(IIIIII)V",
+                new Object[]{year, month, date, hrs, min});
         FieldRegistry.register(this);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -78,7 +82,8 @@ public class Date extends java.util.Date {
 
     @Override
     public boolean after(java.util.Date when) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "after", "(Ljava/util/Date;)Z", new Object[]{when});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "after", "(Ljava/util/Date;)Z",
+                new Object[]{when});
         boolean ret = super.after(when);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
         return ret;
@@ -86,7 +91,8 @@ public class Date extends java.util.Date {
 
     @Override
     public boolean before(java.util.Date when) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "before", "(Ljava/util/Date;)Z", new Object[]{when});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "before", "(Ljava/util/Date;)Z",
+                new Object[]{when});
         boolean ret = super.before(when);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
         return ret;
@@ -103,7 +109,8 @@ public class Date extends java.util.Date {
 
     @Override
     public int compareTo(java.util.Date anotherDate) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "compareTo", "(Ljava/util/Date;)I", new Object[]{anotherDate});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "compareTo", "(Ljava/util/Date;)I",
+                new Object[]{anotherDate});
         int ret = super.compareTo(anotherDate);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
         return ret;
@@ -111,7 +118,8 @@ public class Date extends java.util.Date {
 
     @Override
     public boolean equals(Object obj) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "equals", "(Ljava/lang/Object;)Z", new Object[]{obj});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "equals", "(Ljava/lang/Object;)Z",
+                new Object[]{obj});
         boolean ret = super.equals(obj);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
         return ret;
@@ -127,7 +135,8 @@ public class Date extends java.util.Date {
 
     @Override
     public String toString() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "toString", "()Ljava/lang/String;", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "toString", "()Ljava/lang/String;",
+                new Object[]{});
         String ret = super.toString();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
 
@@ -135,10 +144,11 @@ public class Date extends java.util.Date {
     }
 
 
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({"deprecation", "checkstyle:MethodName"})
     public static long UTC(int year, int month, int date,
                            int hrs, int min, int sec) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, CaptureUtil.loadClass("java/util/Date"), "UTC", "(IIIIII)J", new Object[]{year, month, date, hrs, min, sec});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, CaptureUtil.loadClass("java/util/Date"), "UTC",
+                "(IIIIII)J", new Object[]{year, month, date, hrs, min, sec});
         long ret = java.util.Date.UTC(year, month, date, hrs, min, sec);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, CaptureUtil.loadClass("java/util/Date"), ret);
         return ret;
@@ -146,7 +156,8 @@ public class Date extends java.util.Date {
 
     @SuppressWarnings("deprecation")
     public static long parse(String s) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, CaptureUtil.loadClass("java/util/Date"), "parse", "(Ljava/lang/String;)J", new Object[]{s});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, CaptureUtil.loadClass("java/util/Date"), "parse",
+                "(Ljava/lang/String;)J", new Object[]{s});
         long ret = java.util.Date.parse(s);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, CaptureUtil.loadClass("java/util/Date"), ret);
         return ret;
@@ -260,7 +271,8 @@ public class Date extends java.util.Date {
 
     static long getMillisOf(java.util.Date date) {
 
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, CaptureUtil.loadClass("java/util/Date"), "getMillisOf", "(Ljava/util/Date;)J", new Object[]{date});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, CaptureUtil.loadClass("java/util/Date"),
+                "getMillisOf", "(Ljava/util/Date;)J", new Object[]{date});
         long ret = date.getTime();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, CaptureUtil.loadClass("java/util/Date"), ret);
         return ret;
@@ -275,7 +287,8 @@ public class Date extends java.util.Date {
 
     @SuppressWarnings("deprecation")
     public String toLocaleString() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "toLocaleString", "()Ljava/lang.String;", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "toLocaleString", "()Ljava/lang.String;",
+                new Object[]{});
         String ret = super.toLocaleString();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
         return ret;
@@ -283,7 +296,8 @@ public class Date extends java.util.Date {
 
     @SuppressWarnings("deprecation")
     public String toGMTString() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "toGMTString", "()Ljava/lang/String;", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "toGMTString", "()Ljava/lang/String;",
+                new Object[]{});
         String ret = super.toGMTString();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
         return ret;

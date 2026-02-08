@@ -48,8 +48,9 @@ public class CarvingManager {
     }
 
     public static CarvingManager getInstance() {
-        if (instance == null)
+        if (instance == null) {
             instance = new CarvingManager();
+        }
 
         return instance;
     }
@@ -72,11 +73,11 @@ public class CarvingManager {
             junitTestNames.add(s.trim());
         }
 
-		/* 
-		Pattern pattern = Pattern.compile(Properties.JUNIT_PREFIX+".*.class");
-		Collection<String> junitTestNames = ResourceList.getResources(pattern);		
-		logger.info("Found "+junitTestNames.size()+" candidate junit classes for pattern "+pattern);
-		*/
+        /*
+        Pattern pattern = Pattern.compile(Properties.JUNIT_PREFIX+".*.class");
+        Collection<String> junitTestNames = ResourceList.getResources(pattern);
+        logger.info("Found "+junitTestNames.size()+" candidate junit classes for pattern "+pattern);
+        */
         return junitTestNames;
     }
 
@@ -104,7 +105,7 @@ public class CarvingManager {
 
 
         final List<Class<?>> junitTestClasses = new ArrayList<>();
-        final org.evosuite.testcarver.extraction.CarvingClassLoader classLoader = new org.evosuite.testcarver.extraction.CarvingClassLoader();
+        final CarvingClassLoader classLoader = new CarvingClassLoader();
         // TODO: This really needs to be done in a nicer way!
         FieldRegistry.carvingClassLoader = classLoader;
         try {
@@ -139,8 +140,9 @@ public class CarvingManager {
             List<TestCase> processedTests = new ArrayList<>();
             for (TestCase test : testMap.get(targetClass)) {
                 String testName = ((CarvedTestCase) test).getName();
-                if (test.isEmpty())
+                if (test.isEmpty()) {
                     continue;
+                }
                 ExecutionResult executionResult = null;
                 try {
                     executionResult = TestCaseExecutor.runTest(test);
@@ -155,8 +157,10 @@ public class CarvingManager {
                     processedTests.add(test);
                 } else {
                     logger.info("Exception thrown in carved test {}: {}", testName,
-                            executionResult.getExceptionThrownAtPosition(executionResult.getFirstPositionOfThrownException()));
-                    for (StackTraceElement elem : executionResult.getExceptionThrownAtPosition(executionResult.getFirstPositionOfThrownException()).getStackTrace()) {
+                            executionResult.getExceptionThrownAtPosition(
+                                    executionResult.getFirstPositionOfThrownException()));
+                    for (StackTraceElement elem : executionResult.getExceptionThrownAtPosition(
+                            executionResult.getFirstPositionOfThrownException()).getStackTrace()) {
                         logger.info(elem.toString());
                     }
                     logger.info(test.toCode(executionResult.getCopyOfExceptionMapping()));
@@ -186,12 +190,12 @@ public class CarvingManager {
             } else {
                 //String outcome = "";
                 //for (Failure failure : result.getFailures()) {
-                //	outcome += "(" + failure.getDescription() + ", " + failure.getTrace()
-                //			+ ") ";
+                //    outcome += "(" + failure.getDescription() + ", " + failure.getTrace()
+                //            + ") ";
                 //}
                 logger.info("It was not possible to carve any test case for class {} from {}", targetClass.getName(),
                         Arrays.toString(junitTestNames.toArray()));
-                //		+ ". Test execution results: " + outcome);
+                //        + ". Test execution results: " + outcome);
             }
             carvedTests.put(targetClass, processedTests);
         }
@@ -212,8 +216,9 @@ public class CarvingManager {
     }
 
     public List<TestCase> getTestsForClass(Class<?> clazz) {
-        if (!carvingDone)
+        if (!carvingDone) {
             readTestCases();
+        }
 
         if (carvedTests.containsKey(clazz)) {
             return carvedTests.get(clazz);
@@ -231,8 +236,9 @@ public class CarvingManager {
     }
 
     public Set<Class<?>> getClassesWithTests() {
-        if (!carvingDone)
+        if (!carvingDone) {
             readTestCases();
+        }
 
         return carvedTests.keySet();
     }

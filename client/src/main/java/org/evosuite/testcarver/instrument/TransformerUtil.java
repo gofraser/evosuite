@@ -64,38 +64,32 @@ public class TransformerUtil {
         // TODO use configuration for exclusion
 
 
-        return !(
-                className.startsWith("sun") ||
-                        className.startsWith("com/sun") ||
-                        className.startsWith("java") ||
-                        className.startsWith("java/lang") ||
-                        className.startsWith("$Proxy") || // ignore all dynamic proxies (http://docs.oracle.com/javase/1.3/docs/guide/reflection/proxy.html)
-                        className.startsWith(PackageInfo.getEvoSuitePackageWithSlash() + "/testcarver")
-        );
+        return !(className.startsWith("sun")
+                || className.startsWith("com/sun")
+                || className.startsWith("java")
+                || className.startsWith("java/lang")
+                || className.startsWith("$Proxy") // ignore all dynamic proxies (http://docs.oracle.com/javase/1.3/docs/guide/reflection/proxy.html)
+                || className.startsWith(PackageInfo.getEvoSuitePackageWithSlash() + "/testcarver"));
     }
 
 
     public static boolean isDependency(final String className) {
         // TODO use regex for check
         // TODO use configuration for exclusion
-        return (
-                className.startsWith("sun") ||
-                        className.startsWith("com/sun") ||
-                        className.startsWith("java") ||
-                        className.startsWith("com/thoughtworks/xstream") ||
-                        className.startsWith("org/xmlpull") ||
-//				   className.startsWith("gnu/trove") ||
-                        className.startsWith("org/eclipse/jdt") ||
-                        className.startsWith("org/slf4j"));
+        return (className.startsWith("sun")
+                || className.startsWith("com/sun")
+                || className.startsWith("java")
+                || className.startsWith("com/thoughtworks/xstream")
+                || className.startsWith("org/xmlpull")
+                || className.startsWith("org/eclipse/jdt")
+                || className.startsWith("org/slf4j"));
     }
 
 
     public static boolean isClassAccessible(final ClassNode cn) {
 
-        return (cn.access & Opcodes.ACC_INTERFACE) == 0 &&
-                (
-                        ((cn.access & Opcodes.ACC_PUBLIC) != 0) ||
-                                ((cn.access & Opcodes.ACC_PROTECTED) != 0)
-                );
+        return (cn.access & Opcodes.ACC_INTERFACE) == 0
+                && (((cn.access & Opcodes.ACC_PUBLIC) != 0)
+                || ((cn.access & Opcodes.ACC_PROTECTED) != 0));
     }
 }

@@ -25,10 +25,10 @@ public class EvoSuiteXStream {
 
     /**
      * This wrapper is used to allow use of XStream from the evosuite
-     * dependencies rather than making XStream a dependency of the SUT
+     * dependencies rather than making XStream a dependency of the SUT.
      *
-     * @param value
-     * @return
+     * @param value the xml string
+     * @return the deserialized object
      */
     public static Object fromString(String value) {
         XStream xstream = new XStream();

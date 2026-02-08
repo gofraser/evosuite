@@ -36,10 +36,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
+ * ClassLoader that instruments classes for carving.
+ *
  * @author Gordon Fraser
  */
 public class CarvingClassLoader extends ClassLoader {
-    private final static Logger logger = LoggerFactory.getLogger(CarvingClassLoader.class);
+    private static final Logger logger = LoggerFactory.getLogger(CarvingClassLoader.class);
     private final Instrumenter instrumenter = new Instrumenter();
     private final ClassLoader classLoader;
     private final Map<String, Class<?>> classes = new HashMap<>();
@@ -86,7 +88,8 @@ public class CarvingClassLoader extends ClassLoader {
         try {
             String className = fullyQualifiedTargetClass.replace('.', '/');
 
-            InputStream is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(className);
+            InputStream is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getClassAsStream(className);
             if (is == null) {
                 throw new ClassNotFoundException("Class '" + className + ".class"
                         + "' should be in target project, but could not be found!");

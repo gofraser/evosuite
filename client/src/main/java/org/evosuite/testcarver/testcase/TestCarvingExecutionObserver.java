@@ -63,7 +63,8 @@ public final class TestCarvingExecutionObserver extends ExecutionObserver {
                 final FieldReference fieldRef = (FieldReference) left;
                 final GenericField field = fieldRef.getField();
 
-                FieldRegistry.notifyModification(field.isStatic() ? null : scope.getObject(fieldRef.getSource()), this.captureId,
+                FieldRegistry.notifyModification(field.isStatic() ? null : scope.getObject(fieldRef.getSource()),
+                        this.captureId,
                         Type.getInternalName(field.getDeclaringClass()),
                         field.getName(),
                         Type.getDescriptor(field.getField().getType()));
@@ -74,7 +75,8 @@ public final class TestCarvingExecutionObserver extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope)
+     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope)
      */
     @Override
     public void beforeStatement(Statement statement, Scope scope) {
