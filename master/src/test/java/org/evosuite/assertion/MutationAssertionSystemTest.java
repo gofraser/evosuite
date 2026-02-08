@@ -113,7 +113,7 @@ public class MutationAssertionSystemTest extends SystemTestBase {
 
         String[] command = new String[]{
                 "-generateSuite", "-class", targetClass,
-                "-criterion=INPUT",
+                "-criterion", "INPUT",
                 "-Djunit_tests=false", "-Dshow_progress=false",
                 "-Dassertions=true", "-Dassertion_strategy=mutation"};
 
