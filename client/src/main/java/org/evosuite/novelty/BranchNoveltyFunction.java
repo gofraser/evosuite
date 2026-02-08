@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -43,13 +43,16 @@ public class BranchNoveltyFunction extends NoveltyFunction<TestChromosome> {
     private final Set<String> branchlessMethods = new LinkedHashSet<>();
 
     public BranchNoveltyFunction() {
-        for (Branch branch : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllBranches()) {
+        ClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        BranchPool branchPool = BranchPool.getInstance(classLoader);
+        for (Branch branch : branchPool.getAllBranches()) {
             if (!branch.isInstrumented()) {
                 branches.add(branch.getActualBranchId());
             }
         }
-        branchlessMethods.addAll(BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchlessMethods());
-        logger.warn("Number of branches: " + branches.size() + " branches and " + branchlessMethods.size() + " branchless methods");
+        branchlessMethods.addAll(branchPool.getBranchlessMethods());
+        logger.warn("Number of branches: " + branches.size() + " branches and " + branchlessMethods.size()
+                + " branchless methods");
     }
 
     private ExecutionResult runTest(TestCase test) {
