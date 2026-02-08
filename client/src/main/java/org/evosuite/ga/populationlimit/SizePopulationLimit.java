@@ -27,9 +27,9 @@ import java.util.List;
 
 /**
  * <p>SizePopulationLimit class.</p>
- * <p>
- * Limits the population size based on the sum of the sizes of all individuals (chromosomes) in the population.
- * The size of a chromosome is determined by {@link Chromosome#size()}.
+ *
+ * <p>Limits the population size based on the sum of the sizes of all individuals (chromosomes) in the population.
+ * The size of a chromosome is determined by {@link Chromosome#size()}.</p>
  *
  * @author fraser
  */
@@ -57,11 +57,11 @@ public class SizePopulationLimit<T extends Chromosome<T>> implements PopulationL
 
     /**
      * Copy constructor.
-     * <p>
-     * This constructor is used by {@link org.evosuite.ga.metaheuristics.TestSuiteAdapter} to adapt the generic type
-     * parameter.
-     * <p>
-     * This constructor shall preserve the current state of the SizePopulationLimit (if existing).
+     *
+     * <p>This constructor is used by {@link org.evosuite.ga.metaheuristics.TestSuiteAdapter} to adapt the generic type
+     * parameter.</p>
+     *
+     * <p>This constructor shall preserve the current state of the SizePopulationLimit (if existing).</p>
      *
      * @param other the other limit to copy
      */

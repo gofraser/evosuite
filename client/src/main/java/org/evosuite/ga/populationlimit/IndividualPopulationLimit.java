@@ -27,8 +27,8 @@ import java.util.List;
 
 /**
  * <p>IndividualPopulationLimit class.</p>
- * <p>
- * Limits the population size based on the number of individuals.
+ *
+ * <p>Limits the population size based on the number of individuals.</p>
  *
  * @author Gordon Fraser
  */
@@ -55,12 +55,12 @@ public class IndividualPopulationLimit<T extends Chromosome<T>> implements Popul
     }
 
     /**
-     * Copy Constructor
-     * <p>
-     * This constructor is used by {@link org.evosuite.ga.metaheuristics.TestSuiteAdapter} to adapt the generic type
-     * parameter.
-     * <p>
-     * This constructor shall preserve the current state of the IndividualPopulationLimit (if existing).
+     * Copy Constructor.
+     *
+     * <p>This constructor is used by {@link org.evosuite.ga.metaheuristics.TestSuiteAdapter} to adapt the generic type
+     * parameter.</p>
+     *
+     * <p>This constructor shall preserve the current state of the IndividualPopulationLimit (if existing).</p>
      *
      * @param other the other limit to copy
      */
