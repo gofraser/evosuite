@@ -54,6 +54,9 @@ public class InheritanceTreeGenerator {
     private static final String resourceFolder = "client/src/main/resources/";
     private static final String jdkFile = "JDK_inheritance.xml";
     private static final String shadedJdkFile = "JDK_inheritance_shaded.xml";
+    private static final int[] LTS_VERSIONS = new int[]{8, 11, 17, 21, 25};
+    private static final String jdkFilePattern = "JDK_inheritance_%d.xml";
+    private static final String shadedJdkFilePattern = "JDK_inheritance_%d_shaded.xml";
 
     /**
      * Iterate over items in classpath and analyze them
@@ -424,7 +427,8 @@ public class InheritanceTreeGenerator {
 
         // Write data to XML file
         try {
-            FileOutputStream stream = new FileOutputStream(new File(resourceFolder + jdkFile));
+            String outputFile = getJdkResourceFileNameForCurrentJvm(false);
+            FileOutputStream stream = new FileOutputStream(new File(resourceFolder, outputFile));
             XStream xstream = new XStream();
             XStream.setupDefaultSecurity(xstream);
             xstream.allowTypesByWildcard(new String[]{"org.evosuite.**", "org.jgrapht.**"});
@@ -439,21 +443,23 @@ public class InheritanceTreeGenerator {
         XStream.setupDefaultSecurity(xstream);
         xstream.allowTypesByWildcard(new String[]{"org.evosuite.**", "org.jgrapht.**"});
 
-        String fileName;
-        if (!PackageInfo.isCurrentlyShaded()) {
-            fileName = "/" + jdkFile;
-        } else {
-            fileName = "/" + shadedJdkFile;
-        }
-
-        InputStream inheritance = InheritanceTreeGenerator.class.getResourceAsStream(fileName);
+        String primaryFileName = "/" + getJdkResourceFileNameForCurrentJvm(PackageInfo.isCurrentlyShaded());
+        InputStream inheritance = InheritanceTreeGenerator.class.getResourceAsStream(primaryFileName);
 
         if (inheritance != null) {
             return (InheritanceTree) xstream.fromXML(inheritance);
-        } else {
-            logger.warn("Found no JDK inheritance tree in the resource path: " + fileName);
-            return null;
         }
+
+        String fallbackFileName = "/" + getLegacyJdkResourceFileName(PackageInfo.isCurrentlyShaded());
+        inheritance = InheritanceTreeGenerator.class.getResourceAsStream(fallbackFileName);
+
+        if (inheritance != null) {
+            logger.warn("Found no version-specific JDK inheritance tree for this JVM; falling back to {}", fallbackFileName);
+            return (InheritanceTree) xstream.fromXML(inheritance);
+        }
+
+        logger.warn("Found no JDK inheritance tree in the resource path: {}", primaryFileName);
+        return null;
     }
 
     public static InheritanceTree readInheritanceTree(String fileName) throws IOException {
@@ -486,12 +492,18 @@ public class InheritanceTreeGenerator {
 
     public static Collection<String> getAllResources() {
         Collection<String> retval = getResources(System.getProperty("java.class.path", "."));
-        retval.addAll(getResources(System.getProperty("sun.boot.class.path")));
+        String boot = System.getProperty("sun.boot.class.path");
+        if (boot != null && !boot.isEmpty()) {
+            retval.addAll(getResources(boot));
+        }
         return retval;
     }
 
     private static Collection<String> getResources(String classPath) {
         final ArrayList<String> retval = new ArrayList<>();
+        if (classPath == null || classPath.isEmpty()) {
+            return retval;
+        }
         String[] classPathElements = classPath.split(File.pathSeparator);
 
         for (final String element : classPathElements) {
@@ -508,11 +520,11 @@ public class InheritanceTreeGenerator {
         return retval;
     }
 
-    private static void makeShadedCopy() {
+    private static void makeShadedCopy(String sourceFileName, String targetFileName) {
 
-        String content = null;
+        String content;
         try {
-            content = new Scanner(new File(resourceFolder + jdkFile)).useDelimiter("\\Z").next();
+            content = new Scanner(new File(resourceFolder, sourceFileName)).useDelimiter("\\Z").next();
         } catch (Exception e) {
             logger.error("Error when reading JDK file", e);
             return;
@@ -520,7 +532,7 @@ public class InheritanceTreeGenerator {
 
         String shadedContent = content.replace(PackageInfo.getEvoSuitePackage(), PackageInfo.getShadedEvoSuitePackage());
 
-        File shadedFile = new File(resourceFolder + shadedJdkFile);
+        File shadedFile = new File(resourceFolder, targetFileName);
         if (shadedFile.exists()) {
             shadedFile.delete();
         }
@@ -534,12 +546,59 @@ public class InheritanceTreeGenerator {
     /*
         usage example from command line:
 
-        java -cp master/target/evosuite-master-0.1.1-SNAPSHOT-jar-minimal.jar   org.evosuite.setup.InheritanceTreeGenerator
+        java -cp master/target/evosuite-master-0.1.1-SNAPSHOT-jar-minimal.jar org.evosuite.setup.InheritanceTreeGenerator
 
+        Run this once per target JDK LTS (8/11/17/21/25) to generate:
+        client/src/main/resources/JDK_inheritance_<LTS>.xml
+        client/src/main/resources/JDK_inheritance_<LTS>_shaded.xml
      */
     public static void main(String[] args) {
         generateJDKCluster(args);
-        makeShadedCopy();
+        String sourceFileName = getJdkResourceFileNameForCurrentJvm(false);
+        String targetFileName = getJdkResourceFileNameForCurrentJvm(true);
+        makeShadedCopy(sourceFileName, targetFileName);
+    }
+
+    static int getCurrentJdkMajorVersion() {
+        String raw = System.getProperty("java.specification.version", "");
+        if (raw.startsWith("1.")) {
+            raw = raw.substring(2);
+        }
+        int dot = raw.indexOf('.');
+        if (dot > 0) {
+            raw = raw.substring(0, dot);
+        }
+        try {
+            return Integer.parseInt(raw);
+        } catch (NumberFormatException e) {
+            logger.warn("Unable to parse java.specification.version '{}', defaulting to 8", raw);
+            return 8;
+        }
+    }
+
+    static int mapToSupportedLts(int majorVersion) {
+        int candidate = LTS_VERSIONS[0];
+        for (int lts : LTS_VERSIONS) {
+            if (majorVersion >= lts) {
+                candidate = lts;
+            } else {
+                break;
+            }
+        }
+        return candidate;
+    }
+
+    static String getJdkResourceFileNameForCurrentJvm(boolean shaded) {
+        int major = getCurrentJdkMajorVersion();
+        int lts = mapToSupportedLts(major);
+        if (shaded) {
+            return String.format(shadedJdkFilePattern, lts);
+        }
+        return String.format(jdkFilePattern, lts);
+    }
+
+    static String getLegacyJdkResourceFileName(boolean shaded) {
+        return shaded ? shadedJdkFile : jdkFile;
     }
 
 }

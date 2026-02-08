@@ -33,4 +33,18 @@ public class InheritanceTreeGeneratorTest {
         Assert.assertNotNull(it);
     }
 
+    @Test
+    public void mapToSupportedLts() {
+        Assert.assertEquals(8, InheritanceTreeGenerator.mapToSupportedLts(8));
+        Assert.assertEquals(8, InheritanceTreeGenerator.mapToSupportedLts(9));
+        Assert.assertEquals(11, InheritanceTreeGenerator.mapToSupportedLts(11));
+        Assert.assertEquals(11, InheritanceTreeGenerator.mapToSupportedLts(15));
+        Assert.assertEquals(17, InheritanceTreeGenerator.mapToSupportedLts(17));
+        Assert.assertEquals(17, InheritanceTreeGenerator.mapToSupportedLts(20));
+        Assert.assertEquals(21, InheritanceTreeGenerator.mapToSupportedLts(21));
+        Assert.assertEquals(21, InheritanceTreeGenerator.mapToSupportedLts(24));
+        Assert.assertEquals(25, InheritanceTreeGenerator.mapToSupportedLts(25));
+        Assert.assertEquals(25, InheritanceTreeGenerator.mapToSupportedLts(26));
+    }
+
 }
