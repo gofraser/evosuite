@@ -95,9 +95,10 @@ public class InspectorAssertion extends Assertion {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                     + source.getName() + "." + inspector.getMethodCall() + "());";
 
-        } else
+        } else {
             return "assertEquals(" + value + ", " + source.getName() + "."
                     + inspector.getMethodCall() + "());";
+        }
     }
 
     /**
@@ -106,15 +107,16 @@ public class InspectorAssertion extends Assertion {
     @Override
     public boolean evaluate(Scope scope) {
         try {
-            if (source.getObject(scope) == null)
+            if (source.getObject(scope) == null) {
                 return false;
-            else {
+            } else {
                 try {
                     Object val = inspector.getValue(source.getObject(scope));
-                    if (val == null)
+                    if (val == null) {
                         return value == null;
-                    else
+                    } else {
                         return val.equals(value);
+                    }
                 } catch (Exception e) {
                     logger.error("* Exception during call to inspector", e);
                     return false;
@@ -141,16 +143,21 @@ public class InspectorAssertion extends Assertion {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (!super.equals(obj))
+        }
+        if (!super.equals(obj)) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         InspectorAssertion other = (InspectorAssertion) obj;
         if (inspector == null) {
             return other.inspector == null;
-        } else return inspector.equals(other.inspector);
+        } else {
+            return inspector.equals(other.inspector);
+        }
     }
 
     /* (non-Javadoc)

@@ -76,7 +76,7 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
      */
 
     /**
-     * <p>addEntry</p>
+     * <p>addEntry.</p>
      *
      * @param other a {@link org.evosuite.testcase.variable.VariableReference} object.
      * @param value a boolean.

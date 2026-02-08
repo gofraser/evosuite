@@ -40,7 +40,8 @@ import org.evosuite.testcase.variable.VariableReference;
 public class SameTraceObserver extends AssertionTraceObserver<SameTraceEntry> {
 
     /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
      */
 
     /**
@@ -49,39 +50,51 @@ public class SameTraceObserver extends AssertionTraceObserver<SameTraceEntry> {
     @Override
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         // TODO: Only MethodStatement?
-        if (statement.isAssignmentStatement())
+        if (statement.isAssignmentStatement()) {
             return;
-        if (statement instanceof PrimitiveStatement<?>)
+        }
+        if (statement instanceof PrimitiveStatement<?>) {
             return;
-        if (statement instanceof ArrayStatement)
+        }
+        if (statement instanceof ArrayStatement) {
             return;
-        if (statement instanceof ConstructorStatement)
+        }
+        if (statement instanceof ConstructorStatement) {
             return;
+        }
 
         try {
             Object object = var.getObject(scope);
-            if (object == null)
+            if (object == null) {
                 return;
-            if (var.isPrimitive())
+            }
+            if (var.isPrimitive()) {
                 return;
-            if (var.isString() && Properties.INLINE)
+            }
+            if (var.isString() && Properties.INLINE) {
                 return; // After inlining the value of assertions would be different
+            }
 
             SameTraceEntry entry = new SameTraceEntry(var);
 
             for (VariableReference other : scope.getElements(var.getType())) {
-                if (other == var)
+                if (other == var) {
                     continue;
-                if (other.isPrimitive())
+                }
+                if (other.isPrimitive()) {
                     continue;
-                if (other.isWrapperType())
+                }
+                if (other.isWrapperType()) {
                     continue; // Issues with inlining resulting in unstable assertions
+                }
 
                 Object otherObject = other.getObject(scope);
-                if (otherObject == null)
+                if (otherObject == null) {
                     continue;
-                if (otherObject.getClass() != object.getClass())
+                }
+                if (otherObject.getClass() != object.getClass()) {
                     continue;
+                }
 
                 try {
                     logger.debug("Comparison of {} with {}", var, other);

@@ -36,7 +36,7 @@ import java.util.Set;
  */
 public class InspectorTraceEntry implements OutputTraceEntry {
 
-    private final static Logger logger = LoggerFactory.getLogger(InspectorTraceEntry.class);
+    private static final Logger logger = LoggerFactory.getLogger(InspectorTraceEntry.class);
     private final Map<Inspector, Object> inspectorMap = new HashMap<>();
     private final Map<String, Inspector> methodInspectorMap = new HashMap<>();
     private final VariableReference var;
@@ -51,7 +51,7 @@ public class InspectorTraceEntry implements OutputTraceEntry {
     }
 
     /**
-     * <p>addValue</p>
+     * <p>addValue.</p>
      *
      * @param inspector a {@link org.evosuite.assertion.Inspector} object.
      * @param value     a {@link java.lang.Object} object.
@@ -62,7 +62,7 @@ public class InspectorTraceEntry implements OutputTraceEntry {
     }
 
     /**
-     * <p>size</p>
+     * <p>size.</p>
      *
      * @return a int.
      */

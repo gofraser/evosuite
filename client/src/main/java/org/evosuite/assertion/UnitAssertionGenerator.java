@@ -36,17 +36,20 @@ public class UnitAssertionGenerator extends AssertionGenerator {
 
     private boolean isRelevant(Statement s, TestCase t) {
         // Always allow assertions on the last statement
-        if (s.getPosition() == (t.size() - 1))
+        if (s.getPosition() == (t.size() - 1)) {
             return true;
+        }
 
         // Allow assertions after method calls on the UUT
         if (s instanceof MethodStatement) {
             MethodStatement ms = (MethodStatement) s;
             String declaringClass = ms.getMethod().getDeclaringClass().getName();
-            while (declaringClass.contains("$"))
+            while (declaringClass.contains("$")) {
                 declaringClass = declaringClass.substring(0, declaringClass.indexOf("$"));
+            }
 
-            return declaringClass.equals(Properties.TARGET_CLASS) || (!Properties.TARGET_CLASS_PREFIX.isEmpty() && declaringClass.startsWith(Properties.TARGET_CLASS_PREFIX));
+            return declaringClass.equals(Properties.TARGET_CLASS) || (!Properties.TARGET_CLASS_PREFIX.isEmpty()
+                    && declaringClass.startsWith(Properties.TARGET_CLASS_PREFIX));
         }
         return false;
     }
@@ -67,8 +70,9 @@ public class UnitAssertionGenerator extends AssertionGenerator {
 
         for (int i = 0; i < test.size(); i++) {
             Statement s = test.getStatement(i);
-            if (!isRelevant(s, test))
+            if (!isRelevant(s, test)) {
                 s.removeAssertions();
+            }
         }
     }
 

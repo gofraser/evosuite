@@ -32,7 +32,8 @@ public class PrimitiveFieldTraceObserver extends
         AssertionTraceObserver<PrimitiveFieldTraceEntry> {
 
     /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
      */
 
     /**
@@ -42,8 +43,9 @@ public class PrimitiveFieldTraceObserver extends
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         logger.debug("Checking fields of " + var);
         try {
-            if (var == null)
+            if (var == null) {
                 return;
+            }
 
             if (statement.isAssignmentStatement()) {
                 if (statement.getReturnValue().isArrayIndex()) {
@@ -75,7 +77,9 @@ public class PrimitiveFieldTraceObserver extends
                                     + field.get(object));
                             entry.addValue(field, field.get(object));
                         } catch (IllegalArgumentException e) {
+                            // ignore
                         } catch (IllegalAccessException e) {
+                            // ignore
                         }
                     }
                 }

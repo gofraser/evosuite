@@ -27,6 +27,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
+ * ArrayTraceEntry class.
+ *
  * @author Gordon Fraser
  */
 public class ArrayTraceEntry implements OutputTraceEntry {

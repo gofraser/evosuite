@@ -56,7 +56,7 @@ public class Inspector implements Serializable {
 
     /**
      * <p>
-     * getValue
+     * getValue.
      * </p>
      *
      * @param object a {@link java.lang.Object} object.
@@ -74,8 +74,9 @@ public class Inspector implements Serializable {
         if (needsSandbox) {
             Sandbox.goingToExecuteSUTCode();
             TestGenerationContext.getInstance().goingToExecuteSUTCode();
-            if (!safe)
+            if (!safe) {
                 Sandbox.goingToExecuteUnsafeCodeOnSameThread();
+            }
         }
         Object ret = null;
 
@@ -83,8 +84,9 @@ public class Inspector implements Serializable {
             ret = this.method.invoke(object);
         } finally {
             if (needsSandbox) {
-                if (!safe)
+                if (!safe) {
                     Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
+                }
                 Sandbox.doneWithExecutingSUTCode();
                 TestGenerationContext.getInstance().doneWithExecutingSUTCode();
             }
@@ -106,7 +108,7 @@ public class Inspector implements Serializable {
 
     /**
      * <p>
-     * getMethodCall
+     * getMethodCall.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -117,7 +119,7 @@ public class Inspector implements Serializable {
 
     /**
      * <p>
-     * getClassName
+     * getClassName.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -128,7 +130,7 @@ public class Inspector implements Serializable {
 
     /**
      * <p>
-     * getReturnType
+     * getReturnType.
      * </p>
      *
      * @return a {@link java.lang.Class} object.
@@ -154,21 +156,28 @@ public class Inspector implements Serializable {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         Inspector other = (Inspector) obj;
         if (clazz == null) {
-            if (other.clazz != null)
+            if (other.clazz != null) {
                 return false;
-        } else if (!clazz.equals(other.clazz))
+            }
+        } else if (!clazz.equals(other.clazz)) {
             return false;
+        }
         if (method == null) {
             return other.method == null;
-        } else return method.equals(other.method);
+        } else {
+            return method.equals(other.method);
+        }
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException {
@@ -187,7 +196,8 @@ public class Inspector implements Serializable {
 
         // Read/initialize additional fields
         this.clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass((String) ois.readObject());
-        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass((String) ois.readObject());
+        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT()
+                .loadClass((String) ois.readObject());
 
         String methodName = (String) ois.readObject();
         String methodDesc = (String) ois.readObject();
@@ -212,14 +222,17 @@ public class Inspector implements Serializable {
                     boolean equals = true;
                     Class<?>[] oldParameters = this.method.getParameterTypes();
                     Class<?>[] newParameters = newMethod.getParameterTypes();
-                    if (oldParameters.length != newParameters.length)
+                    if (oldParameters.length != newParameters.length) {
                         continue;
+                    }
 
-                    if (!newMethod.getDeclaringClass().getName().equals(method.getDeclaringClass().getName()))
+                    if (!newMethod.getDeclaringClass().getName().equals(method.getDeclaringClass().getName())) {
                         continue;
+                    }
 
-                    if (!newMethod.getReturnType().getName().equals(method.getReturnType().getName()))
+                    if (!newMethod.getReturnType().getName().equals(method.getReturnType().getName())) {
                         continue;
+                    }
 
                     for (int i = 0; i < newParameters.length; i++) {
                         if (!oldParameters[i].getName().equals(newParameters[i].getName())) {

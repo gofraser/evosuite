@@ -93,7 +93,7 @@ public abstract class AssertionGenerator {
 
     /**
      * <p>
-     * addAssertions
+     * addAssertions.
      * </p>
      *
      * @param test a {@link org.evosuite.testcase.TestCase} object.
@@ -101,24 +101,25 @@ public abstract class AssertionGenerator {
     public abstract void addAssertions(TestCase test);
 
     /**
-     * Add assertions to all tests in a test suite
+     * Add assertions to all tests in a test suite.
      *
-     * @param suite
+     * @param suite the test suite
      */
     public void addAssertions(TestSuiteChromosome suite) {
 
         setupClassLoader(suite);
 
         for (TestChromosome test : suite.getTestChromosomes()) {
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase())
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 break;
+            }
 
             addAssertions(test.getTestCase());
         }
     }
 
     /**
-     * Execute a test case on the original unit
+     * Execute a test case on the original unit.
      *
      * @param test The test case that should be executed
      * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -193,16 +194,16 @@ public abstract class AssertionGenerator {
     }
 
     /**
-     * Reinstrument to make sure final fields are removed
+     * Reinstrument to make sure final fields are removed.
      *
-     * @param suite
+     * @param suite the test suite
      */
     public void setupClassLoader(TestSuiteChromosome suite) {
         if (!Properties.RESET_STATIC_FIELDS) {
             return;
         }
-        final boolean reset_all_classes = Properties.RESET_ALL_CLASSES_DURING_ASSERTION_GENERATION;
-        ClassReInitializer.getInstance().setReInitializeAllClasses(reset_all_classes);
+        final boolean resetAllClasses = Properties.RESET_ALL_CLASSES_DURING_ASSERTION_GENERATION;
+        ClassReInitializer.getInstance().setReInitializeAllClasses(resetAllClasses);
         changeClassLoader(suite);
     }
 
@@ -220,7 +221,8 @@ public abstract class AssertionGenerator {
             Properties.resetTargetClass();
             Properties.getInitializedTargetClass();
 
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Mutants, MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter());
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Mutants,
+                    MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter());
 
             for (TestChromosome test : suite.getTestChromosomes()) {
                 DefaultTestCase dtest = (DefaultTestCase) test.getTestCase();

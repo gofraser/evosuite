@@ -64,8 +64,9 @@ public class NullAssertion extends Assertion {
     public String getCode() {
         if ((Boolean) value) {
             return "assertNull(" + source.getName() + ");";
-        } else
+        } else {
             return "assertNotNull(" + source.getName() + ");";
+        }
     }
 
 }

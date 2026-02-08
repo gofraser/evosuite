@@ -95,19 +95,25 @@ public class InspectorManager {
                 Arrays.asList("toString"));
         // TODO: Figure out how to make AWT/Swing component status deterministic between headless/non-headless
         blackList.put("java.awt.Component",
-                Arrays.asList("toString", "isVisible", "isForegroundSet", "isBackgroundSet", "isFontSet", "isCursorSet",
-                        "isDisplayable", "isEnabled", "isFocusable", "isFocusOwner", "isFocusTraversable", "isLightweight",
-                        "isMaximumSizeSet", "isMinimumSizeSet", "isPreferredSizeSet", "isShowing", "isValid", "isVisible"));
+                Arrays.asList("toString", "isVisible", "isForegroundSet", "isBackgroundSet",
+                        "isFontSet", "isCursorSet",
+                        "isDisplayable", "isEnabled", "isFocusable", "isFocusOwner",
+                        "isFocusTraversable", "isLightweight",
+                        "isMaximumSizeSet", "isMinimumSizeSet", "isPreferredSizeSet",
+                        "isShowing", "isValid", "isVisible"));
         blackList.put("java.awt.Container",
-                Arrays.asList("countComponents", "getComponentCount", "isForegroundSet", "isBackgroundSet", "isFontSet"));
+                Arrays.asList("countComponents", "getComponentCount",
+                        "isForegroundSet", "isBackgroundSet", "isFontSet"));
         blackList.put("java.awt.event.MouseWheelEvent",
                 Arrays.asList("toString"));
         blackList.put("javax.swing.DefaultListSelectionModel",
                 Arrays.asList("toString"));
         blackList.put("javax.swing.JPopupMenu",
-                Arrays.asList("isFontSet", "getComponentCount", "isForegroundSet", "isBackgroundSet", "isFontSet"));
+                Arrays.asList("isFontSet", "getComponentCount",
+                        "isForegroundSet", "isBackgroundSet", "isFontSet"));
         blackList.put("javax.swing.JInternalFrame",
-                Arrays.asList("getComponentCount", "countComponents", "isForegroundSet", "isBackgroundSet", "isFontSet"));
+                Arrays.asList("getComponentCount", "countComponents",
+                        "isForegroundSet", "isBackgroundSet", "isFontSet"));
         blackList.put("javax.swing.text.StyleContext",
                 Arrays.asList("toString"));
         blackList.put("java.rmi.server.ObjID",
@@ -137,8 +143,9 @@ public class InspectorManager {
     }
 
     private boolean isInspectorMethod(Method method) {
-        if (!Modifier.isPublic(method.getModifiers()))
+        if (!Modifier.isPublic(method.getModifiers())) {
             return false;
+        }
 
         if (!method.getReturnType().isPrimitive()
                 && !method.getReturnType().equals(String.class)
@@ -147,38 +154,49 @@ public class InspectorManager {
             return false;
         }
 
-        if (method.getReturnType().equals(void.class))
+        if (method.getReturnType().equals(void.class)) {
             return false;
+        }
 
-        if (method.getParameterTypes().length != 0)
+        if (method.getParameterTypes().length != 0) {
             return false;
+        }
 
-        if (method.getName().equals("hashCode"))
+        if (method.getName().equals("hashCode")) {
             return false;
+        }
 
-        if (method.getDeclaringClass().equals(Object.class))
+        if (method.getDeclaringClass().equals(Object.class)) {
             return false;
+        }
 
-        if (method.getDeclaringClass().equals(Enum.class))
+        if (method.getDeclaringClass().equals(Enum.class)) {
             return false;
+        }
 
-        if (method.isSynthetic())
+        if (method.isSynthetic()) {
             return false;
+        }
 
-        if (method.isBridge())
+        if (method.isBridge()) {
             return false;
+        }
 
-        if (method.getName().equals("pop"))
+        if (method.getName().equals("pop")) {
             return false;
+        }
 
-        if (isBlackListed(method))
+        if (isBlackListed(method)) {
             return false;
+        }
 
-        if (isImpureJDKMethod(method))
+        if (isImpureJDKMethod(method)) {
             return false;
+        }
 
-        if (isAWTToString(method))
+        if (isAWTToString(method)) {
             return false;
+        }
 
         if (Properties.PURE_INSPECTORS) {
             return CheapPurityAnalyzer.getInstance().isPure(method);
@@ -190,8 +208,9 @@ public class InspectorManager {
 
     private boolean isImpureJDKMethod(Method method) {
         String className = method.getDeclaringClass().getCanonicalName();
-        if (!className.startsWith("java."))
+        if (!className.startsWith("java.")) {
             return false;
+        }
 
         return !JdkPureMethodsList.instance.isPureJDKMethod(method);
     }
@@ -209,8 +228,9 @@ public class InspectorManager {
         if (MockList.isAMockClass(className)) {
             className = method.getDeclaringClass().getSuperclass().getCanonicalName();
         }
-        if (!blackList.containsKey(className))
+        if (!blackList.containsKey(className)) {
             return false;
+        }
         String methodName = method.getName();
         return blackList.get(className).contains(methodName);
     }
@@ -219,8 +239,9 @@ public class InspectorManager {
         if (!TestUsageChecker.canUse(clazz)) {
             inspectors.put(clazz, Collections.emptyList());
         }
-        if (!TestUsageChecker.canUse(clazz))
+        if (!TestUsageChecker.canUse(clazz)) {
             return;
+        }
         List<Inspector> inspectorList = new ArrayList<>();
         for (Method method : clazz.getMethods()) {
             if (isInspectorMethod(method)) { // FIXXME
@@ -253,7 +274,7 @@ public class InspectorManager {
 
     /**
      * <p>
-     * removeInspector
+     * removeInspector.
      * </p>
      *
      * @param clazz     a {@link java.lang.Class} object.

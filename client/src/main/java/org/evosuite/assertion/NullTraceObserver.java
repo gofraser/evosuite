@@ -37,12 +37,14 @@ public class NullTraceObserver extends AssertionTraceObserver<NullTraceEntry> {
     public synchronized void afterStatement(Statement statement, Scope scope,
                                             Throwable exception) {
         // By default, no assertions are created for statements that threw exceptions
-        if (exception != null)
+        if (exception != null) {
             return;
+        }
 
         // No assertions are created for mock statements
-        if (statement instanceof FunctionalMockStatement)
+        if (statement instanceof FunctionalMockStatement) {
             return;
+        }
 
         visitReturnValue(statement, scope);
     }
@@ -63,20 +65,23 @@ public class NullTraceObserver extends AssertionTraceObserver<NullTraceEntry> {
                     //|| var.isWrapperType() // TODO: Wrapper types might make sense but there were failing assertions...
                     || var.isEnum()
                     || currentTest.getStatement(var.getStPosition()) instanceof PrimitiveStatement
-                    || currentTest.getStatement(var.getStPosition()).isAssignmentStatement())
+                    || currentTest.getStatement(var.getStPosition()).isAssignmentStatement()) {
                 return;
+            }
 
             if (var.getType() != null && var.getType().equals(Void.class)) {
                 return; // do not generate assertion for Void type
             }
 
             // We don't need assertions on constant values
-            if (statement instanceof PrimitiveStatement<?>)
+            if (statement instanceof PrimitiveStatement<?>) {
                 return;
+            }
 
             // We don't need assertions on array values
-            if (statement instanceof ArrayStatement)
+            if (statement instanceof ArrayStatement) {
                 return;
+            }
 
             Object object = var.getObject(scope);
             trace.addEntry(statement.getPosition(), var, new NullTraceEntry(var,

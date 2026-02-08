@@ -29,7 +29,7 @@ import java.util.Set;
 public interface OutputTraceEntry {
 
     /**
-     * <p>differs</p>
+     * <p>differs.</p>
      *
      * @param other a {@link org.evosuite.assertion.OutputTraceEntry} object.
      * @return a boolean.
@@ -37,7 +37,7 @@ public interface OutputTraceEntry {
     boolean differs(OutputTraceEntry other);
 
     /**
-     * <p>getAssertions</p>
+     * <p>getAssertions.</p>
      *
      * @param other a {@link org.evosuite.assertion.OutputTraceEntry} object.
      * @return a {@link java.util.Set} object.
@@ -45,14 +45,14 @@ public interface OutputTraceEntry {
     Set<Assertion> getAssertions(OutputTraceEntry other);
 
     /**
-     * <p>getAssertions</p>
+     * <p>getAssertions.</p>
      *
      * @return a {@link java.util.Set} object.
      */
     Set<Assertion> getAssertions();
 
     /**
-     * <p>isDetectedBy</p>
+     * <p>isDetectedBy.</p>
      *
      * @param assertion a {@link org.evosuite.assertion.Assertion} object.
      * @return a boolean.
@@ -60,7 +60,7 @@ public interface OutputTraceEntry {
     boolean isDetectedBy(Assertion assertion);
 
     /**
-     * <p>cloneEntry</p>
+     * <p>cloneEntry.</p>
      *
      * @return a {@link org.evosuite.assertion.OutputTraceEntry} object.
      */

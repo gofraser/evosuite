@@ -39,7 +39,8 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
 
 
     /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
      */
 
     /**
@@ -51,19 +52,24 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
 
         // We don't want inspector checks on string constants
         Statement declaringStatement = currentTest.getStatement(var.getStPosition());
-        if (declaringStatement instanceof PrimitiveStatement<?>)
+        if (declaringStatement instanceof PrimitiveStatement<?>) {
             return;
-
-        if (statement.isAssignmentStatement() && statement.getReturnValue().isArrayIndex())
-            return;
-
-        if (statement instanceof ConstructorStatement) {
-            if (statement.getReturnValue().isWrapperType() || statement.getReturnValue().isAssignableTo(EvoSuiteMock.class))
-                return;
         }
 
-        if (var.isPrimitive() || var.isString() || var.isWrapperType())
+        if (statement.isAssignmentStatement() && statement.getReturnValue().isArrayIndex()) {
             return;
+        }
+
+        if (statement instanceof ConstructorStatement) {
+            if (statement.getReturnValue().isWrapperType()
+                    || statement.getReturnValue().isAssignableTo(EvoSuiteMock.class)) {
+                return;
+            }
+        }
+
+        if (var.isPrimitive() || var.isString() || var.isWrapperType()) {
+            return;
+        }
 
         logger.debug("Checking for inspectors of " + var + " at statement "
                 + statement.getPosition());
@@ -74,16 +80,18 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
         for (Inspector i : inspectors) {
 
             // No inspectors from java.lang.Object
-            if (i.getMethod().getDeclaringClass().equals(Object.class))
+            if (i.getMethod().getDeclaringClass().equals(Object.class)) {
                 continue;
+            }
 
             try {
                 Object target = var.getObject(scope);
                 if (target != null) {
 
                     // Don't call inspector methods on mock objects
-                    if (target.getClass().getCanonicalName().contains("EnhancerByMockito"))
+                    if (target.getClass().getCanonicalName().contains("EnhancerByMockito")) {
                         return;
+                    }
 
                     Object value = i.getValue(target);
                     logger.debug("Inspector " + i.getMethodCall() + " is: " + value);
@@ -91,29 +99,36 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                     // We need no assertions that include the memory location
                     if (value instanceof String) {
                         // String literals may not be longer than 32767
-                        if (((String) value).length() >= 32767)
+                        if (((String) value).length() >= 32767) {
                             continue;
+                        }
 
                         // Maximum length of strings we look at
-                        if (((String) value).length() > Properties.MAX_STRING)
+                        if (((String) value).length() > Properties.MAX_STRING) {
                             continue;
+                        }
 
                         // If we suspect an Object hashCode not use this, as it may lead to flaky tests
-                        if (addressPattern.matcher((String) value).find())
+                        if (addressPattern.matcher((String) value).find()) {
                             continue;
+                        }
                         // The word "hashCode" is also suspicious
-                        if (((String) value).toLowerCase().contains("hashcode"))
+                        if (((String) value).toLowerCase().contains("hashcode")) {
                             continue;
+                        }
                         // Avoid asserting anything on values referring to mockito proxy objects
-                        if (((String) value).toLowerCase().contains("EnhancerByMockito"))
+                        if (((String) value).toLowerCase().contains("EnhancerByMockito")) {
                             continue;
-                        if (((String) value).toLowerCase().contains("$MockitoMock$"))
+                        }
+                        if (((String) value).toLowerCase().contains("$MockitoMock$")) {
                             continue;
+                        }
 
                         if (target instanceof URL) {
                             // Absolute paths may be different between executions
-                            if (((String) value).startsWith("/") || ((String) value).startsWith("file:/"))
+                            if (((String) value).startsWith("/") || ((String) value).startsWith("file:/")) {
                                 continue;
+                            }
                         }
                     }
 

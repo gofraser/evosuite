@@ -73,9 +73,10 @@ public class PrimitiveFieldAssertion extends Assertion {
         } else if (value.getClass().equals(String.class)) {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                     + source.getName() + "." + field.getName() + ");";
-        } else
+        } else {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                     + source.getName() + "." + field.getName() + ");";
+        }
     }
 
     /**
@@ -102,15 +103,17 @@ public class PrimitiveFieldAssertion extends Assertion {
             if (obj != null) {
                 try {
                     Object val = field.get(obj);
-                    if (val != null)
+                    if (val != null) {
                         return val.equals(value);
-                    else
+                    } else {
                         return value == null;
+                    }
                 } catch (Exception e) {
                     return true;
                 }
-            } else
+            } else {
                 return true;
+            }
         } catch (CodeUnderTestException e) {
             throw new UnsupportedOperationException();
         }
@@ -132,16 +135,21 @@ public class PrimitiveFieldAssertion extends Assertion {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (!super.equals(obj))
+        }
+        if (!super.equals(obj)) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         PrimitiveFieldAssertion other = (PrimitiveFieldAssertion) obj;
         if (field == null) {
             return other.field == null;
-        } else return field.equals(other.field);
+        } else {
+            return field.equals(other.field);
+        }
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException {
@@ -157,7 +165,8 @@ public class PrimitiveFieldAssertion extends Assertion {
         ois.defaultReadObject();
 
         // Read/initialize additional fields
-        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass((String) ois.readObject());
+        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT()
+                .loadClass((String) ois.readObject());
         String fieldName = (String) ois.readObject();
 
         try {

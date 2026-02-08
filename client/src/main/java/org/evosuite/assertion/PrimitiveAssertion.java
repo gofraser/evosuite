@@ -56,13 +56,15 @@ public class PrimitiveAssertion extends Assertion {
             } else if (value.getClass().isEnum()) {
                 return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                         + source.getName() + ");";
-            } else
+            } else {
                 return "assertEquals(" + NumberFormatter.getNumberString(value) + ", ("
                         + NumberFormatter.getBoxedClassName(value) + ")"
                         + source.getName() + ");";
-        } else
+            }
+        } else {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                     + source.getName() + ");";
+        }
 
     }
 
@@ -85,10 +87,11 @@ public class PrimitiveAssertion extends Assertion {
     @Override
     public boolean evaluate(Scope scope) {
         try {
-            if (value != null)
+            if (value != null) {
                 return value.equals(source.getObject(scope));
-            else
+            } else {
                 return source.getObject(scope) == null;
+            }
         } catch (CodeUnderTestException e) {
             throw new UnsupportedOperationException();
         }

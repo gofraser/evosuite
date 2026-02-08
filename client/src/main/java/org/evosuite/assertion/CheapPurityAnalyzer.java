@@ -22,7 +22,6 @@ package org.evosuite.assertion;
 import org.evosuite.instrumentation.BytecodeInstrumentation;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.mock.MockList;
-import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.InheritanceTree;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.JdkPureMethodsList;
@@ -38,11 +37,11 @@ import java.util.*;
  * is solely based on already collected bytecode instructions during class loading.
  * A method is <i>cheap-pure</i> if and only if:
  * <ul>
- * 	<li>The method is listed in the JdkPureMethodList</li>
- * 	<li>There is no declared overriding method that is not <i>cheap-pure</i></li>
+ *  <li>The method is listed in the JdkPureMethodList</li>
+ *  <li>There is no declared overriding method that is not <i>cheap-pure</i></li>
  *  <li>All invoked classes are loaded in the inheritance tree</li>
- * 	<li>Has no PUTSTATIC nor PUTFIELD instructions</li>
- * 	<li>All static invocations (INVOKESTATIC) are made to <i>cheap-pure</i> static methods</li>
+ *  <li>Has no PUTSTATIC nor PUTFIELD instructions</li>
+ *  <li>All static invocations (INVOKESTATIC) are made to <i>cheap-pure</i> static methods</li>
  *  <li>All special invocations (INVOKESPECIAL) are also made to <i>cheap-pure</i> methods</li>
  *  <li>All interface invocations (INVOKEINTERFACE) are also made to <i>cheap-pure</i> methods</li>
  * </ul>
@@ -105,10 +104,10 @@ public class CheapPurityAnalyzer {
         return this.purityCache.get(entry);
     }
 
-    private void addCacheValue(MethodEntry entry, boolean new_value) {
+    private void addCacheValue(MethodEntry entry, boolean newValue) {
         if (isCached(entry)) {
-            boolean old_value = this.purityCache.get(entry);
-            if (old_value == false && new_value == true) {
+            boolean oldValue = this.purityCache.get(entry);
+            if (!oldValue && newValue) {
                 String fullyQuantifiedMethodName = entry.className + "."
                         + entry.methodName + entry.descriptor;
 
@@ -116,7 +115,7 @@ public class CheapPurityAnalyzer {
                         + fullyQuantifiedMethodName);
             }
         }
-        this.purityCache.put(entry, new_value);
+        this.purityCache.put(entry, newValue);
     }
 
     private boolean isPure0(MethodEntry entry, Deque<MethodEntry> callStack) {
@@ -222,8 +221,9 @@ public class CheapPurityAnalyzer {
         InheritanceTree inheritanceTree = TestCluster.getInheritanceTree();
         for (String superClassName : inheritanceTree
                 .getOrderedSuperclasses(entry.className)) {
-            if (superClassName.equals(entry.className))
+            if (superClassName.equals(entry.className)) {
                 continue;
+            }
             MethodEntry superEntry = new MethodEntry(superClassName,
                     entry.methodName, entry.descriptor);
             if (!callStack.contains(superEntry) && methodsWithBodies.contains(superEntry)) {
@@ -244,22 +244,24 @@ public class CheapPurityAnalyzer {
     }
 
     private boolean isRandomCall(MethodEntry entry) {
-        if (entry.className.equals("java.util.Random"))
+        if (entry.className.equals("java.util.Random")) {
             return true;
-        else if (entry.className.equals("java.security.SecureRandom"))
+        } else if (entry.className.equals("java.security.SecureRandom")) {
             return true;
-        else if (entry.className.equals(org.evosuite.runtime.Random.class.getName()))
+        } else if (entry.className.equals(org.evosuite.runtime.Random.class.getName())) {
             return true;
-        else return entry.className.equals("java.lang.Math")
+        } else {
+            return entry.className.equals("java.lang.Math")
                     && entry.methodName.equals("random");
+        }
     }
 
-    /**
+    /**.
      * clone, equals, getClass, hashCode, toString seem pure
      * TODO: finalize, notify, notifyAll, wait?
      *
-     * @param entry
-     * @return
+     * @param entry the method entry
+     * @return true if it is an array call
      */
     private boolean isArrayCall(MethodEntry entry) {
         return entry.className.startsWith("[");
@@ -280,9 +282,9 @@ public class CheapPurityAnalyzer {
         InheritanceTree inheritanceTree = TestCluster.getInheritanceTree();
 
         String className = "" + entry.className;
-//		while (className.contains("[L")) {
-//			className = className.substring(2, className.length() - 1);
-//		}
+        // while (className.contains("[L")) {
+        //     className = className.substring(2, className.length() - 1);
+        // }
 
         if (!inheritanceTree.hasClass(className)) {
             logger.warn(className
@@ -344,9 +346,9 @@ public class CheapPurityAnalyzer {
     }
 
     /**
-     * Returns if a Method is <code>cheap-pure</code>
+     * Returns if a Method is <code>cheap-pure</code>.
      *
-     * @param method
+     * @param method the method to check
      * @return true if the method is cheap-pure, otherwise false.
      */
     public boolean isPure(java.lang.reflect.Method method) {
@@ -389,12 +391,15 @@ public class CheapPurityAnalyzer {
 
         @Override
         public boolean equals(Object obj) {
-            if (this == obj)
+            if (this == obj) {
                 return true;
-            if (obj == null)
+            }
+            if (obj == null) {
                 return false;
-            if (getClass() != obj.getClass())
+            }
+            if (getClass() != obj.getClass()) {
                 return false;
+            }
             MethodEntry other = (MethodEntry) obj;
             return (className.equals(other.className) && methodName
                     .equals(other.methodName))
