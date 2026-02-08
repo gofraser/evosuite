@@ -41,17 +41,17 @@ public abstract class SelectionFunction<T extends Chromosome<T>> implements Seri
     private static final long serialVersionUID = -2514933149542277609L;
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(SelectionFunction.class);
 
     /**
-     * Do we want to minimize or maximize fitness?
+     * Do we want to minimize or maximize fitness.
      */
     protected boolean maximize = true;
 
     /**
-     * Return index of next offspring
+     * Return index of next offspring.
      *
      * @param population a {@link List} object.
      * @return a int.
@@ -59,7 +59,7 @@ public abstract class SelectionFunction<T extends Chromosome<T>> implements Seri
     public abstract int getIndex(List<T> population);
 
     /**
-     * Return two parents
+     * Return two parents.
      *
      * @param population a {@link List} object.
      * @return a {@link org.evosuite.ga.Chromosome} object.
@@ -69,7 +69,7 @@ public abstract class SelectionFunction<T extends Chromosome<T>> implements Seri
     }
 
     /**
-     * Return n parents
+     * Return n parents.
      *
      * @param population a {@link List} object.
      * @param number     n
@@ -83,7 +83,7 @@ public abstract class SelectionFunction<T extends Chromosome<T>> implements Seri
     }
 
     /**
-     * Are we maximizing or minimizing fitness?
+     * Are we maximizing or minimizing fitness.
      *
      * @param max a boolean.
      */
@@ -92,9 +92,7 @@ public abstract class SelectionFunction<T extends Chromosome<T>> implements Seri
     }
 
     /**
-     * <p>
-     * isMaximize
-     * </p>
+     * <p>isMaximize.</p>
      *
      * @return true is we have to maximize
      */

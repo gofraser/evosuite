@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -25,7 +25,7 @@ import org.evosuite.utils.Randomness;
 import java.util.List;
 
 /**
- * Select random individual
+ * Select random individual.
  */
 public class RandomKSelection<T extends Chromosome<T>> extends SelectionFunction<T> {
 

@@ -28,8 +28,8 @@ import java.util.List;
 
 /**
  * {@inheritDoc}
- * <p>
- * Selects an individual by its rank.
+ *
+ * <p>Selects an individual by its rank.
  */
 public class RankSelection<T extends Chromosome<T>> extends SelectionFunction<T> {
 
@@ -49,10 +49,10 @@ public class RankSelection<T extends Chromosome<T>> extends SelectionFunction<T>
      * @param population the population to select an individual from
      * @return the index of the selected individual in the population
      * @implNote Approximates the index of the selected individual in {@code
-     * O(1)} by transforming an equally distributed random variable {@code
-     * 0 <= r <= 1}, as described by Whitley in the GENITOR algorithm (1989).
-     * For rank biases between 1 and 2, this produces results almost identical
-     * to the text-book specification of rank selection.
+     *     O(1)} by transforming an equally distributed random variable {@code
+     *     0 <= r <= 1}, as described by Whitley in the GENITOR algorithm (1989).
+     *     For rank biases between 1 and 2, this produces results almost identical
+     *     to the text-book specification of rank selection.
      */
     @Override
     public int getIndex(List<T> population) {
@@ -70,7 +70,7 @@ public class RankSelection<T extends Chromosome<T>> extends SelectionFunction<T>
 
         //this is not needed because population is sorted based on Maximization
         //if(maximize)
-        //	d = 1.0 - d; // to do that if we want to have Maximisation
+        //    d = 1.0 - d; // to do that if we want to have Maximisation
 
         int index = (int) (length * d);
         return index;

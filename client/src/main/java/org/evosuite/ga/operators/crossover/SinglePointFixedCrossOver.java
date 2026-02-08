@@ -24,7 +24,7 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.utils.Randomness;
 
 /**
- * Cross individuals at identical point
+ * Cross individuals at identical point.
  *
  * @author Gordon Fraser
  */
@@ -34,12 +34,12 @@ public class SinglePointFixedCrossOver<T extends Chromosome<T>> extends CrossOve
 
     /**
      * {@inheritDoc}
-     * <p>
-     * The splitting point for to individuals p1, p2 is selected within
+     *
+     * <p>The splitting point for to individuals p1, p2 is selected within
      * min(length(p1),length(p2))
      *
-     * @param parent1
-     * @param parent2
+     * @param parent1 a T object.
+     * @param parent2 a T object.
      */
     @Override
     public void crossOver(T parent1, T parent2)

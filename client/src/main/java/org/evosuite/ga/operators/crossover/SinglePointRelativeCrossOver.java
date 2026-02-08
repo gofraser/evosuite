@@ -24,7 +24,7 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.utils.Randomness;
 
 /**
- * Cross over individuals at relative position
+ * Cross over individuals at relative position.
  *
  * @author Gordon Fraser
  */
@@ -34,14 +34,14 @@ public class SinglePointRelativeCrossOver<T extends Chromosome<T>> extends Cross
 
     /**
      * {@inheritDoc}
-     * <p>
-     * The splitting point is not an absolute value but a relative value (eg, at
+     *
+     * <p>The splitting point is not an absolute value but a relative value (eg, at
      * position 70% of n). For example, if n1=10 and n2=20 and splitting point
      * is 70%, we would have position 7 in the first and 14 in the second.
-     * Therefore, the offspring d have n<=max(n1,n2)
+     * Therefore, the offspring d have n&lt;=max(n1,n2)
      *
-     * @param parent1
-     * @param parent2
+     * @param parent1 a T object.
+     * @param parent2 a T object.
      */
     @Override
     public void crossOver(T parent1, T parent2)

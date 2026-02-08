@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * This class implements different variants of Crowding Distance for many-objective problems
+ * This class implements different variants of Crowding Distance for many-objective problems.
  *
  * @author Annibale Panichella
  */
@@ -46,8 +46,9 @@ public class CrowdingDistance<T extends Chromosome<T>> implements Serializable {
     public void crowdingDistanceAssignment(List<T> front, List<? extends FitnessFunction<T>> set) {
         int size = front.size();
 
-        if (size == 0)
+        if (size == 0) {
             return;
+        }
         if (size == 1) {
             front.get(0).setDistance(Double.POSITIVE_INFINITY);
             return;
@@ -92,9 +93,9 @@ public class CrowdingDistance<T extends Chromosome<T>> implements Serializable {
     /**
      * This method implements a variant of the crowding distance named "subvector-dominance-assignment"
      * proposed by K\"{o}ppen and Yoshida in :
-     * [1] Mario K\"{o}ppen and Kaori Yoshida, "Substitute Distance Assignments in NSGA-II for handling Many-objective
-     * Optimization Problems", Evolutionary Multi-Criterion Optimization, Volume 4403 of the series Lecture Notes
-     * in Computer Science pp 727-741.
+     * [1] Mario K\"{o}ppen and Kaori Yoshida, "Substitute Distance Assignments in NSGA-II for handling
+     * Many-objective Optimization Problems", Evolutionary Multi-Criterion Optimization, Volume 4403 of the series
+     * Lecture Notes in Computer Science pp 727-741.
      *
      * @param front front of non-dominated solutions/tests
      * @param set   set of goals/targets (e.g., branches) to consider
@@ -107,7 +108,8 @@ public class CrowdingDistance<T extends Chromosome<T>> implements Serializable {
 
         front.forEach(t -> t.setDistance(Double.MAX_VALUE));
 
-        int dominate1, dominate2;
+        int dominate1;
+        int dominate2;
         for (int i = 0; i < front.size() - 1; i++) {
             T p1 = front.get(i);
             for (int j = i + 1; j < front.size(); j++) {
@@ -117,10 +119,11 @@ public class CrowdingDistance<T extends Chromosome<T>> implements Serializable {
                 for (final FitnessFunction<T> ff : set) {
                     double value1 = p1.getFitness(ff);
                     double value2 = p2.getFitness(ff);
-                    if (value1 < value2)
+                    if (value1 < value2) {
                         dominate1++;
-                    else if (value1 > value2)
+                    } else if (value1 > value2) {
                         dominate2++;
+                    }
                 }
                 p1.setDistance(Math.min(dominate1, p1.getDistance()));
                 p2.setDistance(Math.min(dominate2, p2.getDistance()));
@@ -129,11 +132,11 @@ public class CrowdingDistance<T extends Chromosome<T>> implements Serializable {
     }
 
     /**
-     * This method implements a "fast" version of the variant of the crowding distance named "epsilon-dominance-assignment"
-     * proposed by K\"{o}ppen and Yoshida in :
-     * [1] Mario K\"{o}ppen and Kaori Yoshida, "Substitute Distance Assignments in NSGA-II for handling Many-objective
-     * Optimization Problems", Evolutionary Multi-Criterion Optimization, Volume 4403 of the series Lecture Notes
-     * in Computer Science pp 727-741.
+     * This method implements a "fast" version of the variant of the crowding distance named
+     * "epsilon-dominance-assignment" proposed by K\"{o}ppen and Yoshida.
+     * [1] Mario K\"{o}ppen and Kaori Yoshida, "Substitute Distance Assignments in NSGA-II for handling
+     * Many-objective Optimization Problems", Evolutionary Multi-Criterion Optimization, Volume 4403 of the series
+     * Lecture Notes in Computer Science pp 727-741.
      *
      * @param front front of non-dominated solutions/tests
      * @param set   set of goals/targets (e.g., branches) to consider
@@ -152,16 +155,18 @@ public class CrowdingDistance<T extends Chromosome<T>> implements Serializable {
                     min = value;
                     minSet.clear();
                     minSet.add(test);
-                } else if (value == min)
+                } else if (value == min) {
                     minSet.add(test);
+                }
 
                 if (value > max) {
                     max = value;
                 }
             }
 
-            if (max == min)
+            if (max == min) {
                 continue;
+            }
 
             for (T test : minSet) {
                 double numer = (front.size() - minSet.size());

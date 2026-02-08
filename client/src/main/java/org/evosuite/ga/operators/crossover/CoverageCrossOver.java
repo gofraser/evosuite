@@ -48,8 +48,8 @@ public class CoverageCrossOver extends CrossOverFunction<TestSuiteChromosome> {
     /**
      * {@inheritDoc}
      *
-     * @param parent1
-     * @param parent2
+     * @param parent1 a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
+     * @param parent2 a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     @Override
     public void crossOver(TestSuiteChromosome parent1, TestSuiteChromosome parent2)
@@ -105,18 +105,19 @@ public class CoverageCrossOver extends CrossOverFunction<TestSuiteChromosome> {
     }
 
     /**
-     * Create a map from coverage goal to tests that cover this goal
+     * Create a map from coverage goal to tests that cover this goal.
      *
-     * @param goalMap
-     * @param suite
+     * @param goalMap a {@link java.util.Map} object.
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     private void populateCoverageMap(
             Map<TestFitnessFunction, Set<TestChromosome>> goalMap,
             TestSuiteChromosome suite) {
         for (TestChromosome test : suite.getTestChromosomes()) {
             for (TestFitnessFunction goal : test.getTestCase().getCoveredGoals()) {
-                if (!goalMap.containsKey(goal))
+                if (!goalMap.containsKey(goal)) {
                     goalMap.put(goal, new HashSet<>());
+                }
                 goalMap.get(goal).add(test);
             }
 

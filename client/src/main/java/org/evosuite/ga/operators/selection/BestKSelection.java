@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -27,8 +27,8 @@ import static java.util.stream.Collectors.toList;
 
 /**
  * {@inheritDoc}
- * <p>
- * Select individual by highest fitness
+ *
+ * <p>Select individual by highest fitness.
  */
 public class BestKSelection<T extends Chromosome<T>> extends SelectionFunction<T> {
 
@@ -43,8 +43,8 @@ public class BestKSelection<T extends Chromosome<T>> extends SelectionFunction<T
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Population has to be sorted!
+     *
+     * <p>Population has to be sorted!
      */
     @Override
     public List<T> select(List<T> population, int number) {
@@ -55,8 +55,8 @@ public class BestKSelection<T extends Chromosome<T>> extends SelectionFunction<T
 
     /**
      * Selects index of best offspring.
-     * <p>
-     * Population has to be sorted!
+     *
+     * <p>Population has to be sorted!
      */
     @Override
     public int getIndex(List<T> population) {
