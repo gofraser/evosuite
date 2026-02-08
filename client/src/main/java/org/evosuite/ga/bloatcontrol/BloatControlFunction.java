@@ -33,7 +33,7 @@ import java.io.Serializable;
 public interface BloatControlFunction<T extends Chromosome<T>> extends Serializable {
 
     /**
-     * <p>isTooLong</p>
+     * <p>isTooLong.</p>
      *
      * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      * @return a boolean.
