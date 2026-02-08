@@ -86,20 +86,25 @@ public class InheritanceTree {
     }
 
     public boolean isMethodDefined(String className, String methodNameWdescriptor) {
-        if (analyzedMethods.get(className) == null) return false;
+        if (analyzedMethods.get(className) == null) {
+            return false;
+        }
         return analyzedMethods.get(className).contains(methodNameWdescriptor);
     }
 
     public boolean isMethodDefined(String className, String methodName, String descriptor) {
-        if (analyzedMethods.get(className) == null) return false;
+        if (analyzedMethods.get(className) == null) {
+            return false;
+        }
         return analyzedMethods.get(className).contains(methodName + descriptor);
     }
 
     public void addAnalyzedMethod(String classname, String methodname, String descriptor) {
         classname = classname.replace(File.separator, ".");
         Set<String> tmp = analyzedMethods.get(classname);
-        if (tmp == null)
+        if (tmp == null) {
             analyzedMethods.put(classname, tmp = new LinkedHashSet<>());
+        }
         tmp.add(methodname + descriptor);
     }
 
@@ -126,8 +131,9 @@ public class InheritanceTree {
     public Set<String> getSubclasses(String className) {
         String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
 
-        if (subclassCache.containsKey(classNameWithDots))
+        if (subclassCache.containsKey(classNameWithDots)) {
             return subclassCache.get(classNameWithDots);
+        }
 
         if (!inheritanceGraph.containsVertex(classNameWithDots)) {
             AtMostOnceLogger.warn(logger, "Class not in inheritance graph: " + classNameWithDots);

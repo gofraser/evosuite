@@ -35,7 +35,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.evosuite.setup.TestClusterUtils.getPackageDistance;
 
 /**
- * Analyzes
+ * Analyzes concrete classes.
  */
 public class ConcreteClassAnalyzer {
 
@@ -345,8 +345,8 @@ public class ConcreteClassAnalyzer {
      * Returns the {@code Class} objects for the classes or interfaces with the given
      * fully-qualified names.
      *
-     * @param fullyQualifiedClassNames
-     * @return
+     * @param fullyQualifiedClassNames the class names
+     * @return the set of classes
      */
     private Set<Class<?>> getClassesForNames(final String... fullyQualifiedClassNames) {
         final Set<Class<?>> classes = new LinkedHashSet<>();

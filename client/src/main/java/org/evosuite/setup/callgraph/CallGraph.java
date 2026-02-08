@@ -77,10 +77,10 @@ public class CallGraph implements Iterable<CallGraphEntry> {
     }
 
     /**
-     * add public methods
+     * add public methods.
      *
-     * @param className
-     * @param methodName
+     * @param className the class name
+     * @param methodName the method name
      */
     public void addPublicMethod(String className, String methodName) {
         publicMethods.add(new CallContext(ResourceList
@@ -88,14 +88,14 @@ public class CallGraph implements Iterable<CallGraphEntry> {
     }
 
     /**
-     * add call to the call graph
+     * add call to the call graph.
      *
-     * @param sourceClass
-     * @param sourceMethod
-     * @param targetClass
-     * @param targetMethod
+     * @param sourceClass the source class
+     * @param sourceMethod the source method
+     * @param targetClass the target class
+     * @param targetMethod the target method
+     * @return true if the call was added
      */
-
     public boolean addCall(String sourceClass, String sourceMethod,
                            String targetClass, String targetMethod) {
         CallGraphEntry from = new CallGraphEntry(targetClass, targetMethod);
@@ -139,23 +139,25 @@ public class CallGraph implements Iterable<CallGraphEntry> {
     }
 
     /**
-     * @return calls exiting from the method, empty set if the call is not in
-     * the graph
+     * Get calls exiting from the method, empty set if the call is not in the graph.
+     *
+     * @param call the call entry
+     * @return calls exiting from the method
      */
     public Set<CallGraphEntry> getCallsFromMethod(CallGraphEntry call) {
-        if (graph.getEdges().containsKey(call))
+        if (graph.getEdges().containsKey(call)) {
             return graph.getEdges().get(call);
-        else {
+        } else {
             return new HashSet<>();
         }
     }
 
     /**
-     * computes and returns the call contexts of the specific method
+     * Computes and returns the call contexts of the specific method.
      *
-     * @param className
-     * @param methodName
-     * @return
+     * @param className the class name
+     * @param methodName the method name
+     * @return the set of call contexts
      */
     public Set<CallContext> getMethodEntryPoint(String className, String methodName) {
         Set<CallContext> contexts = new HashSet<>();
@@ -171,19 +173,20 @@ public class CallGraph implements Iterable<CallGraphEntry> {
     }
 
     /**
-     * computes and returns the call contexts that starts from the target class
-     * and end in the specific method
+     * Computes and returns the call contexts that starts from the target class
+     * and end in the specific method.
      *
-     * @param className
-     * @param methodName
-     * @return
+     * @param className the class name
+     * @param methodName the method name
+     * @return the set of call contexts
      */
     public Set<CallContext> getAllContextsFromTargetClass(String className, String methodName) {
         CallGraphEntry root = new CallGraphEntry(className, methodName);
         Set<List<CallGraphEntry>> paths = PathFinder.getPaths(graph, root);
         Set<CallContext> contexts = convertIntoCallContext(paths);
-        if (!Properties.EXCLUDE_IBRANCHES_CUT)
+        if (!Properties.EXCLUDE_IBRANCHES_CUT) {
             addPublicClassMethod(className, methodName, contexts);
+        }
         return contexts;
     }
 
@@ -192,8 +195,9 @@ public class CallGraph implements Iterable<CallGraphEntry> {
         Call call = new Call(className, methodName);
         calls.add(call);
         CallContext context = new CallContext(calls);
-        if (publicMethods.contains(context) && className.equals(this.className))
+        if (publicMethods.contains(context) && className.equals(this.className)) {
             contexts.add(context);
+        }
     }
 
     private Set<CallContext> convertIntoCallContext(
@@ -209,9 +213,10 @@ public class CallGraph implements Iterable<CallGraphEntry> {
                 if (!insert && list.get(i).getClassName().equals(className)) {
                     insert = true;
                 }
-                if (insert)
+                if (insert) {
                     cont.add(new Call(list.get(i).getClassName(), list.get(i)
                             .getMethodName()));
+                }
             }
             contexts.add(new CallContext(cont));
         }
@@ -227,23 +232,27 @@ public class CallGraph implements Iterable<CallGraphEntry> {
 
 
     /**
+     * Get classes reachable from the class under test.
+     *
      * @return classes reachable from the class under test
      */
     public Set<String> getClassesUnderTest() {
-        if (toTestClasses.isEmpty())
+        if (toTestClasses.isEmpty()) {
             computeInterestingClasses(graph);
+        }
         return toTestClasses;
     }
 
     /**
-     * Determine if className can be reached from the class under test
+     * Determine if className can be reached from the class under test.
      *
-     * @param className
-     * @return
+     * @param className the class name
+     * @return true if the class is called
      */
     public boolean isCalledClass(String className) {
-        if (toTestClasses.isEmpty())
+        if (toTestClasses.isEmpty()) {
             computeInterestingClasses(graph);
+        }
         return toTestClasses.contains(className);
     }
 
@@ -272,15 +281,16 @@ public class CallGraph implements Iterable<CallGraphEntry> {
 
     /**
      * Determine if methodName of className can be called through the target
-     * class
+     * class.
      *
-     * @param className
-     * @param methodName
-     * @return
+     * @param className the class name
+     * @param methodName the method name
+     * @return true if the method is called
      */
     public boolean isCalledMethod(String className, String methodName) {
-        if (toTestMethods.isEmpty())
+        if (toTestMethods.isEmpty()) {
             computeInterestingClasses(graph);
+        }
         return toTestMethods.contains(className + methodName);
     }
 

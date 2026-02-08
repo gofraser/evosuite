@@ -73,6 +73,8 @@ public class DependencyAnalysis {
     }
 
     /**
+     * Get the inheritance tree.
+     *
      * @return the inheritanceTree
      */
     public static InheritanceTree getInheritanceTree() {
@@ -133,9 +135,12 @@ public class DependencyAnalysis {
     }
 
     /**
-     * Start analysis from target class
+     * Start analysis from target class.
      *
-     * @param className
+     * @param className the class to analyze
+     * @param classPath the classpath to use
+     * @throws RuntimeException if an error occurs
+     * @throws ClassNotFoundException if the class is not found
      */
     public static void analyzeClass(String className, List<String> classPath) throws RuntimeException,
             ClassNotFoundException {
@@ -147,9 +152,13 @@ public class DependencyAnalysis {
     }
 
     /**
-     * Start analysis from target
+     * Start analysis from target.
      *
      * @param target (e.g., directory, or jar file)
+     * @param classPath the classpath to use
+     * @return the set of target classes
+     * @throws RuntimeException if an error occurs
+     * @throws ClassNotFoundException if the class is not found
      */
     public static Set<String> analyzeTarget(String target, List<String> classPath) throws RuntimeException,
             ClassNotFoundException {
@@ -180,7 +189,9 @@ public class DependencyAnalysis {
     }
 
     /**
-     * @param className
+     * Get the CallGraph of className.
+     *
+     * @param className the class name
      * @return the CallGraph of className
      */
     public static CallGraph getCallGraph(String className) {
@@ -188,6 +199,8 @@ public class DependencyAnalysis {
     }
 
     /**
+     * Get the CallGraph of Properties.TARGET_CLASS.
+     *
      * @return the CallGraph of Properties.TARGET_CLASS
      */
     public static CallGraph getCallGraph() {
@@ -195,10 +208,10 @@ public class DependencyAnalysis {
     }
 
     /**
-     * Determine if the given class is the target class
+     * Determine if the given class is the target class.
      *
-     * @param className
-     * @return
+     * @param className the class name
+     * @return true if it is the target class
      */
     public static boolean isTargetClassName(String className) {
         if (!Properties.TARGET_CLASS_PREFIX.isEmpty()
@@ -239,23 +252,25 @@ public class DependencyAnalysis {
     }
 
     /**
-     * Determine if the given class should be analyzed or instrumented
+     * Determine if the given class should be analyzed or instrumented.
      *
-     * @param className
-     * @return
+     * @param className the class name
+     * @return true if it should be analyzed
      */
     public static boolean shouldAnalyze(String className) {
         // Always analyze if it is a target class
-        if (isTargetClassName(className))
+        if (isTargetClassName(className)) {
             return true;
+        }
 
         if (inheritanceTree == null) {
             return false;
         }
         // Also analyze if it is a superclass and instrument_parent = true
         if (Properties.INSTRUMENT_PARENT) {
-            if (inheritanceTree.getSuperclasses(Properties.TARGET_CLASS).contains(className))
+            if (inheritanceTree.getSuperclasses(Properties.TARGET_CLASS).contains(className)) {
                 return true;
+            }
         }
 
         // Also analyze if it is in the calltree and we are considering the
@@ -271,21 +286,23 @@ public class DependencyAnalysis {
     }
 
     /**
-     * Determine if the given method should be instrumented
+     * Determine if the given method should be instrumented.
      *
-     * @param className
-     * @param methodName
-     * @return
+     * @param className the class name
+     * @param methodName the method name
+     * @return true if it should be instrumented
      */
     public static boolean shouldInstrument(String className, String methodName) {
         // Always analyze if it is a target class
-        if (isTargetClassName(className))
+        if (isTargetClassName(className)) {
             return true;
+        }
 
         // Also analyze if it is a superclass and instrument_parent = true
         if (Properties.INSTRUMENT_PARENT) {
-            if (inheritanceTree.getSuperclasses(Properties.TARGET_CLASS).contains(className))
+            if (inheritanceTree.getSuperclasses(Properties.TARGET_CLASS).contains(className)) {
                 return true;
+            }
         }
 
         // Also analyze if it is in the calltree and we are considering the
@@ -355,7 +372,8 @@ public class DependencyAnalysis {
                 .getInstance()
                 .getClientNode()
                 .trackOutputVariable(RuntimeVariable.Total_Branches_Real,
-                        ((BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchCounter() - BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumArtificialBranches())) * 2);
+                        ((BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchCounter()
+                                - BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumArtificialBranches())) * 2);
         ClientServices
                 .getInstance()
                 .getClientNode()

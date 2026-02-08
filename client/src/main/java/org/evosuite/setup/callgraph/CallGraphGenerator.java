@@ -45,8 +45,9 @@ public class CallGraphGenerator {
     public static CallGraph analyze(String className) {
         ClassNode targetClass = DependencyAnalysis.getClassNode(className);
         CallGraph callgraph = new CallGraph(className);
-        if (targetClass != null)
+        if (targetClass != null) {
             handle(callgraph, targetClass, 0);
+        }
         if (Properties.INSTRUMENT_PARENT) {
             handleSuperClasses(callgraph, targetClass);
         }
@@ -56,8 +57,9 @@ public class CallGraphGenerator {
     public static CallGraph analyzeOtherClasses(CallGraph callgraph, String className) {
         ClassNode targetClass = DependencyAnalysis.getClassNode(className);
 
-        if (targetClass != null)
+        if (targetClass != null) {
             handle(callgraph, targetClass, 0);
+        }
         return callgraph;
     }
 
@@ -67,19 +69,21 @@ public class CallGraphGenerator {
 
     /**
      * If we want to have the calltree also for the superclasses, we need to
-     * determine which methods are callable
+     * determine which methods are callable.
      *
-     * @param callGraph
-     * @param targetClass
+     * @param callGraph the call graph
+     * @param targetClass the target class
      */
     @SuppressWarnings("unchecked")
     private static void handleSuperClasses(CallGraph callGraph, ClassNode targetClass) {
         String superClassName = targetClass.superName;
-        if (superClassName == null || superClassName.isEmpty())
+        if (superClassName == null || superClassName.isEmpty()) {
             return;
+        }
 
-        if (superClassName.equals("java/lang/Object"))
+        if (superClassName.equals("java/lang/Object")) {
             return;
+        }
 
         logger.debug("Creating calltree for superclass: " + superClassName);
         ClassNode superClass = DependencyAnalysis.getClassNode(superClassName);
@@ -88,14 +92,17 @@ public class CallGraphGenerator {
             logger.debug("Method: " + mn.name);
 
             // Do not check super-constructors
-            if (mn.name.equals("<init>"))
+            if (mn.name.equals("<init>")) {
                 continue;
-            if (mn.name.equals("<clinit>"))
+            }
+            if (mn.name.equals("<clinit>")) {
                 continue;
+            }
 
             // Skip abstract etc
-            if ((mn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT)
+            if ((mn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT) {
                 continue;
+            }
 
             // Do not handle classes if they are overridden by the subclass
             if ((mn.access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC) {
@@ -121,24 +128,28 @@ public class CallGraphGenerator {
                                int depth) {
         List<MethodNode> methods = targetClass.methods;
         for (MethodNode mn : methods) {
-            if (methodName.equals(mn.name + mn.desc))
+            if (methodName.equals(mn.name + mn.desc)) {
                 handleMethodNode(callGraph, targetClass, mn, depth);
+            }
         }
     }
 
     private static void handle(CallGraph callGraph, String className, String methodName, int depth) {
         ClassNode cn = DependencyAnalysis.getClassNode(className);
-        if (cn == null)
+        if (cn == null) {
             return;
+        }
 
         handle(callGraph, cn, methodName, depth);
     }
 
     /**
-     * Add all possible calls for a given method
+     * Add all possible calls for a given method.
      *
-     * @param callGraph
-     * @param mn
+     * @param callGraph the call graph
+     * @param cn the class node
+     * @param mn the method node
+     * @param depth the current depth
      */
     @SuppressWarnings("unchecked")
     private static void handleMethodNode(CallGraph callGraph, ClassNode cn, MethodNode mn, int depth) {
@@ -163,11 +174,13 @@ public class CallGraphGenerator {
     }
 
     /**
-     * Descend into a call
+     * Descend into a call.
      *
-     * @param callGraph
-     * @param mn
-     * @param methodCall
+     * @param callGraph the call graph
+     * @param cn the class node
+     * @param mn the method node
+     * @param methodCall the method call instruction
+     * @param depth the current depth
      */
     private static void handleMethodInsnNode(CallGraph callGraph, ClassNode cn, MethodNode mn,
                                              MethodInsnNode methodCall, int depth) {
@@ -197,11 +210,13 @@ public class CallGraphGenerator {
             String targetMethod = call.getMethodName();
 
             // Ignore constructors
-            if (targetMethod.startsWith("<init>"))
+            if (targetMethod.startsWith("<init>")) {
                 continue;
+            }
             // Ignore calls to Array (e.g. clone())
-            if (targetClass.startsWith("["))
+            if (targetClass.startsWith("[")) {
                 continue;
+            }
             if (!inheritanceTree.hasClass(targetClass)) {
                 // Private classes are not in the inheritance tree
                 continue;

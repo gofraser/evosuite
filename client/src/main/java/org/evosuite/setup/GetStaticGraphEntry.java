@@ -67,26 +67,35 @@ abstract class GetStaticGraphEntry {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (!(obj instanceof GetStaticGraphEntry))
+        }
+        if (!(obj instanceof GetStaticGraphEntry)) {
             return false;
+        }
         GetStaticGraphEntry other = (GetStaticGraphEntry) obj;
         if (sourceClass == null) {
-            if (other.sourceClass != null)
+            if (other.sourceClass != null) {
                 return false;
-        } else if (!sourceClass.equals(other.sourceClass))
+            }
+        } else if (!sourceClass.equals(other.sourceClass)) {
             return false;
+        }
         if (sourceMethod == null) {
-            if (other.sourceMethod != null)
+            if (other.sourceMethod != null) {
                 return false;
-        } else if (!sourceMethod.equals(other.sourceMethod))
+            }
+        } else if (!sourceMethod.equals(other.sourceMethod)) {
             return false;
+        }
         if (targetClass == null) {
             return other.targetClass == null;
-        } else return targetClass.equals(other.targetClass);
+        } else {
+            return targetClass.equals(other.targetClass);
+        }
     }
 
 }

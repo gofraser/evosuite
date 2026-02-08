@@ -22,6 +22,9 @@ package org.evosuite.setup.callgraph;
 import java.util.*;
 
 /**
+ * DFS Iterator for finding paths in a graph.
+ *
+ * @param <E> type of vertices
  * @author mattia
  */
 public class PathFinderDFSIterator<E> implements Iterator<E> {
