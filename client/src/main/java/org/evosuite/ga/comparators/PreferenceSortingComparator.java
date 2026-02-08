@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -57,7 +57,7 @@ public class PreferenceSortingComparator<T extends Chromosome<T>> implements Com
     private final FitnessFunction<T> objective;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param goal a {@link org.evosuite.ga.FitnessFunction} object
      */
@@ -71,8 +71,8 @@ public class PreferenceSortingComparator<T extends Chromosome<T>> implements Com
      * @param solution1 a {@link org.evosuite.ga.Chromosome} object
      * @param solution2 a {@link org.evosuite.ga.Chromosome} object
      * @return -1 if fitness value of solution1 is lower than the fitness value of solution2, 0 if the fitness
-     * value of both objects is equal, or 1 if fitness value of solution1 is higher than the fitness
-     * value of solution2.
+     *     value of both objects is equal, or 1 if fitness value of solution1 is higher than the fitness
+     *     value of solution2.
      */
     public int compare(T solution1, T solution2) {
         if (solution1 == null) {
@@ -81,7 +81,8 @@ public class PreferenceSortingComparator<T extends Chromosome<T>> implements Com
             return -1;
         }
 
-        double value1, value2;
+        double value1;
+        double value2;
         value1 = solution1.getFitness(this.objective);
         value2 = solution2.getFitness(this.objective);
 
