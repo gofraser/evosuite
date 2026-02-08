@@ -57,13 +57,13 @@ public abstract class Archive implements Serializable {
 
     /**
      * Map used to store all targets (values of the map) of each method (here represented by its name,
-     * keys of the map)
+     * keys of the map).
      */
     protected final Map<String, Set<TestFitnessFunction>> nonCoveredTargetsOfEachMethod =
             new LinkedHashMap<>();
 
     /**
-     * Has this archive been updated with new candidate solutions?
+     * Has this archive been updated with new candidate solutions.
      */
     protected boolean hasBeenUpdated = false;
 
@@ -93,7 +93,7 @@ public abstract class Archive implements Serializable {
     /**
      * Register a non-covered target of a method.
      *
-     * @param target
+     * @param target the target to register
      */
     protected void registerNonCoveredTargetOfAMethod(TestFitnessFunction target) {
         String targetMethod = this.getMethodFullName(target);
@@ -106,7 +106,7 @@ public abstract class Archive implements Serializable {
     /**
      * Removes a specific covered target from the list of non-covered targets of a method.
      *
-     * @param target
+     * @param target the target to remove
      */
     protected void removeNonCoveredTargetOfAMethod(TestFitnessFunction target) {
         String targetMethod = this.getMethodFullName(target);
@@ -130,7 +130,7 @@ public abstract class Archive implements Serializable {
      *
      * @param target       the covered target
      * @param solution     the solution covering the target
-     * @param fitnessValue
+     * @param fitnessValue the fitness value of the solution covering the target
      */
     public void updateArchive(TestFitnessFunction target,
                               TestChromosome solution,
@@ -149,8 +149,8 @@ public abstract class Archive implements Serializable {
     /**
      * Checks whether a candidate solution is better than an existing one.
      *
-     * @param currentSolution
-     * @param candidateSolution
+     * @param currentSolution   the existing solution
+     * @param candidateSolution the new candidate solution
      * @return true if a candidate solution is better than an existing one, false otherwise
      */
     public static boolean isBetterThanCurrent(TestChromosome currentSolution, TestChromosome candidateSolution) {
@@ -196,15 +196,17 @@ public abstract class Archive implements Serializable {
         return false;
     }
 
-    private static boolean isBetterBySecondaryObjectives(TestChromosome currentSolution, TestChromosome candidateSolution) {
+    private static boolean isBetterBySecondaryObjectives(TestChromosome currentSolution,
+                                                         TestChromosome candidateSolution) {
         // If we try to add a test for a target we've already covered
         // and the new test is shorter, keep the shorter one
         int timesBetter = 0;
         for (SecondaryObjective<TestChromosome> obj : getSecondaryObjectives()) {
-            if (obj.compareChromosomes(candidateSolution, currentSolution) < 0)
+            if (obj.compareChromosomes(candidateSolution, currentSolution) < 0) {
                 timesBetter++;
-            else
+            } else {
                 timesBetter--;
+            }
         }
 
         return timesBetter > 0;
@@ -213,21 +215,21 @@ public abstract class Archive implements Serializable {
     /**
      * Returns false if there is not any solution in the archive, true otherwise.
      *
-     * @return
+     * @return true if the archive is empty, false otherwise
      */
     public abstract boolean isArchiveEmpty();
 
     /**
      * Return the total number of targets (either covered by any solution or not).
      *
-     * @return
+     * @return the number of targets
      */
     public abstract int getNumberOfTargets();
 
     /**
      * Returns the total number of targets covered by all solutions in the archive.
      *
-     * @return
+     * @return the number of covered targets
      */
     public abstract int getNumberOfCoveredTargets();
 
@@ -235,22 +237,22 @@ public abstract class Archive implements Serializable {
      * Returns the total number of targets (of a specific type) covered by all solutions in the
      * archive.
      *
-     * @param targetClass
-     * @return
+     * @param targetClass the class of the targets
+     * @return the number of covered targets
      */
     public abstract int getNumberOfCoveredTargets(Class<?> targetClass);
 
     /**
      * Returns the union of all targets covered by all solutions in the archive.
      *
-     * @return
+     * @return the set of covered targets
      */
     public abstract Set<TestFitnessFunction> getCoveredTargets();
 
     /**
      * Returns the total number of targets that have not been covered by any solution.
      *
-     * @return
+     * @return the number of uncovered targets
      */
     public abstract int getNumberOfUncoveredTargets();
 
@@ -258,37 +260,37 @@ public abstract class Archive implements Serializable {
      * Returns the total number of targets (of a specific type) that have not been covered by any
      * solution.
      *
-     * @param targetClass
-     * @return
+     * @param targetClass the class of the targets
+     * @return the number of uncovered targets
      */
     public abstract int getNumberOfUncoveredTargets(Class<?> targetClass);
 
     /**
      * Returns a set of all targets that have not been covered by any solution.
      *
-     * @return
+     * @return the set of uncovered targets
      */
     public abstract Set<TestFitnessFunction> getUncoveredTargets();
 
     /**
-     * Returns true if the archive contains the specific target, false otherwise
+     * Returns true if the archive contains the specific target, false otherwise.
      *
-     * @param target
-     * @return
+     * @param target the target to check
+     * @return true if the archive contains the target, false otherwise
      */
     public abstract boolean hasTarget(TestFitnessFunction target);
 
     /**
      * Returns the number of unique solutions in the archive.
      *
-     * @return
+     * @return the number of solutions
      */
     public abstract int getNumberOfSolutions();
 
     /**
      * Returns the union of all solutions in the archive.
      *
-     * @return
+     * @return the set of solutions
      */
     public abstract Set<TestChromosome> getSolutions();
 
@@ -296,44 +298,48 @@ public abstract class Archive implements Serializable {
      * Returns a particular solution in the archive. The underline algorithm to select a solution
      * depends on the type of archive.
      *
-     * @return
+     * @return a solution
      */
     public abstract TestChromosome getSolution();
 
     /**
      * Returns the solution that covers a particular target.
      *
-     * @param target
-     * @return
+     * @param target the target
+     * @return the solution that covers the target
      */
     public abstract TestChromosome getSolution(TestFitnessFunction target);
 
     /**
      * Returns true if the archive has a solution for the specific target, false otherwise.
      *
-     * @param target
-     * @return
+     * @param target the target
+     * @return true if the archive has a solution for the target, false otherwise
      */
     public abstract boolean hasSolution(TestFitnessFunction target);
 
     /**
      * Returns the clone of a solution selected at random.
      *
-     * @return
+     * @return a clone of a random solution
      */
     public abstract TestChromosome getRandomSolution();
 
     /**
-     * @param solution
-     * @return
+     * Creates a merged solution based on the parameter solution.
+     *
+     * @param solution the solution to merge
+     * @return the merged solution
      */
     protected TestChromosome createMergedSolution(TestChromosome solution) {
         return solution;
     }
 
     /**
-     * @param solution
-     * @return
+     * Creates a merged solution based on the parameter solution.
+     *
+     * @param solution the solution to merge
+     * @return the merged solution
      */
     protected abstract TestSuiteChromosome createMergedSolution(TestSuiteChromosome solution);
 
@@ -341,6 +347,7 @@ public abstract class Archive implements Serializable {
      * Creates a solution based on the best solutions in the archive and the parameter solution.
      *
      * @param solution a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
+     * @param <C>      the type of the chromosome
      * @return a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     @SuppressWarnings("unchecked")
@@ -356,7 +363,9 @@ public abstract class Archive implements Serializable {
     }
 
     /**
-     * @param size
+     * Shrink solutions to the given size.
+     *
+     * @param size the maximum size
      */
     public abstract void shrinkSolutions(int size);
 
@@ -463,8 +472,8 @@ public abstract class Archive implements Serializable {
      * Returns the concatenation of the name of the class and the name of the method to which a target
      * belongs.
      *
-     * @param target
-     * @return
+     * @param target the target
+     * @return the full name of the method
      */
     protected String getMethodFullName(TestFitnessFunction target) {
         return this.getClassName(target) + this.getMethodName(target);
@@ -481,7 +490,7 @@ public abstract class Archive implements Serializable {
     /**
      * Reports whether a method has or has not been fully covered.
      *
-     * @param methodFullName
+     * @param methodFullName the full name of the method
      * @return true if a method has been fully covered, false otherwise
      */
     protected boolean isMethodFullyCovered(String methodFullName) {
@@ -494,8 +503,8 @@ public abstract class Archive implements Serializable {
     /**
      * Returns the number of targets of a method remaining to be covered.
      *
-     * @param methodFullName
-     * @return
+     * @param methodFullName the full name of the method
+     * @return the number of remaining targets
      */
     public int getNumOfRemainingTargets(String methodFullName) {
         if (!this.nonCoveredTargetsOfEachMethod.containsKey(methodFullName)) {
@@ -517,25 +526,27 @@ public abstract class Archive implements Serializable {
     }
 
     /**
-     * Returns true if the archive has been updated with new instances, false otherwise
+     * Returns true if the archive has been updated with new instances, false otherwise.
      *
-     * @return
+     * @return true if the archive has been updated, false otherwise
      */
     public boolean hasBeenUpdated() {
         return this.hasBeenUpdated;
     }
 
     /**
-     * Sets the status (update or not update) of the archive
+     * Sets the status (update or not update) of the archive.
      *
-     * @param b
+     * @param b the status to set
      */
     public void setHasBeenUpdated(boolean b) {
         this.hasBeenUpdated = b;
     }
 
     /**
-     * @return
+     * Returns the archive instance based on the properties.
+     *
+     * @return the archive instance
      */
     public static Archive getArchiveInstance() {
         switch (Properties.ARCHIVE_TYPE) {

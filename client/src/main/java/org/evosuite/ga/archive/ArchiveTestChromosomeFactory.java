@@ -35,12 +35,12 @@ public class ArchiveTestChromosomeFactory implements ChromosomeFactory<TestChrom
 
     private static final long serialVersionUID = -8499807341782893732L;
 
-    private final static Logger logger = LoggerFactory.getLogger(ArchiveTestChromosomeFactory.class);
+    private static final Logger logger = LoggerFactory.getLogger(ArchiveTestChromosomeFactory.class);
 
     private final ChromosomeFactory<TestChromosome> defaultFactory = new RandomLengthTestFactory();
 
     /**
-     * Serialized tests read from disk, eg from previous runs in CTG
+     * Serialized tests read from disk, eg from previous runs in CTG.
      */
     private List<TestChromosome> seededTests;
 
@@ -48,7 +48,8 @@ public class ArchiveTestChromosomeFactory implements ChromosomeFactory<TestChrom
         if (Properties.CTG_SEEDS_FILE_IN != null) {
             //This does happen in CTG
             seededTests = TestSuiteSerialization.loadTests(Properties.CTG_SEEDS_FILE_IN);
-            LoggingUtils.getEvoLogger().info("* Loaded {} tests from {}", seededTests.size(), Properties.CTG_SEEDS_FILE_IN);
+            LoggingUtils.getEvoLogger().info("* Loaded {} tests from {}", seededTests.size(),
+                    Properties.CTG_SEEDS_FILE_IN);
         }
     }
 
@@ -56,13 +57,13 @@ public class ArchiveTestChromosomeFactory implements ChromosomeFactory<TestChrom
     public TestChromosome getChromosome() {
 
         if (seededTests != null && !seededTests.isEmpty()) {
-      /*
-              Ideally, we should populate the archive directly when EvoSuite starts.
-              But might be bit tricky based on current archive implementation (which needs executed tests).
-              So, easiest approach is to just return tests here, with no mutation on those.
-              However, this is done just once per test, as anyway those will end up
-              in archive.
-       */
+            /*
+             Ideally, we should populate the archive directly when EvoSuite starts.
+             But might be bit tricky based on current archive implementation (which needs executed tests).
+             So, easiest approach is to just return tests here, with no mutation on those.
+             However, this is done just once per test, as anyway those will end up
+             in archive.
+             */
             TestChromosome
                     test =
                     seededTests

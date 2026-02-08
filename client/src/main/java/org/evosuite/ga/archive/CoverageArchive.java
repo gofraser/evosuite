@@ -48,12 +48,12 @@ public class CoverageArchive extends Archive {
 
     /**
      * Map used to store all covered targets (keys of the map) and the corresponding covering
-     * solutions (values of the map)
+     * solutions (values of the map).
      */
     private final Map<TestFitnessFunction, TestChromosome> covered = new LinkedHashMap<>();
 
     /**
-     * Set used to store all targets that have not been covered yet
+     * Set used to store all targets that have not been covered yet.
      */
     private final Set<TestFitnessFunction> uncovered = new LinkedHashSet<>();
 

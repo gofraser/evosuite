@@ -39,7 +39,9 @@ class Population implements Serializable {
     private final List<Pair<Double, TestChromosome>> solutions;
 
     /**
-     * @param populationSize
+     * Constructor.
+     *
+     * @param populationSize the size of the population
      */
     Population(int populationSize) {
         this.capacity = populationSize;
@@ -47,14 +49,18 @@ class Population implements Serializable {
     }
 
     /**
-     * @return
+     * Returns the counter.
+     *
+     * @return the counter
      */
     int counter() {
         return this.counter;
     }
 
     /**
-     * @return
+     * Returns true if the target is covered, false otherwise.
+     *
+     * @return true if the target is covered, false otherwise
      */
     boolean isCovered() {
         return this.solutions.size() == 1 && this.capacity == 1
@@ -62,9 +68,12 @@ class Population implements Serializable {
     }
 
     /**
+     * Adds a solution to the population.
+     *
      * @param h [0,1] value, where 1 means that the target is covered, and whereas 0 is the worst
      *          possible heuristics value
-     * @param t
+     * @param t the solution to add
+     * @return true if the solution was added, false otherwise
      */
     boolean addSolution(Double h, TestChromosome t) {
         assert h >= 0.0 && h <= 1.0;
@@ -138,9 +147,11 @@ class Population implements Serializable {
     }
 
     /**
-     * @param currentSolution
-     * @param candidateSolution
-     * @return
+     * Checks whether a candidate solution is better than an existing one.
+     *
+     * @param currentSolution   the existing solution
+     * @param candidateSolution the new candidate solution
+     * @return true if a candidate solution is better than an existing one, false otherwise
      */
     private boolean isPairBetterThanCurrent(Pair<Double, TestChromosome> currentSolution,
                                             Pair<Double, TestChromosome> candidateSolution) {
@@ -156,7 +167,9 @@ class Population implements Serializable {
     }
 
     /**
-     * @return
+     * Samples a solution from the population.
+     *
+     * @return a solution from the population
      */
     TestChromosome sampleSolution() {
         if (this.numSolutions() == 0) {
@@ -167,7 +180,7 @@ class Population implements Serializable {
     }
 
     /**
-     * DESC sort, i.e., from the pair with the highest h to the pair with the lowest h
+     * DESC sort, i.e., from the pair with the highest h to the pair with the lowest h.
      */
     private void sortPairSolutions() {
         this.solutions.sort((solution0, solution1) -> {
@@ -181,14 +194,18 @@ class Population implements Serializable {
     }
 
     /**
-     * @return
+     * Returns the number of solutions in the population.
+     *
+     * @return the number of solutions
      */
     int numSolutions() {
         return this.solutions.size();
     }
 
     /**
-     * @return
+     * Returns the best solution in the population if any.
+     *
+     * @return the best solution in the population if any, null otherwise
      */
     TestChromosome getBestSolutionIfAny() {
         if (this.numSolutions() == 0 || !this.isCovered()) {
@@ -198,7 +215,9 @@ class Population implements Serializable {
     }
 
     /**
-     * @param newPopulationSize
+     * Shrinks the population to the new size.
+     *
+     * @param newPopulationSize the new population size
      */
     void shrinkPopulation(int newPopulationSize) {
         assert newPopulationSize > 0;
