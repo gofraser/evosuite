@@ -47,7 +47,7 @@ public class SerializationSuiteChromosomeFactory
      * The carved test cases are used only with a certain probability P. So, with probability 1-P the 'default' factory
      * is rather used.
      *
-     * @param defaultFactory
+     * @param defaultFactory a {@link org.evosuite.ga.ChromosomeFactory} object.
      * @throws IllegalStateException if Properties are not properly set
      */
     public SerializationSuiteChromosomeFactory(ChromosomeFactory<TestChromosome> defaultFactory)
@@ -57,7 +57,8 @@ public class SerializationSuiteChromosomeFactory
         if (Properties.CTG_SEEDS_FILE_IN != null) {
             this.previousSuite.addAll(TestSuiteSerialization.loadTests(Properties.CTG_SEEDS_FILE_IN));
         } else {
-            this.previousSuite.addAll(TestSuiteSerialization.loadTests(Properties.SEED_DIR + File.separator + Properties.TARGET_CLASS));
+            this.previousSuite.addAll(TestSuiteSerialization.loadTests(Properties.SEED_DIR + File.separator
+                    + Properties.TARGET_CLASS));
         }
     }
 

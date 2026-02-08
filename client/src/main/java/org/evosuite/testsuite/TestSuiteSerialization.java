@@ -86,7 +86,8 @@ public class TestSuiteSerialization {
     }
 
 
-    public static boolean saveTests(List<TestSuiteChromosome> ts, File folder, String fileName) throws IllegalArgumentException {
+    public static boolean saveTests(List<TestSuiteChromosome> ts, File folder, String fileName)
+            throws IllegalArgumentException {
         Inputs.checkNull(ts, folder, fileName);
 
         if (!folder.exists()) {
@@ -131,7 +132,8 @@ public class TestSuiteSerialization {
             } catch (EOFException e) {
                 //fine
             } catch (Exception e) {
-                logger.warn("Problems when reading a serialized test from " + target.getAbsolutePath() + " : " + e.getMessage());
+                logger.warn("Problems when reading a serialized test from " + target.getAbsolutePath() + " : "
+                        + e.getMessage());
             }
 
             in.close();

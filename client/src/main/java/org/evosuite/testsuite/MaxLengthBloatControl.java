@@ -42,8 +42,8 @@ public class MaxLengthBloatControl implements BloatControlFunction<TestSuiteChro
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Check whether the chromosome is bigger than the max length constant
+     *
+     * <p>Check whether the chromosome is bigger than the max length constant.</p>
      */
     @Override
     public boolean isTooLong(TestSuiteChromosome chromosome) {

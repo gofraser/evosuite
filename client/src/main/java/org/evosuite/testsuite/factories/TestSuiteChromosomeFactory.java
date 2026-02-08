@@ -41,7 +41,7 @@ public class TestSuiteChromosomeFactory implements ChromosomeFactory<TestSuiteCh
     }
 
     /**
-     * Factory to manipulate and generate method sequences
+     * Factory to manipulate and generate method sequences.
      */
     protected ChromosomeFactory<TestChromosome> testChromosomeFactory;
 
@@ -62,7 +62,7 @@ public class TestSuiteChromosomeFactory implements ChromosomeFactory<TestSuiteCh
     }
 
     /**
-     * <p>setTestFactory</p>
+     * <p>setTestFactory.</p>
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */

@@ -54,14 +54,14 @@ import static java.util.Comparator.comparingInt;
 public class TestSuiteMinimizer {
 
     /**
-     * Logger
+     * Logger.
      */
-    private final static Logger logger = LoggerFactory.getLogger(TestSuiteMinimizer.class);
+    private static final Logger logger = LoggerFactory.getLogger(TestSuiteMinimizer.class);
 
     private final List<TestFitnessFactory<?>> testFitnessFactories = new ArrayList<>();
 
     /**
-     * Assume the search has not started until startTime != 0
+     * Assume the search has not started until startTime != 0.
      */
     protected static long startTime = 0L;
 
@@ -82,7 +82,7 @@ public class TestSuiteMinimizer {
 
     /**
      * <p>
-     * minimize
+     * minimize.
      * </p>
      *
      * @param suite           a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
@@ -101,10 +101,11 @@ public class TestSuiteMinimizer {
         logger.info("Minimization Strategy: " + strategy + ", " + suite.size() + " tests");
         suite.clearMutationHistory();
 
-        if (minimizePerTest)
+        if (minimizePerTest) {
             minimizeTests(suite);
-        else
+        } else {
             minimizeSuite(suite);
+        }
 
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Size,
                 suite.size());
@@ -120,16 +121,19 @@ public class TestSuiteMinimizer {
     }
 
     private void filterJUnitCoveredGoals(List<TestFitnessFunction> goals) {
-        if (Properties.JUNIT.isEmpty())
+        if (Properties.JUNIT.isEmpty()) {
             return;
+        }
 
         LoggingUtils.getEvoLogger().info("* Determining coverage of existing tests");
         String[] testClasses = Properties.JUNIT.split(":");
         for (String testClass : testClasses) {
             try {
-                Class<?> junitClass = Class.forName(testClass, true, TestGenerationContext.getInstance().getClassLoaderForSUT());
+                Class<?> junitClass = Class.forName(testClass, true,
+                        TestGenerationContext.getInstance().getClassLoaderForSUT());
                 Set<TestFitnessFunction> coveredGoals = CoverageAnalysis.getCoveredGoals(junitClass, goals);
-                LoggingUtils.getEvoLogger().info("* Removing " + coveredGoals.size() + " goals already covered by JUnit (total: " + goals.size() + ")");
+                LoggingUtils.getEvoLogger().info("* Removing " + coveredGoals.size()
+                        + " goals already covered by JUnit (total: " + goals.size() + ")");
                 //logger.warn("Removing " + coveredGoals + " goals already covered by JUnit (total: " + goals + ")");
                 goals.removeAll(coveredGoals);
                 logger.info("Remaining goals: " + goals.size() + ": " + goals);
@@ -141,7 +145,7 @@ public class TestSuiteMinimizer {
 
     /**
      * Minimize test suite with respect to the isCovered Method of the goals
-     * defined by the supplied TestFitnessFactory
+     * defined by the supplied TestFitnessFactory.
      *
      * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
@@ -164,8 +168,9 @@ public class TestSuiteMinimizer {
         int currentGoal = 0;
         int numGoals = goals.size();
 
-        if (Properties.MINIMIZE_SORT)
+        if (Properties.MINIMIZE_SORT) {
             Collections.sort(goals);
+        }
 
         Set<TestFitnessFunction> covered = new LinkedHashSet<>();
         List<TestChromosome> minimizedTests = new ArrayList<>();
@@ -197,7 +202,9 @@ public class TestSuiteMinimizer {
                         break;
                     }
                 }
-                if (innerTimeout) break;
+                if (innerTimeout) {
+                    break;
+                }
             }
             if (covered.contains(goal)) {
                 logger.info("Already covered: " + goal);
@@ -252,13 +259,15 @@ public class TestSuiteMinimizer {
 
         List<TestCase> originalTestCases = null;
         if (timeout) {
-             originalTestCases = suite.getTests();
+            originalTestCases = suite.getTests();
         }
 
         suite.tests.clear();
 
         if (timeout && originalTestCases != null) {
-             for (TestCase test : originalTestCases) suite.addTest(test);
+            for (TestCase test : originalTestCases) {
+                suite.addTest(test);
+            }
         }
 
         for (TestCase test : minimizedSuite.getTestCases()) {
@@ -279,8 +288,9 @@ public class TestSuiteMinimizer {
         ClientServices.getInstance().getClientNode().changeState(state, information);
 
         for (TestFitnessFunction goal : goals) {
-            if (!covered.contains(goal))
+            if (!covered.contains(goal)) {
                 logger.info("Failed to cover: " + goal);
+            }
         }
         // suite.tests = minimizedTests;
     }
@@ -291,7 +301,7 @@ public class TestSuiteMinimizer {
 
     /**
      * Minimize test suite with respect to the isCovered Method of the goals
-     * defined by the supplied TestFitnessFactory
+     * defined by the supplied TestFitnessFactory.
      *
      * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
@@ -330,12 +340,14 @@ public class TestSuiteMinimizer {
             removeEmptyTestCases(suite);
 
             for (TestChromosome testChromosome : suite.tests) {
-                if (isTimeoutReached())
+                if (isTimeoutReached()) {
                     break;
+                }
 
                 for (int i = testChromosome.size() - 1; i >= 0; i--) {
-                    if (isTimeoutReached())
+                    if (isTimeoutReached()) {
                         break;
+                    }
 
                     logger.debug("Current size: " + suite.size() + "/"
                             + suite.totalLengthOfTestCases());
@@ -363,38 +375,40 @@ public class TestSuiteMinimizer {
                     testChromosome.getTestCase().clearCoveredGoals();
 
                     List<Double> modifiedVerFitness = new ArrayList<>();
-                    for (TestFitnessFactory<?> ff : testFitnessFactories)
+                    for (TestFitnessFactory<?> ff : testFitnessFactories) {
                         modifiedVerFitness.add(ff.getFitness(suite));
+                    }
 
-                    int compare_ff = 0;
-                    for (int i_fit = 0; i_fit < modifiedVerFitness.size(); i_fit++) {
-                        if (Double.compare(modifiedVerFitness.get(i_fit), fitness.get(i_fit)) < 0) {
-                            compare_ff = -1; // new value is lower than previous one
+                    int compareFf = 0;
+                    for (int fitnessIndex = 0; fitnessIndex < modifiedVerFitness.size(); fitnessIndex++) {
+                        if (Double.compare(modifiedVerFitness.get(fitnessIndex),
+                                fitness.get(fitnessIndex)) < 0) {
+                            compareFf = -1; // new value is lower than previous one
                             break;
-                        } else if (Double.compare(modifiedVerFitness.get(i_fit), fitness.get(i_fit)) > 0) {
-                            compare_ff = 1; // new value is greater than previous one
+                        } else if (Double.compare(modifiedVerFitness.get(fitnessIndex),
+                                fitness.get(fitnessIndex)) > 0) {
+                            compareFf = 1; // new value is greater than previous one
                             break;
                         }
                     }
 
                     // the value 0 if d1 (previous fitness) is numerically equal to d2 (new fitness)
-                    if (compare_ff == 0) {
-                        continue; // if we can guarantee that we have the same fitness value with less statements, better
-                    } else if (compare_ff == -1) // a value less than 0 if d1 is numerically less than d2
-                    {
+                    if (compareFf == 0) {
+                        // if we can guarantee that we have the same fitness value with less statements, better
+                        continue;
+                    } else if (compareFf == -1) {
+                        // a value less than 0 if d1 is numerically less than d2
                         fitness = modifiedVerFitness;
                         changed = true;
-                        /**
-                         * This means, that we try to delete statements equally
-                         * from each test case (If size is 'false'.) The hope is
-                         * that the median length of the test cases is shorter,
-                         * as opposed to the average length.
-                         */
-                        if (!size)
+                        // This means, that we try to delete statements equally
+                        // from each test case (If size is 'false'.) The hope is
+                        // that the median length of the test cases is shorter,
+                        // as opposed to the average length.
+                        if (!size) {
                             break;
-                    }
-                    // and a value greater than 0 if d1 is numerically greater than d2
-                    else if (compare_ff == 1) {
+                        }
+                    } else if (compareFf == 1) {
+                        // and a value greater than 0 if d1 is numerically greater than d2
                         // Restore previous state
                         logger.debug("Can't remove statement "
                                 + originalTestChromosome.getTestCase().getStatement(i).getCode());

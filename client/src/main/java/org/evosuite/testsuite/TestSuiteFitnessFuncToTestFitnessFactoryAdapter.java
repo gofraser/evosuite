@@ -30,20 +30,20 @@ import java.util.List;
  *
  * @author Sebastian Steenbuck
  */
-public class TestSuiteFitnessFunc_to_TestFitnessFactory_Adapter implements
+public class TestSuiteFitnessFuncToTestFitnessFactoryAdapter implements
         TestFitnessFactory<TestFitnessFunction> {
 
     private final TestSuiteFitnessFunction testSuiteFitness;
 
     /**
      * <p>
-     * Constructor for TestSuiteFitnessFunc_to_TestFitnessFactory_Adapter.
+     * Constructor for TestSuiteFitnessFuncToTestFitnessFactoryAdapter.
      * </p>
      *
      * @param testSuiteFitness a {@link org.evosuite.testsuite.TestSuiteFitnessFunction}
      *                         object.
      */
-    public TestSuiteFitnessFunc_to_TestFitnessFactory_Adapter(
+    public TestSuiteFitnessFuncToTestFitnessFactoryAdapter(
             TestSuiteFitnessFunction testSuiteFitness) {
         this.testSuiteFitness = testSuiteFitness;
     }

@@ -45,15 +45,15 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * . This class applies local search on a test suite. Depending on the values
+ * This class applies local search on a test suite. Depending on the values
  * for properties <code>DSE_PROBABILITY</code> and <code>LOCAL_SEARCH_DSE</code>
  * one of the following three modes is applied:
- * <p>
- * - apply DSE on all test cases
- * <p>
- * - apply AVM on all test cases
- * <p>
- * - apply DSE on some tests and AVM on other tests
+ *
+ * <p>- apply DSE on all test cases</p>
+ *
+ * <p>- apply AVM on all test cases</p>
+ *
+ * <p>- apply DSE on some tests and AVM on other tests</p>
  *
  * @author galeotti
  */
@@ -63,7 +63,7 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
 
     /**
      * Updates the given list of fitness functions using for the individual
-     * passed as a parameter
+     * passed as a parameter.
      *
      * @param individual       an individual
      * @param fitnessFunctions the list of fitness functions to be updated
@@ -79,7 +79,7 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * Decides the kind of local search that will be applied to the Test Suite.
      *
      * @return a <code>TestSuiteLocalSearch</code> instance to use for local
-     * search
+     *     search
      */
     public static TestSuiteLocalSearch selectTestSuiteLocalSearch() {
         return new TestSuiteLocalSearch();
@@ -87,16 +87,16 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
 
     /**
      * Before applying DSE we expand test cases, such that each primitive value
-     * is used at only exactly one position as a parameter
-     * <p>
-     * For example, given the following test case:
+     * is used at only exactly one position as a parameter.
+     *
+     * <p>For example, given the following test case:</p>
      *
      * <code>
      * foo0.bar(1);
      * foo1.bar(1);
      * </code>
-     * <p>
-     * is rewritten as:
+     *
+     * <p>is rewritten as:</p>
      *
      * <code>
      * int int0 = 1;
@@ -105,11 +105,11 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * foo1.bar(int1);
      * </code>
      *
-     * @param suite
-     * @return
+     * @param suite a T object.
+     * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
      */
     private static <T extends AbstractTestSuiteChromosome<T, E>, E extends AbstractTestChromosome<E>>
-    void expandTestSuite(T suite, LocalSearchObjective<T> objective) {
+            void expandTestSuite(T suite, LocalSearchObjective<T> objective) {
         logger.debug("Expanding tests for local search");
 
         TestSuiteChromosome newTestSuite = new TestSuiteChromosome();
@@ -151,8 +151,8 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * foo0.bar(1);
      * foo1.bar(1);
      * </code>
-     * <p>
-     * is rewritten as:
+     *
+     * <p>is rewritten as:</p>
      *
      * <code>
      * int int0 = 1;
@@ -165,8 +165,9 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * @return the expanded test case
      */
     private static TestCase expandTestCase(TestCase test) {
-        if (!Properties.LOCAL_SEARCH_EXPAND_TESTS)
+        if (!Properties.LOCAL_SEARCH_EXPAND_TESTS) {
             return test;
+        }
 
         TestCaseExpander expander = new TestCaseExpander();
         return expander.expandTestCase(test);
@@ -176,10 +177,10 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * Ensure that all branches are executed twice For each branch such that
      * exists only one test case in the suite that covers that branch, it
      * creates a duplicate of that test case.
-     * <p>
-     * By doing this, we avoid to incorrectly mark a new test case produced by
+     *
+     * <p>By doing this, we avoid to incorrectly mark a new test case produced by
      * the local search as an improving test case because it simply executes
-     * again a predicate.
+     * again a predicate.</p>
      */
     protected static void ensureDoubleExecution(TestSuiteChromosome individual,
                                                 LocalSearchObjective<TestSuiteChromosome> objective) {
@@ -235,13 +236,13 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
 
     /**
      * Returns the set of predicate indexes whose true branches were covered by
-     * the suite
+     * the suite.
      *
-     * @param suite
-     * @return
+     * @param suite a {@link org.evosuite.testsuite.AbstractTestSuiteChromosome} object.
+     * @return a {@link java.util.Set} object.
      */
     private static <T extends AbstractTestSuiteChromosome<T, E>, E extends AbstractTestChromosome<E>> Set<Integer>
-    getCoveredTrueBranches(AbstractTestSuiteChromosome<T, E> suite) {
+            getCoveredTrueBranches(AbstractTestSuiteChromosome<T, E> suite) {
         Set<Integer> covered = new LinkedHashSet<>();
         for (E testChromosome : suite.getTestChromosomes()) {
             ExecutionResult lastResult = testChromosome.getLastExecutionResult();
@@ -254,13 +255,13 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
 
     /**
      * Returns the set of the predicate indexes whose false branch were covered
-     * by the test suite
+     * by the test suite.
      *
-     * @param suite
+     * @param suite a {@link org.evosuite.testsuite.AbstractTestSuiteChromosome} object.
      * @return the set of predicate indexes whose false branch were covered
      */
     private static <T extends AbstractTestSuiteChromosome<T, E>, E extends AbstractTestChromosome<E>> Set<Integer>
-    getCoveredFalseBranches(AbstractTestSuiteChromosome<T, E> suite) {
+            getCoveredFalseBranches(AbstractTestSuiteChromosome<T, E> suite) {
         Set<Integer> covered = new LinkedHashSet<>();
         for (E testChromosome : suite.getTestChromosomes()) {
             ExecutionResult lastResult = testChromosome.getLastExecutionResult();
@@ -272,7 +273,7 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
     }
 
     /**
-     * Ensure that all branches are executed twice
+     * Ensure that all branches are executed twice.
      */
     private void restoreBranchCoverage(TestSuiteChromosome individual) {
         logger.debug("Adding branches already covered previously");
@@ -295,7 +296,7 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
 
     /**
      * Indicates if the fitness of the individual has improved with respected to
-     * parameter <code>fitnessBefore</code>
+     * parameter <code>fitnessBefore</code>.
      *
      * @param fitnessBefore the previous fitness of the individual
      * @param individual    the individual
@@ -383,22 +384,22 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
 
     /**
      * This enumerate represents which type of local search will be applied on
-     * the suite
+     * the suite.
      *
      * @author galeotti
      */
     enum LocalSearchSuiteType {
         /**
-         * Always apply DSE on all test cases in the suite
+         * Always apply DSE on all test cases in the suite.
          */
         ALWAYS_DSE,
         /**
-         * Always apply AVM on all test cases in the suite
+         * Always apply AVM on all test cases in the suite.
          */
         ALWAYS_AVM,
         /**
          * Apply AVM/DSE on a test case according to the
-         * <code>DSE_PROBABILITY</code>
+         * <code>DSE_PROBABILITY</code>.
          */
         DSE_AND_AVM
     }
@@ -493,13 +494,13 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
     }
 
     /**
-     * Applies AVM on the test case in the suite
+     * Applies AVM on the test case in the suite.
      *
-     * @param suite
-     * @param testIndex
-     * @param test
-     * @param objective
-     * @return
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
+     * @param testIndex a int.
+     * @param test a {@link org.evosuite.testcase.TestChromosome} object.
+     * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
+     * @return a boolean.
      */
     private boolean applyAVM(TestSuiteChromosome suite,
                              int testIndex,
@@ -517,13 +518,13 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
     }
 
     /**
-     * Applies DSE on the test case of the suite
+     * Applies DSE on the test case of the suite.
      *
-     * @param suite
-     * @param testIndex
-     * @param test
-     * @param objective
-     * @return
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
+     * @param testIndex a int.
+     * @param test a {@link org.evosuite.testcase.TestChromosome} object.
+     * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
+     * @return a boolean.
      */
     private boolean applyDSE(TestSuiteChromosome suite, int testIndex, TestChromosome test,
                              LocalSearchObjective<TestSuiteChromosome> objective) {

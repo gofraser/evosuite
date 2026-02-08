@@ -43,13 +43,13 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction<TestSuite
     private static final long serialVersionUID = 7243635497292960457L;
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(TestSuiteFitnessFunction.class);
 
 
     /**
-     * Execute a test case
+     * Execute a test case.
      *
      * @param test The test case to execute
      * @return Result of the execution
@@ -69,7 +69,7 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction<TestSuite
 
     /**
      * <p>
-     * runTestSuite
+     * runTestSuite.
      * </p>
      *
      * @param suite a {@link org.evosuite.testsuite.AbstractTestSuiteChromosome}
