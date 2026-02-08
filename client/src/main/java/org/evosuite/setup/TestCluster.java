@@ -59,35 +59,35 @@ public class TestCluster {
     private static TestCluster instance = null;
 
     /**
-     * Set of all classes already analyzed
+     * Set of all classes already analyzed.
      */
     @Deprecated
-    private final static Set<Class<?>> analyzedClasses = new LinkedHashSet<>();
+    private static final Set<Class<?>> analyzedClasses = new LinkedHashSet<>();
 
     /**
-     * UUT methods we want to cover when testing
+     * UUT methods we want to cover when testing.
      */
-    private final static Set<GenericAccessibleObject<?>> testMethods = new LinkedHashSet<>();
+    private static final Set<GenericAccessibleObject<?>> testMethods = new LinkedHashSet<>();
 
     /**
-     * Methods used to modify and set the environment of the UUT
+     * Methods used to modify and set the environment of the UUT.
      */
     private final Set<GenericAccessibleObject<?>> environmentMethods;
 
     /**
-     * Static information about how to generate types
+     * Static information about how to generate types.
      */
-    private final static Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new LinkedHashMap<>();
+    private static final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new LinkedHashMap<>();
 
     /**
-     * Cached information about how to generate types
+     * Cached information about how to generate types.
      */
-    private final static Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorCache = new LinkedHashMap<>();
+    private static final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorCache = new LinkedHashMap<>();
 
     /**
-     * Static information about how to modify types
+     * Static information about how to modify types.
      */
-    private final static Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> modifiers = new LinkedHashMap<>();
+    private static final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> modifiers = new LinkedHashMap<>();
 
     private static InheritanceTree inheritanceTree = null;
 
@@ -101,9 +101,9 @@ public class TestCluster {
     }
 
     /**
-     * Instance accessor
+     * Instance accessor.
      *
-     * @return
+     * @return the singleton instance
      */
     public static synchronized TestCluster getInstance() {
         if (instance == null) {
@@ -128,7 +128,7 @@ public class TestCluster {
 
     /**
      * A generator for X might be a non-static method M of Y, but what if Y itself has no generator?
-     * In that case, M should not be a generator for X, as it is impossible to instantiate Y
+     * In that case, M should not be a generator for X, as it is impossible to instantiate Y.
      */
     public void removeUnusableGenerators() {
 
@@ -184,10 +184,12 @@ public class TestCluster {
      * <p>
      * X(Y y){...} <br>
      * Y getY(){...}
+     * </p>
      *
      * <p>
      * If we need Y, we could end up using x.getY(), which for instantiating x would need a Y, which might
      * end up in an infinite recursion...
+     * </p>
      */
     private void removeDirectCycle() {
 
@@ -286,6 +288,8 @@ public class TestCluster {
     }
 
     /**
+     * Get the inheritance tree.
+     *
      * @return the inheritancetree
      */
     public static InheritanceTree getInheritanceTree() {
@@ -294,6 +298,8 @@ public class TestCluster {
 
 
     /**
+     * Set the inheritance tree.
+     *
      * @param inheritancetree the inheritancetree to set
      */
     protected static void setInheritanceTree(InheritanceTree inheritancetree) {
@@ -326,14 +332,15 @@ public class TestCluster {
 
 
     /**
-     * Add a generator reflection object
+     * Add a generator reflection object.
      *
      * @param target is assumed to have wildcard types
-     * @param call
+     * @param call the generator call
      */
     public void addGenerator(GenericClass<?> target, GenericAccessibleObject<?> call) {
-        if (!generators.containsKey(target))
+        if (!generators.containsKey(target)) {
             generators.put(target, new LinkedHashSet<>());
+        }
 
         logger.debug("Adding generator for class " + target + ": " + call);
         generators.get(target).add(call);
@@ -342,22 +349,24 @@ public class TestCluster {
     }
 
     /**
-     * Add a modifier reflection object
+     * Add a modifier reflection object.
      *
      * @param target is assumed to have wildcard types
-     * @param call
+     * @param call the modifier call
      */
     public void addModifier(GenericClass<?> target, GenericAccessibleObject<?> call) {
-        if (!modifiers.containsKey(target))
+        if (!modifiers.containsKey(target)) {
             modifiers.put(target, new LinkedHashSet<>());
+        }
 
         modifiers.get(target).add(call);
     }
 
     /**
-     * Add a test call
+     * Add a test call.
      *
-     * @return
+     * @param call the call to add
+     * @throws IllegalArgumentException if call is null
      */
     public void addTestCall(GenericAccessibleObject<?> call) throws IllegalArgumentException {
         Inputs.checkNull(call);
@@ -375,9 +384,9 @@ public class TestCluster {
     }
 
     /**
-     * Add a new class observed at runtime for container methods
+     * Add a new class observed at runtime for container methods.
      *
-     * @param clazz
+     * @param clazz the class to add
      */
     public void addCastClassForContainer(Class<?> clazz) {
         if (TestUsageChecker.canUse(clazz)) {
@@ -388,10 +397,10 @@ public class TestCluster {
 
     /**
      * Calculate and cache all generators for a particular type. All generic
-     * types on the generator are instantiated according to the produced type
+     * types on the generator are instantiated according to the produced type.
      *
-     * @param clazz
-     * @throws ConstructionFailedException
+     * @param clazz the class to cache generators for
+     * @throws ConstructionFailedException if construction fails
      */
     private void cacheGenerators(GenericClass<?> clazz) throws ConstructionFailedException {
 
@@ -496,11 +505,11 @@ public class TestCluster {
                     // There are cases where this might lead to relevant cast classes not being included
                     // but in manycases it will pull in large numbers of useless dependencies.
                     // Commented out for now, until we find a case where the problem can be properly studied.
-//				} else {
-//					logger.debug("4. generator {} CANNOT be instantiated to {}", generatorClazz, clazz);
-//					for(GenericClass boundClass : generatorClazz.getGenericBounds()) {
-//						CastClassManager.getInstance().addCastClass(boundClass, 0);
-//					}
+//                } else {
+//                    logger.debug("4. generator {} CANNOT be instantiated to {}", generatorClazz, clazz);
+//                    for(GenericClass boundClass : generatorClazz.getGenericBounds()) {
+//                        CastClassManager.getInstance().addCastClass(boundClass, 0);
+//                    }
                 }
             }
             logger.debug("Found generators for {}: {}", clazz, targetGenerators.size());
@@ -512,20 +521,20 @@ public class TestCluster {
     }
 
     /**
-     * Forget everything we have cached
+     * Forget everything we have cached.
      *
-     * @param target
+     * @param target the class to clear cache for
      */
     public void clearGeneratorCache(GenericClass<?> target) {
         generatorCache.remove(target);
     }
 
     /**
-     * Get modifiers for instantiation of a generic type
+     * Get modifiers for instantiation of a generic type.
      *
-     * @param clazz
-     * @return
-     * @throws ConstructionFailedException
+     * @param clazz the class to get modifiers for
+     * @return the set of modifiers
+     * @throws ConstructionFailedException if construction fails
      */
     private Set<GenericAccessibleObject<?>> determineGenericModifiersFor(
             GenericClass<?> clazz) throws ConstructionFailedException {
@@ -551,70 +560,70 @@ public class TestCluster {
                 } else {
                     logger.debug("Nope");
                 }
-				/*
-				if (entry.getKey().getRawClass().equals(clazz.getRawClass())) {
-					logger.debug("Considering raw assignable case: " + entry.getKey());
-					List<Type> parameters = new ArrayList<Type>();
-					List<Type> targetParameters = clazz.getParameterTypes();
-					List<Type> modifierParameters = entry.getKey().getParameterTypes();
-					if (targetParameters.size() != modifierParameters.size()) {
-						continue;
-					}
+                /*
+                if (entry.getKey().getRawClass().equals(clazz.getRawClass())) {
+                    logger.debug("Considering raw assignable case: " + entry.getKey());
+                    List<Type> parameters = new ArrayList<Type>();
+                    List<Type> targetParameters = clazz.getParameterTypes();
+                    List<Type> modifierParameters = entry.getKey().getParameterTypes();
+                    if (targetParameters.size() != modifierParameters.size()) {
+                        continue;
+                    }
 
-					boolean compatibleParameters = true;
-					for (int i = 0; i < targetParameters.size(); i++) {
-						logger.debug("Comparing target parameter "
-						        + targetParameters.get(i) + " with modifier parameter "
-						        + modifierParameters.get(i));
-						Type modifierType = modifierParameters.get(i);
-						Type targetType = targetParameters.get(i);
-						// FIXME: Which one is the lhs and the rhs?
-						// if (!TypeUtils.isAssignable(targetType, modifierType)) {
-						//						if (!GenericClass.isAssignable(targetType, modifierType)) {
-						if (!GenericClass.isAssignable(modifierType, targetType)) {
-							compatibleParameters = false;
-							logger.debug("Incompatible parameter: " + targetType
-							        + " vs. " + modifierType);
-							break;
-						}
-						parameters.add(targetType);
-					}
-					if (compatibleParameters) {
-						logger.debug("Parameters compatible");
-						Type[] actualParameters = new Type[parameters.size()];
-						parameters.toArray(actualParameters);
-						GenericClass newOwner = entry.getKey().getWithParameterTypes(actualParameters);
-						for (GenericAccessibleObject<?> modifier : entry.getValue()) {
-							logger.debug("Considering modifier: " + modifier);
+                    boolean compatibleParameters = true;
+                    for (int i = 0; i < targetParameters.size(); i++) {
+                        logger.debug("Comparing target parameter "
+                                + targetParameters.get(i) + " with modifier parameter "
+                                + modifierParameters.get(i));
+                        Type modifierType = modifierParameters.get(i);
+                        Type targetType = targetParameters.get(i);
+                        // FIXME: Which one is the lhs and the rhs?
+                        // if (!TypeUtils.isAssignable(targetType, modifierType)) {
+                        //                        if (!GenericClass.isAssignable(targetType, modifierType)) {
+                        if (!GenericClass.isAssignable(modifierType, targetType)) {
+                            compatibleParameters = false;
+                            logger.debug("Incompatible parameter: " + targetType
+                                    + " vs. " + modifierType);
+                            break;
+                        }
+                        parameters.add(targetType);
+                    }
+                    if (compatibleParameters) {
+                        logger.debug("Parameters compatible");
+                        Type[] actualParameters = new Type[parameters.size()];
+                        parameters.toArray(actualParameters);
+                        GenericClass newOwner = entry.getKey().getWithParameterTypes(actualParameters);
+                        for (GenericAccessibleObject<?> modifier : entry.getValue()) {
+                            logger.debug("Considering modifier: " + modifier);
 
-							if (!modifier.getOwnerClass().isParameterizedType()) {
-								logger.debug("Owner class has no parameters, so we can only assume it would work: "
-								        + modifier);
-								genericModifiers.add(modifier);
-							} else {
-								// TODO: FIXXME
-								//if (modifier.getOwnerClass().getNumParameters() == 0) {
-								//	logger.info("Skipping potentially problematic case of parameterized type without parameters (owner likely has types)");
-								//	continue;
-								//}
+                            if (!modifier.getOwnerClass().isParameterizedType()) {
+                                logger.debug("Owner class has no parameters, so we can only assume it would work: "
+                                        + modifier);
+                                genericModifiers.add(modifier);
+                            } else {
+                                // TODO: FIXXME
+                                //if (modifier.getOwnerClass().getNumParameters() == 0) {
+                                //    logger.info("Skipping potentially problematic case of parameterized type without parameters (owner likely has types)");
+                                //    continue;
+                                //}
 
-								GenericAccessibleObject<?> newModifier = modifier.copyWithOwnerFromReturnType(newOwner);
-								logger.debug("Modifier with new owner: " + newModifier);
-								if (newModifier.getOwnerClass().hasWildcardOrTypeVariables()) {
-									GenericClass concreteClass = newModifier.getOwnerClass().getGenericInstantiation(clazz.getTypeVariableMap());
-									GenericAccessibleObject<?> concreteNewModifier = newModifier.copyWithNewOwner(concreteClass);
-									logger.debug("Modifier with new owner and instantiated types: "
-									        + concreteNewModifier);
-									genericModifiers.add(concreteNewModifier);
-								} else {
-									logger.debug("Adding modifier directly");
-									genericModifiers.add(newModifier);
-								}
-							}
-						}
-					}
-				}
-				*/
+                                GenericAccessibleObject<?> newModifier = modifier.copyWithOwnerFromReturnType(newOwner);
+                                logger.debug("Modifier with new owner: " + newModifier);
+                                if (newModifier.getOwnerClass().hasWildcardOrTypeVariables()) {
+                                    GenericClass concreteClass = newModifier.getOwnerClass().getGenericInstantiation(clazz.getTypeVariableMap());
+                                    GenericAccessibleObject<?> concreteNewModifier = newModifier.copyWithNewOwner(concreteClass);
+                                    logger.debug("Modifier with new owner and instantiated types: "
+                                            + concreteNewModifier);
+                                    genericModifiers.add(concreteNewModifier);
+                                } else {
+                                    logger.debug("Adding modifier directly");
+                                    genericModifiers.add(newModifier);
+                                }
+                            }
+                        }
+                    }
+                }
+                */
             }
         } else {
             logger.debug("Is NOT parameterized class!");
@@ -632,12 +641,12 @@ public class TestCluster {
     }
 
     /**
-     * Return all calls that have a parameter with given type
+     * Return all calls that have a parameter with given type.
      *
-     * @param clazz
-     * @param resolve
-     * @return
-     * @throws ConstructionFailedException
+     * @param clazz the class to get calls for
+     * @param resolve whether to resolve generic types
+     * @return the set of calls
+     * @throws ConstructionFailedException if construction fails
      */
     public Set<GenericAccessibleObject<?>> getCallsFor(GenericClass<?> clazz, boolean resolve)
             throws ConstructionFailedException {
@@ -645,8 +654,9 @@ public class TestCluster {
         if (clazz.hasWildcardOrTypeVariables()) {
             logger.debug("Resolving generic type before getting modifiers");
             GenericClass<?> concreteClass = clazz.getGenericInstantiation();
-            if (!concreteClass.equals(clazz))
+            if (!concreteClass.equals(clazz)) {
                 return getCallsFor(concreteClass, false);
+            }
         }
 
         if (isSpecialCase(clazz)) {
@@ -681,11 +691,11 @@ public class TestCluster {
     }
 
     /**
-     * Get modifiers for special cases
+     * Get modifiers for special cases.
      *
-     * @param clazz
-     * @return
-     * @throws ConstructionFailedException
+     * @param clazz the class to get calls for
+     * @return the set of calls
+     * @throws ConstructionFailedException if construction fails
      */
     private Set<GenericAccessibleObject<?>> getCallsForSpecialCase(GenericClass<?> clazz)
             throws ConstructionFailedException {
@@ -742,11 +752,11 @@ public class TestCluster {
     }
 
     /**
-     * Find a class that matches the given name
+     * Find a class that matches the given name.
      *
-     * @param name
-     * @return
-     * @throws ClassNotFoundException
+     * @param name the class name to find
+     * @return the found class
+     * @throws ClassNotFoundException if the class is not found
      */
     public Class<?> getClass(String name) throws ClassNotFoundException {
         // First try to find exact match
@@ -779,9 +789,9 @@ public class TestCluster {
     }
 
     /**
-     * Retrieve all generators
+     * Retrieve all generators.
      *
-     * @return
+     * @return the set of generators
      */
     public Set<GenericAccessibleObject<?>> getGenerators() {
         return generators.values().stream()
@@ -790,36 +800,38 @@ public class TestCluster {
     }
 
     /**
-     * Get a list of all generator objects for the type
+     * Get a list of all generator objects for the type.
      *
-     * @param clazz
-     * @return
-     * @throws ConstructionFailedException
+     * @param clazz the class to get generators for
+     * @return the set of generators
+     * @throws ConstructionFailedException if construction fails
      */
     public Set<GenericAccessibleObject<?>> getGenerators(GenericClass<?> clazz) throws ConstructionFailedException {
         // Instantiate generic type
         if (clazz.hasWildcardOrTypeVariables()) {
             GenericClass<?> concreteClass = clazz.getGenericInstantiation();
-            if (!concreteClass.equals(clazz))
+            if (!concreteClass.equals(clazz)) {
                 return getGenerators(concreteClass);
+            }
         }
 
         if (isSpecialCase(clazz)) {
             return getGeneratorsForSpecialCase(clazz);
         }
 
-        if (!hasGenerator(clazz))
+        if (!hasGenerator(clazz)) {
             throw new ConstructionFailedException("No generators of type " + clazz);
+        }
 
         return generatorCache.get(clazz);
     }
 
     /**
-     * Predetermined generators for special cases
+     * Predetermined generators for special cases.
      *
-     * @param clazz
-     * @return
-     * @throws ConstructionFailedException
+     * @param clazz the class to get generators for
+     * @return the set of generators
+     * @throws ConstructionFailedException if construction fails
      */
     private Set<GenericAccessibleObject<?>> getGeneratorsForSpecialCase(GenericClass<?> clazz)
             throws ConstructionFailedException {
@@ -871,8 +883,9 @@ public class TestCluster {
 
             for (GenericAccessibleObject<?> call : all) {
                 if (call.isConstructor() && call.getNumParameters() == 1) {
-                    if (!((GenericConstructor) call).getRawParameterTypes()[0].equals(String.class))
+                    if (!((GenericConstructor) call).getRawParameterTypes()[0].equals(String.class)) {
                         calls.add(call);
+                    }
                 } else if (call.isField()) {
                     calls.add(call);
                 } else {
@@ -924,10 +937,10 @@ public class TestCluster {
     }
 
     /**
-     * Retrieve all classes that match the given postfix
+     * Retrieve all classes that match the given postfix.
      *
-     * @param name
-     * @return
+     * @param name the postfix to match
+     * @return the collection of matching classes
      */
     public Collection<Class<?>> getKnownMatchingClasses(String name) {
         return analyzedClasses.stream()
@@ -936,9 +949,9 @@ public class TestCluster {
     }
 
     /**
-     * Retrieve all modifiers
+     * Retrieve all modifiers.
      *
-     * @return
+     * @return the set of modifiers
      */
     public Set<GenericAccessibleObject<?>> getModifiers() {
         return modifiers.values().stream()
@@ -972,19 +985,20 @@ public class TestCluster {
     }
 
     /**
-     * Randomly select one generator
+     * Randomly select one generator.
      *
-     * @param clazz
-     * @return
-     * @throws ConstructionFailedException
+     * @param clazz the class to get a generator for
+     * @return the selected generator
+     * @throws ConstructionFailedException if construction fails
      */
     public GenericAccessibleObject<?> getRandomGenerator(GenericClass<?> clazz)
             throws ConstructionFailedException {
 
         if (clazz.hasWildcardOrTypeVariables()) {
             GenericClass<?> concreteClass = clazz.getGenericInstantiation();
-            if (concreteClass.hasWildcardOrTypeVariables())
+            if (concreteClass.hasWildcardOrTypeVariables()) {
                 throw new ConstructionFailedException("Could not found concrete instantiation of generic type");
+            }
             return getRandomGenerator(concreteClass);
         }
 
@@ -997,14 +1011,16 @@ public class TestCluster {
             }
             generator = Randomness.choice(generators);
         } else {
-            if (!hasGenerator(clazz))
+            if (!hasGenerator(clazz)) {
                 throw new ConstructionFailedException("No generators of type " + clazz);
+            }
 
             generator = Randomness.choice(generatorCache.get(clazz));
         }
 
-        if (generator == null)
+        if (generator == null) {
             throw new ConstructionFailedException("No generators of type " + clazz);
+        }
 
         if (generator.hasTypeParameters()) {
             generator = generator.getGenericInstantiation(clazz);
@@ -1014,13 +1030,16 @@ public class TestCluster {
 
 
     /**
-     * Randomly select one generator
+     * Randomly select one generator.
      *
-     * @param clazz
-     * @param excluded
-     * @param test
+     * @param clazz the class to get a generator for
+     * @param excluded excluded generators
+     * @param test the test case
+     * @param position the position in the test case
+     * @param generatorRefToExclude generator reference to exclude
+     * @param recursionDepth current recursion depth
      * @return {@code null} if there is no valid generator
-     * @throws ConstructionFailedException
+     * @throws ConstructionFailedException if construction fails
      */
     public GenericAccessibleObject<?> getRandomGenerator(GenericClass<?> clazz,
                                                          Set<GenericAccessibleObject<?>> excluded, TestCase test, int position,
@@ -1064,11 +1083,11 @@ public class TestCluster {
             }
 
             if (recursionDepth >= Properties.MAX_RECURSION / 2) {
-				/*
-					if going long into the recursion, then do prefer direct constructors or static methods,
-					as non-static methods would require to get a caller which, if it is missing, would need
-					to be created, and that could lead to further calls if its generators need input parameters
-				 */
+                /*
+                    if going long into the recursion, then do prefer direct constructors or static methods,
+                    as non-static methods would require to get a caller which, if it is missing, would need
+                    to be created, and that could lead to further calls if its generators need input parameters
+                 */
                 Set<GenericAccessibleObject<?>> set = candidates.stream()
                         .filter(p -> p.isStatic() || p.isConstructor())
                         .collect(toCollection(LinkedHashSet::new));
@@ -1172,20 +1191,20 @@ public class TestCluster {
 
 
     /**
-     * Simply check if there is any generator that gives us a SUT instance
+     * Simply check if there is any generator that gives us a SUT instance.
      *
-     * @param test
-     * @return
+     * @param test the test case
+     * @return true if the test has a SUT instance
      */
     private boolean doesTestHaveSUTInstance(TestCase test) {
         return test.hasObject(Properties.getInitializedTargetClass(), test.size());
     }
 
     /**
-     * Remove all calls that are constructors
+     * Remove all calls that are constructors.
      *
-     * @param testMethods
-     * @return
+     * @param testMethods the methods to filter
+     * @return the filtered list
      */
     private List<GenericAccessibleObject<?>> filterConstructors(List<GenericAccessibleObject<?>> testMethods) {
         return testMethods.stream().filter(call -> !call.isConstructor()).collect(Collectors.toList());
@@ -1206,10 +1225,10 @@ public class TestCluster {
     }
 
     /**
-     * Sort by remaining uncovered goals to bias search towards most rewarding methods
+     * Sort by remaining uncovered goals to bias search towards most rewarding methods.
      *
-     * @param testMethods
-     * @return
+     * @param testMethods the methods to sort
+     * @return the sorted list
      */
     private List<GenericAccessibleObject<?>> sortCalls(List<GenericAccessibleObject<?>> testMethods) {
         Archive archive = Archive.getArchiveInstance();
@@ -1224,10 +1243,11 @@ public class TestCluster {
     }
 
     /**
-     * Get random method or constructor of unit under test
+     * Get random method or constructor of unit under test.
      *
-     * @return
-     * @throws ConstructionFailedException
+     * @param test the test case
+     * @return the chosen call
+     * @throws ConstructionFailedException if construction fails
      */
     public GenericAccessibleObject<?> getRandomTestCall(TestCase test)
             throws ConstructionFailedException {
@@ -1243,8 +1263,9 @@ public class TestCluster {
         if (doesTestHaveSUTInstance(test)) {
             candidateTestMethods = filterConstructors(candidateTestMethods);
             // It may happen that all remaining test calls are constructors. In this case it's ok.
-            if (candidateTestMethods.isEmpty())
+            if (candidateTestMethods.isEmpty()) {
                 candidateTestMethods = new ArrayList<>(testMethods);
+            }
         }
 
 
@@ -1278,10 +1299,9 @@ public class TestCluster {
     }
 
     /**
-     * Get a list of all test calls (i.e., constructors and methods)
+     * Get a list of all test calls (i.e., constructors and methods).
      *
-     * @return
-     * @throws ConstructionFailedException
+     * @return the list of test calls
      */
     public List<GenericAccessibleObject<?>> getTestCalls() {
         // TODO: Check for generic methods
@@ -1303,10 +1323,10 @@ public class TestCluster {
     }
 
     /**
-     * Determine if there are generators
+     * Determine if there are generators.
      *
-     * @param clazz
-     * @return
+     * @param clazz the class to check
+     * @return true if there are generators
      */
     public boolean hasGenerator(GenericClass<?> clazz) {
         try {
@@ -1314,27 +1334,29 @@ public class TestCluster {
         } catch (ConstructionFailedException e) {
             AtMostOnceLogger.warn(logger, "Failed to check cache for " + clazz + " : " + e.getMessage());
         }
-        if (!generatorCache.containsKey(clazz))
+        if (!generatorCache.containsKey(clazz)) {
             return false;
+        }
 
         return !generatorCache.get(clazz).isEmpty();
     }
 
     /**
-     * Determine if there are generators
+     * Determine if there are generators.
      *
-     * @param type
-     * @return
+     * @param type the type to check
+     * @return true if there are generators
      */
     public boolean hasGenerator(Type type) {
         return hasGenerator(GenericClassFactory.get(type));
     }
 
     /**
-     * Integrate a new class into the test cluster
+     * Integrate a new class into the test cluster.
      *
-     * @param name
-     * @throws ClassNotFoundException
+     * @param name the class name
+     * @return the imported class
+     * @throws ClassNotFoundException if the class is not found
      */
     public Class<?> importClass(String name) throws ClassNotFoundException {
         throw new RuntimeException("Not implemented");
@@ -1342,20 +1364,23 @@ public class TestCluster {
 
     /**
      * Some standard classes need to be treated specially to increase
-     * performance
+     * performance.
      *
-     * @param clazz
-     * @return
+     * @param clazz the class to check
+     * @return true if it is a special case
      */
     private boolean isSpecialCase(GenericClass<?> clazz) {
-        if (clazz.getRawClass().equals(Properties.getInitializedTargetClass()))
+        if (clazz.getRawClass().equals(Properties.getInitializedTargetClass())) {
             return false;
+        }
 
-        if (clazz.isAssignableTo(Collection.class))
+        if (clazz.isAssignableTo(Collection.class)) {
             return true;
+        }
 
-        if (clazz.isAssignableTo(Map.class))
+        if (clazz.isAssignableTo(Map.class)) {
             return true;
+        }
 
         return clazz.isAssignableTo(Number.class);
     }

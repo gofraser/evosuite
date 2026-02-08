@@ -50,8 +50,9 @@ public class Call implements Serializable {
 
     private int computeApproximatedHashCode() {
         String mname = methodName;
-        if (mname.contains("("))
+        if (mname.contains("(")) {
             mname = mname.substring(0, mname.indexOf("("));
+        }
         final int prime = 31;
         int result = 1;
         result = prime * result + ((className == null) ? 0 : className.hashCode());
@@ -60,6 +61,8 @@ public class Call implements Serializable {
     }
 
     /**
+     * Get the class name.
+     *
      * @return the className
      */
     public String getClassName() {
@@ -67,6 +70,8 @@ public class Call implements Serializable {
     }
 
     /**
+     * Get the method name.
+     *
      * @return the methodName
      */
     public String getMethodName() {
@@ -88,12 +93,15 @@ public class Call implements Serializable {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         Call other = (Call) obj;
         return hcode == other.hcode;
     }

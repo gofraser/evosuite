@@ -64,26 +64,35 @@ public class PutStaticMethodCollector {
 
         @Override
         public boolean equals(Object obj) {
-            if (this == obj)
+            if (this == obj) {
                 return true;
-            if (obj == null)
+            }
+            if (obj == null) {
                 return false;
-            if (getClass() != obj.getClass())
+            }
+            if (getClass() != obj.getClass()) {
                 return false;
+            }
             MethodIdentifier other = (MethodIdentifier) obj;
             if (className == null) {
-                if (other.className != null)
+                if (other.className != null) {
                     return false;
-            } else if (!className.equals(other.className))
+                }
+            } else if (!className.equals(other.className)) {
                 return false;
+            }
             if (desc == null) {
-                if (other.desc != null)
+                if (other.desc != null) {
                     return false;
-            } else if (!desc.equals(other.desc))
+                }
+            } else if (!desc.equals(other.desc)) {
                 return false;
+            }
             if (methodName == null) {
                 return other.methodName == null;
-            } else return methodName.equals(other.methodName);
+            } else {
+                return methodName.equals(other.methodName);
+            }
         }
 
         public String getClassName() {
@@ -100,7 +109,7 @@ public class PutStaticMethodCollector {
     }
 
     //private static final Logger logger = LoggerFactory
-    //		.getLogger(PutStaticMethodCollector.class);
+    //        .getLogger(PutStaticMethodCollector.class);
 
     private static Map<String, Set<String>> createStaticFields(
             String targetClassName) {
@@ -131,8 +140,9 @@ public class PutStaticMethodCollector {
                     .getClassNode(calledClassName);
             List<MethodNode> classMethods = classNode.methods;
             for (MethodNode mn : classMethods) {
-                if (mn.name.equals(CLINIT))
+                if (mn.name.equals(CLINIT)) {
                     continue;
+                }
 
                 InsnList instructions = mn.instructions;
                 Iterator<AbstractInsnNode> it = instructions.iterator();
@@ -168,8 +178,9 @@ public class PutStaticMethodCollector {
 
     private boolean contains(Map<String, Set<String>> fields, String className,
                              String fieldName) {
-        if (!fields.containsKey(className))
+        if (!fields.containsKey(className)) {
             return false;
+        }
 
         return fields.get(className).contains(fieldName);
     }

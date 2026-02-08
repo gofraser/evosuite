@@ -46,8 +46,9 @@ public class GetStaticGraphGenerator {
         ClassNode targetClass = DependencyAnalysis.getClassNode(className);
 
         GetStaticGraph staticUsageTree = new GetStaticGraph();
-        if (targetClass != null)
+        if (targetClass != null) {
             handle(staticUsageTree, targetClass, 0);
+        }
         if (Properties.INSTRUMENT_PARENT) {
             handleSuperClasses(staticUsageTree, targetClass);
         }
@@ -60,20 +61,22 @@ public class GetStaticGraphGenerator {
 
     /**
      * If we want to have the calltree also for the superclasses, we need to
-     * determine which methods are callable
+     * determine which methods are callable.
      *
-     * @param staticUsageTree
-     * @param targetClass
+     * @param staticUsageTree the static usage graph
+     * @param targetClass the target class
      */
     @SuppressWarnings("unchecked")
     private static void handleSuperClasses(GetStaticGraph staticUsageTree,
                                            ClassNode targetClass) {
         String superClassName = targetClass.superName;
-        if (superClassName == null || superClassName.isEmpty())
+        if (superClassName == null || superClassName.isEmpty()) {
             return;
+        }
 
-        if (superClassName.equals("java/lang/Object"))
+        if (superClassName.equals("java/lang/Object")) {
             return;
+        }
 
         logger.debug("Creating calltree for superclass: " + superClassName);
         ClassNode superClass = DependencyAnalysis.getClassNode(superClassName);
@@ -82,14 +85,17 @@ public class GetStaticGraphGenerator {
             logger.debug("Method: " + mn.name);
 
             // Do not check super-constructors
-            if (mn.name.equals("<init>"))
+            if (mn.name.equals("<init>")) {
                 continue;
-            if (mn.name.equals("<clinit>"))
+            }
+            if (mn.name.equals("<clinit>")) {
                 continue;
+            }
 
             // Skip abstract etc
-            if ((mn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT)
+            if ((mn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT) {
                 continue;
+            }
 
             // Do not handle classes if they are overridden by the subclass
             if ((mn.access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC) {
@@ -117,25 +123,29 @@ public class GetStaticGraphGenerator {
                                ClassNode targetClass, String methodName, int depth) {
         List<MethodNode> methods = targetClass.methods;
         for (MethodNode mn : methods) {
-            if (methodName.equals(mn.name + mn.desc))
+            if (methodName.equals(mn.name + mn.desc)) {
                 handleMethodNode(staticUsageTree, targetClass, mn, depth);
+            }
         }
     }
 
     private static void handle(GetStaticGraph staticUsageTree,
                                String className, String methodName, int depth) {
         ClassNode cn = DependencyAnalysis.getClassNode(className);
-        if (cn == null)
+        if (cn == null) {
             return;
+        }
 
         handle(staticUsageTree, cn, methodName, depth);
     }
 
     /**
-     * Add all possible calls for a given method
+     * Add all possible calls for a given method.
      *
-     * @param callGraph
-     * @param mn
+     * @param staticUsageTree the static usage graph
+     * @param cn the class node
+     * @param mn the method node
+     * @param depth the recursion depth
      */
     @SuppressWarnings("unchecked")
     private static void handleMethodNode(GetStaticGraph staticUsageTree,
@@ -159,7 +169,13 @@ public class GetStaticGraphGenerator {
     }
 
     /**
-     * Descend into a static field read
+     * Descend into a static field read.
+     *
+     * @param staticUsageTree the static usage graph
+     * @param cn the class node
+     * @param mn the method node
+     * @param insn the field instruction
+     * @param depth the recursion depth
      */
     private static void handleFieldInsnNode(GetStaticGraph staticUsageTree,
                                             ClassNode cn, MethodNode mn, FieldInsnNode insn, int depth) {
@@ -191,7 +207,13 @@ public class GetStaticGraphGenerator {
     }
 
     /**
-     * Descend into a static method call
+     * Descend into a static method call.
+     *
+     * @param staticUsageTree the static usage graph
+     * @param cn the class node
+     * @param mn the method node
+     * @param methodCall the method call instruction
+     * @param depth the recursion depth
      */
     private static void handleMethodInsnNode(GetStaticGraph staticUsageTree,
                                              ClassNode cn, MethodNode mn, MethodInsnNode methodCall, int depth) {
@@ -227,7 +249,13 @@ public class GetStaticGraphGenerator {
             + Type.getMethodDescriptor(Type.VOID_TYPE);
 
     /**
-     * Descend into a <clinit>
+     * Descend into a clinit.
+     *
+     * @param staticUsageTree the static usage graph
+     * @param cn the class node
+     * @param mn the method node
+     * @param owner the owner class
+     * @param depth the recursion depth
      */
     private static void handleClassInitializer(GetStaticGraph staticUsageTree,
                                                ClassNode cn, MethodNode mn, String owner, int depth) {

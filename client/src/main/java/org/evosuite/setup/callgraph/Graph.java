@@ -59,9 +59,11 @@ public abstract class Graph<E> {
 
     public synchronized boolean containsEdge(E src, E dest) {
         Set<E> tempSet = edges.get(src);
-        if (tempSet == null)
+        if (tempSet == null) {
             return false;
-        else return tempSet.contains(dest);
+        } else {
+            return tempSet.contains(dest);
+        }
     }
 
     public synchronized void addEdge(E src, E dest) {
@@ -101,8 +103,9 @@ public abstract class Graph<E> {
     }
 
     public synchronized int getNeighborsSize(E vertex) {
-        if (this.edges.get(vertex) == null)
+        if (this.edges.get(vertex) == null) {
             return 0;
+        }
         return this.edges.get(vertex).size();
     }
 }

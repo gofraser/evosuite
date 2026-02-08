@@ -35,9 +35,10 @@ public class PathFinder {
      * if startingVertex is not included in the graph, returns an empty collection.
      * XXX should it throws an exception?
      *
-     * @param g
-     * @param startingVertex
-     * @return
+     * @param g the graph
+     * @param startingVertex the starting vertex
+     * @param <E> type of vertices
+     * @return set of paths
      */
     public static <E> Set<List<E>> getPaths(Graph<E> g, E startingVertex) {
         if (!g.containsVertex(startingVertex)) {

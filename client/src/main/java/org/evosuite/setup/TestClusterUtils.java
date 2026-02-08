@@ -48,21 +48,21 @@ public class TestClusterUtils {
 
     protected static final Logger logger = LoggerFactory.getLogger(TestClusterUtils.class);
 
-	/*
-		Only final constants and caches should instantiated in this class
-	 */
+    /*
+        Only final constants and caches should instantiated in this class
+     */
 
     private static final List<String> classExceptions = Collections.unmodifiableList(
             Arrays.asList("com.apple.", "apple.", "sun.", "com.sun.", "com.oracle.", "sun.awt."));
-    private final static Map<Class<?>, Set<Field>> accessibleFieldCache = new LinkedHashMap<>();
-    private final static Map<Class<?>, Set<Method>> methodCache = new LinkedHashMap<>();
+    private static final Map<Class<?>, Set<Field>> accessibleFieldCache = new LinkedHashMap<>();
+    private static final Map<Class<?>, Set<Method>> methodCache = new LinkedHashMap<>();
 
 
     /**
-     * Determine if this class contains JUnit tests
+     * Determine if this class contains JUnit tests.
      *
-     * @param className
-     * @return
+     * @param className the class name
+     * @return true if the class contains JUnit tests
      * @deprecated use {@code org.evosuite.junit.CoverageAnalysis.isTest(Class<?> cls)}
      */
     @Deprecated
@@ -75,10 +75,12 @@ public class TestClusterUtils {
             Class<?> clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
             Class<?> superClazz = clazz.getSuperclass();
             while (!superClazz.equals(Object.class)) {
-                if (superClazz.equals(Suite.class))
+                if (superClazz.equals(Suite.class)) {
                     return true;
-                if (superClazz.equals(Test.class))
+                }
+                if (superClazz.equals(Test.class)) {
                     return true;
+                }
 
                 superClazz = clazz.getSuperclass();
             }
@@ -95,10 +97,12 @@ public class TestClusterUtils {
 
     public static boolean isAnonymousClass(String className) {
         int pos = className.lastIndexOf('$');
-        if (pos < 0)
+        if (pos < 0) {
             return false;
-        if (pos == className.length() - 1)
+        }
+        if (pos == className.length() - 1) {
             return false; // Classnames can end in $ - see #179
+        }
         char firstLetter = className.charAt(pos + 1);
         return firstLetter >= '0' && firstLetter <= '9';
     }
@@ -173,10 +177,10 @@ public class TestClusterUtils {
     }
 
     /**
-     * Get the set of constructors defined in this class and its superclasses
+     * Get the set of constructors defined in this class and its superclasses.
      *
-     * @param clazz
-     * @return
+     * @param clazz the class to get constructors for
+     * @return the set of constructors
      */
     public static Set<Constructor<?>> getConstructors(Class<?> clazz) {
         final Map<String, Constructor<?>> helper = new TreeMap<>();
@@ -194,10 +198,10 @@ public class TestClusterUtils {
     }
 
     /**
-     * Get the set of fields defined in this class and its superclasses
+     * Get the set of fields defined in this class and its superclasses.
      *
-     * @param clazz
-     * @return
+     * @param clazz the class to get fields for
+     * @return the set of fields
      */
     public static Set<Field> getFields(Class<?> clazz) {
         // TODO: Helper not necessary here!
@@ -231,10 +235,10 @@ public class TestClusterUtils {
     }
 
     /**
-     * Get the set of fields defined in this class and its superclasses
+     * Get the set of fields defined in this class and its superclasses.
      *
-     * @param clazz
-     * @return
+     * @param clazz the class to get fields for
+     * @return the set of accessible fields
      */
     public static Set<Field> getAccessibleFields(final Class<?> clazz) {
         return accessibleFieldCache.computeIfAbsent(clazz, TestClusterUtils::computeAccessibleFields);
@@ -249,10 +253,10 @@ public class TestClusterUtils {
     }
 
     /**
-     * Get the set of methods defined in this class and its superclasses
+     * Get the set of methods defined in this class and its superclasses.
      *
-     * @param clazz
-     * @return
+     * @param clazz the class to get methods for
+     * @return the set of methods
      */
     public static Set<Method> getMethods(Class<?> clazz) {
 

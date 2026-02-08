@@ -54,15 +54,17 @@ public class InheritanceTreeGenerator {
     private static final String resourceFolder = "client/src/main/resources/";
     private static final String jdkFile = "JDK_inheritance.xml";
     private static final String shadedJdkFile = "JDK_inheritance_shaded.xml";
-    private static final int[] LTS_VERSIONS = new int[]{8, 11, 17, 21, 25};
+    private static final int[] LTS_VERSIONS = new int[]{
+            8, 11, 17, 21, 25
+    };
     private static final String jdkFilePattern = "JDK_inheritance_%d.xml";
     private static final String shadedJdkFilePattern = "JDK_inheritance_%d_shaded.xml";
 
     /**
-     * Iterate over items in classpath and analyze them
+     * Iterate over items in classpath and analyze them.
      *
-     * @param classPath
-     * @return
+     * @param classPath the classpath to analyze
+     * @return the generated inheritance tree
      */
     public static InheritanceTree createFromClassPath(List<String> classPath) {
         if (!Properties.INSTRUMENT_CONTEXT && !Properties.INHERITANCE_FILE.isEmpty()) {
@@ -87,11 +89,13 @@ public class InheritanceTreeGenerator {
         logger.debug("CP: {}", classPath);
         for (String classPathEntry : classPath) {
             logger.debug("Looking at CP entry: {}", classPathEntry);
-            if (classPathEntry.isEmpty())
+            if (classPathEntry.isEmpty()) {
                 continue;
+            }
 
-            if (classPathEntry.matches(".*evosuite-.*\\.jar"))
+            if (classPathEntry.matches(".*evosuite-.*\\.jar")) {
                 continue;
+            }
 
             logger.debug("Analyzing classpath entry {}", classPathEntry);
             LoggingUtils.getEvoLogger().info("  - " + classPathEntry);
@@ -108,13 +112,14 @@ public class InheritanceTreeGenerator {
     }
 
     /**
-     * Create inheritance tree only for the classes passed as parameter
+     * Create inheritance tree only for the classes passed as parameter.
      *
      * <p>
      * Private classes will be ignored
+     * </p>
      *
-     * @param classNames
-     * @return
+     * @param classNames the classes to include
+     * @return the generated inheritance tree
      */
     public static InheritanceTree createFromClassList(Collection<String> classNames)
             throws IllegalArgumentException {
@@ -136,8 +141,9 @@ public class InheritanceTreeGenerator {
         // Remove all classes not in the parameter list, otherwise we get the superclasses from outside the list
         Set<String> classes = new HashSet<>(inheritanceTree.getAllClasses());
         for (String className : classes) {
-            if (!classNames.contains(className))
+            if (!classNames.contains(className)) {
                 inheritanceTree.removeClass(className);
+            }
         }
         return inheritanceTree;
 
@@ -182,8 +188,9 @@ public class InheritanceTreeGenerator {
         while (e.hasMoreElements()) {
             final ZipEntry ze = (ZipEntry) e.nextElement();
             final String fileName = ze.getName();
-            if (!fileName.endsWith(".class"))
+            if (!fileName.endsWith(".class")) {
                 continue;
+            }
 
             try {
                 analyzeClassStream(inheritanceTree, zf.getInputStream(ze), false);
@@ -256,8 +263,9 @@ public class InheritanceTreeGenerator {
         logger.info("Analyzing class {}", cn.name);
 
         // Don't load classes already seen from a different CP entry
-        if (inheritanceTree.hasClass(cn.name))
+        if (inheritanceTree.hasClass(cn.name)) {
             return;
+        }
 
         if ((Opcodes.ACC_INTERFACE & cn.access) != Opcodes.ACC_INTERFACE) {
             for (Object m : cn.methods) {
@@ -275,15 +283,16 @@ public class InheritanceTreeGenerator {
             if ((cn.access & Opcodes.ACC_PUBLIC) == 0) {
                 return;
             }
-//		} else {
-//			if (!canUse(cn)) {
-//				logger.info("Cannot use "+cn.name);
-//				return;
-//			}
+            //        } else {
+            //            if (!canUse(cn)) {
+            //                logger.info("Cannot use "+cn.name);
+            //                return;
+            //            }
         }
 
-        if (cn.superName != null)
+        if (cn.superName != null) {
             inheritanceTree.addSuperclass(cn.name, cn.superName, cn.access);
+        }
 
         List<String> interfaces = cn.interfaces;
         for (String interfaceName : interfaces) {
@@ -310,23 +319,24 @@ public class InheritanceTreeGenerator {
             return false;
         }
 
-        //		TODO: Handle Deprecated
+        //        TODO: Handle Deprecated
 
-        if (cn.name.startsWith("junit"))
+        if (cn.name.startsWith("junit")) {
             return false;
+        }
 
         // If the SUT is not in the default package, then
         // we cannot import classes that are in the default
         // package
-		/*
-		if ((cn.access & Opcodes.ACC_PUBLIC) != Opcodes.ACC_PUBLIC) {
-			String nameWithDots = cn.name.replace('/', '.');
-			String packageName = ClassUtils.getPackageName(nameWithDots);
-			if (!packageName.equals(Properties.CLASS_PREFIX)) {
-				return false;
-			}
-		}
-		*/
+        /*
+        if ((cn.access & Opcodes.ACC_PUBLIC) != Opcodes.ACC_PUBLIC) {
+            String nameWithDots = cn.name.replace('/', '.');
+            String packageName = ClassUtils.getPackageName(nameWithDots);
+            if (!packageName.equals(Properties.CLASS_PREFIX)) {
+                return false;
+            }
+        }
+        */
 
         // ASM has some problem with the access of inner classes
         // so we check if the inner class name is the current class name
@@ -339,15 +349,15 @@ public class InheritanceTreeGenerator {
                 if ((inc.access & Opcodes.ACC_PRIVATE) == Opcodes.ACC_PRIVATE) {
                     return false;
                 }
-				/*
-				if ((inc.access & Opcodes.ACC_PUBLIC) != Opcodes.ACC_PUBLIC) {
-					String nameWithDots = inc.name.replace('/', '.');
-					String packageName = ClassUtils.getPackageName(nameWithDots);
-					if (!packageName.equals(Properties.CLASS_PREFIX)) {
-						return false;
-					}
-				}
-				*/
+                /*
+                if ((inc.access & Opcodes.ACC_PUBLIC) != Opcodes.ACC_PUBLIC) {
+                    String nameWithDots = inc.name.replace('/', '.');
+                    String packageName = ClassUtils.getPackageName(nameWithDots);
+                    if (!packageName.equals(Properties.CLASS_PREFIX)) {
+                        return false;
+                    }
+                }
+                */
                 logger.debug("Can use inner class: " + inc.name);
                 return true;
             }
@@ -507,8 +517,9 @@ public class InheritanceTreeGenerator {
         String[] classPathElements = classPath.split(File.pathSeparator);
 
         for (final String element : classPathElements) {
-            if (element.contains("evosuite"))
+            if (element.contains("evosuite")) {
                 continue;
+            }
             try {
                 retval.addAll(ResourceList.getInstance(
                         TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(element, "", true, true));

@@ -31,15 +31,11 @@ import java.util.*;
  * <p>
  * CallContext class.
  * </p>
- *
- * @author Gordon Fraser
- */
-
-/**
  * TODO THIS IS APPROXIMATED call context computed at runtime DO NOT consider
  * the method signature, but only the method name. Currently, callcontext with
  * and without signature are considered equal
  *
+ * @author Gordon Fraser
  * @author mattia
  */
 public class CallContext implements Serializable {
@@ -88,8 +84,12 @@ public class CallContext implements Serializable {
                     skip = true;
                 }
             }
-            if (!skip)
+            if (!skip) {
                 context.add(newCall);
+            }
+            if (!skip) {
+                context.add(newCall);
+            }
         }
         this.context = context;
         hcode = this.context.hashCode();
@@ -98,7 +98,7 @@ public class CallContext implements Serializable {
     /**
      * Constructor for CallContext.
      *
-     * @param stackTrace
+     * @param stackTrace the stack trace
      */
     public CallContext(LinkedList<MethodCall> stackTrace) {
         addJUnitExcludes();
@@ -136,10 +136,10 @@ public class CallContext implements Serializable {
     }
 
     /**
-     * Constructor for public methods
+     * Constructor for public methods.
      *
-     * @param className
-     * @param methodName
+     * @param className the class name
+     * @param methodName the method name
      */
     public CallContext(String className, String methodName) {
         addJUnitExcludes();
@@ -172,11 +172,12 @@ public class CallContext implements Serializable {
     private String[] excludedPackages = new String[]{"java", "sun", PackageInfo.getEvoSuitePackage()};
 
     /**
-     * If we are using -measureCoverage then we need to also exclude the junit tests
+     * If we are using -measureCoverage then we need to also exclude the junit tests.
      */
     private void addJUnitExcludes() {
-        if (Properties.JUNIT.isEmpty())
+        if (Properties.JUNIT.isEmpty()) {
             return;
+        }
         List<String> values = new ArrayList<>(Arrays.asList(excludedPackages));
         values.add("org.junit");
         for (String junitClass : Properties.JUNIT.split(":")) {
@@ -187,11 +188,13 @@ public class CallContext implements Serializable {
     }
 
     private boolean shouldSkipEntry(String entry) {
-        if (entry.isEmpty())
+        if (entry.isEmpty()) {
             return true;
+        }
         for (String excludedPackage : excludedPackages) {
-            if (entry.startsWith(excludedPackage))
+            if (entry.startsWith(excludedPackage)) {
                 return true;
+            }
         }
         return false;
     }
@@ -238,8 +241,9 @@ public class CallContext implements Serializable {
      */
     @Override
     public String toString() {
-        if (context == null)
+        if (context == null) {
             return "";
+        }
 
         StringBuilder builder = new StringBuilder();
         for (Call call : context) {
@@ -257,21 +261,26 @@ public class CallContext implements Serializable {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CallContext other = (CallContext) obj;
         return hcode == other.hcode;
     }
 
     public boolean oldMatches(CallContext other) {
-        if (context.size() != other.context.size())
+        if (context.size() != other.context.size()) {
             return false;
-        if (other.hcode == hcode)
+        }
+        if (other.hcode == hcode) {
             return true;
+        }
         for (int i = 0; i < context.size(); i++) {
             Call call1 = context.get(i);
             Call call2 = other.context.get(i);
