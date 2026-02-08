@@ -47,7 +47,7 @@ public class ClassPathHandler {
 
     /**
      * The classpath of the project to test, including all
-     * its dependencies
+     * its dependencies.
      */
     private volatile String targetClassPath;
 
@@ -82,7 +82,7 @@ public class ClassPathHandler {
     }
 
     /**
-     * Replace current CP of EvoSuite with the given <code>elements</code>
+     * Replace current CP of EvoSuite with the given <code>elements</code>.
      *
      * @param elements array of classpath entries
      * @throws IllegalArgumentException if values in <code>elements</code> are not valid classpath entries
@@ -94,7 +94,7 @@ public class ClassPathHandler {
 
 
     /**
-     * Replace current CP for target project with the given <code>elements</code>
+     * Replace current CP for target project with the given <code>elements</code>.
      *
      * @param elements array of classpath entries
      * @throws IllegalArgumentException if values in <code>elements</code> are not valid classpath entries
@@ -127,10 +127,9 @@ public class ClassPathHandler {
     /**
      * Return the classpath of the target project.
      * This should include also all the third-party jars
-     * it depends on
+     * it depends on.
      *
-     * <p>
-     * If no classpath has been set so far, the one from the property file
+     * <p>If no classpath has been set so far, the one from the property file
      * will be used, if it exists.
      *
      * @return the target project classpath
@@ -142,7 +141,8 @@ public class ClassPathHandler {
             if (Properties.CP_FILE_PATH != null) {
                 File file = new File(Properties.CP_FILE_PATH);
 
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                        new FileInputStream(file), StandardCharsets.UTF_8))) {
                     line = reader.readLine();
                 } catch (Exception e) {
                     logger.error("Error while processing {} : {}", file.getAbsolutePath(), e.getMessage());
@@ -176,7 +176,7 @@ public class ClassPathHandler {
 
 
     /**
-     * Add classpath entry to the classpath of the target project
+     * Add classpath entry to the classpath of the target project.
      *
      * @param element the classpath element to add
      * @throws IllegalArgumentException if the element is invalid
@@ -208,12 +208,13 @@ public class ClassPathHandler {
             throw new IllegalArgumentException("Classpath element does not exist on disk at: " + element);
         }
         if (!element.endsWith(".jar") && !element.endsWith(".war") && !file.isDirectory()) {
-            throw new IllegalArgumentException("A classpath element should either be a jar or a war or a folder: " + element);
+            throw new IllegalArgumentException(
+                    "A classpath element should either be a jar or a war or a folder: " + element);
         }
     }
 
     /**
-     * Get the project classpath as an array of elements
+     * Get the project classpath as an array of elements.
      *
      * @return a non-null array
      */
@@ -227,7 +228,7 @@ public class ClassPathHandler {
 
     /**
      * This is meant only for running the EvoSuite test cases, whose CUTs will be in the
-     * classpath of EvoSuite itself
+     * classpath of EvoSuite itself.
      */
     public void changeTargetCPtoTheSameAsEvoSuite() {
 

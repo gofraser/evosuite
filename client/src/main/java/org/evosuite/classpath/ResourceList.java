@@ -30,15 +30,13 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import java.util.function.Predicate;
 
 
 /**
- * <p>
- * Utilities to list class resources (ie .class files) available from the classpath
- * </p>
+ * <p>Utilities to list class resources (ie .class files) available from the classpath.</p>
  *
  * @author Gordon Fraser
  */
@@ -48,28 +46,28 @@ public class ResourceList {
 
     private static class Cache {
         /**
-         * Key -> a classpath entry (eg folder or jar file)
-         * <p>
-         * Value -> set of all classes in that CP entry
+         * Key -> a classpath entry (eg folder or jar file).
+         *
+         * <p>Value -> set of all classes in that CP entry</p>
          */
         final Map<String, Set<String>> mapCPtoClasses = new LinkedHashMap<>();
 
         /**
-         * Key -> full qualifying name of a class, eg org.some.Foo
-         * <p>
-         * Value -> the classpath entry in which it can be found
+         * Key -> full qualifying name of a class, eg org.some.Foo.
+         *
+         * <p>Value -> the classpath entry in which it can be found</p>
          */
         final Map<String, String> mapClassToCP = new LinkedHashMap<>();
 
         /**
-         * Key -> package prefix
-         * <p>
-         * Value -> set of classpath entries having such prefix
+         * Key -> package prefix.
+         *
+         * <p>Value -> set of classpath entries having such prefix</p>
          */
         final Map<String, Set<String>> mapPrefixToCPs = new LinkedHashMap<>();
 
         /**
-         * Keep track of the classes that should be on the classpath but they are not
+         * Keep track of the classes that should be on the classpath but they are not.
          */
         final Set<String> missingClasses = new LinkedHashSet<>();
 
@@ -117,7 +115,7 @@ public class ResourceList {
 
 
     /**
-     * Current cache. Do not access directly, but rather use getCache(), as it can be null
+     * Current cache. Do not access directly, but rather use getCache(), as it can be null.
      */
     private Cache cache = null;
 
@@ -130,7 +128,7 @@ public class ResourceList {
     private final ClassLoader classLoader;
 
     /**
-     * Private constructor
+     * Private constructor.
      */
     private ResourceList(ClassLoader classLoader) {
         this.classLoader = classLoader;
@@ -158,7 +156,7 @@ public class ResourceList {
 
 
     /**
-     * is the target class among the ones in the SUT classpath?
+     * Checks if the target class is among the ones in the SUT classpath.
      *
      * @param className a fully qualified class name
      * @return true if the class is in the classpath
@@ -168,6 +166,8 @@ public class ResourceList {
     }
 
     /**
+     * Get the InputStream for the class.
+     *
      * @param name a fully qualifying name, e.g. org.some.Foo
      * @return InputStream for the class, or null if not found
      */
@@ -179,12 +179,12 @@ public class ResourceList {
 
         String cpEntry = getCache().mapClassToCP.get(name);
         if (cpEntry == null) {
-			
-			/*
-				the cache is initialized based on what is on the project classpath.
-				but that does not include the Java API, although it is accessed by
-				the SUT.
-			 */
+
+            /*
+             * The cache is initialized based on what is on the project classpath.
+             * But that does not include the Java API, although it is accessed by
+             * the SUT.
+             */
 
             InputStream ins = getClassAsStreamFromClassLoader(name);
             if (ins != null) {
@@ -240,11 +240,12 @@ public class ResourceList {
 
 
     /**
-     * Given the target classpath entry (eg folder or jar file), return the names (eg foo.Foo) of all the classes (.class files)
-     * inside
+     * Given the target classpath entry (eg folder or jar file), return the names (eg foo.Foo) of all the classes
+     * (.class files) inside.
      *
      * @param classPathEntry the classpath entry
-     * @param includeInternalClasses should internal classes (ie static and anonymous having $ in their name) be included?
+     * @param includeInternalClasses should internal classes (ie static and anonymous having $ in their name)
+     *                               be included?
      * @return a set of class names
      */
     public Set<String> getAllClasses(String classPathEntry, boolean includeInternalClasses) {
@@ -253,12 +254,13 @@ public class ResourceList {
 
 
     /**
-     * Given the target classpath entry (eg folder or jar file), return the names (eg foo.Foo) of all the classes (.class files)
-     * inside
+     * Given the target classpath entry (eg folder or jar file), return the names (eg foo.Foo) of all the classes
+     * (.class files) inside.
      *
      * @param classPathEntry the classpath entry
      * @param prefix package prefix
-     * @param includeInternalClasses should internal classes (ie static and anonymous having $ in their name) be included?
+     * @param includeInternalClasses should internal classes (ie static and anonymous having $ in their name)
+     *                               be included?
      * @return a set of class names
      */
     public Set<String> getAllClasses(String classPathEntry, String prefix, boolean includeInternalClasses) {
@@ -267,16 +269,19 @@ public class ResourceList {
 
 
     /**
-     * Given the target classpath entry (eg folder or jar file), return the names (eg foo.Foo) of all the classes (.class files)
-     * inside
+     * Given the target classpath entry (eg folder or jar file), return the names (eg foo.Foo) of all the classes
+     * (.class files) inside.
      *
      * @param classPathEntry the classpath entry
      * @param prefix package prefix
-     * @param includeInternalClasses should internal classes (ie static and anonymous having $ in their name) be included?
-     * @param excludeAnonymous       if including internal classes, should though still exclude the anonymous? (ie keep only the static ones)
+     * @param includeInternalClasses should internal classes (ie static and anonymous having $ in their name)
+     *                               be included?
+     * @param excludeAnonymous       if including internal classes, should though still exclude the anonymous?
+     *                               (ie keep only the static ones)
      * @return a set of class names
      */
-    public synchronized Set<String> getAllClasses(String classPathEntry, String prefix, boolean includeInternalClasses, boolean excludeAnonymous) {
+    public synchronized Set<String> getAllClasses(String classPathEntry, String prefix,
+                                                  boolean includeInternalClasses, boolean excludeAnonymous) {
 
         if (classPathEntry.contains(File.pathSeparator)) {
             Set<String> retval = new LinkedHashSet<>();
@@ -318,39 +323,45 @@ public class ResourceList {
 
     public static boolean isInterface(String resource) throws IOException {
         try (InputStream input = ResourceList.class.getClassLoader().getResourceAsStream(resource)) {
-            if (input == null) return false;
+            if (input == null) {
+                return false;
+            }
             return isClassAnInterface(input);
         }
     }
 
     public boolean isClassAnInterface(String className) throws IOException {
         try (InputStream input = getClassAsStream(className)) {
-            if (input == null) return false;
+            if (input == null) {
+                return false;
+            }
             return isClassAnInterface(input);
         }
     }
 
     public boolean isClassDeprecated(String className) throws IOException {
         try (InputStream input = getClassAsStream(className)) {
-            if (input == null) return false;
+            if (input == null) {
+                return false;
+            }
             return isClassDeprecated(input);
         }
     }
 
     public boolean isClassTestable(String className) throws IOException {
         try (InputStream input = getClassAsStream(className)) {
-            if (input == null) return false;
+            if (input == null) {
+                return false;
+            }
             return isClassTestable(input);
         }
     }
 
     /**
-     * <p>
-     * Given a resource path, eg foo/Foo.class, return the class name, eg foo.Foo
+     * Given a resource path, eg foo/Foo.class, return the class name, eg foo.Foo.
      *
-     * <p>
-     * This method is able to handle different operating systems (Unix/Windows) and whether
-     * the resource is in a folder or inside a jar file ('/' separator independent of operating system).
+     * <p>This method is able to handle different operating systems (Unix/Windows) and whether
+     * the resource is in a folder or inside a jar file ('/' separator independent of operating system).</p>
      */
     public static String getClassNameFromResourcePath(String resource) {
         //method had to be moved due to constraints on "runtime" module dependencies
@@ -411,9 +422,9 @@ public class ResourceList {
             @SuppressWarnings("unchecked")
             List<MethodNode> l = cn.methods;
             for (MethodNode m : l) {
-                if ((m.access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC ||
-                        (m.access & Opcodes.ACC_PROTECTED) == Opcodes.ACC_PROTECTED ||
-                        (m.access & Opcodes.ACC_PRIVATE) == 0 /* default */) {
+                if ((m.access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC
+                        || (m.access & Opcodes.ACC_PROTECTED) == Opcodes.ACC_PROTECTED
+                        || (m.access & Opcodes.ACC_PRIVATE) == 0 /* default */) {
                     return true;
                 }
             }
@@ -422,10 +433,10 @@ public class ResourceList {
     }
 
     /**
-     * Remove last '.' token
+     * Remove last '.' token.
      *
-     * @param className
-     * @return
+     * @param className the class name
+     * @return the parent package name
      */
     protected static String getParentPackageName(String className) {
         if (className == null || className.isEmpty()) {
@@ -441,9 +452,9 @@ public class ResourceList {
     }
 
     /**
-     * Init the cache if null
+     * Init the cache if null.
      *
-     * @return
+     * @return the cache
      */
     private synchronized Cache getCache() {
         if (cache == null) {
@@ -509,7 +520,9 @@ public class ResourceList {
         prefix = prefix.replace(File.separatorChar, '.');
 
         File[] fileList = directory.listFiles();
-        if (fileList == null) return;
+        if (fileList == null) {
+            return;
+        }
 
         for (final File file : fileList) {
             if (file.isDirectory()) {
@@ -526,8 +539,9 @@ public class ResourceList {
 
                 // The same class may exist in different classpath entries
                 // and only the first one is kept
-                if (getCache().mapClassToCP.containsKey(className))
+                if (getCache().mapClassToCP.containsKey(className)) {
                     continue;
+                }
 
                 // If there is an outer class, then we also have a classpath
                 // problem and should ignore this
@@ -550,7 +564,9 @@ public class ResourceList {
 
     private void scanJar(String jarEntry) {
         JarFile zf = getCache().getJar(jarEntry);
-        if (zf == null) return;
+        if (zf == null) {
+            return;
+        }
 
         Enumeration<?> e = zf.entries();
         while (e.hasMoreElements()) {
@@ -565,8 +581,9 @@ public class ResourceList {
 
             // The same class may exist in different classpath entries
             // and only the first one is kept
-            if (getCache().mapClassToCP.containsKey(className))
+            if (getCache().mapClassToCP.containsKey(className)) {
                 continue;
+            }
 
             if (className.contains("$")) {
                 String outerClass = className.substring(0, className.indexOf('$'));
