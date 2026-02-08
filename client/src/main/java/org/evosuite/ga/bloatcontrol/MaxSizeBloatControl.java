@@ -23,7 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 
 /**
- * Reject individuals when they exceed a certain size
+ * Reject individuals when they exceed a certain size.
  *
  * @author Gordon Fraser
  */
@@ -55,8 +55,8 @@ public class MaxSizeBloatControl<T extends Chromosome<T>> implements BloatContro
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Check whether the chromosome is bigger than the max length constant
+     *
+     * <p>Check whether the chromosome is bigger than the max length constant.
      */
     @Override
     public boolean isTooLong(T chromosome) {
