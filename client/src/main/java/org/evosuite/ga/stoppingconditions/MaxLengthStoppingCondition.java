@@ -64,8 +64,9 @@ public class MaxLengthStoppingCondition<T extends Chromosome<T>> extends Stoppin
      */
     @Override
     public boolean isFinished() {
-        if (averageLength >= maxLength)
+        if (averageLength >= maxLength) {
             logger.info("Maximum average length reached, stopping");
+        }
         return averageLength >= maxLength;
     }
 

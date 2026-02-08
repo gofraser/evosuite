@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stop search after a predefined maximum search depth
+ * Stop search after a predefined maximum search depth.
  *
  * @author Gordon Fraser
  */
@@ -36,12 +36,12 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
     private static final long serialVersionUID = 208241490252275613L;
 
     /**
-     * Maximum number of evaluations
+     * Maximum number of evaluations.
      */
     protected long maxEvaluations;
 
     /**
-     * Current number of evaluations
+     * Current number of evaluations.
      */
     protected long currentEvaluation = 0;
 
@@ -62,8 +62,8 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Stop when maximum number of fitness evaluations has been reached
+     *
+     * <p>Stop when maximum number of fitness evaluations has been reached.</p>
      */
     @Override
     public boolean isFinished() {
@@ -75,8 +75,8 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Keep track of the number of fitness evaluations
+     *
+     * <p>Keep track of the number of fitness evaluations.</p>
      */
     @Override
     public void fitnessEvaluation(T individual) {
@@ -85,8 +85,8 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
 
     /**
      * {@inheritDoc}
-     * <p>
-     * At the end, reset
+     *
+     * <p>At the end, reset.</p>
      */
     @Override
     public void reset() {

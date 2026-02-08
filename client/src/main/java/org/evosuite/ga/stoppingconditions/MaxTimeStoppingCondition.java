@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 
 /**
- * Stop search after a predefined amount of time
+ * Stop search after a predefined amount of time.
  *
  * @author Gordon Fraser
  */
@@ -36,7 +36,7 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
     private static final long serialVersionUID = -4524853279562896768L;
 
     /**
-     * Maximum number of seconds
+     * Maximum number of seconds.
      */
     protected long maxSeconds;
 
@@ -66,8 +66,8 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
 
     /**
      * {@inheritDoc}
-     * <p>
-     * We are finished when the time is up
+     *
+     * <p>We are finished when the time is up.</p>
      */
     @Override
     public boolean isFinished() {
@@ -77,8 +77,8 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Reset
+     *
+     * <p>Reset.</p>
      */
     @Override
     public void reset() {

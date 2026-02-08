@@ -24,7 +24,7 @@ import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 
 /**
- * Stop search after a predefined number of iterations
+ * Stop search after a predefined number of iterations.
  *
  * @author Gordon Fraser
  */
@@ -33,12 +33,12 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
     private static final long serialVersionUID = 251196904115160351L;
 
     /**
-     * Maximum number of iterations
+     * Maximum number of iterations.
      */
     protected long maxIterations;
 
     /**
-     * Maximum number of iterations
+     * Maximum number of iterations.
      */
     protected long currentIteration;
 
@@ -58,9 +58,7 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
     }
 
     /**
-     * <p>
-     * setMaxIterations
-     * </p>
+     * <p>setMaxIterations.</p>
      *
      * @param max a int.
      */
@@ -70,8 +68,8 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Increase iteration counter
+     *
+     * <p>Increase iteration counter.</p>
      */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
@@ -80,8 +78,8 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Stop search after a number of iterations
+     *
+     * <p>Stop search after a number of iterations.</p>
      */
     @Override
     public boolean isFinished() {
@@ -98,8 +96,8 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Reset counter
+     *
+     * <p>Reset counter.</p>
      */
     @Override
     public void reset() {

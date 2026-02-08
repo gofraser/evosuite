@@ -63,7 +63,7 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
     private static final Logger logger = LoggerFactory.getLogger(MaxStatementsStoppingCondition.class);
 
     /**
-     * Maximum number of iterations
+     * Maximum number of iterations.
      */
     protected static final AtomicLong currentStatement = new AtomicLong(0);
 
@@ -81,7 +81,7 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
     }
 
     /**
-     * Add a given number of executed statements
+     * Add a given number of executed statements.
      *
      * @param num a int.
      */
@@ -91,8 +91,8 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Finished, if the maximum number of statements has been reached
+     *
+     * <p>Finished, if the maximum number of statements has been reached.</p>
      */
     @Override
     public boolean isFinished() {
@@ -101,8 +101,8 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Reset counter
+     *
+     * <p>Reset counter.</p>
      */
     @Override
     public void reset() {
@@ -110,9 +110,7 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
     }
 
     /**
-     * <p>
-     * getNumExecutedStatements
-     * </p>
+     * <p>getNumExecutedStatements.</p>
      *
      * @return a long.
      */
@@ -121,11 +119,9 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
     }
 
     /**
-     * <p>
-     * getNumExecutedStatements
-     * </p>
+     * <p>setNumExecutedStatements.</p>
      *
-     * @return a long.
+     * @param value a long.
      */
     public static void setNumExecutedStatements(long value) {
         currentStatement.set(value);

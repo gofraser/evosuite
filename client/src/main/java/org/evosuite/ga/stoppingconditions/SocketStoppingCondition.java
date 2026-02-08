@@ -73,7 +73,7 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
     }
 
     /**
-     * <p>accept</p>
+     * <p>accept.</p>
      */
     public void accept() {
         Thread t = new Thread(() -> {

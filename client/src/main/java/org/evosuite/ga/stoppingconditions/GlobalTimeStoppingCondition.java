@@ -41,12 +41,12 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
     private static final long serialVersionUID = -4880914182984895075L;
 
     /**
-     * Assume the search has not started until start_time != 0
+     * Assume the search has not started until start_time != 0.
      */
     protected static long startTime = 0L;
 
     /**
-     * Constant <code>pause_time=0L</code>
+     * Constant <code>pause_time=0L</code>.
      */
     protected static long pauseTime = 0L;
 
@@ -68,8 +68,9 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
      */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
-        if (startTime == 0)
+        if (startTime == 0) {
             reset();
+        }
     }
 
     /* (non-Javadoc)
@@ -119,8 +120,9 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
      */
     @Override
     public void reset() {
-        if (startTime == 0)
+        if (startTime == 0) {
             startTime = System.nanoTime();
+        }
     }
 
     /**
@@ -154,9 +156,7 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
     }
 
     /**
-     * <p>
-     * forceReset
-     * </p>
+     * <p>forceReset.</p>
      */
     public static void forceReset() {
         startTime = 0;
@@ -172,14 +172,14 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
     }
 
     /**
-     * Remember start pause time
+     * Remember start pause time.
      */
     public void pause() {
         pauseTime = System.nanoTime();
     }
 
     /**
-     * Change start time after MA
+     * Change start time after MA.
      */
     public void resume() {
         if (pauseTime != 0) {
