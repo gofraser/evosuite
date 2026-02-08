@@ -15,8 +15,8 @@ public class StatisticsValidator {
     private static final Logger logger = LoggerFactory.getLogger(StatisticsValidator.class);
 
     /**
-     * check if the variables do satisfy a set of predefined constraints: eg, the
-     * number of covered targets cannot be higher than their total number
+     * Checks if the variables do satisfy a set of predefined constraints: eg, the
+     * number of covered targets cannot be higher than their total number.
      *
      * @param map from (key->variable name) to (value -> output variable)
      * @return true if valid
@@ -69,8 +69,8 @@ public class StatisticsValidator {
 
                 double diff = Math.abs(coverage - branchCoverage);
                 if (diff > 0.001) {
-                    logger.error("Targeting branch coverage, but Coverage is different " +
-                            "from BranchCoverage: " + coverage + " != " + branchCoverage);
+                    logger.error("Targeting branch coverage, but Coverage is different "
+                            + "from BranchCoverage: " + coverage + " != " + branchCoverage);
                     valid = false;
                 }
             }
@@ -104,7 +104,7 @@ public class StatisticsValidator {
     private static Double getDoubleValue(Map<String, OutputVariable<?>> map, RuntimeVariable variable) {
         OutputVariable<?> out = map.get(variable.toString());
         if (out != null) {
-             Object val = out.getValue();
+            Object val = out.getValue();
             if (val instanceof Double) {
                 return (Double) val;
             } else if (val instanceof Number) {

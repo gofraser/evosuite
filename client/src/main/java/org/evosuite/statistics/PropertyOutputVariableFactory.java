@@ -24,7 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Output variable that represents a value stored in the properties
+ * Output variable that represents a value stored in the properties.
  *
  * @author gordon
  */

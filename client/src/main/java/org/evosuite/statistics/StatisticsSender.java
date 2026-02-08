@@ -37,27 +37,27 @@ import java.util.*;
 /**
  * Class responsible to send "individuals" from Client to Master process.
  * All sending of individuals should go through this class, and not
- * calling ClientServices directly
+ * calling ClientServices directly.
  *
- * <p>
- * TODO: still to clarify what type of extra information we want to send with each individual,
- * eg the state in which it was computed (Search vs Minimization)
+ * <p>TODO: still to clarify what type of extra information we want to send with each individual,
+ * eg the state in which it was computed (Search vs Minimization).</p>
  *
  * @author arcuri
  */
 public class StatisticsSender {
 
     /**
-     * Send the given individual to the Client, plus any other needed info
+     * Send the given individual to the Client, plus any other needed info.
      *
-     * @param individual
+     * @param individual the individual to send
      */
     public static <T extends Chromosome<T>> void sendIndividualToMaster(T individual) throws IllegalArgumentException {
         if (individual == null) {
             throw new IllegalArgumentException("No defined individual to send");
         }
-        if (!Properties.NEW_STATISTICS)
+        if (!Properties.NEW_STATISTICS) {
             return;
+        }
 
         ClientServices.<T>getInstance().getClientNode().updateStatistics(individual);
     }
@@ -65,14 +65,18 @@ public class StatisticsSender {
 
     /**
      * First execute (if needed) the test cases to be sure to have latest correct data,
-     * and then send it to Master
+     * and then send it to Master.
+     *
+     * @param testSuite the test suite to execute and send
      */
-    public static void executedAndThenSendIndividualToMaster(TestSuiteChromosome testSuite) throws IllegalArgumentException {
+    public static void executedAndThenSendIndividualToMaster(TestSuiteChromosome testSuite)
+            throws IllegalArgumentException {
         if (testSuite == null) {
             throw new IllegalArgumentException("No defined test suite to send");
         }
-        if (!Properties.NEW_STATISTICS)
+        if (!Properties.NEW_STATISTICS) {
             return;
+        }
 
         /*
          * TODO: shouldn't a test that was never executed always be executed before sending?
@@ -108,16 +112,21 @@ public class StatisticsSender {
         Map<String, Set<Class<?>>> explicitTypesOfExceptions = new HashMap<>();
         Map<String, Set<Class<?>>> declaredTypesOfExceptions = new HashMap<>();
 
-        ExceptionCoverageSuiteFitness.calculateExceptionInfo(results, implicitTypesOfExceptions, explicitTypesOfExceptions, declaredTypesOfExceptions, null);
+        ExceptionCoverageSuiteFitness.calculateExceptionInfo(results, implicitTypesOfExceptions,
+                explicitTypesOfExceptions, declaredTypesOfExceptions, null);
 
         ClientServices.getInstance().getClientNode().trackOutputVariable(
-                RuntimeVariable.Explicit_MethodExceptions, ExceptionCoverageSuiteFitness.getNumExceptions(explicitTypesOfExceptions));
+                RuntimeVariable.Explicit_MethodExceptions,
+                ExceptionCoverageSuiteFitness.getNumExceptions(explicitTypesOfExceptions));
         ClientServices.getInstance().getClientNode().trackOutputVariable(
-                RuntimeVariable.Explicit_TypeExceptions, ExceptionCoverageSuiteFitness.getNumClassExceptions(explicitTypesOfExceptions));
+                RuntimeVariable.Explicit_TypeExceptions,
+                ExceptionCoverageSuiteFitness.getNumClassExceptions(explicitTypesOfExceptions));
         ClientServices.getInstance().getClientNode().trackOutputVariable(
-                RuntimeVariable.Implicit_MethodExceptions, ExceptionCoverageSuiteFitness.getNumExceptions(implicitTypesOfExceptions));
+                RuntimeVariable.Implicit_MethodExceptions,
+                ExceptionCoverageSuiteFitness.getNumExceptions(implicitTypesOfExceptions));
         ClientServices.getInstance().getClientNode().trackOutputVariable(
-                RuntimeVariable.Implicit_TypeExceptions, ExceptionCoverageSuiteFitness.getNumClassExceptions(implicitTypesOfExceptions));
+                RuntimeVariable.Implicit_TypeExceptions,
+                ExceptionCoverageSuiteFitness.getNumClassExceptions(implicitTypesOfExceptions));
 
         /*
          * NOTE: in old report generator, we were using Properties.SAVE_ALL_DATA
@@ -149,17 +158,17 @@ public class StatisticsSender {
             BranchPool branchPool = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
             for (Integer branchId : coveredTrueBranches) {
                 Branch b = branchPool.getBranch(branchId);
-                if (b.isInstrumented())
+                if (b.isInstrumented()) {
                     coveredBranchesInstrumented++;
-                else {
+                } else {
                     coveredBranchesReal++;
                 }
             }
             for (Integer branchId : coveredFalseBranches) {
                 Branch b = branchPool.getBranch(branchId);
-                if (b.isInstrumented())
+                if (b.isInstrumented()) {
                     coveredBranchesInstrumented++;
-                else {
+                } else {
                     coveredBranchesReal++;
                 }
             }

@@ -34,7 +34,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * Client-side listener that transmits data to master
+ * Client-side listener that transmits data to master.
  *
  * @author gordon
  */
@@ -55,7 +55,7 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
     private transient Thread notifier;
 
     /**
-     * When did we send an individual due to a new generation iteration?
+     * When did we send an individual due to a new generation iteration.
      */
     private volatile long timeFromLastGenerationUpdate = 0;
 
@@ -92,7 +92,8 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
             // Enqueue current best individual
             individuals.offer(algorithm.getBestIndividual());
             // send timeline variable directly
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.TotalExceptionsTimeline, ExceptionCoverageSuiteFitness.getMaxExceptionsCovered());
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.TotalExceptionsTimeline,
+                    ExceptionCoverageSuiteFitness.getMaxExceptionsCovered());
         }
     }
 
@@ -102,11 +103,16 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
         // If the search is finished, we may want to clear the queue and just send the final element?
         //individuals.clear(); // TODO: Maybe have a check on size
         individuals.offer(algorithm.getBestIndividual());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Statements_Executed, MaxStatementsStoppingCondition.getNumExecutedStatements());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Tests_Executed, MaxTestsStoppingCondition.getNumExecutedTests());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Generations, algorithm.getAge());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Fitness_Evaluations, numFitnessEvaluations);
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.TotalExceptionsTimeline, ExceptionCoverageSuiteFitness.getMaxExceptionsCovered());
+        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Statements_Executed,
+                MaxStatementsStoppingCondition.getNumExecutedStatements());
+        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Tests_Executed,
+                MaxTestsStoppingCondition.getNumExecutedTests());
+        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Generations,
+                algorithm.getAge());
+        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Fitness_Evaluations,
+                numFitnessEvaluations);
+        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.TotalExceptionsTimeline,
+                ExceptionCoverageSuiteFitness.getMaxExceptionsCovered());
 
         if (algorithm.getBestIndividual() instanceof TestSuiteChromosome) {
             reportTestSuiteResult((TestSuiteChromosome) algorithm.getBestIndividual());
@@ -141,7 +147,7 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
 
     private void startNotifier() {
         if (notifier == null || !notifier.isAlive()) {
-             notifier = new Thread(() -> {
+            notifier = new Thread(() -> {
                 // Wait for new element in queue
                 // If there is a new element, then send it to master through RMI
                 while (!done || !individuals.isEmpty()) {
