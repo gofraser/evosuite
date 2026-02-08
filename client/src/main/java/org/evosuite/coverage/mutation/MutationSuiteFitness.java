@@ -56,11 +56,12 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
     protected final Set<Integer> toRemoveMutants = new LinkedHashSet<>();
 
     public MutationSuiteFitness(Criterion criterion) {
-        if (criterion != Criterion.STRONGMUTATION && criterion != Criterion.WEAKMUTATION
+        if (criterion != Criterion.STRONGMUTATION && criterion != Criterion.WEAKMUTATION {
                 && criterion != Criterion.ONLYMUTATION) {
             throw new RuntimeException("Invalid initialisation of MutationSuiteFitness with criterion '"
                     + criterion.name()
                     + "'. MutationSuiteFitness can only be invoked with STRONGMUTATION, WEAKMUTATION, and ONLYMUTATION");
+        }
         }
         MutationFactory factory = (MutationFactory) FitnessFunctions.getFitnessFactory(criterion);
 

@@ -77,10 +77,11 @@ public abstract class AbstractMethodCoverageFactory<T extends AbstractMethodTest
         for (Method m : allMethods) {
             if (TestUsageChecker.canUse(m)) {
                 if (clazz.isEnum()) {
-                    if (m.getName().equals("valueOf") || m.getName().equals("values")
+                    if (m.getName().equals("valueOf") || m.getName().equals("values") {
                             || m.getName().equals("ordinal")) {
                         logger.debug("Excluding valueOf for Enum " + m);
                         continue;
+                    }
                     }
                 }
                 if (clazz.isInterface() && Modifier.isAbstract(m.getModifiers())) {

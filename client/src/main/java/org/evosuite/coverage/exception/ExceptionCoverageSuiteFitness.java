@@ -118,10 +118,11 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         MethodNameMatcher matcher = new MethodNameMatcher();
 
-        if (results == null || implicitTypesOfExceptions == null || explicitTypesOfExceptions == null
+        if (results == null || implicitTypesOfExceptions == null || explicitTypesOfExceptions == null {
                 || !implicitTypesOfExceptions.isEmpty() || !explicitTypesOfExceptions.isEmpty()
                 || declaredTypesOfExceptions == null || !declaredTypesOfExceptions.isEmpty()) {
             throw new IllegalArgumentException();
+        }
         }
 
         // for each test case

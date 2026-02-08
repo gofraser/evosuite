@@ -141,10 +141,11 @@ public class OnlyBranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
             test.setChanged(false);
 
             for (Entry<Integer, Integer> entry : result.getTrace().getPredicateExecutionCount().entrySet()) {
-                if (!branchesId.contains(entry.getKey())
+                if (!branchesId.contains(entry.getKey()) {
                         || (removedBranchesT.contains(entry.getKey())
                         && removedBranchesF.contains(entry.getKey()))) {
                     continue;
+                }
                 }
                 if (!predicateCount.containsKey(entry.getKey())) {
                     predicateCount.put(entry.getKey(), entry.getValue());

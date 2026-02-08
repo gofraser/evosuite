@@ -63,7 +63,7 @@ public class TryCatchCoverageFactory extends AbstractFitnessFactory<TryCatchCove
                     continue;
                 }
 
-                for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).retrieveBranchesInMethod(className,
+                for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).retrieveBranchesInMethod(className, {
                         methodName)) {
                     if (b.isInstrumented()) {
                         goals.add(new TryCatchCoverageTestFitness(new BranchCoverageGoal(b,
@@ -73,6 +73,7 @@ public class TryCatchCoverageFactory extends AbstractFitnessFactory<TryCatchCove
                                     false, b.getClassName(), b.getMethodName())));
                         }
                     }
+                }
                 }
             }
         }

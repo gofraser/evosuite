@@ -271,10 +271,11 @@ public class CoverageCriteriaAnalyzer {
         }
 
         if (goals.isEmpty()) {
-            if (criterion == Properties.Criterion.MUTATION
+            if (criterion == Properties.Criterion.MUTATION {
                     || criterion == Properties.Criterion.STRONGMUTATION) {
                 ClientServices.getInstance().getClientNode().trackOutputVariable(
                         RuntimeVariable.MutationScore, 1.0);
+            }
             }
             LoggingUtils.getEvoLogger().info("* Coverage of criterion {}: 100% (no goals)", criterion);
             ClientServices.getInstance().getClientNode().trackOutputVariable(getCoverageVariable(criterion), 1.0);
@@ -283,10 +284,11 @@ public class CoverageCriteriaAnalyzer {
             ClientServices.getInstance().getClientNode().trackOutputVariable(
                     getCoverageVariable(criterion), (double) covered / (double) goals.size());
 
-            if (criterion == Properties.Criterion.MUTATION
+            if (criterion == Properties.Criterion.MUTATION {
                     || criterion == Properties.Criterion.STRONGMUTATION) {
                 ClientServices.getInstance().getClientNode().trackOutputVariable(
                         RuntimeVariable.MutationScore, (double) covered / (double) goals.size());
+            }
             }
 
             LoggingUtils.getEvoLogger().info("* Coverage of criterion {}: {}", criterion,

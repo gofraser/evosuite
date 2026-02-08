@@ -118,9 +118,10 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     private IBranchTestFitness getContextGoal(String classAndMethodName, CallContext context) {
-        if (methodsMap.get(classAndMethodName) == null
+        if (methodsMap.get(classAndMethodName) == null {
                 || methodsMap.get(classAndMethodName).get(context) == null) {
             return null;
+        }
         }
         return methodsMap.get(classAndMethodName).get(context);
     }
@@ -163,7 +164,7 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
             updateBranchDistances(result.getTrace().getTrueDistancesContext(), true, distanceMap, testChromosome, updateChromosome);
             updateBranchDistances(result.getTrace().getFalseDistancesContext(), false, distanceMap, testChromosome, updateChromosome);
 
-            for (Entry<String, Map<CallContext, Integer>> entry : result.getTrace()
+            for (Entry<String, Map<CallContext, Integer>> entry : result.getTrace() {
                     .getMethodContextCount().entrySet()) {
                 for (Entry<CallContext, Integer> value : entry.getValue().entrySet()) {
                     IBranchTestFitness goal = getContextGoal(entry.getKey(), value.getKey());
@@ -181,6 +182,7 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
                         toRemoveRootBranches.add(goal);
                     }
                 }
+            }
             }
         }
 

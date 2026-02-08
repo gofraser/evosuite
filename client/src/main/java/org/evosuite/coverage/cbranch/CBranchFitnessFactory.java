@@ -56,9 +56,10 @@ public class CBranchFitnessFactory extends AbstractFitnessFactory<CBranchTestFit
         // try to find all occurrences of this branch in the call tree
         for (BranchCoverageTestFitness branchGoal : branchGoals) {
             logger.info("Adding context branches for " + branchGoal.toString());
-            for (CallContext context : callGraph.getMethodEntryPoint(branchGoal.getClassName(),
+            for (CallContext context : callGraph.getMethodEntryPoint(branchGoal.getClassName(), {
                     branchGoal.getMethod())) {
                 goals.add(new CBranchTestFitness(branchGoal.getBranchGoal(), context));
+            }
             }
         }
 

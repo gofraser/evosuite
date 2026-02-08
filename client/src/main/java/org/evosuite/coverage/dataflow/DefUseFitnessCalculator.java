@@ -34,7 +34,7 @@ import java.util.*;
 
 /**
  * This class is like a library containing all methods needed to calculate a
- * DefUseCoverage-Fitness
+ * DefUseCoverage-Fitness.
  *
  * @author Andre Mis
  */
@@ -62,8 +62,8 @@ public class DefUseFitnessCalculator {
     private final String useVariable;
 
     /**
-     * <p>
-     * Constructor for DefUseFitnessCalculator.
+     *
+     * <p>Constructor for DefUseFitnessCalculator.
      * </p>
      *
      * @param goal       a
@@ -83,10 +83,11 @@ public class DefUseFitnessCalculator {
         this.goalDefinitionFitness = goal.getGoalDefinitionFitness();
         this.goalUseFitness = goal.getGoalUseFitness();
         // this.goalVariable = goalUse.getVariableName();
-        if (goalDefinition == null)
+        if (goalDefinition == null) {
             this.defVariable = goalUse.getVariableName();
-        else
+        } else {
             this.defVariable = goalDefinition.getVariableName();
+        }
         this.useVariable = goalUse.getVariableName();
     }
 
@@ -94,40 +95,40 @@ public class DefUseFitnessCalculator {
 
     /**
      * Calculates the DefinitionUseCoverage fitness for the given DUPair on the
-     * given ExecutionResult
-     * <p>
-     * The fitness is calculated as follows:
-     * <p>
-     * If the goalDefinition is not passed in the result at all: This method
+     * given ExecutionResult.
+     *
+     * <p>The fitness is calculated as follows:
+     *
+     * <p>If the goalDefinition is not passed in the result at all: This method
      * returns 1 + normalize(goalDefinitionFitness) where goalDefinition equals
      * the BranchCoverageTestFitness for the Branch that the CFGVertex of this
      * goals definition is control dependent on (goalDefinitionBranch)
-     * <p>
-     * If the goalDefinition is passed, but the goalUse is not passed at all:
+     *
+     * <p>If the goalDefinition is passed, but the goalUse is not passed at all:
      * This method returns the normalized BranchCoverageTestFitness for the
      * Branch that the CFGVertex of this goals Use is control dependent on
      * (goalUseBranch)
-     * <p>
-     * If both the goalDefinition and the goalUse were passed at least once in
+     *
+     * <p>If both the goalDefinition and the goalUse were passed at least once in
      * the given result: 1. If and only if at any goalUsePosition the active
      * definition was the goalDefinition the Definition-Use-Pair of this goal is
-     * covered and the method returns 0
-     * <p>
-     * Otherwise this method returns the minimum of the following: 1. For all
+     * covered and the method returns 0.
+     *
+     * <p>Otherwise this method returns the minimum of the following: 1. For all
      * goalUsePositions if there was an overwriting definition, the normalized
      * sum over all such overwriting definitions of the normalized
      * BranchCoverageTestFitness for not taking the branch with the overwriting
      * definition look at calculateAltenativeFitness()
-     * <p>
-     * For all goalDefPositions the normalized BranchCoverageTestFitness for the
+     *
+     * <p>For all goalDefPositions the normalized BranchCoverageTestFitness for the
      * goalUseBranch in the ExecutionTrace where every trace information is
      * filtered out except the information traced between the occurrence of the
      * goalDefinitionPosition and the next overwritingDefinitionPosition look at
      * calculateUseFitnessForDefinitionPosition()
-     * <p>
-     * If this goals definition is not a static variable the trace information
+     *
+     * <p>If this goals definition is not a static variable the trace information
      * of all constructed objects of the CUT are handled separately and the
-     * minimum over all individually calculated fitness is returned
+     * minimum over all individually calculated fitness is returned.
      *
      * @return a double.
      */
@@ -139,27 +140,28 @@ public class DefUseFitnessCalculator {
         // at first handle special cases where definition is assumed to be
         // covered if use is covered:
 
-        if (isSpecialDefinition(goalDefinition))
+        if (isSpecialDefinition(goalDefinition)) {
             return calculateUseFitnessForCompleteTrace();
 
+        }
         // Case 1.
         // now check if goalDefinition was passed at all before considering
         // individual objects
 
         double defFitness = calculateDefFitnessForCompleteTrace();
-        if (defFitness != 0)
+        if (defFitness != 0) {
             return 1 + defFitness;
 
+        }
         // Case 2.
         // if the use was not passed at all just calculate the fitness
         // over all objects without any filtering
 
         /* FIXXME: This doesn't seem to make much sense
-        if (!hasEntriesForId(result.getTrace().getPassedUses(goalVariable),
+        if (!hasEntriesForId(result.getTrace().getPassedUses(goalVariable), {
                              goalUse.getUseId()))
             return calculateUseFitnessForCompleteTrace();
             */
-
         // Case 3.
         // filter the trace for each considerable object that passed both the
         // goalDefinition and the goalUse, cut the traces between goalDef
@@ -177,24 +179,27 @@ public class DefUseFitnessCalculator {
         double fitness = 1;
         for (Integer object : objects) {
             logger.debug("current object: " + object);
-            if (!hasEntriesForId(result.getTrace().getPassedDefinitions(defVariable),
+            if (!hasEntriesForId(result.getTrace().getPassedDefinitions(defVariable), {
                     object, goalDefinition.getDefId()))
                 continue;
 
+            }
             double newFitness = calculateFitnessForObject(object);
-            if (newFitness < fitness)
+            if (newFitness < fitness) {
                 fitness = newFitness;
-            if (fitness == 0.0)
+            }
+            if (fitness == 0.0) {
                 return 0.0;
+            }
         }
         return fitness;
     }
 
     /**
      * Calculates the DefUseCoverage fitness for this DefUsePair considering
-     * only the objectId'th CUT-Object in the ExecutionResult
-     * <p>
-     * Gets called for all CUT-objects in the ExecutionResult whenever the
+     * only the objectId'th CUT-Object in the ExecutionResult.
+     *
+     * <p>Gets called for all CUT-objects in the ExecutionResult whenever the
      * goalDefinition and the goalUse were passed at least once on that object.
      */
     private double calculateFitnessForObject(Integer objectId) {
@@ -207,8 +212,9 @@ public class DefUseFitnessCalculator {
             double useFitness = callTestFitnessFunctionForTrace(objectTrace,
                     goalUseFitness);
             fitness = normalize(useFitness);
-            if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) && fitness == 0.0)
+            if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) && fitness == 0.0) {
                 goal.setCovered(individual, objectTrace, objectId);
+            }
             return fitness;
         }
 
@@ -233,8 +239,9 @@ public class DefUseFitnessCalculator {
                     + DefUsePool.getDefinitionByDefId(activeDefId));
             if (activeDefId == goalDefinition.getDefId()) {
                 // Case 3.1.
-                if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE))
+                if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)) {
                     goal.setCovered(individual, objectTrace, objectId);
+                }
                 {
                     if (!defVariable.equals(useVariable)) {
                         // Check if object is equal
@@ -261,7 +268,7 @@ public class DefUseFitnessCalculator {
         // totally unnecessary
         // idea: you only have to do this if the last definition for goalVar was
         // not goalDefinitionId
-        if (!goalUse.isRootBranchDependent())
+        if (!goalUse.isRootBranchDependent()) {
             // if goal use is root branch
             // dependent useFitness will
             // always be 1.0
@@ -278,82 +285,89 @@ public class DefUseFitnessCalculator {
                 // throw new
                 // IllegalStateException("unexpected: should have been detected earlier");
                 double newFitness = normalize(useFitness);
-                if (newFitness < fitness)
+                if (newFitness < fitness) {
                     fitness = newFitness;
 
+                }
             }
+        }
         return fitness;
     }
 
 
     /**
      * Determines the BranchCoverageTestFitness of goalDefinitionBranch
-     * considering the full ExecutionTrace
-     * <p>
-     * Is called on every call to getDistance() if the goalDefinition isn't
+     * considering the full ExecutionTrace.
+     *
+     * <p>Is called on every call to getDistance() if the goalDefinition isn't
      * special s. isSpecialGoalDefinition()
      */
     private double calculateDefFitnessForCompleteTrace() {
-        if (isSpecialDefinition(goalDefinition))
+        if (isSpecialDefinition(goalDefinition)) {
             return 0.0;
+        }
         // check ExecutionTrace.passedDefinitions first, because calculating
         // BranchTestFitness takes time
-        if (hasEntriesForId(result.getTrace().getPassedDefinitions(goalDefinition.getVariableName()),
+        if (hasEntriesForId(result.getTrace().getPassedDefinitions(goalDefinition.getVariableName()), {
                 goalDefinition.getDefId()))
             return 0.0;
 
+        }
         // return calculated fitness
         double fitness = goalDefinitionFitness.getFitness(individual, result);
 
         // check for false positive: TODO warn?
         // this can happen, when a du is within a catch-block, since we
         // currently don't handle these correctly in the CDG department
-        if (fitness == 0.0)
+        if (fitness == 0.0) {
             return 1.0;
 
+        }
         return normalize(fitness);
     }
 
     /**
      * Determines the BranchCoverageTestFitness of goalUseBranch considering the
-     * full ExecutionTrace
-     * <p>
-     * Is called on every call to getDistance() if the goalDefinition isn't
+     * full ExecutionTrace.
+     *
+     * <p>Is called on every call to getDistance() if the goalDefinition isn't
      * special s. isSpecialGoalDefinition()
      */
     private double calculateUseFitnessForCompleteTrace() {
 
         // check ExecutionTrace.passedUses first, because calculating
         // BranchTestFitness takes time
-        if (hasEntriesForId(result.getTrace().getPassedUses(goalUse.getVariableName()),
+        if (hasEntriesForId(result.getTrace().getPassedUses(goalUse.getVariableName()), {
                 goalUse.getUseId()))
             return 0.0;
 
+        }
         // return calculated fitness
         double fitness = goalUseFitness.getFitness(individual, result);
 
         // check for false positive: TODO warn?
         // this can happen, when a du is within a catch-block, since we
         // currently don't handle these correctly in the CDG department
-        if (fitness == 0.0)
+        if (fitness == 0.0) {
             return 1.0;
 
+        }
         return normalize(fitness);
     }
 
     /**
      * Calculates the goalUseFitness for the given goalDefinitionPos as follows:
-     * <p>
-     * For every goalDefinitionPosition in the objectTrace for the given
+     *
+     * <p>For every goalDefinitionPosition in the objectTrace for the given
      * objectId this method gets called by getDistance() to determine the
      * fitness of the goalUseBranch considering only information traced between
      * the goalDefinitionPosition and the occurrence of the next overwriting
-     * definition
-     * <p>
-     * In order to do that the ExecutionTrace is filtered using
+     * definition.
+     *
+     * <p>In order to do that the ExecutionTrace is filtered using
      * calculateFitnessForDURange()
-     * <p>
-     * To avoid making unnecessary calculations only calculate the fitness if
+     *
+     * <p>To avoid making unnecessary calculations only calculate the fitness if
      * the definition coming before goalDefinitionPos was not the
      * goalDefinition. If it was, 1 is returned.
      *
@@ -366,9 +380,10 @@ public class DefUseFitnessCalculator {
                 targetTrace,
                 goalDefinitionPos,
                 objectId);
-        if (previousDefId == goalDefinition.getDefId())
+        if (previousDefId == goalDefinition.getDefId()) {
             return 1.0;
 
+        }
         int overwritingDefPos = DefUseExecutionTraceAnalyzer.getNextOverwritingDefinitionPosition(goalDefinition,
                 targetTrace,
                 goalDefinitionPos,
@@ -385,20 +400,20 @@ public class DefUseFitnessCalculator {
 
     /**
      * Used to calculate a BranchCoverageTestFitness considering only trace
-     * information in a given range of duCounter positions
-     * <p>
-     * Filters the ExecutionTrace using
+     * information in a given range of duCounter positions.
+     *
+     * <p>Filters the ExecutionTrace using
      * ExecutionTrace.getTraceInDUCounterRange() to only contain information
-     * made between duCounterStart and duCounterEnd
-     * <p>
-     * Additionally, if wantToCoverTargetDU is set all points in the trace where
+     * made between duCounterStart and duCounterEnd.
+     *
+     * <p>Additionally, if wantToCoverTargetDU is set all points in the trace where
      * the given targetDUBranch would be passed is filtered out in order to
      * prevent miscalculations. Again ExecutionTrace.getTraceInDUCounterRange()
-     * holds more information
-     * <p>
-     * <p>
-     * <p>
-     * This method gets called for alternative fitness calculation -
+     * holds more information.
+     *
+     * <p><p>
+     *
+     * <p>This method gets called for alternative fitness calculation -
      * calculateAlternativeFitness() - and in order to determine the
      * goalUseBranch fitness between a goalUsePos and its next overwriting
      * definition - calculateUseFitnessForDefinitionPos()
@@ -439,9 +454,10 @@ public class DefUseFitnessCalculator {
         // + cutTrace.toDefUseTraceInformation(targetDU
         // .getDUVariableName(), objectId));
         // }
-        if (expectNotToBeZero && fitness == 0.0)
+        if (expectNotToBeZero && fitness == 0.0) {
             throw new UnexpectedFitnessException();
 
+        }
         // else
         // throw new IllegalStateException(
         // "avoiding fitness should not be 0 if instruction was actually passed "
@@ -454,9 +470,9 @@ public class DefUseFitnessCalculator {
 
     /**
      * Executes the TestFitnessFunction.getFitness() function on the given
-     * ExecutionResult but using the given targetTrace
-     * <p>
-     * The ExecutionResult is left in it's original state after execution
+     * ExecutionResult but using the given targetTrace.
+     *
+     * <p>The ExecutionResult is left in it's original state after execution.
      */
     private double callTestFitnessFunctionForTrace(ExecutionTrace targetTrace,
                                                    TestFitnessFunction targetFitness) {
@@ -469,31 +485,33 @@ public class DefUseFitnessCalculator {
     }
 
     /**
-     * Determines whether the given definition is assumed to always be covered
-     * <p>
-     * This is the case for static definitions in <clinit> and
-     * Parameter-Definitions
+     * Determines whether the given definition is assumed to always be covered.
+     *
+     * <p>This is the case for static definitions in <clinit> and
+     * Parameter-Definitions.
      */
     private static boolean isSpecialDefinition(Definition definition) {
-        if (definition == null
+        if (definition == null {
                 || (definition.isStaticDefUse() && definition.getMethodName().startsWith("<clinit>"))) {
 
-            if (definition == null)
+            if (definition == null) {
                 logger.debug("Assume Parameter-Definition to be covered if the Parameter-Use is covered");
-            else
+            } else {
                 logger.debug("Assume definition from <clinit> to always be covered");
 
+            }
             return true;
+        }
         }
         return false;
     }
 
     /**
-     * Determines the object Pool of the given trace for this DefUsePair
-     * <p>
-     * If the goalVariable is static all objects are considered otherwise only
+     * Determines the object Pool of the given trace for this DefUsePair.
+     *
+     * <p>If the goalVariable is static all objects are considered otherwise only
      * those objects that have passed both the goalUse and the goalDefinition
-     * are considered
+     * are considered.
      */
     private static Set<Integer> determineConsiderableObjects(
             DefUseCoverageTestFitness goal, ExecutionTrace trace) {
@@ -501,15 +519,18 @@ public class DefUseFitnessCalculator {
         Definition goalDefinition = goal.getGoalDefinition();
 
         Set<Integer> objectPool = new HashSet<>();
-        if (trace.getPassedUses(goalVariable) == null)
+        if (trace.getPassedUses(goalVariable) == null) {
             return objectPool;
-        if (trace.getPassedDefinitions(goalVariable) != null)
+        }
+        if (trace.getPassedDefinitions(goalVariable) != null) {
             objectPool.addAll(trace.getPassedDefinitions(goalVariable).keySet());
+        }
         if (goalDefinition == null || goalDefinition.isStaticDefUse()) {
             // in the static case all objects have to be considered
             objectPool.addAll(trace.getPassedUses(goalVariable).keySet());
-            if (DEBUG)
+            if (DEBUG) {
                 logger.debug("Static-goalVariable! Using all known Objects");
+            }
         } else {
             // on non-static goalVariables only look at objects that have traces
             // of defs and uses for the goalVariable
@@ -537,8 +558,8 @@ public class DefUseFitnessCalculator {
     // auxiliary methods
 
     /**
-     * <p>
-     * normalize
+     *
+     * <p>normalize
      * </p>
      *
      * @param value a double.
@@ -551,8 +572,8 @@ public class DefUseFitnessCalculator {
     }
 
     /**
-     * <p>
-     * hasEntryLowerThan
+     *
+     * <p>hasEntryLowerThan
      * </p>
      *
      * @param list   a {@link java.util.List} object.
@@ -560,15 +581,17 @@ public class DefUseFitnessCalculator {
      * @return a boolean.
      */
     public static boolean hasEntryLowerThan(List<Integer> list, Integer border) {
-        for (Integer pos : list)
-            if (pos < border)
+        for (Integer pos : list) {
+            if (pos < border) {
                 return true;
+            }
+        }
         return false;
     }
 
     /**
-     * <p>
-     * hasEntryInBetween
+     *
+     * <p>hasEntryInBetween
      * </p>
      *
      * @param list  a {@link java.util.List} object.
@@ -577,15 +600,17 @@ public class DefUseFitnessCalculator {
      * @return a boolean.
      */
     public static boolean hasEntryInBetween(List<Integer> list, Integer start, Integer end) {
-        for (Integer pos : list)
-            if (start < pos && pos < end)
+        for (Integer pos : list) {
+            if (start < pos && pos < end) {
                 return true;
+            }
+        }
         return false;
     }
 
     /**
-     * <p>
-     * getMaxEntryLowerThan
+     *
+     * <p>getMaxEntryLowerThan
      * </p>
      *
      * @param list   a {@link java.util.List} object.
@@ -594,15 +619,17 @@ public class DefUseFitnessCalculator {
      */
     public static Integer getMaxEntryLowerThan(List<Integer> list, Integer border) {
         int lastPos = -1;
-        for (Integer defPos : list)
-            if (defPos < border && defPos > lastPos)
+        for (Integer defPos : list) {
+            if (defPos < border && defPos > lastPos) {
                 lastPos = defPos;
+            }
+        }
         return lastPos;
     }
 
     /**
-     * <p>
-     * hasEntriesForId
+     *
+     * <p>hasEntriesForId
      * </p>
      *
      * @param objectDUMap a {@link java.util.Map} object.
@@ -611,18 +638,21 @@ public class DefUseFitnessCalculator {
      */
     public static boolean hasEntriesForId(
             Map<Integer, HashMap<Integer, Integer>> objectDUMap, int targetId) {
-        if (objectDUMap == null)
+        if (objectDUMap == null) {
             return false;
-        for (Integer objectId : objectDUMap.keySet())
-            if (hasEntriesForId(objectDUMap, objectId, targetId))
+        }
+        for (Integer objectId : objectDUMap.keySet()) {
+            if (hasEntriesForId(objectDUMap, objectId, targetId)) {
                 return true;
 
+            }
+        }
         return false;
     }
 
     /**
-     * <p>
-     * hasEntriesForId
+     *
+     * <p>hasEntriesForId
      * </p>
      *
      * @param objectDUMap a {@link java.util.Map} object.
@@ -633,18 +663,22 @@ public class DefUseFitnessCalculator {
     public static boolean hasEntriesForId(
             Map<Integer, HashMap<Integer, Integer>> objectDUMap, Integer objectId,
             int targetId) {
-        if (objectDUMap == null)
+        if (objectDUMap == null) {
             return false;
-        if (objectDUMap.get(objectId) == null)
+        }
+        if (objectDUMap.get(objectId) == null) {
             return false;
-        for (Integer defId : objectDUMap.get(objectId).values())
-            if (defId == targetId)
+        }
+        for (Integer defId : objectDUMap.get(objectId).values()) {
+            if (defId == targetId) {
                 return true;
+            }
+        }
         return false;
     }
 
     /**
-     * Only a sanity check function for testing purposes
+     * Only a sanity check function for testing purposes.
      *
      * @param goal       a
      *                   {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness}
@@ -659,8 +693,9 @@ public class DefUseFitnessCalculator {
         Use goalUse = goal.getGoalUse();
         Definition goalDefinition = goal.getGoalDefinition();
 
-        if (trace.getPassedUses(goalVariable) == null)
+        if (trace.getPassedUses(goalVariable) == null) {
             return false;
+        }
         Set<Integer> objectPool = determineConsiderableObjects(goal, trace);
 
         for (Integer objectID : objectPool) {
@@ -668,19 +703,22 @@ public class DefUseFitnessCalculator {
                     trace,
                     objectID);
             // use not reached
-            if (usePositions.size() == 0)
+            if (usePositions.size() == 0) {
                 continue;
+            }
             //            if (goalUse.isParameterUse())
             //                return true;
-            if (isSpecialDefinition(goalDefinition))
+            if (isSpecialDefinition(goalDefinition)) {
                 return true;
 
+            }
             for (Integer usePos : usePositions) {
 
-                if (DefUseExecutionTraceAnalyzer.getActiveDefinitionIdAt(goalVariable,
+                if (DefUseExecutionTraceAnalyzer.getActiveDefinitionIdAt(goalVariable, {
                         trace, usePos,
                         objectID) == goalDefinition.getDefId())
                     return true;
+                }
             }
         }
 

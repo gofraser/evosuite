@@ -70,13 +70,14 @@ public class OnlyBranchCoverageFactory extends
                     continue;
                 }
 
-                for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).retrieveBranchesInMethod(className,
+                for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).retrieveBranchesInMethod(className, {
                         methodName)) {
                     if (!b.isInstrumented()) {
                         goals.add(createOnlyBranchCoverageTestFitness(b, true));
                         //if (!b.isSwitchCaseBranch())
                         goals.add(createOnlyBranchCoverageTestFitness(b, false));
                     }
+                }
                 }
             }
         }

@@ -90,10 +90,11 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
      */
     protected void handleConstructorExceptions(TestChromosome test, ExecutionResult result, Set<String> calledMethods) {
 
-        if (result.hasTimeout() || result.hasTestException()
+        if (result.hasTimeout() || result.hasTestException() {
                 || result.noThrownExceptions()) {
             return;
 
+        }
         }
         Integer exceptionPosition = result.getFirstPositionOfThrownException();
         Statement statement = result.test.getStatement(exceptionPosition);

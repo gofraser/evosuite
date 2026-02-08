@@ -120,9 +120,10 @@ public class BranchPool {
         if (isKnownAsBranch(instruction)) {
             return;
         }
-        if (!DependencyAnalysis.shouldInstrument(instruction.getClassName(),
+        if (!DependencyAnalysis.shouldInstrument(instruction.getClassName(), {
                 instruction.getMethodName())) {
             return;
+        }
         }
 
         registerInstruction(instruction);

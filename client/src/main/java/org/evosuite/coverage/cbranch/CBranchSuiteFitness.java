@@ -205,7 +205,7 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
                 }
             }
 
-            for (Entry<Integer, Map<CallContext, Integer>> entry : result.getTrace()
+            for (Entry<Integer, Map<CallContext, Integer>> entry : result.getTrace() {
                     .getPredicateContextExecutionCount().entrySet()) {
                 for (Entry<CallContext, Integer> value : entry.getValue().entrySet()) {
                     int count = value.getValue();
@@ -228,8 +228,9 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
                     }
                 }
             }
+            }
 
-            for (Entry<String, Map<CallContext, Integer>> entry : result.getTrace()
+            for (Entry<String, Map<CallContext, Integer>> entry : result.getTrace() {
                     .getMethodContextCount().entrySet()) {
                 for (Entry<CallContext, Integer> value : entry.getValue().entrySet()) {
                     CBranchTestFitness goal = getContextGoal(entry.getKey(), value.getKey());
@@ -252,6 +253,7 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
                         Archive.getArchiveInstance().updateArchive(goal, test, count == 0 ? 1.0 : 0.0);
                     }
                 }
+            }
             }
         }
 

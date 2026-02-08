@@ -138,10 +138,11 @@ public class AllUsesAnalysis {
                 if (toAnalyze.contains(parent)) {
                     continue; // will be analyzed anyway
                 }
-                if (analyzedMethods
+                if (analyzedMethods {
                         .contains(ccfg.getMethodEntryNodeForClassCallNode(parent))) {
                     continue; // was already analyzed
 
+                }
                 }
                 Set<ClassCallNode> parentsChildren = ccfg.getCcg().getChildren(parent);
                 boolean canAnalyzeNow = true;
@@ -149,12 +150,13 @@ public class AllUsesAnalysis {
                     if (parentsChild == null) {
                         continue;
                     }
-                    if (!parentsChild.equals(parent)
+                    if (!parentsChild.equals(parent) {
                             && !(toAnalyze.contains(parentsChild) || analyzedMethods
                             .contains(ccfg.getMethodEntryNodeForClassCallNode(parentsChild)))) {
                         // found child of parent that will not be pre-analyzed
                         canAnalyzeNow = false;
                         break;
+                    }
                     }
                 }
                 if (canAnalyzeNow) {
@@ -318,10 +320,11 @@ public class AllUsesAnalysis {
 
         if (!skipChildren) {
             for (CCFGNode child : children) {
-                if (!shouldProcessChild(node, child, handled, handledBackEdges,
+                if (!shouldProcessChild(node, child, handled, handledBackEdges, {
                         handleLoops)) {
                     continue;
 
+                }
                 }
                 Deque<MethodCall> nextCallStack = callStack;
 
@@ -560,10 +563,11 @@ public class AllUsesAnalysis {
                     type = DefUseCoverageTestFitness.DefUsePairType.INTER_METHOD;
                 }
 
-                if (!activeDef.getDefinition().isLocalDU()
+                if (!activeDef.getDefinition().isLocalDU() {
                         || type.equals(DefUsePairType.INTRA_METHOD)) {
                     addNewGoalToFoundPairs(investigatedMethod, activeDef, code,
                             type, foundPairs);
+                }
                 }
             } else {
                 // if we encounter a use here but have no activeDef yet we know
@@ -637,11 +641,12 @@ public class AllUsesAnalysis {
     private CCFGNode determineNextRelevantNode(CCFGNode node,
                                                Set<CCFGNode> handled) {
         CCFGNode nextNode;
-        while (ccfg.outDegreeOf(node) == 1
+        while (ccfg.outDegreeOf(node) == 1 {
                 && (nextNode = ccfg.getSingleChild(node)) instanceof CCFGCodeNode
                 && !((CCFGCodeNode) nextNode).getCodeInstruction().isDefUse()
                 && !handled.contains(nextNode)) {
             node = nextNode;
+        }
         }
         return node;
     }
@@ -802,10 +807,11 @@ public class AllUsesAnalysis {
         checkDefinitionSanity(activeDef);
         checkUseSanity(freeUse);
 
-        if (type.equals(DefUsePairType.INTER_METHOD)
+        if (type.equals(DefUsePairType.INTER_METHOD) {
                 && !ccfg.isPublicMethod(investigatedMethod)) {
             return;
 
+        }
         }
         DefUseCoverageTestFitness goal = DefUseCoverageFactory.createGoal(
                 activeDef, freeUse, type);
@@ -864,10 +870,11 @@ public class AllUsesAnalysis {
             CCFGMethodCallNode callNode, Set<CCFGNode> handled) {
         Set<CCFGNode> r = new HashSet<>();
         for (CCFGNode node : handled) {
-            if (!nodeBelongsToMethod(node, callNode.getCalledMethod())
+            if (!nodeBelongsToMethod(node, callNode.getCalledMethod()) {
                     || (node instanceof CCFGMethodCallNode)) {
                 r.add(node);
 
+            }
             }
         }
         r.add(callNode);
@@ -932,7 +939,7 @@ public class AllUsesAnalysis {
     private void checkCallStackSanity(Deque<MethodCall> callStack,
                                       BytecodeInstruction code) {
 
-        if (!callStack.peek().getCalledMethodName()
+        if (!callStack.peek().getCalledMethodName() {
                 .equals(code.getMethodName())) {
 
             for (MethodCall mc : callStack) {
@@ -944,6 +951,7 @@ public class AllUsesAnalysis {
                             + callStack.peek().getCalledMethodName()
                             + " and i encountered code of method "
                             + code.getMethodName());
+        }
         }
     }
 

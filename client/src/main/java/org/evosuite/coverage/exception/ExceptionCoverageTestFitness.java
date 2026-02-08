@@ -140,10 +140,11 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
 
                 ExceptionType type = ExceptionCoverageHelper.getType(result, i);
 
-                if (this.methodIdentifier.equals(methodIdentifier) && this.exceptionClass.getRawClass().equals(exceptionClass)
+                if (this.methodIdentifier.equals(methodIdentifier) && this.exceptionClass.getRawClass().equals(exceptionClass) {
                         && this.type.equals(type)) {
                     fitness = 0.0;
                     break;
+                }
                 }
             }
         }

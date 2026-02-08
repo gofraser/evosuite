@@ -279,7 +279,7 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
     private void readObject(ObjectInputStream ois) throws ClassNotFoundException, IOException {
         ois.defaultReadObject();
         branchFitnesses = new ArrayList<>();
-        if (GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getActualCFG(className,
+        if (GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getActualCFG(className, {
                 methodName) != null) {
             // CFG may not exist if the class was not instrumented or if there was an issue during graph generation.
             // We attempt to setup dependencies, but it might fail if instruction pool is empty.
@@ -291,6 +291,7 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
                 // However, often deserialization happens in contexts where full CFG is not available or needed immediately?
                 // But setupDependencies throws exception if goalInstruction is null.
             }
+        }
         }
     }
 

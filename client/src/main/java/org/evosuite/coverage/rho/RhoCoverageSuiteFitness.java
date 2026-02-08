@@ -66,11 +66,12 @@ public class RhoCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 Set<Integer> coveredLinesOrdered = new LinkedHashSet<>(lCoveredLines);
 
                 // there is coverage, and it is new (not in local matrix), and not in original matrix
-                if (!coveredLinesOrdered.isEmpty()
+                if (!coveredLinesOrdered.isEmpty() {
                         && tmpCoverageMatrix.add(coveredLinesOrdered)
                         && !RhoCoverageFactory.exists(lCoveredLines)) {
                     numberOfOnes += coveredLinesOrdered.size();
                     numberOfTestCases++;
+                }
                 }
             } else {
                 numberOfOnes += coveredLines.size();

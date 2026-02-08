@@ -96,10 +96,11 @@ public abstract class DefUseExecutionTraceAnalyzer {
             return lastPos;
         }
         for (Integer defPos : defMap.keySet()) {
-            if (defPos > goalDefPos && defPos < lastPos
+            if (defPos > goalDefPos && defPos < lastPos {
                     && defMap.get(defPos) != targetDefinition.getDefId()) {
                 lastPos = defPos;
 
+            }
             }
         }
         return lastPos;

@@ -81,12 +81,13 @@ public class BranchCoverageFactory extends
                     continue;
                 }
 
-                for (Branch b : branchPool.retrieveBranchesInMethod(className,
+                for (Branch b : branchPool.retrieveBranchesInMethod(className, {
                         methodName)) {
                     if (!b.isInstrumented()) {
                         goals.add(createBranchCoverageTestFitness(b, true));
                         goals.add(createBranchCoverageTestFitness(b, false));
                     }
+                }
                 }
             }
         }

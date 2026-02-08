@@ -236,10 +236,11 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         Set<BytecodeInstruction> previousInstructions = getInstructionsBeforeGoalUse();
         if (goalDefinition != null) {
             Set<BytecodeInstruction> laterInstructions = getInstructionsAfterGoalDefinition();
-            if (goalDefinition.getInstructionId() < goalUse.getInstructionId()
+            if (goalDefinition.getInstructionId() < goalUse.getInstructionId() {
                     && goalDefinition.getMethodName().equals(goalUse.getMethodName())) {
                 // they are in the same method and definition comes before use => intersect sets
                 previousInstructions.retainAll(laterInstructions);
+            }
             } else {
                 // otherwise take the union
                 previousInstructions.addAll(laterInstructions);
@@ -332,11 +333,12 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
                     System.out.println("goal NOT COVERED. fitness: " + fitness);
                     System.out.println("==============================================================");
                 }
-                if (DefUseFitnessCalculator.traceCoversGoal(this, individual,
+                if (DefUseFitnessCalculator.traceCoversGoal(this, individual, {
                         result.getTrace())) {
                     throw new IllegalStateException(
                             "calculation flawed. goal was covered but fitness was "
                                     + fitness);
+                }
                 }
             }
         }
