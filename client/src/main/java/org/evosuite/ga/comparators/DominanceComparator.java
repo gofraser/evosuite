@@ -44,6 +44,8 @@ public class DominanceComparator<T extends Chromosome<T>> implements Comparator<
     }
 
     /**
+     * Constructor.
+     *
      * @param goals set of target goals to consider when computing the dominance relationship
      */
     public DominanceComparator(Set<? extends FitnessFunction<T>> goals) {
@@ -51,6 +53,8 @@ public class DominanceComparator<T extends Chromosome<T>> implements Comparator<
     }
 
     /**
+     * Constructor.
+     *
      * @param goal to consider when computing the dominance relationship
      */
     public DominanceComparator(FitnessFunction<T> goal) {
@@ -60,8 +64,8 @@ public class DominanceComparator<T extends Chromosome<T>> implements Comparator<
 
     /**
      * Compares two chromosome objects in terms of dominance.
-     * <p>
-     * http://en.wikipedia.org/wiki/Multi-objective_optimization#Introduction
+     *
+     * <p>http://en.wikipedia.org/wiki/Multi-objective_optimization#Introduction
      *
      * @param c1 a {@link org.evosuite.ga.Chromosome} object
      * @param c2 a {@link org.evosuite.ga.Chromosome} object

@@ -26,7 +26,7 @@ import java.io.Serializable;
 import java.util.Comparator;
 
 /**
- * Sort a Collection of Chromosomes by their fitness value
+ * Sort a Collection of Chromosomes by their fitness value.
  *
  * @author José Campos
  */
@@ -39,7 +39,9 @@ public class SortByFitness<T extends Chromosome<T>> implements Comparator<T>, Se
     private final boolean order;
 
     /**
-     * @param ff
+     * Constructor.
+     *
+     * @param ff the fitness function
      * @param desc descending order
      */
     public SortByFitness(FitnessFunction<T> ff, boolean desc) {
@@ -49,10 +51,11 @@ public class SortByFitness<T extends Chromosome<T>> implements Comparator<T>, Se
 
     @Override
     public int compare(T c1, T c2) {
-        if (c1 == null)
+        if (c1 == null) {
             return 1;
-        else if (c2 == null)
+        } else if (c2 == null) {
             return -1;
+        }
 
         double objective1 = c1.getFitness(this.ff);
         double objective2 = c2.getFitness(this.ff);

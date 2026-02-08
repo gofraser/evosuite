@@ -26,8 +26,8 @@ import java.util.Comparator;
 
 /**
  * Comparator based on the "strength" value of chromosomes.
- * <p>
- * This is primarily used in SPEA2. Note that the strength value (fitness + density)
+ *
+ * <p>This is primarily used in SPEA2. Note that the strength value (fitness + density)
  * is stored in the {@link Chromosome#getDistance()} field.
  *
  * @author José Campos
