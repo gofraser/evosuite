@@ -50,23 +50,23 @@ public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
     }
 
     public ClassPrimitiveStatement(TestCase tc, Class<?> value) {
-        //		super(tc, new GenericClass(Class.class).getWithWildcardTypes(), value);
+        //        super(tc, new GenericClass(Class.class).getWithWildcardTypes(), value);
         super(
                 tc,
                 GenericClassFactory.get(Class.class).getWithParameterTypes(new Type[]{value}),
                 value);
-        //		super(tc, new GenericClass(value.getClass()), value);
+        //        super(tc, new GenericClass(value.getClass()), value);
         this.assignableClasses.add(value);
     }
 
     public ClassPrimitiveStatement(TestCase tc) {
-        //		super(tc, new GenericClass(Class.class).getWithWildcardTypes(),
+        //        super(tc, new GenericClass(Class.class).getWithWildcardTypes(),
         super(
                 tc,
                 GenericClassFactory.get(Class.class).getWithParameterTypes(new Type[]{Properties.getTargetClassAndDontInitialise()}),
                 Properties.getTargetClassAndDontInitialise());
-        //		super(tc, new GenericClass(Properties.getTargetClass()),
-        //		        Properties.getTargetClass());
+        //        super(tc, new GenericClass(Properties.getTargetClass()),
+        //                Properties.getTargetClass());
     }
 
     @Override
@@ -140,8 +140,9 @@ public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
         oos.defaultWriteObject();
         oos.writeObject(GenericClassFactory.get(value));
         List<GenericClass<?>> currentAssignableClasses = new ArrayList<>();
-        for (Class<?> assignableClass : assignableClasses)
+        for (Class<?> assignableClass : assignableClasses) {
             currentAssignableClasses.add(GenericClassFactory.get(assignableClass));
+        }
         oos.writeObject(currentAssignableClasses);
     }
 

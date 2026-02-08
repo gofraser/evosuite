@@ -41,7 +41,7 @@ public interface VariableNameStrategy {
     Collection<String> getVariableNames();
 
     /**
-     * Allows to add information on dictionaries for variable naming
+     * Allows to add information on dictionaries for variable naming.
      */
     void addVariableInformation(Map<String, Map<VariableReference, String>> information);
 

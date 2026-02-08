@@ -32,8 +32,9 @@ public class StructuredTestCodeVisitor extends TestCodeVisitor {
 
     @Override
     public void visitTestCase(TestCase test) {
-        if (!(test instanceof StructuredTestCase))
+        if (!(test instanceof StructuredTestCase)) {
             throw new IllegalArgumentException("Need StructuredTestCase");
+        }
 
         this.structuredTest = (StructuredTestCase) test;
         this.exercisePosition = structuredTest.getFirstExerciseStatement();
@@ -54,32 +55,34 @@ public class StructuredTestCodeVisitor extends TestCodeVisitor {
             checkAdded = true;
         }
 
-		/*
-		Set<Mutation> killedMutants = assertion.getKilledMutations();
-		if (!killedMutants.isEmpty()) {
-			testCode.append("// Kills: ");
-			boolean first = true;
-			for (Mutation m : killedMutants) {
-				if (!first) {
-					testCode.append(", ");
-				} else {
-					first = false;
-				}
-				testCode.append(m.getMethodName() + "-" + m.getId());
-			}
-			testCode.append("\n");
-		}
-		*/
+        /*
+        Set<Mutation> killedMutants = assertion.getKilledMutations();
+        if (!killedMutants.isEmpty()) {
+            testCode.append("// Kills: ");
+            boolean first = true;
+            for (Mutation m : killedMutants) {
+                if (!first) {
+                    testCode.append(", ");
+                } else {
+                    first = false;
+                }
+                testCode.append(m.getMethodName() + "-" + m.getId());
+            }
+            testCode.append("\n");
+        }
+        */
         super.visitAssertion(assertion);
     }
 
     @Override
     public void visitStatement(Statement statement) {
         int position = statement.getPosition();
-        if (position == exercisePosition)
+        if (position == exercisePosition) {
             testCode.append("\n// Exercise\n");
-        else if (position == 0)
+        } else  {
+            if (position == 0)
             testCode.append("// Setup\n");
+        }
 
         super.visitStatement(statement);
         if (position == checkingPosition) {

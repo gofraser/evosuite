@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -60,8 +60,9 @@ public class ExceptionMapGenerator {
     private static void handleMethodNode(ClassNode cn, MethodNode mn) {
 
         // TODO: Integrate this properly - it is currently an unexpected side-effect
-        if (!ExceptionTransformationClassAdapter.methodExceptionMap.containsKey(cn.name))
+        if (!ExceptionTransformationClassAdapter.methodExceptionMap.containsKey(cn.name)) {
             ExceptionTransformationClassAdapter.methodExceptionMap.put(cn.name, new LinkedHashMap<>());
+        }
 
         String methodNameDesc = mn.name + mn.desc;
         Set<Type> exceptionTypes = new LinkedHashSet<>();

@@ -42,7 +42,7 @@ import java.lang.reflect.Parameter;
 import java.util.*;
 
 /**
- * This statement represents a constructor call, generating a new instance of any given class, e.g.,
+ * This statement represents a constructor call, generating a new instance of any given class, e.g.,.
  * {@code Stack stack = new Stack()}. Value and type of the of the statement are defined by the
  * object constructed in the call.
  *
@@ -146,8 +146,9 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      */
     public static String getReturnType(Class<?> clazz) {
         String retVal = ClassUtils.getShortClassName(clazz);
-        if (primitiveClasses.contains(retVal))
+        if (primitiveClasses.contains(retVal)) {
             return clazz.getSimpleName();
+        }
 
         return retVal;
     }
@@ -286,23 +287,29 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      */
     @Override
     public boolean equals(Object s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         ConstructorStatement ms = (ConstructorStatement) s;
-        if (ms.parameters.size() != parameters.size())
+        if (ms.parameters.size() != parameters.size()) {
             return false;
+        }
 
-        if (!this.constructor.equals(ms.constructor))
+        if (!this.constructor.equals(ms.constructor)) {
             return false;
+        }
 
         for (int i = 0; i < parameters.size(); i++) {
-            if (!parameters.get(i).equals(ms.parameters.get(i)))
+            if (!parameters.get(i).equals(ms.parameters.get(i))) {
                 return false;
+            }
         }
 
         return retval.equals(ms.retval);
@@ -340,10 +347,10 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
 
     /**
-     * Go through parameters of constructor call and apply local search
+     * Go through parameters of constructor call and apply local search.
      *
-     * @param test
-     * @param factory
+     * @param test the test case.
+     * @param factory the factory.
      */
     /* (non-Javadoc)
      * @see org.evosuite.testcase.AbstractStatement#mutate(org.evosuite.testcase.TestCase, org.evosuite.testcase.TestFactory)
@@ -351,18 +358,21 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
 
-        if (Randomness.nextDouble() >= Properties.P_CHANGE_PARAMETER)
+        if (Randomness.nextDouble() >= Properties.P_CHANGE_PARAMETER) {
             return false;
+        }
 
         List<VariableReference> parameters = getParameterReferences();
-        if (parameters.isEmpty())
+        if (parameters.isEmpty()) {
             return false;
+        }
         double pParam = 1.0 / parameters.size();
         boolean changed = false;
         for (int numParameter = 0; numParameter < parameters.size(); numParameter++) {
             if (Randomness.nextDouble() < pParam) {
-                if (mutateParameter(test, numParameter))
+                if (mutateParameter(test, numParameter)) {
                     changed = true;
+                }
             }
         }
         return changed;
@@ -371,8 +381,9 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
     @Override
     public boolean isAccessible() {
-        if (!constructor.isAccessible())
+        if (!constructor.isAccessible()) {
             return false;
+        }
 
         return super.isAccessible();
     }
@@ -398,23 +409,29 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      */
     @Override
     public boolean same(Statement s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         ConstructorStatement ms = (ConstructorStatement) s;
-        if (ms.parameters.size() != parameters.size())
+        if (ms.parameters.size() != parameters.size()) {
             return false;
+        }
 
-        if (!this.constructor.equals(ms.constructor))
+        if (!this.constructor.equals(ms.constructor)) {
             return false;
+        }
 
         for (int i = 0; i < parameters.size(); i++) {
-            if (!parameters.get(i).same(ms.parameters.get(i)))
+            if (!parameters.get(i).same(ms.parameters.get(i))) {
                 return false;
+            }
         }
 
         return retval.same(ms.retval);

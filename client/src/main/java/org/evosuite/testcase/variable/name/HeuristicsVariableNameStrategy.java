@@ -13,7 +13,7 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
 
     protected final Map<String, Integer> nextIndices = new ConcurrentHashMap<>();
     /**
-     * Dictionaries for naming information
+     * Dictionaries for naming information.
      */
     protected Map<VariableReference, String> methodNames = new HashMap<>();
     protected Map<VariableReference, String> argumentNames = new HashMap<>();
@@ -36,8 +36,7 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
     private String getVariableWithIndexExcludingFirstAppearance(String variableName) {
         if (!this.nextIndices.containsKey(variableName)) {
             this.nextIndices.put(variableName, 0);
-        }
-        else {
+        } else {
             final int index = this.nextIndices.get(variableName);
             this.nextIndices.put(variableName, index + 1);
             variableName += this.nextIndices.get(variableName);
@@ -59,8 +58,7 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
         final String arguments = this.argumentNames.get(var);
         if (arguments != null) {
             variableName = arguments;
-        }
-        else if (methodCode != null) {
+        } else if (methodCode != null) {
             variableName = analyzeMethodName(methodCode);
         }
         if(variableName.equals(var.getSimpleClassName())){

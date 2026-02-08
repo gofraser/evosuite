@@ -69,7 +69,7 @@ public class FieldReference extends VariableReferenceImpl {
     /**
      * We need this constructor to work around a bug in Java Generics which
      * causes a java.lang.reflect.GenericSignatureFormatError when accessing
-     * getType
+     * getType.
      *
      * @param testCase  a {@link org.evosuite.testcase.TestCase} object.
      * @param field     a {@link java.lang.reflect.Field} object.
@@ -109,7 +109,7 @@ public class FieldReference extends VariableReferenceImpl {
     /**
      * We need this constructor to work around a bug in Java Generics which
      * causes a java.lang.reflect.GenericSignatureFormatError when accessing
-     * getType
+     * getType.
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @param type     a {@link java.lang.reflect.Type} object.
@@ -122,7 +122,7 @@ public class FieldReference extends VariableReferenceImpl {
     }
 
     /**
-     * Access the field
+     * Access the field.
      *
      * @return a {@link java.lang.reflect.Field} object.
      */
@@ -131,7 +131,7 @@ public class FieldReference extends VariableReferenceImpl {
     }
 
     /**
-     * Access the source object
+     * Access the source object.
      *
      * @return a {@link VariableReference} object.
      */
@@ -141,6 +141,7 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return the actual object represented by this variable for a given scope
      */
@@ -171,6 +172,7 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Set the actual object represented by this variable in a given scope
      */
@@ -184,7 +186,7 @@ public class FieldReference extends VariableReferenceImpl {
                 if (sourceObject == null) {
                     /*
                      * #FIXME this is dangerously far away from the java semantics
-                     *	That means we can have a testcase
+                     *    That means we can have a testcase
                      *  SomeObject var1 = null;
                      *  var1.someAttribute = test;
                      *  and the testcase will execute in evosuite, executing it with junit will however lead to a nullpointer exception
@@ -230,10 +232,12 @@ public class FieldReference extends VariableReferenceImpl {
      */
     @Override
     public VariableReference getAdditionalVariableReference() {
-        if (source != null && source.getAdditionalVariableReference() != null)
+        if (source != null && source.getAdditionalVariableReference() != null) {
             return source.getAdditionalVariableReference();
-        else
+        } else
+             {
             return source;
+        }
     }
 
     /* (non-Javadoc)
@@ -274,7 +278,9 @@ public class FieldReference extends VariableReferenceImpl {
                 }
                 source = var2;
             } else
+                 {
                 source.replaceAdditionalVariableReference(var1, var2);
+            }
         }
     }
 
@@ -288,9 +294,9 @@ public class FieldReference extends VariableReferenceImpl {
                 return i;
             }
         }
-        if (source != null)
+        if (source != null) {
             return source.getStPosition();
-        else {
+        } else {
             for (int i = 0; i < testCase.size(); i++) {
                 if (testCase.getStatement(i).references(this)) {
                     return i;
@@ -303,15 +309,18 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return name for source code representation
      */
     @Override
     public String getName() {
-        if (source != null)
+        if (source != null) {
             return source.getName() + "." + field.getName();
-        else
+        } else
+             {
             return field.getOwnerClass().getSimpleName() + "." + field.getName();
+        }
     }
 
     @Override
@@ -322,6 +331,7 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Create a copy of the current variable
      */
@@ -329,7 +339,7 @@ public class FieldReference extends VariableReferenceImpl {
     public VariableReference copy(TestCase newTestCase, int offset) {
         Type fieldType = field.getFieldType();
         if (source != null) {
-            //			VariableReference otherSource = newTestCase.getStatement(source.getStPosition()).getReturnValue();
+            //            VariableReference otherSource = newTestCase.getStatement(source.getStPosition()).getReturnValue();
             VariableReference otherSource = source.copy(newTestCase, offset);
             return new FieldReference(newTestCase, field.copy(), fieldType, otherSource);
         } else {
@@ -339,7 +349,7 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * Determine the nesting level of the field access (I.e., how many dots in
-     * the expression)
+     * the expression).
      *
      * @return a int.
      */
@@ -381,21 +391,29 @@ public class FieldReference extends VariableReferenceImpl {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         FieldReference other = (FieldReference) obj;
         if (field == null) {
-            if (other.field != null)
+            if (other.field != null) {
                 return false;
-        } else if (!field.equals(other.field))
+            }
+        } else  {
+            if (!field.equals(other.field))
             return false;
+        }
         if (source == null) {
             return other.source == null;
-        } else return source.equals(other.source);
+        } else  {
+            return source.equals(other.source);
+        }
     }
 
     private boolean isStatic() {
@@ -452,8 +470,9 @@ public class FieldReference extends VariableReferenceImpl {
     @Override
     public void changeClassLoader(ClassLoader loader) {
         field.changeClassLoader(loader);
-        if (!isStatic())
+        if (!isStatic()) {
             source.changeClassLoader(loader);
+        }
         super.changeClassLoader(loader);
     }
 

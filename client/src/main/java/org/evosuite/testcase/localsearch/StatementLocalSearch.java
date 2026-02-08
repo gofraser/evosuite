@@ -35,8 +35,9 @@ public abstract class StatementLocalSearch {
     }
 
     protected void restore(TestChromosome test) {
-        if (backup == null)
+        if (backup == null) {
             return;
+        }
 
         test.setTestCase(backup.getTestCase().clone());
         test.copyCachedResults(backup);
@@ -64,8 +65,9 @@ public abstract class StatementLocalSearch {
                             LocalSearchObjective<TestChromosome> objective) {
         boolean success = false;
         for (Integer statement : statements) {
-            if (doSearch(test, statement, objective))
+            if (doSearch(test, statement, objective)) {
                 success = true;
+            }
         }
 
         return success;
@@ -73,9 +75,9 @@ public abstract class StatementLocalSearch {
 
     /**
      * If the position of the statement on which the local search was performed
-     * has changed, then we need to tell this to the outside world
+     * has changed, then we need to tell this to the outside world.
      *
-     * @return
+     * @return .
      */
     public int getPositionDelta() {
         return 0;
@@ -85,18 +87,21 @@ public abstract class StatementLocalSearch {
 
         StatementLocalSearch search = null;
         if (statement instanceof NullStatement) {
-            if (Properties.LOCAL_SEARCH_REFERENCES == false)
+            if (Properties.LOCAL_SEARCH_REFERENCES == false) {
                 return null;
+            }
 
             search = new ReferenceLocalSearch();
         } else if (statement instanceof PrimitiveStatement<?>) {
             Class<?> type = statement.getReturnValue().getVariableClass();
             if (type.equals(String.class)) {
-                if (Properties.LOCAL_SEARCH_STRINGS)
+                if (Properties.LOCAL_SEARCH_STRINGS) {
                     search = new StringAVMLocalSearch();
+                }
             } else {
-                if (Properties.LOCAL_SEARCH_PRIMITIVES == false)
+                if (Properties.LOCAL_SEARCH_PRIMITIVES == false) {
                     return null;
+                }
 
                 if (type.equals(Integer.class) || type.equals(int.class)) {
                     search = new IntegerLocalSearch<Integer>();
@@ -119,23 +124,27 @@ public abstract class StatementLocalSearch {
                 }
             }
         } else if (statement instanceof ArrayStatement) {
-            if (Properties.LOCAL_SEARCH_ARRAYS == false)
+            if (Properties.LOCAL_SEARCH_ARRAYS == false) {
                 return null;
+            }
 
             search = new ArrayLocalSearch();
         } else if (statement instanceof MethodStatement) {
-            if (Properties.LOCAL_SEARCH_REFERENCES == false)
+            if (Properties.LOCAL_SEARCH_REFERENCES == false) {
                 return null;
+            }
 
             search = new ReferenceLocalSearch();
         } else if (statement instanceof ConstructorStatement) {
-            if (Properties.LOCAL_SEARCH_REFERENCES == false)
+            if (Properties.LOCAL_SEARCH_REFERENCES == false) {
                 return null;
+            }
 
             search = new ReferenceLocalSearch();
         } else if (statement instanceof FieldStatement) {
-            if (Properties.LOCAL_SEARCH_REFERENCES == false)
+            if (Properties.LOCAL_SEARCH_REFERENCES == false) {
                 return null;
+            }
 
             search = new ReferenceLocalSearch();
         }

@@ -32,7 +32,7 @@ import java.util.Map;
 
 
 /**
- * This class collects information about chosen branches/paths at runtime
+ * This class collects information about chosen branches/paths at runtime.
  *
  * @author Gordon Fraser
  */
@@ -44,12 +44,12 @@ public class ExecutionTracer {
 
     /**
      * We need to disable the execution tracer sometimes, e.g. when calling
-     * equals in the branch distance function
+     * equals in the branch distance function.
      */
     private boolean disabled = true;
 
     /**
-     * Flag that is used to kill threads that are stuck in endless loops
+     * Flag that is used to kill threads that are stuck in endless loops.
      */
     private boolean killSwitch = false;
 
@@ -62,7 +62,7 @@ public class ExecutionTracer {
 
     /**
      * If a thread of a test case survives for some reason (e.g. long call to
-     * external library), then we don't want its data in the current trace
+     * external library), then we don't want its data in the current trace.
      */
     private static volatile Thread currentThread = null;
 
@@ -189,7 +189,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * Reset for new execution
+     * Reset for new execution.
      */
     public void clear() {
         trace = new ExecutionTraceProxy();
@@ -200,9 +200,9 @@ public class ExecutionTracer {
     /**
      * Obviously more than one thread is executing during the creation of
      * concurrent TestCases. #TODO steenbuck we should test if
-     * Thread.currentThread() is in the set of currently executing threads
+     * Thread.currentThread() is in the set of currently executing threads.
      *
-     * @return
+     * @return .
      */
     public static boolean isThreadNeqCurrentThread() {
         if (!checkCallerThread) {
@@ -224,7 +224,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * Return trace of current execution
+     * Return trace of current execution.
      *
      * @return a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
      */
@@ -238,7 +238,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * Return the last explicitly thrown exception
+     * Return the last explicitly thrown exception.
      *
      * @return a {@link java.lang.Throwable} object.
      */
@@ -247,7 +247,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * Called by instrumented code whenever a new method is called
+     * Called by instrumented code whenever a new method is called.
      *
      * @param classname  a {@link java.lang.String} object.
      * @param methodname a {@link java.lang.String} object.
@@ -258,11 +258,13 @@ public class ExecutionTracer {
             throws TestCaseExecutor.TimeoutExceeded {
         ExecutionTracer tracer = getExecutionTracer();
 
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 
@@ -271,7 +273,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * Called by instrumented code whenever a return values is produced
+     * Called by instrumented code whenever a return values is produced.
      *
      * @param value      a int.
      * @param className  a {@link java.lang.String} object.
@@ -279,29 +281,33 @@ public class ExecutionTracer {
      */
     public static void returnValue(int value, String className, String methodName) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         //logger.trace("Return value: " + value);
         tracer.trace.returnValue(className, methodName, value);
     }
 
     /**
-     * Called by instrumented code whenever a return values is produced
+     * Called by instrumented code whenever a return values is produced.
      *
      * @param value      a {@link java.lang.Object} object.
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      */
     public static void returnValue(Object value, String className, String methodName) {
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
-        if (!ExecutionTracer.isEnabled())
+        if (!ExecutionTracer.isEnabled()) {
             return;
+        }
 
         if (value == null) {
             returnValue(0, className, methodName);
@@ -343,48 +349,53 @@ public class ExecutionTracer {
     }
 
     /**
-     * Called by instrumented code whenever a method is left
+     * Called by instrumented code whenever a method is left.
      *
      * @param classname  a {@link java.lang.String} object.
      * @param methodname a {@link java.lang.String} object.
      */
     public static void leftMethod(String classname, String methodname) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         tracer.trace.exitMethod(classname, methodname);
         // logger.trace("Left method " + classname + "." + methodname);
     }
 
     /**
-     * Called by the instrumented code each time a new source line is executed
+     * Called by the instrumented code each time a new source line is executed.
      */
     public static void checkTimeout() {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
         if (tracer.killSwitch) {
             // logger.info("Raising TimeoutException as kill switch is active - passedLine");
-            if (!isInStaticInit())
+            if (!isInStaticInit()) {
                 throw new TestCaseExecutor.TimeoutExceeded();
+            }
         }
     }
 
     private static boolean isInStaticInit() {
         for (StackTraceElement elem : Thread.currentThread().getStackTrace()) {
-            if (elem.getMethodName().equals("<clinit>"))
+            if (elem.getMethodName().equals("<clinit>")) {
                 return true;
+            }
         }
         return false;
     }
 
     /**
-     * Called by the instrumented code each time a new source line is executed
+     * Called by the instrumented code each time a new source line is executed.
      *
      * @param line       a int.
      * @param className  a {@link java.lang.String} object.
@@ -392,11 +403,13 @@ public class ExecutionTracer {
      */
     public static void passedLine(String className, String methodName, int line) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 
@@ -404,7 +417,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * Called by the instrumented code each time a new branch is taken
+     * Called by the instrumented code each time a new branch is taken.
      *
      * @param val         a int.
      * @param opcode      a int.
@@ -415,11 +428,13 @@ public class ExecutionTracer {
 
         ExecutionTracer tracer = getExecutionTracer();
         // logger.info("passedBranch val="+val+", opcode="+opcode+", branch="+branch+", bytecode_id="+bytecode_id);
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 
@@ -476,11 +491,13 @@ public class ExecutionTracer {
 
     public static void passedPutStatic(String classNameWithDots, String fieldName) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 
@@ -489,38 +506,41 @@ public class ExecutionTracer {
 
 
     /**
-     * This method is added in the transformed bytecode
+     * This method is added in the transformed bytecode.
      *
-     * @param className
+     * @param className the name of the class.
      */
     public static void exitClassInit(String className) {
 
         final String classNameWithDots = className.replace('/', '.');
 
         ExecutionTracer tracer = getExecutionTracer();
-//		if (tracer.disabled)
-//			return;
+//        if (tracer.disabled)
+//            return;
 //
-//		if (isThreadNeqCurrentThread())
-//			return;
+//        if (isThreadNeqCurrentThread())
+//            return;
 //
-//		checkTimeout();
+//        checkTimeout();
 
         tracer.trace.classInitialized(classNameWithDots);
 
     }
 
     /**
-     * @param classNameWithDots
-     * @param fieldName
+     * Summary.
+     * @param classNameWithDots the class name with dots.
+     * @param fieldName the name of the field.
      */
     public static void passedGetStatic(String classNameWithDots, String fieldName) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 
@@ -529,7 +549,7 @@ public class ExecutionTracer {
 
 
     /**
-     * Called by the instrumented code each time a new branch is taken
+     * Called by the instrumented code each time a new branch is taken.
      *
      * @param val1        a int.
      * @param val2        a int.
@@ -540,20 +560,22 @@ public class ExecutionTracer {
     public static void passedBranch(int val1, int val2, int opcode, int branch,
                                     int bytecode_id) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 
         ConstantPoolManager.getInstance().addDynamicConstant(val1);
         ConstantPoolManager.getInstance().addDynamicConstant(val2);
 
-		/* logger.trace("Called passedBranch2 with opcode "
-		        + AbstractVisitor.OPCODES[opcode] + ", val1=" + val1 + ", val2=" + val2
-		        + " in branch " + branch); */
+        /* logger.trace("Called passedBranch2 with opcode "
+                + AbstractVisitor.OPCODES[opcode] + ", val1=" + val1 + ", val2=" + val2
+                + " in branch " + branch); */
         double distance_true = 0;
         double distance_false = 0;
         switch (opcode) {
@@ -605,7 +627,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * Called by the instrumented code each time a new branch is taken
+     * Called by the instrumented code each time a new branch is taken.
      *
      * @param val1        a {@link java.lang.Object} object.
      * @param val2        a {@link java.lang.Object} object.
@@ -616,11 +638,13 @@ public class ExecutionTracer {
     public static void passedBranch(Object val1, Object val2, int opcode, int branch,
                                     int bytecode_id) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 
@@ -644,7 +668,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * Called by the instrumented code each time a new branch is taken
+     * Called by the instrumented code each time a new branch is taken.
      *
      * @param val         a {@link java.lang.Object} object.
      * @param opcode      a int.
@@ -653,11 +677,13 @@ public class ExecutionTracer {
      */
     public static void passedBranch(Object val, int opcode, int branch, int bytecode_id) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 
@@ -685,22 +711,24 @@ public class ExecutionTracer {
 
     /**
      * Called by instrumented code each time a variable gets written to (a
-     * Definition)
+     * Definition).
      *
      * @param caller a {@link java.lang.Object} object.
      * @param defID  a int.
      */
     public static void passedDefinition(Object object, Object caller, int defID) {
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         ExecutionTracer tracer = getExecutionTracer();
-        if (!tracer.disabled)
+        if (!tracer.disabled) {
             tracer.trace.definitionPassed(object, caller, defID);
+        }
     }
 
     /**
-     * Called by instrumented code each time a variable is read from (a Use)
+     * Called by instrumented code each time a variable is read from (a Use).
      *
      * @param caller a {@link java.lang.Object} object.
      * @param useID  a int.
@@ -708,32 +736,37 @@ public class ExecutionTracer {
     public static void passedUse(Object object, Object caller, int useID) {
 
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         tracer.trace.usePassed(object, caller, useID);
     }
 
     /**
-     * Called by instrumented code each time a field method call is passed
+     * Called by instrumented code each time a field method call is passed.
+     *
      * <p>
      * Since it was not clear whether the field method call constitutes a
      * definition or a use when the instrumentation was initially added this
-     * method will redirect the call accordingly
+     * method will redirect the call accordingly.
      *
-     * @param caller
-     * @param defuseId
+     * @param caller the caller.
+     * @param defuseId the def-use ID.
      */
     public static void passedFieldMethodCall(Object callee, Object caller, int defuseId) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         if (DefUsePool.isKnownAsDefinition(defuseId)) {
             Definition passedDef = DefUsePool.getDefinitionByDefUseId(defuseId);
@@ -742,9 +775,11 @@ public class ExecutionTracer {
             Use passedUse = DefUsePool.getUseByDefUseId(defuseId);
             passedUse(callee, caller, passedUse.getUseId());
         } else
+             {
             throw new EvosuiteError(
                     "instrumentation called passedFieldMethodCall with invalid defuseId: "
                             + defuseId + ", known IDs: " + DefUsePool.getDefUseCounter());
+        }
     }
 
     /**
@@ -757,11 +792,13 @@ public class ExecutionTracer {
      */
     public static void passedMutation(double distance, int mutationId) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 
@@ -780,11 +817,13 @@ public class ExecutionTracer {
     public static void exceptionThrown(Object exception, String className,
                                        String methodName) {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 
@@ -799,11 +838,13 @@ public class ExecutionTracer {
      */
     public static void statementExecuted() {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled)
+        if (tracer.disabled) {
             return;
+        }
 
-        if (isThreadNeqCurrentThread())
+        if (isThreadNeqCurrentThread()) {
             return;
+        }
 
         checkTimeout();
 

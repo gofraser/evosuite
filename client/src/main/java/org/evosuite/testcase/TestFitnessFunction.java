@@ -27,7 +27,7 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 import java.util.List;
 
 /**
- * Abstract base class for fitness functions for test case chromosomes
+ * Abstract base class for fitness functions for test case chromosomes.
  *
  * @author Gordon Fraser
  */
@@ -71,6 +71,7 @@ public abstract class TestFitnessFunction
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Used to preorder goals by difficulty
      */
@@ -95,7 +96,7 @@ public abstract class TestFitnessFunction
     }
 
     /**
-     * Determine if there is an existing test case covering this goal
+     * Determine if there is an existing test case covering this goal.
      *
      * @param tests a {@link java.util.List} object.
      * @return a boolean.
@@ -105,7 +106,7 @@ public abstract class TestFitnessFunction
     }
 
     /**
-     * Determine if there is an existing test case covering this goal
+     * Determine if there is an existing test case covering this goal.
      *
      * @param tests a {@link java.util.List} object.
      * @return a boolean.
@@ -119,8 +120,9 @@ public abstract class TestFitnessFunction
         for (TestChromosome test : testSuite.getTestChromosomes()) {
             logger.debug("Checking goal against test " + num + "/" + testSuite.size());
             num++;
-            if (isCovered(test))
+            if (isCovered(test)) {
                 return true;
+            }
         }
         return false;
     }
@@ -180,10 +182,10 @@ public abstract class TestFitnessFunction
     }
 
     /**
-     * Helper function if this is used without a chromosome
+     * Helper function if this is used without a chromosome.
      *
-     * @param result
-     * @return
+     * @param result the execution result.
+     * @return .
      */
     public boolean isCovered(ExecutionResult result) {
         TestChromosome chromosome = new TestChromosome();

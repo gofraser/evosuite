@@ -57,12 +57,12 @@ import java.util.concurrent.*;
 public class TestCaseExecutor implements ThreadFactory {
 
     /**
-     * Used to identify the threads spawn by the SUT
+     * Used to identify the threads spawn by the SUT.
      */
     public static final String TEST_EXECUTION_THREAD_GROUP = "Test_Execution_Group";
 
     /**
-     * Name used to define the threads spawn by this factory
+     * Name used to define the threads spawn by this factory.
      */
     public static final String TEST_EXECUTION_THREAD = "TEST_EXECUTION_THREAD";
 
@@ -105,7 +105,7 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
-     * Used when we spawn a new thread to give a unique name
+     * Used when we spawn a new thread to give a unique name.
      */
     public volatile int threadCounter;
 
@@ -122,14 +122,15 @@ public class TestCaseExecutor implements ThreadFactory {
      * object.
      */
     public static synchronized TestCaseExecutor getInstance() {
-        if (instance == null)
+        if (instance == null) {
             instance = new TestCaseExecutor();
+        }
 
         return instance;
     }
 
     /**
-     * Execute a test case
+     * Execute a test case.
      *
      * @param test The test case to execute
      * @return Result of the execution
@@ -251,7 +252,7 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
-     * Execute a test case on a new scope
+     * Execute a test case on a new scope.
      *
      * @param tc a {@link org.evosuite.testcase.TestCase} object.
      * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -262,7 +263,7 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
-     * Execute a test case on a new scope
+     * Execute a test case on a new scope.
      *
      * @param tc a {@link org.evosuite.testcase.TestCase} object.
      * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -279,7 +280,7 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
-     * Execute a test case on an existing scope
+     * Execute a test case on an existing scope.
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param scope a {@link org.evosuite.testcase.execution.Scope} object.
@@ -484,23 +485,27 @@ public class TestCaseExecutor implements ThreadFactory {
 
             return result;
         } finally {
-            if (threadGroup != null)
+            if (threadGroup != null) {
                 PermissionStatistics.getInstance().countThreads(threadGroup.activeCount());
+            }
             TestCluster.getInstance().handleRuntimeAccesses(tc);
         }
     }
 
     private boolean isInStaticInit() {
         for (StackTraceElement elem : currentThread.getStackTrace()) {
-            if (elem.getMethodName().equals("<clinit>"))
+            if (elem.getMethodName().equals("<clinit>")) {
                 return true;
+            }
             if (elem.getMethodName().equals("loadClass") && elem.getClassName()
-                    .equals(org.evosuite.instrumentation.InstrumentingClassLoader.class.getCanonicalName()))
+                    .equals(org.evosuite.instrumentation.InstrumentingClassLoader.class.getCanonicalName())) {
                 return true;
+            }
             // CFontManager is responsible for loading fonts
             // which can take seconds
-            if (elem.getClassName().equals("sun.font.CFontManager"))
+            if (elem.getClassName().equals("sun.font.CFontManager")) {
                 return true;
+            }
         }
         return false;
     }

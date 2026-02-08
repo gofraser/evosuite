@@ -121,9 +121,11 @@ public class TimeoutHandler<T> {
 
                 outer:
                 for (long id : all_thread_ids) {
-                    for (final long other_thread_id : other_thread_ids)
-                        if (id == other_thread_id)
+                    for (final long other_thread_id : other_thread_ids) {
+                        if (id == other_thread_id) {
                             continue outer;
+                        }
+                    }
 
                     //id is "new"
 

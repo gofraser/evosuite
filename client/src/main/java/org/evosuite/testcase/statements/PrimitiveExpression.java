@@ -120,7 +120,7 @@ public class PrimitiveExpression extends AbstractStatement {
         VariableReference newRightOperand = newTestCase.getStatement(rightOperand.getStPosition()).getReturnValue();
         return new PrimitiveExpression(newTestCase, newRetVal, newLeftOperand, operator,
                 newRightOperand);
-        //		return new PrimitiveExpression(newTestCase, retval, leftOperand, operator, rightOperand);
+        //        return new PrimitiveExpression(newTestCase, retval, leftOperand, operator, rightOperand);
     }
 
     /**
@@ -251,12 +251,15 @@ public class PrimitiveExpression extends AbstractStatement {
      */
     @Override
     public boolean same(Statement s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
+        }
 
         PrimitiveExpression ps = (PrimitiveExpression) s;
 

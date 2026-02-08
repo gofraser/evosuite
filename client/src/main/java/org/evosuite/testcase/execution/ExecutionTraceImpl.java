@@ -39,7 +39,7 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * Keep a trace of the program execution
+ * Keep a trace of the program execution.
  *
  * @author Gordon Fraser
  */
@@ -154,7 +154,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * Removes from the given ExecutionTrace all finished_calls with an index in
-     * removableCalls
+     * removableCalls.
      */
     private static void removeFinishCalls(ExecutionTraceImpl trace, ArrayList<Integer> removableCalls) {
         Collections.sort(removableCalls);
@@ -169,7 +169,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * Removes from the given MethodCall all trace information with an index in
-     * removableIndices
+     * removableIndices.
      */
     private static void removeFromFinishCall(MethodCall call, ArrayList<Integer> removableIndices) {
         checkSaneCall(call);
@@ -328,6 +328,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Add branch to currently active method call
      */
@@ -340,38 +341,47 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
         // TODO: property should really be called TRACK_GRADIENT_BRANCHES!
         if (Properties.TRACK_BOOLEAN_BRANCHES) {
-            if ((true_distance != 0 && true_distance != 1) || (false_distance != 0 && false_distance != 1))
+            if ((true_distance != 0 && true_distance != 1) || (false_distance != 0 && false_distance != 1)) {
                 gradientBranches.add(branch);
+            }
         }
 
         if (traceCoverage) {
-            if (!coveredPredicates.containsKey(branch))
+            if (!coveredPredicates.containsKey(branch)) {
                 coveredPredicates.put(branch, 1);
-            else
+            } else
+                 {
                 coveredPredicates.put(branch, coveredPredicates.get(branch) + 1);
+            }
 
             if (true_distance == 0.0) {
-                if (!coveredTrue.containsKey(branch))
+                if (!coveredTrue.containsKey(branch)) {
                     coveredTrue.put(branch, 1);
-                else
+                } else
+                     {
                     coveredTrue.put(branch, coveredTrue.get(branch) + 1);
+                }
 
             }
 
             if (false_distance == 0.0) {
-                if (!coveredFalse.containsKey(branch))
+                if (!coveredFalse.containsKey(branch)) {
                     coveredFalse.put(branch, 1);
-                else
+                } else
+                     {
                     coveredFalse.put(branch, coveredFalse.get(branch) + 1);
+                }
             }
         }
 
         if (Properties.TRACK_COVERED_GRADIENT_BRANCHES) {
             if (gradientBranches.contains(branch)) {
-                if ((coveredTrue.containsKey(branch)))
+                if ((coveredTrue.containsKey(branch))) {
                     gradientBranchesCoveredTrue.add(branch);
-                if ((coveredFalse.containsKey(branch)))
+                }
+                if ((coveredFalse.containsKey(branch))) {
                     gradientBranchesCoveredFalse.add(branch);
+                }
             }
         }
 
@@ -380,46 +390,57 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
                     .getBranch(branch).getInstruction().getASMNode().getOpcode();
             int previousOpcode = -2;
             if (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranch(branch)
-                    .getInstruction().getASMNode().getPrevious() != null)
+                    .getInstruction().getASMNode().getPrevious() != null) {
                 previousOpcode = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                         .getBranch(branch).getInstruction().getASMNode().getPrevious().getOpcode();
+            }
             boolean cTrue = coveredTrue.containsKey(branch);
             boolean cFalse = coveredFalse.containsKey(branch);
             switch (previousOpcode) {
                 case Opcodes.LCMP:
                     trackBranchOpcode(bytecodeInstructionReached, RuntimeVariable.Reached_lcmp, branch);
-                    if (cTrue)
+                    if (cTrue) {
                         trackBranchOpcode(bytecodeInstructionCoveredTrue, RuntimeVariable.Covered_lcmp, branch);
-                    if (cFalse)
+                    }
+                    if (cFalse) {
                         trackBranchOpcode(bytecodeInstructionCoveredFalse, RuntimeVariable.Covered_lcmp, branch);
+                    }
                     break;
                 case Opcodes.FCMPL:
                     trackBranchOpcode(bytecodeInstructionReached, RuntimeVariable.Reached_fcmpl, branch);
-                    if (cTrue)
+                    if (cTrue) {
                         trackBranchOpcode(bytecodeInstructionCoveredTrue, RuntimeVariable.Covered_fcmpl, branch);
-                    if (cFalse)
+                    }
+                    if (cFalse) {
                         trackBranchOpcode(bytecodeInstructionCoveredFalse, RuntimeVariable.Covered_fcmpl, branch);
+                    }
                     break;
                 case Opcodes.FCMPG:
                     trackBranchOpcode(bytecodeInstructionReached, RuntimeVariable.Reached_fcmpg, branch);
-                    if (cTrue)
+                    if (cTrue) {
                         trackBranchOpcode(bytecodeInstructionCoveredTrue, RuntimeVariable.Covered_fcmpg, branch);
-                    if (cFalse)
+                    }
+                    if (cFalse) {
                         trackBranchOpcode(bytecodeInstructionCoveredFalse, RuntimeVariable.Covered_fcmpg, branch);
+                    }
                     break;
                 case Opcodes.DCMPL:
                     trackBranchOpcode(bytecodeInstructionReached, RuntimeVariable.Reached_dcmpl, branch);
-                    if (cTrue)
+                    if (cTrue) {
                         trackBranchOpcode(bytecodeInstructionCoveredTrue, RuntimeVariable.Covered_dcmpl, branch);
-                    if (cFalse)
+                    }
+                    if (cFalse) {
                         trackBranchOpcode(bytecodeInstructionCoveredFalse, RuntimeVariable.Covered_dcmpl, branch);
+                    }
                     break;
                 case Opcodes.DCMPG:
                     trackBranchOpcode(bytecodeInstructionReached, RuntimeVariable.Reached_dcmpg, branch);
-                    if (cTrue)
+                    if (cTrue) {
                         trackBranchOpcode(bytecodeInstructionCoveredTrue, RuntimeVariable.Covered_dcmpg, branch);
-                    if (cFalse)
+                    }
+                    if (cFalse) {
                         trackBranchOpcode(bytecodeInstructionCoveredFalse, RuntimeVariable.Covered_dcmpg, branch);
+                    }
                     break;
             }
             switch (opcode) {
@@ -431,10 +452,12 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
                 case Opcodes.IFGT:
                 case Opcodes.IFLE:
                     trackBranchOpcode(bytecodeInstructionReached, RuntimeVariable.Reached_IntZero, branch);
-                    if (cTrue)
+                    if (cTrue) {
                         trackBranchOpcode(bytecodeInstructionCoveredTrue, RuntimeVariable.Covered_IntZero, branch);
-                    if (cFalse)
+                    }
+                    if (cFalse) {
                         trackBranchOpcode(bytecodeInstructionCoveredFalse, RuntimeVariable.Covered_IntZero, branch);
+                    }
                     break;
                 // copmpare int with int
                 case Opcodes.IF_ICMPEQ:
@@ -444,52 +467,66 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
                 case Opcodes.IF_ICMPGT:
                 case Opcodes.IF_ICMPLE:
                     trackBranchOpcode(bytecodeInstructionReached, RuntimeVariable.Reached_IntInt, branch);
-                    if (cTrue)
+                    if (cTrue) {
                         trackBranchOpcode(bytecodeInstructionCoveredTrue, RuntimeVariable.Covered_IntInt, branch);
-                    if (cFalse)
+                    }
+                    if (cFalse) {
                         trackBranchOpcode(bytecodeInstructionCoveredFalse, RuntimeVariable.Covered_IntInt, branch);
+                    }
                     break;
                 // copmpare reference with reference
                 case Opcodes.IF_ACMPEQ:
                 case Opcodes.IF_ACMPNE:
                     trackBranchOpcode(bytecodeInstructionReached, RuntimeVariable.Reached_RefRef, branch);
-                    if (cTrue)
+                    if (cTrue) {
                         trackBranchOpcode(bytecodeInstructionCoveredTrue, RuntimeVariable.Covered_RefRef, branch);
-                    if (cFalse)
+                    }
+                    if (cFalse) {
                         trackBranchOpcode(bytecodeInstructionCoveredFalse, RuntimeVariable.Covered_RefRef, branch);
+                    }
                     break;
                 // compare reference with null
                 case Opcodes.IFNULL:
                 case Opcodes.IFNONNULL:
                     trackBranchOpcode(bytecodeInstructionReached, RuntimeVariable.Reached_RefNull, branch);
-                    if (cTrue)
+                    if (cTrue) {
                         trackBranchOpcode(bytecodeInstructionCoveredTrue, RuntimeVariable.Covered_RefNull, branch);
-                    if (cFalse)
+                    }
+                    if (cFalse) {
                         trackBranchOpcode(bytecodeInstructionCoveredFalse, RuntimeVariable.Covered_RefNull, branch);
+                    }
                     break;
 
             }
         }
 
-        if (!trueDistances.containsKey(branch))
+        if (!trueDistances.containsKey(branch)) {
             trueDistances.put(branch, true_distance);
-        else
+        } else
+             {
             trueDistances.put(branch, Math.min(trueDistances.get(branch), true_distance));
+        }
 
-        if (!falseDistances.containsKey(branch))
+        if (!falseDistances.containsKey(branch)) {
             falseDistances.put(branch, false_distance);
-        else
+        } else
+             {
             falseDistances.put(branch, Math.min(falseDistances.get(branch), false_distance));
+        }
 
-        if (!trueDistancesSum.containsKey(branch))
+        if (!trueDistancesSum.containsKey(branch)) {
             trueDistancesSum.put(branch, true_distance);
-        else
+        } else
+             {
             trueDistancesSum.put(branch, trueDistancesSum.get(branch) + true_distance);
+        }
 
-        if (!falseDistancesSum.containsKey(branch))
+        if (!falseDistancesSum.containsKey(branch)) {
             falseDistancesSum.put(branch, false_distance);
-        else
+        } else
+             {
             falseDistancesSum.put(branch, falseDistancesSum.get(branch) + false_distance);
+        }
 
         if (!disableContext && (Properties.INSTRUMENT_CONTEXT || Properties.INSTRUMENT_METHOD_CALLS
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.IBRANCH)
@@ -505,7 +542,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * Track reach/coverage of branch based on it's underlying opcode during
-     * execution
+     * execution.
      *
      * @param trackedMap relevant map for the variable type (one of the three static
      *                   maps)
@@ -513,17 +550,19 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      * @param branch_id  of the tracked branch
      */
     private void trackBranchOpcode(Map<RuntimeVariable, Set<Integer>> trackedMap, RuntimeVariable v, int branch_id) {
-        if (!trackedMap.containsKey(v))
+        if (!trackedMap.containsKey(v)) {
             trackedMap.put(v, new HashSet<>());
+        }
         Set<Integer> branchSet = trackedMap.get(v);
         branchSet.add(branch_id);
         trackedMap.put(v, branchSet);
     }
 
     /**
-     * @param branch
-     * @param true_distance
-     * @param false_distance
+     * Summary.
+     * @param branch the branch.
+     * @param true_distance the true branch distance.
+     * @param false_distance the false branch distance.
      */
     private void updateBranchContextMaps(int branch, double true_distance, double false_distance) {
         if (!coveredPredicateContext.containsKey(branch)) {
@@ -549,6 +588,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Reset to 0
      */
@@ -593,6 +633,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Create a deep copy
      */
@@ -613,7 +654,8 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         /*
          * if(stack != null && !stack.isEmpty() && stack.peek().method_name !=
          * null && stack.peek().method_name.equals("")) { logger.info(
-         * "Copying main method"); copy.finished_calls.add(stack.peek()); }
+         * "Copying main method"); copy.finished_calls.add(stack.peek());
+     }
          */
         copy.trueDistances.putAll(trueDistances);
         copy.falseDistances.putAll(falseDistances);
@@ -649,8 +691,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Adds Definition-Use-Coverage trace information for the given definition.
+     *
      * <p>
      * Registers the given caller-Object Traces the occurrence of the given
      * definition in the passedDefs-field Sets the given definition as the
@@ -680,8 +724,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
         // if this is a static variable, treat objectID as zero for consistency
         // in the representation of static data
-        if (objectID != 0 && def.isStaticDefUse())
+        if (objectID != 0 && def.isStaticDefUse()) {
             objectID = 0;
+        }
         if (passedDefinitions.get(varName) == null) {
             passedDefinitions.put(varName, new HashMap<>());
             passedDefinitionObject.put(varName, new HashMap<>());
@@ -704,6 +749,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Add a new method call to stack
      */
@@ -752,9 +798,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     }
 
     /**
-     * @param className
-     * @param methodName
-     * @param caller
+     * Summary.
+     * @param className the name of the class.
+     * @param methodName the name of the method.
+     * @param caller the caller.
      */
     private void updateMethodContextMaps(String className, String methodName, Object caller) {
         String id = className + "." + methodName;
@@ -810,11 +857,14 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         }
         if (stack == null) {
             return other.stack == null;
-        } else return stack.equals(other.stack);
+        } else  {
+            return stack.equals(other.stack);
+        }
     }
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Pop last method call from stack
      */
@@ -885,8 +935,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public Set<Integer> getCoveredFalseBranches() {
         Set<Integer> covered = new HashSet<>();
         for (Entry<Integer, Double> entry : falseDistances.entrySet()) {
-            if (entry.getValue() == 0.0)
+            if (entry.getValue() == 0.0) {
                 covered.add(entry.getKey());
+            }
         }
 
         return covered;
@@ -978,8 +1029,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public Set<Integer> getCoveredTrueBranches() {
         Set<Integer> covered = new HashSet<>();
         for (Entry<Integer, Double> entry : trueDistances.entrySet()) {
-            if (entry.getValue() == 0.0)
+            if (entry.getValue() == 0.0) {
                 covered.add(entry.getKey());
+            }
         }
 
         return covered;
@@ -1211,10 +1263,12 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Returns a copy of this trace where all MethodCall-information traced from
      * objects other then the one identified by the given objectID is removed
      * from the finished_calls-field
+     *
      * <p>
      * WARNING: this will not affect this.true_distances and other fields of
      * ExecutionTrace this only affects the finished_calls field (which should
@@ -1236,25 +1290,30 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Returns a copy of this trace where all MethodCall-information associated
      * with duCounters outside the range of the given duCounter-Start and -End
      * is removed from the finished_calls-traces
+     *
      * <p>
      * finished_calls without any point in the trace at which the given
      * duCounter range is hit are removed completely
+     *
      * <p>
      * Also traces for methods other then the one that holds the given targetDU
      * are removed as well as trace information that would pass the branch of
      * the given targetDU If wantToCoverTargetDU is false instead those
      * targetDUBranch information is removed that would pass the alternative
      * branch of targetDU
+     *
      * <p>
      * The latter is because this method only gets called when the given
      * targetDU was not active in the given duCounter-range if and only if
      * wantToCoverTargetDU is set, and since useFitness calculation is on branch
      * level and the branch of the targetDU can be passed before the targetDU is
      * passed this can lead to a flawed branchFitness.
+     *
      * <p>
      * <p>
      * WARNING: this will not affect this.true_distances and other fields of
@@ -1309,25 +1368,28 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
                 int currentDUCounter = call.defuseCounterTrace.get(i);
                 int currentBranchBytecode = call.branchTrace.get(i);
 
-                if (currentDUCounter < duCounterStart || currentDUCounter > duCounterEnd)
+                if (currentDUCounter < duCounterStart || currentDUCounter > duCounterEnd) {
                     removableIndices.add(i);
-                else if (currentBranchBytecode == targetDUBranch.getInstruction().getInstructionId()) {
+                } else if (currentBranchBytecode == targetDUBranch.getInstruction().getInstructionId()) {
                     // only remove this point in the trace if it would cover
                     // targetDU
                     boolean targetExpressionValue = targetDU.getControlDependentBranchExpressionValue();
                     if (targetExpressionValue) {
-                        if (call.trueDistanceTrace.get(i) == 0.0)
+                        if (call.trueDistanceTrace.get(i) == 0.0) {
                             removableIndices.add(i);
+                        }
                     } else {
-                        if (call.falseDistanceTrace.get(i) == 0.0)
+                        if (call.falseDistanceTrace.get(i) == 0.0) {
                             removableIndices.add(i);
+                        }
                     }
 
                 }
             }
             removeFromFinishCall(call, removableIndices);
-            if (call.defuseCounterTrace.size() == 0)
+            if (call.defuseCounterTrace.size() == 0) {
                 removableCalls.add(callPos);
+            }
         }
         removeFinishCalls(r, removableCalls);
         return new ExecutionTraceProxy(r);
@@ -1438,8 +1500,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     private boolean stackHasMethod(String methodName) {
         for (MethodCall call : stack) {
-            if (call.methodName.equals(methodName))
+            if (call.methodName.equals(methodName)) {
                 return true;
+            }
         }
 
         return false;
@@ -1447,6 +1510,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Add line to currently active method call
      */
@@ -1462,8 +1526,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             } else {
                 boolean empty = false;
                 if (!stack.peek().methodName.equals(methodName)) {
-                    if (stack.peek().methodName.equals(""))
+                    if (stack.peek().methodName.equals("")) {
                         return;
+                    }
 
                     if (stackHasMethod(methodName)) {
                         do {
@@ -1488,8 +1553,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
                         empty = true;
                     }
                 }
-                if (!empty)
+                if (!empty) {
                     stack.peek().lineTrace.add(line);
+                }
             }
         }
         if (traceCoverage) {
@@ -1526,6 +1592,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * Returns the objecectId for the given object.
+     *
      * <p>
      * The ExecutionTracer keeps track of all objects it gets called from in
      * order to distinguish them later in the fitness calculation for the
@@ -1579,8 +1646,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Returns a String containing the information in passedDefs and passedUses
+     *
      * <p>
      * Used for Definition-Use-Coverage-debugging
      */
@@ -1602,9 +1671,11 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Returns a String containing the information in passedDefs and passedUses
      * filtered for a specific variable
+     *
      * <p>
      * Used for Definition-Use-Coverage-debugging
      */
@@ -1624,9 +1695,11 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Returns a String containing the information in passedDefs and passedUses
      * for the given variable
+     *
      * <p>
      * Used for Definition-Use-Coverage-debugging
      */
@@ -1699,7 +1772,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     }
 
     /**
-     * Adds trace information to the active MethodCall in this.stack
+     * Adds trace information to the active MethodCall in this.stack.
      */
     private void updateTopStackMethodCall(int branch, int bytecode_id, double true_distance, double false_distance) {
 
@@ -1721,8 +1794,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Adds Definition-Use-Coverage trace information for the given use.
+     *
      * <p>
      * Registers the given caller-Object Traces the occurrence of the given use
      * in the passedUses-field
@@ -1730,8 +1805,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     @Override
     public void usePassed(Object object, Object caller, int useID) {
 
-        if (!traceCalls) // TODO ???
+        if (!traceCalls) { // TODO ???
             return;
+        }
 
         Use use = DefUsePool.getUseByUseId(useID);
 
@@ -1739,11 +1815,13 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         // if this is a static variable, treat objectID as zero for consistency
         // in the representation of static data
         if (objectID != 0) {
-            if (use == null)
+            if (use == null) {
                 throw new IllegalStateException(
                         "expect DefUsePool to known defIDs that are passed by instrumented code");
-            if (use.isStaticDefUse())
+            }
+            if (use.isStaticDefUse()) {
                 objectID = 0;
+            }
         }
         String varName = use.getVariableName();
         if (passedUses.get(varName) == null) {

@@ -147,8 +147,9 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
             // for(int i = 0; i < s.length(); i++) {
             // if(Randomness.nextDouble() < P) {
             int pos = 0;
-            if (s.length() > 0)
+            if (s.length() > 0) {
                 pos = Randomness.nextInt(s.length());
+            }
             s = StringInsert(s, pos);
             // }
             // }
@@ -189,15 +190,17 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
      */
     @Override
     public void randomize() {
-        if (Randomness.nextDouble() >= Properties.PRIMITIVE_POOL)
+        if (Randomness.nextDouble() >= Properties.PRIMITIVE_POOL) {
             value = Randomness.nextString(Randomness.nextInt(Properties.STRING_LENGTH));
-        else {
+        } else {
             ConstantPool constantPool = ConstantPoolManager.getInstance().getConstantPool();
             String candidateString = constantPool.getRandomString();
-            if (Properties.MAX_STRING > 0 && candidateString.length() < Properties.MAX_STRING)
+            if (Properties.MAX_STRING > 0 && candidateString.length() < Properties.MAX_STRING) {
                 value = candidateString;
-            else
+            } else
+                 {
                 value = Randomness.nextString(Randomness.nextInt(Properties.STRING_LENGTH));
+            }
         }
     }
 
@@ -208,12 +211,13 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         Throwable exceptionThrown = null;
 
         try {
-            if (value == null)
+            if (value == null) {
                 retval.setObject(scope, null);
-            else {
+            } else {
                 // String literals may not be longer than 32767
-                if (value.length() >= 32767)
+                if (value.length() >= 32767) {
                     throw new CodeUnderTestException(new IllegalArgumentException("Maximum string length exceeded"));
+                }
 
                 // In the JUnit code we produce, strings are generated as
                 // String foo = "bar";

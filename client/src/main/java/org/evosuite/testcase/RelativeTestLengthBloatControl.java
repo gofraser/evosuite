@@ -26,7 +26,7 @@ import org.evosuite.ga.metaheuristics.SearchListener;
 
 
 /**
- * Bloat control that checks an individual against the best test case
+ * Bloat control that checks an individual against the best test case.
  *
  * @author Gordon Fraser
  */
@@ -55,8 +55,9 @@ public class RelativeTestLengthBloatControl<T extends ExecutableChromosome<T>>
     @Override
     public boolean isTooLong(T chromosome) {
         // Always accept if fitness is better
-        if (chromosome.getFitness() < best_fitness)
+        if (chromosome.getFitness() < best_fitness) {
             return false;
+        }
 
         // logger.debug("Current - max: "+((TestSuiteChromosome)chromosome).length()+" - "+current_max);
         if (current_max > 0) {
@@ -68,7 +69,9 @@ public class RelativeTestLengthBloatControl<T extends ExecutableChromosome<T>>
             return chromosome.size() > Properties.BLOAT_FACTOR
                     * current_max;
         } else
-            return false; // Don't know max length so can't reject!
+             {
+            return false;
+        } // Don't know max length so can't reject!
     }
 
     /**

@@ -38,7 +38,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Inline all primitive values and null references in the test case
+ * Inline all primitive values and null references in the test case.
  *
  * @author Gordon Fraser
  */
@@ -102,7 +102,7 @@ public class ConstantInliner extends ExecutionObserver {
     }
 
     /**
-     * Remove all unreferenced variables
+     * Remove all unreferenced variables.
      *
      * @param t The test case
      * @return True if something was deleted
@@ -163,8 +163,9 @@ public class ConstantInliner extends ExecutionObserver {
         try {
             for (VariableReference var : statement.getVariableReferences()) {
                 if (var.equals(statement.getReturnValue())
-                        || var.equals(statement.getReturnValue().getAdditionalVariableReference()))
+                        || var.equals(statement.getReturnValue().getAdditionalVariableReference())) {
                     continue;
+                }
                 Object object = var.getObject(scope);
 
                 if (var.isPrimitive()) {

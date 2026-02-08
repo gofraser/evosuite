@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Local search on enum values means we simply iterate over all possible values
- * the enum can take
+ * the enum can take.
  *
  * @author Gordon Fraser
  */

@@ -21,8 +21,8 @@
 package org.evosuite.setup.callgraph;
 
 /**
- * class name - method name pair
- * adapted from CallTreeEntry
+ * Class name - method name pair.
+ * Adapted from CallTreeEntry.
  *
  * @author mattia
  */
@@ -78,21 +78,28 @@ public class CallGraphEntry {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CallGraphEntry other = (CallGraphEntry) obj;
         if (className == null) {
-            if (other.className != null)
+            if (other.className != null) {
                 return false;
-        } else if (!className.equals(other.className))
+            }
+        } else if (!className.equals(other.className)) {
             return false;
+        }
         if (methodName == null) {
             return other.methodName == null;
-        } else return methodName.equals(other.methodName);
+        } else {
+            return methodName.equals(other.methodName);
+        }
     }
 
 }

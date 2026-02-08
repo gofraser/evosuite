@@ -83,7 +83,6 @@ public class EnvironmentTestClusterAugmenter {
     }
 
     /**
-     * <p>
      * If access to certain classes was observed at runtime, this method adds
      * test calls to the test cluster which may lead to covering more branches.
      * For example, if file access was observed, statements will be introduced
@@ -91,7 +90,9 @@ public class EnvironmentTestClusterAugmenter {
      *
      * <p>
      * (Idea by Gordon, JavaDoc written by Daniel)
+     * </p>
      *
+     * @param test the test case
      * @see org.evosuite.runtime.Random
      * @see org.evosuite.runtime.System
      */
@@ -100,8 +101,9 @@ public class EnvironmentTestClusterAugmenter {
         if (testClusterGenerator == null) {
             testClusterGenerator = TestGenerationContext.getInstance().getTestClusterGenerator();
             // Initialisation might not be ready yet
-            if (testClusterGenerator == null)
+            if (testClusterGenerator == null) {
                 return;
+            }
         }
 
         // important, as test might have been changed since last update (eg
@@ -146,8 +148,8 @@ public class EnvironmentTestClusterAugmenter {
 
             try {
                 final Class<?> clazz = JOptionPaneInputs.class;
-                final String ENQUEUE_INPUT_STRING = "enqueueInputString";
-                final Method method_to_call = clazz.getMethod(ENQUEUE_INPUT_STRING, String.class);
+                final String enqueueInputString = "enqueueInputString";
+                final Method method_to_call = clazz.getMethod(enqueueInputString, String.class);
                 final GenericClass<?> genericClass = GenericClassFactory.get(clazz);
                 final GenericMethod genericMethod = new GenericMethod(method_to_call, genericClass);
 
@@ -168,8 +170,8 @@ public class EnvironmentTestClusterAugmenter {
 
             try {
                 final Class<?> clazz = JOptionPaneInputs.class;
-                final String ENQUEUE_YES_NO_CANCEL_SELECTION = "enqueueYesNoCancelSelection";
-                final Method method_to_call = clazz.getMethod(ENQUEUE_YES_NO_CANCEL_SELECTION,
+                final String enqueueYesNoCancelSelection = "enqueueYesNoCancelSelection";
+                final Method method_to_call = clazz.getMethod(enqueueYesNoCancelSelection,
                         int.class);
                 final GenericClass<?> genericClass = GenericClassFactory.get(clazz);
                 final GenericMethod genericMethod = new GenericMethod(method_to_call, genericClass);
@@ -191,8 +193,8 @@ public class EnvironmentTestClusterAugmenter {
 
             try {
                 final Class<?> clazz = JOptionPaneInputs.class;
-                final String ENQUEUE_YES_NO_SELECTION = "enqueueYesNoSelection";
-                final Method method_to_call = clazz.getMethod(ENQUEUE_YES_NO_SELECTION, int.class);
+                final String enqueueYesNoSelection = "enqueueYesNoSelection";
+                final Method method_to_call = clazz.getMethod(enqueueYesNoSelection, int.class);
                 final GenericClass<?> genericClass = GenericClassFactory.get(clazz);
                 final GenericMethod genericMethod = new GenericMethod(method_to_call, genericClass);
 
@@ -213,8 +215,8 @@ public class EnvironmentTestClusterAugmenter {
 
             try {
                 final Class<?> clazz = JOptionPaneInputs.class;
-                final String ENQUEUE_OK_CANCEL_SELECTION = "enqueueOkCancelSelection";
-                final Method method_to_call = clazz.getMethod(ENQUEUE_OK_CANCEL_SELECTION,
+                final String enqueueOkCancelSelection = "enqueueOkCancelSelection";
+                final Method method_to_call = clazz.getMethod(enqueueOkCancelSelection,
                         int.class);
                 final GenericClass<?> genericClass = GenericClassFactory.get(clazz);
                 final GenericMethod genericMethod = new GenericMethod(method_to_call, genericClass);
@@ -236,8 +238,8 @@ public class EnvironmentTestClusterAugmenter {
 
             try {
                 final Class<?> clazz = JOptionPaneInputs.class;
-                final String ENQUEUE_OPTION_SELECTION = "enqueueOptionSelection";
-                final Method method_to_call = clazz.getMethod(ENQUEUE_OPTION_SELECTION, int.class);
+                final String enqueueOptionSelection = "enqueueOptionSelection";
+                final Method method_to_call = clazz.getMethod(enqueueOptionSelection, int.class);
                 final GenericClass<?> genericClass = GenericClassFactory.get(clazz);
                 final GenericMethod genericMethod = new GenericMethod(method_to_call, genericClass);
 
@@ -257,9 +259,10 @@ public class EnvironmentTestClusterAugmenter {
     /**
      * Add the given klass to the test cluster. Also recursively add (as
      * modifiers) all the other EvoSuite classes for which the given class is a
-     * generator
+     * generator.
      *
-     * @param klass
+     * @param klass the class to add
+     * @return true if added
      */
     private boolean addEnvironmentClassToCluster(Class<?> klass) {
         if (handledClasses.contains(klass.getCanonicalName()) || !TestClusterUtils.isEvoSuiteClass(klass)) {

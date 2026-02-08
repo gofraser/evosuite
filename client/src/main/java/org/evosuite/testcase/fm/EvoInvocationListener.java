@@ -37,7 +37,8 @@ import java.util.stream.Collectors;
 /**
  * During the test generation, we need to know which methods have been called,
  * and how often they were called.
- * This is however not needed in the final generated JUnit tests
+ * This is however not needed in the final generated JUnit tests.
+ *
  * <p>
  * Created by Andrea Arcuri on 27/07/15.
  */
@@ -49,7 +50,7 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
 
     /**
      * By default, we should not log events, otherwise we would end up
-     * logging also cases like "when(...)" which are set before a mock is used
+     * logging also cases like "when(...)" which are set before a mock is used.
      */
     private volatile boolean active = false;
 
@@ -78,6 +79,7 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
     }
 
     /**
+     * Summary.
      * @return a sorted list
      */
     public List<MethodDescriptor> getCopyOfMethodDescriptors() {

@@ -50,24 +50,24 @@ public abstract class NumericalPrimitiveStatement<T> extends PrimitiveStatement<
     }
 
     /**
-     * Increase value by smallest possible increment
+     * Increase value by smallest possible increment.
      */
     public abstract void increment();
 
     /**
-     * Decrease value by smallest possible increment
+     * Decrease value by smallest possible increment.
      */
     public abstract void decrement();
 
     /**
-     * Change value by delta
+     * Change value by delta.
      *
      * @param delta a long.
      */
     public abstract void increment(long delta);
 
     /**
-     * Change value by delta
+     * Change value by delta.
      *
      * @param delta a double.
      */
@@ -76,7 +76,7 @@ public abstract class NumericalPrimitiveStatement<T> extends PrimitiveStatement<
     }
 
     /**
-     * Needed for binary search
+     * Needed for binary search.
      *
      * @param min a T object.
      * @param max a T object.
@@ -84,7 +84,7 @@ public abstract class NumericalPrimitiveStatement<T> extends PrimitiveStatement<
     public abstract void setMid(T min, T max);
 
     /**
-     * Is the value >= 0?
+     * Is the value >= 0?.
      *
      * @return a boolean.
      */

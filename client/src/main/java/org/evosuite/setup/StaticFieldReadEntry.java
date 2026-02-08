@@ -49,16 +49,21 @@ final class StaticFieldReadEntry extends GetStaticGraphEntry {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
-        if (!super.equals(obj))
+        }
+        if (!super.equals(obj)) {
             return false;
+        }
         StaticFieldReadEntry other = (StaticFieldReadEntry) obj;
         if (targetField == null) {
             return other.targetField == null;
-        } else return targetField.equals(other.targetField);
+        } else {
+            return targetField.equals(other.targetField);
+        }
     }
 
     @Override

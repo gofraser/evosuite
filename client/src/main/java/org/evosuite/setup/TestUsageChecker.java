@@ -54,26 +54,30 @@ public class TestUsageChecker {
         }
 
         // synthetic constructors are OK
-        if (Modifier.isAbstract(c.getDeclaringClass().getModifiers()))
+        if (Modifier.isAbstract(c.getDeclaringClass().getModifiers())) {
             return false;
+        }
 
         // TODO we could enable some methods from Object, like getClass
         //if (c.getDeclaringClass().equals(java.lang.Object.class))
-        //	return false;// handled here to avoid printing reasons
+        //    return false;// handled here to avoid printing reasons
 
-        if (c.getDeclaringClass().equals(java.lang.Thread.class))
+        if (c.getDeclaringClass().equals(java.lang.Thread.class)) {
             return false;// handled here to avoid printing reasons
+        }
 
-        if (c.getDeclaringClass().isAnonymousClass())
+        if (c.getDeclaringClass().isAnonymousClass()) {
             return false;
+        }
 
         if (c.getDeclaringClass().isLocalClass()) {
             logger.debug("Skipping constructor of local class " + c.getName());
             return false;
         }
 
-        if (c.getDeclaringClass().isMemberClass() && !TestUsageChecker.canUse(c.getDeclaringClass()))
+        if (c.getDeclaringClass().isMemberClass() && !TestUsageChecker.canUse(c.getDeclaringClass())) {
             return false;
+        }
 
         if (!Properties.USE_DEPRECATED && c.isAnnotationPresent(Deprecated.class)) {
             final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
@@ -93,13 +97,14 @@ public class TestUsageChecker {
         }
 
         for (java.lang.reflect.Type paramType : c.getGenericParameterTypes()) {
-            if (!canUse(paramType))
+            if (!canUse(paramType)) {
                 return false;
+            }
         }
 
         // If default access rights, then check if this class is in the same package as the target class
         if (!Modifier.isPrivate(c.getModifiers())) {
-            //		        && !Modifier.isProtected(c.getModifiers())) {
+            //                && !Modifier.isProtected(c.getModifiers())) {
             String packageName = ClassUtils.getPackageName(c.getDeclaringClass());
             if (packageName.equals(Properties.CLASS_PREFIX)) {
                 TestClusterUtils.makeAccessible(c);
@@ -116,8 +121,9 @@ public class TestUsageChecker {
         } else if (t instanceof ParameterizedType) {
             ParameterizedType pt = (ParameterizedType) t;
             for (java.lang.reflect.Type parameterType : pt.getActualTypeArguments()) {
-                if (!canUse(parameterType))
+                if (!canUse(parameterType)) {
                     return false;
+                }
             }
             return canUse(pt.getOwnerType());
         }
@@ -127,9 +133,10 @@ public class TestUsageChecker {
 
     public static boolean canUse(Class<?> c) {
         //if (Throwable.class.isAssignableFrom(c))
-        //	return false;
-        if (Modifier.isPrivate(c.getModifiers()))
+        //    return false;
+        if (Modifier.isPrivate(c.getModifiers())) {
             return false;
+        }
 
         if (!Properties.USE_DEPRECATED) {
             try {
@@ -166,13 +173,15 @@ public class TestUsageChecker {
         }
 
         if (c.getEnclosingClass() != null) {
-            if (!canUse(c.getEnclosingClass()))
+            if (!canUse(c.getEnclosingClass())) {
                 return false;
+            }
         }
 
         if (c.getDeclaringClass() != null) {
-            if (!canUse(c.getDeclaringClass()))
+            if (!canUse(c.getDeclaringClass())) {
                 return false;
+            }
         }
 
         // If the SUT is not in the default package, then
@@ -210,7 +219,7 @@ public class TestUsageChecker {
 
         // If default access rights, then check if this class is in the same package as the target class
         if (!Modifier.isPrivate(c.getModifiers())) {
-            //		        && !Modifier.isProtected(c.getModifiers())) {
+            //                && !Modifier.isProtected(c.getModifiers())) {
             String packageName = ClassUtils.getPackageName(c);
             if (packageName.equals(Properties.CLASS_PREFIX)) {
                 return true;
@@ -228,11 +237,13 @@ public class TestUsageChecker {
     public static boolean canUse(Field f, Class<?> ownerClass) {
 
         // TODO we could enable some methods from Object, like getClass
-        if (f.getDeclaringClass().equals(java.lang.Object.class))
+        if (f.getDeclaringClass().equals(java.lang.Object.class)) {
             return false;// handled here to avoid printing reasons
+        }
 
-        if (f.getDeclaringClass().equals(java.lang.Thread.class))
+        if (f.getDeclaringClass().equals(java.lang.Thread.class)) {
             return false;// handled here to avoid printing reasons
+        }
 
         if (!Properties.USE_DEPRECATED && f.isAnnotationPresent(Deprecated.class)) {
             final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
@@ -277,7 +288,7 @@ public class TestUsageChecker {
 
         // If default access rights, then check if this class is in the same package as the target class
         if (!Modifier.isPrivate(f.getModifiers())) {
-            //		        && !Modifier.isProtected(f.getModifiers())) {
+            // && !Modifier.isProtected(f.getModifiers())) {
             String packageName = ClassUtils.getPackageName(ownerClass);
 
             String declaredPackageName = ClassUtils.getPackageName(f.getDeclaringClass());
@@ -359,35 +370,37 @@ public class TestUsageChecker {
         }
 
         for (java.lang.reflect.Type paramType : m.getGenericParameterTypes()) {
-            if (!canUse(paramType))
+            if (!canUse(paramType)) {
                 return false;
+            }
         }
 
         if (m.getDeclaringClass().equals(Enum.class)) {
             return false;
-			/*
-			if (m.getName().equals("valueOf") || m.getName().equals("values")
-			        || m.getName().equals("ordinal")) {
-				logger.debug("Excluding valueOf for Enum " + m.toString());
-				return false;
-			}
-			// Skip compareTo on enums (like Randoop)
-			if (m.getName().equals("compareTo") && m.getParameterTypes().length == 1
-			        && m.getParameterTypes()[0].equals(Enum.class))
-				return false;
-				*/
+            /*
+            if (m.getName().equals("valueOf") || m.getName().equals("values")
+                    || m.getName().equals("ordinal")) {
+                logger.debug("Excluding valueOf for Enum " + m.toString());
+                return false;
+            }
+            // Skip compareTo on enums (like Randoop)
+            if (m.getName().equals("compareTo") && m.getParameterTypes().length == 1
+                    && m.getParameterTypes()[0].equals(Enum.class))
+                return false;
+                */
         }
 
-        if (m.getDeclaringClass().equals(java.lang.Thread.class))
+        if (m.getDeclaringClass().equals(java.lang.Thread.class)) {
             return false;
+        }
 
         // Hashcode only if we need to cover it
         if (m.getName().equals("hashCode")) {
             final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
 
-            if (!m.getDeclaringClass().equals(targetClass))
+            if (!m.getDeclaringClass().equals(targetClass)) {
                 return false;
-            else {
+            } else {
                 if (GraphPool.getInstance(ownerClass.getClassLoader()).getActualCFG(Properties.TARGET_CLASS, m.getName() + Type.getMethodDescriptor(m)) == null) {
                     // Don't cover generated hashCode
                     // TODO: This should work via annotations
@@ -398,12 +411,14 @@ public class TestUsageChecker {
 
         // Randoop special case: just clumps together a bunch of hashCodes, so skip it
         if (m.getName().equals("deepHashCode")
-                && m.getDeclaringClass().equals(Arrays.class))
+                && m.getDeclaringClass().equals(Arrays.class)) {
             return false;
+        }
 
         // Randoop special case: differs too much between JDK installations
-        if (m.getName().equals("getAvailableLocales"))
+        if (m.getName().equals("getAvailableLocales")) {
             return false;
+        }
 
         if (m.getName().equals(ClassResetter.STATIC_RESET)) {
             logger.debug("Ignoring static reset method");
@@ -421,15 +436,15 @@ public class TestUsageChecker {
             return false;
         }
 
-		/*
-		if(m.getTypeParameters().length > 0) {
-			logger.debug("Cannot handle generic methods at this point");
-			if(m.getDeclaringClass().equals(Properties.getTargetClass())) {
-				LoggingUtils.getEvoLogger().info("* Skipping method "+m.getName()+": generic methods are not handled yet");
-			}
-			return false;
-		}
-		*/
+        /*
+        if(m.getTypeParameters().length > 0) {
+            logger.debug("Cannot handle generic methods at this point");
+            if(m.getDeclaringClass().equals(Properties.getTargetClass())) {
+                LoggingUtils.getEvoLogger().info("* Skipping method "+m.getName()+": generic methods are not handled yet");
+            }
+            return false;
+        }
+        */
 
         // If default or
         if (Modifier.isPublic(m.getModifiers())) {
@@ -439,7 +454,7 @@ public class TestUsageChecker {
 
         // If default access rights, then check if this class is in the same package as the target class
         if (!Modifier.isPrivate(m.getModifiers())) {
-            //		        && !Modifier.isProtected(m.getModifiers())) {
+            // && !Modifier.isProtected(m.getModifiers())) {
             String packageName = ClassUtils.getPackageName(ownerClass);
             String declaredPackageName = ClassUtils.getPackageName(m.getDeclaringClass());
             if (packageName.equals(Properties.CLASS_PREFIX)
@@ -455,47 +470,55 @@ public class TestUsageChecker {
 
 
     /**
-     * If we try to get deterministic tests, we must not include these methods
+     * If we try to get deterministic tests, we must not include these methods.
      *
-     * @param m
-     * @return
+     * @param m the method to check
+     * @return true if the method is forbidden
      */
     private static boolean isForbiddenNonDeterministicCall(Method m) {
-        if (!Properties.REPLACE_CALLS)
+        if (!Properties.REPLACE_CALLS) {
             return false;
+        }
 
         Class<?> declaringClass = m.getDeclaringClass();
 
         // Calendar is initialized with current time
         if (declaringClass.equals(Calendar.class)) {
-            if (m.getName().equals("getInstance"))
+            if (m.getName().equals("getInstance")) {
                 return true;
+            }
         }
 
         // Locale will return system specific information
         if (declaringClass.equals(Locale.class)) {
-            if (m.getName().equals("getDefault"))
+            if (m.getName().equals("getDefault")) {
                 return true;
-            if (m.getName().equals("getAvailableLocales"))
+            }
+            if (m.getName().equals("getAvailableLocales")) {
                 return true;
+            }
         }
 
         // MessageFormat will return system specific information
         if (declaringClass.equals(MessageFormat.class)) {
-            if (m.getName().equals("getLocale"))
+            if (m.getName().equals("getLocale")) {
                 return true;
+            }
         }
 
         if (m.getDeclaringClass().equals(Date.class)) {
-            if (m.getName().equals("toLocaleString"))
+            if (m.getName().equals("toLocaleString")) {
                 return true;
+            }
         }
 
         if (m.getDeclaringClass().equals(ClassLoader.class)) {
             String name = m.getName();
-            if (name.startsWith("getSystemResource"))
+            if (name.startsWith("getSystemResource")) {
                 return true;
-            else return name.startsWith("getResource");
+            } else {
+                return name.startsWith("getResource");
+            }
         }
 
         return false;
@@ -503,19 +526,21 @@ public class TestUsageChecker {
 
     /**
      * If we try to get deterministic tests, we must not include these
-     * constructors
+     * constructors.
      *
-     * @param c
-     * @return
+     * @param c the constructor to check
+     * @return true if the constructor is forbidden
      */
     private static boolean isForbiddenNonDeterministicCall(Constructor<?> c) {
-        if (!Properties.REPLACE_CALLS)
+        if (!Properties.REPLACE_CALLS) {
             return false;
+        }
 
         // Date default constructor uses current time
         if (c.getDeclaringClass().equals(Date.class)) {
-            if (c.getParameterTypes().length == 0)
+            if (c.getParameterTypes().length == 0) {
                 return true;
+            }
         }
 
         // Random without seed parameter is...random

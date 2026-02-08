@@ -48,13 +48,13 @@ public class GetStaticGraph {
 
     /**
      * Returns if there is a static method call egde (INVOKESTATIC bytecode
-     * instruction) from <owner,methodName> to <targetClass,targetField>.
+     * instruction) from owner,methodName to targetClass,targetField.
      *
-     * @param owner
-     * @param methodName
-     * @param targetClass
-     * @param targetMethod
-     * @return
+     * @param owner the owner class
+     * @param methodName the method name
+     * @param targetClass the target class
+     * @param targetMethod the target method
+     * @return true if the edge exists
      */
     public boolean hasStaticMethodCall(String owner, String methodName,
                                        String targetClass, String targetMethod) {
@@ -66,10 +66,10 @@ public class GetStaticGraph {
     /**
      * Add a static method call (bytecode instruction INVOKESTATIC) to the graph.
      *
-     * @param owner
-     * @param methodName
-     * @param targetClass
-     * @param targetMethod
+     * @param owner the owner class
+     * @param methodName the method name
+     * @param targetClass the target class
+     * @param targetMethod the target method
      */
     public void addStaticMethodCall(String owner, String methodName,
                                     String targetClass, String targetMethod) {
@@ -81,13 +81,13 @@ public class GetStaticGraph {
 
     /**
      * Returns if there is a static field read egde (GETSTATIC bytecode
-     * instruction)from <owner,methodName> to <targetClass,targetField>.
+     * instruction)from owner,methodName to targetClass,targetField.
      *
-     * @param owner
-     * @param methodName
-     * @param targetClass
-     * @param targetField
-     * @return
+     * @param owner the owner class
+     * @param methodName the method name
+     * @param targetClass the target class
+     * @param targetField the target field
+     * @return true if the edge exists
      */
     public boolean hasStaticFieldRead(String owner, String methodName,
                                       String targetClass, String targetField) {
@@ -97,12 +97,12 @@ public class GetStaticGraph {
     }
 
     /**
-     * Add a static field read (bytecode instruction GETSTATIC) to the graph
+     * Add a static field read (bytecode instruction GETSTATIC) to the graph.
      *
-     * @param owner
-     * @param methodName
-     * @param targetClass
-     * @param targetField
+     * @param owner the owner class
+     * @param methodName the method name
+     * @param targetClass the target class
+     * @param targetField the target field
      */
     public void addStaticFieldRead(String owner, String methodName,
                                    String targetClass, String targetField) {
@@ -129,21 +129,28 @@ public class GetStaticGraph {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         GetStaticGraph other = (GetStaticGraph) obj;
         if (staticFieldReads == null) {
-            if (other.staticFieldReads != null)
+            if (other.staticFieldReads != null) {
                 return false;
-        } else if (!staticFieldReads.equals(other.staticFieldReads))
+            }
+        } else if (!staticFieldReads.equals(other.staticFieldReads)) {
             return false;
+        }
         if (staticMethodCalls == null) {
             return other.staticMethodCalls == null;
-        } else return staticMethodCalls.equals(other.staticMethodCalls);
+        } else {
+            return staticMethodCalls.equals(other.staticMethodCalls);
+        }
     }
 
     /**

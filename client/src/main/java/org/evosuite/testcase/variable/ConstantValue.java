@@ -67,6 +67,7 @@ public class ConstantValue extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Create a copy of the current variable
      */
@@ -110,6 +111,7 @@ public class ConstantValue extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * The position of the statement, defining this VariableReference, in the
      * testcase.
@@ -128,6 +130,7 @@ public class ConstantValue extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return name for source code representation
      */
@@ -145,6 +148,7 @@ public class ConstantValue extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return the actual object represented by this variable for a given scope
      */
@@ -158,11 +162,13 @@ public class ConstantValue extends VariableReferenceImpl {
      */
     @Override
     public boolean same(VariableReference r) {
-        if (r == null)
+        if (r == null) {
             return false;
+        }
 
-        if (!this.type.equals(r.getGenericClass()))
+        if (!this.type.equals(r.getGenericClass())) {
             return false;
+        }
 
         if (r instanceof ConstantValue) {
             ConstantValue v = (ConstantValue) r;

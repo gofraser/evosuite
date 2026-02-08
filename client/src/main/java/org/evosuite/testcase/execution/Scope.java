@@ -30,7 +30,7 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * This class represents the state of a test case execution
+ * This class represents the state of a test case execution.
  *
  * @author Gordon Fraser
  */
@@ -39,14 +39,14 @@ public class Scope {
     private final Map<VariableReference, Object> pool;
 
     /**
-     * Constructor
+     * Constructor.
      */
     public Scope() {
         pool = Collections.synchronizedMap(new LinkedHashMap<>());
     }
 
     /**
-     * Set variable to new value
+     * Set variable to new value.
      *
      * @param reference VariableReference
      * @param o         Value
@@ -55,10 +55,10 @@ public class Scope {
         // Learn some dynamic information about this object
         if (reference instanceof ArrayReference) {
             ArrayReference arrayRef = (ArrayReference) reference;
-            if (o != null && !o.getClass().isArray())
+            if (o != null && !o.getClass().isArray()) {
                 System.out.println("Trying to access object of class " + o.getClass()
                         + " as array: " + o);
-            else if (o != null) {
+            } else if (o != null) {
                 Object value = o;
                 List<Integer> lengths = new ArrayList<>();
                 int idx = 0;
@@ -68,14 +68,17 @@ public class Scope {
                     } else {
                         lengths.set(idx, Array.getLength(value));
                     }
-                    if (Array.getLength(value) == 0)
+                    if (Array.getLength(value) == 0) {
                         break;
+                    }
                     value = Array.get(value, 0);
                     idx++;
                 }
                 arrayRef.setLengths(lengths);
             } else
+                 {
                 arrayRef.setArrayLength(0);
+            }
         }
 
         // TODO: Changing array types might invalidate array assignments - how to treat this properly?
@@ -87,14 +90,14 @@ public class Scope {
                 if (Proxy.isProxyClass(o.getClass())) {
                     reference.setType(o.getClass().getSuperclass());
                 } else if (o.getClass().getName().contains("EnhancerByMockito")) {
-					/*
-						tricky: this is a functional mock for a class X. We do not want to set
-						scopes on mock objects, as their class definitions are created on the fly
-						and will be missing on different processes (eg communications between Master
-						and Client).
-						If X is a class, then the mock will extend it. However, if it was an interface,
-						then we need to look at all of its interface to find the correct one
-					 */
+                    /*
+                        tricky: this is a functional mock for a class X. We do not want to set
+                        scopes on mock objects, as their class definitions are created on the fly
+                        and will be missing on different processes (eg communications between Master
+                        and Client).
+                        If X is a class, then the mock will extend it. However, if it was an interface,
+                        then we need to look at all of its interface to find the correct one
+                     */
                     String mockName = o.getClass().getName();
                     Class<?> target = o.getClass().getSuperclass();
                     if (!mockName.startsWith(target.getName() + "$")) {
@@ -116,7 +119,7 @@ public class Scope {
     }
 
     /**
-     * Debug output
+     * Debug output.
      */
     public void printPool() {
         for (Entry<VariableReference, Object> entry : pool.entrySet()) {
@@ -141,7 +144,7 @@ public class Scope {
     }
 
     /**
-     * Get current value of variable
+     * Get current value of variable.
      *
      * @param reference VariableReference we are looking for
      * @return Current value of reference
@@ -151,7 +154,7 @@ public class Scope {
     }
 
     /**
-     * Get all elements in scope of type
+     * Get all elements in scope of type.
      *
      * @param type Class we are looking for
      * @return List of VariableReferences
@@ -168,13 +171,14 @@ public class Scope {
          * for(VariableReference ref : pool.keySet()) {
          *
          * // TODO: Exact match because it is used for comparison only at the
-         * moment if(ref.getType().equals(type)) refs.add(ref); }
+         * moment if(ref.getType().equals(type)) refs.add(ref);
+     }
          */
         return refs;
     }
 
     /**
-     * Get all objects in scope
+     * Get all objects in scope.
      *
      * @return Collection of all Objects
      */
@@ -183,7 +187,7 @@ public class Scope {
     }
 
     /**
-     * Get all variableReferences in scope
+     * Get all variableReferences in scope.
      *
      * @return Collection of all variableReferences
      */
@@ -192,7 +196,7 @@ public class Scope {
     }
 
     /**
-     * Get all objects of a given type in scope
+     * Get all objects of a given type in scope.
      *
      * @param type a {@link java.lang.reflect.Type} object.
      * @return Collection of all Objects
@@ -201,8 +205,9 @@ public class Scope {
     public Collection<Object> getObjects(Type type) {
         Set<Object> objects = new LinkedHashSet<>();
         for (Object o : pool.values()) {
-            if (o != null && o.getClass().equals(type))
+            if (o != null && o.getClass().equals(type)) {
                 objects.add(o);
+            }
         }
         return objects;
     }

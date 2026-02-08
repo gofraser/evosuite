@@ -173,8 +173,9 @@ public class RandomInsertion implements InsertionStrategy {
      * @return the selected variable or {@code null} (see above)
      */
     private VariableReference selectRandomVariableForCall(TestCase test, int position) {
-        if (test.isEmpty() || position == 0)
+        if (test.isEmpty() || position == 0) {
             return null;
+        }
 
         List<VariableReference> allVariables = test.getObjects(position);
 
@@ -193,16 +194,32 @@ public class RandomInsertion implements InsertionStrategy {
     }
 
     private boolean isValidVariableForCall(TestCase test, VariableReference var) {
-        if (var instanceof NullReference) return false;
-        if (var.isVoid()) return false;
-        if (var.getGenericClass().isObject()) return false;
-        if (var.isPrimitive()) return false;
-        if (var.isWrapperType()) return false;
-        if (var.isString()) return false;
+        if (var instanceof NullReference) {
+            return false;
+        }
+        if (var.isVoid()) {
+            return false;
+        }
+        if (var.getGenericClass().isObject()) {
+            return false;
+        }
+        if (var.isPrimitive()) {
+            return false;
+        }
+        if (var.isWrapperType()) {
+            return false;
+        }
+        if (var.isString()) {
+            return false;
+        }
 
         // Check statement types
-        if (test.getStatement(var.getStPosition()) instanceof PrimitiveStatement) return false;
-        if (test.getStatement(var.getStPosition()) instanceof FunctionalMockStatement) return false;
+        if (test.getStatement(var.getStPosition()) instanceof PrimitiveStatement) {
+            return false;
+        }
+        if (test.getStatement(var.getStPosition()) instanceof FunctionalMockStatement) {
+            return false;
+        }
 
         // Check usages / SUT
         // Note: this check has been added only recently, to avoid having added calls to UUT in the middle of the test

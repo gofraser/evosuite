@@ -54,10 +54,12 @@ public class StringLocalSearch extends AbstractStringLocalSearch {
         boolean affected = false;
         String originalValue = p.getValue();
         for (int i = 0; i < Properties.LOCAL_SEARCH_PROBES; i++) {
-            if (Randomness.nextDouble() > 0.5)
+            if (Randomness.nextDouble() > 0.5) {
                 p.increment();
-            else
+            } else
+                 {
                 p.randomize();
+            }
 
             logger.info("Probing string " + originalValue + " ->" + p.getCode());
             int result = objective.hasChanged(test);
@@ -80,26 +82,29 @@ public class StringLocalSearch extends AbstractStringLocalSearch {
             logger.info("Applying local search to string " + p.getCode());
             // First try to remove each of the characters
             logger.info("Removing characters");
-            if (removeCharacters(objective, test, p, statement))
+            if (removeCharacters(objective, test, p, statement)) {
                 hasImproved = true;
+            }
             logger.info("Statement: " + p.getCode());
 
             // Second, try to replace each of the characters with each of the 64 possible characters
             logger.info("Replacing characters");
-            if (replaceCharacters(objective, test, p, statement))
+            if (replaceCharacters(objective, test, p, statement)) {
                 hasImproved = true;
+            }
             logger.info("Statement: " + p.getCode());
 
             // Third, try to add characters
             logger.info("Adding characters");
-            if (addCharacters(objective, test, p, statement))
+            if (addCharacters(objective, test, p, statement)) {
                 hasImproved = true;
+            }
             logger.info("Statement: " + p.getCode());
 
             logger.info("Resulting string: " + p.getValue());
             return hasImproved;
             //} else {
-            //	logger.info("Not applying local search to string as it does not improve fitness");
+            //    logger.info("Not applying local search to string as it does not improve fitness");
         }
 
         return false;
@@ -120,8 +125,9 @@ public class StringLocalSearch extends AbstractStringLocalSearch {
             logger.info(" -> Character " + i + ": " + oldChar);
             char[] characters = oldValue.toCharArray();
             for (char replacement = 9; replacement < 128; replacement++) {
-                if (LocalSearchBudget.getInstance().isFinished())
+                if (LocalSearchBudget.getInstance().isFinished()) {
                     return improvement;
+                }
 
                 if (replacement != oldChar) {
                     characters[i] = replacement;

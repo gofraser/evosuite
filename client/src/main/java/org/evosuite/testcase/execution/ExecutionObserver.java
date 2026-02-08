@@ -28,14 +28,14 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Abstract base class of all execution observers
+ * Abstract base class of all execution observers.
  *
  * @author Gordon Fraser
  */
 public abstract class ExecutionObserver {
 
     /**
-     * The test case being monitored and executed
+     * The test case being monitored and executed.
      */
     protected static TestCase currentTest = null;
 
@@ -60,7 +60,7 @@ public abstract class ExecutionObserver {
     }
 
     /**
-     * Setter method for current test case
+     * Setter method for current test case.
      *
      * @param test a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -69,7 +69,7 @@ public abstract class ExecutionObserver {
     }
 
     /**
-     * Getter method for current test case
+     * Getter method for current test case.
      *
      * @return a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -78,7 +78,7 @@ public abstract class ExecutionObserver {
     }
 
     /**
-     * This is called with the console output of each statement
+     * This is called with the console output of each statement.
      *
      * @param position a int.
      * @param output   a {@link java.lang.String} object.
@@ -86,15 +86,15 @@ public abstract class ExecutionObserver {
     public abstract void output(int position, String output);
 
     /**
-     * Called immediately before a statement is executed
+     * Called immediately before a statement is executed.
      *
-     * @param statement
-     * @param scope
+     * @param statement the statement.
+     * @param scope the scope.
      */
     public abstract void beforeStatement(Statement statement, Scope scope);
 
     /**
-     * After execution of a statement, the result is passed to the observer
+     * After execution of a statement, the result is passed to the observer.
      *
      * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
      * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
@@ -109,12 +109,12 @@ public abstract class ExecutionObserver {
     public abstract void testExecutionFinished(ExecutionResult r, Scope s);
 
     /**
-     * Need a way to clear previously produced results
+     * Need a way to clear previously produced results.
      */
     public abstract void clear();
 
     /**
-     * Determine the set of variables that somehow lead to this statement
+     * Determine the set of variables that somehow lead to this statement.
      *
      * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
      * @return a {@link java.util.Set} object.

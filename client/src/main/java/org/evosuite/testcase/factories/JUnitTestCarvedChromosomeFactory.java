@@ -59,7 +59,7 @@ public class JUnitTestCarvedChromosomeFactory implements
      * The carved test cases are used only with a certain probability P. So,
      * with probability 1-P the 'default' factory is rather used.
      *
-     * @param defaultFactory
+     * @param defaultFactory the default factory.
      * @throws IllegalStateException if Properties are not properly set
      */
     public JUnitTestCarvedChromosomeFactory(

@@ -20,7 +20,6 @@
 package org.evosuite.setup;
 
 import org.evosuite.ClientProcess;
-import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.EvosuiteError;
@@ -82,7 +81,8 @@ public class TargetClassInitializer {
         // several other classes to be loaded (including the CUT), but we require
         // the CUT to be loaded first
         DependencyAnalysis.analyzeClass(targetClass, Arrays.asList(cp.split(File.pathSeparator)));
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Finished analyzing classpath");
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Finished analyzing classpath");
     }
 
     /**
@@ -117,14 +117,14 @@ public class TargetClassInitializer {
 
     /**
      * Creates a single Test Case that only loads the target class.
-     * <code>
+     * <pre>
      * Thread currentThread = Thread.currentThread();
      * ClassLoader classLoader = currentThread.getClassLoader();
      * classLoader.load(className);
-     * </code>
+     * </pre>
      *
      * @param className the class to be loaded
-     * @return
+     * @return the test case
      * @throws EvosuiteError if a reflection error happens while creating the test case
      */
     public static DefaultTestCase buildLoadTargetClassTestCase(String className) throws EvosuiteError {

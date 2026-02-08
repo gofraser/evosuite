@@ -29,7 +29,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Class used to get private fields/methods to construct statements in the generated tests
+ * Class used to get private fields/methods to construct statements in the generated tests.
+ *
  * <p>
  * Created by Andrea Arcuri on 22/02/15.
  */

@@ -49,16 +49,21 @@ final class StaticMethodCallEntry extends GetStaticGraphEntry {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
-        if (!super.equals(obj))
+        }
+        if (!super.equals(obj)) {
             return false;
+        }
         StaticMethodCallEntry other = (StaticMethodCallEntry) obj;
         if (targetMethod == null) {
             return other.targetMethod == null;
-        } else return targetMethod.equals(other.targetMethod);
+        } else {
+            return targetMethod.equals(other.targetMethod);
+        }
     }
 
     @Override

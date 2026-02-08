@@ -27,7 +27,7 @@ import org.evosuite.testcase.statements.Statement;
 import java.util.function.Function;
 
 /**
- * Class checker for different types of Statements
+ * Class checker for different types of Statements.
  *
  * @author Ignacio Lebrero
  */

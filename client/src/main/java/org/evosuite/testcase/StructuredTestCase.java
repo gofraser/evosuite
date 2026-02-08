@@ -45,9 +45,9 @@ public class StructuredTestCase extends DefaultTestCase {
     }
 
     /**
-     * Determine the set of methods this test case is exercising
+     * Determine the set of methods this test case is exercising.
      *
-     * @return
+     * @return .
      */
     public Set<String> getTargetMethods() {
         return primaryTargets.stream()
@@ -56,9 +56,9 @@ public class StructuredTestCase extends DefaultTestCase {
     }
 
     /**
-     * Determine the class that is exercised by this test case
+     * Determine the class that is exercised by this test case.
      *
-     * @return
+     * @return .
      */
     public String getTargetClass() {
         return null;
@@ -66,10 +66,10 @@ public class StructuredTestCase extends DefaultTestCase {
     }
 
     /**
-     * Determine if the given statement is part of the setup code
+     * Determine if the given statement is part of the setup code.
      *
-     * @param position
-     * @return
+     * @param position the position in the test case.
+     * @return .
      */
     public boolean isSetupStatement(int position) {
 
@@ -78,37 +78,37 @@ public class StructuredTestCase extends DefaultTestCase {
     }
 
     /**
-     * Determine if the given statement is part of the exercised code
+     * Determine if the given statement is part of the exercised code.
      *
-     * @param position
-     * @return
+     * @param position the position in the test case.
+     * @return .
      */
     public boolean isExerciseStatement(int position) {
         return targetStatements.contains(position);
     }
 
     /**
-     * Return the first statement that is not setup code
+     * Return the first statement that is not setup code.
      *
-     * @return
+     * @return .
      */
     public int getFirstExerciseStatement() {
         return Collections.min(targetStatements);
     }
 
     /**
-     * Tag a new statement as exercising statement
+     * Tag a new statement as exercising statement.
      *
-     * @param position
+     * @param position the position in the test case.
      */
     public void setExerciseStatement(int position) {
         targetStatements.add(position);
     }
 
     /**
-     * Return the first statement that is not exercise code
+     * Return the first statement that is not exercise code.
      *
-     * @return
+     * @return .
      */
     public int getFirstCheckingStatement() {
         return Collections.max(targetStatements);

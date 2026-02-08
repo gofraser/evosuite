@@ -75,9 +75,9 @@ public class ArraySymbolicLengthName {
     /**
      * Builds the name of an array length symbolic variable.
      *
-     * @param arrayReferenceName
-     * @param dimension
-     * @return
+     * @param arrayReferenceName the reference name.
+     * @param dimension the dimension.
+     * @return .
      */
     public static String buildSymbolicLengthDimensionName(String arrayReferenceName, int dimension) {
         return new StringBuilder()
@@ -92,8 +92,8 @@ public class ArraySymbolicLengthName {
     /**
      * Checks whether a symbolic variable name corresponds to an array's length.
      *
-     * @param symbolicVariableName
-     * @return
+     * @param symbolicVariableName the symbolic variable name.
+     * @return .
      */
     public static boolean isArraySymbolicLengthVariableName(String symbolicVariableName) {
         String[] nameSections = symbolicVariableName.split(ArraySymbolicLengthName.ARRAY_LENGTH_NAME_SEPARATOR_REGEX);

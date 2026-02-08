@@ -43,12 +43,12 @@ public class VariableReferenceImpl implements VariableReference {
     private static final Logger logger = LoggerFactory.getLogger(VariableReferenceImpl.class);
 
     /**
-     * Type (class) of the variable
+     * Type (class) of the variable.
      */
     protected GenericClass<?> type;
 
     /**
-     * The testCase in which this VariableReference is valid
+     * The testCase in which this VariableReference is valid.
      */
     protected TestCase testCase;
     protected final PassiveChangeListener<Void> changeListener = new PassiveChangeListener<>();
@@ -56,7 +56,7 @@ public class VariableReferenceImpl implements VariableReference {
     private String originalCode;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param testCase The TestCase which defines the statement which defines this
      * @param type     The type (class) of the variable
@@ -81,9 +81,11 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * The position of the statement, defining this VariableReference, in the
      * testcase.
+     *
      * <p>
      * TODO: Notify change listener also when return value changes
      */
@@ -120,6 +122,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Create a copy of the current variable
      */
@@ -131,6 +134,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Create a copy of the current variable
      */
@@ -149,6 +153,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return simple class name
      */
@@ -156,14 +161,16 @@ public class VariableReferenceImpl implements VariableReference {
     public String getSimpleClassName() {
         // TODO: Workaround for bug in commons lang
         if (type.isPrimitive()
-                || (type.isArray() && GenericClassFactory.get(type.getComponentType()).isPrimitive()))
+                || (type.isArray() && GenericClassFactory.get(type.getComponentType()).isPrimitive())) {
             return type.getRawClass().getSimpleName();
+        }
 
         return type.getSimpleName();
     }
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return class name
      */
@@ -190,6 +197,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return true if variable is an enumeration
      */
@@ -218,6 +226,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return true if variable is a primitive type
      */
@@ -228,6 +237,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return true if variable is void
      */
@@ -238,6 +248,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return true if variable is a string
      */
@@ -248,6 +259,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return true if type of variable is a primitive wrapper
      */
@@ -263,6 +275,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return true if other type can be assigned to this variable
      */
@@ -273,6 +286,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return true if this variable can by assigned to a variable of other type
      */
@@ -283,6 +297,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return true if other type can be assigned to this variable
      */
@@ -293,6 +308,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return true if this variable can by assigned to a variable of other type
      */
@@ -303,6 +319,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return type of this variable
      */
@@ -313,6 +330,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Set type of this variable
      */
@@ -323,6 +341,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return raw class of this variable
      */
@@ -333,6 +352,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return raw class of this variable's component
      */
@@ -343,6 +363,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return the actual object represented by this variable for a given scope
      */
@@ -361,6 +382,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Set the actual object represented by this variable in a given scope
      */
@@ -386,6 +408,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return string representation of the variable
      */
@@ -400,6 +423,7 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Return name for source code representation
      */
@@ -418,8 +442,10 @@ public class VariableReferenceImpl implements VariableReference {
         if (getStPosition() < 0) {
             mg.visitInsn(Opcodes.ACONST_NULL);
         } else
+             {
             mg.loadLocal(locals.get(getStPosition()),
                     org.objectweb.asm.Type.getType(type.getRawClass()));
+        }
     }
 
     /**
@@ -430,9 +456,10 @@ public class VariableReferenceImpl implements VariableReference {
 
         logger.debug("Storing variable in bytecode: " + getStPosition() + " of type "
                 + org.objectweb.asm.Type.getType(type.getRawClass()));
-        if (!locals.containsKey(getStPosition()))
+        if (!locals.containsKey(getStPosition())) {
             locals.put(getStPosition(),
                     mg.newLocal(org.objectweb.asm.Type.getType(type.getRawClass())));
+        }
         mg.storeLocal(locals.get(getStPosition()),
                 org.objectweb.asm.Type.getType(type.getRawClass()));
     }
@@ -442,21 +469,31 @@ public class VariableReferenceImpl implements VariableReference {
      */
     @Override
     public Object getDefaultValue() {
-        if (isVoid())
+        if (isVoid()) {
             return null;
-        else if (type.isString())
+        } else  {
+            if (type.isString())
             return "";
         else if (isPrimitive()) {
-            if (type.getRawClass().equals(float.class))
+            if (type.getRawClass().equals(float.class)) {
                 return 0.0F;
-            else if (type.getRawClass().equals(long.class))
+            } else  {
+                if (type.getRawClass().equals(long.class))
                 return 0L;
-            else if (type.getRawClass().equals(boolean.class))
+            else  {
+                if (type.getRawClass().equals(boolean.class))
                 return false;
             else
+                 {
                 return 0;
+            }
+            }
+            }
         } else
+             {
             return null;
+        }
+        }
     }
 
     /**
@@ -464,21 +501,31 @@ public class VariableReferenceImpl implements VariableReference {
      */
     @Override
     public String getDefaultValueString() {
-        if (isVoid())
+        if (isVoid()) {
             return "";
-        else if (type.isString())
+        } else  {
+            if (type.isString())
             return "\"\"";
         else if (isPrimitive()) {
-            if (type.getRawClass().equals(float.class))
+            if (type.getRawClass().equals(float.class)) {
                 return "0.0F";
-            else if (type.getRawClass().equals(long.class))
+            } else  {
+                if (type.getRawClass().equals(long.class))
                 return "0L";
-            else if (type.getRawClass().equals(boolean.class))
+            else  {
+                if (type.getRawClass().equals(boolean.class))
                 return "false";
             else
+                 {
                 return "0";
+            }
+            }
+            }
         } else
+             {
             return "null";
+        }
+        }
     }
 
     /*
@@ -500,11 +547,13 @@ public class VariableReferenceImpl implements VariableReference {
      */
     @Override
     public boolean same(VariableReference r) {
-        if (r == null)
+        if (r == null) {
             return false;
+        }
 
-        if (this.getStPosition() != r.getStPosition())
+        if (this.getStPosition() != r.getStPosition()) {
             return false;
+        }
 
         return this.type.equals(r.getGenericClass());
     }

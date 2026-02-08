@@ -68,7 +68,7 @@ public class MethodStatement extends EntityWithParametersStatement {
      * @param method     the method to call
      * @param callee     the object on which to call the method
      * @param parameters a list of references to the parameters to be used for the method call
-     * @throws IllegalArgumentException
+     * @throws IllegalArgumentException .
      */
     public MethodStatement(TestCase tc, GenericMethod method, VariableReference callee,
                            List<VariableReference> parameters) throws IllegalArgumentException {
@@ -139,10 +139,12 @@ public class MethodStatement extends EntityWithParametersStatement {
         }
 
         this.method = method;
-        if (isStatic())
+        if (isStatic()) {
             this.callee = null;
-        else
+        } else
+             {
             this.callee = callee;
+        }
     }
 
     /**
@@ -186,8 +188,9 @@ public class MethodStatement extends EntityWithParametersStatement {
      * @param callee a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public void setCallee(VariableReference callee) {
-        if (!isStatic())
+        if (!isStatic()) {
             this.callee = callee;
+        }
     }
 
     /**
@@ -306,12 +309,14 @@ public class MethodStatement extends EntityWithParametersStatement {
      */
     @Override
     public boolean isDeclaredException(Throwable t) {
-        if (t == null)
+        if (t == null) {
             return false;
+        }
 
         for (Class<?> declaredException : method.getMethod().getExceptionTypes()) {
-            if (declaredException.isAssignableFrom(t.getClass()))
+            if (declaredException.isAssignableFrom(t.getClass())) {
                 return true;
+            }
         }
         return false;
     }
@@ -342,8 +347,8 @@ public class MethodStatement extends EntityWithParametersStatement {
         if (retval instanceof ArrayReference
                 && !(m.getReturnValue() instanceof ArrayReference)) {
             // logger.info("Copying array retval: " + retval.getGenericClass());
-            //	assert (retval.getGenericClass() != null);
-            //	assert (retval.getGenericClass().isArray()) : method.toString();
+            //    assert (retval.getGenericClass() != null);
+            //    assert (retval.getGenericClass().isArray()) : method.toString();
             ArrayReference newRetVal = new ArrayReference(newTestCase,
                     retval.getGenericClass(), ((ArrayReference) retval).getArrayLength());
             m.setRetval(newRetVal);
@@ -363,8 +368,9 @@ public class MethodStatement extends EntityWithParametersStatement {
 
         if (isInstanceMethod()) {
             references.add(callee);
-            if (callee.getAdditionalVariableReference() != null)
+            if (callee.getAdditionalVariableReference() != null) {
                 references.add(callee.getAdditionalVariableReference());
+            }
         }
 
         return references;
@@ -382,10 +388,12 @@ public class MethodStatement extends EntityWithParametersStatement {
         super.replace(oldVar, newVar);
 
         if (isInstanceMethod()) {
-            if (callee.equals(oldVar))
+            if (callee.equals(oldVar)) {
                 callee = newVar;
-            else
+            } else
+                 {
                 callee.replaceAdditionalVariableReference(oldVar, newVar);
+            }
         }
     }
 
@@ -412,36 +420,45 @@ public class MethodStatement extends EntityWithParametersStatement {
      */
     @Override
     public boolean equals(Object s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
-
-        MethodStatement ms = (MethodStatement) s;
-        if (ms.parameters.size() != parameters.size())
-            return false;
-
-        if (!this.method.equals(ms.method))
-            return false;
-
-        for (int i = 0; i < parameters.size(); i++) {
-            if (!parameters.get(i).equals(ms.parameters.get(i)))
-                return false;
         }
 
-        if (!retval.equals(ms.retval))
+        MethodStatement ms = (MethodStatement) s;
+        if (ms.parameters.size() != parameters.size()) {
             return false;
+        }
+
+        if (!this.method.equals(ms.method)) {
+            return false;
+        }
+
+        for (int i = 0; i < parameters.size(); i++) {
+            if (!parameters.get(i).equals(ms.parameters.get(i))) {
+                return false;
+            }
+        }
+
+        if (!retval.equals(ms.retval)) {
+            return false;
+        }
 
         if ((callee == null && ms.callee != null)
                 || (callee != null && ms.callee == null)) {
             return false;
         } else {
-            if (callee == null)
+            if (callee == null) {
                 return true;
-            else
+            } else
+                 {
                 return (callee.equals(ms.callee));
+            }
         }
     }
 
@@ -490,8 +507,9 @@ public class MethodStatement extends EntityWithParametersStatement {
 
         if (isInstanceMethod()) {
             references.add(callee);
-            if (callee instanceof ArrayIndex)
+            if (callee instanceof ArrayIndex) {
                 references.add(((ArrayIndex) callee).getArray());
+            }
         }
 
         return references;
@@ -499,8 +517,9 @@ public class MethodStatement extends EntityWithParametersStatement {
 
     @Override
     public boolean isAccessible() {
-        if (!method.isAccessible())
+        if (!method.isAccessible()) {
             return false;
+        }
 
         return super.isAccessible();
     }
@@ -529,50 +548,60 @@ public class MethodStatement extends EntityWithParametersStatement {
      */
     @Override
     public boolean same(Statement s) {
-        if (this == s)
+        if (this == s) {
             return true;
-        if (s == null)
+        }
+        if (s == null) {
             return false;
-        if (getClass() != s.getClass())
+        }
+        if (getClass() != s.getClass()) {
             return false;
-
-        MethodStatement ms = (MethodStatement) s;
-        if (ms.parameters.size() != parameters.size())
-            return false;
-
-        for (int i = 0; i < parameters.size(); i++) {
-            if (!parameters.get(i).same(ms.parameters.get(i)))
-                return false;
         }
 
-        if (!this.method.equals(ms.method))
+        MethodStatement ms = (MethodStatement) s;
+        if (ms.parameters.size() != parameters.size()) {
             return false;
+        }
 
-        if (!retval.same(ms.retval))
+        for (int i = 0; i < parameters.size(); i++) {
+            if (!parameters.get(i).same(ms.parameters.get(i))) {
+                return false;
+            }
+        }
+
+        if (!this.method.equals(ms.method)) {
             return false;
+        }
+
+        if (!retval.same(ms.retval)) {
+            return false;
+        }
 
         if ((callee == null && ms.callee != null)
                 || (callee != null && ms.callee == null)) {
             return false;
         } else {
-            if (callee == null)
+            if (callee == null) {
                 return true;
-            else
+            } else
+                 {
                 return (callee.same(ms.callee));
+            }
         }
     }
 
     /**
-     * Go through parameters of method call and apply local search
+     * Go through parameters of method call and apply local search.
      *
-     * @param test
-     * @param factory
+     * @param test the test case.
+     * @param factory the factory.
      */
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
 
-        if (Randomness.nextDouble() >= Properties.P_CHANGE_PARAMETER)
+        if (Randomness.nextDouble() >= Properties.P_CHANGE_PARAMETER) {
             return false;
+        }
 
         List<VariableReference> parameters = getParameterReferences();
 
@@ -582,8 +611,9 @@ public class MethodStatement extends EntityWithParametersStatement {
             max++;
         }
 
-        if (max == 0)
-            return false; // Static method with no parameters...
+        if (max == 0) {
+            return false;
+        } // Static method with no parameters...
 
         double pParam = 1.0 / max;
         if (!isStatic() && Randomness.nextDouble() < pParam) {
@@ -604,8 +634,9 @@ public class MethodStatement extends EntityWithParametersStatement {
 
         for (int numParameter = 0; numParameter < parameters.size(); numParameter++) {
             if (Randomness.nextDouble() < pParam) {
-                if (mutateParameter(test, numParameter))
+                if (mutateParameter(test, numParameter)) {
                     changed = true;
+                }
             }
         }
         return changed;

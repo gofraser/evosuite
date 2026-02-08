@@ -31,7 +31,7 @@ import org.evosuite.testcase.statements.NullStatement;
 import java.util.Map;
 
 /**
- * Try to replace a null reference with a non-null reference
+ * Try to replace a null reference with a non-null reference.
  *
  * @author Gordon Fraser
  */

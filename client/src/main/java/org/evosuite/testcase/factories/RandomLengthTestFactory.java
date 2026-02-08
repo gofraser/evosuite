@@ -45,7 +45,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     protected static final Logger logger = LoggerFactory.getLogger(RandomLengthTestFactory.class);
 
     /**
-     * Creates a random test case (i.e., a test case consisting of random statements) with the given
+     * Creates a random test case (i.e., a test case consisting of random statements) with the given.
      * {@code size} as an exclusive upper bound for the number of contained statements. In
      * particular, {@code size} is chosen at random from the interval [1, size). This means that
      * returned test cases contain at most {@code size - 1} statements. Usually, one can also expect
@@ -57,8 +57,9 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
      */
     private TestCase getRandomTestCase(int size) {
         boolean tracerEnabled = ExecutionTracer.isEnabled();
-        if (tracerEnabled)
+        if (tracerEnabled) {
             ExecutionTracer.disable();
+        }
 
         final TestCase test = getNewTestCase();
         final TestFactory testFactory = TestFactory.getInstance();
@@ -73,23 +74,27 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
         // Then add random statements until the test case reaches the chosen length or we run out of
         // generation attempts.
-        for (int num = 0; test.size() < length && num < Properties.MAX_ATTEMPTS; num++)
+        for (int num = 0; test.size() < length && num < Properties.MAX_ATTEMPTS; num++) {
             // NOTE: Even though extremely unlikely, insertRandomStatement could fail every time
             // with return code -1, thus eventually exceeding MAX_ATTEMPTS. In this case, the
             // returned test case would indeed be empty!
             testFactory.insertRandomStatement(test, test.size() - 1);
+        }
 
-        if (logger.isDebugEnabled())
+        if (logger.isDebugEnabled()) {
             logger.debug("Randomized test case:" + test.toCode());
+        }
 
-        if (tracerEnabled)
+        if (tracerEnabled) {
             ExecutionTracer.enable();
+        }
 
         return test;
     }
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Generate a random chromosome
      */
@@ -102,7 +107,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
     /**
      * Provided so that subtypes of this factory type can modify the returned
-     * TestCase
+     * TestCase.
      *
      * @return a {@link org.evosuite.testcase.TestCase} object.
      */

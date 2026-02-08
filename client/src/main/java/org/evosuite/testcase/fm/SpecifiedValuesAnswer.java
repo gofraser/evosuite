@@ -25,7 +25,8 @@ import org.mockito.stubbing.Answer;
 /**
  * Specified a list of values, which will be returned in the order they are
  * specified each time an answer is queried.
- * If there are more queries than values, the last value will be returned
+ * If there are more queries than values, the last value will be returned.
+ *
  * <p>
  * Created by Andrea Arcuri on 27/07/15.
  */
