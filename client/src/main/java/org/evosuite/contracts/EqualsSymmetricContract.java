@@ -43,7 +43,8 @@ import java.util.List;
 public class EqualsSymmetricContract extends Contract {
 
     /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.Statement,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -54,20 +55,23 @@ public class EqualsSymmetricContract extends Contract {
                                    Throwable exception) {
         for (Pair<VariableReference> pair : getAllVariablePairs(scope)) {
             // Equals self is covered by EqualsContract
-            if (pair.object1 == pair.object2)
+            if (pair.object1 == pair.object2) {
                 continue;
+            }
 
             Object object1 = scope.getObject(pair.object1);
             Object object2 = scope.getObject(pair.object2);
-            if (object1 == null || object2 == null)
+            if (object1 == null || object2 == null) {
                 continue;
+            }
 
             // We do not want to call equals if it is the default implementation
             Class<?>[] parameters = {Object.class};
             try {
                 Method equalsMethod = object1.getClass().getMethod("equals", parameters);
-                if (equalsMethod.getDeclaringClass().equals(Object.class))
+                if (equalsMethod.getDeclaringClass().equals(Object.class)) {
                     continue;
+                }
 
             } catch (SecurityException e1) {
                 continue;

@@ -39,17 +39,19 @@ import java.util.List;
  */
 public class JCrasherExceptionContract extends Contract {
 
-    // ArrayIndexOutOfBoundsException, NegativeArraySizeException, ArrayStoreException, ClassCastException, and ArithmeticException
+    // ArrayIndexOutOfBoundsException, NegativeArraySizeException, ArrayStoreException,
+    // ClassCastException, and ArithmeticException
 
-    private final static Class<?>[] uncheckedBugExceptions = {
+    private static final Class<?>[] uncheckedBugExceptions = {
             ArrayIndexOutOfBoundsException.class, NegativeArraySizeException.class,
             ArrayStoreException.class, ClassCastException.class,
             ArithmeticException.class};
 
-    private final static List<Class<?>> uncheckedExceptions = Arrays.asList(uncheckedBugExceptions);
+    private static final List<Class<?>> uncheckedExceptions = Arrays.asList(uncheckedBugExceptions);
 
     /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -57,25 +59,28 @@ public class JCrasherExceptionContract extends Contract {
      */
     @Override
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
-        if (!isTargetStatement(statement))
+        if (!isTargetStatement(statement)) {
             return null;
+        }
 
         if (exception != null) {
-            if (exception instanceof CodeUnderTestException)
+            if (exception instanceof CodeUnderTestException) {
                 return null;
+            }
             if (exception instanceof RuntimeException) {
-                if (uncheckedExceptions.contains(exception.getClass()))
+                if (uncheckedExceptions.contains(exception.getClass())) {
                     return new ContractViolation(this, statement, exception);
-                else {
+                } else {
                     StackTraceElement element = exception.getStackTrace()[0];
 
                     String methodName = "";
-                    if (statement instanceof ConstructorStatement)
+                    if (statement instanceof ConstructorStatement) {
                         methodName = "<init>";
-                    else if (statement instanceof MethodStatement)
+                    } else if (statement instanceof MethodStatement) {
                         methodName = ((MethodStatement) statement).getMethod().getName();
-                    else
+                    } else {
                         return null;
+                    }
 
                     // If the exception was thrown in the called method we assume it is a bug in the test, not the class
                     if (element.getMethodName().equals(methodName)) {

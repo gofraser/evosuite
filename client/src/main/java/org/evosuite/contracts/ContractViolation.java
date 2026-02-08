@@ -32,8 +32,6 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,12 +53,12 @@ public class ContractViolation {
 
     /**
      * If the statement execution leads to a contract violation with an
-     * undeclared exception this is stored here
+     * undeclared exception this is stored here.
      */
     private final Throwable exception;
 
     /**
-     * List of all variables involved in the contract violation
+     * List of all variables involved in the contract violation.
      */
     private final List<VariableReference> variables = new ArrayList<>();
 
@@ -93,7 +91,7 @@ public class ContractViolation {
     }
 
     /**
-     * Getter for test case
+     * Getter for test case.
      *
      * @return a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -102,7 +100,7 @@ public class ContractViolation {
     }
 
     /**
-     * Getter for contract that was violated
+     * Getter for contract that was violated.
      *
      * @return a {@link org.evosuite.contracts.Contract} object.
      */
@@ -119,8 +117,9 @@ public class ContractViolation {
     }
 
     public boolean isExceptionOfType(Class<?> throwableClass) {
-        if (exception == null)
+        if (exception == null) {
             return false;
+        }
 
         if (MockList.isAMockClass(exception.getClass().getName())) {
             return throwableClass.equals(exception.getClass().getSuperclass());
@@ -146,13 +145,14 @@ public class ContractViolation {
     }
 
     /**
-     * Remove all statements that do not contribute to the contract violation
+     * Remove all statements that do not contribute to the contract violation.
      */
     public void minimizeTest() {
-        if (isMinimized)
+        if (isMinimized) {
             return;
+        }
 
-        /** Factory method that handles statement deletion */
+        /* Factory method that handles statement deletion */
         TestFactory testFactory = TestFactory.getInstance();
 
         if (Properties.INLINE) {
@@ -163,8 +163,9 @@ public class ContractViolation {
 
         List<Integer> positions = new ArrayList<>();
 
-        for (VariableReference var : variables)
+        for (VariableReference var : variables) {
             positions.add(var.getStPosition());
+        }
 
         int oldLength = test.size();
         boolean changed = true;
@@ -172,8 +173,9 @@ public class ContractViolation {
             changed = false;
 
             for (int i = test.size() - 1; i >= 0; i--) {
-                if (positions.contains(i))
+                if (positions.contains(i)) {
                     continue;
+                }
 
                 boolean deleted = testFactory.deleteStatement(test, i);
                 if (!deleted) {
@@ -207,7 +209,7 @@ public class ContractViolation {
     }
 
     /**
-     * Determine if we have already seen an instance of this violation
+     * Determine if we have already seen an instance of this violation.
      *
      * @param other a {@link org.evosuite.contracts.ContractViolation} object.
      * @return a boolean.
@@ -215,17 +217,20 @@ public class ContractViolation {
     public boolean same(ContractViolation other) {
 
         // Same contract?
-        if (!contract.getClass().equals(other.contract.getClass()))
+        if (!contract.getClass().equals(other.contract.getClass())) {
             return false;
+        }
 
         // Same type of statement?
-        if (!statement.getClass().equals(other.statement.getClass()))
+        if (!statement.getClass().equals(other.statement.getClass())) {
             return false;
+        }
 
         // Same exception type?
         if (exception != null && other.exception != null) {
-            if (!exception.getClass().equals(other.exception.getClass()))
+            if (!exception.getClass().equals(other.exception.getClass())) {
                 return false;
+            }
         }
 
         // Same method call / constructor?
@@ -241,7 +246,8 @@ public class ContractViolation {
             VariableReference var1 = statement.getReturnValue();
             VariableReference var2 = other.statement.getReturnValue();
             if (var1 instanceof FieldReference && var2 instanceof FieldReference) {
-                return ((FieldReference) var1).getField().getField().equals(((FieldReference) var2).getField().getField());
+                return ((FieldReference) var1).getField().getField()
+                        .equals(((FieldReference) var2).getField().getField());
             }
         }
         return false;

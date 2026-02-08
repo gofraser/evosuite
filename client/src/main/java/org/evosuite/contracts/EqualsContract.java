@@ -24,15 +24,13 @@ import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
 
 /**
- * An object always has to equal itself
+ * An object always has to equal itself.
  *
  * @author Gordon Fraser
  */
@@ -46,15 +44,17 @@ public class EqualsContract extends Contract {
         for (VariableReference var : getAllVariables(scope)) {
             Object object = scope.getObject(var);
 
-            if (object == null)
+            if (object == null) {
                 continue;
+            }
 
             // We do not want to call equals if it is the default implementation
             Class<?>[] parameters = {Object.class};
             try {
                 Method equalsMethod = object.getClass().getMethod("equals", parameters);
-                if (equalsMethod.getDeclaringClass().equals(Object.class))
+                if (equalsMethod.getDeclaringClass().equals(Object.class)) {
                     continue;
+                }
 
             } catch (SecurityException | NoSuchMethodException e1) {
                 continue;
@@ -62,8 +62,9 @@ public class EqualsContract extends Contract {
 
             try {
                 // An object always has to equal itself
-                if (!object.equals(object))
+                if (!object.equals(object)) {
                     return new ContractViolation(this, statement, exception, var);
+                }
 
             } catch (NullPointerException e) {
                 return new ContractViolation(this, statement, e, var);

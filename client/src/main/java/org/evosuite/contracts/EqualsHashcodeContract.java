@@ -44,7 +44,8 @@ import java.util.List;
 public class EqualsHashcodeContract extends Contract {
 
     /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.Statement,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -54,13 +55,15 @@ public class EqualsHashcodeContract extends Contract {
     public ContractViolation check(Statement statement, Scope scope,
                                    Throwable exception) {
         for (Pair<VariableReference> pair : getAllVariablePairs(scope)) {
-            if (pair.object1 == pair.object2)
+            if (pair.object1 == pair.object2) {
                 continue;
+            }
 
             Object object1 = scope.getObject(pair.object1);
             Object object2 = scope.getObject(pair.object2);
-            if (object1 == null || object2 == null)
+            if (object1 == null || object2 == null) {
                 continue;
+            }
 
             // We do not want to call hashcode if it is the default implementation
             Class<?>[] parameters = {Object.class};
@@ -69,8 +72,9 @@ public class EqualsHashcodeContract extends Contract {
                 Method hashCodeMethod = object1.getClass().getMethod("hashCode"
                 );
                 if (equalsMethod.getDeclaringClass().equals(Object.class)
-                        || hashCodeMethod.getDeclaringClass().equals(Object.class))
+                        || hashCodeMethod.getDeclaringClass().equals(Object.class)) {
                     continue;
+                }
 
             } catch (SecurityException e1) {
                 continue;
@@ -81,8 +85,8 @@ public class EqualsHashcodeContract extends Contract {
             ExecutionTracer.disable();
             try {
                 if (object1.equals(object2)) {
-                     int h1 = object1.hashCode();
-                     int h2 = object2.hashCode();
+                    int h1 = object1.hashCode();
+                    int h2 = object2.hashCode();
                     if (h1 != h2) {
                         ExecutionTracer.enable();
                         return new ContractViolation(this, statement, exception,

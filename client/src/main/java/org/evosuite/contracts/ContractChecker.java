@@ -81,8 +81,9 @@ public class ContractChecker extends ExecutionObserver {
     }
 
     private void loadJUnitTheories() {
-        if (Properties.JUNIT_THEORIES.isEmpty())
+        if (Properties.JUNIT_THEORIES.isEmpty()) {
             return;
+        }
 
         for (String theoryName : Properties.JUNIT_THEORIES.split(":")) {
             try {
@@ -142,7 +143,7 @@ public class ContractChecker extends ExecutionObserver {
     }
 
     /**
-     * Set the current test case, on which we check oracles while it is executed
+     * Set the current test case, on which we check oracles while it is executed.
      *
      * @param test a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -153,7 +154,8 @@ public class ContractChecker extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#statement(int, org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.testcase.ExecutionObserver#statement(int, org.evosuite.testcase.Scope,
+     * org.evosuite.testcase.VariableReference)
      */
 
     /**
@@ -168,12 +170,14 @@ public class ContractChecker extends ExecutionObserver {
         }
 
         if (Properties.CHECK_CONTRACTS_END
-                && statement.getPosition() < (currentTest.size() - 1))
+                && statement.getPosition() < (currentTest.size() - 1)) {
             return;
+        }
 
         for (Contract contract : contracts) {
-            if (invalid.contains(contract))
+            if (invalid.contains(contract)) {
                 continue;
+            }
 
             try {
                 logger.debug("Checking contract {}", contract);
@@ -191,7 +195,8 @@ public class ContractChecker extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope)
+     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope)
      */
     @Override
     public void beforeStatement(Statement statement, Scope scope) {
