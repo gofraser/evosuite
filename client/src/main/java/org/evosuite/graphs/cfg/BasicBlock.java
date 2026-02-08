@@ -31,27 +31,26 @@ import java.util.stream.Collectors;
 
 /**
  * This class is used to represent basic blocks in the control flow graph.
- * <p>
- * A basic block is a list of instructions for which the following holds:
- * <p>
- * Whenever control flow reaches the first instruction of this blocks list,
+ *
+ * <p>A basic block is a list of instructions for which the following holds:</p>
+ *
+ * <p>Whenever control flow reaches the first instruction of this blocks list,
  * control flow will pass through all the instructions of this list successively
  * and not pass another instruction of the underlying method in the mean time.
  * The first element in this blocks list does not have a parent in the CFG that
  * can be prepended to the list and the same would still hold true Finally the
  * last element in this list does not have a child inside the CFG that could be
- * appended to the list such that the above still holds true
- * <p>
- * In other words: - the first/last element of this blocks list has either 0 or
+ * appended to the list such that the above still holds true.</p>
+ *
+ * <p>In other words: - the first/last element of this blocks list has either 0 or
  * >=2 parents/children in the CFG - every other element in the list has exactly
- * 1 parent and exactly 1 child in the raw CFG
- * <p>
- * <p>
- * Taken from:
- * <p>
- * "Efficiently Computing Static Single Assignment Form and the Control
+ * 1 parent and exactly 1 child in the raw CFG.</p>
+ *
+ * <p>Taken from:</p>
+ *
+ * <p>"Efficiently Computing Static Single Assignment Form and the Control
  * Dependence Graph" RON CYTRON, JEANNE FERRANTE, BARRY K. ROSEN, and MARK N.
- * WEGMAN IBM Research Division and F. KENNETH ZADECK Brown University 1991
+ * WEGMAN IBM Research Division and F. KENNETH ZADECK Brown University 1991.</p>
  *
  * @author Andre Mis
  * @see cfg.ActualControlFlowGraph
@@ -70,16 +69,14 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
     // experiment: since finding the control dependent branches in the CDG might
     // take a little to long, we might want to remember them
     private Set<ControlDependency> controlDependencies;
-    private Set<Integer> controlDependentBranchIDs;
+    private Set<Integer> controlDependentBranchIds;
 
     protected boolean isAuxiliaryBlock = false;
 
     private final List<BytecodeInstruction> instructions = new ArrayList<>();
 
     /**
-     * <p>
-     * Constructor for BasicBlock.
-     * </p>
+     * <p>Constructor for BasicBlock.</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -87,8 +84,9 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
      */
     public BasicBlock(ClassLoader classLoader, String className, String methodName,
                       List<BytecodeInstruction> blockNodes) {
-        if (className == null || methodName == null || blockNodes == null)
+        if (className == null || methodName == null || blockNodes == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         this.className = className;
         this.methodName = methodName;
@@ -104,14 +102,15 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
     }
 
     /**
-     * Used by Entry- and ExitBlocks
+     * Used by Entry- and ExitBlocks.
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      */
     protected BasicBlock(String className, String methodName, int id) {
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         this.className = className;
         this.methodName = methodName;
@@ -122,9 +121,9 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
     // CDs
 
     /**
-     * Returns the ControlDependenceGraph of this instructions method
-     * <p>
-     * Convenience method. Redirects the call to GraphPool.getCDG()
+     * Returns the ControlDependenceGraph of this instructions method.
+     *
+     * <p>Convenience method. Redirects the call to GraphPool.getCDG().</p>
      *
      * @return a {@link org.evosuite.graphs.cdg.ControlDependenceGraph} object.
      */
@@ -132,9 +131,10 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
         ControlDependenceGraph myCDG = GraphPool.getInstance(classLoader).getCDG(className,
                 methodName);
-        if (myCDG == null)
+        if (myCDG == null) {
             throw new IllegalStateException(
                     "expect GraphPool to know CDG for every method for which an instruction is known");
+        }
 
         return myCDG;
     }
@@ -143,9 +143,9 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
      * Returns all branchIds of Branches this instruction is directly control
      * dependent on as determined by the ControlDependenceGraph for this
      * instruction's method.
-     * <p>
-     * If this instruction is control dependent on the root branch the id -1
-     * will be contained in this set
+     *
+     * <p>If this instruction is control dependent on the root branch the id -1
+     * will be contained in this set.</p>
      *
      * @return a {@link java.util.Set} object.
      */
@@ -153,40 +153,39 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
         ControlDependenceGraph myDependence = getCDG();
 
-        if (controlDependentBranchIDs == null) {
-            controlDependentBranchIDs = myDependence.getControlDependentBranchIds(this);
+        if (controlDependentBranchIds == null) {
+            controlDependentBranchIds = myDependence.getControlDependentBranchIds(this);
             //be sure we can iterate over it deterministically
-            controlDependentBranchIDs =
-                    controlDependentBranchIDs.stream().sorted().collect(Collectors.toCollection(LinkedHashSet::new));
+            controlDependentBranchIds =
+                    controlDependentBranchIds.stream().sorted().collect(Collectors.toCollection(LinkedHashSet::new));
         }
-        return controlDependentBranchIDs;
+        return controlDependentBranchIds;
     }
 
     /**
      * Returns a cfg.Branch object for each branch this instruction is control
      * dependent on as determined by the ControlDependenceGraph. If this
      * instruction is only dependent on the root branch this method returns an
-     * empty set
-     * <p>
-     * If this instruction is a Branch and it is dependent on itself - which can
+     * empty set.
+     *
+     * <p>If this instruction is a Branch and it is dependent on itself - which can
      * happen in loops for example - the returned set WILL contain this. If you
      * do not need the full set in order to avoid loops, call
-     * getAllControlDependentBranches instead
+     * getAllControlDependentBranches instead.</p>
      *
      * @return a {@link java.util.Set} object.
      */
     public Set<ControlDependency> getControlDependencies() {
 
-        if (controlDependencies == null)
+        if (controlDependencies == null) {
             controlDependencies = getCDG().getControlDependentBranches(this);
+        }
 
         return controlDependencies;
     }
 
     /**
-     * <p>
-     * hasControlDependenciesSet
-     * </p>
+     * <p>hasControlDependenciesSet.</p>
      *
      * @return a boolean.
      */
@@ -198,30 +197,37 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     private void setInstructions(List<BytecodeInstruction> blockNodes) {
         for (BytecodeInstruction instruction : blockNodes) {
-            if (!appendInstruction(instruction))
+            if (!appendInstruction(instruction)) {
                 throw new IllegalStateException(
                         "internal error while addind instruction to basic block list");
+            }
         }
-        if (instructions.isEmpty())
+        if (instructions.isEmpty()) {
             throw new IllegalStateException(
                     "expect each basic block to contain at least one instruction");
+        }
     }
 
     private boolean appendInstruction(BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
-        if (!className.equals(instruction.getClassName()))
+        }
+        if (!className.equals(instruction.getClassName())) {
             throw new IllegalArgumentException(
                     "expect elements of a basic block to be inside the same class");
-        if (!methodName.equals(instruction.getMethodName()))
+        }
+        if (!methodName.equals(instruction.getMethodName())) {
             throw new IllegalArgumentException(
                     "expect elements of a basic block to be inside the same class");
-        if (instruction.hasBasicBlockSet())
+        }
+        if (instruction.hasBasicBlockSet()) {
             throw new IllegalArgumentException(
                     "expect to get instruction without BasicBlock already set");
-        if (instructions.contains(instruction))
+        }
+        if (instructions.contains(instruction)) {
             throw new IllegalArgumentException(
                     "a basic block can not contain the same element twice");
+        }
 
         instruction.setBasicBlock(this);
 
@@ -231,81 +237,75 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
     // retrieve information
 
     /**
-     * <p>
-     * containsInstruction
-     * </p>
+     * <p>containsInstruction.</p>
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a boolean.
      */
     public boolean containsInstruction(BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         return instructions.contains(instruction);
     }
 
     /**
-     * <p>
-     * containsInstruction
-     * </p>
+     * <p>containsInstruction.</p>
      *
      * @param insnNode a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      * @return a boolean.
      */
     public boolean containsInstruction(AbstractInsnNode insnNode) {
         for (BytecodeInstruction instruction : instructions) {
-            if (instruction.getASMNode().equals(insnNode))
+            if (instruction.getASMNode().equals(insnNode)) {
                 return true;
+            }
         }
         return false;
     }
 
     /**
-     * <p>
-     * getFirstInstruction
-     * </p>
+     * <p>getFirstInstruction.</p>
      *
      * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction getFirstInstruction() {
-        if (instructions.isEmpty())
+        if (instructions.isEmpty()) {
             return null;
+        }
         return instructions.get(0);
     }
 
     /**
-     * <p>
-     * getLastInstruction
-     * </p>
+     * <p>getLastInstruction.</p>
      *
      * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction getLastInstruction() {
-        if (instructions.isEmpty())
+        if (instructions.isEmpty()) {
             return null;
+        }
         return instructions.get(instructions.size() - 1);
     }
 
     /**
-     * <p>
-     * getFirstLine
-     * </p>
+     * <p>getFirstLine.</p>
      *
      * @return a int.
      */
     public int getFirstLine() {
-        for (BytecodeInstruction ins : instructions)
-            if (ins.hasLineNumberSet())
+        for (BytecodeInstruction ins : instructions) {
+            if (ins.hasLineNumberSet()) {
                 return ins.getLineNumber();
+            }
+        }
 
         return -1;
     }
 
     /**
-     * <p>
-     * getLastLine
-     * </p>
+     * <p>getLastLine.</p>
      *
      * @return a int.
      */
@@ -313,17 +313,17 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
         int r = -1;
 
-        for (BytecodeInstruction ins : instructions)
-            if (ins.hasLineNumberSet())
+        for (BytecodeInstruction ins : instructions) {
+            if (ins.hasLineNumberSet()) {
                 r = ins.getLineNumber();
+            }
+        }
 
         return r;
     }
 
     /**
-     * <p>
-     * getName
-     * </p>
+     * <p>getName.</p>
      *
      * @return a {@link java.lang.String} object.
      */
@@ -332,9 +332,7 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>className</code>.
-     * </p>
+     * <p>Getter for the field <code>className</code>.</p>
      *
      * @return a {@link java.lang.String} object.
      */
@@ -343,9 +341,7 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>methodName</code>.
-     * </p>
+     * <p>Getter for the field <code>methodName</code>.</p>
      *
      * @return a {@link java.lang.String} object.
      */
@@ -354,9 +350,7 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
     }
 
     /**
-     * <p>
-     * explain
-     * </p>
+     * <p>explain.</p>
      *
      * @return a {@link java.lang.String} object.
      */
@@ -383,12 +377,14 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
         String r = "BB" + id;
 
-        if (instructions.size() < 5)
-            for (BytecodeInstruction ins : instructions)
+        if (instructions.size() < 5) {
+            for (BytecodeInstruction ins : instructions) {
                 r = r.trim() + " " + ins.getInstructionType();
-        else
+            }
+        } else {
             r += " " + getFirstInstruction().getInstructionType() + " ... "
                     + getLastInstruction().getInstructionType();
+        }
 
         int startLine = getFirstLine();
         int endLine = getLastLine();
@@ -418,48 +414,55 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (!(obj instanceof BasicBlock))
+        }
+        if (!(obj instanceof BasicBlock)) {
             return false;
+        }
         BasicBlock other = (BasicBlock) obj;
-        if (id != other.id)
+        if (id != other.id) {
             return false;
+        }
         if (className == null) {
-            if (other.className != null)
+            if (other.className != null) {
                 return false;
-        } else if (!className.equals(other.className))
+            }
+        } else if (!className.equals(other.className)) {
             return false;
+        }
         if (methodName == null) {
-            if (other.methodName != null)
+            if (other.methodName != null) {
                 return false;
-        } else if (!methodName.equals(other.methodName))
+            }
+        } else if (!methodName.equals(other.methodName)) {
             return false;
+        }
         if (instructions == null) {
-            if (other.instructions != null)
+            if (other.instructions != null) {
                 return false;
-        } else if (!instructions.equals(other.instructions))
+            }
+        } else if (!instructions.equals(other.instructions)) {
             return false;
-        if (isEntryBlock() != other.isEntryBlock())
+        }
+        if (isEntryBlock() != other.isEntryBlock()) {
             return false;
+        }
         return isExitBlock() == other.isExitBlock();
     }
 
     /**
-     * <p>
-     * checkSanity
-     * </p>
+     * <p>checkSanity.</p>
      */
     public void checkSanity() {
         logger.debug("checking sanity of " + this);
     }
 
     /**
-     * <p>
-     * isEntryBlock
-     * </p>
+     * <p>isEntryBlock.</p>
      *
      * @return a boolean.
      */
@@ -468,9 +471,7 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
     }
 
     /**
-     * <p>
-     * isExitBlock
-     * </p>
+     * <p>isExitBlock.</p>
      *
      * @return a boolean.
      */

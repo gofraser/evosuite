@@ -92,21 +92,28 @@ public class CCFGMethodCallNode extends CCFGNode {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CCFGMethodCallNode other = (CCFGMethodCallNode) obj;
         if (callInstruction == null) {
-            if (other.callInstruction != null)
+            if (other.callInstruction != null) {
                 return false;
-        } else if (!callInstruction.equals(other.callInstruction))
+            }
+        } else if (!callInstruction.equals(other.callInstruction)) {
             return false;
+        }
         if (returnNode == null) {
             return other.returnNode == null;
-        } else return returnNode.equals(other.returnNode);
+        } else {
+            return returnNode.equals(other.returnNode);
+        }
     }
 
     /**

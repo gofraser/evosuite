@@ -23,16 +23,22 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * This class serves as a convenience data structure within {@link DominatorTree}
+ * This class serves as a convenience data structure within {@link DominatorTree}.
+ *
  * <p>
  * For every node within a CFG for which the immediateDominators are to be
  * computed this class holds auxiliary information needed during the computation
  * inside the DominatorTree
+ * </p>
+ *
  * <p>
  * After that computation instances of this class hold the connection between
  * CFG nodes and their immediateDominators
+ * </p>
+ *
  * <p>
  * Look at {@link DominatorTree} for more detailed information
+ * </p>
  *
  * @author Andre Mis
  */
@@ -40,10 +46,12 @@ class DominatorNode<V> {
 
     final V node;
 
-    /** DFS number */
-    int n = 0;
+    /** DFS number. */
+    int dfsNumber = 0;
 
-    /** parent of node within spanning tree of DFS inside {@link DominatorTree} */
+    /**
+     * parent of node within spanning tree of DFS inside {@link DominatorTree}.
+     */
     DominatorNode<V> parent;
 
     // computed dominators
@@ -51,7 +59,7 @@ class DominatorNode<V> {
     DominatorNode<V> immediateDominator;
 
     // auxiliary field needed for dominator computation
-    /** Set of nodes for which this node is the semi-dominator */
+    /** Set of nodes for which this node is the semi-dominator. */
     Set<DominatorNode<V>> bucket = new LinkedHashSet<>();
 
     // data structure needed to represented forest produced during cfg.DominatorTree computation
@@ -71,8 +79,9 @@ class DominatorNode<V> {
     }
 
     DominatorNode<V> eval() {
-        if (ancestor == null)
+        if (ancestor == null) {
             return this;
+        }
 
         compress();
 
@@ -80,21 +89,24 @@ class DominatorNode<V> {
     }
 
     void compress() {
-        if (ancestor == null)
+        if (ancestor == null) {
             throw new IllegalStateException("may only be called when ancestor is set");
+        }
 
         if (ancestor.ancestor != null) {
             ancestor.compress();
-            if (ancestor.label.semiDominator.n < label.semiDominator.n)
+            if (ancestor.label.semiDominator.dfsNumber < label.semiDominator.dfsNumber) {
                 label = ancestor.label;
+            }
 
             ancestor = ancestor.ancestor;
         }
     }
 
     DominatorNode<V> getFromBucket() {
-        for (DominatorNode<V> r : bucket)
+        for (DominatorNode<V> r : bucket) {
             return r;
+        }
 
         return null;
     }
@@ -106,7 +118,7 @@ class DominatorNode<V> {
      */
     public boolean isRootNode() {
         // DFS traversal assigns 1 to the root.
-        return n == 1;
+        return dfsNumber == 1;
     }
 
     /**
@@ -114,6 +126,6 @@ class DominatorNode<V> {
      */
     @Override
     public String toString() {
-        return "DTNode " + n + " - " + node;
+        return "DTNode " + dfsNumber + " - " + node;
     }
 }

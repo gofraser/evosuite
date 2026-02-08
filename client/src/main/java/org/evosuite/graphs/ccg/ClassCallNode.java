@@ -58,10 +58,12 @@ public class ClassCallNode extends CCFGNode {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null || getClass() != obj.getClass())
+        }
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
+        }
         ClassCallNode other = (ClassCallNode) obj;
         return Objects.equals(method, other.method);
     }

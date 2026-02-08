@@ -64,15 +64,17 @@ public class BytecodeInstructionPool {
     // fill the pool
 
     /**
-     * Called by each CFGGenerator for it's corresponding method.
+     * Called by each CFGGenerator for its corresponding method.
      * <p>
      * The MethodNode contains all instructions within a method. A call to
      * registerMethodNode() fills the instructionMap of the
      * BytecodeInstructionPool with the instructions in that method and returns
      * a List containing the BytecodeInstructions within that method.
+     * </p>
      * <p>
      * While registering all instructions the lineNumber of each
      * BytecodeInstruction is set.
+     * </p>
      *
      * @param node       a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param className  a {@link java.lang.String} object.
@@ -105,10 +107,11 @@ public class BytecodeInstructionPool {
                     bytecodeOffset,
                     instructionNode);
 
-            if (instruction.isLineNumber())
+            if (instruction.isLineNumber()) {
                 lastLineNumber = instruction.getLineNumber();
-            else if (lastLineNumber != -1)
+            } else if (lastLineNumber != -1) {
                 instruction.setLineNumber(lastLineNumber);
+            }
 
             bytecodeOffset += getBytecodeIncrement(instructionNode);
 
@@ -122,19 +125,21 @@ public class BytecodeInstructionPool {
         }
 
         List<BytecodeInstruction> r = getInstructionsIn(className, methodName);
-        if (r == null || r.size() == 0)
+        if (r == null || r.size() == 0) {
             throw new IllegalStateException(
                     "expect instruction pool to return non-null non-empty list of instructions for a previously registered method "
                             + methodName);
+        }
 
         return r;
     }
 
     /**
      * Determine how many bytes the current instruction occupies together with
-     * its operands
+     * its operands.
      *
-     * @return
+     * @param instructionNode a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
+     * @return a int.
      */
     private int getBytecodeIncrement(AbstractInsnNode instructionNode) {
         int opcode = instructionNode.getOpcode();
@@ -150,20 +155,22 @@ public class BytecodeInstructionPool {
             case Opcodes.LLOAD:
             case Opcodes.LSTORE:
                 VarInsnNode varNode = (VarInsnNode) instructionNode;
-                if (varNode.var > 3)
+                if (varNode.var > 3) {
                     return 1;
-                else
+                } else {
                     return 0;
+                }
             case Opcodes.BIPUSH: // byte
             case Opcodes.NEWARRAY:
             case Opcodes.RET:
                 return 1;
             case Opcodes.LDC:
                 LdcInsnNode ldcNode = (LdcInsnNode) instructionNode;
-                if (ldcNode.cst instanceof Double || ldcNode.cst instanceof Long)
+                if (ldcNode.cst instanceof Double || ldcNode.cst instanceof Long) {
                     return 2; // LDC2_W
-                else
+                } else {
                     return 1;
+                }
             case 19: //LDC_W
             case 20: //LDC2_W
                 return 2;
@@ -214,22 +221,23 @@ public class BytecodeInstructionPool {
                 return 4;
             // case Opcodes.GOTO_W
             // case Opcodes.JSR_W
+            default:
+                return 0;
         }
-        return 0;
     }
 
     private void registerMethodNode(MethodNode node) {
-        for (MethodNode mn : knownMethodNodes)
-            if (mn == node)
+        for (MethodNode mn : knownMethodNodes) {
+            if (mn == node) {
                 logger.debug("CFGGenerator.analyze() apparently got called for the same MethodNode twice");
+            }
+        }
 
         knownMethodNodes.add(node);
     }
 
     /**
-     * <p>
-     * registerInstruction
-     * </p>
+     * <p>registerInstruction</p>
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
@@ -237,12 +245,14 @@ public class BytecodeInstructionPool {
         String className = instruction.getClassName();
         String methodName = instruction.getMethodName();
 
-        if (!instructionMap.containsKey(className))
+        if (!instructionMap.containsKey(className)) {
             instructionMap.put(className,
                     new LinkedHashMap<>());
-        if (!instructionMap.get(className).containsKey(methodName))
+        }
+        if (!instructionMap.get(className).containsKey(methodName)) {
             instructionMap.get(className).put(methodName,
                     new ArrayList<>());
+        }
 
         instructionMap.get(className).get(methodName).add(instruction);
         logger.debug("Registering instruction " + instruction);
@@ -252,9 +262,9 @@ public class BytecodeInstructionPool {
             if (previous.isLabel()) {
                 LabelNode ln = (LabelNode) previous.asmNode;
                 if (ln.getLabel() instanceof AnnotatedLabel) {
-                    AnnotatedLabel aLabel = (AnnotatedLabel) ln.getLabel();
-                    if (aLabel.isStartTag()) {
-                        if (aLabel.shouldIgnore()) {
+                    AnnotatedLabel annotatedLabel = (AnnotatedLabel) ln.getLabel();
+                    if (annotatedLabel.isStartTag()) {
+                        if (annotatedLabel.shouldIgnore()) {
                             logger.debug("Ignoring artificial branch: " + instruction);
                             return;
                         }
@@ -271,9 +281,7 @@ public class BytecodeInstructionPool {
     // retrieve data from the pool
 
     /**
-     * <p>
-     * getInstruction
-     * </p>
+     * <p>getInstruction</p>
      *
      * @param className     a {@link java.lang.String} object.
      * @param methodName    a {@link java.lang.String} object.
@@ -292,9 +300,7 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * <p>
-     * getInstruction
-     * </p>
+     * <p>getInstruction</p>
      *
      * @param className     a {@link java.lang.String} object.
      * @param methodName    a {@link java.lang.String} object.
@@ -315,8 +321,9 @@ public class BytecodeInstructionPool {
             return null;
         }
         for (BytecodeInstruction instruction : instructionMap.get(className).get(methodName)) {
-            if (instruction.getInstructionId() == instructionId)
+            if (instruction.getInstructionId() == instructionId) {
                 return instruction;
+            }
         }
 
         logger.debug("unknown instruction " + instructionId + ", have "
@@ -329,9 +336,7 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * <p>
-     * getInstruction
-     * </p>
+     * <p>getInstruction</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -352,8 +357,9 @@ public class BytecodeInstructionPool {
             return null;
         }
         for (BytecodeInstruction instruction : instructionMap.get(className).get(methodName)) {
-            if (instruction.asmNode == node)
+            if (instruction.asmNode == node) {
                 return instruction;
+            }
         }
 
         logger.debug("unknown instruction: " + node + ", have "
@@ -365,9 +371,7 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * <p>
-     * knownClasses
-     * </p>
+     * <p>knownClasses</p>
      *
      * @return a {@link java.util.Set} object.
      */
@@ -376,9 +380,7 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * <p>
-     * knownMethods
-     * </p>
+     * <p>knownMethods</p>
      *
      * @param className a {@link java.lang.String} object.
      * @return a {@link java.util.Set} object.
@@ -386,23 +388,23 @@ public class BytecodeInstructionPool {
     public Set<String> knownMethods(String className) {
         Set<String> r = new LinkedHashSet<>();
 
-        if (instructionMap.get(className) != null)
+        if (instructionMap.get(className) != null) {
             r.addAll(instructionMap.get(className).keySet());
+        }
 
         return r;
     }
 
     public boolean hasMethod(String className, String methodName) {
-        if (instructionMap.get(className) != null)
+        if (instructionMap.get(className) != null) {
             return instructionMap.get(className).containsKey(methodName);
+        }
 
         return false;
     }
 
     /**
-     * <p>
-     * getInstructionsIn
-     * </p>
+     * <p>getInstructionsIn</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -410,8 +412,9 @@ public class BytecodeInstructionPool {
      */
     public List<BytecodeInstruction> getInstructionsIn(String className, String methodName) {
         if (instructionMap.get(className) == null
-                || instructionMap.get(className).get(methodName) == null)
+                || instructionMap.get(className).get(methodName) == null) {
             return null;
+        }
 
         List<BytecodeInstruction> r = new ArrayList<>(instructionMap.get(className).get(methodName));
 
@@ -419,8 +422,9 @@ public class BytecodeInstructionPool {
     }
 
     public List<BytecodeInstruction> getInstructionsIn(String className) {
-        if (instructionMap.get(className) == null)
+        if (instructionMap.get(className) == null) {
             return null;
+        }
 
         List<BytecodeInstruction> r = new ArrayList<>();
         Map<String, List<BytecodeInstruction>> methodMap = instructionMap.get(className);
@@ -444,9 +448,7 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * <p>
-     * logInstructionsIn
-     * </p>
+     * <p>logInstructionsIn</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -467,9 +469,7 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * <p>
-     * createFakeInstruction
-     * </p>
+     * <p>createFakeInstruction</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -491,9 +491,7 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * <p>
-     * clear
-     * </p>
+     * <p>clear</p>
      */
     public void clear() {
         instructionMap.clear();
@@ -505,9 +503,7 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * <p>
-     * clear
-     * </p>
+     * <p>clear</p>
      *
      * @param className a {@link java.lang.String} object.
      */
@@ -522,16 +518,15 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * <p>
-     * clear
-     * </p>
+     * <p>clear</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      */
     public void clear(String className, String methodName) {
-        if (instructionMap.containsKey(className))
+        if (instructionMap.containsKey(className)) {
             instructionMap.get(className).remove(methodName);
+        }
     }
 
     public static void clearAll(String className, String methodName) {
@@ -541,52 +536,60 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * <p>
-     * forgetInstruction
-     * </p>
+     * <p>forgetInstruction</p>
      *
      * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a boolean.
      */
     public boolean forgetInstruction(BytecodeInstruction ins) {
-        if (!instructionMap.containsKey(ins.getClassName()))
+        if (!instructionMap.containsKey(ins.getClassName())) {
             return false;
-        if (!instructionMap.get(ins.getClassName()).containsKey(ins.getMethodName()))
+        }
+        if (!instructionMap.get(ins.getClassName()).containsKey(ins.getMethodName())) {
             return false;
+        }
 
         return instructionMap.get(ins.getClassName()).get(ins.getMethodName()).remove(ins);
     }
 
     public int getFirstLineNumberOfMethod(String className, String methodName) {
-        if (instructionMap.get(className) == null)
+        if (instructionMap.get(className) == null) {
             throw new IllegalArgumentException("unknown class " + className);
-        if (instructionMap.get(className).get(methodName) == null)
+        }
+        if (instructionMap.get(className).get(methodName) == null) {
             throw new IllegalArgumentException("unknown method " + methodName
                     + " in class " + className);
-        if (instructionMap.get(className).get(methodName).isEmpty())
+        }
+        if (instructionMap.get(className).get(methodName).isEmpty()) {
             throw new IllegalArgumentException("no instructions in method " + methodName
                     + " in class " + className);
+        }
 
         int r = Integer.MAX_VALUE;
         for (BytecodeInstruction ins : instructionMap.get(className).get(methodName)) {
-            if (ins.getLineNumber() < r)
+            if (ins.getLineNumber() < r) {
                 r = ins.getLineNumber();
+            }
         }
         return r;
     }
 
     public BytecodeInstruction getFirstInstructionAtLineNumber(String className, String methodName, int lineNumber) {
         // TODO
-        if (instructionMap.get(className) == null)
+        if (instructionMap.get(className) == null) {
             return null;
-        if (instructionMap.get(className).get(methodName) == null)
+        }
+        if (instructionMap.get(className).get(methodName) == null) {
             return null;
-        if (instructionMap.get(className).get(methodName).isEmpty())
+        }
+        if (instructionMap.get(className).get(methodName).isEmpty()) {
             return null;
+        }
 
         for (BytecodeInstruction ins : instructionMap.get(className).get(methodName)) {
-            if (ins.getLineNumber() == lineNumber)
+            if (ins.getLineNumber() == lineNumber) {
                 return ins;
+            }
         }
         return null;
     }

@@ -24,9 +24,7 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 public class BytecodeInstructionFactory {
 
     /**
-     * <p>
-     * createBytecodeInstruction
-     * </p>
+     * <p>createBytecodeInstruction.</p>
      *
      * @param className      a {@link java.lang.String} object.
      * @param methodName     a {@link java.lang.String} object.
@@ -36,7 +34,10 @@ public class BytecodeInstructionFactory {
      * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public static BytecodeInstruction createBytecodeInstruction(ClassLoader classLoader,
-                                                                String className, String methodName, int instructionId, int bytecodeOffset,
+                                                                String className,
+                                                                String methodName,
+                                                                int instructionId,
+                                                                int bytecodeOffset,
                                                                 AbstractInsnNode node) {
 
         BytecodeInstruction instruction = new BytecodeInstruction(classLoader, className,

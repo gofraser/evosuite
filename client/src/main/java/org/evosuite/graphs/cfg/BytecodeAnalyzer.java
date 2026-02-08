@@ -27,14 +27,14 @@ import org.objectweb.asm.tree.analysis.SourceInterpreter;
 
 /**
  * This class analyzes the byteCode from a method in the CUT and generates it's
- * CFG using a cfg.CFGGenerator
- * <p>
- * This is done using the ASM library, extending from it's asm.Analyzer and
+ * CFG using a cfg.CFGGenerator.
+ *
+ * <p>This is done using the ASM library, extending from it's asm.Analyzer and
  * redirecting the calls to newControlFlowEdge() to an instance of
  * cfg.CFGGenerator which in turn builds up a graph representation of the CFG,
  * which later is used to build a "smaller" CFG containing not
  * BytecodeInstructions but BasicBlocks of BytecodeInstructions which are always
- * executed successively
+ * executed successively</p>
  *
  * @author Gordon Fraser, Andre Mis
  */
@@ -72,8 +72,9 @@ public class BytecodeAnalyzer extends Analyzer {
 
         Frame[] frames = getFrames();
 
-        if (frames.length == 0)
+        if (frames.length == 0) {
             return null;
+        }
 
         return (CFGFrame) getFrames()[0];
     }
@@ -81,14 +82,15 @@ public class BytecodeAnalyzer extends Analyzer {
     /**
      * After running analyze() this method yields the filled CFGGenerator for
      * further processing of the gathered information from analyze() within the
-     * ByteCode representation of EvoSuite
+     * ByteCode representation of EvoSuite.
      *
      * @return a {@link org.evosuite.graphs.cfg.CFGGenerator} object.
      */
     public CFGGenerator retrieveCFGGenerator() {
-        if (cfgGenerator == null)
+        if (cfgGenerator == null) {
             throw new IllegalStateException(
                     "you have to call analyze() first before retrieving the CFGGenerator");
+        }
         return cfgGenerator;
     }
 
@@ -96,8 +98,8 @@ public class BytecodeAnalyzer extends Analyzer {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Called for each non-exceptional cfg edge
+     *
+     * <p>Called for each non-exceptional cfg edge</p>
      */
     @Override
     protected void newControlFlowEdge(int src, int dst) {
@@ -107,8 +109,8 @@ public class BytecodeAnalyzer extends Analyzer {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * We also need to keep track of exceptional edges - they are also branches
+     *
+     * <p>We also need to keep track of exceptional edges - they are also branches</p>
      */
     @Override
     protected boolean newControlFlowExceptionEdge(int src, int dst) {
@@ -122,8 +124,8 @@ public class BytecodeAnalyzer extends Analyzer {
      * {@inheritDoc}
      */
     @Override
-    protected Frame newFrame(int nLocals, int nStack) {
-        return new CFGFrame(nLocals, nStack);
+    protected Frame newFrame(int numLocals, int numStack) {
+        return new CFGFrame(numLocals, numStack);
     }
 
     /**

@@ -61,10 +61,12 @@ public class ClassCallEdge extends DefaultEdge {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null || getClass() != obj.getClass())
+        }
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
+        }
         ClassCallEdge other = (ClassCallEdge) obj;
         return Objects.equals(callInstruction, other.callInstruction);
     }

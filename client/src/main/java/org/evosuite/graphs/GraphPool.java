@@ -130,9 +130,7 @@ public class GraphPool {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>rawCFGs</code>.
-     * </p>
+     * <p>Getter for the field <code>rawCFGs</code>.</p>
      *
      * @param className a {@link java.lang.String} object.
      * @return a {@link java.util.Map} object.
@@ -149,9 +147,7 @@ public class GraphPool {
     }
 
     /**
-     * <p>
-     * getActualCFG
-     * </p>
+     * <p>getActualCFG</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -160,16 +156,15 @@ public class GraphPool {
     public ActualControlFlowGraph getActualCFG(String className, String methodName) {
 
         Map<String, ActualControlFlowGraph> methods = actualCFGs.get(className);
-        if (methods == null)
+        if (methods == null) {
             return null;
+        }
 
         return methods.get(methodName);
     }
 
     /**
-     * <p>
-     * getCDG
-     * </p>
+     * <p>getCDG</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -178,8 +173,9 @@ public class GraphPool {
     public ControlDependenceGraph getCDG(String className, String methodName) {
 
         Map<String, ControlDependenceGraph> methods = controlDependencies.get(className);
-        if (methods == null)
+        if (methods == null) {
             return null;
+        }
 
         return methods.get(methodName);
     }
@@ -187,9 +183,7 @@ public class GraphPool {
     // register graphs
 
     /**
-     * <p>
-     * registerRawCFG
-     * </p>
+     * <p>registerRawCFG</p>
      *
      * @param cfg a {@link org.evosuite.graphs.cfg.RawControlFlowGraph} object.
      */
@@ -197,23 +191,23 @@ public class GraphPool {
         String className = cfg.getClassName();
         String methodName = cfg.getMethodName();
 
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalStateException(
                     "expect class and method name of CFGs to be set before entering the GraphPool");
+        }
 
         Map<String, RawControlFlowGraph> methods = rawCFGs.computeIfAbsent(className, k -> new ConcurrentHashMap<>());
         logger.debug("Added complete CFG for class " + className + " and method "
                 + methodName);
         methods.put(methodName, cfg);
 
-        if (Properties.WRITE_CFG)
+        if (Properties.WRITE_CFG) {
             cfg.toDot();
+        }
     }
 
     /**
-     * <p>
-     * registerActualCFG
-     * </p>
+     * <p>registerActualCFG</p>
      *
      * @param cfg a {@link org.evosuite.graphs.cfg.ActualControlFlowGraph}
      *            object.
@@ -222,17 +216,19 @@ public class GraphPool {
         String className = cfg.getClassName();
         String methodName = cfg.getMethodName();
 
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalStateException(
                     "expect class and method name of CFGs to be set before entering the GraphPool");
+        }
 
         Map<String, ActualControlFlowGraph> methods = actualCFGs.computeIfAbsent(className, k -> new ConcurrentHashMap<>());
         logger.debug("Added CFG for class " + className + " and method " + methodName);
         cfg.finalise();
         methods.put(methodName, cfg);
 
-        if (Properties.WRITE_CFG)
+        if (Properties.WRITE_CFG) {
             cfg.toDot();
+        }
 
         if (DependencyAnalysis.shouldInstrument(cfg.getClassName(), cfg.getMethodName())) {
             createAndRegisterControlDependence(cfg);
@@ -246,15 +242,17 @@ public class GraphPool {
         String className = cd.getClassName();
         String methodName = cd.getMethodName();
 
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalStateException(
                     "expect class and method name of CFGs to be set before entering the GraphPool");
+        }
 
         Map<String, ControlDependenceGraph> cds = controlDependencies.computeIfAbsent(className, k -> new ConcurrentHashMap<>());
 
         cds.put(methodName, cd);
-        if (Properties.WRITE_CFG)
+        if (Properties.WRITE_CFG) {
             cd.toDot();
+        }
     }
 
     /**
@@ -286,25 +284,26 @@ public class GraphPool {
      * @return a {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph} object.
      */
     private ClassControlFlowGraph computeCCFG(String className) {
-        if (rawCFGs.get(className) == null)
+        if (rawCFGs.get(className) == null) {
             throw new IllegalArgumentException(
                     "can't compute CCFG, don't know CFGs for class " + className);
+        }
 
         ClassCallGraph ccg = new ClassCallGraph(classLoader, className);
-        if (Properties.WRITE_CFG)
+        if (Properties.WRITE_CFG) {
             ccg.toDot();
+        }
 
         ClassControlFlowGraph ccfg = new ClassControlFlowGraph(ccg);
-        if (Properties.WRITE_CFG)
+        if (Properties.WRITE_CFG) {
             ccfg.toDot();
+        }
 
         return ccfg;
     }
 
     /**
-     * <p>
-     * clear
-     * </p>
+     * <p>clear</p>
      */
     public void clear() {
         rawCFGs.clear();
@@ -313,9 +312,7 @@ public class GraphPool {
     }
 
     /**
-     * <p>
-     * clear
-     * </p>
+     * <p>clear</p>
      *
      * @param className a {@link java.lang.String} object.
      */
@@ -326,20 +323,21 @@ public class GraphPool {
     }
 
     /**
-     * <p>
-     * clear
-     * </p>
+     * <p>clear</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      */
     public void clear(String className, String methodName) {
-        if (rawCFGs.containsKey(className))
+        if (rawCFGs.containsKey(className)) {
             rawCFGs.get(className).remove(methodName);
-        if (actualCFGs.containsKey(className))
+        }
+        if (actualCFGs.containsKey(className)) {
             actualCFGs.get(className).remove(methodName);
-        if (controlDependencies.containsKey(className))
+        }
+        if (controlDependencies.containsKey(className)) {
             controlDependencies.get(className).remove(methodName);
+        }
     }
 
     public static void clearAll(String className) {

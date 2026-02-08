@@ -29,7 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The CFGClassAdapter calls a CFG generator for relevant methods
+ * The CFGClassAdapter calls a CFG generator for relevant methods.
  *
  * @author Gordon Fraser
  */
@@ -40,14 +40,14 @@ public class CFGClassAdapter extends ClassVisitor {
     public static final String LAMBDA_METHOD_NAME = "lambda$";
 
     /**
-     * Current class
+     * Current class.
      */
     private final String className;
 
     private final ClassLoader classLoader;
 
     /**
-     * Skip methods on enums - at least some
+     * Skip methods on enums - at least some.
      */
     private boolean isEnum = false;
 
@@ -64,7 +64,8 @@ public class CFGClassAdapter extends ClassVisitor {
     }
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.ClassAdapter#visit(int, int, java.lang.String, java.lang.String, java.lang.String, java.lang.String[])
+     * @see org.objectweb.asm.ClassAdapter#visit(int, int, java.lang.String, java.lang.String,
+     * java.lang.String, java.lang.String[])
      */
 
     /**
@@ -80,8 +81,9 @@ public class CFGClassAdapter extends ClassVisitor {
         // We are removing final access to allow mocking
         // TODO: Is this redundant wrt RemoveFinalClassAdapter?
         super.visit(version, access & ~Opcodes.ACC_FINAL, name, signature, superName, interfaces);
-        if (superName.equals("java/lang/Enum"))
+        if (superName.equals("java/lang/Enum")) {
             isEnum = true;
+        }
     }
 
     /*
@@ -109,11 +111,11 @@ public class CFGClassAdapter extends ClassVisitor {
         }
 
         // We ignore deprecated only for dependencies, not for the SUT
-//		if (!Properties.USE_DEPRECATED
-//		        && (methodAccess & Opcodes.ACC_DEPRECATED) == Opcodes.ACC_DEPRECATED) {
-//			logger.info("Skipping deprecated method " + name);
-//			return mv;
-//		}
+        //      if (!Properties.USE_DEPRECATED
+        //              && (methodAccess & Opcodes.ACC_DEPRECATED) == Opcodes.ACC_DEPRECATED) {
+        //          logger.info("Skipping deprecated method " + name);
+        //          return mv;
+        //      }
 
         if (isEnum) {
             if (name.equals("valueOf") || name.equals("values")) {
@@ -139,8 +141,8 @@ public class CFGClassAdapter extends ClassVisitor {
      * Just checks wheter the name of the method is of a synthetic lambda.
      * TODO: we do the same on the concolic engine VMs, eventually move this to a commons space.
      *
-     * @param methodName
-     * @return
+     * @param methodName the method name
+     * @return true if it is a lambda method name
      */
     private static boolean isLambdaMethodName(String methodName) {
         return methodName.startsWith(LAMBDA_METHOD_NAME);

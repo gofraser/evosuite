@@ -39,8 +39,9 @@ public class CCFGMethodExitNode extends CCFGNode {
      * @return a boolean.
      */
     public boolean isExitOfMethodEntry(CCFGMethodEntryNode methodEntry) {
-        if (methodEntry == null)
+        if (methodEntry == null) {
             return false;
+        }
         return methodEntry.getMethod().equals(method);
     }
 
@@ -69,16 +70,21 @@ public class CCFGMethodExitNode extends CCFGNode {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CCFGMethodExitNode other = (CCFGMethodExitNode) obj;
         if (method == null) {
             return other.method == null;
-        } else return method.equals(other.method);
+        } else {
+            return method.equals(other.method);
+        }
     }
 
     /**
