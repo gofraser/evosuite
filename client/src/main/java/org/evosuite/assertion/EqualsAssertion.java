@@ -89,15 +89,17 @@ public class EqualsAssertion extends Assertion {
     public boolean evaluate(Scope scope) {
         try {
             if ((Boolean) value) {
-                if (source.getObject(scope) == null)
+                if (source.getObject(scope) == null) {
                     return dest.getObject(scope) == null;
-                else
+                } else {
                     return ComparisonTraceEntry.equals(source.getObject(scope), dest.getObject(scope));
+                }
             } else {
-                if (source.getObject(scope) == null)
+                if (source.getObject(scope) == null) {
                     return dest.getObject(scope) != null;
-                else
+                } else {
                     return !ComparisonTraceEntry.equals(source.getObject(scope), dest.getObject(scope));
+                }
             }
         } catch (CodeUnderTestException e) {
             throw new UnsupportedOperationException();
@@ -120,12 +122,15 @@ public class EqualsAssertion extends Assertion {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (!super.equals(obj))
+        }
+        if (!super.equals(obj)) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         EqualsAssertion other = (EqualsAssertion) obj;
         return Objects.equals(dest, other.dest);
     }

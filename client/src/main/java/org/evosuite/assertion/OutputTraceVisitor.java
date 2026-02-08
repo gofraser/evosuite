@@ -28,7 +28,7 @@ package org.evosuite.assertion;
 public interface OutputTraceVisitor<T extends OutputTraceEntry> {
 
     /**
-     * <p>visit</p>
+     * <p>visit.</p>
      *
      * @param entry a T object.
      * @param <T>   a T object.

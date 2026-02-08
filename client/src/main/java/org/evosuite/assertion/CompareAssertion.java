@@ -29,7 +29,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Assertion on comparison value of two objects
+ * Assertion on comparison value of two objects.
  *
  * @author Gordon Fraser
  */
@@ -63,8 +63,8 @@ public class CompareAssertion extends Assertion {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Create a copy of the compare assertion
+     *
+     * <p>Create a copy of the compare assertion.</p>
      */
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
@@ -79,20 +79,21 @@ public class CompareAssertion extends Assertion {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * This method returns the Java Code
+     *
+     * <p>This method returns the Java Code.</p>
      */
     @Override
     public String getCode() {
         if (value instanceof Integer) {
             int val = (Integer) value;
             if (source.getType().equals(Integer.class)) {
-                if (val == 0)
+                if (val == 0) {
                     return "assertEquals(" + source.getName() + ", " + dest.getName() + ");";
-                else if (val < 0)
+                } else if (val < 0) {
                     return "assertTrue(" + source.getName() + " < " + dest.getName() + ");";
-                else
+                } else {
                     return "assertTrue(" + source.getName() + " > " + dest.getName() + ");";
+                }
             }
         }
         return "assertEquals(" + source.getName() + ".compareTo(" + dest.getName()
@@ -101,30 +102,31 @@ public class CompareAssertion extends Assertion {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Determine if assertion holds in current scope
+     *
+     * <p>Determine if assertion holds in current scope.</p>
      */
     @SuppressWarnings("unchecked")
     @Override
     public boolean evaluate(Scope scope) {
         try {
-            Object sObj = source.getObject(scope);
-            if (sObj == null) {
-                if (value instanceof Integer && ((Integer) value) == 0)
+            Object sourceObject = source.getObject(scope);
+            if (sourceObject == null) {
+                if (value instanceof Integer && ((Integer) value) == 0) {
                     return dest.getObject(scope) == null;
-                else
+                } else {
                     return false;
+                }
             }
 
-            if (!(sObj instanceof Comparable)) {
+            if (!(sourceObject instanceof Comparable)) {
                 return false;
             }
 
-            Comparable<Object> comparable = (Comparable<Object>) sObj;
-            Object dObj = dest.getObject(scope);
+            Comparable<Object> comparable = (Comparable<Object>) sourceObject;
+            Object destObject = dest.getObject(scope);
 
             try {
-                int result = comparable.compareTo(dObj);
+                int result = comparable.compareTo(destObject);
                 if (value instanceof Integer) {
                     return result == (Integer) value;
                 }
@@ -154,25 +156,34 @@ public class CompareAssertion extends Assertion {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CompareAssertion other = (CompareAssertion) obj;
-        if (!Objects.equals(dest, other.dest))
+        if (!Objects.equals(dest, other.dest)) {
             return false;
-        if (!Objects.equals(source, other.source))
+        }
+        if (!Objects.equals(source, other.source)) {
             return false;
+        }
 
         if (value == null) {
             return other.value == null;
         } else if (value instanceof Integer && other.value instanceof Integer) {
             int v1 = (Integer) value;
             int v2 = (Integer) other.value;
-            if (v1 > 0) return v2 > 0;
-            if (v1 < 0) return v2 < 0;
+            if (v1 > 0) {
+                return v2 > 0;
+            }
+            if (v1 < 0) {
+                return v2 < 0;
+            }
             return v1 == 0 && v2 == 0;
         } else {
             return value.equals(other.value);

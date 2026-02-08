@@ -49,7 +49,7 @@ public class PrimitiveFieldTraceEntry implements OutputTraceEntry {
     }
 
     /**
-     * Insert a new value into the map
+     * Insert a new value into the map.
      *
      * @param field a {@link java.lang.reflect.Field} object.
      * @param value a {@link java.lang.Object} object.

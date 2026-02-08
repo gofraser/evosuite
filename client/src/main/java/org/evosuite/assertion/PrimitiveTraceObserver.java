@@ -43,18 +43,21 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
     public synchronized void afterStatement(Statement statement, Scope scope,
                                             Throwable exception) {
         // By default, no assertions are created for statements that threw exceptions
-        if (exception != null)
+        if (exception != null) {
             return;
+        }
 
         // No assertions are created for mock statements
-        if (statement instanceof FunctionalMockStatement)
+        if (statement instanceof FunctionalMockStatement) {
             return;
+        }
 
         visitReturnValue(statement, scope);
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
      */
 
     /**
@@ -62,34 +65,40 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
      */
     @Override
     protected void visit(Statement statement, Scope scope, VariableReference var) {
-        if (statement.isAssignmentStatement())
+        if (statement.isAssignmentStatement()) {
             return;
+        }
 
         logger.debug("Checking primitive " + var);
         try {
             // Need only legal values
-            if (var == null)
+            if (var == null) {
                 return;
+            }
 
             // We don't need assertions on constant values
-            if (statement instanceof PrimitiveStatement<?>)
+            if (statement instanceof PrimitiveStatement<?>) {
                 return;
+            }
 
             if (statement instanceof MethodStatement) {
-                if (((MethodStatement) statement).getMethod().getName().equals("hashCode"))
+                if (((MethodStatement) statement).getMethod().getName().equals("hashCode")) {
                     return;
+                }
             }
 
             Object object = var.getObject(scope);
 
             // We don't need to compare to null
-            if (object == null)
+            if (object == null) {
                 return;
+            }
 
             // We can't check private member enums
             if (object.getClass().isEnum()
-                    && !Modifier.isPublic(object.getClass().getModifiers()))
+                    && !Modifier.isPublic(object.getClass().getModifiers())) {
                 return;
+            }
 
             if (object.getClass().isPrimitive() || object.getClass().isEnum()
                     || isWrapperType(object.getClass()) || object instanceof String) {

@@ -45,7 +45,7 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         ExecutionObserver {
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(AssertionTraceObserver.class);
 
@@ -70,7 +70,7 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
 
     /**
      * <p>
-     * visitDependencies
+     * visitDependencies.
      * </p>
      *
      * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
@@ -80,11 +80,13 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         Set<VariableReference> dependencies = currentTest.getDependencies(statement.getReturnValue());
 
         for (VariableReference var : dependencies) {
-            if (var.isVoid())
+            if (var.isVoid()) {
                 continue;
+            }
             // No assertions on mocked objects
-            if (statement.getTestCase().getStatement(var.getStPosition()) instanceof FunctionalMockStatement)
+            if (statement.getTestCase().getStatement(var.getStPosition()) instanceof FunctionalMockStatement) {
                 continue;
+            }
             if (!var.isVoid()) {
                 try {
                     visit(statement, scope, var);
@@ -98,19 +100,21 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
 
     /**
      * <p>
-     * visitReturnValue
+     * visitReturnValue.
      * </p>
      *
      * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
      * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
      */
     protected void visitReturnValue(Statement statement, Scope scope) {
-        if (statement.getReturnClass().equals(void.class))
+        if (statement.getReturnClass().equals(void.class)) {
             return;
+        }
 
         // No need to assert anything about values just assigned
-        if (statement.isAssignmentStatement())
+        if (statement.isAssignmentStatement()) {
             return;
+        }
 
         try {
             visit(statement, scope, statement.getReturnValue());
@@ -122,18 +126,20 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
 
     /**
      * <p>
-     * visit
+     * visit.
      * </p>
      *
      * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
      * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
      * @param var       a {@link org.evosuite.testcase.variable.VariableReference} object.
+     * @throws org.evosuite.testcase.execution.CodeUnderTestException if any.
      */
     protected abstract void visit(Statement statement, Scope scope,
                                   VariableReference var) throws CodeUnderTestException;
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#statement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.testcase.ExecutionObserver#statement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
 
     /**
@@ -143,20 +149,23 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
     public synchronized void afterStatement(Statement statement, Scope scope,
                                             Throwable exception) {
         //if(checkThread())
-        //	return;
+        //    return;
 
         // No assertions are created for mock statements
-        if (statement instanceof FunctionalMockStatement)
+        if (statement instanceof FunctionalMockStatement) {
             return;
+        }
 
         // No assertions for primitives
-        if (statement instanceof PrimitiveStatement<?>)
+        if (statement instanceof PrimitiveStatement<?>) {
             return;
+        }
 
 
         // By default, no assertions are created for statements that threw exceptions
-        if (exception != null)
+        if (exception != null) {
             return;
+        }
 
         if (statement instanceof FieldStatement) {
             // Only need to check returnvalue here, nothing else can have changed
@@ -167,7 +176,8 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope)
+     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope)
      */
     @Override
     public synchronized void beforeStatement(Statement statement, Scope scope) {
@@ -184,7 +194,7 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
     @Override
     public synchronized void clear() {
         //if(!checkThread())
-        //	return;
+        //    return;
 
         trace.clear();
     }

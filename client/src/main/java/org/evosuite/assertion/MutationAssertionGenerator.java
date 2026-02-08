@@ -49,43 +49,44 @@ import java.util.*;
 /**
  * This class executes a test case on a unit and all mutants and infers
  * assertions from the resulting traces.
- * <p>
- * TODO: This class is a mess.
+ *
+ * <p>TODO: This class is a mess.</p>
  *
  * @author Gordon Fraser
  */
 public abstract class MutationAssertionGenerator extends AssertionGenerator {
 
-    private final static Logger logger = LoggerFactory.getLogger(MutationAssertionGenerator.class);
+    private static final Logger logger = LoggerFactory.getLogger(MutationAssertionGenerator.class);
 
     protected final Map<Integer, Mutation> mutants = new HashMap<>();
 
-    protected final static PrimitiveTraceObserver primitiveObserver = new PrimitiveTraceObserver();
-    protected final static ComparisonTraceObserver comparisonObserver = new ComparisonTraceObserver();
-    protected final static SameTraceObserver sameObserver = new SameTraceObserver();
-    protected final static InspectorTraceObserver inspectorObserver = new InspectorTraceObserver();
-    protected final static PrimitiveFieldTraceObserver fieldObserver = new PrimitiveFieldTraceObserver();
-    protected final static NullTraceObserver nullObserver = new NullTraceObserver();
-    protected final static ArrayTraceObserver arrayObserver = new ArrayTraceObserver();
-    protected final static ArrayLengthObserver arrayLengthObserver = new ArrayLengthObserver();
-    protected final static ContainsTraceObserver containsTraceObserver = new ContainsTraceObserver();
+    protected static final PrimitiveTraceObserver primitiveObserver = new PrimitiveTraceObserver();
+    protected static final ComparisonTraceObserver comparisonObserver = new ComparisonTraceObserver();
+    protected static final SameTraceObserver sameObserver = new SameTraceObserver();
+    protected static final InspectorTraceObserver inspectorObserver = new InspectorTraceObserver();
+    protected static final PrimitiveFieldTraceObserver fieldObserver = new PrimitiveFieldTraceObserver();
+    protected static final NullTraceObserver nullObserver = new NullTraceObserver();
+    protected static final ArrayTraceObserver arrayObserver = new ArrayTraceObserver();
+    protected static final ArrayLengthObserver arrayLengthObserver = new ArrayLengthObserver();
+    protected static final ContainsTraceObserver containsTraceObserver = new ContainsTraceObserver();
 
-    protected final static Map<Mutation, Integer> timedOutMutations = new HashMap<>();
+    protected static final Map<Mutation, Integer> timedOutMutations = new HashMap<>();
 
-    protected final static Map<Mutation, Integer> exceptionMutations = new HashMap<>();
+    protected static final Map<Mutation, Integer> exceptionMutations = new HashMap<>();
 
     /**
-     * Constant <code>observerClasses</code>
+     * Constant <code>observerClasses</code>.
      */
     protected static Class<?>[] observerClasses = {PrimitiveTraceEntry.class, ComparisonTraceEntry.class,
             SameTraceEntry.class, InspectorTraceEntry.class, PrimitiveFieldTraceEntry.class, NullTraceEntry.class,
             ArrayTraceEntry.class, ArrayLengthTraceEntry.class, ContainsTraceEntry.class};
 
     /**
-     * Default constructor
+     * Default constructor.
      */
     public MutationAssertionGenerator() {
-        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutants()) {
+        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getMutants()) {
             mutants.put(m.getId(), m);
         }
         TestCaseExecutor.getInstance().newObservers();
@@ -102,8 +103,8 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Execute a test case on the original unit
+     *
+     * <p>Execute a test case on the original unit.</p>
      */
     @Override
     protected ExecutionResult runTest(TestCase test) {
@@ -111,7 +112,7 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
     }
 
     /**
-     * Execute a test case on a mutant
+     * Execute a test case on a mutant.
      *
      * @param test   The test case that should be executed
      * @param mutant The mutant on which the test case shall be executed
@@ -162,9 +163,9 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
 
     /**
      * If we are not doing mutation testing anyway, then we need to reinstrument
-     * the code to get the mutants now
+     * the code to get the mutants now.
      *
-     * @param suite
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     @Override
     public void setupClassLoader(TestSuiteChromosome suite) {
@@ -176,19 +177,20 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
             Properties.CRITERION = new Criterion[]{Criterion.MUTATION};
         }
         if (Properties.RESET_STATIC_FIELDS) {
-            final boolean reset_all_classes = Properties.RESET_ALL_CLASSES_DURING_ASSERTION_GENERATION;
-            ClassReInitializer.getInstance().setReInitializeAllClasses(reset_all_classes);
+            final boolean resetAllClasses = Properties.RESET_ALL_CLASSES_DURING_ASSERTION_GENERATION;
+            ClassReInitializer.getInstance().setReInitializeAllClasses(resetAllClasses);
         }
         changeClassLoader(suite);
-        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutants()) {
+        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getMutants()) {
             mutants.put(m.getId(), m);
         }
     }
 
     /**
-     * Set the criterion to whatever it was before
+     * Set the criterion to whatever it was before.
      *
-     * @param suite
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     protected void restoreCriterion(TestSuiteChromosome suite) {
         Properties.CRITERION = oldCriterion;
@@ -196,12 +198,13 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
 
     /**
      * We send status about the mutation score when we're done, because we know
-     * it
+     * it.
      *
-     * @param tkilled
+     * @param tkilled a {@link java.util.Set} object.
      */
     protected void calculateMutationScore(Set<Integer> tkilled) {
-        if (MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter() == 0) {
+        if (MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getMutantCounter() == 0) {
             Properties.CRITERION = oldCriterion;
             // SearchStatistics.getInstance().mutationScore(1.0);
             LoggingUtils.getEvoLogger()
@@ -209,7 +212,8 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.MutationScore, 1.0);
 
         } else {
-            double score = (double) tkilled.size() / (double) MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter();
+            double score = (double) tkilled.size() / (double) MutationPool.getInstance(
+                    TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter();
             // SearchStatistics.getInstance().mutationScore(score);
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.MutationScore, score);
             LoggingUtils.getEvoLogger().info(
@@ -218,12 +222,14 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
     }
 
     /**
-     * @param test
-     * @param mutation_traces
-     * @param executedMutants
-     * @return
+     * Returns the number of killed mutants.
+     *
+     * @param test            the test case
+     * @param mutationTraces  the mutation traces
+     * @param executedMutants the executed mutants
+     * @return the number of killed mutants
      */
-    protected int getNumKilledMutants(TestCase test, Map<Mutation, List<OutputTrace<?>>> mutation_traces,
+    protected int getNumKilledMutants(TestCase test, Map<Mutation, List<OutputTrace<?>>> mutationTraces,
                                       List<Mutation> executedMutants) {
         List<Assertion> assertions;
         Set<Integer> killed = new HashSet<>();
@@ -232,9 +238,9 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
             for (Mutation m : executedMutants) {
 
                 boolean isKilled = false;
-                if (mutation_traces.containsKey(m)) {
+                if (mutationTraces.containsKey(m)) {
                     int i = 0;
-                    for (OutputTrace<?> trace : mutation_traces.get(m)) {
+                    for (OutputTrace<?> trace : mutationTraces.get(m)) {
                         isKilled = trace.isDetectedBy(assertion);
                         if (isKilled) {
                             logger.debug("Mutation killed: " + m.getId() + " by trace " + i++);
@@ -253,16 +259,16 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
     }
 
     /**
-     * Returns true if the statement has nothing but null assertions
+     * Returns true if the statement has nothing but null assertions.
      *
-     * @param statement
-     * @return
+     * @param statement the statement
+     * @return true if the statement has nothing but null assertions
      */
     protected boolean justNullAssertion(Statement statement) {
         Set<Assertion> assertions = statement.getAssertions();
-        if (assertions.isEmpty())
+        if (assertions.isEmpty()) {
             return false;
-        else {
+        } else {
             Iterator<Assertion> iterator = assertions.iterator();
             VariableReference ret = statement.getReturnValue();
             VariableReference callee = null;
@@ -285,13 +291,14 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
     }
 
     protected boolean primitiveWithoutAssertion(Statement statement) {
-        if (!statement.getReturnValue().isPrimitive())
+        if (!statement.getReturnValue().isPrimitive()) {
             return false;
+        }
 
         Set<Assertion> assertions = statement.getAssertions();
-        if (assertions.isEmpty())
+        if (assertions.isEmpty()) {
             return true;
-        else {
+        } else {
             Iterator<Assertion> iterator = assertions.iterator();
             VariableReference ret = statement.getReturnValue();
             while (iterator.hasNext()) {
@@ -308,21 +315,23 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
     }
 
     /**
-     * Returns true if the variable var is used as callee later on in the test
+     * Returns true if the variable var is used as callee later on in the test.
      *
-     * @param test
-     * @param var
-     * @return
+     * @param test the test case
+     * @param var  the variable
+     * @return true if the variable is used as callee
      */
     protected boolean isUsedAsCallee(TestCase test, VariableReference var) {
         for (int pos = var.getStPosition() + 1; pos < test.size(); pos++) {
             Statement statement = test.getStatement(pos);
             if (statement instanceof MethodStatement) {
-                if (((MethodStatement) statement).getCallee() == var)
+                if (((MethodStatement) statement).getCallee() == var) {
                     return true;
+                }
             } else if (statement instanceof FieldStatement) {
-                if (((FieldStatement) statement).getSource() == var)
+                if (((FieldStatement) statement).getSource() == var) {
                     return true;
+                }
             }
 
         }
@@ -332,9 +341,9 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
 
     /**
      * Remove assertNonNull assertions for all cases where we have further
-     * assertions
+     * assertions.
      *
-     * @param test
+     * @param test the test case
      */
     protected void filterRedundantNonnullAssertions(TestCase test) {
         Set<Assertion> redundantAssertions = new HashSet<>();
@@ -345,8 +354,9 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
                     if (a instanceof NullAssertion) {
                         if (cs.getAssertions().size() > 0) {
                             for (Assertion a2 : cs.getAssertions()) {
-                                if (a2.getSource() == cs.getReturnValue())
+                                if (a2.getSource() == cs.getReturnValue()) {
                                     redundantAssertions.add(a);
+                                }
                             }
                         } else if (isUsedAsCallee(test, cs.getReturnValue())) {
                             redundantAssertions.add(a);
@@ -362,17 +372,19 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
     }
 
     /**
-     * Remove inspector assertions that follow method calls of the same method
+     * Remove inspector assertions that follow method calls of the same method.
      *
-     * @param statement
+     * @param statement the statement
      */
     protected void filterInspectorPrimitiveDuplication(Statement statement) {
         Set<Assertion> assertions = new HashSet<>(statement.getAssertions());
-        if (assertions.size() < 2)
+        if (assertions.size() < 2) {
             return;
+        }
 
-        if (!(statement instanceof MethodStatement))
+        if (!(statement instanceof MethodStatement)) {
             return;
+        }
 
         MethodStatement methodStatement = (MethodStatement) statement;
 

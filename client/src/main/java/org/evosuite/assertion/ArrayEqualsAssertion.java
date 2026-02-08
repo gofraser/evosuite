@@ -28,6 +28,8 @@ import java.lang.reflect.Array;
 import java.util.Arrays;
 
 /**
+ * ArrayEqualsAssertion class.
+ *
  * @author Gordon Fraser
  */
 public class ArrayEqualsAssertion extends Assertion {
@@ -69,10 +71,11 @@ public class ArrayEqualsAssertion extends Assertion {
     @Override
     public boolean evaluate(Scope scope) {
         try {
-            if (source.getObject(scope) == null)
+            if (source.getObject(scope) == null) {
                 return value == null;
-            else
+            } else {
                 return Arrays.equals(getArray(source.getObject(scope)), (Object[]) value);
+            }
         } catch (CodeUnderTestException e) {
             throw new UnsupportedOperationException();
         }
@@ -80,21 +83,28 @@ public class ArrayEqualsAssertion extends Assertion {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         Assertion other = (Assertion) obj;
         if (source == null) {
-            if (other.source != null)
+            if (other.source != null) {
                 return false;
-        } else if (!source.equals(other.source))
+            }
+        } else if (!source.equals(other.source)) {
             return false;
+        }
         if (value == null) {
             return other.value == null;
-        } else return Arrays.equals((Object[]) value, (Object[]) other.value);
+        } else {
+            return Arrays.equals((Object[]) value, (Object[]) other.value);
+        }
     }
 
     /**

@@ -68,7 +68,7 @@ public abstract class Assertion implements Serializable {
     protected transient Set<Mutation> killedMutants = new LinkedHashSet<>();
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(Assertion.class);
 
@@ -101,15 +101,19 @@ public abstract class Assertion implements Serializable {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         Assertion other = (Assertion) obj;
-        if (!Objects.equals(source, other.source))
+        if (!Objects.equals(source, other.source)) {
             return false;
+        }
         return Objects.equals(value, other.value);
     }
 
@@ -122,7 +126,7 @@ public abstract class Assertion implements Serializable {
     }
 
     /**
-     * Setter for statement to which assertion is added
+     * Setter for statement to which assertion is added.
      *
      * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
      */
@@ -131,7 +135,7 @@ public abstract class Assertion implements Serializable {
     }
 
     /**
-     * Getter for statement to which assertion is added
+     * Getter for statement to which assertion is added.
      *
      * @return a {@link org.evosuite.testcase.statements.Statement} object.
      */
@@ -140,7 +144,7 @@ public abstract class Assertion implements Serializable {
     }
 
     /**
-     * Getter for source variable
+     * Getter for source variable.
      *
      * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
@@ -153,7 +157,7 @@ public abstract class Assertion implements Serializable {
     }
 
     /**
-     * Getter for value object
+     * Getter for value object.
      *
      * @return a {@link java.lang.Object} object.
      */
@@ -174,8 +178,8 @@ public abstract class Assertion implements Serializable {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Return a copy of the assertion
+     *
+     * <p>Return a copy of the assertion.</p>
      */
     @Override
     public final Assertion clone() {
@@ -183,7 +187,7 @@ public abstract class Assertion implements Serializable {
     }
 
     /**
-     * Return a copy of the assertion, which is valid in newTestCase
+     * Return a copy of the assertion, which is valid in newTestCase.
      *
      * @param newTestCase a {@link org.evosuite.testcase.TestCase} object.
      * @return a {@link org.evosuite.assertion.Assertion} object.
@@ -193,7 +197,7 @@ public abstract class Assertion implements Serializable {
     }
 
     /**
-     * Return a copy of the assertion, which is valid in newTestCase
+     * Return a copy of the assertion, which is valid in newTestCase.
      *
      * @param newTestCase a {@link org.evosuite.testcase.TestCase} object.
      * @param offset      a int.
@@ -210,7 +214,7 @@ public abstract class Assertion implements Serializable {
     public abstract boolean evaluate(Scope scope);
 
     /**
-     * Return all the variables that are part of this assertion
+     * Return all the variables that are part of this assertion.
      *
      * @return a {@link java.util.Set} object.
      */
@@ -221,7 +225,7 @@ public abstract class Assertion implements Serializable {
     }
 
     /**
-     * Self-check
+     * Self-check.
      *
      * @return a boolean.
      */
@@ -244,10 +248,11 @@ public abstract class Assertion implements Serializable {
                 try {
                     Class<?> enumClass = loader.loadClass(value.getClass().getName());
                     constants = enumClass.getEnumConstants();
-                    if (constants.length > 0)
+                    if (constants.length > 0) {
                         value = constants[pos];
-                    else
+                    } else {
                         logger.warn("Error changing classloader for enum constant " + value);
+                    }
                 } catch (ClassNotFoundException e) {
                     logger.warn("Error changing classloader for enum constant " + value);
                 }

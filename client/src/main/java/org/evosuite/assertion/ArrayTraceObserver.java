@@ -30,6 +30,8 @@ import org.evosuite.testcase.variable.VariableReference;
 import java.lang.reflect.Array;
 
 /**
+ * ArrayTraceObserver class.
+ *
  * @author Gordon Fraser
  */
 public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> {
@@ -41,12 +43,14 @@ public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> 
     public synchronized void afterStatement(Statement statement, Scope scope,
                                             Throwable exception) {
         // By default, no assertions are created for statements that threw exceptions
-        if (exception != null)
+        if (exception != null) {
             return;
+        }
 
         // No assertions are created for mock statements
-        if (statement instanceof FunctionalMockStatement)
+        if (statement instanceof FunctionalMockStatement) {
             return;
+        }
 
         visitReturnValue(statement, scope);
         visitDependencies(statement, scope);
@@ -62,7 +66,8 @@ public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> 
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
      */
 
     /**
@@ -73,41 +78,50 @@ public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> 
         logger.debug("Checking array " + var);
         try {
             // Need only legal values
-            if (var == null)
+            if (var == null) {
                 return;
+            }
 
             // We don't need assertions on constant values
-            if (statement instanceof PrimitiveStatement<?>)
+            if (statement instanceof PrimitiveStatement<?>) {
                 return;
+            }
 
             // We don't need assertions on array assignments
-            if (statement instanceof AssignmentStatement)
+            if (statement instanceof AssignmentStatement) {
                 return;
+            }
 
             // We don't need assertions on array declarations
-            if (statement instanceof ArrayStatement)
+            if (statement instanceof ArrayStatement) {
                 return;
+            }
 
             Object object = var.getObject(scope);
 
             // We don't need to compare to null
-            if (object == null)
+            if (object == null) {
                 return;
+            }
 
             // We are only interested in arrays
-            if (!object.getClass().isArray())
+            if (!object.getClass().isArray()) {
                 return;
+            }
 
             // We are only interested in primitive arrays
-            if (!object.getClass().getComponentType().isPrimitive())
+            if (!object.getClass().getComponentType().isPrimitive()) {
                 return;
+            }
 
-            if (var.getComponentClass() == null)
+            if (var.getComponentClass() == null) {
                 return;
+            }
 
             // Don't include very long arrays in assertions, as code may fail to compile
-            if (Array.getLength(object) > Properties.MAX_ARRAY)
+            if (Array.getLength(object) > Properties.MAX_ARRAY) {
                 return;
+            }
 
             logger.debug("Observed value " + object + " for statement "
                     + statement.getCode());

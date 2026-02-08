@@ -66,10 +66,11 @@ public class SameAssertion extends Assertion {
      */
     @Override
     public String getCode() {
-        if ((Boolean) value)
+        if ((Boolean) value) {
             return "assertSame(" + source.getName() + ", " + dest.getName() + ");";
-        else
+        } else {
             return "assertNotSame(" + source.getName() + ", " + dest.getName() + ");";
+        }
     }
 
     /* (non-Javadoc)
@@ -101,15 +102,17 @@ public class SameAssertion extends Assertion {
     public boolean evaluate(Scope scope) {
         try {
             if ((Boolean) value) {
-                if (source.getObject(scope) == null)
+                if (source.getObject(scope) == null) {
                     return dest.getObject(scope) == null;
-                else
+                } else {
                     return source.getObject(scope) == dest.getObject(scope);
+                }
             } else {
-                if (source.getObject(scope) == null)
+                if (source.getObject(scope) == null) {
                     return dest.getObject(scope) != null;
-                else
+                } else {
                     return source.getObject(scope) != dest.getObject(scope);
+                }
             }
         } catch (CodeUnderTestException e) {
             throw new UnsupportedOperationException();
@@ -140,16 +143,21 @@ public class SameAssertion extends Assertion {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (!super.equals(obj))
+        }
+        if (!super.equals(obj)) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         SameAssertion other = (SameAssertion) obj;
         if (dest == null) {
             return other.dest == null;
-        } else return dest.equals(other.dest);
+        } else {
+            return dest.equals(other.dest);
+        }
     }
 
     /*

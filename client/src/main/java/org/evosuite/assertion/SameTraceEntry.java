@@ -35,7 +35,7 @@ import java.util.Set;
  */
 public class SameTraceEntry implements OutputTraceEntry {
 
-    private final static Logger logger = LoggerFactory.getLogger(SameTraceEntry.class);
+    private static final Logger logger = LoggerFactory.getLogger(SameTraceEntry.class);
     private final VariableReference var;
     private final Map<VariableReference, Boolean> equalityMap = new HashMap<>();
     private final Map<Integer, VariableReference> equalityMapIntVar = new HashMap<>();
@@ -50,7 +50,7 @@ public class SameTraceEntry implements OutputTraceEntry {
     }
 
     /**
-     * <p>addEntry</p>
+     * <p>addEntry.</p>
      *
      * @param other a {@link org.evosuite.testcase.variable.VariableReference} object.
      * @param value a boolean.

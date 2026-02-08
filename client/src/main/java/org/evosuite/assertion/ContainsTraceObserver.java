@@ -1,19 +1,19 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
- * <p>
+ *
  * This file is part of EvoSuite.
- * <p>
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation, either version 3.0 of the License, or
  * (at your option) any later version.
- * <p>
+ *
  * EvoSuite is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -37,10 +37,6 @@ import java.util.Set;
 
 public class ContainsTraceObserver extends AssertionTraceObserver<ContainsTraceEntry> {
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -48,24 +44,29 @@ public class ContainsTraceObserver extends AssertionTraceObserver<ContainsTraceE
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         try {
             Object object = var.getObject(scope);
-            if (object == null)
+            if (object == null) {
                 return;
+            }
 
-            if (statement instanceof AssignmentStatement)
+            if (statement instanceof AssignmentStatement) {
                 return;
-            if (statement instanceof PrimitiveStatement<?>)
+            }
+            if (statement instanceof PrimitiveStatement<?>) {
                 return;
+            }
 
             // Only relevant for Collections
-            if (!(object instanceof Collection))
+            if (!(object instanceof Collection)) {
                 return;
+            }
 
             Collection<?> collectionObject = (Collection<?>) object;
 
             List<GenericClass<?>> parameterClasses = var.getGenericClass().getParameterClasses();
             // Need to know exact type
-            if (parameterClasses.size() != 1)
+            if (parameterClasses.size() != 1) {
                 return;
+            }
 
             java.lang.reflect.Type parameterType = parameterClasses.get(0).getType();
 
@@ -84,23 +85,28 @@ public class ContainsTraceObserver extends AssertionTraceObserver<ContainsTraceE
 
             for (VariableReference other : otherVariables) {
                 Object otherObject;
-                if (other instanceof ConstantValue)
+                if (other instanceof ConstantValue) {
                     otherObject = ((ConstantValue) other).getValue();
-                else
+                } else {
                     otherObject = other.getObject(scope);
+                }
 
-                if (otherObject == null)
+                if (otherObject == null) {
                     continue; // TODO: Don't do this?
+                }
 
                 int otherPos = other.getStPosition();
-                if (otherPos > position)
+                if (otherPos > position) {
                     continue; // Don't compare with variables that are not defined - may happen with primitives?
+                }
 
                 Statement otherStatement = currentTest.getStatement(otherPos);
 
                 if (otherStatement instanceof MethodStatement) {
-                    if (((MethodStatement) otherStatement).getMethodName().equals("hashCode"))
-                        continue; // No comparison against hashCode, as the hashCode return value will not be in the test
+                    if (((MethodStatement) otherStatement).getMethodName().equals("hashCode")) {
+                        // No comparison against hashCode, as the hashCode return value will not be in the test
+                        continue;
+                    }
                 }
 
                 try {

@@ -41,7 +41,7 @@ import java.util.Map.Entry;
 
 public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator {
 
-    private final static Logger logger = LoggerFactory.getLogger(SimpleMutationAssertionGenerator.class);
+    private static final Logger logger = LoggerFactory.getLogger(SimpleMutationAssertionGenerator.class);
 
 
     @Override
@@ -70,7 +70,8 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
             // If at 50% of the time we have only done X% of the tests, then don't minimise
             if (!timeIsShort && TimeController.getInstance().getPhasePercentage() > Properties.ASSERTION_MINIMIZATION_FALLBACK_TIME) {
                 if (numTest < Properties.ASSERTION_MINIMIZATION_FALLBACK * suite.size()) {
-                    logger.warn("Assertion minimization is taking too long ({}% of time used, but only {}/{} tests minimized), falling back to using all assertions", TimeController.getInstance().getPhasePercentage(), numTest, suite.size());
+                    logger.warn("Assertion minimization is taking too long ({}% of time used, but only {}/{} tests minimized), falling back to using all assertions",
+                            TimeController.getInstance().getPhasePercentage(), numTest, suite.size());
                     timeIsShort = true;
                 }
             }
@@ -96,7 +97,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
 
 
     /**
-     * Generate assertions to kill all the mutants defined in the pool
+     * Generate assertions to kill all the mutants defined in the pool.
      *
      * @param test   a {@link org.evosuite.testcase.TestCase} object.
      * @param killed a {@link java.util.Set} object.
@@ -107,7 +108,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
     }
 
     /**
-     * Add assertions to current test set for given set of mutants
+     * Add assertions to current test set for given set of mutants.
      *
      * @param test    a {@link org.evosuite.testcase.TestCase} object.
      * @param killed  a {@link java.util.Set} object.
@@ -116,8 +117,9 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
     private void addAssertions(TestCase test, Set<Integer> killed,
                                Map<Integer, Mutation> mutants) {
 
-        if (test.isEmpty())
+        if (test.isEmpty()) {
             return;
+        }
 
         logger.debug("Generating assertions");
 
@@ -138,8 +140,9 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
             if (!mutants.containsKey(mutationId)) {
                 //logger.warn("Mutation ID unknown: " + mutationId);
                 //logger.warn(mutants.keySet().toString());
-            } else
+            } else {
                 executedMutants.add(mutants.get(mutationId));
+            }
         }
 
         Randomness.shuffle(executedMutants);
@@ -174,15 +177,16 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                 }
             }
             if (Properties.MAX_MUTANTS_PER_TEST > 0
-                    && numExecutedMutants > Properties.MAX_MUTANTS_PER_TEST)
+                    && numExecutedMutants > Properties.MAX_MUTANTS_PER_TEST) {
                 break;
+            }
 
-			/*
-			if (killed.contains(m.getId())) {
-				logger.info("Skipping dead mutant");
-				continue;
-			}
-			*/
+            /*
+            if (killed.contains(m.getId())) {
+                logger.info("Skipping dead mutant");
+                continue;
+            }
+            */
 
             logger.debug("Running test on mutation {}", m.toString());
             ExecutionResult mutantResult = runTest(test, m);
@@ -190,8 +194,9 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
             int numKilled = 0;
             for (Class<?> observerClass : observerClasses) {
                 if (mutantResult.getTrace(observerClass) == null
-                        || origResult.getTrace(observerClass) == null)
+                        || origResult.getTrace(observerClass) == null) {
                     continue;
+                }
                 numKilled += origResult.getTrace(observerClass).getAssertions(test,
                         mutantResult.getTrace(observerClass));
             }
@@ -295,11 +300,13 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                 logger.debug("Last statement: "
                         + test.getStatement(test.size() - 1).getCode());
             }
-            if (origResult.isThereAnExceptionAtPosition(test.size() - 1))
+            if (origResult.isThereAnExceptionAtPosition(test.size() - 1)) {
                 logger.debug("Exception on last statement!");
+            }
 
-            if (justNullAssertion(test.getStatement(test.size() - 1)))
+            if (justNullAssertion(test.getStatement(test.size() - 1))) {
                 logger.debug("Just null assertions on last statement: " + test.toCode());
+            }
 
             boolean haveAssertion = false;
             for (Assertion assertion : assertions) {
@@ -316,8 +323,9 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                 logger.info("Could not find a primitive assertion, continuing search");
 
                 for (Assertion assertion : assertions) {
-                    if (assertion instanceof NullAssertion)
+                    if (assertion instanceof NullAssertion) {
                         continue;
+                    }
 
                     if (assertion.getStatement().equals(test.getStatement(test.size() - 1))) {
                         logger.info("Adding an assertion: " + assertion);
@@ -370,8 +378,9 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
 
                             test.getStatement(test.size() - 1).addAssertion(ass);
                             logger.debug("Adding assertion " + ass.getCode());
-                            if (++numAssertions >= maxAssertions)
+                            if (++numAssertions >= maxAssertions) {
                                 break;
+                            }
                         } else {
                             logger.debug("Assertion does not contain target: "
                                     + ass.getCode());
@@ -383,8 +392,9 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
 
                                 test.getStatement(test.size() - 1).addAssertion(ass);
                                 logger.debug("Adding assertion " + ass.getCode());
-                                if (++numAssertions >= maxAssertions)
+                                if (++numAssertions >= maxAssertions) {
                                     break;
+                                }
                             } else {
                                 logger.debug("Assertion does not contain target: "
                                         + ass.getCode());
@@ -403,8 +413,9 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                         if (!vars.isEmpty()) {
 
                             test.getStatement(test.size() - 1).addAssertion(ass);
-                            if (++numAssertions >= maxAssertions)
+                            if (++numAssertions >= maxAssertions) {
                                 break;
+                            }
                         }
                     }
 
@@ -427,7 +438,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
 
     /**
      * Return a minimal subset of the assertions that covers all killable
-     * mutants
+     * mutants.
      *
      * @param test       The test case that should be executed
      * @param mutants    The list of mutants of the unit
@@ -440,17 +451,17 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
 
         class Pair implements Comparable<Object> {
             final Integer assertion;
-            final Integer num_killed;
+            final Integer numKilled;
 
             public Pair(int a, int k) {
                 assertion = a;
-                num_killed = k;
+                numKilled = k;
             }
 
             @Override
             public int compareTo(Object o) {
                 Pair other = (Pair) o;
-                if (num_killed.equals(other.num_killed)) {
+                if (numKilled.equals(other.numKilled)) {
                     Assertion first = assertions.get(assertion);
                     Assertion second = assertions.get(other.assertion);
                     if (first instanceof PrimitiveAssertion) {
@@ -460,18 +471,17 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                     } else {
                         return assertion.compareTo(other.assertion);
                     }
+                } else {
+                    return numKilled.compareTo(other.numKilled);
                 }
-                // return assertion.compareTo(other.assertion);
-                //				return other.assertion.compareTo(assertion);
-                else
-                    return num_killed.compareTo(other.num_killed);
             }
         }
-        Set<Integer> to_kill = new HashSet<>();
+
+        Set<Integer> toKill = new HashSet<>();
         for (Entry<Integer, Set<Integer>> entry : killMap.entrySet()) {
-            to_kill.addAll(entry.getValue());
+            toKill.addAll(entry.getValue());
         }
-        logger.debug("Need to kill mutants: " + to_kill.size());
+        logger.debug("Need to kill mutants: " + toKill.size());
 
         Set<Integer> killed = new HashSet<>();
         Set<Assertion> result = new HashSet<>();
@@ -483,23 +493,24 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
             for (Entry<Integer, Set<Integer>> entry : killMap.entrySet()) {
                 int num = 0;
                 for (Integer m : entry.getValue()) {
-                    if (!killed.contains(m))
+                    if (!killed.contains(m)) {
                         num++;
+                    }
                 }
                 if (num > 0) {
                     a.add(new Pair(entry.getKey(), num));
                 }
             }
-            if (a.isEmpty())
+            if (a.isEmpty()) {
                 done = true;
-            else {
+            } else {
                 Pair best = Collections.max(a);
                 // logger.info("Chosen "+best.assertion);
                 result.add(assertions.get(best.assertion));
                 for (Integer m : killMap.get(best.assertion)) {
                     // logger.info("Killed "+m);
                     killed.add(m);
-                    to_kill.remove(m);
+                    toKill.remove(m);
                 }
             }
         }
