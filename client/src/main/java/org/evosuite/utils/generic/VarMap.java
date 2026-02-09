@@ -36,7 +36,7 @@ public class VarMap {
     private final Map<TypeVariable<?>, Type> map = new LinkedHashMap<>();
 
     /**
-     * Creates an empty VarMap
+     * Creates an empty VarMap.
      */
     public VarMap() {
     }
@@ -72,24 +72,24 @@ public class VarMap {
         } else if (type instanceof TypeVariable) {
             // TypeVariables may also come from generic methods!
             // assert map.containsKey(type);
-            if (map.containsKey(type))
+            if (map.containsKey(type)) {
                 return map.get(type);
-            else {
+            } else {
                 //FIXME: (wrong) tmp workaround, as WildcardTypeImpl does crash EvoSuite
                 //return Object.class;
                 // TODO: Bounds should be mapped, but might be recursive so we just use unbounded for now
                 return new WildcardTypeImpl(new Type[]{Object.class}, new Type[]{});
             }
         } else if (type instanceof ParameterizedType) {
-            ParameterizedType pType = (ParameterizedType) type;
-            return new ParameterizedTypeImpl((Class<?>) pType.getRawType(),
-                    map(pType.getActualTypeArguments()),
-                    pType.getOwnerType() == null ? pType.getOwnerType()
-                            : map(pType.getOwnerType()));
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            return new ParameterizedTypeImpl((Class<?>) parameterizedType.getRawType(),
+                    map(parameterizedType.getActualTypeArguments()),
+                    parameterizedType.getOwnerType() == null ? parameterizedType.getOwnerType()
+                            : map(parameterizedType.getOwnerType()));
         } else if (type instanceof WildcardType) {
-            WildcardType wType = (WildcardType) type;
-            return new WildcardTypeImpl(map(wType.getUpperBounds()),
-                    map(wType.getLowerBounds()));
+            WildcardType wildcardType = (WildcardType) type;
+            return new WildcardTypeImpl(map(wildcardType.getUpperBounds()),
+                    map(wildcardType.getLowerBounds()));
         } else if (type instanceof GenericArrayType) {
             return GenericArrayTypeImpl.createArrayType(map(((GenericArrayType) type).getGenericComponentType()));
         } else {

@@ -28,6 +28,8 @@ import java.util.Queue;
 import java.util.Set;
 
 /**
+ * Default implementation of RandomAccessQueue.
+ *
  * @author Gordon Fraser
  */
 public class DefaultRandomAccessQueue<T> implements RandomAccessQueue<T> {

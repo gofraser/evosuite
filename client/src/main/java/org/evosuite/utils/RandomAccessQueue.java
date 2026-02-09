@@ -21,6 +21,8 @@
 package org.evosuite.utils;
 
 /**
+ * Random access queue interface.
+ *
  * @author Gordon Fraser
  */
 public interface RandomAccessQueue<T> {

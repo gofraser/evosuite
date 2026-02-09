@@ -27,7 +27,6 @@ import ch.qos.logback.core.joran.spi.JoranException;
 import ch.qos.logback.core.util.StatusPrinter;
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
-import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.runtime.util.Inputs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +39,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * this class is used to get help on some customization of logging facility
+ * This class is used to get help on some customization of logging facility.
  *
  * @author arcuri
  */
@@ -49,11 +48,11 @@ public class LoggingUtils {
     private static final Logger logger = LoggerFactory.getLogger(LoggingUtils.class);
 
     /**
-     * Constant <code>DEFAULT_OUT</code>
+     * Constant <code>DEFAULT_OUT</code>.
      */
     public static final PrintStream DEFAULT_OUT = System.out;
     /**
-     * Constant <code>DEFAULT_ERR</code>
+     * Constant <code>DEFAULT_ERR</code>.
      */
     public static final PrintStream DEFAULT_ERR = System.err;
 
@@ -62,20 +61,20 @@ public class LoggingUtils {
     private static final String EVO_LOGGER = "evo_logger";
 
     /**
-     * Constant <code>latestOut</code>
+     * Constant <code>latestOut</code>.
      */
     protected static PrintStream latestOut = null;
     /**
-     * Constant <code>latestErr</code>
+     * Constant <code>latestErr</code>.
      */
     protected static PrintStream latestErr = null;
 
     /**
-     * Constant <code>LOG_TARGET="log.target"</code>
+     * Constant <code>LOG_TARGET="log.target"</code>.
      */
     public static final String LOG_TARGET = "log.target";
     /**
-     * Constant <code>LOG_LEVEL="log.level"</code>
+     * Constant <code>LOG_LEVEL="log.level"</code>.
      */
     public static final String LOG_LEVEL = "log.level";
 
@@ -98,7 +97,7 @@ public class LoggingUtils {
 
     /**
      * <p>
-     * getEvoLogger
+     * getEvoLogger.
      * </p>
      *
      * @return a {@link org.slf4j.Logger} object.
@@ -109,7 +108,7 @@ public class LoggingUtils {
 
     /**
      * <p>
-     * startLogServer
+     * startLogServer.
      * </p>
      *
      * @return a boolean.
@@ -136,20 +135,23 @@ public class LoggingUtils {
                                             && !isServerClosed()) {
                                         ILoggingEvent event = (ILoggingEvent) ois.readObject();
                                         /*
-                                         * We call the appender regardless of level in the master (ie, if the level was
-                                         * set in the client and we receive a log message, then we just print it).
-                                         * Note: we use
+                                         * We call the appender regardless of level in the master
+                                         * (ie, if the level was set in the client and we receive
+                                         * a log message, then we just print it). Note: we use
                                          * the local logger with same name just for formatting reasons
                                          */
-                                        ch.qos.logback.classic.Logger remoteLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(event.getLoggerName());
+                                        ch.qos.logback.classic.Logger remoteLogger =
+                                                (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(
+                                                        event.getLoggerName());
                                         remoteLogger.callAppenders(event);
                                     }
                                 } catch (java.net.SocketException se) {
                                     /*
-                                     * FIXME: this can happen if client dies or is stopped by master with "destroy" in Windows. It is not a big problem,
-                                     * but anyway how we stop clients will need to be refactored.
-                                     * It can also happen if client just crash. As we already report such info in ExternalProcessGroupHandler, we do not need to
-                                     * log it here
+                                     * FIXME: this can happen if client dies or is stopped by master
+                                     * with "destroy" in Windows. It is not a big problem, but anyway
+                                     * how we stop clients will need to be refactored. It can also
+                                     * happen if client just crash. As we already report such info
+                                     * in ExternalProcessGroupHandler, we do not need to log it here
                                      */
                                 } catch (java.io.UTFDataFormatException utfe) {
                                     //as above
@@ -180,7 +182,7 @@ public class LoggingUtils {
 
     /**
      * <p>
-     * isServerClosed
+     * isServerClosed.
      * </p>
      *
      * @return a boolean.
@@ -191,7 +193,7 @@ public class LoggingUtils {
 
     /**
      * <p>
-     * getLogServerPort
+     * getLogServerPort.
      * </p>
      *
      * @return a {@link java.lang.Integer} object.
@@ -205,7 +207,7 @@ public class LoggingUtils {
 
     /**
      * <p>
-     * closeLogServer
+     * closeLogServer.
      * </p>
      */
     public void closeLogServer() {
@@ -220,7 +222,7 @@ public class LoggingUtils {
     }
 
     /**
-     * Redirect current System.out and System.err to a buffer
+     * Redirect current System.out and System.err to a buffer.
      */
     public static void muteCurrentOutAndErrStream() {
         if (alreadyMuted) {
@@ -238,7 +240,7 @@ public class LoggingUtils {
     }
 
     /**
-     * Allow again printing to previous streams that were muted
+     * Allow again printing to previous streams that were muted.
      */
     public static void restorePreviousOutAndErrStream() {
         if (!alreadyMuted) {
@@ -250,7 +252,7 @@ public class LoggingUtils {
     }
 
     /**
-     * Allow again printing to System.out and System.err
+     * Allow again printing to System.out and System.err.
      */
     public static void restoreDefaultOutAndErrStream() {
         System.setOut(DEFAULT_OUT);
@@ -289,6 +291,8 @@ public class LoggingUtils {
     /**
      * Load the EvoSuite xml configuration file for Logback, unless a
      * non-default one is already in use. The file has to be on the classpath.
+     *
+     * @return boolean
      */
     public static boolean loadLogbackForEvoSuite() {
         LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();

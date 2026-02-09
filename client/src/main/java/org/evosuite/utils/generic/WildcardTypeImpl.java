@@ -32,9 +32,10 @@ public class WildcardTypeImpl implements WildcardType {
     private Type[] lowerBounds;
 
     public WildcardTypeImpl(Type[] upperBounds, Type[] lowerBounds) {
-        if (upperBounds.length == 0)
+        if (upperBounds.length == 0) {
             throw new IllegalArgumentException(
                     "There must be at least one upper bound. For an unbound wildcard, the upper bound must be Object");
+        }
         this.upperBounds = upperBounds;
         this.lowerBounds = lowerBounds;
     }
@@ -59,8 +60,9 @@ public class WildcardTypeImpl implements WildcardType {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof WildcardType))
+        if (!(obj instanceof WildcardType)) {
             return false;
+        }
         WildcardType other = (WildcardType) obj;
         return Arrays.equals(lowerBounds, other.getLowerBounds())
                 && Arrays.equals(upperBounds, other.getUpperBounds());
@@ -85,7 +87,8 @@ public class WildcardTypeImpl implements WildcardType {
 
     private static String stringifyTypeVariable(Type upperBound) {
         if (upperBound instanceof TypeVariable<?>) {
-            return "(" + upperBound.getTypeName() + " extends " + Arrays.toString(((TypeVariable<?>) upperBound).getBounds()) + ")";
+            return "(" + upperBound.getTypeName() + " extends "
+                    + Arrays.toString(((TypeVariable<?>) upperBound).getBounds()) + ")";
         }
 
         return GenericTypeReflector.getTypeName(upperBound);

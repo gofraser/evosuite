@@ -42,8 +42,8 @@ public class ProcessLauncher {
     private static final Logger logger = LoggerFactory.getLogger(ProcessLauncher.class);
 
     public int launchNewProcess(String parsedCommand, int timeout) throws IOException, ProcessTimeoutException {
-        int ret_code = launchNewProcess(null, parsedCommand, timeout);
-        return ret_code;
+        int retCode = launchNewProcess(null, parsedCommand, timeout);
+        return retCode;
     }
 
     private int launchNewProcess(File baseDir, String cmdString, int timeout)

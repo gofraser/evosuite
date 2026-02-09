@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -32,7 +32,7 @@ import java.util.List;
  */
 public class GenericClassUtils {
 
-    private final static Logger logger = LoggerFactory.getLogger(GenericClassUtils.class);
+    private static final Logger logger = LoggerFactory.getLogger(GenericClassUtils.class);
 
     private GenericClassUtils() {
     }
@@ -47,7 +47,9 @@ public class GenericClassUtils {
      * @return {@code true} if {@code rhsType} is assignable to {@code lhsType}
      */
     public static boolean isAssignable(Type lhsType, Type rhsType) {
-        if (rhsType == null || lhsType == null) return false;
+        if (rhsType == null || lhsType == null) {
+            return false;
+        }
 
         try {
             return TypeUtils.isAssignable(rhsType, lhsType);
@@ -61,8 +63,8 @@ public class GenericClassUtils {
     /**
      * Checks if {@code type} is a instanceof {@code java.lang.Class}. If so, this method checks if type or an
      * enclosing class has a type parameter.
-     * <p>
-     * If type is not an instance of java.lang.Class, it is assumed that no type parameter is missing.
+     *
+     * <p>If type is not an instance of java.lang.Class, it is assumed that no type parameter is missing.
      *
      * @param type The type which should be checked.
      * @return Whether at least one missing type parameter was found.
@@ -80,7 +82,8 @@ public class GenericClassUtils {
             return false;
         }
 
-        if (type instanceof ParameterizedType || type instanceof GenericArrayType || type instanceof TypeVariable || type instanceof WildcardType) { // TODO what about CaptureType?
+        if (type instanceof ParameterizedType || type instanceof GenericArrayType
+                || type instanceof TypeVariable || type instanceof WildcardType) { // TODO what about CaptureType?
             return false;
         }
 
