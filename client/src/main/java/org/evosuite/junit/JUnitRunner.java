@@ -38,9 +38,7 @@ import static org.junit.platform.engine.discovery.ClassNameFilter.includeClassNa
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPackage;
 
 /**
- * <p>
- * JUnitRunner class
- * </p>
+ * JUnitRunner class.
  *
  * @author José Campos
  */
@@ -70,36 +68,42 @@ public class JUnitRunner {
         } else if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5) {
             logger.warn("Running Junit 5 test");
 
-            LauncherDiscoveryRequest request_ = LauncherDiscoveryRequestBuilder.request()
+            LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
                     .selectors(selectPackage("com.baeldung.junit5.runfromjava"))
                     .filters(includeClassNamePatterns(".*Test"))
                     .build();
             Launcher launcher = LauncherFactory.create();
-            TestPlan testPlan = launcher.discover(request_);
+            TestPlan testPlan = launcher.discover(request);
             launcher.registerTestExecutionListeners(new JUnit5RunListener(this));
 
-            launcher.execute(request_);
+            launcher.execute(request);
         } else {
             logger.warn("Can't run junit test with test format: {}", Properties.TEST_FORMAT);
         }
     }
 
     /**
-     * @param testResult
+     * Add result.
+     *
+     * @param testResult the result to add
      */
     public void addResult(JUnitResult testResult) {
         this.testResults.add(testResult);
     }
 
     /**
-     * @return
+     * Get test results.
+     *
+     * @return list of test results
      */
     public List<JUnitResult> getTestResults() {
         return this.testResults;
     }
 
     /**
-     * @return
+     * Get JUnit class.
+     *
+     * @return the junit class
      */
     public Class<?> getJUnitClass() {
         return this.junitClass;

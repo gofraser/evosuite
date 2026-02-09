@@ -53,7 +53,7 @@ import static org.evosuite.junit.writer.TestSuiteWriterUtils.*;
 /**
  * Class used to generate all the scaffolding code that ends up in methods
  * like @After/@Before and that are used to setup the EvoSuite framework (eg
- * mocking of classes, reset of static state)
+ * mocking of classes, reset of static state).
  *
  * @author arcuri
  */
@@ -66,10 +66,12 @@ public class Scaffolding {
     private static final String THREAD_STOPPER = "threadStopper";
 
     /**
-     * Return full JUnit code for scaffolding file for the give test
+     * Return full JUnit code for scaffolding file for the give test.
      *
-     * @param testName
-     * @return
+     * @param testName name of the test
+     * @param results execution results
+     * @param wasSecurityException if a security exception occurred
+     * @return content of the scaffolding file
      */
     public static String getScaffoldingFileContent(String testName, List<ExecutionResult> results,
                                                    boolean wasSecurityException) {
@@ -135,11 +137,11 @@ public class Scaffolding {
     }
 
     /**
-     * Return all classes for which we need an import statement
+     * Return all classes for which we need an import statement.
      *
-     * @param wasSecurityException
-     * @param results
-     * @return
+     * @param wasSecurityException if a security exception occurred
+     * @param results execution results
+     * @return list of imports
      */
     public static List<String> getScaffoldingImports(boolean wasSecurityException, List<ExecutionResult> results) {
         List<String> list = new ArrayList<>();
@@ -155,7 +157,8 @@ public class Scaffolding {
             list.add(adapter.afterEach().getCanonicalName());
         }
 
-        if (Properties.RESET_STATIC_FIELDS || wasSecurityException || TestSuiteWriterUtils.shouldResetProperties(results)) {
+        if (Properties.RESET_STATIC_FIELDS || wasSecurityException
+                || TestSuiteWriterUtils.shouldResetProperties(results)) {
             list.add(getAdapter().afterAll().getCanonicalName());
         }
 
@@ -180,13 +183,16 @@ public class Scaffolding {
     }
 
     /**
-     * Get the code of methods for @BeforeClass, @Before, @AfterClass and
+     * Get the code of methods for @BeforeClass, @Before, @AfterClass and.
      *
-     * @return @After.
-     * <p>
-     * In those methods, the EvoSuite framework for running the
+     * <p>In those methods, the EvoSuite framework for running the
      * generated test cases is handled (e.g., use of customized
      * SecurityManager and runtime bytecode replacement)
+     *
+     * @param name test name
+     * @param wasSecurityException if a security exception occurred
+     * @param results execution results
+     * @return @After.
      */
     public String getBeforeAndAfterMethods(String name, boolean wasSecurityException, List<ExecutionResult> results) {
 
@@ -249,8 +255,9 @@ public class Scaffolding {
      * some seconds (successive calls would be based on cached data), and so tests might
      * timeout. So here we force the mock initialization in a @BeforeClass
      *
-     * @param bd
-     * @param results
+     * @param testClassName name of the test class
+     * @param bd string builder
+     * @param results execution results
      */
     private void generateMockInitialization(String testClassName, StringBuilder bd, List<ExecutionResult> results) {
         if (!TestSuiteWriterUtils.doesUseMocks(results)) {
@@ -258,7 +265,8 @@ public class Scaffolding {
         }
 
 
-        // In order to make sure this is called *after* initializeClasses this method is now called directly from initEvoSuiteFramework
+        // In order to make sure this is called *after* initializeClasses
+        // this method is now called directly from initEvoSuiteFramework
         // bd.append(METHOD_SPACE);
         // bd.append("@BeforeClass \n");
 
@@ -271,7 +279,8 @@ public class Scaffolding {
                 if (st instanceof FunctionalMockStatement) {
                     FunctionalMockStatement fms = (FunctionalMockStatement) st;
                     String name = GenericClassFactory.get(fms.getReturnType()).getRawClass().getTypeName();
-                    mockStatements.add("mock(Class.forName(\"" + name + "\", false, " + testClassName + ".class.getClassLoader()));");
+                    mockStatements.add("mock(Class.forName(\"" + name + "\", false, "
+                            + testClassName + ".class.getClassLoader()));");
                 }
             }
         }
@@ -290,11 +299,11 @@ public class Scaffolding {
 
     private void generateNFRRule(StringBuilder bd) {
         getAdapter().addNFR(bd);
-//		bd.append(METHOD_SPACE);
-//		bd.append("@org.junit.Rule \n");
-//		bd.append(METHOD_SPACE);
-//		bd.append("public " + NonFunctionalRequirementRule.class.getName() + " nfr = new "
-//				+ NonFunctionalRequirementRule.class.getName() + "();\n\n");
+        // bd.append(METHOD_SPACE);
+        // bd.append("@org.junit.Rule \n");
+        // bd.append(METHOD_SPACE);
+        // bd.append("public " + NonFunctionalRequirementRule.class.getName() + " nfr = new "
+        // + NonFunctionalRequirementRule.class.getName() + "();\n\n");
     }
 
     private void generateResetClasses(String testClassName, StringBuilder bd) {
@@ -332,8 +341,9 @@ public class Scaffolding {
 
     /**
      * Here we need to filter out all classes that cannot/should not be loaded,
-     * like for example tmp tests generated by EvoSuite
+     * like for example tmp tests generated by EvoSuite.
      *
+     * @param allInstrumentedClasses list of all instrumented classes
      * @return a new instantiated list
      */
     private List<String> getClassesToInit(List<String> allInstrumentedClasses) {
@@ -411,8 +421,9 @@ public class Scaffolding {
 
     private void generateAfter(StringBuilder bd, boolean wasSecurityException) {
 
-        if (Properties.NO_RUNTIME_DEPENDENCY)
+        if (Properties.NO_RUNTIME_DEPENDENCY) {
             return;
+        }
 
         /*
          * Likely always at least ThreadStopper
@@ -477,8 +488,9 @@ public class Scaffolding {
 
     private void generateBefore(StringBuilder bd, boolean wasSecurityException, List<ExecutionResult> results) {
 
-        if (Properties.NO_RUNTIME_DEPENDENCY)
+        if (Properties.NO_RUNTIME_DEPENDENCY) {
             return;
+        }
 
         /*
          * Most likely, should always have at least ThreadStopper
@@ -576,7 +588,8 @@ public class Scaffolding {
 
     private void generateAfterClass(StringBuilder bd, boolean wasSecurityException, List<ExecutionResult> results) {
 
-        if (Properties.RESET_STATIC_FIELDS || wasSecurityException || TestSuiteWriterUtils.shouldResetProperties(results)) {
+        if (Properties.RESET_STATIC_FIELDS || wasSecurityException
+                || TestSuiteWriterUtils.shouldResetProperties(results)) {
             bd.append(METHOD_SPACE);
             bd.append("@").append(getAdapter().afterAll().getSimpleName()).append("\n");
             bd.append(METHOD_SPACE);
@@ -626,11 +639,12 @@ public class Scaffolding {
             Set<String> readProperties = TestSuiteWriterUtils.mergeProperties(results);
             for (String prop : readProperties) {
                 String currentValue = java.lang.System.getProperty(prop);
-                String escaped_prop = StringEscapeUtils.escapeJava(prop);
+                String escapedProp = StringEscapeUtils.escapeJava(prop);
                 if (currentValue != null) {
-                    String escaped_currentValue = StringEscapeUtils.escapeJava(currentValue);
+                    String escapedCurrentValue = StringEscapeUtils.escapeJava(currentValue);
                     bd.append(BLOCK_SPACE);
-                    bd.append("java.lang.System.setProperty(\"").append(escaped_prop).append("\", \"").append(escaped_currentValue).append("\"); \n");
+                    bd.append("java.lang.System.setProperty(\"").append(escapedProp)
+                            .append("\", \"").append(escapedCurrentValue).append("\"); \n");
                 } else {
                     /*
                      * In theory, we do not need to clear properties, as that is
@@ -671,18 +685,21 @@ public class Scaffolding {
         // \n");
 
         bd.append(BLOCK_SPACE);
-        bd.append(RuntimeSettings.class.getName()).append(".className = \"").append(Properties.TARGET_CLASS).append("\"; \n");
+        bd.append(RuntimeSettings.class.getName()).append(".className = \"")
+                .append(Properties.TARGET_CLASS).append("\"; \n");
 
         bd.append(BLOCK_SPACE);
         bd.append(GuiSupport.class.getName()).append(".initialize(); \n");
 
         if (Properties.REPLACE_CALLS) {
             bd.append(BLOCK_SPACE);
-            bd.append(RuntimeSettings.class.getName()).append(".maxNumberOfThreads = ").append(Properties.MAX_STARTED_THREADS).append("; \n");
+            bd.append(RuntimeSettings.class.getName()).append(".maxNumberOfThreads = ")
+                    .append(Properties.MAX_STARTED_THREADS).append("; \n");
         }
 
         bd.append(BLOCK_SPACE);
-        bd.append(RuntimeSettings.class.getName()).append(".maxNumberOfIterationsPerLoop = ").append(Properties.MAX_LOOP_ITERATIONS).append("; \n");
+        bd.append(RuntimeSettings.class.getName()).append(".maxNumberOfIterationsPerLoop = ");
+        bd.append(Properties.MAX_LOOP_ITERATIONS).append("; \n");
 
         if (Properties.REPLACE_SYSTEM_IN) {
             bd.append(BLOCK_SPACE);
@@ -697,7 +714,9 @@ public class Scaffolding {
         if (Properties.RESET_STATIC_FIELDS || wasSecurityException) {
             // need to setup the Sandbox mode
             bd.append(BLOCK_SPACE);
-            bd.append(RuntimeSettings.class.getName()).append(".sandboxMode = ").append(Sandbox.SandboxMode.class.getCanonicalName()).append(".").append(Properties.SANDBOX_MODE).append("; \n");
+            bd.append(RuntimeSettings.class.getName()).append(".sandboxMode = ")
+                    .append(Sandbox.SandboxMode.class.getCanonicalName()).append(".")
+                    .append(Properties.SANDBOX_MODE).append("; \n");
 
             bd.append(BLOCK_SPACE);
             bd.append(Sandbox.class.getName()).append(".initializeSecurityManagerForSUT(); \n");

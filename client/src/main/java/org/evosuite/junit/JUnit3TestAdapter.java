@@ -29,15 +29,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * <p>JUnit3TestAdapter class.</p>
+ * JUnit3TestAdapter class.
  *
  * @author fraser
  */
 public class JUnit3TestAdapter implements UnitTestAdapter {
-
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getImports()
-     */
 
     /**
      * {@inheritDoc}
@@ -47,10 +43,6 @@ public class JUnit3TestAdapter implements UnitTestAdapter {
         return "import junit.framework.TestCase;\n";
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getClassDefinition(java.lang.String)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -59,10 +51,6 @@ public class JUnit3TestAdapter implements UnitTestAdapter {
         return "public class " + testName + " extends TestCase";
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getMethodDefinition(java.lang.String)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -70,10 +58,6 @@ public class JUnit3TestAdapter implements UnitTestAdapter {
     public String getMethodDefinition(String testName) {
         return "public void " + testName + "() ";
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getSuite(java.util.List)
-     */
 
     /**
      * {@inheritDoc}
@@ -109,10 +93,6 @@ public class JUnit3TestAdapter implements UnitTestAdapter {
         return builder.toString();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getTestString(org.evosuite.testcase.TestCase, java.util.Map)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -120,10 +100,6 @@ public class JUnit3TestAdapter implements UnitTestAdapter {
     public String getTestString(int id, TestCase test, Map<Integer, Throwable> exceptions) {
         return test.toCode(exceptions);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getTestString(int, org.evosuite.testcase.TestCase, java.util.Map, org.evosuite.testcase.TestCodeVisitor)
-     */
 
     /**
      * {@inheritDoc}
@@ -167,7 +143,8 @@ public class JUnit3TestAdapter implements UnitTestAdapter {
         builder.append(TestSuiteWriterUtils.METHOD_SPACE);
         builder.append("@").append(org.junit.Rule.class.getCanonicalName()).append("\n");
         builder.append(TestSuiteWriterUtils.METHOD_SPACE);
-        builder.append("public ").append(NonFunctionalRequirementRule.class.getName()).append(" nfr = new ").append(NonFunctionalRequirementRule.class.getName()).append("();\n\n");
+        builder.append("public ").append(NonFunctionalRequirementRule.class.getName())
+                .append(" nfr = new ").append(NonFunctionalRequirementRule.class.getName()).append("();\n\n");
     }
 
 }

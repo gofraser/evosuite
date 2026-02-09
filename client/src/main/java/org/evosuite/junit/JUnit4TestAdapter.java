@@ -30,9 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * <p>
  * JUnit4TestAdapter class.
- * </p>
  *
  * @author fraser
  */
@@ -66,23 +64,21 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
     private String getJUnitTestShortName() {
         if (Properties.ECLIPSE_PLUGIN) {
             String res = "";
-            if (Properties.TARGET_CLASS.equals("EvoSuiteTest"))
+            if (Properties.TARGET_CLASS.equals("EvoSuiteTest")) {
                 res = org.evosuite.annotations.EvoSuiteTest.class.getName();
-            else
+            } else {
                 res = "EvoSuiteTest";
+            }
             res += " (checked = false)";
             return res;
         } else {
-            if (Properties.TARGET_CLASS.equals("Test"))
+            if (Properties.TARGET_CLASS.equals("Test")) {
                 return "org.junit.Test";
-            else
+            } else {
                 return "Test";
+            }
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getImports()
-     */
 
     /**
      * {@inheritDoc}
@@ -90,18 +86,16 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
     @Override
     public String getImports() {
         String imports = "";
-        if ((Properties.ECLIPSE_PLUGIN) && (!Properties.TARGET_CLASS.equals("EvoSuiteTest")))
+        if ((Properties.ECLIPSE_PLUGIN) && (!Properties.TARGET_CLASS.equals("EvoSuiteTest"))) {
             imports += "import " + org.evosuite.annotations.EvoSuiteTest.class.getName() + ";\n";
-        if (!Properties.TARGET_CLASS.equals("Test"))
+        }
+        if (!Properties.TARGET_CLASS.equals("Test")) {
             imports += "import org.junit.Test;\n";
+        }
         imports += "import static org.junit.Assert.*;\n";
 
         return imports;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getClassDefinition(java.lang.String)
-     */
 
     /**
      * {@inheritDoc}
@@ -110,10 +104,6 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
     public String getClassDefinition(String testName) {
         return "public class " + testName;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getMethodDefinition(java.lang.String)
-     */
 
     /**
      * {@inheritDoc}
@@ -128,10 +118,6 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
         builder.append("  public void " + testName + "() ");
         return builder.toString();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getSuite(java.util.List)
-     */
 
     /**
      * {@inheritDoc}
@@ -171,10 +157,6 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
         return builder.toString();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getTestString(org.evosuite.testcase.TestCase, java.util.Map)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -182,10 +164,6 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
     public String getTestString(int id, TestCase test, Map<Integer, Throwable> exceptions) {
         return test.toCode(exceptions);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.junit.UnitTestAdapter#getTestString(int, org.evosuite.testcase.TestCase, java.util.Map, org.evosuite.testcase.TestCodeVisitor)
-     */
 
     /**
      * {@inheritDoc}
@@ -204,6 +182,7 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
         builder.append(TestSuiteWriterUtils.METHOD_SPACE);
         builder.append("@").append(org.junit.Rule.class.getCanonicalName()).append("\n");
         builder.append(TestSuiteWriterUtils.METHOD_SPACE);
-        builder.append("public ").append(NonFunctionalRequirementRule.class.getName()).append(" nfr = new ").append(NonFunctionalRequirementRule.class.getName()).append("();\n\n");
+        builder.append("public ").append(NonFunctionalRequirementRule.class.getName());
+        builder.append(" nfr = new ").append(NonFunctionalRequirementRule.class.getName()).append("();\n\n");
     }
 }

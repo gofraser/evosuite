@@ -20,7 +20,7 @@
 package org.evosuite.junit.rules;
 
 /**
- * Should be used as MethodRule
+ * Should be used as MethodRule.
  */
 public class Instrumentation extends BaseRule {
 

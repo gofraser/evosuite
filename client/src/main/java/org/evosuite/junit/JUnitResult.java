@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The information from executing a JUnit test case
+ * The information from executing a JUnit test case.
  *
  * @author galeotti
  * @author José Campos
@@ -77,9 +77,11 @@ public class JUnitResult {
     }
 
     /**
-     * @param wasSuccessful
-     * @param failureCount
-     * @param runCount
+     * Constructor.
+     *
+     * @param wasSuccessful whether the test was successful
+     * @param failureCount number of failures
+     * @param runCount number of runs
      */
     public JUnitResult(boolean wasSuccessful, int failureCount, int runCount) {
         this.successful = wasSuccessful;
@@ -88,77 +90,99 @@ public class JUnitResult {
     }
 
     /**
-     * @return
+     * Getter for name.
+     *
+     * @return the name
      */
     public String getName() {
         return this.name;
     }
 
     /**
-     * @param n
+     * Setter for name.
+     *
+     * @param n the name to set
      */
     public void setName(String n) {
         this.name = n;
     }
 
     /**
-     * @return
+     * Checks if successful.
+     *
+     * @return true if successful
      */
     public boolean wasSuccessful() {
         return this.successful;
     }
 
     /**
-     * @param s
+     * Sets success status.
+     *
+     * @param s success status
      */
     public void setSuccessful(boolean s) {
         this.successful = s;
     }
 
     /**
-     * @return
+     * Getter for runtime.
+     *
+     * @return the runtime
      */
     public long getRuntime() {
         return this.runtime;
     }
 
     /**
-     * @param r
+     * Setter for runtime.
+     *
+     * @param r the runtime to set
      */
     public void setRuntime(long r) {
         this.runtime = r;
     }
 
     /**
-     * @return
+     * Getter for trace.
+     *
+     * @return the trace
      */
     public String getTrace() {
         return this.trace;
     }
 
     /**
-     * @param t
+     * Setter for trace.
+     *
+     * @param t the trace to set
      */
     public void setTrace(String t) {
         this.trace = t;
     }
 
     /**
-     * @return
+     * Getter for execution trace.
+     *
+     * @return the execution trace
      */
     public ExecutionTrace getExecutionTrace() {
         return this.executionTrace;
     }
 
     /**
-     * @param et
+     * Setter for execution trace.
+     *
+     * @param et the execution trace to set
      */
     public void setExecutionTrace(ExecutionTrace et) {
         this.executionTrace = et;
     }
 
     /**
-     * @return
+     * Getter for failure count.
+     *
+     * @return the failure count
      */
     public int getFailureCount() {
         return this.failureCount;
@@ -169,7 +193,9 @@ public class JUnitResult {
     }
 
     /**
-     * @return
+     * Getter for run count.
+     *
+     * @return the run count
      */
     public int getRunCount() {
         return runCount;
@@ -180,14 +206,18 @@ public class JUnitResult {
     }
 
     /**
-     * @return
+     * Getter for failures.
+     *
+     * @return the list of failures
      */
     public List<JUnitFailure> getFailures() {
         return junitFailures;
     }
 
     /**
-     * @param junitFailure
+     * Adds a failure.
+     *
+     * @param junitFailure the failure to add
      */
     public void addFailure(JUnitFailure junitFailure) {
         junitFailures.add(junitFailure);
@@ -213,22 +243,29 @@ public class JUnitResult {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         JUnitResult other = (JUnitResult) obj;
-        if (this.failureCount != other.failureCount)
+        if (this.failureCount != other.failureCount) {
             return false;
+        }
         if (this.junitFailures == null) {
-            if (other.junitFailures != null)
+            if (other.junitFailures != null) {
                 return false;
-        } else if (!this.junitFailures.equals(other.junitFailures))
+            }
+        } else if (!this.junitFailures.equals(other.junitFailures)) {
             return false;
-        if (this.runCount != other.runCount)
+        }
+        if (this.runCount != other.runCount) {
             return false;
+        }
         return this.successful == other.successful;
     }
 }
