@@ -438,7 +438,6 @@
                 <version>2.7</version>
             </extension>
         </extensions>
-
         <plugins>
 
             <plugin>
