@@ -21,10 +21,10 @@ package org.evosuite.coverage.branch;
 
 import org.evosuite.coverage.ControlFlowDistance;
 import org.evosuite.coverage.TestCoverageGoal;
+import org.evosuite.graphs.cdg.ControlDependenceGraph;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.ControlDependency;
 import org.evosuite.graphs.cfg.ControlFlowEdge;
-import org.evosuite.graphs.cdg.ControlDependenceGraph;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.MethodCall;
 import org.evosuite.testcase.statements.ConstructorStatement;
@@ -47,23 +47,23 @@ import java.util.Set;
  * other words methods to determine, how far a given ExecutionResult was away
  * from reaching a given instruction or evaluating a certain Branch in a certain
  * way - depending on your point of view.
- * <p>
- * The distance to a certain Branch evaluating in a certain way is calculated as
+ *
+ * <p>The distance to a certain Branch evaluating in a certain way is calculated as
  * follows:
- * <p>
- * If the given result had a Timeout, the worst possible ControlFlowDistance for
- * the method at hand is returned
- * <p>
- * Otherwise, if the given branch was null, meaning the distance to the root
+ *
+ * <p>If the given result had a Timeout, the worst possible ControlFlowDistance for
+ * the method at hand is returned.
+ *
+ * <p>Otherwise, if the given branch was null, meaning the distance to the root
  * branch of a method should be calculated, either the 0-distance is returned,
  * should the method at hand be called in the given ExecutionResult, or
- * otherwise the 1-distance is returned
- * <p>
- * Otherwise, the distance from the given ExecutionResult to evaluating the
+ * otherwise the 1-distance is returned.
+ *
+ * <p>Otherwise, the distance from the given ExecutionResult to evaluating the
  * given Branch to either jump (given value being true) or not jump (given value
  * being false) is calculated as follows:
- * <p>
- * If the given Branch was passed in the given ExecutionResult, the respective
+ *
+ * <p>If the given Branch was passed in the given ExecutionResult, the respective
  * true- or false-distance - depending on the given value- is taken as the
  * returned distance's branch distance with an approach level of 0. Otherwise
  * the minimum over all distances for evaluating one of the Branches that the
@@ -82,8 +82,8 @@ public class ControlFlowDistanceCalculator {
      * Calculates the ControlFlowDistance indicating how far away the given
      * ExecutionResult was from executing the given Branch in a certain way,
      * depending on the given value.
-     * <p>
-     * For more information look at this class's class comment
+     *
+     * <p>For more information look at this class's class comment
      *
      * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      * @param branch     a {@link org.evosuite.coverage.branch.Branch} object.
@@ -94,39 +94,48 @@ public class ControlFlowDistanceCalculator {
      */
     public static ControlFlowDistance getDistance(ExecutionResult result, Branch branch,
                                                   boolean value, String className, String methodName) {
-        if (result == null || className == null || methodName == null)
+        if (result == null || className == null || methodName == null) {
             throw new IllegalArgumentException("null given");
-        if (branch == null && !value)
+        }
+        if (branch == null && !value) {
             throw new IllegalArgumentException(
                     "expect distance for a root branch to always have value set to true");
+        }
         if (branch != null) {
             if (!branch.getMethodName().equals(methodName)
-                    || !branch.getClassName().equals(className))
+                    || !branch.getClassName().equals(className)) {
                 throw new IllegalArgumentException(
-                        "expect explicitly given information about a branch to coincide with the information given by that branch");
+                        "expect explicitly given information about a branch to coincide with the "
+                                + "information given by that branch");
+            }
         }
 
         // handle timeout in ExecutionResult
-        if (TestCoverageGoal.hasTimeout(result))
+        if (TestCoverageGoal.hasTimeout(result)) {
             return getTimeoutDistance(result, branch);
+        }
 
         // if branch is null, we will just try to call the method at hand
-        if (branch == null)
+        if (branch == null) {
             return getRootDistance(result, className, methodName);
+        }
 
         if (value) {
-            if (result.getTrace().getCoveredTrueBranches().contains(branch.getActualBranchId()))
+            if (result.getTrace().getCoveredTrueBranches().contains(branch.getActualBranchId())) {
                 return new ControlFlowDistance(0, 0.0);
+            }
         } else {
-            if (result.getTrace().getCoveredFalseBranches().contains(branch.getActualBranchId()))
+            if (result.getTrace().getCoveredFalseBranches().contains(branch.getActualBranchId())) {
                 return new ControlFlowDistance(0, 0.0);
+            }
         }
 
         ControlFlowDistance nonRootDistance = getNonRootDistance(result, branch, value);
 
-        if (nonRootDistance == null)
+        if (nonRootDistance == null) {
             throw new IllegalStateException(
                     "expect getNonRootDistance to never return null");
+        }
 
         return nonRootDistance;
     }
@@ -134,8 +143,9 @@ public class ControlFlowDistanceCalculator {
     private static ControlFlowDistance getTimeoutDistance(ExecutionResult result,
                                                           Branch branch) {
 
-        if (!TestCoverageGoal.hasTimeout(result))
+        if (!TestCoverageGoal.hasTimeout(result)) {
             throw new IllegalArgumentException("expect given result to have a timeout");
+        }
         logger.debug("Has timeout!");
         return worstPossibleDistanceForMethod(branch);
     }
@@ -157,7 +167,7 @@ public class ControlFlowDistanceCalculator {
 
     /**
      * If there is an exception in a superconstructor, then the corresponding
-     * constructor might not be included in the execution trace
+     * constructor might not be included in the execution trace.
      *
      * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      * @param className a {@link java.lang.String} object.
@@ -167,8 +177,9 @@ public class ControlFlowDistanceCalculator {
                                                    String className, String methodName) {
 
         if (result.hasTimeout() || result.hasTestException()
-                || result.noThrownExceptions())
+                || result.noThrownExceptions()) {
             return false;
+        }
 
         Integer exceptionPosition = result.getFirstPositionOfThrownException();
         if (!result.test.hasStatement(exceptionPosition)) {
@@ -205,9 +216,10 @@ public class ControlFlowDistanceCalculator {
     private static ControlFlowDistance getNonRootDistance(ExecutionResult result,
                                                           Branch branch, boolean value) {
 
-        if (branch == null)
+        if (branch == null) {
             throw new IllegalStateException(
                     "expect this method only to be called if this goal does not try to cover the root branch");
+        }
 
         String className = branch.getClassName();
         String methodName = branch.getMethodName();
@@ -237,14 +249,17 @@ public class ControlFlowDistanceCalculator {
     }
 
     private static ControlFlowDistance getNonRootDistance(ExecutionResult result,
-                                                          MethodCall call, Branch branch, boolean value, String className,
+                                                          MethodCall call, Branch branch, boolean value,
+                                                          String className,
                                                           String methodName, Set<Branch> handled) {
 
-        if (branch == null)
+        if (branch == null) {
             throw new IllegalStateException(
                     "expect getNonRootDistance() to only be called if this goal's branch is not a root branch");
-        if (call == null)
+        }
+        if (call == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         if (handled.contains(branch)) {
             return worstPossibleDistanceForMethod(branch);
@@ -261,21 +276,25 @@ public class ControlFlowDistanceCalculator {
             // branch was traced in given path
             ControlFlowDistance resultDistance = new ControlFlowDistance(0, Double.MAX_VALUE);
 
-            for (Integer branchTracePosition : branchTracePositions)
-                if (value)
+            for (Integer branchTracePosition : branchTracePositions) {
+                if (value) {
                     resultDistance.setBranchDistance(Math.min(resultDistance.getBranchDistance(),
                             trueDistances.get(branchTracePosition)));
-                else
+                } else {
                     resultDistance.setBranchDistance(Math.min(resultDistance.getBranchDistance(),
                             falseDistances.get(branchTracePosition)));
+                }
+            }
 
-            if (resultDistance.getBranchDistance() == Double.MAX_VALUE)
+            if (resultDistance.getBranchDistance() == Double.MAX_VALUE) {
                 throw new IllegalStateException("should be impossible");
+            }
 
             return resultDistance;
         }
 
-        ControlFlowDistance controlDependenceDistance = getControlDependenceDistancesFor(result,
+        ControlFlowDistance controlDependenceDistance = getControlDependenceDistancesFor(
+                result,
                 call,
                 branch.getInstruction(),
                 className,
@@ -298,15 +317,16 @@ public class ControlFlowDistanceCalculator {
                 methodName,
                 handled);
 
-        if (cdDistances == null)
+        if (cdDistances == null) {
             throw new IllegalStateException("expect cdDistances to never be null");
+        }
 
         return Collections.min(cdDistances);
     }
 
     /**
      * Returns a set containing the ControlFlowDistances in the given result for
-     * all branches the given instruction is control dependent on
+     * all branches the given instruction is control dependent on.
      *
      * @param handled a {@link java.util.Set} object.
      */
@@ -324,8 +344,9 @@ public class ControlFlowDistanceCalculator {
         Set<ControlDependency> nextToLookAt = instruction.getControlDependencies();
 
         for (ControlDependency next : nextToLookAt) {
-            if (instruction.equals(next.getBranch().getInstruction()))
+            if (instruction.equals(next.getBranch().getInstruction())) {
                 continue; // avoid loops
+            }
 
             boolean nextValue = next.getBranchExpressionValue();
             ControlFlowDistance nextDistance = getNonRootDistance(result, call,
@@ -395,8 +416,9 @@ public class ControlFlowDistanceCalculator {
      * @return true if the instruction is an entry to an exception handler, false otherwise
      */
     private static boolean isExceptionHandlerEntry(BytecodeInstruction instruction) {
-        if (instruction == null || !instruction.hasBasicBlockSet())
+        if (instruction == null || !instruction.hasBasicBlockSet()) {
             return false;
+        }
         try {
             ControlDependenceGraph cdg = instruction.getCDG();
             if (cdg == null) {
