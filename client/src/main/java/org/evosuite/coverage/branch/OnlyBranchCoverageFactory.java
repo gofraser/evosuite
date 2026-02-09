@@ -58,20 +58,24 @@ public class OnlyBranchCoverageFactory extends
         List<OnlyBranchCoverageTestFitness> goals = new ArrayList<>();
 
         // logger.info("Getting branches");
-        for (String className : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownClasses()) {
-            if (!Properties.TARGET_CLASS.equals("") && !className.equals(Properties.TARGET_CLASS)) continue;
+        for (String className : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .knownClasses()) {
+            if (!Properties.TARGET_CLASS.equals("") && !className.equals(Properties.TARGET_CLASS)) {
+                continue;
+            }
             final MethodNameMatcher matcher = new MethodNameMatcher();
 
             // Branches
-            for (String methodName : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownMethods(className)) {
+            for (String methodName : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .knownMethods(className)) {
                 if (!matcher.methodMatches(methodName)) {
                     logger.info("Method " + methodName
                             + " does not match criteria. ");
                     continue;
                 }
 
-                for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).retrieveBranchesInMethod(className,
-                        methodName)) {
+                for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                        .retrieveBranchesInMethod(className, methodName)) {
                     if (!b.isInstrumented()) {
                         goals.add(createOnlyBranchCoverageTestFitness(b, true));
                         //if (!b.isSwitchCaseBranch())
@@ -91,7 +95,7 @@ public class OnlyBranchCoverageFactory extends
      *
      * @param cd a {@link org.evosuite.graphs.cfg.ControlDependency} object.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static OnlyBranchCoverageTestFitness createOnlyBranchCoverageTestFitness(
             ControlDependency cd) {
@@ -106,7 +110,7 @@ public class OnlyBranchCoverageFactory extends
      * @param b                     a {@link org.evosuite.coverage.branch.Branch} object.
      * @param branchExpressionValue a boolean.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static OnlyBranchCoverageTestFitness createOnlyBranchCoverageTestFitness(
             Branch b, boolean branchExpressionValue) {

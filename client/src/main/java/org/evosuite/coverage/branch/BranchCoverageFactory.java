@@ -46,11 +46,12 @@ public class BranchCoverageFactory extends
 
 
     /**
-     * return coverage goals of the target class or of all the contextual branches, depending on the limitToCUT parameter
+     * return coverage goals of the target class or of all the contextual branches,
+     * depending on the limitToCUT parameter.
      *
      * @param limitToCUT whether to consider the class under test only ({@code true}) or all known
      *                   classes ({@code false})
-     * @return
+     * @return a list of {@link BranchCoverageTestFitness} objects.
      */
     private List<BranchCoverageTestFitness> computeCoverageGoals(boolean limitToCUT) {
         long start = System.currentTimeMillis();
@@ -61,10 +62,15 @@ public class BranchCoverageFactory extends
         // logger.info("Getting branches");
         for (String className : branchPool.knownClasses()) {
             //when limitToCUT== true, if not the class under test of a inner/anonymous class, continue
-            if (limitToCUT && !isCUT(className)) continue;
-            //when limitToCUT==false, consider all classes, but excludes libraries ones according the INSTRUMENT_LIBRARIES property
-            if (!limitToCUT && (!Properties.INSTRUMENT_LIBRARIES && !DependencyAnalysis.isTargetProject(className)))
+            if (limitToCUT && !isCUT(className)) {
                 continue;
+            }
+            //when limitToCUT==false, consider all classes, but excludes libraries ones
+            // according the INSTRUMENT_LIBRARIES property
+            if (!limitToCUT && (!Properties.INSTRUMENT_LIBRARIES
+                    && !DependencyAnalysis.isTargetProject(className))) {
+                continue;
+            }
             final MethodNameMatcher matcher = new MethodNameMatcher();
             // Branchless methods
             for (String method : branchPool.getBranchlessMethods(className)) {
@@ -119,7 +125,7 @@ public class BranchCoverageFactory extends
      *
      * @param cd a {@link org.evosuite.graphs.cfg.ControlDependency} object.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static BranchCoverageTestFitness createBranchCoverageTestFitness(
             ControlDependency cd) {
@@ -134,7 +140,7 @@ public class BranchCoverageFactory extends
      * @param b                     a {@link org.evosuite.coverage.branch.Branch} object.
      * @param branchExpressionValue a boolean.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static BranchCoverageTestFitness createBranchCoverageTestFitness(
             Branch b, boolean branchExpressionValue) {
@@ -151,7 +157,7 @@ public class BranchCoverageFactory extends
      * @param className a {@link java.lang.String} object.
      * @param method    a {@link java.lang.String} object.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static BranchCoverageTestFitness createRootBranchTestFitness(
             String className, String method) {
@@ -166,12 +172,13 @@ public class BranchCoverageFactory extends
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static BranchCoverageTestFitness createRootBranchTestFitness(
             BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         return createRootBranchTestFitness(instruction.getClassName(),
                 instruction.getMethodName());
