@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -35,7 +35,7 @@ import java.util.*;
 
 public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
 
-    private final static Logger logger = LoggerFactory.getLogger(NoveltySearch.class);
+    private static final Logger logger = LoggerFactory.getLogger(NoveltySearch.class);
     private static final long serialVersionUID = -1047550745990198972L;
 
     private NoveltyFunction<TestChromosome> noveltyFunction;
@@ -53,7 +53,7 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Calculate fitness for all individuals
+     * Calculate fitness for all individuals.
      */
     protected void calculateNoveltyAndSortPopulation() {
         logger.debug("Calculating novelty for " + population.size() + " individuals");
@@ -116,19 +116,21 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
                 continue;
             }
 
-            if (!isTooLong(offspring1))
+            if (!isTooLong(offspring1)) {
                 newGeneration.add(offspring1);
-            else
+            } else {
                 newGeneration.add(parent1);
+            }
 
             if (isNextPopulationFull(newGeneration)) {
                 break;
             }
 
-            if (!isTooLong(offspring2))
+            if (!isTooLong(offspring2)) {
                 newGeneration.add(offspring2);
-            else
+            } else {
                 newGeneration.add(parent2);
+            }
         }
 
         population = newGeneration;
@@ -141,8 +143,9 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
     @Override
     public void generateSolution() {
 
-        if (population.isEmpty())
+        if (population.isEmpty()) {
             initializePopulation();
+        }
 
         logger.info("Starting evolution of novelty search algorithm");
 

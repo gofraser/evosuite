@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Implementation of the Many Independent Objective (MIO) algorithm
+ * Implementation of the Many Independent Objective (MIO) algorithm.
  *
  * @author José Campos
  */
@@ -50,7 +50,7 @@ public class MIO extends AbstractMOSA {
 
     private double pr = Properties.P_RANDOM_TEST_OR_FROM_ARCHIVE;
 
-    private int n = Properties.NUMBER_OF_TESTS_PER_TARGET;
+    private int numTestsPerTarget = Properties.NUMBER_OF_TESTS_PER_TARGET;
 
     private TestChromosome solution = null;
 
@@ -118,28 +118,28 @@ public class MIO extends AbstractMOSA {
         this.calculateFitness(this.solution);
 
         double usedBudget = this.progress();
-        int previousN = this.n;
+        int previousN = this.numTestsPerTarget;
 
         if (Double.compare(usedBudget, Properties.EXPLOITATION_STARTS_AT_PERCENT) >= 0) {
             // focused search has started
             this.pr = 0.0;
-            this.n = 1;
+            this.numTestsPerTarget = 1;
         } else {
             double scale = usedBudget / Properties.EXPLOITATION_STARTS_AT_PERCENT;
             this.pr = Properties.P_RANDOM_TEST_OR_FROM_ARCHIVE
                     - (scale * Properties.P_RANDOM_TEST_OR_FROM_ARCHIVE);
-            this.n = (int) Math.ceil(
+            this.numTestsPerTarget = (int) Math.ceil(
                     Properties.NUMBER_OF_TESTS_PER_TARGET - (scale * Properties.NUMBER_OF_TESTS_PER_TARGET));
 
             logger.debug("usedBudget: " + usedBudget + " | scale: " + scale + " | Pr: " + this.pr
-                    + " | N: " + this.n);
+                    + " | N: " + this.numTestsPerTarget);
         }
 
         assert this.pr >= 0.0;
-        assert this.n >= 1;
+        assert this.numTestsPerTarget >= 1;
 
-        if (this.n != previousN) {
-            Archive.getArchiveInstance().shrinkSolutions(this.n);
+        if (this.numTestsPerTarget != previousN) {
+            Archive.getArchiveInstance().shrinkSolutions(this.numTestsPerTarget);
         }
 
         this.currentIteration++;

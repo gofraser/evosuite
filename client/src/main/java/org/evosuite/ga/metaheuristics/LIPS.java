@@ -48,9 +48,9 @@ import java.util.stream.Collectors;
 
 /**
  * Implementation of the LIPS (Linearly Independent Path based Search) described in:
- * <p>
- * [1] S. Scalabrino, G. Grano, D. Di Nucci, R. Oliveto, A. De Lucia. "Search-Based Testing of Procedural
- * Programs: Iterative Single-Target or Multi-target Approach?".
+ *
+ * <p>[1] S. Scalabrino, G. Grano, D. Di Nucci, R. Oliveto, A. De Lucia. "Search-Based Testing
+ * of Procedural Programs: Iterative Single-Target or Multi-target Approach?".
  * International Symposium on Search Based Software Engineering (SSBSE 2016)
  *
  * @author Annibale Panichella
@@ -62,62 +62,64 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
     private static final Logger logger = LoggerFactory.getLogger(LIPS.class);
 
     /**
-     * Map used to store the covered test goals (keys of the map) and the corresponding covering test cases (values of the map)
+     * Map used to store the covered test goals (keys of the map) and the corresponding covering test cases (values of the map).
      **/
     protected Map<TestFitnessFunction, TestChromosome> archive = new HashMap<>();
 
     /**
-     * Set of branches yet to be covered
+     * Set of branches yet to be covered.
      **/
     protected Set<FitnessFunction<TestChromosome>> uncoveredBranches = new HashSet<>();
 
     /**
-     * Keep track of overall suite fitness and coverage
+     * Keep track of overall suite fitness and coverage.
      */
     protected TestSuiteFitnessFunction suiteFitness;
 
     /**
-     * Worklist of branches that can be potentially considered as search targets
+     * Worklist of branches that can be potentially considered as search targets.
      */
     protected LinkedList<TestFitnessFunction> worklist = new LinkedList<>();
 
     /**
-     * List of branches that have been already considered as search targets but that are still uncovered
+     * List of branches that have been already considered as search targets but that are still uncovered.
      */
     protected LinkedList<TestFitnessFunction> alreadyAttemptedBranches = new LinkedList<>();
 
     /**
-     * Current branch used as fitness function
+     * Current branch used as fitness function.
      */
     protected TestFitnessFunction currentTarget;
 
     /**
-     * Control Flow Graph
+     * Control Flow Graph.
      */
-    protected BranchesManager CFG;
+    protected BranchesManager cfg;
 
     /**
-     * To keep track when the search started for the current target
+     * To keep track when the search started for the current target.
      */
     protected long startSearch4Branch = 0;
 
     /**
-     * To keep track when the overall search started
+     * To keep track when the overall search started.
      */
     protected long startGlobalSearch = 0;
 
     /**
-     * Budget allocated for the current target
+     * Budget allocated for the current target.
      */
     protected long budget4branch;
 
     /**
-     * Object used to keep track of the execution time needed to reach the maximum coverage
+     * Object used to keep track of the execution time needed to reach the maximum coverage.
      */
     protected BudgetConsumptionMonitor budgetMonitor;
 
     /**
-     * Constructor
+     * Constructor.
+     *
+     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public LIPS(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
@@ -137,10 +139,12 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
         // elitism has been shown to positively affect the convergence
         // speed of GAs in various optimisation problems
         population.sort(new SortByFitness<>(this.currentTarget, false));
-        if (population.size() >= 1)
+        if (population.size() >= 1) {
             newGeneration.add(population.get(0).clone());
-        if (population.size() >= 2)
+        }
+        if (population.size() >= 2) {
             newGeneration.add(population.get(1).clone());
+        }
 
         // new_generation.size() < population_size
         while (newGeneration.size() < Properties.POPULATION) {
@@ -193,7 +197,8 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
     public void generateSolution() {
         logger.info("executing generateSolution function");
 
-        CFG = new BranchesManager(fitnessFunctions.stream().map(ff -> (TestFitnessFunction) ff).collect(Collectors.toList()));
+        cfg = new BranchesManager(fitnessFunctions.stream().map(ff -> (TestFitnessFunction) ff)
+                .collect(Collectors.toList()));
 
         // generate the initial test t0
         // and update the worklist
@@ -212,10 +217,12 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
             // if the current target is covered
             // the last branch added to the worklist is removed and used as new target of the search algorithm
             if (this.archive.containsKey(currentTarget)) {
-                if (worklist.size() > 0)
+                if (worklist.size() > 0) {
                     this.currentTarget = worklist.removeLast();
+                }
                 startSearch4Branch = System.currentTimeMillis();
-            } else if (Math.abs(System.currentTimeMillis() - startSearch4Branch) >= this.budget4branch) {
+            } else if (Math.abs(System.currentTimeMillis() - startSearch4Branch)
+                    >= this.budget4branch) {
                 alreadyAttemptedBranches.add(this.currentTarget);
                 if (worklist.isEmpty()) {
                     // if the worklist is empty, we re-attempt the yet
@@ -238,7 +245,8 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
         }
 
         // storing the time needed to reach the maximum coverage
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Time2MaxCoverage, this.budgetMonitor.getTime2MaxCoverage());
+        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Time2MaxCoverage,
+                this.budgetMonitor.getTime2MaxCoverage());
         notifySearchFinished();
     }
 
@@ -258,15 +266,16 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
             double value = this.currentTarget.getFitness(test);
 
             if (value == 0.0) {
-                // If the search algorithm is able to find a test case that covers the target, a new test case,  "ti"
-                // is added to the test suite and all the uncovered branches of decision nodes on the path covered by  "ti"
-                // are added to the worklist
+                // If the search algorithm is able to find a test case that covers the target, a new
+                // test case, "ti" is added to the test suite and all the uncovered branches of
+                // decision nodes on the path covered by "ti" are added to the worklist
                 updateArchive(test, currentTarget);
                 updateWorkList(test);
             }
 
-            // Sometimes, a test case can cover some branches that are already in the worklist (collateral coverage).
-            // These branches are removed from the worklist and marked as “covered”.
+            // Sometimes, a test case can cover some branches that are already in the worklist
+            // (collateral coverage). These branches are removed from the worklist and marked as
+            // “covered”.
             computeCollateralCoverage(test);
 
             // update the time needed to reach the max coverage
@@ -275,7 +284,7 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Initialization of the search process for LIPS
+     * Initialization of the search process for LIPS.
      */
     protected void searchInitialization() {
         logger.info("generating first test t0");
@@ -283,7 +292,7 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
 
         // keep track of covered goals
         uncoveredBranches.addAll(fitnessFunctions);
-        worklist.addAll(CFG.getGraph().getRootBranches());
+        worklist.addAll(cfg.getGraph().getRootBranches());
 
         // The first step is to randomly generate the first test case t0
         TestChromosome t0 = this.chromosomeFactory.getChromosome();
@@ -299,13 +308,14 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * This method executes a given test case (i.e., TestChromosome)
+     * This method executes a given test case (i.e., TestChromosome).
      *
      * @param c test case (TestChromosome) to execute
      */
     protected void runTest(TestChromosome c) {
-        if (!c.isChanged())
+        if (!c.isChanged()) {
             return;
+        }
 
         // run the test
         TestCase test = c.getTestCase();
@@ -319,7 +329,7 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
 
     /**
      * "Sometimes, a test case can cover some branches that are already in the worklist (collateral
-     * coverage). These branches are removed from the worklist and marked as 'covered'"
+     * coverage). These branches are removed from the worklist and marked as 'covered'".
      *
      * @param c test case (TestChromosome) to be analysed for collateral coverage
      */
@@ -327,8 +337,9 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
 
         for (TestFitnessFunction branch : worklist) {
             double value = branch.getFitness(c);
-            if (value == 0.0)
+            if (value == 0.0) {
                 updateArchive(c, branch);
+            }
         }
         this.worklist.removeAll(this.archive.keySet());
         this.alreadyAttemptedBranches.removeAll(this.archive.keySet());
@@ -346,23 +357,25 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
 
         for (FitnessFunction<TestChromosome> branch : fitnessFunctions) {
             double value = branch.getFitness(c);
-            if (value == 0)
+            if (value == 0) {
                 coveredBranches.add((TestFitnessFunction) branch);
+            }
         }
 
         // all the uncovered branches of decision nodes on the path covered by a test ti
         // are added to the worklist
         for (TestFitnessFunction branch : coveredBranches) {
             updateArchive(c, branch);
-            for (TestFitnessFunction dependent : CFG.getGraph().getStructuralChildren(branch)) {
-                if (this.uncoveredBranches.contains(dependent) && !worklist.contains(dependent))
+            for (TestFitnessFunction dependent : cfg.getGraph().getStructuralChildren(branch)) {
+                if (this.uncoveredBranches.contains(dependent) && !worklist.contains(dependent)) {
                     worklist.addFirst(dependent);
+                }
             }
         }
     }
 
     /**
-     * Store the test cases that are optimal for the test goal in the archive
+     * Store the test cases that are optimal for the test goal in the archive.
      *
      * @param solution covering test case
      * @param covered  covered branch
@@ -379,22 +392,23 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Notify all search listeners of fitness evaluation
+     * Notify all search listeners of fitness evaluation.
      *
      * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      */
     @Override
     protected void notifyEvaluation(TestChromosome chromosome) {
         for (SearchListener<TestChromosome> listener : listeners) {
-            if (listener instanceof ProgressMonitor)
+            if (listener instanceof ProgressMonitor) {
                 continue;
+            }
             listener.fitnessEvaluation(chromosome);
         }
     }
 
     /**
-     * This method is used by the Progress Monitor at the and of each generation to show the totol coverage reached by the algorithm.
-     * Copied from {@link MOSA} archive.
+     * This method is used by the Progress Monitor at the and of each generation to show the totol
+     * coverage reached by the algorithm. Copied from {@link MOSA} archive.
      *
      * @return "SuiteChromosome" directly consumable by the Progress Monitor.
      */
@@ -424,7 +438,7 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
 
     /**
      * At the iteration i of the test generation process, the budget for the specific target to cover is computed as
-     * SBi/ni, where  SBi is the remaining budget and  ni is the estimated number of remaining targets to be covered
+     * SBi/ni, where  SBi is the remaining budget and  ni is the estimated number of remaining targets to be covered.
      */
     protected void updateBudget4Branch() {
         long budgetLeft;
@@ -434,8 +448,9 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
             budgetLeft = Properties.GLOBAL_TIMEOUT * 1000 - (System.currentTimeMillis() - startGlobalSearch);
         }
 
-        long n_targets = this.fitnessFunctions.size() - this.archive.size() - this.alreadyAttemptedBranches.size();
-        if (n_targets > 0)
-            this.budget4branch = budgetLeft / n_targets;
+        long numTargets = this.fitnessFunctions.size() - this.archive.size() - this.alreadyAttemptedBranches.size();
+        if (numTargets > 0) {
+            this.budget4branch = budgetLeft / numTargets;
+        }
     }
 }

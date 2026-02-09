@@ -20,14 +20,14 @@
 package org.evosuite.ga.metaheuristics;
 
 /**
- * Abstract base class of all search algorithms
+ * Abstract base class of all search algorithms.
  *
  * @author Gordon Fraser
  */
 public interface SearchAlgorithm {
 
     /**
-     * Generate solution
+     * Generate solution.
      */
     void generateSolution();
 

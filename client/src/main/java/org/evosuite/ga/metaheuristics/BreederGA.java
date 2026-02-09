@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -36,10 +36,10 @@ import java.util.List;
  * H. Muëhlenbein and D. Schlierkamp-Voosen,
  * "Predictive models for the breeder genetic algorithm. contiunous parameter optimization,”
  * Evolutionary Computation, vol. 1, no. 1, pp. 25–49, 1993.
- * <p>
- * This uses standard mutation and crossover.
  *
- * @param <T>
+ * <p>This uses standard mutation and crossover.
+ *
+ * @param <T> the type of chromosome
  */
 public class BreederGA<T extends Chromosome<T>> extends StandardGA<T> {
 
@@ -47,7 +47,7 @@ public class BreederGA<T extends Chromosome<T>> extends StandardGA<T> {
     private final Logger logger = LoggerFactory.getLogger(BreederGA.class);
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
@@ -62,12 +62,14 @@ public class BreederGA<T extends Chromosome<T>> extends StandardGA<T> {
         List<T> newGeneration = new ArrayList<>(elitism());
 
         // Truncation selection
-        List<T> candidates = new ArrayList<>(population.subList(0, (int) (population.size() * Properties.TRUNCATION_RATE)));
+        List<T> candidates = new ArrayList<>(population.subList(0, (int)
+                (population.size() * Properties.TRUNCATION_RATE)));
 
         // If there are no candidates, the parameters are not set optimally,
         if (candidates.size() <= 1) {
             candidates = new ArrayList<>(population);
-            AtMostOnceLogger.warn(logger, "Not sufficient candidates for reproduction, consider increasing the population size, or the truncation rate");
+            AtMostOnceLogger.warn(logger, "Not sufficient candidates for reproduction, "
+                    + "consider increasing the population size, or the truncation rate");
         }
 
         // new_generation.size() < population_size
