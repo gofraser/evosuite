@@ -34,7 +34,7 @@ import java.util.Set;
 /**
  * Once the agent is hooked to the current JVM, each time a class is
  * loaded, its byte[] representation will be first given as input
- * to this class, which can modify/instrument it
+ * to this class, which can modify/instrument it.
  *
  * @author arcuri
  */
@@ -63,7 +63,8 @@ public class TransformerForTests implements ClassFileTransformer {
             throws IllegalClassFormatException {
 
         String classWithDots = className.replace('/', '.');
-        if (!active || !RuntimeInstrumentation.checkIfCanInstrument(classWithDots) || classWithDots.startsWith(PackageInfo.getEvoSuitePackage())) {
+        if (!active || !RuntimeInstrumentation.checkIfCanInstrument(classWithDots)
+                || classWithDots.startsWith(PackageInfo.getEvoSuitePackage())) {
             return classfileBuffer;
         } else {
             //ClassResetter.getInstance().setClassLoader(loader);
@@ -80,7 +81,8 @@ public class TransformerForTests implements ClassFileTransformer {
                 return classfileBuffer;
             }
 
-            return instrumenter.transformBytes(loader, className, reader, false); // TODO: Need to set skip instrumentation for test class
+            // TODO: Need to set skip instrumentation for test class
+            return instrumenter.transformBytes(loader, className, reader, false);
         }
     }
 
