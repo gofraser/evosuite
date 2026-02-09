@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This singleton class is used to handle calls to System.in by
- * replacing them with a smart stub
+ * replacing them with a smart stub.
  *
  * @author arcuri
  */
@@ -39,7 +39,7 @@ public class SystemInUtil extends InputStream {
 
     /**
      * Need to keep reference to original {@code System.in} for
-     * when we reset this singleton
+     * when we reset this singleton.
      */
     private static final InputStream defaultIn = System.in;
 
@@ -48,24 +48,24 @@ public class SystemInUtil extends InputStream {
     private static final SystemInUtil singleton = new SystemInUtil();
 
     /**
-     * Has System.in ever be used by the SUT?
+     * Has System.in ever be used by the SUT.
      */
     private volatile boolean beingUsed;
 
     /**
-     * The data that will be taken from System.in
+     * The data that will be taken from System.in.
      */
     private volatile List<Byte> data;
 
     /**
-     * the position in the stream
+     * The position in the stream.
      */
     private volatile AtomicInteger counter;
 
 
     /**
      * This is needed to simulate blocking calls when there is
-     * no input
+     * no input.
      */
     private static final Object monitor = new Object();
 
@@ -74,7 +74,7 @@ public class SystemInUtil extends InputStream {
     //--------------------------------
 
     /**
-     * Hidden constructor
+     * Hidden constructor.
      */
     protected SystemInUtil() {
         super();
@@ -85,7 +85,7 @@ public class SystemInUtil extends InputStream {
     }
 
     /**
-     * Reset the static state be re-instantiate the singleton
+     * Reset the static state be re-instantiate the singleton.
      */
     public static synchronized void resetSingleton() {
         singleton.beingUsed = false;
@@ -96,7 +96,7 @@ public class SystemInUtil extends InputStream {
     }
 
     /**
-     * Setup mocked/stubbed System.in for the test case
+     * Setup mocked/stubbed System.in for the test case.
      */
     public void initForTestCase() {
         data = new ArrayList<>();
@@ -167,13 +167,13 @@ public class SystemInUtil extends InputStream {
                  * in the following test case statements), let's just simulate an exception.
                  */
                 throw new IOException("Simulated exception in System.in");
-				/*
-				try {
-					monitor.wait();
-				} catch (InterruptedException e) {
-					return -1; // simulate end of stream
-				}
-				*/
+                /*
+                try {
+                    monitor.wait();
+                } catch (InterruptedException e) {
+                    return -1; // simulate end of stream
+                }
+                */
             }
 
             int i = counter.getAndIncrement();
@@ -190,9 +190,9 @@ public class SystemInUtil extends InputStream {
     }
 
     /**
-     * Has there be any call to System.in.read()?
+     * Has there be any call to System.in.read().
      *
-     * @return
+     * @return true if System.in has been read from
      */
     public boolean hasBeenUsed() {
         return beingUsed;
