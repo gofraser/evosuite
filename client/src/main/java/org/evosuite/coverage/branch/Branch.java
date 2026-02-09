@@ -26,22 +26,19 @@ import java.io.Serializable;
 /**
  * An object of this class corresponds to a Branch inside the class under test.
  *
- * <p>
- * Branches are created by the {@code CFGMethodAdapter} via the {@code BranchPool}. Each Branch
+ * <p>Branches are created by the {@code CFGMethodAdapter} via the {@code BranchPool}. Each Branch
  * holds its corresponding {@code BytecodeInstruction} from the {@code RawControlFlowGraph} and
  * is associated with a unique {@code actualBranchId}.
  *
- * <p>
- * A Branch can either come from a jump instruction, as defined in
+ * <p>A Branch can either come from a jump instruction, as defined in
  * {@code BytecodeInstruction.isBranch()} - which will be called normal branches - or it
  * can be associated with a case: of a switch statement as defined in
  * {@code BytecodeInstruction.isSwitch()} - which will be called switch case branches.
  * Only {@code BytecodeInstructions} satisfying {@code BytecodeInstruction.isActualbranch()} are
  * expected to be associated with a {@code Branch} object.
  *
- * <p>
- * For SWITCH statements each case <key>: block corresponds to a {@code Branch} that can
- * be created by constructing a {@code Branch} with the SWITCH statement and the <key>
+ * <p>For SWITCH statements each case {@code <key>}: block corresponds to a {@code Branch} that can
+ * be created by constructing a {@code Branch} with the SWITCH statement and the {@code <key>}
  * as the targetCaseValue. The default: case of switch statement can also be
  * modeled this way - it has the {@code targetCaseValue} set to {@code null}.
  *
@@ -63,7 +60,7 @@ public class Branch implements Serializable, Comparable<Branch> {
     private final BytecodeInstruction instruction;
 
     /**
-     * Keep track of branches that were introduced as part of TT
+     * Keep track of branches that were introduced as part of TT.
      */
     private boolean isInstrumented = false;
 
@@ -75,19 +72,21 @@ public class Branch implements Serializable, Comparable<Branch> {
      * @param actualBranchId    a int.
      */
     public Branch(BytecodeInstruction branchInstruction, int actualBranchId) {
-        if (!branchInstruction.isBranch())
+        if (!branchInstruction.isBranch()) {
             throw new IllegalArgumentException("only branch instructions are accepted");
+        }
 
         this.instruction = branchInstruction;
         this.actualBranchId = actualBranchId;
 
-        if (this.actualBranchId < 1)
+        if (this.actualBranchId < 1) {
             throw new IllegalStateException(
                     "expect branch to have actualBranchId set to positive value");
+        }
     }
 
     /**
-     * Constructor for switch case branches
+     * Constructor for switch case branches.
      *
      * @param switchInstruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @param targetCaseValue   a {@link java.lang.Integer} object.
@@ -95,8 +94,9 @@ public class Branch implements Serializable, Comparable<Branch> {
      */
     public Branch(BytecodeInstruction switchInstruction, Integer targetCaseValue,
                   int actualBranchId) {
-        if (!switchInstruction.isSwitch())
+        if (!switchInstruction.isSwitch()) {
             throw new IllegalArgumentException("switch instruction expected");
+        }
 
         this.instruction = switchInstruction;
         this.actualBranchId = actualBranchId;
@@ -104,15 +104,14 @@ public class Branch implements Serializable, Comparable<Branch> {
         this.targetCaseValue = targetCaseValue;
         this.isSwitch = true;
 
-        if (this.actualBranchId < 1)
+        if (this.actualBranchId < 1) {
             throw new IllegalStateException(
                     "expect branch to have actualBranchId set to positive value");
+        }
     }
 
     /**
-     * <p>
-     * Getter for the field <code>actualBranchId</code>.
-     * </p>
+     * <p>Getter for the field <code>actualBranchId</code>.</p>
      *
      * @return a int.
      */
@@ -124,7 +123,7 @@ public class Branch implements Serializable, Comparable<Branch> {
      * Tells whether this branch corresponds to the {@code default} case within a Java
      * {@code switch} statement.
      *
-     * @return {@code true} if this branch represents the {@code default} case
+     * @return {@code true} if this branch represents the {@code default} case.
      */
     public boolean isDefaultCase() {
         return isSwitch && targetCaseValue == null;
@@ -134,7 +133,7 @@ public class Branch implements Serializable, Comparable<Branch> {
      * Tells whether this branch corresponds to a statement labeled with {@code case} within a Java
      * {@code switch} statement.
      *
-     * @return {@code true} if the statement represented by this branch is labeled with {@code case}
+     * @return {@code true} if the statement represented by this branch is labeled with {@code case}.
      * @see Branch#isDefaultCase()
      */
     public boolean isActualCase() {
@@ -142,25 +141,22 @@ public class Branch implements Serializable, Comparable<Branch> {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>targetCaseValue</code>.
-     * </p>
+     * <p>Getter for the field <code>targetCaseValue</code>.</p>
      *
      * @return a {@link java.lang.Integer} object.
      */
     public Integer getTargetCaseValue() {
         // in order to avoid confusion when targetCaseValue is null
-        if (!isSwitch)
+        if (!isSwitch) {
             throw new IllegalStateException(
                     "method only allowed to be called on switch-Branches");
+        }
 
         return targetCaseValue; // null for default case
     }
 
     /**
-     * <p>
-     * Getter for the field <code>instruction</code>.
-     * </p>
+     * <p>Getter for the field <code>instruction</code>.</p>
      *
      * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
@@ -169,9 +165,7 @@ public class Branch implements Serializable, Comparable<Branch> {
     }
 
     /**
-     * <p>
-     * getClassName
-     * </p>
+     * <p>getClassName.</p>
      *
      * @return a {@link java.lang.String} object.
      */
@@ -180,9 +174,7 @@ public class Branch implements Serializable, Comparable<Branch> {
     }
 
     /**
-     * <p>
-     * getMethodName
-     * </p>
+     * <p>getMethodName.</p>
      *
      * @return a {@link java.lang.String} object.
      */
@@ -191,9 +183,7 @@ public class Branch implements Serializable, Comparable<Branch> {
     }
 
     /**
-     * <p>
-     * isSwitchCaseBranch
-     * </p>
+     * <p>isSwitchCaseBranch.</p>
      *
      * @return a boolean.
      */
@@ -221,25 +211,34 @@ public class Branch implements Serializable, Comparable<Branch> {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         Branch other = (Branch) obj;
-        if (actualBranchId != other.actualBranchId)
+        if (actualBranchId != other.actualBranchId) {
             return false;
+        }
         if (instruction == null) {
-            if (other.instruction != null)
+            if (other.instruction != null) {
                 return false;
-        } else if (!instruction.equals(other.instruction))
+            }
+        } else if (!instruction.equals(other.instruction)) {
             return false;
-        if (isSwitch != other.isSwitch)
+        }
+        if (isSwitch != other.isSwitch) {
             return false;
+        }
         if (targetCaseValue == null) {
             return other.targetCaseValue == null;
-        } else return targetCaseValue.equals(other.targetCaseValue);
+        } else {
+            return targetCaseValue.equals(other.targetCaseValue);
+        }
     }
 
     /* (non-Javadoc)
@@ -264,20 +263,20 @@ public class Branch implements Serializable, Comparable<Branch> {
         r += " " + instruction.getInstructionType();
         if (isSwitch) {
             r += " L" + instruction.getLineNumber();
-            if (targetCaseValue != null)
+            if (targetCaseValue != null) {
                 r += " Case " + targetCaseValue;
-            else
+            } else {
                 r += " Default-Case";
-        } else
+            }
+        } else {
             r += " L" + instruction.getLineNumber();
+        }
 
         return r;
     }
 
     /**
-     * <p>
-     * isInstrumented
-     * </p>
+     * <p>isInstrumented.</p>
      *
      * @return a boolean.
      */
@@ -286,9 +285,7 @@ public class Branch implements Serializable, Comparable<Branch> {
     }
 
     /**
-     * <p>
-     * setInstrumented
-     * </p>
+     * <p>setInstrumented.</p>
      *
      * @param isInstrumented a boolean.
      */
