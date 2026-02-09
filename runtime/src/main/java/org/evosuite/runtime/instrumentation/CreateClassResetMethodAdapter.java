@@ -79,6 +79,9 @@ public class CreateClassResetMethodAdapter extends MethodVisitor {
                         case Type.OBJECT:
                             mv.visitInsn(Opcodes.ACONST_NULL);
                             break;
+                        default:
+                            // Do nothing
+                            break;
                     }
                 }
                 mv.visitFieldInsn(Opcodes.PUTSTATIC, className,

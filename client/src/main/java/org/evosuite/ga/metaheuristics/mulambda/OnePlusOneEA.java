@@ -23,7 +23,7 @@ import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
 
 /**
- * (1+1)EA
+ * (1+1)EA.
  *
  * @author Gordon Fraser
  */
@@ -32,7 +32,7 @@ public class OnePlusOneEA<T extends Chromosome<T>> extends MuPlusLambdaEA<T> {
     private static final long serialVersionUID = 5229089847512798127L;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */

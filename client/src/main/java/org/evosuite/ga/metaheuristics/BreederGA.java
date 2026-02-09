@@ -62,8 +62,8 @@ public class BreederGA<T extends Chromosome<T>> extends StandardGA<T> {
         List<T> newGeneration = new ArrayList<>(elitism());
 
         // Truncation selection
-        List<T> candidates = new ArrayList<>(population.subList(0, (int)
-                (population.size() * Properties.TRUNCATION_RATE)));
+        List<T> candidates = new ArrayList<>(population.subList(0,
+                (int) (population.size() * Properties.TRUNCATION_RATE)));
 
         // If there are no candidates, the parameters are not set optimally,
         if (candidates.size() <= 1) {

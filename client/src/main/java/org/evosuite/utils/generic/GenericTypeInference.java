@@ -34,6 +34,8 @@ import java.lang.reflect.*;
 import java.util.*;
 
 /**
+ * Generic type inference visitor.
+ *
  * @author Gordon Fraser
  */
 public class GenericTypeInference extends TestVisitor {
@@ -77,14 +79,15 @@ public class GenericTypeInference extends TestVisitor {
         logger.info("Types to consider: " + typeMap.size());
         for (Type type : typeMap.keySet()) {
             logger.info("Current type: " + type);
-            if (type instanceof ParameterizedType)
+            if (type instanceof ParameterizedType) {
                 calculateExactType((ParameterizedType) type);
-            else if (type instanceof WildcardType)
+            } else if (type instanceof WildcardType) {
                 calculateExactType((WildcardType) type);
-            else if (type instanceof TypeVariable<?>)
+            } else if (type instanceof TypeVariable<?>) {
                 calculateExactType((TypeVariable<?>) type);
-            else if (type instanceof GenericArrayType)
+            } else if (type instanceof GenericArrayType) {
                 calculateExactType((GenericArrayType) type);
+            }
 
         }
     }
@@ -152,12 +155,15 @@ public class GenericTypeInference extends TestVisitor {
         } else if (type instanceof TypeVariable<?>) {
             addToMap((TypeVariable<?>) type, actualType, typeMap);
         } else if (type instanceof GenericArrayType) {
-            logger.info("Is generic array with component type " + ((GenericArrayType) type).getGenericComponentType());
+            logger.info("Is generic array with component type "
+                    + ((GenericArrayType) type).getGenericComponentType());
             logger.info("Actual type " + actualType + ", " + actualType.getClass());
             if (actualType instanceof GenericArrayType) {
-                addToMap(((GenericArrayType) type).getGenericComponentType(), ((GenericArrayType) actualType).getGenericComponentType(), typeMap);
+                addToMap(((GenericArrayType) type).getGenericComponentType(),
+                        ((GenericArrayType) actualType).getGenericComponentType(), typeMap);
             } else if (actualType instanceof Class<?> && ((Class<?>) actualType).isArray()) {
-                addToMap(((GenericArrayType) type).getGenericComponentType(), ((Class<?>) actualType).getComponentType(), typeMap);
+                addToMap(((GenericArrayType) type).getGenericComponentType(),
+                        ((Class<?>) actualType).getComponentType(), typeMap);
             }
         } else {
             logger.info("Is unexpected type: " + type + ", " + type.getClass());
@@ -228,10 +234,12 @@ public class GenericTypeInference extends TestVisitor {
             for (int pos = constructorStatement.getPosition() + 1; pos < test.size(); pos++) {
                 if (test.getStatement(pos) instanceof MethodStatement) {
                     MethodStatement ms = (MethodStatement) test.getStatement(pos);
-                    if (ms.isStatic())
+                    if (ms.isStatic()) {
                         continue;
-                    if (!ms.getCallee().equals(constructorStatement.getReturnValue()))
+                    }
+                    if (!ms.getCallee().equals(constructorStatement.getReturnValue())) {
                         continue;
+                    }
 
                     logger.info("Found relevant statement: " + ms.getCode());
                     parameterTypes = ms.getMethod().getGenericParameterTypes();
@@ -271,13 +279,16 @@ public class GenericTypeInference extends TestVisitor {
     private void updateMethodCallsOfGenericOwner(VariableReference callee) {
         for (int pos = callee.getStPosition() + 1; pos < test.size(); pos++) {
             Statement statement = test.getStatement(pos);
-            if (!(statement instanceof MethodStatement))
+            if (!(statement instanceof MethodStatement)) {
                 continue;
+            }
             MethodStatement ms = (MethodStatement) statement;
-            if (ms.isStatic())
+            if (ms.isStatic()) {
                 continue;
-            if (!ms.getCallee().equals(callee))
+            }
+            if (!ms.getCallee().equals(callee)) {
                 continue;
+            }
             GenericMethod method = ms.getMethod();
             logger.info("Updating callee of statement " + statement.getCode());
             ms.setMethod(method.copyWithNewOwner(callee.getGenericClass()));

@@ -44,23 +44,24 @@ public class NetworkHandling {
 
     /**
      * Unless otherwise specified, we simulate incoming connections all
-     * from same remote host
+     * from same remote host.
      */
     private static final String DEFAULT_REMOTE_ADDRESS = "192.168.0.99";
 
 
     /**
-     * Create a one-time listener on remote address/port
+     * Create a one-time listener on remote address/port.
      *
-     * @param remoteServer
-     * @return
+     * @param remoteServer the remote server configuration including host and port
+     * @return {@code true} if the server was successfully opened, {@code false} otherwise
      */
     public static boolean openRemoteTcpServer(EvoSuiteRemoteAddress remoteServer) {
         if (remoteServer == null) {
             return false;
         }
 
-        RemoteTcpServer server = new RemoteTcpServer(new EndPointInfo(remoteServer.getHost(), remoteServer.getPort(), VirtualNetwork.ConnectionType.TCP));
+        RemoteTcpServer server = new RemoteTcpServer(new EndPointInfo(remoteServer.getHost(),
+                remoteServer.getPort(), VirtualNetwork.ConnectionType.TCP));
         VirtualNetwork.getInstance().addRemoteTcpServer(server);
 
         return true;
@@ -68,7 +69,7 @@ public class NetworkHandling {
 
     /**
      * Open new connection toward {@code sutServer} and buffer the content of {@code data}
-     * to be later sent once {@code sutServer} is opened
+     * to be later sent once {@code sutServer} is opened.
      *
      * @param sutServer the host/port of the SUT
      * @param data      if {@code null}, just simulate opening of connection
@@ -101,36 +102,40 @@ public class NetworkHandling {
 
     /**
      * Convert {@code message} to a byte array and send it with
-     * {@link NetworkHandling#sendDataOnTcp}
+     * {@link NetworkHandling#sendDataOnTcp}.
      *
-     * @param sutServer
-     * @param message
-     * @return
+     * @param sutServer the local address of the SUT
+     * @param message   the message to send
+     * @return {@code true} if the message was buffered/sent, {@code false} otherwise
      */
     public static boolean sendMessageOnTcp(EvoSuiteLocalAddress sutServer, String message) {
         return sendDataOnTcp(sutServer, message.getBytes());
     }
 
     /**
-     * Send UDP to SUT from an ephemeral port on a default remote host
+     * Send UDP to SUT from an ephemeral port on a default remote host.
      *
-     * @param sutAddress
-     * @param data
-     * @return
+     * @param sutAddress the address of the SUT
+     * @param data       the data to send
+     * @return {@code true} if the packet was sent, {@code false} otherwise
      */
     public static boolean sendUdpPacket(EvoSuiteLocalAddress sutAddress, byte[] data) {
-        return sendUdpPacket(sutAddress, new EvoSuiteRemoteAddress(DEFAULT_REMOTE_ADDRESS, VirtualNetwork.getInstance().getNewRemoteEphemeralPort()), data);
+        return sendUdpPacket(sutAddress,
+                new EvoSuiteRemoteAddress(DEFAULT_REMOTE_ADDRESS,
+                        VirtualNetwork.getInstance().getNewRemoteEphemeralPort()), data);
     }
 
     /**
      * Create a send a new UDP packet to the SUT. The packets are buffered till the SUT opens a socket
      * to read them.
      *
-     * @param sutAddress
-     * @param data
-     * @return
+     * @param sutAddress    the address of the SUT
+     * @param remoteAddress the remote address from which the packet is sent
+     * @param data          the data to send
+     * @return {@code true} if the packet was sent, {@code false} otherwise
      */
-    public static boolean sendUdpPacket(EvoSuiteLocalAddress sutAddress, EvoSuiteRemoteAddress remoteAddress, byte[] data) {
+    public static boolean sendUdpPacket(EvoSuiteLocalAddress sutAddress,
+                                        EvoSuiteRemoteAddress remoteAddress, byte[] data) {
         if (sutAddress == null) {
             return false;
         }
@@ -157,11 +162,11 @@ public class NetworkHandling {
 
 
     /**
-     * Create a text file on mocked remote host that can be accessed with the given URL
+     * Create a text file on mocked remote host that can be accessed with the given URL.
      *
-     * @param url
-     * @param text
-     * @return
+     * @param url  the URL representing the remote file
+     * @param text the content of the file
+     * @return {@code true} if the file was created, {@code false} otherwise
      */
     public static boolean createRemoteTextFile(EvoSuiteURL url, String text) {
         if (url == null) {

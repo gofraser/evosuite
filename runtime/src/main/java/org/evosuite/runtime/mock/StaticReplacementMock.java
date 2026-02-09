@@ -30,11 +30,11 @@ package org.evosuite.runtime.mock;
  * and return a new instance of the mocked class, eg:
  *
  * <p>
- *     {@code public Foo(int x){...}}
+ *     {@code public Foo(int x) {...}}
  * <p>
  *     should be mocked into:
  * <p>
- *     {@code public static Foo Foo(int x){...}}
+ *     {@code public static Foo Foo(int x) {...}}
  *
  * <p>
  * This type of mock is particularly useful for singleton classes that cannot be
@@ -46,11 +46,11 @@ package org.evosuite.runtime.mock;
  */
 public interface StaticReplacementMock extends EvoSuiteMock{
 
-	/**
-	 * Determine which class this mock is mocking
-	 * 
-	 * @return a fully qualifying String
-	 */
-	String getMockedClassName();
-	
+    /**
+     * Determine which class this mock is mocking
+     *
+     * @return a fully qualifying String
+     */
+    String getMockedClassName();
+
 }

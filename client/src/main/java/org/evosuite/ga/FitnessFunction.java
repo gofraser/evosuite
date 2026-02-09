@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Serializable;
 
 /**
- * Abstract base class of fitness functions
+ * Abstract base class of fitness functions.
  *
  * @author Gordon Fraser
  */
@@ -34,12 +34,12 @@ public abstract class FitnessFunction<T extends Chromosome<T>> implements Serial
     private static final long serialVersionUID = -8876797554111396910L;
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(FitnessFunction.class);
 
     /**
-     * Make sure that the individual gets to know about its fitness
+     * Make sure that the individual gets to know about its fitness.
      *
      * @param individual a {@link org.evosuite.ga.Chromosome} object.
      * @param fitness    a double.
@@ -53,9 +53,9 @@ public abstract class FitnessFunction<T extends Chromosome<T>> implements Serial
 
     /**
      * If the fitness function as an archive, returns the best individual in the archive.
-     * returns null otherwise
+     * returns null otherwise.
      *
-     * @return
+     * @return best stored individual
      */
     public T getBestStoredIndividual() {
         return null;
@@ -63,7 +63,7 @@ public abstract class FitnessFunction<T extends Chromosome<T>> implements Serial
 
     /**
      * Calculate and set fitness function #TODO the 'set fitness' part should be
-     * done by some abstract super class of all FitnessFunctions
+     * done by some abstract super class of all FitnessFunctions.
      *
      * @param individual a {@link org.evosuite.ga.Chromosome} object.
      * @return new fitness
@@ -71,7 +71,7 @@ public abstract class FitnessFunction<T extends Chromosome<T>> implements Serial
     public abstract double getFitness(T individual);
 
     /**
-     * Normalize a value using Andrea's normalization function
+     * Normalize a value using Andrea's normalization function.
      *
      * @param value a double.
      * @return a double.
@@ -95,12 +95,12 @@ public abstract class FitnessFunction<T extends Chromosome<T>> implements Serial
     public abstract boolean isMaximizationFunction();
 
     /**
-     * if the fitness function contains an archive, updates the archive and the fitness values of the population, and returns true.
-     * if the fitness function doesn't contain an archive, return false.
-     * <p>
-     * This method has to be invoked after each generation.
+     * if the fitness function contains an archive, updates the archive and the fitness values of the
+     * population, and returns true. if the fitness function doesn't contain an archive, return false.
      *
-     * @return
+     * <p>This method has to be invoked after each generation.
+     *
+     * @return true if goals updated
      */
     public boolean updateCoveredGoals() {
         return false;

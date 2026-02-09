@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -23,12 +23,12 @@ import java.io.File;
 import java.util.Optional;
 
 /**
- * Created by wildfly.ua@gmail.com for EvoSuite project (https://github.com/EvoSuite/evosuite)
+ * Created by wildfly.ua@gmail.com for EvoSuite project (https://github.com/EvoSuite/evosuite).
  */
 public class JavaExecCmdUtil {
 
     /**
-     * Utility class, no public constructors
+     * Utility class, no public constructors.
      */
     private JavaExecCmdUtil() {
     }
@@ -40,9 +40,9 @@ public class JavaExecCmdUtil {
      * master<->client communication will have no results.
      *
      * @param isFullOriginalJavaExecRequired - original behavior switch: "java" or JAVA_CMD from
-     * (@link org.evosuite.EvoSuite#JAVA_CMD)
-     * @return current runtime java executable path based on $JAVA_HOME environment variable
-     * @apiNote under maven java.home property is ${JAVA_HOME}/jre/bin/java
+     *     (@link org.evosuite.EvoSuite#JAVA_CMD)
+     * @return current runtime java executable path based on $JAVA_HOME environment variable.
+     * @apiNote under maven java.home property is ${JAVA_HOME}/jre/bin/java.
      */
     public static String getJavaBinExecutablePath(final boolean isFullOriginalJavaExecRequired) {
         final String sep = System.getProperty("file.separator");
@@ -50,11 +50,11 @@ public class JavaExecCmdUtil {
 
         return getJavaHomeEnv()
                 .map(javaHomeEnvVar -> {
-                     String exeSuffix = getOsName()
-                               .filter(osName -> osName.toLowerCase().contains("windows"))
-                               .map(osName -> ".exe")
-                               .orElse("");
-                     return new File(javaHomeEnvVar + sep + "bin" + sep + "java" + exeSuffix);
+                    String exeSuffix = getOsName()
+                            .filter(osName -> osName.toLowerCase().contains("windows"))
+                            .map(osName -> ".exe")
+                            .orElse("");
+                    return new File(javaHomeEnvVar + sep + "bin" + sep + "java" + exeSuffix);
                 })
                 .filter(File::exists)
                 .map(File::getPath)
@@ -62,7 +62,10 @@ public class JavaExecCmdUtil {
     }
 
     /**
+     * Helper method to get java bin executable path.
+     *
      * @see #getJavaBinExecutablePath(boolean)
+     * @return the path to the java executable
      */
     public static String getJavaBinExecutablePath() {
         return getJavaBinExecutablePath(false);

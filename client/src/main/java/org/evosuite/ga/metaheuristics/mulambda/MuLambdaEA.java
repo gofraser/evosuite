@@ -32,7 +32,7 @@ import java.util.List;
 import static java.util.Collections.reverseOrder;
 
 /**
- * (Mu, Lambda) EA
+ * (Mu, Lambda) EA.
  *
  * @author José Campos
  */

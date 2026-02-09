@@ -20,7 +20,7 @@
 package org.evosuite.ga;
 
 /**
- * Exception used when error occurs during mutation or crossover
+ * Exception used when error occurs during mutation or crossover.
  *
  * @author Gordon Fraser
  */

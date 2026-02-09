@@ -38,7 +38,7 @@ public class SimpleCondition {
     }
 
     /**
-     * <p>awaitUninterruptibly</p>
+     * <p>awaitUninterruptibly.</p>
      */
     public void awaitUninterruptibly() {
         this.condition.awaitUninterruptibly();
@@ -46,7 +46,7 @@ public class SimpleCondition {
     }
 
     /**
-     * <p>signal</p>
+     * <p>signal.</p>
      */
     public synchronized void signal() {
         this.lock.lock();
@@ -60,7 +60,7 @@ public class SimpleCondition {
     }
 
     /**
-     * <p>wasSignaled</p>
+     * <p>wasSignaled.</p>
      *
      * @return a boolean.
      */

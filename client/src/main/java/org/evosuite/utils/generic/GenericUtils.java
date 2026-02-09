@@ -36,9 +36,9 @@ import java.util.Map.Entry;
 public class GenericUtils {
 
     /**
-     * Constant to represent @NotNull annotation
+     * Constant to represent @NotNull annotation.
      */
-    public final static String NONNULL = "Nonnull";
+    public static final String NONNULL = "Nonnull";
 
     public static boolean isAssignable(Type type, TypeVariable<?> typeVariable) {
         boolean isAssignable = true;
@@ -125,10 +125,10 @@ public class GenericUtils {
         for (Entry<TypeVariable<?>, Type> entry : typeMap.entrySet()) {
             returnType = replaceTypeVariable(returnType, entry.getKey(), entry.getValue());
         }
-//		for (TypeVariable<?> var : typeMap.keySet()) {
-//			//logger.debug("Current variable: "+var+" of type "+typeMap.get(var)+" in "+returnType);
-//			returnType = replaceTypeVariable(returnType, var, typeMap.get(var));
-//		}
+        //      for (TypeVariable<?> var : typeMap.keySet()) {
+        //          //logger.debug("Current variable: "+var+" of type "+typeMap.get(var)+" in "+returnType);
+        //          returnType = replaceTypeVariable(returnType, var, typeMap.get(var));
+        //      }
 
         return returnType;
     }
@@ -140,8 +140,9 @@ public class GenericUtils {
         } else if (targetType instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) targetType;
             Type owner = null;
-            if (parameterizedType.getOwnerType() != null)
+            if (parameterizedType.getOwnerType() != null) {
                 owner = replaceTypeVariablesWithWildcards(parameterizedType.getOwnerType());
+            }
             Type[] currentParameters = parameterizedType.getActualTypeArguments();
             Type[] parameters = new Type[currentParameters.length];
             for (int i = 0; i < parameters.length; i++) {
@@ -155,55 +156,55 @@ public class GenericUtils {
 
     public static Type replaceTypeVariable(Type targetType, TypeVariable<?> variable,
                                            Type variableType) {
-        if (targetType instanceof Class<?>)
+        if (targetType instanceof Class<?>) {
             return targetType;
-        else if (targetType instanceof GenericArrayType) {
-            GenericArrayType gType = (GenericArrayType) targetType;
-            Type componentType = replaceTypeVariable(gType.getGenericComponentType(),
+        } else if (targetType instanceof GenericArrayType) {
+            GenericArrayType arrayType = (GenericArrayType) targetType;
+            Type componentType = replaceTypeVariable(arrayType.getGenericComponentType(),
                     variable, variableType);
             return GenericArrayTypeImpl.createArrayType(componentType);
 
         } else if (targetType instanceof ParameterizedType) {
-            ParameterizedType pType = (ParameterizedType) targetType;
+            ParameterizedType parameterizedType = (ParameterizedType) targetType;
             Type ownerType = null;
-            if (pType.getOwnerType() != null) {
-                ownerType = replaceTypeVariable(pType.getOwnerType(), variable,
+            if (parameterizedType.getOwnerType() != null) {
+                ownerType = replaceTypeVariable(parameterizedType.getOwnerType(), variable,
                         variableType);
             }
-            Type[] originalParameterTypes = pType.getActualTypeArguments();
+            Type[] originalParameterTypes = parameterizedType.getActualTypeArguments();
             Type[] parameterTypes = new Type[originalParameterTypes.length];
             for (int i = 0; i < originalParameterTypes.length; i++) {
                 parameterTypes[i] = replaceTypeVariable(originalParameterTypes[i],
                         variable, variableType);
             }
 
-			/*
-			if (variableType instanceof ParameterizedType) {
-				ParameterizedType parameterizedVars = (ParameterizedType) variableType;
-				Map<TypeVariable<?>, Type> subTypes = TypeUtils.getTypeArguments(parameterizedVars);
-				for (Entry<TypeVariable<?>, Type> subTypeEntry : subTypes.entrySet()) {
-					if (pType.getOwnerType() != null) {
-						ownerType = replaceTypeVariable(pType.getOwnerType(),
-						                                subTypeEntry.getKey(),
-						                                subTypeEntry.getValue());
-					}
-					for (int i = 0; i < originalParameterTypes.length; i++) {
-						parameterTypes[i] = replaceTypeVariable(originalParameterTypes[i],
-						                                        subTypeEntry.getKey(),
-						                                        subTypeEntry.getValue());
-					}
+            /*
+            if (variableType instanceof ParameterizedType) {
+                ParameterizedType parameterizedVars = (ParameterizedType) variableType;
+                Map<TypeVariable<?>, Type> subTypes = TypeUtils.getTypeArguments(parameterizedVars);
+                for (Entry<TypeVariable<?>, Type> subTypeEntry : subTypes.entrySet()) {
+                    if (pType.getOwnerType() != null) {
+                        ownerType = replaceTypeVariable(pType.getOwnerType(),
+                                                        subTypeEntry.getKey(),
+                                                        subTypeEntry.getValue());
+                    }
+                    for (int i = 0; i < originalParameterTypes.length; i++) {
+                        parameterTypes[i] = replaceTypeVariable(originalParameterTypes[i],
+                                                                subTypeEntry.getKey(),
+                                                                subTypeEntry.getValue());
+                    }
 
-				}
-			}
-			*/
+                }
+            }
+            */
 
-            return new ParameterizedTypeImpl((Class<?>) pType.getRawType(),
+            return new ParameterizedTypeImpl((Class<?>) parameterizedType.getRawType(),
                     parameterTypes, ownerType);
 
         } else if (targetType instanceof WildcardType) {
-            WildcardType wType = (WildcardType) targetType;
-            Type[] originalUpperBounds = wType.getUpperBounds();
-            Type[] originalLowerBounds = wType.getLowerBounds();
+            WildcardType wildcardType = (WildcardType) targetType;
+            Type[] originalUpperBounds = wildcardType.getUpperBounds();
+            Type[] originalLowerBounds = wildcardType.getLowerBounds();
             Type[] upperBounds = new Type[originalUpperBounds.length];
             Type[] lowerBounds = new Type[originalLowerBounds.length];
 
@@ -247,11 +248,11 @@ public class GenericUtils {
     }
 
     /**
-     * TODO: Try to match p2 superclasses?
+     * TODO: Try to match p2 superclasses.
      *
      * @param p1 Desired TypeVariable assignment
      * @param p2 Generic type with the TypeVariables that need assignment
-     * @return
+     * @return a map of matching type parameters
      */
     public static Map<TypeVariable<?>, Type> getMatchingTypeParameters(
             ParameterizedType p1, ParameterizedType p2) {
@@ -264,7 +265,8 @@ public class GenericUtils {
 
             if (GenericClassUtils.isSubclass(p1.getRawType(), p2.getRawType())) {
                 logger.debug(p1 + " is a super type of " + p2);
-                Map<TypeVariable<?>, Type> commonsMap = TypeUtils.determineTypeArguments((Class<?>) p2.getRawType(), p1);
+                Map<TypeVariable<?>, Type> commonsMap =
+                        TypeUtils.determineTypeArguments((Class<?>) p2.getRawType(), p1);
                 logger.debug("Adding to map: " + commonsMap);
                 // TODO: Now we would need to iterate over the type parameters, and update the map?
                 //map.putAll(commonsMap);
@@ -281,22 +283,27 @@ public class GenericUtils {
                     Type b = p2TypesB[i];
                     logger.debug("Should be mapping " + a + " and " + b);
                     if (a instanceof TypeVariable<?>) {
-                        logger.debug(a + " is a type variable: " + ((TypeVariable<?>) a).getGenericDeclaration());
+                        logger.debug(a + " is a type variable: "
+                                + ((TypeVariable<?>) a).getGenericDeclaration());
                         if (b instanceof TypeVariable<?>) {
-                            logger.debug(b + " is a type variable: " + ((TypeVariable<?>) b).getGenericDeclaration());
-                            if (commonsMap.containsKey(a) && !(commonsMap.get(a) instanceof WildcardType) && !(commonsMap.get(a) instanceof TypeVariable<?>))
+                            logger.debug(b + " is a type variable: "
+                                    + ((TypeVariable<?>) b).getGenericDeclaration());
+                            if (commonsMap.containsKey(a)
+                                    && !(commonsMap.get(a) instanceof WildcardType)
+                                    && !(commonsMap.get(a) instanceof TypeVariable<?>)) {
                                 map.put((TypeVariable<?>) b, commonsMap.get(a));
+                            }
                             //else
-                            //	map.put((TypeVariable<?>)a, b);
+                            //  map.put((TypeVariable<?>)a, b);
                         }
                     }
 
-//					if(b instanceof TypeVariable<?>) {
-//						if(map.containsKey(a))
-//							map.put((TypeVariable<?>)b, map.get(a));
-//						//else
-//						//	map.put((TypeVariable<?>)b, a);
-//					}
+                    //                  if(b instanceof TypeVariable<?>) {
+                    //                      if(map.containsKey(a))
+                    //                          map.put((TypeVariable<?>)b, map.get(a));
+                    //                      //else
+                    //                      //  map.put((TypeVariable<?>)b, a);
+                    //                  }
 
                     logger.debug("Updated map: " + stableTypeVariableMapToString(map));
                 }
@@ -305,17 +312,19 @@ public class GenericUtils {
 
 
             for (GenericClass<?> interfaceClass : ownerClass.getInterfaces()) {
-                if (interfaceClass.isParameterizedType())
+                if (interfaceClass.isParameterizedType()) {
                     map.putAll(getMatchingTypeParameters(p1, (ParameterizedType) interfaceClass.getType()));
-                else
+                } else {
                     logger.debug("Interface " + interfaceClass + " is not parameterized");
+                }
             }
             if (ownerClass.getRawClass().getSuperclass() != null) {
                 GenericClass<?> ownerSuperClass = ownerClass.getSuperClass();
-                if (ownerSuperClass.isParameterizedType())
+                if (ownerSuperClass.isParameterizedType()) {
                     map.putAll(getMatchingTypeParameters(p1, (ParameterizedType) ownerSuperClass.getType()));
-                else
+                } else {
                     logger.debug("Super type " + ownerSuperClass + " is not parameterized");
+                }
             }
             return map;
         }
@@ -323,8 +332,9 @@ public class GenericUtils {
         for (int i = 0; i < p1.getActualTypeArguments().length; i++) {
             Type t1 = p1.getActualTypeArguments()[i];
             Type t2 = p2.getActualTypeArguments()[i];
-            if (t1 == t2)
+            if (t1 == t2) {
                 continue;
+            }
             logger.debug("First match: " + t1 + " - " + t2);
             if (t1 instanceof TypeVariable<?>) {
                 map.put((TypeVariable<?>) t1, t2);
@@ -351,8 +361,8 @@ public class GenericUtils {
     /**
      * Returns true if the annotation is present in the annotationList, false otherwise.
      *
-     * @param annotationList
-     * @param annotationTypeName
+     * @param annotationList     the list of annotations
+     * @param annotationTypeName the name of the annotation type
      * @return boolean
      */
     public static boolean isAnnotationTypePresent(Annotation[] annotationList, String annotationTypeName) {

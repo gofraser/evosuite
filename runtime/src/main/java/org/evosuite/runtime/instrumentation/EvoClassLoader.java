@@ -33,10 +33,10 @@ import java.util.Set;
 
 /**
  * An instrumenting class loader used in special cases in the generated JUnit tests
- * when Java Agent is not used
+ * when Java Agent is not used.
  */
 public class EvoClassLoader extends ClassLoader {
-    private final static Logger logger = LoggerFactory.getLogger(EvoClassLoader.class);
+    private static final Logger logger = LoggerFactory.getLogger(EvoClassLoader.class);
     private final RuntimeInstrumentation instrumentation;
     private final ClassLoader classLoader;
     private final Map<String, Class<?>> classes = new HashMap<>();
@@ -70,8 +70,9 @@ public class EvoClassLoader extends ClassLoader {
      */
     @Override
     public Class<?> loadClass(String name) throws ClassNotFoundException {
-        if ("<evosuite>".equals(name))
+        if ("<evosuite>".equals(name)) {
             throw new ClassNotFoundException();
+        }
 
         //first check if already loaded
         if (!RuntimeInstrumentation.checkIfCanInstrument(name)) {
@@ -108,7 +109,8 @@ public class EvoClassLoader extends ClassLoader {
                 throw new ClassNotFoundException("Class '" + className + ".class"
                         + "' should be in target project, but could not be found!");
             }
-            boolean shouldSkip = skipInstrumentationForPrefix.stream().anyMatch(s -> fullyQualifiedTargetClass.startsWith(s));
+            boolean shouldSkip = skipInstrumentationForPrefix.stream()
+                    .anyMatch(s -> fullyQualifiedTargetClass.startsWith(s));
             byte[] byteBuffer = instrumentation.transformBytes(this, className,
                     new ClassReader(is), shouldSkip);
             createPackageDefinition(fullyQualifiedTargetClass);
@@ -121,20 +123,21 @@ public class EvoClassLoader extends ClassLoader {
             logger.info("Error while loading class: " + t);
             throw new ClassNotFoundException(t.getMessage(), t);
         } finally {
-            if (is != null)
+            if (is != null) {
                 try {
                     is.close();
                 } catch (IOException e) {
                     throw new Error(e);
                 }
+            }
         }
     }
 
 
     /**
-     * Before a new class is defined, we need to create a package definition for it
+     * Before a new class is defined, we need to create a package definition for it.
      *
-     * @param className
+     * @param className the name of the class for which to create the package definition
      */
     private void createPackageDefinition(String className) {
         int i = className.lastIndexOf('.');

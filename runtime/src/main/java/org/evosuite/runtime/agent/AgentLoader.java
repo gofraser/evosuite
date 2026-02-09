@@ -43,7 +43,7 @@ import java.util.jar.Manifest;
 /**
  * This class is responsible to load the jar with the agent
  * definition (in its manifest) and then hook it to the current
- * running JVM
+ * running JVM.
  *
  * @author arcuri
  */
@@ -53,7 +53,7 @@ public class AgentLoader {
 
     private static volatile boolean alreadyLoaded = false;
 
-    public synchronized static void loadAgent() throws RuntimeException {
+    public static synchronized void loadAgent() throws RuntimeException {
 
         if (alreadyLoaded) {
             return;
@@ -66,7 +66,8 @@ public class AgentLoader {
 
         String jarFilePath = getJarPath();
         if (jarFilePath == null) {
-            throw new RuntimeException("Cannot find either the compilation target folder nor the EvoSuite jar in classpath: " + System.getProperty("java.class.path"));
+            throw new RuntimeException("Cannot find either the compilation target folder nor "
+                    + "the EvoSuite jar in classpath: " + System.getProperty("java.class.path"));
         } else {
             logger.info("Using JavaAgent in " + jarFilePath);
         }
@@ -132,12 +133,12 @@ public class AgentLoader {
     private static boolean isEvoSuiteMainJar(String path) throws IllegalArgumentException {
 
         if (path.endsWith("classes")) {
-			/*
-				we need to treat this specially:
-				eg, Jenkins/Maven on Linux on a module with only tests ended up
-				with not creating "target/classes" (it does on Mac though) but still putting
-				it on the classpath
-			 */
+            /*
+             * we need to treat this specially:
+             * eg, Jenkins/Maven on Linux on a module with only tests ended up
+             * with not creating "target/classes" (it does on Mac though) but still putting
+             * it on the classpath
+             */
             return false;
         }
 
@@ -185,14 +186,16 @@ public class AgentLoader {
 
         if (jarFilePath == null) {
             /*
-             * this could happen in Eclipse or during test execution in Maven, and so search in compilation 'target' folder
+             * this could happen in Eclipse or during test execution in Maven,
+             * and so search in compilation 'target' folder
              */
             jarFilePath = searchInFolder("target");
         }
 
         if (jarFilePath == null) {
             /*
-             * this could happen in Eclipse or during test execution in Maven, and so search in compilation 'target' folder
+             * this could happen in Eclipse or during test execution in Maven,
+             * and so search in compilation 'target' folder
              */
             /*
              * FIXME: what is this???????? Definitively the above comment

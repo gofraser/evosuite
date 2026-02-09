@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -325,7 +325,8 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
             }
 
             if (branchFitness.isCovered(chromosome)) {
-                // Remove from map. Covering chromosomes are stored in Archive.getArchiveInstance() and this.coveringChromosomes.
+                // Remove from map. Covering chromosomes are stored in Archive.getArchiveInstance()
+                // and this.coveringChromosomes.
                 it.remove();
 
                 this.droppedFeatureVectors.addAll(featureMap.keySet());

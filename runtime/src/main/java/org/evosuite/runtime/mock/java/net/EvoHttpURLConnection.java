@@ -22,7 +22,6 @@ package org.evosuite.runtime.mock.java.net;
 import org.evosuite.runtime.mock.java.io.MockIOException;
 import org.evosuite.runtime.vnet.RemoteFile;
 import org.evosuite.runtime.vnet.VirtualNetwork;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -47,13 +46,11 @@ public class EvoHttpURLConnection extends HttpURLConnection {
             "GET", "POST", "HEAD", "OPTIONS", "PUT", "DELETE", "TRACE"
     };
 
-
     private InputStream stream;
 
     protected EvoHttpURLConnection(URL u) {
         super(u);
     }
-
 
     //-------  abstract methods ----------
 
@@ -70,12 +67,12 @@ public class EvoHttpURLConnection extends HttpURLConnection {
     @Override
     public void connect() throws IOException {
 
-        if(super.connected){
+        if (super.connected) {
             return;
         }
 
         String resolved = VirtualNetwork.getInstance().dnsResolve(url.getHost());
-        if(resolved == null){
+        if (resolved == null) {
             //TODO should rather mock java.net.UnknownHostException
             throw new MockIOException(url.getHost());
         }
@@ -88,7 +85,7 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         super.connected = true;
 
         RemoteFile rf = VirtualNetwork.getInstance().getFile(url);
-        if(rf == null){
+        if (rf == null) {
             super.responseCode = HTTP_NOT_FOUND;
             super.responseMessage = "Not Found";
         } else {
@@ -98,11 +95,10 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         }
     }
 
-
     public InputStream getInputStream() throws IOException {
         connect();
 
-        if(stream == null){
+        if (stream == null) {
             //TODO should rather mock FileNotFoundException
             throw new MockIOException("Could not find: "+url.getHost());
         }
@@ -131,7 +127,6 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         // experiment w/ new HTTP methods using java.  But it should
         // be placed for security - the request String could be
         // arbitrarily long.
-
 
         for (final String m : methods) {
             if (m.equals(method)) {
@@ -168,7 +163,6 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         return method;
     }
 
-
     @Override
     public String getHeaderField(int n) {
         return null;
@@ -204,9 +198,7 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         super.setChunkedStreamingMode(chunklen);
     }
 
-
     // ------- public methods from URLConnection  ---------
-
 
     @Override
     public void setConnectTimeout(int timeout) {
@@ -273,7 +265,6 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         return null;
     }
 
-
     @Override
     public Map<String,List<String>> getHeaderFields() {
         return Collections.EMPTY_MAP;
@@ -309,7 +300,6 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         return super.getDoInput();
     }
 
-
     @Override
     public void setDoOutput(boolean dooutput) {
         super.setDoOutput(dooutput);
@@ -329,7 +319,6 @@ public class EvoHttpURLConnection extends HttpURLConnection {
     public boolean getAllowUserInteraction() {
         return super.getAllowUserInteraction();
     }
-
 
     //TODO
 }

@@ -27,7 +27,7 @@ import java.util.Collection;
 
 /**
  * This class represents the singleton containing those static fields whose
- * <code>final</code> modifier was removed during our instrumentation
+ * <code>final</code> modifier was removed during our instrumentation.
  *
  * @author galeotti
  */
@@ -36,9 +36,9 @@ public class ModifiedTargetStaticFields {
     private static final Logger logger = LoggerFactory.getLogger(ModifiedTargetStaticFields.class);
 
     /**
-     * gets the current set of modified target static fields
+     * gets the current set of modified target static fields.
      *
-     * @return
+     * @return the singleton instance
      */
     public static ModifiedTargetStaticFields getInstance() {
         if (instance == null) {
@@ -64,9 +64,9 @@ public class ModifiedTargetStaticFields {
 
     /**
      * Adds a collection of final fields whose final modifier was removed by our
-     * instrumentation
+     * instrumentation.
      *
-     * @param newFinalFields
+     * @param newFinalFields the collection of new final fields to add
      */
     public void addFinalFields(Collection<String> newFinalFields) {
         for (String finalField : newFinalFields) {
@@ -78,10 +78,10 @@ public class ModifiedTargetStaticFields {
     }
 
     /**
-     * Checks if a given field is contained or not in this collection
+     * Checks if a given field is contained or not in this collection.
      *
-     * @param name
-     * @return
+     * @param name the name of the field
+     * @return true if the field is contained in the collection, false otherwise
      */
     public boolean containsField(String name) {
         // logger.debug("Checking if a static field was modified or not:" + name);

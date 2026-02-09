@@ -207,8 +207,10 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * @param union
-     * @return
+     * Environmental selection.
+     *
+     * @param union the union population
+     * @return the selected population
      */
     protected List<T> environmentalSelection(List<T> union) {
 
@@ -329,7 +331,7 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     /**
      * Compute strength.
      *
-     * @param solution a {@link List} object.
+     * @param solution the solution
      */
     protected void computeStrength(List<T> solution) {
         // count the number of individuals each solution dominates
@@ -367,10 +369,10 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         int k = 1;
         for (int i = 0; i < distance.length; i++) {
             Arrays.sort(distance[i]);
-            double kDistanceVal = 1.0 / (distance[i][k] + 2.0);
+            double kthDistance = 1.0 / (distance[i][k] + 2.0);
             // TODO for now let's use 'distance' field, however the right
             // name should be 'strength' or 'fitness-strength'
-            solution.get(i).setDistance(rawFitness[i] + kDistanceVal);
+            solution.get(i).setDistance(rawFitness[i] + kthDistance);
         }
     }
 

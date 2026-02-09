@@ -23,7 +23,7 @@ public enum TriBoolean {
     True, False, Maybe;
 
     /**
-     * <p>fromBoolean</p>
+     * <p>fromBoolean.</p>
      *
      * @param value a boolean.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -33,19 +33,23 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>and</p>
+     * <p>and.</p>
      *
      * @param other a {@link org.evosuite.utils.TriBoolean} object.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
      */
     public TriBoolean and(TriBoolean other) {
-        if (this == False || other == False) return False;
-        if (this == Maybe || other == Maybe) return Maybe;
+        if (this == False || other == False) {
+            return False;
+        }
+        if (this == Maybe || other == Maybe) {
+            return Maybe;
+        }
         return True;
     }
 
     /**
-     * <p>and</p>
+     * <p>and.</p>
      *
      * @param other a boolean.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -55,19 +59,23 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>or</p>
+     * <p>or.</p>
      *
      * @param other a {@link org.evosuite.utils.TriBoolean} object.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
      */
     public TriBoolean or(TriBoolean other) {
-        if (this == True || other == True) return True;
-        if (this == Maybe || other == Maybe) return Maybe;
+        if (this == True || other == True) {
+            return True;
+        }
+        if (this == Maybe || other == Maybe) {
+            return Maybe;
+        }
         return False;
     }
 
     /**
-     * <p>or</p>
+     * <p>or.</p>
      *
      * @param other a boolean.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -77,7 +85,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>negated</p>
+     * <p>negated.</p>
      *
      * @return a {@link org.evosuite.utils.TriBoolean} object.
      */
@@ -86,7 +94,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>andNot</p>
+     * <p>andNot.</p>
      *
      * @param other a {@link org.evosuite.utils.TriBoolean} object.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -96,7 +104,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>andNot</p>
+     * <p>andNot.</p>
      *
      * @param other a boolean.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -106,7 +114,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>orNot</p>
+     * <p>orNot.</p>
      *
      * @param other a {@link org.evosuite.utils.TriBoolean} object.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -116,7 +124,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>orNot</p>
+     * <p>orNot.</p>
      *
      * @param other a boolean.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -126,7 +134,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>notAnd</p>
+     * <p>notAnd.</p>
      *
      * @param other a {@link org.evosuite.utils.TriBoolean} object.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -136,7 +144,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>notAnd</p>
+     * <p>notAnd.</p>
      *
      * @param other a boolean.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -146,7 +154,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>notOr</p>
+     * <p>notOr.</p>
      *
      * @param other a {@link org.evosuite.utils.TriBoolean} object.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -156,7 +164,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>notOr</p>
+     * <p>notOr.</p>
      *
      * @param other a boolean.
      * @return a {@link org.evosuite.utils.TriBoolean} object.
@@ -166,7 +174,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>isPossiblyTrue</p>
+     * <p>isPossiblyTrue.</p>
      *
      * @return a boolean.
      */
@@ -175,7 +183,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>isPossiblyFalse</p>
+     * <p>isPossiblyFalse.</p>
      *
      * @return a boolean.
      */
@@ -184,7 +192,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>isCertainlyTrue</p>
+     * <p>isCertainlyTrue.</p>
      *
      * @return a boolean.
      */
@@ -193,7 +201,7 @@ public enum TriBoolean {
     }
 
     /**
-     * <p>isCertainlyFalse</p>
+     * <p>isCertainlyFalse.</p>
      *
      * @return a boolean.
      */

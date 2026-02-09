@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Unique random number accessor
+ * Unique random number accessor.
  *
  * @author Gordon Fraser
  */
@@ -47,9 +47,9 @@ public class Randomness implements Serializable {
     private static Randomness instance = new Randomness();
 
     private Randomness() {
-        Long seed_parameter = Properties.RANDOM_SEED;
-        if (seed_parameter != null) {
-            seed = seed_parameter;
+        Long seedParameter = Properties.RANDOM_SEED;
+        if (seedParameter != null) {
+            seed = seedParameter;
             logger.info("Random seed: {}", seed);
         } else {
             seed = System.currentTimeMillis();
@@ -71,7 +71,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * nextBoolean
+     * nextBoolean.
      * </p>
      *
      * @return a boolean.
@@ -110,7 +110,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * nextInt
+     * nextInt.
      * </p>
      *
      * @return a int.
@@ -121,7 +121,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * nextChar
+     * nextChar.
      * </p>
      *
      * @return a char.
@@ -132,7 +132,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * nextShort
+     * nextShort.
      * </p>
      *
      * @return a short.
@@ -143,7 +143,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * nextLong
+     * nextLong.
      * </p>
      *
      * @return a long.
@@ -154,7 +154,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * nextByte
+     * nextByte.
      * </p>
      *
      * @return a byte.
@@ -165,7 +165,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * returns a randomly generated double in the range [0,1]
+     * returns a randomly generated double in the range [0,1].
      * </p>
      *
      * @return a double between 0.0 and 1.0
@@ -176,7 +176,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * nextDouble
+     * nextDouble.
      * </p>
      *
      * @param min a double.
@@ -189,7 +189,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * nextFloat
+     * nextFloat.
      * </p>
      *
      * @return a float.
@@ -223,7 +223,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * choice
+     * choice.
      * </p>
      *
      * @param list a {@link java.util.List} object.
@@ -231,8 +231,9 @@ public class Randomness implements Serializable {
      * @return a T object or <code>null</code> if <code>list</code> is empty.
      */
     public static <T> T choice(List<T> list) {
-        if (list.isEmpty())
+        if (list.isEmpty()) {
             return null;
+        }
 
         int position = random.nextInt(list.size());
         return list.get(position);
@@ -240,7 +241,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * choice
+     * choice.
      * </p>
      *
      * @param set a {@link java.util.Collection} object.
@@ -249,8 +250,9 @@ public class Randomness implements Serializable {
      */
     @SuppressWarnings("unchecked")
     public static <T> T choice(Collection<T> set) {
-        if (set.isEmpty())
+        if (set.isEmpty()) {
             return null;
+        }
 
         if (set instanceof List) {
             return ((List<T>) set).get(random.nextInt(set.size()));
@@ -320,7 +322,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * choice
+     * choice.
      * </p>
      *
      * @param elements a T object.
@@ -328,8 +330,9 @@ public class Randomness implements Serializable {
      * @return a T object or <code>null</code> if <code>elements.length</code> is zero.
      */
     public static <T> T choice(T... elements) {
-        if (elements.length == 0)
+        if (elements.length == 0) {
             return null;
+        }
 
         int position = random.nextInt(elements.length);
         return elements[position];
@@ -337,7 +340,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * shuffle
+     * shuffle.
      * </p>
      *
      * @param list a {@link java.util.List} object.
@@ -348,7 +351,7 @@ public class Randomness implements Serializable {
 
     /**
      * <p>
-     * nextString
+     * nextString.
      * </p>
      *
      * @param length a int.
@@ -356,8 +359,9 @@ public class Randomness implements Serializable {
      */
     public static String nextString(int length) {
         char[] characters = new char[length];
-        for (int i = 0; i < length; i++)
+        for (int i = 0; i < length; i++) {
             characters[i] = nextChar();
+        }
         return new String(characters);
     }
 }

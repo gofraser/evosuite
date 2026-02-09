@@ -25,10 +25,10 @@ package org.evosuite.runtime.util;
 public class Inputs {
 
     /**
-     * Check for NPE but using IAE with proper error message
+     * Check for NPE but using IAE with proper error message.
      *
-     * @param inputs
-     * @throws IllegalArgumentException
+     * @param inputs the objects to check for null
+     * @throws IllegalArgumentException if any input is null
      */
     public static void checkNull(Object... inputs) throws IllegalArgumentException {
         if (inputs == null) {

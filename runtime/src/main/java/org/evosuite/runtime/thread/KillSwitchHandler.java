@@ -26,7 +26,7 @@ public class KillSwitchHandler implements KillSwitch {
     private volatile boolean kill;
 
     /**
-     * singleton constructor
+     * singleton constructor.
      */
     private KillSwitchHandler() {
         kill = false;
@@ -42,9 +42,9 @@ public class KillSwitchHandler implements KillSwitch {
     }
 
     /**
-     * Throw an exception if kill switch is on
+     * Throw an exception if kill switch is on.
      *
-     * @throws RuntimeException
+     * @throws RuntimeException if the kill switch is enabled
      */
     public void checkTimeout() throws RuntimeException {
         if (kill) {
@@ -53,9 +53,9 @@ public class KillSwitchHandler implements KillSwitch {
     }
 
     /**
-     * Wrapper around {@link KillSwitchHandler#checkTimeout()} to simplify instrumentation
+     * Wrapper around {@link KillSwitchHandler#checkTimeout()} to simplify instrumentation.
      *
-     * @throws RuntimeException
+     * @throws RuntimeException if the kill switch is enabled
      */
     public static void killIfTimeout() throws RuntimeException {
         getInstance().checkTimeout();

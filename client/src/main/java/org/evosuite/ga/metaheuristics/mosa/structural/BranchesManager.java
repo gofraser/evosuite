@@ -31,7 +31,7 @@ import java.util.*;
 
 /**
  * This Class manages the goals to consider during the search according to their structural
- * dependencies
+ * dependencies.
  *
  * @author Annibale Panichella, Fitsum Meshesha Kifetew
  */
@@ -46,10 +46,10 @@ public class BranchesManager extends StructuralGoalManager {
     private final Map<String, TestFitnessFunction> branchlessMethodCoverageMap = new HashMap<>();
 
     /**
-     * Constructor used to initialize the set of uncovered goals, and the initial set
-     * of goals to consider as initial contrasting objectives
+     * Constructor used to initialize the set of uncovered goals, and the initial set.
+     * of goals to consider as initial contrasting objectives.
      *
-     * @param fitnessFunctions List of all FitnessFunction<T>
+     * @param fitnessFunctions List of all fitness functions
      */
     public BranchesManager(List<TestFitnessFunction> fitnessFunctions) {
         super(fitnessFunctions);
@@ -96,8 +96,9 @@ public class BranchesManager extends StructuralGoalManager {
         while (!targets.isEmpty() && !ga.isFinished()) {
             TestFitnessFunction fitnessFunction = targets.poll();
 
-            if (!visitedStatements.add(fitnessFunction))
+            if (!visitedStatements.add(fitnessFunction)) {
                 continue;
+            }
 
             double value = fitnessFunction.getFitness(c);
             if (value == 0.0) {
@@ -111,22 +112,25 @@ public class BranchesManager extends StructuralGoalManager {
         }
         currentGoals.removeAll(this.getCoveredGoals());
         // 2) we update the archive
-        for (Integer branchID : result.getTrace().getCoveredFalseBranches()) {
-            TestFitnessFunction branch = this.branchCoverageFalseMap.get(branchID);
-            if (branch == null)
+        for (Integer branchId : result.getTrace().getCoveredFalseBranches()) {
+            TestFitnessFunction branch = this.branchCoverageFalseMap.get(branchId);
+            if (branch == null) {
                 continue;
+            }
             updateCoveredGoals(branch, c);
         }
-        for (Integer branchID : result.getTrace().getCoveredTrueBranches()) {
-            TestFitnessFunction branch = this.branchCoverageTrueMap.get(branchID);
-            if (branch == null)
+        for (Integer branchId : result.getTrace().getCoveredTrueBranches()) {
+            TestFitnessFunction branch = this.branchCoverageTrueMap.get(branchId);
+            if (branch == null) {
                 continue;
+            }
             updateCoveredGoals(branch, c);
         }
         for (String method : result.getTrace().getCoveredBranchlessMethods()) {
             TestFitnessFunction branch = this.branchlessMethodCoverageMap.get(method);
-            if (branch == null)
+            if (branch == null) {
                 continue;
+            }
             updateCoveredGoals(branch, c);
         }
     }

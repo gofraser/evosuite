@@ -38,7 +38,7 @@ public class HtmlAnalyzer implements Serializable {
 
     /**
      * <p>
-     * getClassContent
+     * getClassContent.
      * </p>
      *
      * @param fullClassName a {@link java.lang.String} object.
@@ -69,7 +69,7 @@ public class HtmlAnalyzer implements Serializable {
 
     /**
      * <p>
-     * getContainingClassName
+     * getContainingClassName.
      * </p>
      *
      * @param f a {@link java.io.File} object.
@@ -84,12 +84,12 @@ public class HtmlAnalyzer implements Serializable {
         }
         int i = name.lastIndexOf(Properties.PROJECT_PREFIX);
         int j = name.lastIndexOf(sep);
-        if (i > j) {
-
-        } else if (i < 0) {
-            name = "";
-        } else {
-            name = name.substring(i);
+        if (i <= j) {
+            if (i < 0) {
+                name = "";
+            } else {
+                name = name.substring(i);
+            }
         }
         return name;
     }

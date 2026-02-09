@@ -20,7 +20,6 @@
 package org.evosuite.runtime.mock.java.time;
 
 import org.evosuite.runtime.mock.StaticReplacementMock;
-
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
@@ -63,16 +62,13 @@ public class MockLocalDateTime implements StaticReplacementMock {
         return LocalDateTime.of(year, month, dayOfMonth, hour, minute);
     }
 
-
     public static LocalDateTime of(int year, int month, int dayOfMonth, int hour, int minute, int second) {
         return LocalDateTime.of(year, month, dayOfMonth, hour, minute, second);
     }
 
-
     public static LocalDateTime of(int year, int month, int dayOfMonth, int hour, int minute, int second, int nanoOfSecond) {
         return LocalDateTime.of(year, month, dayOfMonth, hour, minute, second, nanoOfSecond);
     }
-
 
     public static LocalDateTime of(LocalDate date, LocalTime time) {
         return LocalDateTime.of(date, time);

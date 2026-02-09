@@ -37,21 +37,21 @@ package org.evosuite.runtime.mock;
  */
 public class MockFramework {
 
-	private static volatile boolean active = false;
-	
-	/**
-	 * If classes are mocked, then use the mock versions
-	 * instead of the original
-	 */
-	public static void enable(){
-		active = true;
-	}
-	
-	public static void disable(){
-		active = false;		
-	}
-	
-	public static boolean isEnabled(){
-		return active;
-	}
+    private static volatile boolean active = false;
+
+    /**
+     * If classes are mocked, then use the mock versions
+     * instead of the original
+     */
+    public static void enable() {
+        active = true;
+    }
+
+    public static void disable() {
+        active = false;
+    }
+
+    public static boolean isEnabled() {
+        return active;
+    }
 }

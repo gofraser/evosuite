@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
  * TournamentChromosomeFactory class.
  * </p>
  *
- * @param <T>
+ * @param <T> the chromosome type
  * @author Gordon Fraser
  */
 public class TournamentChromosomeFactory<T extends Chromosome<T>> implements
@@ -58,8 +58,8 @@ public class TournamentChromosomeFactory<T extends Chromosome<T>> implements
 
     /**
      * {@inheritDoc}
-     * <p>
-     * This factory produces <i>tournamentSize</i> individuals, and returns the
+     *
+     * <p>This factory produces <i>tournamentSize</i> individuals, and returns the
      * best one
      */
     @Override
@@ -87,8 +87,9 @@ public class TournamentChromosomeFactory<T extends Chromosome<T>> implements
                 }
             }
         }
-        if (bestIndividual != null)
+        if (bestIndividual != null) {
             logger.debug("Resulting fitness: " + bestIndividual.getFitness(this.fitnessFunction));
+        }
 
         assert (bestIndividual != null);
 

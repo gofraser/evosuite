@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -25,12 +25,12 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Type;
 
 /**
- * Interfaces to construct a {@code GenericClass}
+ * Interfaces to construct a {@code GenericClass}.
  */
 public class GenericClassFactory {
 
-    private final static IGenericClassFactory<?> factory;
-    private final static Logger logger = LoggerFactory.getLogger(GenericClassFactory.class);
+    private static final IGenericClassFactory<?> factory;
+    private static final Logger logger = LoggerFactory.getLogger(GenericClassFactory.class);
 
     static {
         factory = new OldGenericClassFactory();
@@ -61,8 +61,8 @@ public class GenericClassFactory {
 
         /**
          * Sets the raw class and the type of a generic class directly.
-         * <p>
-         * Deprecated, because it is not checked if this actually makes sense.
+         *
+         * <p>Deprecated, because it is not checked if this actually makes sense.
          * Probably its better to just use one of the 2 parameters.
          *
          * @param type  The actual generic type

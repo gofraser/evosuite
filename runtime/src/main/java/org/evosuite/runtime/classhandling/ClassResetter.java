@@ -35,8 +35,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * This class resets the static fields of a given class by invoking the <clinit> class initializer.
- * In order to re-invoke the <clinit> this is duplicated with the method name "__STATIC_RESET".
+ * This class resets the static fields of a given class by invoking the &lt;clinit&gt; class initializer.
+ * In order to re-invoke the &lt;clinit&gt; this is duplicated with the method name "__STATIC_RESET".
  *
  * @author galeotti
  */
@@ -45,12 +45,12 @@ public class ClassResetter {
     private static final Logger logger = LoggerFactory.getLogger(ClassResetter.class);
 
     /**
-     * The name of the instrumented duplication of the class initializer <clinit>
+     * The name of the instrumented duplication of the class initializer &lt;clinit&gt;.
      */
     public static final String STATIC_RESET = "__STATIC_RESET";
 
     /**
-     * Singleton instance of this class
+     * Singleton instance of this class.
      */
     private static final ClassResetter instance = new ClassResetter();
 
@@ -63,9 +63,9 @@ public class ClassResetter {
     }
 
     /**
-     * Return singleton instance
+     * Return singleton instance.
      *
-     * @return
+     * @return the singleton instance
      */
     public static ClassResetter getInstance() {
         return instance;
@@ -80,10 +80,10 @@ public class ClassResetter {
 
 
     /**
-     * Only log once for a class
+     * Only log once for a class.
      *
-     * @param className
-     * @param msg
+     * @param className the name of the class
+     * @param msg       the message to log
      */
     public synchronized void logWarn(String className, String msg) {
         AtMostOnceLogger.warn(logger, msg);
@@ -115,7 +115,8 @@ public class ClassResetter {
             //this can happen if class was not instrumented with a static reset
             logger.debug("__STATIC_RESET() method does not exists in class {}", classNameWithDots);
         } catch (Exception | Error e) {
-            logWarn(classNameWithDots, e.getClass() + " thrown while loading method  __STATIC_RESET() for class " + classNameWithDots);
+            logWarn(classNameWithDots, e.getClass()
+                    + " thrown while loading method  __STATIC_RESET() for class " + classNameWithDots);
         }
     }
 
@@ -125,9 +126,9 @@ public class ClassResetter {
     }
 
     /**
-     * Invoke the duplicated version of class initializar <clinit>
+     * Invoke the duplicated version of class initializar &lt;clinit&gt;.
      *
-     * @param classNameWithDots the class for invoking the duplicated version of class initializer <clinit>
+     * @param classNameWithDots the class for invoking the duplicated version of class initializer &lt;clinit&gt;
      */
     public void reset(String classNameWithDots) throws IllegalArgumentException, IllegalStateException {
         if (classNameWithDots == null || classNameWithDots.isEmpty()) {

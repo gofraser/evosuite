@@ -44,7 +44,7 @@ public abstract class StringUtil {
     }
 
     /**
-     * <p>escapeQuotes</p>
+     * <p>escapeQuotes.</p>
      *
      * @param str a {@link java.lang.String} object.
      * @return a {@link java.lang.String} object.
@@ -56,8 +56,8 @@ public abstract class StringUtil {
     /**
      * Compares all Strings in an array and returns the initial sequence of
      * characters that is common to all of them.
-     * <p>
-     * For example,
+     *
+     * <p>For example,
      * <code>getCommonPrefix(new String[] {"i am a machine", "i am a robot"}) -> "i am a "</code>
      *
      * <pre>
@@ -82,8 +82,8 @@ public abstract class StringUtil {
      *
      * @param strs array of String objects, entries may be null
      * @return the initial sequence of characters that are common to all Strings
-     * in the array; empty String if the array is null, the elements are
-     * all null or if there is no common prefix.
+     *     in the array; empty String if the array is null, the elements are
+     *     all null or if there is no common prefix.
      * @since 2.4
      */
     public static String getCommonPrefix(String[] strs) {
@@ -93,8 +93,8 @@ public abstract class StringUtil {
     /**
      * Compares all Strings in an array and returns the index at which the
      * Strings begin to differ.
-     * <p>
-     * For example,
+     *
+     * <p>For example,
      * <code>indexOfDifference(new String[] {"i am a machine", "i am a robot"}) -> 7</code>
      *
      * <pre>
@@ -119,7 +119,7 @@ public abstract class StringUtil {
      *
      * @param strs array of strings, entries may be null
      * @return the index where the strings begin to differ; -1 if they are all
-     * equal
+     *     equal
      * @since 2.4
      */
     public static int indexOfDifference(String[] strs) {
@@ -127,11 +127,11 @@ public abstract class StringUtil {
     }
 
     /**
-     * Joins several Strings using a custom delimiter
+     * Joins several Strings using a custom delimiter.
      *
-     * @param delimiter
-     * @param strings
-     * @return
+     * @param delimiter the delimiter
+     * @param strings the list of strings
+     * @return the joined string
      */
     public static String joinStrings(String delimiter, List<String> strings) {
         StringJoiner joiner = new StringJoiner(delimiter);

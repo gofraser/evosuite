@@ -19,73 +19,71 @@
  */
 package org.evosuite.runtime.mock.java.lang;
 
-import java.io.PrintStream;
-import java.io.PrintWriter;
-
 import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.OverrideMock;
+import java.io.PrintStream;
+import java.io.PrintWriter;
 
 public class MockThrowable extends Throwable  implements OverrideMock {
 
-	private static final long serialVersionUID = 4078375023919805371L;
+    private static final long serialVersionUID = 4078375023919805371L;
 
-	private StackTraceElement[]  stackTraceElements;
+    private StackTraceElement[]  stackTraceElements;
 
-	private Class<?> originClass;
+    private Class<?> originClass;
 
-	// ------ constructors -------------
+    // ------ constructors -------------
 
-	public MockThrowable() {
-		super();
-		init();
-	}
+    public MockThrowable() {
+        super();
+        init();
+    }
 
-	public MockThrowable(String message) {
-		super(message);
-		init();
-	}
+    public MockThrowable(String message) {
+        super(message);
+        init();
+    }
 
-	public MockThrowable(Throwable cause) {
-		super(cause);
-		init();
-	}
+    public MockThrowable(Throwable cause) {
+        super(cause);
+        init();
+    }
 
-	public MockThrowable(String message, Throwable cause) {
-		super(message, cause);
-		init();
-	}
+    public MockThrowable(String message, Throwable cause) {
+        super(message, cause);
+        init();
+    }
 
-	protected MockThrowable(String message, Throwable cause,
-			boolean enableSuppression,
-			boolean writableStackTrace) {
-		super(message,cause,enableSuppression,writableStackTrace);
-		init();
-	}
+    protected MockThrowable(String message, Throwable cause,
+            boolean enableSuppression,
+            boolean writableStackTrace) {
+        super(message,cause,enableSuppression,writableStackTrace);
+        init();
+    }
 
+    // ----- just for mock --------
 
-	// ----- just for mock --------
+    private void init() {
+        stackTraceElements = getDefaultStackTrace();
 
-	private void init(){
-		stackTraceElements = getDefaultStackTrace();
+        StackTraceElement[] original = super.getStackTrace();
+        if (original.length > 0) {
+            stackTraceElements[0] = original[0]; //only copy over the first element, which points to the source
+        }
+    }
 
-		StackTraceElement[] original = super.getStackTrace();
-		if(original.length > 0) {
-			stackTraceElements[0] = original[0]; //only copy over the first element, which points to the source
-		}
-	}
+    public void setOriginForDelegate(StackTraceElement origin) throws IllegalArgumentException {
+        stackTraceElements[0] = origin;
+    }
 
-	public void setOriginForDelegate(StackTraceElement origin) throws IllegalArgumentException{
-		stackTraceElements[0] = origin;
-	}
+    /*
+     *  ------ special replacements static methods ------------
+     *
+     *  WARN: don't modify the name of these methods, as they are used by reflection in instrumentator
+     */
 
-	/*
-	 *  ------ special replacements static methods ------------
-	 *  
-	 *  WARN: don't modify the name of these methods, as they are used by reflection in instrumentator
-	 */
-
-    public static StackTraceElement[] getDefaultStackTrace(){
+    public static StackTraceElement[] getDefaultStackTrace() {
         StackTraceElement[] v =  new StackTraceElement[3];
         v[0] = new StackTraceElement("<evosuite>", "<evosuite>", "<evosuite>", -1);
         v[1] = new StackTraceElement("<evosuite>", "<evosuite>", "<evosuite>", -1);
@@ -93,153 +91,151 @@ public class MockThrowable extends Throwable  implements OverrideMock {
         return v;
     }
 
-    public static StackTraceElement[] replacement_getStackTrace(Throwable source){
-		if(!MockFramework.isEnabled() || source instanceof EvoSuiteMock){
-			return source.getStackTrace();
-		}
-		
-		return getDefaultStackTrace();
-	}
-	
-	public static void replacement_printStackTrace(Throwable source, PrintWriter p) {
-		if(!MockFramework.isEnabled() || source instanceof EvoSuiteMock){
-			source.printStackTrace(p);
-		}		
-		for(StackTraceElement elem : getDefaultStackTrace()) {
-			p.append(elem.toString());
-			p.append("\n");
-		}
-	}
-	
-	public static void replacement_printStackTrace(Throwable source, PrintStream p) {
-		if(!MockFramework.isEnabled() || source instanceof EvoSuiteMock){
-			source.printStackTrace(p);
-		}
-		for(StackTraceElement elem : getDefaultStackTrace()) {
-			p.append(elem.toString());
-			p.append("\n");
-		}
-	}
-	
-	// ----- unmodified public methods ----------
+    public static StackTraceElement[] replacement_getStackTrace(Throwable source) {
+        if (!MockFramework.isEnabled() || source instanceof EvoSuiteMock) {
+            return source.getStackTrace();
+        }
 
-	@Override
-	public String getMessage() {
-		return super.getMessage();
-	}
+        return getDefaultStackTrace();
+    }
 
-	@Override
-	public String getLocalizedMessage() {
-		return super.getLocalizedMessage();
-	}
+    public static void replacement_printStackTrace(Throwable source, PrintWriter p) {
+        if (!MockFramework.isEnabled() || source instanceof EvoSuiteMock) {
+            source.printStackTrace(p);
+        }
+        for (StackTraceElement elem : getDefaultStackTrace()) {
+            p.append(elem.toString());
+            p.append("\n");
+        }
+    }
 
-	@Override
-	public synchronized Throwable getCause() {
-		return super.getCause();
-	}
+    public static void replacement_printStackTrace(Throwable source, PrintStream p) {
+        if (!MockFramework.isEnabled() || source instanceof EvoSuiteMock) {
+            source.printStackTrace(p);
+        }
+        for (StackTraceElement elem : getDefaultStackTrace()) {
+            p.append(elem.toString());
+            p.append("\n");
+        }
+    }
 
-	@Override
-	public String toString() {
-		return super.toString();
-	}
+    // ----- unmodified public methods ----------
 
-	@Override
-	public void printStackTrace() {
-		super.printStackTrace();
-	}
+    @Override
+    public String getMessage() {
+        return super.getMessage();
+    }
 
+    @Override
+    public String getLocalizedMessage() {
+        return super.getLocalizedMessage();
+    }
 
-	// ------  mocked public methods --------
+    @Override
+    public synchronized Throwable getCause() {
+        return super.getCause();
+    }
 
-	@Override
-	public synchronized Throwable initCause(Throwable cause) {
+    @Override
+    public String toString() {
+        return super.toString();
+    }
 
-		if(!MockFramework.isEnabled()){
-			return super.initCause(cause);
-		}
+    @Override
+    public void printStackTrace() {
+        super.printStackTrace();
+    }
 
-		try{
-			return super.initCause(cause);
-		} catch(IllegalStateException e){
-			throw new MockIllegalStateException(e.getMessage());
-		} catch(IllegalArgumentException e){
-			throw new MockIllegalArgumentException(e.getMessage()); //FIXME
-		}
-	}
+    // ------  mocked public methods --------
 
-	@Override
-	public void printStackTrace(PrintStream p) {
+    @Override
+    public synchronized Throwable initCause(Throwable cause) {
 
-		if(!MockFramework.isEnabled()){
-			super.printStackTrace(p);
-			return;
-		}
+        if (!MockFramework.isEnabled()) {
+            return super.initCause(cause);
+        }
 
-		for(StackTraceElement elem : getStackTrace()) {
-			p.append(elem.toString());
-			p.append("\n");
-		}
-	}
+        try {
+            return super.initCause(cause);
+        } catch (IllegalStateException e) {
+            throw new MockIllegalStateException(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            throw new MockIllegalArgumentException(e.getMessage()); //FIXME
+        }
+    }
 
-	@Override
-	public void printStackTrace(PrintWriter p) {
+    @Override
+    public void printStackTrace(PrintStream p) {
 
-		if(!MockFramework.isEnabled()){
-			super.printStackTrace(p);
-			return;
-		}
+        if (!MockFramework.isEnabled()) {
+            super.printStackTrace(p);
+            return;
+        }
 
-		for(StackTraceElement elem : getStackTrace()) {
-			p.append(elem.toString());
-			p.append("\n");
-		}		
-	}
+        for (StackTraceElement elem : getStackTrace()) {
+            p.append(elem.toString());
+            p.append("\n");
+        }
+    }
 
-	/**
-	@Override
-	public synchronized Throwable fillInStackTrace() {
-		if(!MockFramework.isEnabled()){
-			return super.fillInStackTrace();
-		}
+    @Override
+    public void printStackTrace(PrintWriter p) {
 
-		return this;
-	}
-	*/
+        if (!MockFramework.isEnabled()) {
+            super.printStackTrace(p);
+            return;
+        }
 
-	@Override
-	public StackTraceElement[] getStackTrace() {		
+        for (StackTraceElement elem : getStackTrace()) {
+            p.append(elem.toString());
+            p.append("\n");
+        }
+    }
 
-		if(!MockFramework.isEnabled()){
-			return super.getStackTrace();
-		}
+    /**
+    @Override
+    public synchronized Throwable fillInStackTrace() {
+        if (!MockFramework.isEnabled()) {
+            return super.fillInStackTrace();
+        }
 
+        return this;
+    }
+    */
 
-		return stackTraceElements;
-	}
+    @Override
+    public StackTraceElement[] getStackTrace() {
 
-	@Override
-	public void setStackTrace(StackTraceElement[] stackTrace) {
+        if (!MockFramework.isEnabled()) {
+            return super.getStackTrace();
+        }
 
-		if(!MockFramework.isEnabled()){
-			super.setStackTrace(stackTrace);
-			return;
-		}
+        return stackTraceElements;
+    }
 
+    @Override
+    public void setStackTrace(StackTraceElement[] stackTrace) {
 
-		StackTraceElement[] defensiveCopy = stackTrace.clone();
-		for (int i = 0; i < defensiveCopy.length; i++) {
-			if (defensiveCopy[i] == null)
-				throw new MockNullPointerException("stackTrace[" + i + "]");  //FIXME
-		}
+        if (!MockFramework.isEnabled()) {
+            super.setStackTrace(stackTrace);
+            return;
+        }
 
-		synchronized (this) {            
-			this.stackTraceElements = defensiveCopy;
-		}
-	}
+        StackTraceElement[] defensiveCopy = stackTrace.clone();
+        for (int i = 0; i < defensiveCopy.length; i++) {
+            if (defensiveCopy[i] == null) {
+                throw new MockNullPointerException("stackTrace[" + i + "]");  //FIXME
+            }
+        }
 
-	/*
-	 *  getSuppressed() and addSuppressed() are final, and likely not
-	 *  needed to be mocked anyway
-	 *
-	 */
+        synchronized (this) {
+            this.stackTraceElements = defensiveCopy;
+        }
+    }
+
+    /*
+     *  getSuppressed() and addSuppressed() are final, and likely not
+     *  needed to be mocked anyway
+     *
+     */
 }

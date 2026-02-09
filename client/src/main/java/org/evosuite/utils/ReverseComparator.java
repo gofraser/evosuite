@@ -29,7 +29,7 @@ import java.util.Comparator;
  * @author Henri Yandell
  * @author Michael A. Smith
  * @version $Revision: 646777 $ $Date: 2008-04-10 13:33:15 +0100 (Thu, 10 Apr
- * 2008) $
+ *     2008) $
  * @see java.util.Collections#reverseOrder()
  * @since Commons Collections 2.0
  */
@@ -63,15 +63,15 @@ public class ReverseComparator<T> implements Comparator<T>, Serializable {
      * Creates a comparator that inverts the comparison of the given comparator.
      * If you pass in <code>null</code>, the ReverseComparator defaults to
      * reversing the natural order, as per
-     * {@link java.util.Collections#reverseOrder()}</b>.
+     * {@link java.util.Collections#reverseOrder()}.
      *
      * @param comparator Comparator to reverse
      */
     public ReverseComparator(Comparator<T> comparator) {
         if (comparator != null) {
             this.comparator = comparator;
-            //		} else {
-            //			this.comparator = ComparableComparator.getInstance();
+            //      } else {
+            //          this.comparator = ComparableComparator.getInstance();
         }
     }
 
@@ -79,8 +79,8 @@ public class ReverseComparator<T> implements Comparator<T>, Serializable {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Compares two objects in reverse order.
+     *
+     * <p>Compares two objects in reverse order.
      */
     @Override
     public int compare(T obj1, T obj2) {
@@ -91,8 +91,8 @@ public class ReverseComparator<T> implements Comparator<T>, Serializable {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Implement a hash code for this comparator that is consistent with
+     *
+     * <p>Implement a hash code for this comparator that is consistent with
      * {@link #equals(Object) equals}.
      *
      * @since Commons Collections 3.0
@@ -104,11 +104,11 @@ public class ReverseComparator<T> implements Comparator<T>, Serializable {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Returns <code>true</code> iff <i>that</i> Object is is a
+     *
+     * <p>Returns <code>true</code> iff <i>that</i> Object is is a
      * {@link Comparator} whose ordering is known to be equivalent to mine.
-     * <p>
-     * This implementation returns <code>true</code> iff
+     *
+     * <p>This implementation returns <code>true</code> iff
      * <code><i>object</i>.{@link Object#getClass() getClass()}</code> equals
      * <code>this.getClass()</code>, and the underlying comparators are equal.
      * Subclasses may want to override this behavior to remain consistent with
