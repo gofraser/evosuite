@@ -52,8 +52,8 @@ public class Sandbox {
             System.setSecurityManager(current);
         } catch (UnsupportedOperationException e) {
             supported = false;
-            logger.warn("Security Manager is not supported in this JVM (Java 24+). " +
-                    "Sandbox functionality will be disabled.");
+            logger.warn("Security Manager is not supported in this JVM (Java 24+). "
+                    + "Sandbox functionality will be disabled.");
         } catch (SecurityException e) {
             // Security Manager is supported but we don't have permission to change it
             // This is fine - we'll handle it when we actually try to apply our manager
@@ -63,6 +63,7 @@ public class Sandbox {
 
     /**
      * Returns whether Security Manager is supported in this JVM.
+     *
      * @return true if Security Manager can be used, false otherwise (Java 24+)
      */
     public static boolean isSecurityManagerSupported() {
@@ -79,6 +80,7 @@ public class Sandbox {
      * Problem is, that we do compile and run the JUnit test cases (eg
      * to see if they compile with no problems, if their assertions
      * are stable, etc), and those test cases do init/reset the sandbox
+     * </p>
      */
     private static volatile int counter;
 
@@ -89,7 +91,7 @@ public class Sandbox {
     }
 
     /**
-     * Create and initialize security manager for SUT
+     * Create and initialize security manager for SUT.
      */
     public static synchronized void initializeSecurityManagerForSUT(Set<Thread> privileged) {
         if (!SECURITY_MANAGER_SUPPORTED) {
@@ -119,20 +121,23 @@ public class Sandbox {
     }
 
     /**
-     * Create and initialize security manager for SUT
+     * Create and initialize security manager for SUT.
      */
     public static synchronized void initializeSecurityManagerForSUT() {
         initializeSecurityManagerForSUT(null);
     }
 
     public static void addPrivilegedThread(Thread t) {
-        if (manager != null)
+        if (manager != null) {
             manager.addPrivilegedThread(t);
+        }
     }
 
     /**
+     * Reset default security manager.
+     *
      * @return a set of the threads that were marked as privileged. This is useful
-     * if then we want to reactivate the security manager with the same priviliged threads.
+     *     if then we want to reactivate the security manager with the same priviliged threads.
      */
     public static synchronized Set<Thread> resetDefaultSecurityManager() {
 
