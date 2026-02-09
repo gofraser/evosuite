@@ -25,7 +25,7 @@ import org.objectweb.asm.tree.LabelNode;
 
 /**
  * Annotated labels are used to identify instrumented code
- * such that EvoSuite knows how to deal with
+ * such that EvoSuite knows how to deal with.
  *
  * @author fraser
  */

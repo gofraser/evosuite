@@ -33,6 +33,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
+ * Represents a method call replacement.
+ *
  * @author gordon
  */
 public class MethodCallReplacement {
@@ -52,12 +54,15 @@ public class MethodCallReplacement {
     private static final Logger logger = LoggerFactory.getLogger(MethodCallReplacement.class);
 
     /**
-     * @param className
-     * @param methodName
-     * @param desc
-     * @param replacementClassName
-     * @param replacementMethodName
-     * @param replacementDesc
+     * Constructor.
+     *
+     * @param className             the name of the class
+     * @param methodName            the name of the method
+     * @param desc                  the method descriptor
+     * @param opcode                the opcode
+     * @param replacementClassName  the replacement class name
+     * @param replacementMethodName the replacement method name
+     * @param replacementDesc       the replacement method descriptor
      * @param pop                   if {@code true}, then get rid of the receiver object from
      *                              the stack. This is needed when a non-static method is
      *                              replaced by a static one, unless you make the callee of
@@ -85,7 +90,8 @@ public class MethodCallReplacement {
     }
 
     public void insertMethodCall(MethodCallReplacementMethodAdapter mv, int opcode) {
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, MockFramework.class.getCanonicalName().replace('.', '/'), "isEnabled", "()Z", false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, MockFramework.class.getCanonicalName().replace('.', '/'),
+                "isEnabled", "()Z", false);
         Label origCallLabel = new Label();
         Label afterOrigCallLabel = new Label();
 
@@ -107,8 +113,9 @@ public class MethodCallReplacement {
             }
 
             mv.pop();//callee
-            if (popUninitialisedReference)
+            if (popUninitialisedReference) {
                 mv.pop();
+            }
 
             for (int i = 0; i < args.length; i++) {
                 mv.loadLocal(to.get(i));
@@ -163,7 +170,8 @@ public class MethodCallReplacement {
         Label afterOrigCallLabel = new Label();
 
         if (!isSelf) {
-            mv.visitMethodInsn(Opcodes.INVOKESTATIC, MockFramework.class.getCanonicalName().replace('.', '/'), "isEnabled", "()Z", false);
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC, MockFramework.class.getCanonicalName().replace('.', '/'),
+                    "isEnabled", "()Z", false);
             Label annotationStartTag = new AnnotatedLabel(true, true);
             annotationStartTag.info = Boolean.TRUE;
             mv.visitLabel(annotationStartTag);

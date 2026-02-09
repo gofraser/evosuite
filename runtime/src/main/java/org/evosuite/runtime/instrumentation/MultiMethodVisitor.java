@@ -19,13 +19,18 @@
  */
 package org.evosuite.runtime.instrumentation;
 
-import org.objectweb.asm.*;
+import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.Attribute;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * MethodVisitor that acts as a proxy to two other visitors
+ * MethodVisitor that acts as a proxy to two other visitors.
  *
  * @author Gordon Fraser
  */
@@ -34,7 +39,7 @@ public class MultiMethodVisitor extends MethodVisitor {
     MethodVisitor mv1;
     MethodVisitor mv2;
 
-    Map<Label, Label> label_mapping = new HashMap<>();
+    private final Map<Label, Label> labelMapping = new HashMap<>();
 
     /**
      * <p>Constructor for MultiMethodVisitor.</p>
@@ -49,11 +54,11 @@ public class MultiMethodVisitor extends MethodVisitor {
     }
 
     private Label getLabel(Label l) {
-        if (label_mapping.containsKey(l))
-            return label_mapping.get(l);
-        else {
+        if (labelMapping.containsKey(l)) {
+            return labelMapping.get(l);
+        } else {
             Label l2 = new Label();
-            label_mapping.put(l, l2);
+            labelMapping.put(l, l2);
             return l2;
         }
 
@@ -242,10 +247,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         //mv2.visitLineNumber(arg0, arg1);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitLocalVariable(java.lang.String, java.lang.String, java.lang.String, org.objectweb.asm.Label, org.objectweb.asm.Label, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -253,12 +254,9 @@ public class MultiMethodVisitor extends MethodVisitor {
     public void visitLocalVariable(String arg0, String arg1, String arg2, Label arg3,
                                    Label arg4, int arg5) {
         mv1.visitLocalVariable(arg0, arg1, arg2, arg3, arg4, arg5);
-        mv2.visitLocalVariable(arg0, arg1, arg2, getLabel(arg3), getLabel(arg4), arg5);
+        mv2.visitLocalVariable(arg0, arg1, arg2, getLabel(arg3), getLabel(arg4),
+                arg5);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitLookupSwitchInsn(org.objectweb.asm.Label, int[], org.objectweb.asm.Label[])
-     */
 
     /**
      * {@inheritDoc}
@@ -267,10 +265,12 @@ public class MultiMethodVisitor extends MethodVisitor {
     public void visitLookupSwitchInsn(Label arg0, int[] arg1, Label[] arg2) {
         mv1.visitLookupSwitchInsn(arg0, arg1, arg2);
         Label[] arg2Copy = new Label[arg2.length];
-        for (int i = 0; i < arg2.length; i++)
+        for (int i = 0; i < arg2.length; i++) {
             arg2Copy[i] = getLabel(arg2[i]);
+        }
 
-        mv2.visitLookupSwitchInsn(getLabel(arg0), arg1, arg2Copy);
+        mv2.visitLookupSwitchInsn(getLabel(arg0), arg1,
+                arg2Copy);
     }
 
     /* (non-Javadoc)
@@ -333,14 +333,11 @@ public class MultiMethodVisitor extends MethodVisitor {
      * {@inheritDoc}
      */
     @Override
-    public AnnotationVisitor visitParameterAnnotation(int arg0, String arg1, boolean arg2) {
+    public AnnotationVisitor visitParameterAnnotation(int arg0, String arg1,
+                                                      boolean arg2) {
         mv1.visitParameterAnnotation(arg0, arg1, arg2);
         return mv2.visitParameterAnnotation(arg0, arg1, arg2);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitTableSwitchInsn(int, int, org.objectweb.asm.Label, org.objectweb.asm.Label[])
-     */
 
     /**
      * {@inheritDoc}
@@ -349,14 +346,12 @@ public class MultiMethodVisitor extends MethodVisitor {
     public void visitTableSwitchInsn(int arg0, int arg1, Label arg2, Label... arg3) {
         mv1.visitTableSwitchInsn(arg0, arg1, arg2, arg3);
         Label[] arg3Copy = new Label[arg3.length];
-        for (int i = 0; i < arg3.length; i++)
+        for (int i = 0; i < arg3.length; i++) {
             arg3Copy[i] = getLabel(arg3[i]);
-        mv2.visitTableSwitchInsn(arg0, arg1, getLabel(arg2), arg3Copy);
+        }
+        mv2.visitTableSwitchInsn(arg0, arg1, getLabel(arg2),
+                arg3Copy);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitTryCatchBlock(org.objectweb.asm.Label, org.objectweb.asm.Label, org.objectweb.asm.Label, java.lang.String)
-     */
 
     /**
      * {@inheritDoc}

@@ -32,11 +32,10 @@ import org.slf4j.LoggerFactory;
  * This class is responsible for the bytecode instrumentation
  * needed for the generated JUnit test cases.
  *
- * <p>
- * Note: the instrumentation will be part of the final JUnit tests and, as such, we should
+ * <p>Note: the instrumentation will be part of the final JUnit tests and, as such, we should
  * only keep the instrumentation that affect the functional behavior (so, no branch distances, etc).
- * <p>
- * Created by arcuri on 6/11/14.
+ *
+ * <p>Created by arcuri on 6/11/14.
  */
 public class RuntimeInstrumentation {
 
@@ -44,14 +43,14 @@ public class RuntimeInstrumentation {
 
     /**
      * If we are re-instrumenting a class, then we cannot change its
-     * signature: eg add new methods
-     * <p>
-     * TODO: remove once we fix instrumentation
+     * signature: eg add new methods.
+     *
+     * <p>TODO: remove once we fix instrumentation.
      */
     private volatile boolean retransformingMode;
 
     /**
-     * This should ONLY be set by SystemTest
+     * This should ONLY be set by SystemTest.
      */
     private static boolean avoidInstrumentingShadedClasses = false;
 
@@ -64,7 +63,7 @@ public class RuntimeInstrumentation {
     }
 
     /**
-     * WARN: This should ONLY be called by SystemTest
+     * WARN: This should ONLY be called by SystemTest.
      */
     public static void setAvoidInstrumentingShadedClasses(boolean avoidInstrumentingShadedClasses) {
         RuntimeInstrumentation.avoidInstrumentingShadedClasses = avoidInstrumentingShadedClasses;
@@ -96,8 +95,9 @@ public class RuntimeInstrumentation {
         int readFlags = ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE;
         reader.accept(classNode, readFlags);
         for (String interfaceName : classNode.interfaces) {
-            if (InstrumentedClass.class.getName().equals(interfaceName.replace('/', '.')))
+            if (InstrumentedClass.class.getName().equals(interfaceName.replace('/', '.'))) {
                 return true;
+            }
         }
         return false;
     }

@@ -24,7 +24,11 @@ import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.mock.StaticReplacementMock;
-import org.objectweb.asm.*;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 import org.slf4j.Logger;
@@ -69,25 +73,23 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
     }
 
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.ClassVisitor#visitMethod(int, java.lang.String, java.lang.String, java.lang.String, java.lang.String[])
-     */
-
     /**
      * {@inheritDoc}
      */
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc,
                                      String signature, String[] exceptions) {
-        if (name.equals("hashCode"))
+        if (name.equals("hashCode")) {
             definesHashCode = true;
+        }
 
         MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
         if (name.equals("<init>")) {
             mv = new RegisterObjectForDeterministicHashCodeVisitor(mv, access, name, desc);
         }
 
-        return new MethodCallReplacementMethodAdapter(mv, className, superClassName, name, access, desc);
+        return new MethodCallReplacementMethodAdapter(mv, className, superClassName, name, access,
+                desc);
     }
 
     @Override
@@ -99,9 +101,11 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
             //         wrong access modifier for the serialVersionUID field on interfaces
             //         so we're overriding the access modifier here.
             if (isInterface) {
-                return super.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, name, desc, signature, value);
+                return super.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, name,
+                        desc, signature, value);
             } else {
-                return super.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, name, desc, signature, value);
+                return super.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, name,
+                        desc, signature, value);
             }
         }
         return super.visitField(access, name, desc, signature, value);
@@ -112,9 +116,9 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
                       String superName, String[] interfaces) {
         String superNameWithDots = superName.replace('/', '.');
         superClassName = superNameWithDots;
-        if ((access & Opcodes.ACC_INTERFACE) == Opcodes.ACC_INTERFACE)
+        if ((access & Opcodes.ACC_INTERFACE) == Opcodes.ACC_INTERFACE) {
             isInterface = true;
-        else {
+        } else {
             /*
                 FIXME: this should be moved in its own adapter, because it is not executed if we do
                 only reset of static state and no mocking
@@ -122,8 +126,9 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
             boolean found = false;
             String instrumentedInterface = InstrumentedClass.class.getCanonicalName().replace('.', '/');
             for (String interf : interfaces) {
-                if (interf.equals(instrumentedInterface))
+                if (interf.equals(instrumentedInterface)) {
                     found = true;
+                }
             }
             if (!found) {
                 logger.info("Adding mock interface to class " + name);
@@ -158,14 +163,15 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
     public void visitEnd() {
         if (canChangeSignature && !definesHashCode && !isInterface && RuntimeSettings.mockJVMNonDeterminism) {
 
-//			logger.info("No hashCode defined for: "+className+", superclass = "+superClassName);
+            // logger.info("No hashCode defined for: "+className+", superclass = "+superClassName);
 
             if (superClassName.equals("java.lang.Object")) { //TODO: why only if superclass is Object??? unclear
                 Method hashCodeMethod = Method.getMethod("int hashCode()");
                 GeneratorAdapter mg = new GeneratorAdapter(Opcodes.ACC_PUBLIC, hashCodeMethod, null, null, this);
                 mg.loadThis();
                 mg.visitAnnotation(Type.getDescriptor(EvoSuiteExclude.class), true);
-                mg.invokeStatic(Type.getType(org.evosuite.runtime.System.class), Method.getMethod("int identityHashCode(Object)"));
+                mg.invokeStatic(Type.getType(org.evosuite.runtime.System.class),
+                        Method.getMethod("int identityHashCode(Object)"));
                 mg.returnValue();
                 mg.endMethod();
             }
