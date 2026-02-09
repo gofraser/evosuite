@@ -69,9 +69,11 @@ public class MeasureCoverage {
 
     private static void measureCoverageClass(String targetClass, List<String> args) {
 
-        if (!ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).hasClass(targetClass)) {
+        if (!ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .hasClass(targetClass)) {
             LoggingUtils.getEvoLogger().error("* Unknown class: " + targetClass
-                    + ". Be sure its full qualifying name is correct and the classpath is properly set with '-projectCP'");
+                    + ". Be sure its full qualifying name is correct and the classpath is properly set "
+                    + "with '-projectCP'");
         }
 
         if (!BytecodeInstrumentation.checkIfCanInstrument(targetClass)) {
@@ -86,7 +88,8 @@ public class MeasureCoverage {
 
     private static void measureCoverageTarget(String target, List<String> args) {
 
-        Set<String> classes = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(target, false);
+        Set<String> classes = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getAllClasses(target, false);
         LoggingUtils.getEvoLogger().info("* Found " + classes.size() + " matching classes in target " + target);
 
         measureCoverage(target, args);
@@ -137,8 +140,9 @@ public class MeasureCoverage {
         cmdLine.add(ClientProcess.class.getName());
 
         /*
-         * TODO: here we start the client with several properties that are set through -D. These properties are not visible to the master process (ie
-         * this process), when we access the Properties file. At the moment, we only need few parameters, so we can hack them
+         * TODO: here we start the client with several properties that are set through -D. These properties are not
+         * visible to the master process (ie this process), when we access the Properties file. At the moment, we only
+         * need few parameters, so we can hack them
          */
         Properties.getInstance();// should force the load, just to be sure
         Properties.TARGET_CLASS = targetClass;
@@ -177,6 +181,7 @@ public class MeasureCoverage {
                 clients = new CopyOnWriteArraySet<>(MasterServices.getInstance().getMasterNode()
                         .getClientsOnceAllConnected(10000).values());
             } catch (InterruptedException e) {
+                // ignored
             }
             if (clients == null) {
                 logger.error("Not possible to access to clients");
@@ -200,6 +205,7 @@ public class MeasureCoverage {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
+                // ignored
             }
             if (Properties.NEW_STATISTICS) {
                 if (MasterServices.getInstance().getMasterNode() == null) {
@@ -222,6 +228,7 @@ public class MeasureCoverage {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
+                // ignored
             }
             logUtils.closeLogServer();
         }
