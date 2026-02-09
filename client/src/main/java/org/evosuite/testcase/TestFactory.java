@@ -36,6 +36,7 @@ import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.mutation.RandomInsertion;
 import org.evosuite.testcase.statements.*;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.statements.environment.EnvironmentStatements;
 import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
 import org.evosuite.testcase.statements.reflection.PrivateMethodStatement;
@@ -276,13 +277,17 @@ public class TestFactory {
 
         try {
             //first be sure if parameters can be satisfied
-            List<VariableReference> parameters = satisfyParameters(test,
+            List<VariableReference> parameters;
+            parameters = satisfyParameters(test,
                     null,
                     Arrays.asList(constructor.getParameterTypes()),
                     Arrays.asList(constructor.getConstructor().getParameters()),
                     position,
                     recursionDepth + 1,
                     true, false, true);
+            if (isListCapacityConstructor(constructor)) {
+                validateOrAdjustListCapacityParameter(test, position, parameters);
+            }
             int newLength = test.size();
             position += (newLength - length);
 
@@ -296,6 +301,40 @@ public class TestFactory {
                     " due to " + e.getClass().getCanonicalName() + ": " + e.getMessage());
         }
     }
+
+    private static boolean isListCapacityConstructor(GenericConstructor constructor) {
+        Class<?> rawType = constructor.getRawGeneratedType();
+        if (rawType == null || !List.class.isAssignableFrom(rawType)) {
+            return false;
+        }
+        Class<?>[] rawParams = constructor.getConstructor().getParameterTypes();
+        return rawParams.length == 1 && rawParams[0].equals(int.class);
+    }
+
+    private static void validateOrAdjustListCapacityParameter(TestCase test,
+                                                              int insertionPosition,
+                                                              List<VariableReference> parameters)
+            throws ConstructionFailedException {
+        if (parameters == null || parameters.isEmpty()) {
+            throw new ConstructionFailedException("Missing list capacity parameter");
+        }
+        VariableReference param = parameters.get(0);
+        Statement st = test.getStatement(param.getStPosition());
+        if (!(st instanceof IntPrimitiveStatement)) {
+            return;
+        }
+        IntPrimitiveStatement intStatement = (IntPrimitiveStatement) st;
+        int value = intStatement.getValue();
+        int maxCapacity = Math.max(0, Properties.MAX_ARRAY);
+        if (value < 0 || value > maxCapacity) {
+            if (param.getStPosition() < insertionPosition) {
+                throw new ConstructionFailedException("List capacity too large: " + value);
+            }
+            int bounded = Randomness.nextInt(maxCapacity + 1);
+            intStatement.setValue(bounded);
+        }
+    }
+
 
     /**
      * Adds the given {@code field} to the {@code test} case at the given {@code position}.
