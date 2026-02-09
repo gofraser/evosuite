@@ -96,6 +96,10 @@ public class BaseDeterminismSystemTest {
         String first = run(target, initializer);
         String second = run(target, initializer);
 
+        if (!first.equals(second)) {
+            System.err.println("Determinism check failed for target: " + target.getCanonicalName());
+            System.err.println(diffSummary(first, second));
+        }
         assertEquals(first, second);
     }
 
@@ -114,6 +118,9 @@ public class BaseDeterminismSystemTest {
 
 
         scaffolding.setDefaultPropertiesForTestCases(); //@Before
+        // Avoid time-based statistics output that breaks determinism checks
+        Properties.NEW_STATISTICS = false;
+        Properties.STATISTICS_BACKEND = Properties.StatisticsBackend.NONE;
         Properties.CRITERION = new Properties.Criterion[]{
                 Properties.Criterion.LINE, Properties.Criterion.BRANCH,
                 Properties.Criterion.EXCEPTION, Properties.Criterion.WEAKMUTATION,
@@ -161,5 +168,41 @@ public class BaseDeterminismSystemTest {
         }
 
         return buffer.toString();
+    }
+
+    private static String diffSummary(String first, String second) {
+        String[] a = first.split("\n", -1);
+        String[] b = second.split("\n", -1);
+        int min = Math.min(a.length, b.length);
+        int idx = -1;
+        for (int i = 0; i < min; i++) {
+            if (!a[i].equals(b[i])) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx == -1 && a.length != b.length) {
+            idx = min;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("First length: ").append(a.length).append(" lines, ");
+        sb.append("Second length: ").append(b.length).append(" lines\n");
+        if (idx == -1) {
+            sb.append("No differing line found, but strings are not equal.\n");
+            return sb.toString();
+        }
+        sb.append("First differing line index: ").append(idx + 1).append("\n");
+        sb.append("First:  ").append(idx < a.length ? a[idx] : "<no line>").append("\n");
+        sb.append("Second: ").append(idx < b.length ? b[idx] : "<no line>").append("\n");
+        sb.append("Context:\n");
+        int from = Math.max(0, idx - 2);
+        int to = Math.min(Math.max(a.length, b.length), idx + 3);
+        for (int i = from; i < to; i++) {
+            String left = i < a.length ? a[i] : "<no line>";
+            String right = i < b.length ? b[i] : "<no line>";
+            sb.append("  ").append(i + 1).append(": ").append(left).append("\n");
+            sb.append("  ").append(i + 1).append(": ").append(right).append("\n");
+        }
+        return sb.toString();
     }
 }
