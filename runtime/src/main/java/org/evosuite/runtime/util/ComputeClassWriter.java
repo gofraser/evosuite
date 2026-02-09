@@ -22,8 +22,6 @@ package org.evosuite.runtime.util;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,10 +33,6 @@ import java.io.InputStream;
  * @author Eric Bruneton
  */
 public class ComputeClassWriter extends ClassWriter {
-
-    private final Logger logger = LoggerFactory.getLogger(ComputeClassWriter.class);
-
-    private final ClassLoader l = getClass().getClassLoader();
 
     public ComputeClassWriter(final int flags) {
         super(flags);
@@ -117,12 +111,12 @@ public class ComputeClassWriter extends ClassWriter {
      * @param type the internal name of a class or interface.
      * @param info the ClassReader corresponding to 'type'.
      * @return a StringBuilder containing the ancestor classes of 'type',
-     * separated by ';'. The returned string has the following format:
-     * ";type1;type2 ... ;typeN", where type1 is 'type', and typeN is a
-     * direct subclass of Object. If 'type' is Object, the returned
-     * string is empty.
+     *     separated by ';'. The returned string has the following format:
+     *     ";type1;type2 ... ;typeN", where type1 is 'type', and typeN is a
+     *     direct subclass of Object. If 'type' is Object, the returned
+     *     string is empty.
      * @throws IOException if the bytecode of 'type' or of some of its ancestor class
-     *                     cannot be loaded.
+     *     cannot be loaded.
      */
     private StringBuilder typeAncestors(String type, ClassReader info)
             throws IOException {
@@ -175,8 +169,9 @@ public class ComputeClassWriter extends ClassWriter {
      */
     private ClassReader typeInfo(final String type) throws IOException, NullPointerException {
         try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(type + ".class")) {
-            if (is == null)
+            if (is == null) {
                 throw new NullPointerException("Class not found " + type);
+            }
             return new ClassReader(is);
         }
     }

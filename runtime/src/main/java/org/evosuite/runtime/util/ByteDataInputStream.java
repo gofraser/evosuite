@@ -26,9 +26,9 @@ import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Class used to create an input stream for a byte array
- * <p>
- * Created by Andrea Arcuri on 22/05/15.
+ * Class used to create an input stream for a byte array.
+ *
+ * <p>Created by Andrea Arcuri on 22/05/15.
  */
 public class ByteDataInputStream extends InputStream {
 
