@@ -49,6 +49,7 @@ import java.util.concurrent.*;
  * if just for reading. Piece-of-crap OS like Windows do put locks on files based
  * on processes accessing them... for multi-process applications running on same host,
  * that is a recipe for disaster...
+ * </p>
  *
  * @author arcuri
  */
@@ -60,13 +61,13 @@ public class JobExecutor {
     private long startTimeInMs;
 
     /**
-     * This used to wait till all jobs are finished running
+     * This used to wait till all jobs are finished running.
      */
     private volatile CountDownLatch latch;
 
     /**
      * Several threads read from this queue to execute jobs
-     * on separated process
+     * on separated process.
      */
     private BlockingQueue<JobDefinition> jobQueue;
 
@@ -74,7 +75,7 @@ public class JobExecutor {
      * keep track of all the jobs that have been executed so far.
      * Each job definition (value) is indexed by the CUT name (key).
      * This assumes in a schedule that the CUT names are unique, ie,
-     * no more than one job should exist for the same CUT
+     * no more than one job should exist for the same CUT.
      */
     private Map<String, JobDefinition> finishedJobs;
 
@@ -85,7 +86,12 @@ public class JobExecutor {
     private final StorageManager storage;
 
     /**
-     * Main constructor
+     * Main constructor.
+     *
+     * @param storage storage manager
+     * @param projectClassPath classpath
+     * @param conf configuration
+     * @throws IllegalArgumentException if storage not ok
      */
     public JobExecutor(StorageManager storage,
                        String projectClassPath, CtgConfiguration conf) throws IllegalArgumentException {
@@ -111,7 +117,8 @@ public class JobExecutor {
      * The executor tries a best effort to execute the jobs in the given order,
      * although no guarantee is provided (eg, there might be dependencies among jobs).
      *
-     * @param jobs
+     * @param jobs list of jobs
+     * @param cores number of cores
      * @throws IllegalStateException if we are already executing some jobs
      */
     public synchronized void executeJobs(final List<JobDefinition> jobs, final int cores) throws IllegalStateException {
@@ -312,6 +319,7 @@ public class JobExecutor {
                 }
             }
         } catch (InterruptedException e) {
+            // ignored
         }
     }
 

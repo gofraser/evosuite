@@ -94,9 +94,10 @@ public class SeedingSchedule extends OneTimeSchedule {
     /**
      * Try (best effort) to sort the jobs in a way in which dependent jobs
      * are executed first. Try to maintain the relative order of the input list.
-     * Note: even if sorting is not precise, still the job executor will be able to handle it
+     * Note: even if sorting is not precise, still the job executor will be able to handle it.
      *
      * @param jobs A sorted copy of the input list
+     * @return sorted list
      */
     protected static List<JobDefinition> getSortedToSatisfyDependencies(List<JobDefinition> jobs) {
 
@@ -172,13 +173,12 @@ public class SeedingSchedule extends OneTimeSchedule {
      * The scheduler will use this information to first try to generate
      * the test cases for the "dependency" jobs.
      *
-     * <p>
-     * There can be different strategies to define a dependency:
+     * <p>There can be different strategies to define a dependency:
      * - ancestor, non-interface classes
      * - classes used as input objects
-     * - subtypes of classes used as input objects
+     * - subtypes of classes used as input objects</p>
      *
-     * @param jobs
+     * @param jobs list of jobs
      * @return a copy given input list, but with new jobs objects
      */
     protected List<JobDefinition> addDependenciesForSeeding(List<JobDefinition> jobs) {
@@ -200,8 +200,8 @@ public class SeedingSchedule extends OneTimeSchedule {
      * set in a specific way. Using the test cases generated for B can give
      * us a pool of interesting instances of B.
      *
-     * @param job
-     * @param dep
+     * @param job the job
+     * @return set of input classes
      */
     private Set<String> calculateInputClasses(JobDefinition job) {
 
@@ -229,31 +229,46 @@ public class SeedingSchedule extends OneTimeSchedule {
      * But, to do so, the seeded test cases need to change the concrete class.
      * For example, if we have:
      *
-     * <p> <code>B foo = new B(); </br>
+     * <p>
+     * <code>B foo = new B(); <br>
      * foo.doSomething(x,y); </code>
+     * </p>
      *
-     * <p> then we should transform it into:
+     * <p>
+     * then we should transform it into:
+     * </p>
      *
-     * <p> <code>B foo = new A(); </br>
+     * <p>
+     * <code>B foo = new A(); <br>
      * foo.doSomething(x,y); </code>
+     * </p>
      *
-     * <p> There is a potentially tricky case.
+     * <p>
+     * There is a potentially tricky case.
      * Consider for example if B is abstract and,
      * when test cases were generated for it, a subclass
      * C was chosen instead of A. This would mean the test
      * case for B would look like:
+     * </p>
      *
-     * <p> <code>B foo = new C(); </br>
+     * <p>
+     * <code>B foo = new C(); <br>
      * foo.doSomething(x,y); </code>
+     * </p>
      *
-     * <p> However, it is actually not a big deal, as it is safe
+     * <p>
+     * However, it is actually not a big deal, as it is safe
      * to modify <code>new C()</code> with <code>new A()</code>.
+     * </p>
      *
-     * <p> Note: if the test cases for B are in the
+     * <p>
+     * Note: if the test cases for B are in the
      * form <code>C foo = new C();</code>, then that would rather
      * be a bug/problem in how EvoSuite generated test cases for B
+     * </p>
      *
-     * @param job
+     * @param job the job
+     * @return set of ancestors
      */
     private Set<String> calculateAncestors(JobDefinition job) {
 

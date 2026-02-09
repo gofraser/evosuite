@@ -141,7 +141,8 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
                     addDependenciesForCBranch();
                     break;
                 default:
-                    LoggingUtils.getEvoLogger().error("The criterion {} is not currently supported in DynaMOSA", criterion.name());
+                    LoggingUtils.getEvoLogger().error("The criterion {} is not currently supported in DynaMOSA",
+                            criterion.name());
             }
         }
 
@@ -187,7 +188,8 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         for (TestFitnessFunction ff : this.getUncoveredGoals()) {
             if (ff instanceof OutputCoverageTestFitness) {
                 OutputCoverageTestFitness output = (OutputCoverageTestFitness) ff;
-                List<BytecodeInstruction> instructions = pool.getInstructionsIn(output.getClassName(), output.getMethod());
+                List<BytecodeInstruction> instructions = pool.getInstructionsIn(output.getClassName(),
+                        output.getMethod());
                 if (instructions == null) {
                     this.currentGoals.add(ff);
                     continue;
@@ -213,7 +215,8 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         for (TestFitnessFunction ff : this.getUncoveredGoals()) {
             if (ff instanceof InputCoverageTestFitness) {
                 InputCoverageTestFitness input = (InputCoverageTestFitness) ff;
-                List<BytecodeInstruction> instructions = pool.getInstructionsIn(input.getClassName(), input.getMethod());
+                List<BytecodeInstruction> instructions = pool.getInstructionsIn(input.getClassName(),
+                        input.getMethod());
                 if (instructions == null) {
                     this.currentGoals.add(ff);
                     continue;
@@ -246,7 +249,8 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
     private void addDependenciesForMethodsNoException() {
         logger.debug("Added dependencies for MethodsNoException");
         for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
-            MethodNoExceptionCoverageTestFitness method = new MethodNoExceptionCoverageTestFitness(branch.getClassName(), branch.getMethod());
+            MethodNoExceptionCoverageTestFitness method = new MethodNoExceptionCoverageTestFitness(
+                    branch.getClassName(), branch.getMethod());
             this.dependencies.get(branch).add(method);
         }
     }
@@ -323,7 +327,8 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         for (TestFitnessFunction ff : this.getUncoveredGoals()) {
             if (ff instanceof LineCoverageTestFitness) {
                 LineCoverageTestFitness line = (LineCoverageTestFitness) ff;
-                BytecodeInstruction instruction = pool.getFirstInstructionAtLineNumber(line.getClassName(), line.getMethod(), line.getLine());
+                BytecodeInstruction instruction = pool.getFirstInstructionAtLineNumber(line.getClassName(),
+                        line.getMethod(), line.getLine());
                 if (instruction == null) {
                     continue;
                 }
@@ -341,9 +346,9 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         for (TestFitnessFunction ff : this.getUncoveredGoals()) {
             if (ff instanceof StatementCoverageTestFitness) {
                 StatementCoverageTestFitness stmt = (StatementCoverageTestFitness) ff;
-                if (stmt.getBranchFitnesses().isEmpty())
+                if (stmt.getBranchFitnesses().isEmpty()) {
                     this.currentGoals.add(ff);
-                else {
+                } else {
                     for (BranchCoverageTestFitness branch : stmt.getBranchFitnesses()) {
                         this.dependencies.get(branch).add(stmt);
                     }
@@ -394,8 +399,9 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
             // (There might have been serendipitous coverage of other targets, though.)
             TestFitnessFunction target = targets.poll();
 
-            if (!visitedTargets.add(target))
+            if (!visitedTargets.add(target)) {
                 continue;
+            }
 
             double fitness = target.getFitness(c);
 
@@ -431,20 +437,23 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         final ExecutionTrace trace = result.getTrace();
         for (int branchid : trace.getCoveredFalseBranches()) {
             TestFitnessFunction branch = this.branchCoverageFalseMap.get(branchid);
-            if (branch == null)
+            if (branch == null) {
                 continue;
+            }
             updateCoveredGoals(branch, c);
         }
         for (int branchid : trace.getCoveredTrueBranches()) {
             TestFitnessFunction branch = this.branchCoverageTrueMap.get(branchid);
-            if (branch == null)
+            if (branch == null) {
                 continue;
+            }
             updateCoveredGoals(branch, c);
         }
         for (String method : trace.getCoveredBranchlessMethods()) {
             TestFitnessFunction branch = this.branchlessMethodCoverageMap.get(method);
-            if (branch == null)
+            if (branch == null) {
                 continue;
+            }
             updateCoveredGoals(branch, c);
         }
 
@@ -478,8 +487,9 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         Set<ExceptionCoverageTestFitness> coveredExceptions = new LinkedHashSet<>();
         ExecutionResult result = t.getLastExecutionResult();
 
-        if (result.calledReflection())
+        if (result.calledReflection()) {
             return coveredExceptions;
+        }
 
         for (Integer i : result.getPositionsWhereExceptionsWereThrown()) {
             if (ExceptionCoverageHelper.shouldSkip(result, i)) {
@@ -502,7 +512,8 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
                 /*
                  * Add goal to list of fitness functions to solve
                  */
-                ExceptionCoverageTestFitness goal = new ExceptionCoverageTestFitness(Properties.TARGET_CLASS, methodIdentifier, exceptionClass, type);
+                ExceptionCoverageTestFitness goal = new ExceptionCoverageTestFitness(Properties.TARGET_CLASS,
+                        methodIdentifier, exceptionClass, type);
                 coveredExceptions.add(goal);
             }
         }

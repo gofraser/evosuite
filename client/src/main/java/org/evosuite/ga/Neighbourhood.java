@@ -26,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Construction of a grid and the neighbourhood models
+ * Construction of a grid and the neighbourhood models.
  *
  * @author Nasser Albunian
  */
@@ -130,13 +130,17 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
 
         //~~~~ NW, SW, NE, SE ~~~~//
         for (int i = 0; i < populationSize; i++) {
-            neighbour[i][Positions.NW.ordinal()] = neighbour[neighbour[i][Positions.N.ordinal()]][Positions.W.ordinal()];
+            neighbour[i][Positions.NW.ordinal()] =
+                    neighbour[neighbour[i][Positions.N.ordinal()]][Positions.W.ordinal()];
 
-            neighbour[i][Positions.SW.ordinal()] = neighbour[neighbour[i][Positions.S.ordinal()]][Positions.W.ordinal()];
+            neighbour[i][Positions.SW.ordinal()] =
+                    neighbour[neighbour[i][Positions.S.ordinal()]][Positions.W.ordinal()];
 
-            neighbour[i][Positions.NE.ordinal()] = neighbour[neighbour[i][Positions.N.ordinal()]][Positions.E.ordinal()];
+            neighbour[i][Positions.NE.ordinal()] =
+                    neighbour[neighbour[i][Positions.N.ordinal()]][Positions.E.ordinal()];
 
-            neighbour[i][Positions.SE.ordinal()] = neighbour[neighbour[i][Positions.S.ordinal()]][Positions.E.ordinal()];
+            neighbour[i][Positions.SE.ordinal()] =
+                    neighbour[neighbour[i][Positions.S.ordinal()]][Positions.E.ordinal()];
         }
 
     }

@@ -57,7 +57,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
         extends GeneticAlgorithm<TestSuiteChromosome> {
 
     private static final long serialVersionUID = -506409298544885038L;
-    private final IdentityHashMap<SearchListener<TestSuiteChromosome>, SearchListener<TestChromosome>> searchListenerMapping = new IdentityHashMap<>();
+    private final IdentityHashMap<SearchListener<TestSuiteChromosome>, SearchListener<TestChromosome>>
+            searchListenerMapping = new IdentityHashMap<>();
 
     private final A algorithm;
 
@@ -287,7 +288,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
         algorithm.setRankingFunction(adapteeFunction);
     }
 
-    private static <T extends Chromosome<T>, X extends Chromosome<X>> RankingFunction<T> mapRankingFunction(RankingFunction<X> function) {
+    private static <T extends Chromosome<T>, X extends Chromosome<X>> RankingFunction<T>
+            mapRankingFunction(RankingFunction<X> function) {
         if (function instanceof FastNonDominatedSorting) {
             return new FastNonDominatedSorting<>();
         } else if (function instanceof RankBasedPreferenceSorting) {
@@ -326,7 +328,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
 
     @Override
     public final boolean isTooLong(TestSuiteChromosome chromosome) throws UnsupportedOperationException {
-        throw new UnsupportedOperationException("TestSuiteChromosome to TestChromosome conversion for this function not supported");
+        throw new UnsupportedOperationException(
+                "TestSuiteChromosome to TestChromosome conversion for this function not supported");
     }
 
     @Override
@@ -337,7 +340,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     @Override
     protected final void calculateFitness(TestSuiteChromosome c)
             throws UnsupportedOperationException {
-        throw new UnsupportedOperationException("TestSuiteChromosome to TestChromosome conversion for this function not supported");
+        throw new UnsupportedOperationException(
+                "TestSuiteChromosome to TestChromosome conversion for this function not supported");
     }
 
     @Override
@@ -368,7 +372,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     @Override
     public final void writeIndividuals(List<TestSuiteChromosome> individuals)
             throws UnsupportedOperationException {
-        throw new UnsupportedOperationException("TestSuiteChromosome to TestChromosome conversion for this function not supported");
+        throw new UnsupportedOperationException(
+                "TestSuiteChromosome to TestChromosome conversion for this function not supported");
     }
 
     @SuppressWarnings("StatementWithEmptyBody")
@@ -493,13 +498,15 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
 
     @Override
     public final List<TestSuiteChromosome> getPopulation() {
-        return Collections.singletonList(algorithm.getPopulation().stream().collect(TestChromosome.toTestSuiteCollector));
+        return Collections.singletonList(algorithm.getPopulation().stream()
+                .collect(TestChromosome.toTestSuiteCollector));
     }
 
     @Override
     public final boolean isNextPopulationFull(List<TestSuiteChromosome> nextGeneration)
             throws UnsupportedOperationException {
-        throw new UnsupportedOperationException("TestSuiteChromosome to TestChromosome conversion for this function not supported");
+        throw new UnsupportedOperationException(
+                "TestSuiteChromosome to TestChromosome conversion for this function not supported");
     }
 
     @SuppressWarnings("StatementWithEmptyBody")
@@ -565,8 +572,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
      * @param <T>               the desired target chromosome type
      * @return the converted stopping condition
      */
-    private static <T extends Chromosome<T>> StoppingCondition<T>
-            mapStoppingCondition(StoppingCondition<?> stoppingCondition) {
+    private static <T extends Chromosome<T>> StoppingCondition<T> mapStoppingCondition(
+            StoppingCondition<?> stoppingCondition) {
         if (stoppingCondition instanceof MaxTimeStoppingCondition) {
             return new MaxTimeStoppingCondition<>((MaxTimeStoppingCondition<?>) stoppingCondition);
         } else if (stoppingCondition instanceof TimeDeltaStoppingCondition) {
@@ -616,6 +623,11 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
+    public boolean updateCoveredGoals() {
+        return algorithm.updateCoveredGoals();
+    }
+
+    @Override
     protected final boolean isBetterOrEqual(TestSuiteChromosome chromosome1,
                                             TestSuiteChromosome chromosome2) {
         throw new UnsupportedOperationException("not implemented");
@@ -650,11 +662,13 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
             return ((TestSuiteFitnessFunctionMock) fitnessFunction).getWrapped();
         }
 
-        throw new IllegalArgumentException("Unsupported type of fitness function: " + fitnessFunction.getClass());
+        throw new IllegalArgumentException("Unsupported type of fitness function: "
+                + fitnessFunction.getClass());
     }
 
     @Override
-    public void addFitnessFunctions(Collection<? extends FitnessFunction<TestSuiteChromosome>> functions) {
+    public void addFitnessFunctions(
+            Collection<? extends FitnessFunction<TestSuiteChromosome>> functions) {
         Collection<FitnessFunction<TestChromosome>> fs = functions.stream()
                 .map(TestSuiteAdapter::mapFitnessFunctionToTestCaseLevel)
                 .collect(toList());

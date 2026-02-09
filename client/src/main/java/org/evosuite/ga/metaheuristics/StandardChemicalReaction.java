@@ -338,7 +338,7 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
      *
      * @param molecule a {@link org.evosuite.ga.Chromosome} object
      * @return a {@link java.util.List} object with two offspring if new solutions are found, null
-     * otherwise
+     *     otherwise
      */
     private List<T> decomposition(T molecule) {
 
@@ -444,7 +444,7 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
      * @param molecule1 a {@link org.evosuite.ga.Chromosome} object
      * @param molecule2 a {@link org.evosuite.ga.Chromosome} object
      * @return a pair of a {@link org.evosuite.ga.Chromosome} object if new solutions are found, null
-     * otherwise
+     *     otherwise
      */
     private Pair<T, T> intermolecularIneffectiveCollision(T molecule1, T molecule2) {
 

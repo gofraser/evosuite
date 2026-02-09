@@ -32,7 +32,7 @@ public class OnePlusOneEA<T extends Chromosome<T>> extends MuPlusLambdaEA<T> {
     private static final long serialVersionUID = 5229089847512798127L;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */

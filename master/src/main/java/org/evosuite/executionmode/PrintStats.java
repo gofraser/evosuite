@@ -56,10 +56,11 @@ public class PrintStats {
 
     public static Object execute(Options options, List<String> javaOpts,
                                  CommandLine line) {
-        if (line.hasOption("class"))
+        if (line.hasOption("class")) {
             printStats(line.getOptionValue("class"), javaOpts);
-        else {
-            LoggingUtils.getEvoLogger().error("Please specify target class ('-class' option) to list class statistics");
+        } else {
+            LoggingUtils.getEvoLogger().error("Please specify target class ('-class' option) to list class "
+                    + "statistics");
             Help.execute(options);
         }
         return null;
@@ -104,8 +105,9 @@ public class PrintStats {
         cmdLine.add(ClientProcess.class.getName());
 
         /*
-         * TODO: here we start the client with several properties that are set through -D. These properties are not visible to the master process (ie
-         * this process), when we access the Properties file. At the moment, we only need few parameters, so we can hack them
+         * TODO: here we start the client with several properties that are set through -D. These properties are not
+         * visible to the master process (ie this process), when we access the Properties file. At the moment, we only
+         * need few parameters, so we can hack them
          */
         Properties.getInstance();// should force the load, just to be sure
         Properties.TARGET_CLASS = targetClass;
@@ -144,6 +146,7 @@ public class PrintStats {
                 clients = new CopyOnWriteArraySet<>(MasterServices.getInstance().getMasterNode()
                         .getClientsOnceAllConnected(10000).values());
             } catch (InterruptedException e) {
+                // ignored
             }
             if (clients == null) {
                 logger.error("Not possible to access to clients");
@@ -168,6 +171,7 @@ public class PrintStats {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
+                // ignored
             }
 
             handler.killProcess();
@@ -181,6 +185,7 @@ public class PrintStats {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
+                // ignored
             }
             logUtils.closeLogServer();
         }

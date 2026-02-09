@@ -21,7 +21,6 @@ package org.evosuite;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
-
 import org.apache.commons.cli.Options;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.executionmode.*;
@@ -33,7 +32,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * This class is used to define and validate the input parameters passed by console
+ * This class is used to define and validate the input parameters passed by console.
  *
  * @author arcuri
  */
@@ -41,9 +40,9 @@ public class CommandLineParameters {
 
     /**
      * Validate all the "-" options set on the command line and all
-     * the already handled -D ones in Properties
+     * the already handled -D ones in Properties.
      *
-     * @param line
+     * @param line the command line arguments
      */
     public static void validateInputOptionsAndParameters(CommandLine line) throws IllegalArgumentException {
 
@@ -57,17 +56,20 @@ public class CommandLineParameters {
 
         if (cut != null) {
             if (cut.endsWith(".java")) {
-                throw new IllegalArgumentException("The target -class should be a JVM qualifying name (e.g., org.foo.SomeClass) and not a source file");
+                throw new IllegalArgumentException("The target -class should be a JVM qualifying name "
+                        + "(e.g., org.foo.SomeClass) and not a source file");
             }
             if (cut.endsWith(".class")) {
-                throw new IllegalArgumentException("The target -class should be a JVM qualifying name (e.g., org.foo.SomeClass) and not a bytecode file");
+                throw new IllegalArgumentException("The target -class should be a JVM qualifying name "
+                        + "(e.g., org.foo.SomeClass) and not a bytecode file");
             }
         }
 
         if (!line.hasOption(Continuous.NAME) && !line.hasOption("startedByCtg")) {
             for (Object p : properties.keySet()) {
                 if (p.toString().startsWith("ctg_")) {
-                    throw new IllegalArgumentException("Option " + p + " is only valid in '-" + Continuous.NAME + "' mode");
+                    throw new IllegalArgumentException("Option " + p + " is only valid in '-"
+                            + Continuous.NAME + "' mode");
                 }
             }
         }
@@ -90,22 +92,22 @@ public class CommandLineParameters {
         // Many-objective algorithms require MOSUITE strategy
         if (isManyObjectiveAlgorithm(algo) && strategy != Properties.Strategy.MOSUITE) {
             LoggingUtils.getEvoLogger().warn(
-                "* WARNING: Algorithm {} is designed for MOSUITE strategy, but {} is selected. " +
-                "Consider using -Dstrategy=MOSUITE", algo, strategy);
+                    "* WARNING: Algorithm {} is designed for MOSUITE strategy, but {} is selected. "
+                            + "Consider using -Dstrategy=MOSUITE", algo, strategy);
         }
 
         // MAP_ELITES algorithm requires MAP_ELITES strategy
         if (algo == Properties.Algorithm.MAP_ELITES && strategy != Properties.Strategy.MAP_ELITES) {
             throw new IllegalArgumentException(
-                "Algorithm MAP_ELITES requires strategy MAP_ELITES. " +
-                "Use -Dstrategy=MAP_ELITES or choose a different algorithm.");
+                    "Algorithm MAP_ELITES requires strategy MAP_ELITES. "
+                            + "Use -Dstrategy=MAP_ELITES or choose a different algorithm.");
         }
 
         // MAP_ELITES strategy requires MAP_ELITES algorithm
         if (strategy == Properties.Strategy.MAP_ELITES && algo != Properties.Algorithm.MAP_ELITES) {
             throw new IllegalArgumentException(
-                "Strategy MAP_ELITES requires algorithm MAP_ELITES. " +
-                "Use -Dalgorithm=MAP_ELITES or choose a different strategy.");
+                    "Strategy MAP_ELITES requires algorithm MAP_ELITES. "
+                            + "Use -Dalgorithm=MAP_ELITES or choose a different strategy.");
         }
     }
 
@@ -118,9 +120,9 @@ public class CommandLineParameters {
 
 
     /**
-     * Return all the available command line options that can be used with "-"
+     * Return all the available command line options that can be used with "-".
      *
-     * @return
+     * @return the command line options
      */
     public static Options getCommandLineOptions() {
         Options options = new Options();
@@ -137,10 +139,11 @@ public class CommandLineParameters {
         Option[] generateOptions = TestGeneration.getOptions();
 
         Option targetClass = new Option("class", true,
-                "target class for test generation. A fully qualifying needs to be provided, e.g. org.foo.SomeClass");
+                "target class for test generation. A fully qualifying needs to be provided, "
+                        + "e.g. org.foo.SomeClass");
         Option targetPrefix = new Option("prefix", true,
-                "target package prefix for test generation. All classes on the classpath with the given package prefix " +
-                        "will be used, i.e. all classes in the given package and sub-packages.");
+                "target package prefix for test generation. All classes on the classpath with the given package prefix "
+                        + "will be used, i.e. all classes in the given package and sub-packages.");
         Option targetCP = new Option("target", true,
                 "target classpath for test generation. Either a jar file or a folder where to find the .class files");
 
@@ -148,21 +151,27 @@ public class CommandLineParameters {
                 "classpath of the project under test and all its dependencies");
 
         Option evosuiteCP = new Option("evosuiteCP", true,
-                "classpath of EvoSuite jar file(s). This is needed when EvoSuite is called in plugins like Eclipse/Maven");
+                "classpath of EvoSuite jar file(s). This is needed when EvoSuite is called in plugins "
+                        + "like Eclipse/Maven");
 
         Option junitPrefix = new Option("junit", true, "junit prefix");
         Option criterion = new Option("criterion", true,
-                "target criterion for test generation. Can define more than one criterion by using a ':' separated list");
+                "target criterion for test generation. Can define more than one criterion "
+                        + "by using a ':' separated list");
         Option seed = new Option("seed", true, "seed for random number generator");
         Option mem = new Option("mem", true, "heap size for client process (in megabytes)");
-        Option libraryPath = new Option("libraryPath", true, "java library path to native libraries of the project under test");
-        Option startedByCtg = new Option("startedByCtg", false, "Determine if current process was started by a CTG process");
+        Option libraryPath = new Option("libraryPath", true,
+                "java library path to native libraries of the project under test");
+        Option startedByCtg = new Option("startedByCtg", false,
+                "Determine if current process was started by a CTG process");
         Option inheritance = new Option("inheritanceTree", "Cache inheritance tree during setup");
         Option heapDump = new Option("heapdump", "Create heap dump on client VM out of memory error");
-        Option base_dir = new Option("base_dir", true, "Working directory in which tests and reports will be placed");
+        Option baseDir = new Option("base_dir", true,
+                "Working directory in which tests and reports will be placed");
 
         Option parallel = new Option("parallel", true, "Start parallel run with n clients, communicate every i "
-                + "iteration x individuals (rate), expects #num_parallel_clients #migrants_iteration_frequency #migrants_communication_rate");
+                + "iteration x individuals (rate), expects #num_parallel_clients "
+                + "#migrants_iteration_frequency #migrants_communication_rate");
         parallel.setArgs(3);
         parallel.setArgName("n i x");
 
@@ -196,7 +205,7 @@ public class CommandLineParameters {
         options.addOption(libraryPath);
         options.addOption(evosuiteCP);
         options.addOption(inheritance);
-        options.addOption(base_dir);
+        options.addOption(baseDir);
         options.addOption(property);
         options.addOption(projectCP);
         options.addOption(heapDump);
@@ -218,11 +227,11 @@ public class CommandLineParameters {
     }
 
     /**
-     * Add all the properties that were set with -D
+     * Add all the properties that were set with -D.
      *
-     * @param javaOpts
-     * @param line
-     * @throws Error
+     * @param javaOpts the java options
+     * @param line the command line arguments
+     * @throws Error if unknown property
      */
     public static void addJavaDOptions(List<String> javaOpts, CommandLine line) throws Error {
 
@@ -243,22 +252,23 @@ public class CommandLineParameters {
             try {
                 Properties.getInstance().setValue(propertyName, propertyValue);
             } catch (Exception e) {
-                throw new Error("Invalid value for property " + propertyName + ": " + propertyValue + ". Exception " + e.getMessage(), e);
+                throw new Error("Invalid value for property " + propertyName + ": " + propertyValue
+                        + ". Exception " + e.getMessage(), e);
             }
         }
     }
 
     public static void handleClassPath(CommandLine line) {
 
-        String DCP = null;
+        String dcp = null;
         java.util.Properties properties = line.getOptionProperties("D");
         for (String propertyName : properties.stringPropertyNames()) {
             if (propertyName.equals("CP")) {
-                DCP = properties.getProperty(propertyName);
+                dcp = properties.getProperty(propertyName);
             }
         }
 
-        if (line.hasOption("projectCP") && DCP != null) {
+        if (line.hasOption("projectCP") && dcp != null) {
             throw new IllegalArgumentException("Ambiguous classpath: both -projectCP and -DCP are defined");
         }
 
@@ -266,8 +276,8 @@ public class CommandLineParameters {
 
         if (line.hasOption("projectCP")) {
             cpEntries = line.getOptionValue("projectCP").split(File.pathSeparator);
-        } else if (DCP != null) {
-            cpEntries = DCP.split(File.pathSeparator);
+        } else if (dcp != null) {
+            cpEntries = dcp.split(File.pathSeparator);
         }
 
         if (cpEntries != null) {

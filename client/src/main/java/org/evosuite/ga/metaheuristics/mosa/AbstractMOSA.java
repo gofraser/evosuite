@@ -64,12 +64,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private MOSATestSuiteAdapter adapter = null;
 
     /**
-     * Keep track of overall suite fitness functions and correspondent test fitness functions
+     * Keep track of overall suite fitness functions and correspondent test fitness functions.
      */
     public final Map<TestSuiteFitnessFunction, Class<?>> suiteFitnessFunctions;
 
     /**
-     * Object used to keep track of the execution time needed to reach the maximum coverage
+     * Object used to keep track of the execution time needed to reach the maximum coverage.
      */
     protected final BudgetConsumptionMonitor budgetMonitor;
 
@@ -235,7 +235,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      *
      * @param test to check
      * @return true if the test has at least one method or constructor call (i.e., the test may
-     * cover something when executed; false otherwise
+     *     cover something when executed; false otherwise
      */
     private boolean hasMethodCall(TestChromosome test) {
         boolean flag = false;
@@ -278,7 +278,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * primitive variables that are not used as input (or to store the output) of method calls.
      * Thus, this method removes all these "trash" statements.
      *
-     * @param chromosome
+     * @param chromosome a {@link org.evosuite.testcase.TestChromosome} object.
      * @return true or false depending on whether "unused variables" are removed
      */
     private boolean removeUnusedVariables(TestChromosome chromosome) {
@@ -363,7 +363,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * Returns the goals that have been covered by the test cases stored in the archive.
      *
-     * @return
+     * @return a {@link java.util.Set} object.
      */
     protected Set<TestFitnessFunction> getCoveredGoals() {
         return new LinkedHashSet<>(Archive.getArchiveInstance().getCoveredTargets());
@@ -372,7 +372,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * Returns the number of goals that have been covered by the test cases stored in the archive.
      *
-     * @return
+     * @return a int.
      */
     protected int getNumberOfCoveredGoals() {
         return Archive.getArchiveInstance().getNumberOfCoveredTargets();
@@ -385,7 +385,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * Returns the goals that have not been covered by the test cases stored in the archive.
      *
-     * @return
+     * @return a {@link java.util.Set} object.
      */
     protected Set<TestFitnessFunction> getUncoveredGoals() {
         return new LinkedHashSet<>(Archive.getArchiveInstance().getUncoveredTargets());
@@ -394,7 +394,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * Returns the goals that have not been covered by the test cases stored in the archive.
      *
-     * @return
+     * @return a int.
      */
     protected int getNumberOfUncoveredGoals() {
         return Archive.getArchiveInstance().getNumberOfUncoveredTargets();
@@ -403,7 +403,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * Returns the total number of goals, i.e., number of covered goals + number of uncovered goals.
      *
-     * @return
+     * @return a int.
      */
     protected int getTotalNumberOfGoals() {
         return Archive.getArchiveInstance().getNumberOfTargets();
@@ -412,7 +412,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * Return the test cases in the archive as a list.
      *
-     * @return
+     * @return a {@link java.util.List} object.
      */
     protected List<TestChromosome> getSolutions() {
         return new ArrayList<>(Archive.getArchiveInstance().getSolutions());
@@ -422,7 +422,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * Generates a {@link org.evosuite.testsuite.TestSuiteChromosome} object with all test cases
      * in the archive.
      *
-     * @return
+     * @return a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     public TestSuiteChromosome generateSuite() {
         TestSuiteChromosome suite = new TestSuiteChromosome();

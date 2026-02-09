@@ -31,7 +31,7 @@ import java.util.*;
 
 /**
  * This Class manages the goals to consider during the search according to their structural
- * dependencies
+ * dependencies.
  *
  * @author Annibale Panichella, Fitsum Meshesha Kifetew
  */
@@ -49,7 +49,7 @@ public class BranchesManager extends StructuralGoalManager {
      * Constructor used to initialize the set of uncovered goals, and the initial set.
      * of goals to consider as initial contrasting objectives.
      *
-     * @param fitnessFunctions List of all FitnessFunction<T>
+     * @param fitnessFunctions List of all fitness functions
      */
     public BranchesManager(List<TestFitnessFunction> fitnessFunctions) {
         super(fitnessFunctions);

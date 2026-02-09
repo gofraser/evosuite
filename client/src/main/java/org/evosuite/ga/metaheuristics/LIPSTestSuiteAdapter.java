@@ -39,8 +39,8 @@ public class LIPSTestSuiteAdapter extends TestSuiteAdapter<LIPS> {
     }
 
     /**
-     * This method is used by the Progress Monitor at the and of each generation to show the totol coverage reached by the algorithm.
-     * Copied from {@link MOSA}#archive.
+     * This method is used by the Progress Monitor at the and of each generation to show the totol
+     * coverage reached by the algorithm. Copied from {@link MOSA}#archive.
      *
      * @return "SuiteChromosome" directly consumable by the Progress Monitor.
      */

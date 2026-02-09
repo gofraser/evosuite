@@ -82,17 +82,18 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
 
             writeHTMLHeader(report, Properties.PROJECT_PREFIX);
             report.append("<div id=\"header\">\n<div id=\"logo\">");
-			/*
-			if (!Properties.PROJECT_PREFIX.isEmpty()) {
-				report.append("<h1 class=title>EvoSuite: " + Properties.PROJECT_PREFIX
-				        + "</h1>\n");
-			}
-			*/
+            /*
+            if (!Properties.PROJECT_PREFIX.isEmpty()) {
+                report.append("<h1 class=title>EvoSuite: " + Properties.PROJECT_PREFIX
+                        + "</h1>\n");
+            }
+            */
             report.append("\n</div><br></div>");
             try {
                 report.append("Run on "
                         + java.net.InetAddress.getLocalHost().getHostName() + "\n");
             } catch (Exception e) {
+                // ignored
             }
 
             report.append("<div id=\"page\">\n");
@@ -147,9 +148,9 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
 
     /**
      * Return the folder of where reports should be generated.
-     * If the folder does not exist, try to create it
+     * If the folder does not exist, try to create it.
      *
-     * @return
+     * @return the report directory
      * @throws RuntimeException if folder does not exist, and we cannot create it
      */
     public static File getReportDir() throws RuntimeException {
@@ -168,7 +169,7 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
     }
 
     /**
-     * HTML header
+     * HTML header.
      *
      * @param buffer a {@link java.lang.StringBuffer} object.
      * @param title  a {@link java.lang.String} object.
@@ -204,7 +205,7 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
     }
 
     /**
-     * HTML footer
+     * HTML footer.
      *
      * @param buffer a {@link java.lang.StringBuffer} object.
      */
@@ -215,7 +216,7 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
     }
 
     /**
-     * The big table of results
+     * The big table of results.
      *
      * @param buffer a {@link java.lang.StringBuffer} object.
      */
@@ -231,8 +232,9 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
         if (data.containsKey(RuntimeVariable.Total_Time.name())) {
             long duration = (Long) data.get(RuntimeVariable.Total_Time.name()).getValue() / 1000L;
             buffer.append(String.format("%d:%02d:%02d", duration / 3600, (duration % 3600) / 60, (duration % 60)));
-        } else
+        } else {
             buffer.append("UNKNOWN");
+        }
         buffer.append("</td>");
         buffer.append("<td>");
         Double coverage = (Double) getOutputVariableValue(data, RuntimeVariable.Coverage.name());
@@ -251,10 +253,10 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
     }
 
     /**
-     * Write a file for a particular run
+     * Write a file for a particular run.
      *
-     * @param run a {@link org.evosuite.utils.ReportGenerator.StatisticEntry}
-     *            object.
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
+     * @param data a {@link java.util.Map} object.
      * @return a {@link java.lang.String} object.
      */
     @SuppressWarnings("deprecation")
@@ -301,8 +303,9 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
             String code = null;
             if (testChromosome.getLastExecutionResult() != null) {
                 code = test.toCode(testChromosome.getLastExecutionResult().getCopyOfExceptionMapping());
-            } else
+            } else {
                 code = test.toCode();
+            }
 
             for (String line : code.split("\n")) {
                 sb.append(String.format("<span class=\"nocode\"><a name=\"%d\">%3d: </a></span>",
@@ -326,9 +329,10 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
         sb.append("</div>");
         sb.append("<div id=\"post\">\n");
 
-        OutputVariable<?> ov_covered_lines = data.get(RuntimeVariable.Covered_Lines.name());
+        OutputVariable<?> ovCoveredLines = data.get(RuntimeVariable.Covered_Lines.name());
         @SuppressWarnings("unchecked")
-        Set<Integer> coveredLines = (ov_covered_lines != null) ? (Set<Integer>) ov_covered_lines.getValue() : new HashSet<>();
+        Set<Integer> coveredLines = (ovCoveredLines != null) ? (Set<Integer>) ovCoveredLines.getValue()
+                : new HashSet<>();
 
         // Source code
         try {
@@ -345,8 +349,9 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
                     sb.append("<span style=\"background-color: #ffffcc\">");
                     sb.append(StringEscapeUtils.escapeHtml4(line));
                     sb.append("</span>");
-                } else
+                } else {
                     sb.append(StringEscapeUtils.escapeHtml4(line));
+                }
                 sb.append("\n");
                 linecount++;
             }
@@ -379,10 +384,12 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
 
         File[] files = (new File(getReportDir().getAbsolutePath() + "/html")).listFiles(filter);
         if (files != null) {
-            for (File f : files)
+            for (File f : files) {
                 filenames.add(f.getName());
-            while (filenames.contains("report-" + className + "-" + num + ".html"))
+            }
+            while (filenames.contains("report-" + className + "-" + num + ".html")) {
                 num++;
+            }
         }
 
         return num;
@@ -396,13 +403,14 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
 
 
     /**
-     * Write some overall stats
+     * Write some overall stats.
      *
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      * @param buffer a {@link java.lang.StringBuffer} object.
-     * @param entry  a {@link org.evosuite.utils.ReportGenerator.StatisticEntry}
-     *               object.
+     * @param data a {@link java.util.Map} object.
      */
-    protected void writeResultTable(TestSuiteChromosome suite, StringBuffer buffer, Map<String, OutputVariable<?>> data) {
+    protected void writeResultTable(TestSuiteChromosome suite, StringBuffer buffer,
+                                    Map<String, OutputVariable<?>> data) {
 
         //buffer.append("<h2>Statistics</h2>\n");
         buffer.append("<ul>\n");
@@ -417,22 +425,22 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
         buffer.append(suite.size());
         buffer.append(" tests.\n");
 
-		/*
-		long duration_GA = (entry.end_time - entry.start_time) / 1000;
-		long duration_MI = (entry.minimized_time - entry.end_time) / 1000;
-		long duration_TO = (entry.minimized_time - entry.start_time) / 1000;
+        /*
+        long duration_GA = (entry.end_time - entry.start_time) / 1000;
+        long duration_MI = (entry.minimized_time - entry.end_time) / 1000;
+        long duration_TO = (entry.minimized_time - entry.start_time) / 1000;
 
-		buffer.append("<li>Time: "
-		        + String.format("%d:%02d:%02d", duration_TO / 3600,
-		                        (duration_TO % 3600) / 60, (duration_TO % 60)));
+        buffer.append("<li>Time: "
+                + String.format("%d:%02d:%02d", duration_TO / 3600,
+                                (duration_TO % 3600) / 60, (duration_TO % 60)));
 
-		buffer.append("(Search: "
-		        + String.format("%d:%02d:%02d", duration_GA / 3600,
-		                        (duration_GA % 3600) / 60, (duration_GA % 60)) + ", ");
-		buffer.append("minimization: "
-		        + String.format("%d:%02d:%02d", duration_MI / 3600,
-		                        (duration_MI % 3600) / 60, (duration_MI % 60)) + ")\n");
-*/
+        buffer.append("(Search: "
+                + String.format("%d:%02d:%02d", duration_GA / 3600,
+                                (duration_GA % 3600) / 60, (duration_GA % 60)) + ", ");
+        buffer.append("minimization: "
+                + String.format("%d:%02d:%02d", duration_MI / 3600,
+                                (duration_MI % 3600) / 60, (duration_MI % 60)) + ")\n");
+        */
 
         buffer.append("<li>Covered " + getOutputVariableValue(data, RuntimeVariable.Covered_Branches.name()) + "/"
                 + getOutputVariableValue(data, RuntimeVariable.Total_Branches.name()) + " branches, ");
@@ -440,19 +448,20 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
                 + getOutputVariableValue(data, RuntimeVariable.Total_Methods.name()) + " methods, ");
         buffer.append("<li>Covered " + getOutputVariableValue(data, RuntimeVariable.Covered_Goals.name()) + "/"
                 + getOutputVariableValue(data, RuntimeVariable.Total_Goals.name()) + " total goals\n");
-        if (data.containsKey(RuntimeVariable.MutationScore.name()))
+        if (data.containsKey(RuntimeVariable.MutationScore.name())) {
             buffer.append("<li>Mutation score: "
-                    + NumberFormat.getPercentInstance().format(data.get(RuntimeVariable.MutationScore.name()).getValue()) + "\n");
+                    + NumberFormat.getPercentInstance().format(
+                            data.get(RuntimeVariable.MutationScore.name()).getValue()) + "\n");
+        }
 
         buffer.append("</ul>\n");
     }
 
     /**
-     * Write some overall stats
+     * Write some overall stats.
      *
      * @param buffer a {@link java.lang.StringBuffer} object.
-     * @param entry  a {@link org.evosuite.utils.ReportGenerator.StatisticEntry}
-     *               object.
+     * @param data a {@link java.util.Map} object.
      */
     protected void writeParameterTable(StringBuffer buffer, Map<String, OutputVariable<?>> data) {
         buffer.append("<h2 id=parameters>EvoSuite Parameters</h2>\n");

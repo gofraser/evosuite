@@ -30,7 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Implementation of steady state GA
+ * Implementation of steady state GA.
  *
  * @author Gordon Fraser
  */
@@ -43,7 +43,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     private final Logger logger = LoggerFactory.getLogger(MonotonicGA.class);
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
@@ -88,13 +88,14 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
             T parent1 = selectionFunction.select(population);
             T parent2;
-            if (Properties.HEADLESS_CHICKEN_TEST)
+            if (Properties.HEADLESS_CHICKEN_TEST) {
                 parent2 = newRandomIndividual(); // crossover with new random
                 // individual
-            else
+            } else {
                 parent2 = selectionFunction.select(population); // crossover
-            // with existing
-            // individual
+                // with existing
+                // individual
+            }
 
             T offspring1 = parent1.clone();
             T offspring2 = parent2.clone();
@@ -143,8 +144,9 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                     // if(Properties.ADAPTIVE_LOCAL_SEARCH ==
                     // AdaptiveLocalSearchTarget.ALL)
                     // applyAdaptiveLocalSearch(offspring1);
-                    if (!isNextPopulationFull(newGeneration))
+                    if (!isNextPopulationFull(newGeneration)) {
                         newGeneration.add(offspring1);
+                    }
                 }
 
                 if (isTooLong(offspring2) || offspring2.size() == 0) {
@@ -153,25 +155,31 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                     // if(Properties.ADAPTIVE_LOCAL_SEARCH ==
                     // AdaptiveLocalSearchTarget.ALL)
                     // applyAdaptiveLocalSearch(offspring2);
-                    if (!isNextPopulationFull(newGeneration))
+                    if (!isNextPopulationFull(newGeneration)) {
                         newGeneration.add(offspring2);
+                    }
                 }
 
                 if (rejected == 1) {
-                    if (!isNextPopulationFull(newGeneration))
+                    if (!isNextPopulationFull(newGeneration)) {
                         newGeneration.add(Randomness.choice(parent1, parent2));
+                    }
                 } else if (rejected == 2) {
-                    if (!isNextPopulationFull(newGeneration))
+                    if (!isNextPopulationFull(newGeneration)) {
                         newGeneration.add(parent1);
-                    if (!isNextPopulationFull(newGeneration))
+                    }
+                    if (!isNextPopulationFull(newGeneration)) {
                         newGeneration.add(parent2);
+                    }
                 }
             } else {
                 logger.debug("Keeping parents");
-                if (!isNextPopulationFull(newGeneration))
+                if (!isNextPopulationFull(newGeneration)) {
                     newGeneration.add(parent1);
-                if (!isNextPopulationFull(newGeneration))
+                }
+                if (!isNextPopulationFull(newGeneration)) {
                     newGeneration.add(parent2);
+                }
             }
 
         }
@@ -323,14 +331,12 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * <p>
-     * setReplacementFunction
-     * </p>
+     * setReplacementFunction.
      *
-     * @param replacement_function a {@link org.evosuite.ga.ReplacementFunction} object.
+     * @param replacementFunction a {@link org.evosuite.ga.ReplacementFunction} object.
      */
-    public void setReplacementFunction(ReplacementFunction<T> replacement_function) {
-        this.replacementFunction = replacement_function;
+    public void setReplacementFunction(ReplacementFunction<T> replacementFunction) {
+        this.replacementFunction = replacementFunction;
     }
 
     /**

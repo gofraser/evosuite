@@ -90,7 +90,7 @@ public class JobExecutorIntTest {
         JobDefinition trivial = new JobDefinition(30, memory,
                 com.examples.with.different.packagename.continuous.Trivial.class.getName(), 0, null, null);
 
-        assertTrue(simple.jobID < trivial.jobID);
+        assertTrue(simple.jobId < trivial.jobId);
 
         List<JobDefinition> jobs = Arrays.asList(simple, trivial);
 

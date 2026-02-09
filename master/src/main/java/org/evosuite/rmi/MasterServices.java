@@ -35,7 +35,7 @@ import java.rmi.server.UnicastRemoteObject;
 /**
  * This class should be used only in the Master process, not the clients.
  * Used to initialize and store all the RMI services in the master.
- * It is also used to start the RMI registry
+ * It is also used to start the RMI registry.
  *
  * @author arcuri
  */
@@ -48,7 +48,7 @@ public class MasterServices {
     private int registryPort = -1;
 
     /**
-     * We store it to avoid issues with GC
+     * We store it to avoid issues with GC.
      */
     private Registry registry;
 
@@ -90,6 +90,7 @@ public class MasterServices {
                 registryPort = candidatePort;
                 return true;
             } catch (RemoteException e) {
+                // ignored
             }
         }
 

@@ -39,12 +39,16 @@ import static java.util.Comparator.comparing;
  * SPEA2 implementation.
  *
  * @author José Campos
+ * <pre>
+ * {@code
  * @techreport{ZLT:2001, author = {E. Zitzler and M. Laumanns and L. Thiele},
  * title = {{SPEA2: Improving the Strength Pareto Evolutionary Algorithm}},
  * institution = {Computer Engineering and Networks Laboratory (TIK), Swiss Federal
  * Institute of Technology (ETH), Zurich, Switzerland},
  * year = {2001},
  * number = {103}}
+ * }
+ * </pre>
  */
 public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 

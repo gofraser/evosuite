@@ -28,7 +28,7 @@ import org.evosuite.utils.Randomness;
 
 
 /**
- * Alternative version of steady state GA
+ * Alternative version of steady state GA.
  *
  * @author Gordon Fraser
  */
@@ -39,7 +39,7 @@ public class SteadyStateGA<T extends Chromosome<T>> extends MonotonicGA<T> {
     private final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SteadyStateGA.class);
 
     /**
-     * Generate a new search object
+     * Generate a new search object.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */

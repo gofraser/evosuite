@@ -32,7 +32,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Implementation of cellular GA
+ * Implementation of cellular GA.
  *
  * @author Nasser Albunian
  */
@@ -68,7 +68,8 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
         setReplacementFunction(new FitnessReplacementFunction<>());
 
-        LoggingUtils.getEvoLogger().info("* Running the Cellular GA with the '" + Properties.MODEL + "' neighbourhoods model ");
+        LoggingUtils.getEvoLogger().info(
+                "* Running the Cellular GA with the '" + Properties.MODEL + "' neighbourhoods model ");
     }
 
     /**
@@ -246,11 +247,13 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
                 if (getFitnessFunction().isMaximizationFunction()) {
                     assert (bestFitnessAfterEvolution >= (bestFitnessBeforeEvolution
-                            - DELTA)) : "best fitness before evolve()/sortPopulation() was: " + bestFitnessBeforeEvolution
+                            - DELTA)) : "best fitness before evolve()/sortPopulation() was: "
+                            + bestFitnessBeforeEvolution
                             + ", now best fitness is " + bestFitnessAfterEvolution;
                 } else {
                     assert (bestFitnessAfterEvolution <= (bestFitnessBeforeEvolution
-                            + DELTA)) : "best fitness before evolve()/sortPopulation() was: " + bestFitnessBeforeEvolution
+                            + DELTA)) : "best fitness before evolve()/sortPopulation() was: "
+                            + bestFitnessBeforeEvolution
                             + ", now best fitness is " + bestFitnessAfterEvolution;
                 }
             }
@@ -262,11 +265,13 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
                 if (getFitnessFunction().isMaximizationFunction()) {
                     assert (bestFitnessAfterLocalSearch >= (bestFitnessBeforeLocalSearch
-                            - DELTA)) : "best fitness before applyLocalSearch() was: " + bestFitnessBeforeLocalSearch
+                            - DELTA)) : "best fitness before applyLocalSearch() was: "
+                            + bestFitnessBeforeLocalSearch
                             + ", now best fitness is " + bestFitnessAfterLocalSearch;
                 } else {
                     assert (bestFitnessAfterLocalSearch <= (bestFitnessBeforeLocalSearch
-                            + DELTA)) : "best fitness before applyLocalSearch() was: " + bestFitnessBeforeLocalSearch
+                            + DELTA)) : "best fitness before applyLocalSearch() was: "
+                            + bestFitnessBeforeLocalSearch
                             + ", now best fitness is " + bestFitnessAfterLocalSearch;
                 }
             }
@@ -321,7 +326,7 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * <p>setReplacementFunction</p>
+     * setReplacementFunction.
      *
      * @param replacementFunction a {@link org.evosuite.ga.ReplacementFunction} object.
      */
@@ -330,9 +335,7 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * <p>
-     * getReplacementFunction
-     * </p>
+     * getReplacementFunction.
      *
      * @return a {@link org.evosuite.ga.ReplacementFunction} object.
      */

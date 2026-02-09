@@ -57,7 +57,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 /**
- * Abstract superclass of genetic algorithms
+ * Abstract superclass of genetic algorithms.
  *
  * @author Gordon Fraser
  */
@@ -138,8 +138,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     public GeneticAlgorithm(ChromosomeFactory<T> factory) {
         chromosomeFactory = factory;
         addStoppingCondition(new MaxGenerationStoppingCondition<>());
-        if (Properties.LOCAL_SEARCH_RATE > 0)
+        if (Properties.LOCAL_SEARCH_RATE > 0) {
             addListener(LocalSearchBudget.getInstance());
+        }
         // addBloatControl(new MaxSizeBloatControl());
     }
 
@@ -189,7 +190,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * enable and disable secondary criteria according to the strategy defined
      * in the Properties file.
      *
-     * @param starvationCounter
+     * @param starvationCounter a int.
      */
     protected void updateSecondaryCriterion(int starvationCounter) {
 
@@ -300,7 +301,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * it cannot happen that minimization and maximization functions are
      * together.
      *
-     * @return
+     * @return true if maximization.
      */
     protected boolean isMaximizationFunction() {
         return getFitnessFunction().isMaximizationFunction();
@@ -393,7 +394,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * Generate random population of given size
+     * Generate random population of given size.
      *
      * @param populationSize a int.
      */
@@ -465,7 +466,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * @return
+     * {@inheritDoc}
+     *
+     * @return a {@link String} object.
      */
     @Override
     public String toString() {
@@ -493,8 +496,8 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * Set new fitness function (i.e., for new mutation).
      *
      * @param function a
-     *                 {@link org.evosuite.ga.operators.selection.SelectionFunction}
-     *                 object.
+     *     {@link org.evosuite.ga.operators.selection.SelectionFunction}
+     *     object.
      */
     public void setSelectionFunction(SelectionFunction<T> function) {
         selectionFunction = function;
@@ -504,7 +507,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * Get currently used fitness function.
      *
      * @return a {@link org.evosuite.ga.operators.selection.SelectionFunction}
-     * object.
+     *     object.
      */
     public SelectionFunction<T> getSelectionFunction() {
         return selectionFunction;
@@ -586,7 +589,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     /**
      * Calculate fitness for an individual.
      *
-     * @param c
+     * @param c a T object.
      */
     protected void calculateFitness(T c) {
         fitnessFunctions.forEach(ff -> {
@@ -605,9 +608,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * <p>
-     * getPopulationSize
-     * </p>
+     * getPopulationSize.
      *
      * @return a int.
      */
@@ -646,7 +647,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * Update archive fitness functions.
+     * update archive fitness functions.
      */
     public void updateFitnessFunctionsAndValues() {
         fitnessFunctions.forEach(FitnessFunction::updateCoveredGoals);
@@ -692,9 +693,10 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             return bestIndividuals;
         }
 
-        if (Properties.ALGORITHM == Algorithm.NSGAII ||
-                Properties.ALGORITHM == Algorithm.SPEA2)
+        if (Properties.ALGORITHM == Algorithm.NSGAII
+                || Properties.ALGORITHM == Algorithm.SPEA2) {
             return population;
+        }
 
         // Assume population is sorted
         bestIndividuals.add(population.get(0));
@@ -722,8 +724,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
                     Properties.REPORT_DIR + File.separator + "pareto_" + this.currentIteration + ".csv");
             boolean newFile = populationFile.createNewFile();
             // I don't know if this is a problem, now we print a warning, when files are overwritten.
-            if (!newFile)
+            if (!newFile) {
                 logger.warn("File already exists, it is overwritten: " + populationFile.getName());
+            }
 
             FileWriter fw = new FileWriter(populationFile.getAbsoluteFile());
             BufferedWriter bw = new BufferedWriter(fw);
@@ -848,8 +851,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * algorithms should implement their own 'sort'.
      */
     protected void sortPopulation() {
-        if (Properties.SHUFFLE_GOALS)
+        if (Properties.SHUFFLE_GOALS) {
             Randomness.shuffle(population);
+        }
 
         if (isMaximizationFunction()) {
             population.sort(Collections.reverseOrder());
@@ -898,9 +902,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * <p>
-     * addStoppingCondition
-     * </p>
+     * addStoppingCondition.
      *
      * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
      *                  object.
@@ -923,9 +925,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * <p>
-     * setStoppingCondition
-     * </p>
+     * setStoppingCondition.
      *
      * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
      *                  object.
@@ -938,9 +938,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * <p>
-     * removeStoppingCondition
-     * </p>
+     * removeStoppingCondition.
      *
      * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
      *                  object.
@@ -954,18 +952,14 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * <p>
-     * resetStoppingConditions
-     * </p>
+     * resetStoppingConditions.
      */
     public void resetStoppingConditions() {
         stoppingConditions.forEach(StoppingCondition::reset);
     }
 
     /**
-     * <p>
-     * setStoppingConditionLimit
-     * </p>
+     * setStoppingConditionLimit.
      *
      * @param value a int.
      */
@@ -1017,7 +1011,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * <p>getBudgetString</p>
+     * getBudgetString.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -1044,5 +1038,14 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         }
 
         return (double) currentbudget / (double) totalbudget;
+    }
+
+    /**
+     * Updates the set of covered goals.
+     *
+     * @return true if any goal was covered
+     */
+    public boolean updateCoveredGoals() {
+        return false;
     }
 }

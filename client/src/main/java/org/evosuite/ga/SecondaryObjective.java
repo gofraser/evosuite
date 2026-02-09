@@ -25,9 +25,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Serializable;
 
 /**
- * <p>
  * Abstract SecondaryObjective class.
- * </p>
  *
  * @author Gordon Fraser
  */

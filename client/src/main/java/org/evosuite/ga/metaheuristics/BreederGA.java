@@ -39,7 +39,7 @@ import java.util.List;
  *
  * <p>This uses standard mutation and crossover.
  *
- * @param <T> the chromosome type
+ * @param <T> the type of chromosome
  */
 public class BreederGA<T extends Chromosome<T>> extends StandardGA<T> {
 
@@ -47,7 +47,7 @@ public class BreederGA<T extends Chromosome<T>> extends StandardGA<T> {
     private final Logger logger = LoggerFactory.getLogger(BreederGA.class);
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
@@ -68,9 +68,8 @@ public class BreederGA<T extends Chromosome<T>> extends StandardGA<T> {
         // If there are no candidates, the parameters are not set optimally,
         if (candidates.size() <= 1) {
             candidates = new ArrayList<>(population);
-            AtMostOnceLogger.warn(logger,
-                    "Not sufficient candidates for reproduction, consider increasing the population size, "
-                            + "or the truncation rate");
+            AtMostOnceLogger.warn(logger, "Not sufficient candidates for reproduction, "
+                    + "consider increasing the population size, or the truncation rate");
         }
 
         // new_generation.size() < population_size

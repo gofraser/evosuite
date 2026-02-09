@@ -23,9 +23,13 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.io.FileUtils;
+import org.evosuite.ClientProcess;
+import org.evosuite.EvoSuite;
+import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
-import org.evosuite.*;
 import org.evosuite.Properties.Strategy;
+import org.evosuite.TestGenerationContext;
+import org.evosuite.TimeController;
 import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.classpath.ResourceList;
@@ -45,7 +49,11 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.rmi.RemoteException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 public class TestGeneration {
@@ -58,7 +66,7 @@ public class TestGeneration {
         Strategy strategy = getChosenStrategy(javaOpts, line);
 
         /* Updating properties strategy */
-        if(strategy == null) {
+        if (strategy == null) {
             strategy = Strategy.MOSUITE;
         }
         Properties.STRATEGY = strategy;
@@ -72,7 +80,8 @@ public class TestGeneration {
 
         String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
         if (cp == null || cp.isEmpty()) {
-            LoggingUtils.getEvoLogger().error("No classpath has been defined for the target project.\nOn the command line you can set it with the -projectCP option\n");
+            LoggingUtils.getEvoLogger().error("No classpath has been defined for the target project."
+                    + "\nOn the command line you can set it with the -projectCP option\n");
             Help.execute(options);
             return results;
         }
@@ -89,8 +98,8 @@ public class TestGeneration {
             results.addAll(generateTestsLegacy(strategy, javaOpts));
         } else {
             LoggingUtils.getEvoLogger().error(
-                    "Please specify either target class ('-class' option), prefix ('-prefix' option), or " +
-                            "classpath entry ('-target' option)\n");
+                    "Please specify either target class ('-class' option), prefix ('-prefix' option), or "
+                            + "classpath entry ('-target' option)\n");
             Help.execute(options);
         }
         return results;
@@ -117,10 +126,12 @@ public class TestGeneration {
     public static Option[] getOptions() {
         return new Option[]{
                 new Option("generateSuite", "use whole suite generation."),
-                new Option("generateTests", "use individual test generation (old approach for reference purposes)"),
+                new Option("generateTests", "use individual test generation (old approach for reference "
+                        + "purposes)"),
                 new Option("generateRandom", "use random test generation"),
                 new Option("generateNumRandom", true, "generate fixed number of random tests"),
-                new Option("generateMOSuite", "use many objective test generation (MOSA). This is the default behavior."),
+                new Option("generateMOSuite", "use many objective test generation (MOSA). "
+                        + "This is the default behavior."),
                 new Option("generateSuiteUsingDSE", "use Dynamic Symbolic Execution to generate test suite")
         };
     }
@@ -163,11 +174,12 @@ public class TestGeneration {
         Set<String> classes = new HashSet<>();
 
         for (String classPathElement : cp.split(File.pathSeparator)) {
-            classes.addAll(ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(classPathElement, prefix, false));
+            classes.addAll(ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getAllClasses(classPathElement, prefix, false));
             try {
                 ClassPathHacker.addFile(classPathElement);
             } catch (IOException e) {
-                // Ignore?
+                // ignored
             }
         }
         try {
@@ -184,7 +196,8 @@ public class TestGeneration {
                 + prefix);
         for (String sut : classes) {
             try {
-                if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).isClassAnInterface(sut)) {
+                if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                        .isClassAnInterface(sut)) {
                     LoggingUtils.getEvoLogger().info("* Skipping interface: " + sut);
                     continue;
                 }
@@ -204,8 +217,8 @@ public class TestGeneration {
             return true;
         }
 
-        LoggingUtils.getEvoLogger().info("* Unknown class: " + target +
-                ". Be sure its full qualifying name  is correct and the classpath is properly set with '-projectCP'");
+        LoggingUtils.getEvoLogger().info("* Unknown class: " + target
+                + ". Be sure its full qualifying name  is correct and the classpath is properly set with '-projectCP'");
 
         return false;
     }
@@ -216,7 +229,8 @@ public class TestGeneration {
         LoggingUtils.getEvoLogger().info("* Going to generate test cases for class: " + target);
 
         if (!findTargetClass(target)) {
-            final TestGenerationResult result = TestGenerationResultBuilder.buildErrorResult("Could not find target class");
+            final TestGenerationResult result = TestGenerationResultBuilder
+                    .buildErrorResult("Could not find target class");
             return Collections.singletonList(Collections.singletonList(result));
         }
 
@@ -228,10 +242,10 @@ public class TestGeneration {
                             + " because it belongs to one of the packages EvoSuite cannot currently handle");
         }
 
-        final String DISABLE_ASSERTIONS_EVO = "-da:" + PackageInfo.getEvoSuitePackage() + "...";
-        final String ENABLE_ASSERTIONS_EVO = "-ea:" + PackageInfo.getEvoSuitePackage() + "...";
-        final String DISABLE_ASSERTIONS_SUT = "-da:" + Properties.PROJECT_PREFIX + "...";
-        final String ENABLE_ASSERTIONS_SUT = "-ea:" + Properties.PROJECT_PREFIX + "...";
+        final String disableAssertionsEvo = "-da:" + PackageInfo.getEvoSuitePackage() + "...";
+        final String enableAssertionsEvo = "-ea:" + PackageInfo.getEvoSuitePackage() + "...";
+        final String disableAssertionsSut = "-da:" + Properties.PROJECT_PREFIX + "...";
+        final String enableAssertionsSut = "-ea:" + Properties.PROJECT_PREFIX + "...";
 
         List<String> cmdLine = new ArrayList<>();
         cmdLine.add(JavaExecCmdUtil.getJavaBinExecutablePath(true)/*EvoSuite.JAVA_CMD*/);
@@ -397,8 +411,9 @@ public class TestGeneration {
         }
 
         /*
-         * TODO: here we start the client with several properties that are set through -D. These properties are not visible to the master process (ie
-         * this process), when we access the Properties file. At the moment, we only need few parameters, so we can hack them
+         * TODO: here we start the client with several properties that are set through -D. These properties are not
+         * visible to the master process (ie this process), when we access the Properties file. At the moment, we only
+         * need few parameters, so we can hack them
          */
         Properties.getInstance();// should force the load, just to be sure
         Properties.TARGET_CLASS = target;
@@ -428,8 +443,9 @@ public class TestGeneration {
             /*
              *  FIXME: refactor, and double-check if indeed correct
              *
-             * The use of "assertions" in the client is pretty tricky, as those properties need to be transformed into JVM options before starting the
-             * client. Furthermore, the properties in the property file might be overwritten from the commands coming from shell
+             * The use of "assertions" in the client is pretty tricky, as those properties need to be transformed into
+             * JVM options before starting the client. Furthermore, the properties in the property file might be
+             * overwritten from the commands coming from shell
              */
 
             String definedEAforClient = null;
@@ -439,50 +455,51 @@ public class TestGeneration {
                 // first check client
                 if (s.startsWith("-Denable_asserts_for_evosuite")) {
                     if (s.endsWith("false")) {
-                        definedEAforClient = DISABLE_ASSERTIONS_EVO;
+                        definedEAforClient = disableAssertionsEvo;
                     } else if (s.endsWith("true")) {
-                        definedEAforClient = ENABLE_ASSERTIONS_EVO;
+                        definedEAforClient = enableAssertionsEvo;
                     }
                 }
                 // then check SUT
                 if (s.startsWith("-Denable_asserts_for_sut")) {
                     if (s.endsWith("false")) {
-                        definedEAforSUT = DISABLE_ASSERTIONS_SUT;
+                        definedEAforSUT = disableAssertionsSut;
                     } else if (s.endsWith("true")) {
-                        definedEAforSUT = ENABLE_ASSERTIONS_SUT;
+                        definedEAforSUT = enableAssertionsSut;
                     }
                 }
             }
 
             /*
-             * the assertions might not be defined in the command line, but they might be in the property file, or just use default values. NOTE: if those
-             * are defined in the command line, then they overwrite whatever we had in the conf file
+             * the assertions might not be defined in the command line, but they might be in the property file, or just
+             * use default values. NOTE: if those are defined in the command line, then they overwrite whatever we had
+             * in the conf file
              */
 
             if (definedEAforSUT == null) {
                 if (Properties.ENABLE_ASSERTS_FOR_SUT) {
-                    definedEAforSUT = ENABLE_ASSERTIONS_SUT;
+                    definedEAforSUT = enableAssertionsSut;
                 } else {
-                    definedEAforSUT = DISABLE_ASSERTIONS_SUT;
+                    definedEAforSUT = disableAssertionsSut;
                 }
             }
 
             if (definedEAforClient == null) {
                 if (Properties.ENABLE_ASSERTS_FOR_EVOSUITE) {
-                    definedEAforClient = ENABLE_ASSERTIONS_EVO;
+                    definedEAforClient = enableAssertionsEvo;
                 } else {
-                    definedEAforClient = DISABLE_ASSERTIONS_EVO;
+                    definedEAforClient = disableAssertionsEvo;
                 }
             }
 
             /*
-             * We add them in first position, after the java command To avoid confusion, we only add them if they are enabled. NOTE: this might have side
-             * effects "if" in the future we have something like a generic "-ea"
+             * We add them in first position, after the java command To avoid confusion, we only add them if they are
+             * enabled. NOTE: this might have side effects "if" in the future we have something like a generic "-ea"
              */
-            if (definedEAforClient.equals(ENABLE_ASSERTIONS_EVO)) {
+            if (definedEAforClient.equals(enableAssertionsEvo)) {
                 cmdLineClone.add(1, definedEAforClient);
             }
-            if (definedEAforSUT.equals(ENABLE_ASSERTIONS_SUT)) {
+            if (definedEAforSUT.equals(enableAssertionsSut)) {
                 cmdLineClone.add(1, definedEAforSUT);
             }
 
@@ -512,10 +529,11 @@ public class TestGeneration {
                 clients = new CopyOnWriteArraySet<>(MasterServices.getInstance().getMasterNode()
                         .getClientsOnceAllConnected(60000).values());
             } catch (InterruptedException e) {
+                // ignored
             }
             if (clients == null) {
-                logger.error("Not possible to access to clients. Clients' state:\n" + handler.getProcessStates() +
-                        "Master registry port: " + MasterServices.getInstance().getRegistryPort());
+                logger.error("Not possible to access to clients. Clients' state:\n" + handler.getProcessStates()
+                        + "Master registry port: " + MasterServices.getInstance().getRegistryPort());
 
             } else {
                 /*
@@ -535,6 +553,7 @@ public class TestGeneration {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
+                    // ignored
                 }
             }
 
@@ -563,10 +582,11 @@ public class TestGeneration {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
+                // ignored
             }
 
-            for (LoggingUtils aLogServer : logServer) {
-                aLogServer.closeLogServer();
+            for (LoggingUtils ls : logServer) {
+                ls.closeLogServer();
             }
         }
 
@@ -585,7 +605,7 @@ public class TestGeneration {
     /**
      * Writes generation statistics.
      *
-     * @return
+     * @return true if writing statistics failed, false otherwise
      */
     private static boolean writeStatistics() {
         boolean hasFailed = false;
@@ -633,7 +653,8 @@ public class TestGeneration {
         List<List<TestGenerationResult>> results = new ArrayList<>();
         String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
 
-        Set<String> classes = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(target, false);
+        Set<String> classes = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getAllClasses(target, false);
 
         LoggingUtils.getEvoLogger().info("* Found " + classes.size()
                 + " matching classes in target "
@@ -641,7 +662,7 @@ public class TestGeneration {
         try {
             ClassPathHacker.addFile(target);
         } catch (IOException e) {
-            // Ignore?
+            // ignored
         }
         try {
             if (Properties.INSTRUMENT_CONTEXT || Properties.INHERITANCE_FILE.isEmpty()) {
@@ -655,7 +676,8 @@ public class TestGeneration {
 
         for (String sut : classes) {
             try {
-                if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).isClassAnInterface(sut)) {
+                if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                        .isClassAnInterface(sut)) {
                     LoggingUtils.getEvoLogger().info("* Skipping interface: " + sut);
                     continue;
                 }

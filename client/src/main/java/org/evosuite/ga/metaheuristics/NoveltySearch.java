@@ -35,7 +35,7 @@ import java.util.*;
 
 public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
 
-    private final static Logger logger = LoggerFactory.getLogger(NoveltySearch.class);
+    private static final Logger logger = LoggerFactory.getLogger(NoveltySearch.class);
     private static final long serialVersionUID = -1047550745990198972L;
 
     private NoveltyFunction<TestChromosome> noveltyFunction;
@@ -53,7 +53,7 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Calculate fitness for all individuals
+     * Calculate fitness for all individuals.
      */
     protected void calculateNoveltyAndSortPopulation() {
         logger.debug("Calculating novelty for " + population.size() + " individuals");

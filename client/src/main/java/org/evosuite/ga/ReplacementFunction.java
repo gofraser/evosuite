@@ -22,7 +22,7 @@ package org.evosuite.ga;
 import java.io.Serializable;
 
 /**
- * Decides when offspring replaces its parents for the next generation
+ * Decides when offspring replaces its parents for the next generation.
  *
  * @author Gordon Fraser
  */
@@ -44,9 +44,7 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
     }
 
     /**
-     * <p>
-     * isBetter
-     * </p>
+     * isBetter.
      *
      * @param chromosome1 a {@link org.evosuite.ga.Chromosome} object.
      * @param chromosome2 a {@link org.evosuite.ga.Chromosome} object.
@@ -61,9 +59,7 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
     }
 
     /**
-     * <p>
-     * isBetterOrEqual
-     * </p>
+     * isBetterOrEqual.
      *
      * @param chromosome1 a {@link org.evosuite.ga.Chromosome} object.
      * @param chromosome2 a {@link org.evosuite.ga.Chromosome} object.
@@ -78,9 +74,7 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
     }
 
     /**
-     * <p>
-     * getBest
-     * </p>
+     * getBest.
      *
      * @param chromosome1 a {@link org.evosuite.ga.Chromosome} object.
      * @param chromosome2 a {@link org.evosuite.ga.Chromosome} object.
@@ -115,7 +109,7 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
     }
 
     /**
-     * Check how the best offspring compares with best parent
+     * Check how the best offspring compares with best parent.
      *
      * @param parent1    a {@link org.evosuite.ga.Chromosome} object.
      * @param parent2    a {@link org.evosuite.ga.Chromosome} object.

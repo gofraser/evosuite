@@ -25,9 +25,9 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 import java.util.Objects;
 
 /**
- * Search Listener to redirect Notifications from an adaptee algorithm to an adapter algorithm..
- * <p>
- * Evaluation and Mutation notifications are disabled by default..
+ * Search Listener to redirect Notifications from an adaptee algorithm to an adapter algorithm.
+ *
+ * <p>Evaluation and Mutation notifications are disabled by default.
  */
 public class AdapteeListener implements SearchListener<TestChromosome> {
 

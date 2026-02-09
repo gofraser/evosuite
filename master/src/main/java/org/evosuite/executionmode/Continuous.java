@@ -38,7 +38,7 @@ import java.util.Scanner;
 
 public class Continuous {
 
-    public enum Command {EXECUTE, INFO, CLEAN}
+    public enum Command { EXECUTE, INFO, CLEAN }
 
     public static final String NAME = "continuous";
 
@@ -52,7 +52,8 @@ public class Continuous {
 
         String opt = line.getOptionValue(NAME);
         if (opt == null) {
-            LoggingUtils.getEvoLogger().error("Missing option for -" + NAME + ". Use any of " + Arrays.toString(Command.values()));
+            LoggingUtils.getEvoLogger().error("Missing option for -" + NAME + ". Use any of "
+                    + Arrays.toString(Command.values()));
             return null;
         }
 
@@ -60,7 +61,8 @@ public class Continuous {
         try {
             command = Command.valueOf(opt.toUpperCase());
         } catch (Exception e) {
-            LoggingUtils.getEvoLogger().error("Invalid option: " + opt + ". Use any of " + Arrays.toString(Command.values()));
+            LoggingUtils.getEvoLogger().error("Invalid option: " + opt + ". Use any of "
+                    + Arrays.toString(Command.values()));
             return null;
         }
 
@@ -91,7 +93,8 @@ public class Continuous {
         String[] cuts = null;
         if (Properties.CTG_SELECTED_CUTS != null && !Properties.CTG_SELECTED_CUTS.isEmpty()) {
             cuts = Properties.CTG_SELECTED_CUTS.trim().split(",");
-        } else if (Properties.CTG_SELECTED_CUTS_FILE_LOCATION != null && !Properties.CTG_SELECTED_CUTS_FILE_LOCATION.isEmpty()) {
+        } else if (Properties.CTG_SELECTED_CUTS_FILE_LOCATION != null
+                && !Properties.CTG_SELECTED_CUTS_FILE_LOCATION.isEmpty()) {
             File file = new File(Properties.CTG_SELECTED_CUTS_FILE_LOCATION);
             if (file.exists()) {
                 String cutLine = null;
@@ -99,7 +102,8 @@ public class Continuous {
                     Scanner scanner = new Scanner(in);
                     cutLine = scanner.nextLine();
                 } catch (Exception e) {
-                    LoggingUtils.getEvoLogger().error("Error while processing " + file.getAbsolutePath() + " : " + e.getMessage());
+                    LoggingUtils.getEvoLogger().error("Error while processing " + file.getAbsolutePath() + " : "
+                            + e.getMessage());
                 }
                 if (cutLine != null) {
                     cuts = cutLine.trim().split(",");

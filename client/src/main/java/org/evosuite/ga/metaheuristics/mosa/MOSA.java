@@ -53,7 +53,7 @@ public class MOSA extends AbstractMOSA {
     private static final Logger logger = LoggerFactory.getLogger(MOSA.class);
 
     /**
-     * immigrant groups from neighbouring client
+     * immigrant groups from neighbouring client.
      */
     private final ConcurrentLinkedQueue<List<TestChromosome>> immigrants =
             new ConcurrentLinkedQueue<>();
@@ -61,14 +61,14 @@ public class MOSA extends AbstractMOSA {
     private final SelectionFunction<TestChromosome> emigrantsSelection;
 
     /**
-     * Crowding distance measure to use
+     * Crowding distance measure to use.
      */
     protected CrowdingDistance<TestChromosome> distance = new CrowdingDistance<>();
 
     /**
      * Constructor based on the abstract class. {@link AbstractMOSA}
      *
-     * @param factory
+     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
      */
     public MOSA(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
@@ -199,7 +199,8 @@ public class MOSA extends AbstractMOSA {
                 //collect all end result test cases
                 Set<Set<TestChromosome>> collectedSolutions = clientNode.getBestSolutions();
 
-                logger.debug(ClientProcess.DEFAULT_CLIENT_NAME + ": Received " + collectedSolutions.size() + " solution sets");
+                logger.debug(ClientProcess.DEFAULT_CLIENT_NAME + ": Received " + collectedSolutions.size()
+                        + " solution sets");
                 for (Set<TestChromosome> solution : collectedSolutions) {
                     for (TestChromosome t : solution) {
                         this.calculateFitness(t);

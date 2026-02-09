@@ -64,39 +64,39 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     private static final long serialVersionUID = -1859683466333302151L;
 
     /**
-     * Singleton instance
+     * Singleton instance.
      */
     private static final Map<String, SearchStatistics> instances = new LinkedHashMap<>();
 
     private static final Logger logger = LoggerFactory.getLogger(SearchStatistics.class);
 
     /**
-     * Map of client id to best individual received from that client so far
+     * Map of client id to best individual received from that client so far.
      */
     private TestSuiteChromosome bestIndividual = null;
 
     /**
-     * Backend used to output the data
+     * Backend used to output the data.
      */
     private StatisticsBackend backend = null;
 
     /**
-     * Output variables and their values
+     * Output variables and their values.
      */
     private final Map<String, OutputVariable<?>> outputVariables = new TreeMap<>();
 
     /**
-     * Variable factories to extract output variables from chromosomes
+     * Variable factories to extract output variables from chromosomes.
      */
     private final Map<String, ChromosomeOutputVariableFactory<?>> variableFactories = new TreeMap<>();
 
     /**
-     * Variable factories to extract sequence variables
+     * Variable factories to extract sequence variables.
      */
     private final Map<String, SequenceOutputVariableFactory<?>> sequenceOutputVariableFactories = new TreeMap<>();
 
     /**
-     * Keep track of how far EvoSuite progressed
+     * Keep track of how far EvoSuite progressed.
      */
     private ClientState currentState = ClientState.INITIALIZATION;
 
@@ -114,37 +114,67 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         initFactories();
 
         setOutputVariable(RuntimeVariable.Random_Seed, Randomness.getSeed());
-        sequenceOutputVariableFactories.put(RuntimeVariable.CoverageTimeline.name(), new CoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.FitnessTimeline.name(), new FitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.SizeTimeline.name(), new SizeSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.LengthTimeline.name(), new LengthSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.TotalExceptionsTimeline.name(), DirectSequenceOutputVariableFactory.getInteger(RuntimeVariable.TotalExceptionsTimeline));
-        sequenceOutputVariableFactories.put(RuntimeVariable.IBranchGoalsTimeline.name(), new IBranchGoalsSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.CoverageTimeline.name(),
+                new CoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.FitnessTimeline.name(),
+                new FitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.SizeTimeline.name(),
+                new SizeSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.LengthTimeline.name(),
+                new LengthSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.TotalExceptionsTimeline.name(),
+                DirectSequenceOutputVariableFactory.getInteger(RuntimeVariable.TotalExceptionsTimeline));
+        sequenceOutputVariableFactories.put(RuntimeVariable.IBranchGoalsTimeline.name(),
+                new IBranchGoalsSequenceOutputVariableFactory());
 
-        sequenceOutputVariableFactories.put(RuntimeVariable.BranchCoverageTimeline.name(), new BranchCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.OnlyBranchFitnessTimeline.name(), new OnlyBranchFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.OnlyBranchCoverageTimeline.name(), new OnlyBranchCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.CBranchFitnessTimeline.name(), new CBranchFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.CBranchCoverageTimeline.name(), new CBranchCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.MethodTraceFitnessTimeline.name(), new MethodTraceFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.MethodTraceCoverageTimeline.name(), new MethodTraceCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.MethodFitnessTimeline.name(), new MethodFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.MethodCoverageTimeline.name(), new MethodCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.MethodNoExceptionFitnessTimeline.name(), new MethodNoExceptionFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.MethodNoExceptionCoverageTimeline.name(), new MethodNoExceptionCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.RhoScoreTimeline.name(), new RhoFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.AmbiguityScoreTimeline.name(), new AmbiguityFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.LineFitnessTimeline.name(), new LineFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.LineCoverageTimeline.name(), new LineCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.OutputFitnessTimeline.name(), new OutputFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.OutputCoverageTimeline.name(), new OutputCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.InputFitnessTimeline.name(), new InputFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.InputCoverageTimeline.name(), new InputCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.ExceptionFitnessTimeline.name(), new ExceptionFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.ExceptionCoverageTimeline.name(), new ExceptionCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.WeakMutationCoverageTimeline.name(), new WeakMutationCoverageSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.OnlyMutationFitnessTimeline.name(), new OnlyMutationFitnessSequenceOutputVariableFactory());
-        sequenceOutputVariableFactories.put(RuntimeVariable.OnlyMutationCoverageTimeline.name(), new OnlyMutationCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.BranchCoverageTimeline.name(),
+                new BranchCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.OnlyBranchFitnessTimeline.name(),
+                new OnlyBranchFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.OnlyBranchCoverageTimeline.name(),
+                new OnlyBranchCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.CBranchFitnessTimeline.name(),
+                new CBranchFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.CBranchCoverageTimeline.name(),
+                new CBranchCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.MethodTraceFitnessTimeline.name(),
+                new MethodTraceFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.MethodTraceCoverageTimeline.name(),
+                new MethodTraceCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.MethodFitnessTimeline.name(),
+                new MethodFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.MethodCoverageTimeline.name(),
+                new MethodCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.MethodNoExceptionFitnessTimeline.name(),
+                new MethodNoExceptionFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.MethodNoExceptionCoverageTimeline.name(),
+                new MethodNoExceptionCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.RhoScoreTimeline.name(),
+                new RhoFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.AmbiguityScoreTimeline.name(),
+                new AmbiguityFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.LineFitnessTimeline.name(),
+                new LineFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.LineCoverageTimeline.name(),
+                new LineCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.OutputFitnessTimeline.name(),
+                new OutputFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.OutputCoverageTimeline.name(),
+                new OutputCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.InputFitnessTimeline.name(),
+                new InputFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.InputCoverageTimeline.name(),
+                new InputCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.ExceptionFitnessTimeline.name(),
+                new ExceptionFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.ExceptionCoverageTimeline.name(),
+                new ExceptionCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.WeakMutationCoverageTimeline.name(),
+                new WeakMutationCoverageSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.OnlyMutationFitnessTimeline.name(),
+                new OnlyMutationFitnessSequenceOutputVariableFactory());
+        sequenceOutputVariableFactories.put(RuntimeVariable.OnlyMutationCoverageTimeline.name(),
+                new OnlyMutationCoverageSequenceOutputVariableFactory());
         sequenceOutputVariableFactories.put(RuntimeVariable.DiversityTimeline.name(),
                 DirectSequenceOutputVariableFactory.getDouble(RuntimeVariable.DiversityTimeline));
 
@@ -155,8 +185,9 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 DirectSequenceOutputVariableFactory.getInteger(RuntimeVariable.FeaturesFound));
 
         // sequenceOutputVariableFactories.put("Generation_History", new GenerationSequenceOutputVariableFactory());
-        if (MasterServices.getInstance().getMasterNode() != null)
+        if (MasterServices.getInstance().getMasterNode() != null) {
             MasterServices.getInstance().getMasterNode().addListener(this);
+        }
     }
 
     public static SearchStatistics getInstance() {
@@ -187,8 +218,9 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * @param individual best individual of current generation
      */
     public void currentIndividual(Chromosome<?> individual) {
-        if (backend == null)
+        if (backend == null) {
             return;
+        }
 
         if (!(individual instanceof TestSuiteChromosome)) {
             AtMostOnceLogger.warn(logger, "searchStatistics expected a TestSuiteChromosome");
@@ -206,26 +238,28 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Set an output variable to a value directly
+     * Set an output variable to a value directly.
      *
-     * @param variable
-     * @param value
+     * @param variable the variable to set
+     * @param value the value to set
      */
     public void setOutputVariable(RuntimeVariable variable, Object value) {
         setOutputVariable(new OutputVariable<>(variable.toString(), value));
     }
 
     public void setOutputVariable(OutputVariable<?> variable) {
-        /**
+        /*
          * if the output variable is contained in sequenceOutputVariableFactories,
          * then it must be a DirectSequenceOutputVariableFactory, hence we set its
          * value so that it can be used to produce the next timeline variable.
          */
         if (sequenceOutputVariableFactories.containsKey(variable.getName())) {
-            DirectSequenceOutputVariableFactory<?> v = (DirectSequenceOutputVariableFactory<?>) sequenceOutputVariableFactories.get(variable.getName());
+            DirectSequenceOutputVariableFactory<?> v = (DirectSequenceOutputVariableFactory<?>)
+                    sequenceOutputVariableFactories.get(variable.getName());
             v.setValue(variable.getValue());
-        } else
+        } else {
             outputVariables.put(variable.getName(), variable);
+        }
     }
 
     public void addTestGenerationResult(List<TestGenerationResult> result) {
@@ -241,9 +275,9 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Retrieve list of possible variables
+     * Retrieve list of possible variables.
      *
-     * @return
+     * @return list of variable names
      */
     private List<String> getAllOutputVariableNames() {
 
@@ -258,24 +292,24 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
 
         List<String> variableNames = new ArrayList<>(Arrays.asList(essentials));
 
-        /** Fix for DSE as we want to save the output vars in this case */
+        /* Fix for DSE as we want to save the output vars in this case */
         if (Properties.isDSEStrategySelected()) {
             variableNames.addAll(DSEStatistics.dseRuntimeVariables);
         }
 
-		/* cannot use what we received, as due to possible bugs/errors those might not be constant
-		variableNames.addAll(outputVariables.keySet());
-		variableNames.addAll(variableFactories.keySet());
-		variableNames.addAll(sequenceOutputVariableFactories.keySet());
-		*/
+        /* cannot use what we received, as due to possible bugs/errors those might not be constant
+        variableNames.addAll(outputVariables.keySet());
+        variableNames.addAll(variableFactories.keySet());
+        variableNames.addAll(sequenceOutputVariableFactories.keySet());
+        */
         return variableNames;
     }
 
     /**
      * Retrieve list of output variables that the user will get to see.
-     * If output_variables is not set, then all variables will be returned
+     * If output_variables is not set, then all variables will be returned.
      *
-     * @return
+     * @return collection of variable names
      */
     private Collection<String> getOutputVariableNames() {
         List<String> variableNames = new ArrayList<>();
@@ -290,7 +324,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Shorthand for getOutputVariables(individual, false)
+     * Shorthand for getOutputVariables(individual, false).
      */
     private Map<String, OutputVariable<?>> getOutputVariables(TestSuiteChromosome individual) {
         return getOutputVariables(individual, false);
@@ -300,11 +334,11 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * Extract output variables from input <code>individual</code>.
      * Add also all the other needed search-level variables.
      *
-     * @param individual
-     * @param skip_missing whether or not to skip missing output variables
+     * @param individual the individual
+     * @param skipMissing whether or not to skip missing output variables
      * @return <code>null</code> if some data is missing
      */
-    private Map<String, OutputVariable<?>> getOutputVariables(TestSuiteChromosome individual, boolean skip_missing) {
+    private Map<String, OutputVariable<?>> getOutputVariables(TestSuiteChromosome individual, boolean skipMissing) {
         Map<String, OutputVariable<?>> variables = new LinkedHashMap<>();
 
         for (String variableName : getOutputVariableNames()) {
@@ -325,7 +359,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 for (OutputVariable<?> var : sequenceOutputVariableFactories.get(variableName).getOutputVariables()) {
                     variables.put(var.getName(), var);
                 }
-            } else if (skip_missing) {
+            } else if (skipMissing) {
                 // if variable doesn't exist, return an empty value instead
                 variables.put(variableName, new OutputVariable<>(variableName, ""));
             } else {
@@ -338,16 +372,18 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Write result to disk using selected backend
+     * Write result to disk using selected backend.
      *
      * @return true if the writing was successful
      */
     public boolean writeStatistics() {
         logger.info("Writing statistics");
-        if (backend == null)
+        if (backend == null) {
             return false;
+        }
 
-        outputVariables.put(RuntimeVariable.Total_Time.name(), new OutputVariable<Object>(RuntimeVariable.Total_Time.name(), System.currentTimeMillis() - startTime));
+        outputVariables.put(RuntimeVariable.Total_Time.name(),
+                new OutputVariable<Object>(RuntimeVariable.Total_Time.name(), System.currentTimeMillis() - startTime));
 
         if (bestIndividual == null) {
             logger.error("No statistics has been saved because EvoSuite failed to generate any test case");
@@ -362,6 +398,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
+                // ignored
             }
 
             boolean couldBeFine = MasterServices.getInstance().getMasterNode().getCurrentState().stream()
@@ -377,6 +414,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
+                        // ignored
                     }
 
                     //retry
@@ -406,7 +444,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Write result to disk using selected backend
+     * Write result to disk using selected backend.
      *
      * @return true if the writing was successful
      */
@@ -417,7 +455,8 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             return false;
         }
 
-        outputVariables.put(RuntimeVariable.Total_Time.name(), new OutputVariable<Object>(RuntimeVariable.Total_Time.name(), System.currentTimeMillis() - startTime));
+        outputVariables.put(RuntimeVariable.Total_Time.name(),
+                new OutputVariable<Object>(RuntimeVariable.Total_Time.name(), System.currentTimeMillis() - startTime));
 
         TestSuiteChromosome individual = new TestSuiteChromosome();
         Map<String, OutputVariable<?>> map = getOutputVariables(individual);
@@ -437,7 +476,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Process status update event received from client
+     * Process status update event received from client.
      */
     @Override
     public void receiveEvent(ClientStateInformation information) {
@@ -449,7 +488,8 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                     factory.setStartTime(searchStartTime);
                 }
             }
-            OutputVariable<Long> time = new OutputVariable<>("Time_" + currentState.getName(), System.currentTimeMillis() - currentStateStarted);
+            OutputVariable<Long> time = new OutputVariable<>("Time_" + currentState.getName(),
+                    System.currentTimeMillis() - currentStateStarted);
             outputVariables.put(time.getName(), time);
             currentState = information.getState();
             currentStateStarted = System.currentTimeMillis();
@@ -458,7 +498,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Create default factories
+     * Create default factories.
      */
     private void initFactories() {
         variableFactories.put(RuntimeVariable.Length.name(), new ChromosomeLengthOutputVariableFactory());
@@ -468,7 +508,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Total length of a test suite
+     * Total length of a test suite.
      */
     private static class ChromosomeLengthOutputVariableFactory extends ChromosomeOutputVariableFactory<Integer> {
         public ChromosomeLengthOutputVariableFactory() {
@@ -482,7 +522,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Number of tests in a test suite
+     * Number of tests in a test suite.
      */
     private static class ChromosomeSizeOutputVariableFactory extends ChromosomeOutputVariableFactory<Integer> {
         public ChromosomeSizeOutputVariableFactory() {
@@ -496,7 +536,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Fitness value of a test suite
+     * Fitness value of a test suite.
      */
     private static class ChromosomeFitnessOutputVariableFactory extends ChromosomeOutputVariableFactory<Double> {
         public ChromosomeFitnessOutputVariableFactory() {
@@ -510,7 +550,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Coverage value of a test suite
+     * Coverage value of a test suite.
      */
     private static class ChromosomeCoverageOutputVariableFactory extends ChromosomeOutputVariableFactory<Double> {
         public ChromosomeCoverageOutputVariableFactory() {
@@ -524,7 +564,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Sequence variable for fitness values
+     * Sequence variable for fitness values.
      */
     private static class FitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
@@ -539,7 +579,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Sequence variable for coverage values
+     * Sequence variable for coverage values.
      */
     private static class CoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
@@ -554,7 +594,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Sequence variable for number of tests
+     * Sequence variable for number of tests.
      */
     private static class SizeSequenceOutputVariableFactory extends IntegerSequenceOutputVariableFactory {
 
@@ -569,7 +609,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Sequence variable for total length of tests
+     * Sequence variable for total length of tests.
      */
     private static class LengthSequenceOutputVariableFactory extends IntegerSequenceOutputVariableFactory {
 
@@ -584,7 +624,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Sequence variable for coverage values
+     * Sequence variable for coverage values.
      */
     private static class IBranchGoalsSequenceOutputVariableFactory extends IntegerSequenceOutputVariableFactory {
 
@@ -706,7 +746,8 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class MethodNoExceptionFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
+    private static class MethodNoExceptionFitnessSequenceOutputVariableFactory
+            extends DoubleSequenceOutputVariableFactory {
 
         public MethodNoExceptionFitnessSequenceOutputVariableFactory() {
             super(RuntimeVariable.MethodNoExceptionFitnessTimeline);
@@ -718,7 +759,8 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class MethodNoExceptionCoverageSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
+    private static class MethodNoExceptionCoverageSequenceOutputVariableFactory
+            extends DoubleSequenceOutputVariableFactory {
 
         public MethodNoExceptionCoverageSequenceOutputVariableFactory() {
             super(RuntimeVariable.MethodNoExceptionCoverageTimeline);

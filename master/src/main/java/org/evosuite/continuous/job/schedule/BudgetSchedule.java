@@ -28,7 +28,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * CUTs with more branches will be given more time (ie search budget)
+ * CUTs with more branches will be given more time (ie search budget).
  *
  * @author arcuri
  */
@@ -83,8 +83,8 @@ public class BudgetSchedule extends OneTimeSchedule {
              * there is a minimum that is equal to all jobs,
              * plus extra time based on number of branches
              */
-            int budget = 60 * scheduler.getConfiguration().minMinutesPerJob +
-                    (int) (timePerBranch * info.numberOfBranches);
+            int budget = 60 * scheduler.getConfiguration().minMinutesPerJob
+                    + (int) (timePerBranch * info.numberOfBranches);
 
             if (budget > maximumBudgetPerCore) {
                 /*

@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * This statistics backend writes all (selected) output variables to a CSV file
+ * This statistics backend writes all (selected) output variables to a CSV file.
  *
  * @author gordon
  */
@@ -43,10 +43,10 @@ public class CSVStatisticsBackend implements StatisticsBackend {
     private static final Logger logger = LoggerFactory.getLogger(CSVStatisticsBackend.class);
 
     /**
-     * Retrieve header with variable names
+     * Retrieve header with variable names.
      *
-     * @param data
-     * @return
+     * @param data map of output variables
+     * @return CSV header string
      */
     private String getCSVHeader(Map<String, OutputVariable<?>> data) {
         StringBuilder r = new StringBuilder();
@@ -54,18 +54,19 @@ public class CSVStatisticsBackend implements StatisticsBackend {
         while (it.hasNext()) {
             Entry<String, OutputVariable<?>> e = it.next();
             r.append(e.getKey());
-            if (it.hasNext())
+            if (it.hasNext()) {
                 r.append(",");
+            }
         }
         return r.toString();
     }
 
 
     /**
-     * Retrieve one line of data
+     * Retrieve one line of data.
      *
-     * @param data
-     * @return
+     * @param data map of output variables
+     * @return CSV data string
      */
     private String getCSVData(Map<String, OutputVariable<?>> data) {
         StringBuilder r = new StringBuilder();
@@ -73,17 +74,18 @@ public class CSVStatisticsBackend implements StatisticsBackend {
         while (it.hasNext()) {
             Entry<String, OutputVariable<?>> e = it.next();
             r.append(e.getValue().getValue());
-            if (it.hasNext())
+            if (it.hasNext()) {
                 r.append(",");
+            }
         }
         return r.toString();
     }
 
     /**
      * Return the folder of where reports should be generated.
-     * If the folder does not exist, try to create it
+     * If the folder does not exist, try to create it.
      *
-     * @return
+     * @return report directory
      * @throws RuntimeException if folder does not exist, and we cannot create it
      */
     public static File getReportDir() throws RuntimeException {

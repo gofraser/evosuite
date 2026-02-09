@@ -57,7 +57,7 @@ public class DynaMOSA extends AbstractMOSA {
     /**
      * Constructor based on the abstract class. {@link AbstractMOSA}.
      *
-     * @param factory
+     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
      */
     public DynaMOSA(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
@@ -145,8 +145,8 @@ public class DynaMOSA extends AbstractMOSA {
         // We are trying to optimize for multiple targets at the same time.
         this.goalsManager = new MultiCriteriaManager(this.fitnessFunctions);
 
-        LoggingUtils.getEvoLogger().info("* Initial Number of Goals in DynaMOSA = " +
-                this.goalsManager.getCurrentGoals().size() + " / " + this.getUncoveredGoals().size());
+        LoggingUtils.getEvoLogger().info("* Initial Number of Goals in DynaMOSA = "
+                + this.goalsManager.getCurrentGoals().size() + " / " + this.getUncoveredGoals().size());
 
         logger.debug("Initial Number of Goals = " + this.goalsManager.getCurrentGoals().size());
 
@@ -164,7 +164,8 @@ public class DynaMOSA extends AbstractMOSA {
         // search loop.
         this.rankingFunction.computeRankingAssignment(this.population, this.goalsManager.getCurrentGoals());
         for (int i = 0; i < this.rankingFunction.getNumberOfSubfronts(); i++) {
-            this.distance.fastEpsilonDominanceAssignment(this.rankingFunction.getSubfront(i), this.goalsManager.getCurrentGoals());
+            this.distance.fastEpsilonDominanceAssignment(this.rankingFunction.getSubfront(i),
+                    this.goalsManager.getCurrentGoals());
         }
 
         // Evolve the population generation by generation until all gaols have been covered or the

@@ -25,7 +25,7 @@ import org.evosuite.statistics.OutputVariable;
 import java.util.Map;
 
 /**
- * Simple dummy backend that just outputs all output variables to the console
+ * Simple dummy backend that just outputs all output variables to the console.
  *
  * @author gordon
  */

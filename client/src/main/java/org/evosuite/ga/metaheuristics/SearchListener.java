@@ -25,42 +25,42 @@ import java.io.Serializable;
 
 
 /**
- * A listener that can be attached to the search
+ * A listener that can be attached to the search.
  *
  * @author Gordon Fraser
  */
 public interface SearchListener<T extends Chromosome<T>> extends Serializable {
 
     /**
-     * Called when a new search is started
+     * Called when a new search is started.
      *
      * @param algorithm a {@link org.evosuite.ga.metaheuristics.GeneticAlgorithm} object.
      */
     void searchStarted(GeneticAlgorithm<T> algorithm);
 
     /**
-     * Called after each iteration of the search
+     * Called after each iteration of the search.
      *
      * @param algorithm a {@link org.evosuite.ga.metaheuristics.GeneticAlgorithm} object.
      */
     void iteration(GeneticAlgorithm<T> algorithm);
 
     /**
-     * Called after the last iteration
+     * Called after the last iteration.
      *
      * @param algorithm a {@link org.evosuite.ga.metaheuristics.GeneticAlgorithm} object.
      */
     void searchFinished(GeneticAlgorithm<T> algorithm);
 
     /**
-     * Called after every single fitness evaluation
+     * Called after every single fitness evaluation.
      *
      * @param individual a {@link org.evosuite.ga.Chromosome} object.
      */
     void fitnessEvaluation(T individual);
 
     /**
-     * Called before a chromosome is mutated
+     * Called before a chromosome is mutated.
      *
      * @param individual a {@link org.evosuite.ga.Chromosome} object.
      */

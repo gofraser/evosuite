@@ -22,17 +22,17 @@ package org.evosuite.statistics.backend;
 import org.evosuite.Properties;
 
 /**
- * Factory of Statistics Backend
+ * Factory of Statistics Backend.
  *
  * @author Ignacio Lebrero
  */
 public class StatisticsBackendFactory {
 
     /**
-     * Builds the type of Statistics backend required
+     * Builds the type of Statistics backend required.
      *
-     * @param backendType
-     * @return
+     * @param backendType the type of backend
+     * @return the backend instance
      */
     public static StatisticsBackend getStatisticsBackend(Properties.StatisticsBackend backendType) {
         switch (backendType) {

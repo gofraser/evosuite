@@ -37,6 +37,8 @@ import java.util.Set;
 import static java.util.stream.Collectors.toSet;
 
 /**
+ * BranchFitnessGraph class.
+ *
  * @author Annibale Panichella
  */
 public class BranchFitnessGraph implements Serializable {
@@ -76,12 +78,14 @@ public class BranchFitnessGraph implements Serializable {
                     continue;
                 }
 
-                BranchCoverageGoal goal = new BranchCoverageGoal(newB, true, newB.getClassName(), newB.getMethodName());
+                BranchCoverageGoal goal = new BranchCoverageGoal(newB, true, newB.getClassName(),
+                        newB.getMethodName());
                 BranchCoverageTestFitness newFitness = new BranchCoverageTestFitness(goal);
                 graph.addVertex(newFitness);
                 graph.addEdge(newFitness, fitness);
 
-                BranchCoverageGoal goal2 = new BranchCoverageGoal(newB, false, newB.getClassName(), newB.getMethodName());
+                BranchCoverageGoal goal2 = new BranchCoverageGoal(newB, false, newB.getClassName(),
+                        newB.getMethodName());
                 BranchCoverageTestFitness newFitness2 = new BranchCoverageTestFitness(goal2);
                 graph.addVertex(newFitness2);
                 graph.addEdge(newFitness2, fitness);
@@ -106,13 +110,15 @@ public class BranchFitnessGraph implements Serializable {
             return realParent;
         }
         for (BasicBlock bb : parents) {
-            if (visitedBlock.contains(bb))
+            if (visitedBlock.contains(bb)) {
                 continue;
+            }
             visitedBlock.add(bb);
-            if (containsBranches(bb))
+            if (containsBranches(bb)) {
                 realParent.add(bb);
-            else
+            } else {
                 realParent.addAll(lookForParents(bb, acfg, visitedBlock));
+            }
         }
         return realParent;
     }

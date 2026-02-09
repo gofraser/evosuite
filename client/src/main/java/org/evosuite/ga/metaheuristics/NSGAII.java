@@ -38,6 +38,26 @@ import java.util.List;
  * NSGA-II implementation.
  *
  * @author José Campos
+ *    <pre>
+ * {@code
+ * @article{Deb:2002, author = {Deb, K. and Pratap, A. and Agarwal, S. and Meyarivan, T.},
+ * title = {{A Fast and Elitist Multiobjective Genetic Algorithm: NSGA-II}},
+ * journal = {Trans. Evol. Comp},
+ * issue_date = {April 2002},
+ * volume = {6},
+ * number = {2},
+ * month = apr,
+ * year = {2002},
+ * issn = {1089-778X},
+ * pages = {182--197},
+ * numpages = {16},
+ * url = {http://dx.doi.org/10.1109/4235.996017},
+ * doi = {10.1109/4235.996017},
+ * acmid = {2221582},
+ * publisher = {IEEE Press},
+ * address = {Piscataway, NJ, USA}}
+ * }
+ *    </pre>
  */
 public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     private static final long serialVersionUID = 146182080947267628L;
