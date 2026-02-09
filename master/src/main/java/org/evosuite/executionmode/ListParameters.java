@@ -31,7 +31,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Class used to list on the console all the options in Properties
+ * Class used to list on the console all the options in Properties.
  *
  * @author arcuri
  */
@@ -96,12 +96,13 @@ public class ListParameters {
         int maxType = Math.max(type.length(), getMaxTypeLength(rows));
         int maxDefault = Math.max(defaultValue.length(), getMaxDefaultLength(rows));
 
-        LoggingUtils.getEvoLogger().info(name + getGap(name, maxName) + space + type + getGap(type, maxType) +
-                space + defaultValue + getGap(defaultValue, maxDefault) + space + description);
+        LoggingUtils.getEvoLogger().info(name + getGap(name, maxName) + space + type + getGap(type, maxType)
+                + space + defaultValue + getGap(defaultValue, maxDefault) + space + description);
 
         for (Row row : rows) {
-            LoggingUtils.getEvoLogger().info(row.name + getGap(row.name, maxName) + space + row.type + getGap(row.type, maxType) +
-                    space + row.defaultValue + getGap(row.defaultValue, maxDefault) + space + row.description);
+            LoggingUtils.getEvoLogger().info(row.name + getGap(row.name, maxName) + space + row.type
+                    + getGap(row.type, maxType) + space + row.defaultValue + getGap(row.defaultValue, maxDefault)
+                    + space + row.description);
         }
 
         return null;
