@@ -191,7 +191,8 @@ public class CastClassManager {
     public GenericClass<?> selectCastClass(final TypeVariable<?> typeVariable, final boolean allowRecursion,
                                            final Map<TypeVariable<?>, Type> ownerVariableMap) {
         logger.debug("selecting cast class for type variable {} with bounds {}, owner var map: {}",
-                typeVariable, Arrays.toString(typeVariable.getBounds()), ownerVariableMap);
+                typeVariable, Arrays.toString(typeVariable.getBounds()),
+                GenericUtils.stableTypeVariableMapToString(ownerVariableMap));
         GenericDeclaration genericDeclaration = typeVariable.getGenericDeclaration();
         String declarationSimpleName = "<Unknown generic declaration>";
         if (genericDeclaration instanceof Class<?>) {
@@ -230,7 +231,7 @@ public class CastClassManager {
                     logger.warn("Nothing is assignable after adding {} for type Variable {} with bounds {} "
                                     + "of declaration {}. The owner var map is {}",
                             genericClass, typeVariable, Arrays.toString(typeVariable.getBounds()),
-                            declarationSimpleName, ownerVariableMap);
+                            declarationSimpleName, GenericUtils.stableTypeVariableMapToString(ownerVariableMap));
                     return null;
                 }
             } else {
