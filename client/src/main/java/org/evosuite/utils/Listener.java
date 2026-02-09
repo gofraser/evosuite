@@ -30,7 +30,7 @@ import java.io.Serializable;
  */
 public interface Listener<T> extends Serializable {
     /**
-     * <p>receiveEvent</p>
+     * <p>receiveEvent.</p>
      *
      * @param event a T object.
      */

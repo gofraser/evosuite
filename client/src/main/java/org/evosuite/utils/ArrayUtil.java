@@ -35,7 +35,7 @@ public abstract class ArrayUtil {
     public static final String INPUT_OBJECT_MUST_BE_AN_ARRAY_EXCEPTION_MESSAGE = "Input object must be an array.";
 
     /**
-     * <p>asSet</p>
+     * <p>asSet.</p>
      *
      * @param values a T object.
      * @param <T>    a T object.
@@ -47,12 +47,12 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * Constant <code>DEFAULT_JOIN_SEPARATOR="IterUtil.DEFAULT_JOIN_SEPARATOR"</code>
+     * Constant <code>DEFAULT_JOIN_SEPARATOR="IterUtil.DEFAULT_JOIN_SEPARATOR"</code>.
      */
     public static final String DEFAULT_JOIN_SEPARATOR = IterUtil.DEFAULT_JOIN_SEPARATOR;
 
     /**
-     * <p>box</p>
+     * <p>box.</p>
      *
      * @param array an array of int.
      * @return an array of {@link java.lang.Integer} objects.
@@ -69,7 +69,7 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * <p>box</p>
+     * <p>box.</p>
      *
      * @param array an array of long.
      * @return an array of {@link java.lang.Long} objects.
@@ -86,7 +86,7 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * <p>box</p>
+     * <p>box.</p>
      *
      * @param array an array of byte.
      * @return an array of {@link java.lang.Byte} objects.
@@ -103,7 +103,7 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * <p>join</p>
+     * <p>join.</p>
      *
      * @param array     an array of {@link java.lang.Object} objects.
      * @param separator a {@link java.lang.String} object.
@@ -114,7 +114,7 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * <p>join</p>
+     * <p>join.</p>
      *
      * @param array an array of {@link java.lang.Object} objects.
      * @return a {@link java.lang.String} object.
@@ -124,7 +124,7 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * <p>join</p>
+     * <p>join.</p>
      *
      * @param array     an array of long.
      * @param separator a {@link java.lang.String} object.
@@ -135,7 +135,7 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * <p>join</p>
+     * <p>join.</p>
      *
      * @param array an array of long.
      * @return a {@link java.lang.String} object.
@@ -145,7 +145,7 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * <p>join</p>
+     * <p>join.</p>
      *
      * @param array     an array of byte.
      * @param separator a {@link java.lang.String} object.
@@ -156,7 +156,7 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * <p>join</p>
+     * <p>join.</p>
      *
      * @param array an array of byte.
      * @return a {@link java.lang.String} object.
@@ -166,26 +166,29 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * <p>contains</p>
+     * <p>contains.</p>
      *
-     * @param array
-     * @param object
+     * @param array the array
+     * @param object the object
      * @return true if array contains an instance equals to object
      */
     public static boolean contains(Object[] array, Object object) {
         for (Object obj : array) {
-            if (obj == object)
+            if (obj == object) {
                 return true;
-            else if (obj != null && obj.equals(object))
+            } else if (obj != null && obj.equals(object)) {
                 return true;
+            }
         }
         return false;
     }
 
     /**
-     * @param arr
-     * @param obj
-     * @return
+     * <p>append.</p>
+     *
+     * @param arr the array
+     * @param obj the object
+     * @return array
      */
     public static Object[] append(Object[] arr, Object obj) {
         final int N = arr.length;
@@ -196,12 +199,12 @@ public abstract class ArrayUtil {
 
     /**
      * Calculates the amount of dimensions the array contains.
-     * <p>
-     * ClassName for arrays contains one '[' for each dimension as a prefix of the class name,
+     *
+     * <p>ClassName for arrays contains one '[' for each dimension as a prefix of the class name,
      * we just count them. (i.e. int[][] arr contains "[[I" as a class name).
      *
-     * @param arr
-     * @return
+     * @param arr the array
+     * @return the number of dimensions
      */
     public static int getDimensions(Object arr) {
         if (!arr.getClass().isArray()) {
@@ -215,8 +218,8 @@ public abstract class ArrayUtil {
     /**
      * Recovers the array lengths for each dimension.
      *
-     * @param arr
-     * @return
+     * @param arr the array
+     * @return the array lengths
      */
     public static int[] getArrayLengths(Object arr) {
         if (!arr.getClass().isArray()) {
@@ -231,7 +234,9 @@ public abstract class ArrayUtil {
             lengths[dimension] = Array.getLength(array);
 
             // We don't want to access the last one as it's not an array element
-            if (dimension < dimensions - 1) array = Array.get(array, 0);
+            if (dimension < dimensions - 1) {
+                array = Array.get(array, 0);
+            }
         }
 
         return lengths;
@@ -246,10 +251,10 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * Creates the lengths array required to create the array referenes
+     * Creates the lengths array required to create the array referenes.
      *
-     * @param argumentType
-     * @return
+     * @param argumentType the type
+     * @return the dimensions array
      */
     public static int[] buildDimensionsArray(Type argumentType) {
         int dimensions = argumentType.getDimensions();
@@ -263,17 +268,18 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * Creates the random lengths array required to create the array referenes
+     * Creates the random lengths array required to create the array referenes.
      *
-     * @param argumentType
-     * @return
+     * @param argumentType the type
+     * @return the random dimensions array
      */
     public static int[] buildRandomDimensionsArray(Type argumentType) {
         int dimensions = argumentType.getDimensions();
         int[] lengths = new int[dimensions];
 
         for (int dimension = 0; dimension < dimensions; ++dimension) {
-            lengths[dimension] = Randomness.nextInt(TestCaseUpdater.ARRAY_DIMENSION_LOWER_BOUND, TestCaseUpdater.DEFAULT_ARRAY_LENGTH_UPPER_BOUND);
+            lengths[dimension] = Randomness.nextInt(TestCaseUpdater.ARRAY_DIMENSION_LOWER_BOUND,
+                    TestCaseUpdater.DEFAULT_ARRAY_LENGTH_UPPER_BOUND);
         }
 
         return lengths;
@@ -305,10 +311,10 @@ public abstract class ArrayUtil {
 
         /**
          * Obtains the next element and iterates over the array updating the internal state of the indexes.
-         * <p>
-         * Precondition: hasNext has been checked before calling (access is inbounds).
          *
-         * @return
+         * <p>Precondition: hasNext has been checked before calling (access is inbounds).
+         *
+         * @return the next element
          */
         public Object getNextElement() {
             Object element = array;
@@ -327,25 +333,25 @@ public abstract class ArrayUtil {
         /**
          * Returns whether the iterator has a next value.
          *
-         * @return
+         * @return boolean
          */
         public boolean hasNext() {
             return hasNext;
         }
 
         /**
-         * Returns the current indexes
+         * Returns the current indexes.
          *
-         * @return
+         * @return the current indexes
          */
         public int[] getCurrentIndex() {
             return currentPositions.clone();
         }
 
         /**
-         * Iterates to the next position in the array
-         * <p>
-         * *** General Algorithm **
+         * Iterates to the next position in the array.
+         *
+         * <p>*** General Algorithm **
          * if current dimension has maxed out its value
          * if last dimension has been reached
          * Then we checked all the elements -> IndexOutOfBounds
@@ -385,9 +391,9 @@ public abstract class ArrayUtil {
         }
 
         /**
-         * Checks whether the iterator has more elements ot check
+         * Checks whether the iterator has more elements ot check.
          *
-         * @param lastIndexUpdated
+         * @param lastIndexUpdated last index updated
          */
         private void checkHasNext(int lastIndexUpdated) {
             if (lastIndexUpdated == currentPositions.length - 1

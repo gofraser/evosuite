@@ -33,8 +33,8 @@ import java.io.Serializable;
 /**
  * EvoSuite can run out of resources: eg out of memory, or too many threads that
  * are stalled and cannot be killed.
- * <p>
- * There can be several ways to handle these cases. The simplest is to to just
+ *
+ * <p>There can be several ways to handle these cases. The simplest is to to just
  * stop the search. Note: stopping the search when EvoSuite is close to run of
  * memory is important because, if it does actually run out of memory, when it
  * will not be able to write down the results obtained so far!

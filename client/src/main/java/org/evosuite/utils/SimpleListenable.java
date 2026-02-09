@@ -45,7 +45,7 @@ public class SimpleListenable<T> implements Listenable<T> {
     }
 
     /**
-     * <p>fireEvent</p>
+     * <p>fireEvent.</p>
      *
      * @param event a T object.
      */

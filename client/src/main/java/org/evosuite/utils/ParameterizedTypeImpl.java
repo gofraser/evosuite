@@ -50,15 +50,14 @@ import java.util.Arrays;
  * an {@code ParameterizedType} field where as least one of the actual type
  * parameters is a {@code TypeVariable}.
  *
- * <p>
- * Here's an example class:
+ * <p>Here's an example class:
  *
  * <pre>
  * class Foo&lt;T&gt; {
- * 	private List&lt;T&gt; someList;
+ *  private List&lt;T&gt; someList;
  *
- * 	Foo(List&lt;T&gt; list) {
- * 		this.someList = list;
+ *  Foo(List&lt;T&gt; list) {
+ *      this.someList = list;
  *    }
  * }
  * </pre>
@@ -95,8 +94,9 @@ public class ParameterizedTypeImpl implements ParameterizedType {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof ParameterizedType))
+        if (!(obj instanceof ParameterizedType)) {
             return false;
+        }
 
         ParameterizedType other = (ParameterizedType) obj;
         if (this == other) {
@@ -111,8 +111,9 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     @Override
     public int hashCode() {
         int result = rawType.hashCode() ^ Arrays.hashCode(actualTypeArguments);
-        if (ownerType != null)
+        if (ownerType != null) {
             result ^= ownerType.hashCode();
+        }
         return result;
     }
 
@@ -125,10 +126,12 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         if (ownerType != null) {
             sb.append(GenericTypeReflector.getTypeName(ownerType)).append('.');
 
-            String prefix = (ownerType instanceof ParameterizedType) ? ((Class<?>) ((ParameterizedType) ownerType).getRawType()).getName() + '$'
+            String prefix = (ownerType instanceof ParameterizedType)
+                    ? ((Class<?>) ((ParameterizedType) ownerType).getRawType()).getName() + '$'
                     : ((Class<?>) ownerType).getName() + '$';
-            if (clazz.startsWith(prefix))
+            if (clazz.startsWith(prefix)) {
                 clazz = clazz.substring(prefix.length());
+            }
         }
         sb.append(clazz);
 
@@ -136,14 +139,16 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             sb.append('<');
             for (int i = 0; i < actualTypeArguments.length; i++) {
                 Type arg = actualTypeArguments[i];
-                if (i != 0)
+                if (i != 0) {
                     sb.append(", ");
+                }
                 if (arg instanceof CaptureType) {
                     CaptureType captureType = (CaptureType) arg;
-                    if (captureType.getLowerBounds().length == 0)
+                    if (captureType.getLowerBounds().length == 0) {
                         sb.append("?");
-                    else
+                    } else {
                         sb.append(captureType.getLowerBounds()[0].toString());
+                    }
                 } else if (arg == null) {
                     sb.append("null");
                 } else {

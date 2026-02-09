@@ -39,10 +39,10 @@ public class MD5 {
 
     /**
      * Return the md5-hash of a string
-     * based on Heshan Perera @ http://stackoverflow.com/a/10530959/998816
+     * based on Heshan Perera @ http://stackoverflow.com/a/10530959/998816.
      *
-     * @param s
-     * @return
+     * @param s the string to hash
+     * @return the md5 hash
      */
     public static String hash(String s) {
         try {
@@ -59,10 +59,10 @@ public class MD5 {
     }
 
     /**
-     * Return the md5-hash of a file
+     * Return the md5-hash of a file.
      *
-     * @param s
-     * @return
+     * @param f the file to hash
+     * @return the md5 hash
      */
     public static String hash(File f) {
         try {

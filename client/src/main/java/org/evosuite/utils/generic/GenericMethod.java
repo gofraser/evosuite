@@ -17,197 +17,141 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package org.evosuite.utils.generic;
 
 import com.googlecode.gentyref.GenericTypeReflector;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
-import org.evosuite.runtime.util.Inputs;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.LoggingUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.lang.reflect.*;
+import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 /**
- * A wrapper class around {@link java.lang.reflect.Method Method} from the Java Reflection API,
- * aimed at simplifying the work with methods that feature generics.
+ * GenericMethod class.
  *
  * @author Gordon Fraser
  */
 public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
-    private static final long serialVersionUID = 6091851133071150237L;
+    private static final long serialVersionUID = -2871328984922339230L;
 
-    /**
-     * The enclosed {@link java.lang.reflect.Method Method} object.
-     */
+    private static final Logger logger = LoggerFactory.getLogger(GenericMethod.class);
+
     private transient Method method;
 
     /**
-     * Constructs a new {@code GenericMethod} according to the specified Java Reflection {@code
-     * Method} object and the given owning {@code type}.
+     * <p>Constructor for GenericMethod.</p>
      *
-     * @param method the method to enclose
-     * @param type   the owning type of the {@code method}
+     * @param method a {@link java.lang.reflect.Method} object.
+     * @param clazz  a {@link org.evosuite.utils.generic.GenericClass} object.
      */
-    public GenericMethod(Method method, GenericClass<?> type) {
-        super(GenericClassFactory.get(type));
+    public GenericMethod(Method method, GenericClass<?> clazz) {
+        super(clazz);
         this.method = method;
-        Inputs.checkNull(method, type);
+        this.method.setAccessible(true);
     }
 
     /**
-     * Constructs a new {@code GenericMethod} according to the specified Java Reflection {@code
-     * Method} object and the given owning {@code type}.
+     * <p>Constructor for GenericMethod.</p>
      *
-     * @param method the method to enclose
-     * @param type   the owning type of the {@code method}
+     * @param method a {@link java.lang.reflect.Method} object.
+     * @param clazz  a {@link org.evosuite.utils.generic.GenericClass} object.
      */
-    public GenericMethod(Method method, Class<?> type) {
-        super(GenericClassFactory.get(type));
-        this.method = method;
-        Inputs.checkNull(method, type);
+    public GenericMethod(Method method, Class<?> clazz) {
+        this(method, GenericClassFactory.get(clazz));
     }
 
     /**
-     * Constructs a new {@code GenericMethod} according to the specified Java Reflection {@code
-     * Method} object and the given owning {@code type}.
+     * <p>Constructor for GenericMethod.</p>
      *
-     * @param method the method to enclose
-     * @param type   the owning type of the {@code method}
+     * @param method a {@link java.lang.reflect.Method} object.
+     * @param type   a {@link java.lang.reflect.Type} object.
      */
     public GenericMethod(Method method, Type type) {
-        super(GenericClassFactory.get(type));
-        this.method = method;
-        Inputs.checkNull(method, type);
-    }
-
-    @Override
-    public GenericMethod copyWithNewOwner(GenericClass<?> newOwner) {
-        GenericMethod copy = new GenericMethod(method, newOwner);
-        copyTypeVariables(copy);
-        return copy;
-    }
-
-    @Override
-    public GenericMethod copyWithOwnerFromReturnType(GenericClass<?> returnType)
-            throws ConstructionFailedException {
-        GenericClass<?> newOwner = getOwnerClass().getGenericInstantiation(returnType.getTypeVariableMap());
-        GenericMethod copy = new GenericMethod(method, newOwner);
-        copyTypeVariables(copy);
-        return copy;
-    }
-
-    @Override
-    public GenericMethod copy() {
-        GenericMethod copy = new GenericMethod(method, GenericClassFactory.get(owner));
-        copyTypeVariables(copy);
-        return copy;
+        this(method, GenericClassFactory.get(type));
     }
 
     /**
-     * Returns the Java Reflection {@code Method} object enclosed by this instance.
+     * <p>Getter for the field <code>method</code>.</p>
      *
-     * @return the Java Reflection {@code Method} object
+     * @return a {@link java.lang.reflect.Method} object.
      */
     public Method getMethod() {
         return method;
     }
 
-
-    @Override
-    public AccessibleObject getAccessibleObject() {
-        return method;
+    /**
+     * {@inheritDoc}
+     */
+    public int getModifiers() {
+        return method.getModifiers();
     }
 
-
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public Class<?> getDeclaringClass() {
-        return method.getDeclaringClass();
+    public String getName() {
+        return method.getName();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Type[] getParameterTypes() {
         return getExactParameterTypes(method, owner.getType());
     }
 
     @Override
-    public Parameter[] getParameters() {
-        return method.getParameters();
+    public Type[] getGenericParameterTypes() {
+        return getParameterTypes();
     }
 
     public List<GenericClass<?>> getParameterClasses() {
-        List<GenericClass<?>> parameters = new ArrayList<>();
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("Parameter types: " + Arrays.asList(method.getGenericParameterTypes()));
+        List<GenericClass<?>> classes = new ArrayList<>();
+        for (Type type : getParameterTypes()) {
+            classes.add(GenericClassFactory.get(type));
         }
-
-        for (Type parameterType : getParameterTypes()) {
-            logger.debug("Adding parameter: {}", parameterType);
-            parameters.add(GenericClassFactory.get(parameterType));
-        }
-        return parameters;
-    }
-
-    public Type[] getGenericParameterTypes() {
-        return method.getGenericParameterTypes();
-    }
-
-    @Override
-    public Class<?>[] getRawParameterTypes() {
-        return method.getParameterTypes();
-    }
-
-    @Override
-    public Type getGeneratedType() {
-        return getReturnType();
-    }
-
-    @Override
-    public Type getReturnType() {
-        Type returnType = getExactReturnType(method, owner.getType());
-        if (returnType == null) {
-            LoggingUtils.getEvoLogger().info("Exact return type is null for {} with owner {}", method, owner);
-            for (StackTraceElement elem : Thread.currentThread().getStackTrace()) {
-                LoggingUtils.getEvoLogger().info(elem.toString());
-            }
-            assert (false);
-
-            returnType = method.getGenericReturnType();
-        }
-        return returnType;
-    }
-
-    @Override
-    public Type getGenericGeneratedType() {
-        return method.getGenericReturnType();
-    }
-
-    @Override
-    public Class<?> getRawGeneratedType() {
-        return method.getReturnType();
+        return classes;
     }
 
     /**
-     * Returns the exact return type of the given method in the given type. This
-     * may be different from <tt>m.getGenericReturnType()</tt> when the method
-     * was declared in a superclass, or <tt>type</tt> has a type parameter that
-     * is used in the return type, or <tt>type</tt> is a raw type.
+     * {@inheritDoc}
      */
-    protected Type getExactReturnType(Method m, Type type) throws IllegalArgumentException {
-        Inputs.checkNull(m, type);
+    @Override
+    public Type getReturnType() {
+        return getExactReturnType(method, owner.getType());
+    }
 
+    /**
+     * Returns the exact return type of the given method in the given type.
+     * This may be different from <tt>m.getGenericReturnType()</tt> when the
+     * method was declared in a superclass, or <tt>type</tt> has a type
+     * parameter that is used in the return type, or <tt>type</tt> is a raw
+     * type.
+     */
+    public Type getExactReturnType(Method m, Type type) {
         Type returnType = m.getGenericReturnType();
+        // capture(type) is not a subtype of m.getDeclaringClass()
+        // logger.info("The method " + m + " is not a member of type " + type
+        //        + " - declared in " + m.getDeclaringClass());
         Type exactDeclaringType = null;
         try {
             exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
@@ -223,10 +167,10 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
             return m.getReturnType();
         }
 
-        //if (exactDeclaringType.equals(type)) {
-        //	logger.debug("Returntype: " + returnType + ", " + exactDeclaringType);
-        //	return returnType;
-        //}
+        // if (exactDeclaringType.equals(type)) {
+        //     logger.debug("Returntype: " + returnType + ", " + exactDeclaringType);
+        //     return returnType;
+        // }
 
         return mapTypeParameters(returnType, exactDeclaringType);
     }
@@ -289,15 +233,18 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         Class<?> declaringClass = method.getDeclaringClass();
         try {
             for (java.lang.reflect.Method otherMethod : declaringClass.getMethods()) {
-                if (otherMethod.equals(method))
+                if (otherMethod.equals(method)) {
                     continue;
+                }
 
                 if (otherMethod.getName().equals(methodName)) {
                     return true;
                 }
             }
         } catch (SecurityException e) {
+            // ignored
         } catch (NoClassDefFoundError e) {
+            // ignored
         }
 
         return false;
@@ -305,7 +252,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     @Override
     public GenericMethod getGenericInstantiation(GenericClass<?> calleeType) throws ConstructionFailedException {
-        return super.getGenericInstantiation(calleeType);
+        return (GenericMethod) super.getGenericInstantiation(calleeType);
     }
 
     @Override
@@ -330,8 +277,9 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         }
         try {
             for (java.lang.reflect.Method otherMethod : declaringClass.getMethods()) {
-                if (otherMethod.equals(method))
+                if (otherMethod.equals(method)) {
                     continue;
+                }
 
                 if (otherMethod.getName().equals(methodName)) {
                     if (!Arrays.equals(otherMethod.getParameterTypes(), parameterTypes)) {
@@ -339,13 +287,8 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
                     }
                 }
             }
-//			java.lang.reflect.Method otherMethod = declaringClass.getMethod(methodName,
-//			                                                                parameterTypes);
-//			if (otherMethod != null && !otherMethod.equals(method)) {
-//				return true;
-//			}
         } catch (SecurityException e) {
-            //} catch (NoSuchMethodException e) {
+            // ignored
         }
 
         return false;
@@ -360,11 +303,6 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         return getNumParameters() > 0;
     }
 
-
-    @Override
-    public String getName() {
-        return method.getName();
-    }
 
     @Override
     public String getNameWithDescriptor() {
@@ -395,7 +333,8 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         ois.defaultReadObject();
 
         // Read/initialize additional fields
-        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass((String) ois.readObject());
+        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(
+                (String) ois.readObject());
 
         // TODO: What was the point of this??
         // methodClass = TestCluster.classLoader.loadClass(methodClass.getName());
@@ -429,14 +368,17 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
                     boolean equals = true;
                     Class<?>[] oldParameters = this.method.getParameterTypes();
                     Class<?>[] newParameters = newMethod.getParameterTypes();
-                    if (oldParameters.length != newParameters.length)
+                    if (oldParameters.length != newParameters.length) {
                         continue;
+                    }
 
-                    if (!newMethod.getDeclaringClass().getName().equals(method.getDeclaringClass().getName()))
+                    if (!newMethod.getDeclaringClass().getName().equals(method.getDeclaringClass().getName())) {
                         continue;
+                    }
 
-                    if (!newMethod.getReturnType().getName().equals(method.getReturnType().getName()))
+                    if (!newMethod.getReturnType().getName().equals(method.getReturnType().getName())) {
                         continue;
+                    }
 
 
                     for (int i = 0; i < newParameters.length; i++) {
@@ -490,17 +432,78 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         GenericMethod other = (GenericMethod) obj;
         if (method == null) {
             return other.method == null;
-        } else return method.equals(other.method);
+        } else {
+            return method.equals(other.method);
+        }
     }
 
+    // Implementations of abstract methods from GenericExecutable
 
+    @Override
+    public GenericMethod copy() {
+        GenericMethod copy = new GenericMethod(method, GenericClassFactory.get(owner));
+        copyTypeVariables(copy);
+        return copy;
+    }
+
+    @Override
+    public GenericMethod copyWithNewOwner(GenericClass<?> newOwner) {
+        GenericMethod copy = new GenericMethod(method, newOwner);
+        copyTypeVariables(copy);
+        return copy;
+    }
+
+    @Override
+    public GenericMethod copyWithOwnerFromReturnType(GenericClass<?> returnType) {
+        GenericMethod copy = new GenericMethod(method, returnType);
+        copyTypeVariables(copy);
+        return copy;
+    }
+
+    @Override
+    public AccessibleObject getAccessibleObject() {
+        return method;
+    }
+
+    @Override
+    public Class<?> getDeclaringClass() {
+        return method.getDeclaringClass();
+    }
+
+    @Override
+    public Type getGeneratedType() {
+        return getReturnType();
+    }
+
+    @Override
+    public Class<?> getRawGeneratedType() {
+        return method.getReturnType();
+    }
+
+    @Override
+    public Type getGenericGeneratedType() {
+        return getExactReturnType(method, owner.getType());
+    }
+
+    @Override
+    public Parameter[] getParameters() {
+        return method.getParameters();
+    }
+
+    @Override
+    public Class<?>[] getRawParameterTypes() {
+        return method.getParameterTypes();
+    }
 }

@@ -26,7 +26,7 @@ import java.util.Random;
 
 public abstract class ListUtil {
     /**
-     * <p>tail</p>
+     * <p>tail.</p>
      *
      * @param list a {@link java.util.List} object.
      * @param <T>  a T object.
@@ -37,7 +37,7 @@ public abstract class ListUtil {
     }
 
     /**
-     * <p>anyEquals</p>
+     * <p>anyEquals.</p>
      *
      * @param list a {@link java.util.List} object.
      * @param obj  a T object.
@@ -49,7 +49,7 @@ public abstract class ListUtil {
     }
 
     /**
-     * <p>shuffledList</p>
+     * <p>shuffledList.</p>
      *
      * @param list a {@link java.util.List} object.
      * @param <T>  a T object.
@@ -62,7 +62,7 @@ public abstract class ListUtil {
     }
 
     /**
-     * <p>shuffledList</p>
+     * <p>shuffledList.</p>
      *
      * @param list a {@link java.util.List} object.
      * @param rnd  a {@link java.util.Random} object.
@@ -86,7 +86,7 @@ public abstract class ListUtil {
 
         //this is not needed because population is sorted based on Maximization
         //if(maximize)
-        //	d = 1.0 - d; // to do that if we want to have Maximisation
+        //  d = 1.0 - d; // to do that if we want to have Maximisation
 
         int index = (int) (length * d);
         return index;

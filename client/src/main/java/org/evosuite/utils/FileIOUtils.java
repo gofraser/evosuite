@@ -32,7 +32,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * Class used to cover some limitations of Apache IO FileUtils
+ * Class used to cover some limitations of Apache IO FileUtils.
  */
 public class FileIOUtils {
 
@@ -49,14 +49,14 @@ public class FileIOUtils {
         try {
             return java.nio.file.Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
         } catch (Exception e) {
-            logger.error("Error while reading file " + file.getName() + " , " +
-                    e.getMessage(), e);
+            logger.error("Error while reading file " + file.getName() + " , "
+                    + e.getMessage(), e);
             return new LinkedList<>();
         }
     }
 
     /**
-     * Write string to file
+     * Write string to file.
      *
      * @param fileName - name of the file to write to
      * @param content  - text to write into the file
@@ -65,13 +65,13 @@ public class FileIOUtils {
         try {
             FileUtils.writeStringToFile(new File(fileName), content);
         } catch (IOException e) {
-            logger.error("Error while writing file " + fileName + " , " +
-                    e.getMessage(), e);
+            logger.error("Error while writing file " + fileName + " , "
+                    + e.getMessage(), e);
         }
     }
 
     /**
-     * Write string to file
+     * Write string to file.
      *
      * @param file    - file to write to
      * @param content - text to write into the file
@@ -80,14 +80,14 @@ public class FileIOUtils {
         try {
             FileUtils.writeStringToFile(file, content);
         } catch (Exception e) {
-            logger.error("Error while reading file " + file.getName() + " , " +
-                    e.getMessage(), e);
+            logger.error("Error while reading file " + file.getName() + " , "
+                    + e.getMessage(), e);
         }
     }
 
 
     /**
-     * Write string to file
+     * Write string to file.
      *
      * @param fileName - name of the file to write to
      * @param data     a {@link java.lang.Object} object.
@@ -97,15 +97,17 @@ public class FileIOUtils {
             XStream xstream = new XStream();
             XStream.setupDefaultSecurity(xstream);
             xstream.allowTypesByWildcard(new String[]{"**"});
-            FileUtils.writeStringToFile(new File(fileName), xstream.toXML(data));
+            File f = new File(fileName);
+            String xml = xstream.toXML(data);
+            FileUtils.writeStringToFile(f, xml);
         } catch (Exception e) {
-            logger.error("Error while writing file " + fileName + " , " +
-                    e.getMessage(), e);
+            logger.error("Error while writing file " + fileName + " , "
+                    + e.getMessage(), e);
         }
     }
 
     /**
-     * Write string to file
+     * Write string to file.
      *
      * @param fileName - name of the file to write to
      * @param <T>      a T object.
@@ -116,37 +118,43 @@ public class FileIOUtils {
         XStream xstream = new XStream();
         XStream.setupDefaultSecurity(xstream);
         xstream.allowTypesByWildcard(new String[]{"**"});
-        try (Reader reader = new InputStreamReader(new FileInputStream(fileName), StandardCharsets.UTF_8);
-             BufferedReader in = new BufferedReader(reader)) {
+        try (
+                Reader reader = new InputStreamReader(new FileInputStream(fileName),
+                        StandardCharsets.UTF_8);
+                BufferedReader in = new BufferedReader(reader)
+        ) {
             return (T) xstream.fromXML(in);
         } catch (Exception e) {
-            logger.error("Error while reading file " + fileName + " , " +
-                    e.getMessage(), e);
+            logger.error("Error while reading file " + fileName + " , "
+                    + e.getMessage(), e);
             return null;
         }
     }
 
 
-    public static List<File> getRecursivelyAllFilesInAllSubfolders(File folder, String suffix) throws IllegalArgumentException {
+    public static List<File> getRecursivelyAllFilesInAllSubfolders(File folder, String suffix)
+            throws IllegalArgumentException {
         Inputs.checkNull(folder, suffix);
         List<File> buffer = new ArrayList<>();
-        _recursiveAllFiles(folder, suffix, buffer);
+        recursiveAllFiles(folder, suffix, buffer);
         return buffer;
     }
 
     /**
-     * Scan the <code>base</code> folder, and return a list of all files with the given name <code>ending</code>
+     * Scan the <code>base</code> folder, and return a list of all files with the given name <code>ending</code>.
      *
-     * @param base
-     * @param suffix
-     * @return
+     * @param base   the base directory
+     * @param suffix the file suffix
+     * @return list of files
      */
-    public static List<File> getRecursivelyAllFilesInAllSubfolders(String base, String suffix) throws IllegalArgumentException {
+    public static List<File> getRecursivelyAllFilesInAllSubfolders(String base,
+                                                                   String suffix)
+            throws IllegalArgumentException {
         Inputs.checkNull(base, suffix);
         return getRecursivelyAllFilesInAllSubfolders(new File(base), suffix);
     }
 
-    private static void _recursiveAllFiles(File folder, String suffix, List<File> buffer) {
+    private static void recursiveAllFiles(File folder, String suffix, List<File> buffer) {
         if (!folder.exists()) {
             throw new IllegalArgumentException("Folder does not exist: " + folder.getAbsolutePath());
         }
@@ -156,7 +164,7 @@ public class FileIOUtils {
 
         for (File file : folder.listFiles()) {
             if (file.isDirectory()) {
-                _recursiveAllFiles(file, suffix, buffer);
+                recursiveAllFiles(file, suffix, buffer);
             } else {
                 if (file.getName().endsWith(suffix)) {
                     buffer.add(file);
@@ -167,13 +175,15 @@ public class FileIOUtils {
 
 
     /**
-     * Method similar to FileUtils.copyDirectory, but with overwrite
+     * Method similar to FileUtils.copyDirectory, but with overwrite.
      *
-     * @param srcDir
-     * @param destDir
-     * @throws IllegalArgumentException
+     * @param srcDir  source directory
+     * @param destDir destination directory
+     * @throws IllegalArgumentException if inputs are null or source does not exist
+     * @throws IOException              if copy fails
      */
-    public static void copyDirectoryAndOverwriteFilesIfNeeded(File srcDir, File destDir) throws IllegalArgumentException, IOException {
+    public static void copyDirectoryAndOverwriteFilesIfNeeded(File srcDir, File destDir)
+            throws IllegalArgumentException, IOException {
         if (srcDir == null || destDir == null) {
             throw new IllegalArgumentException("Null inputs");
         }
@@ -209,8 +219,10 @@ public class FileIOUtils {
                 return;
             }
 
-            try (InputStream in = new FileInputStream(src);
-                 OutputStream out = new FileOutputStream(dest)) {
+            try (
+                    InputStream in = new FileInputStream(src);
+                    OutputStream out = new FileOutputStream(dest)
+            ) {
 
                 byte[] buffer = new byte[2048];
 

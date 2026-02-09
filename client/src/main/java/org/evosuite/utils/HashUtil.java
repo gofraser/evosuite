@@ -21,12 +21,12 @@ package org.evosuite.utils;
 
 public abstract class HashUtil {
     /**
-     * Constant <code>DEFAULT_PRIME=31</code>
+     * Constant <code>DEFAULT_PRIME=31</code>.
      */
     public static final int DEFAULT_PRIME = 31;
 
     /**
-     * <p>hashCodeWithPrime</p>
+     * <p>hashCodeWithPrime.</p>
      *
      * @param prime      a int.
      * @param components a {@link java.lang.Object} object.
@@ -43,7 +43,7 @@ public abstract class HashUtil {
     }
 
     /**
-     * <p>hashCodeWithPrime</p>
+     * <p>hashCodeWithPrime.</p>
      *
      * @param prime              a int.
      * @param componentHashCodes a int.
@@ -60,7 +60,7 @@ public abstract class HashUtil {
     }
 
     /**
-     * <p>hashCode</p>
+     * <p>hashCode.</p>
      *
      * @param components a {@link java.lang.Object} object.
      * @return a int.
@@ -68,9 +68,4 @@ public abstract class HashUtil {
     public static int hashCode(Object... components) {
         return hashCodeWithPrime(DEFAULT_PRIME, components);
     }
-/*	
-	public static final int hashCode(int... componentHashCodes) {
-		return hashCodeWithPrime(DEFAULT_PRIME, componentHashCodes);
-	}
-*/
 }

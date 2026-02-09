@@ -26,12 +26,12 @@ import java.util.List;
 
 public class IterUtil {
     /**
-     * Constant <code>DEFAULT_JOIN_SEPARATOR=", "</code>
+     * Constant <code>DEFAULT_JOIN_SEPARATOR=", "</code>.
      */
     public static final String DEFAULT_JOIN_SEPARATOR = ", ";
 
     /**
-     * <p>join</p>
+     * <p>join.</p>
      *
      * @param iter      a {@link java.lang.Iterable} object.
      * @param separator a {@link java.lang.String} object.
@@ -54,7 +54,7 @@ public class IterUtil {
     }
 
     /**
-     * <p>join</p>
+     * <p>join.</p>
      *
      * @param iter a {@link java.lang.Iterable} object.
      * @return a {@link java.lang.String} object.

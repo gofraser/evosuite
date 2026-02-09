@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Serializable;
 
 /**
- * Utility class used to keep track of the execution time needed to reach the maximum coverage
+ * Utility class used to keep track of the execution time needed to reach the maximum coverage.
  *
  * @author Annibale Panichella
  */
@@ -35,38 +35,38 @@ public class BudgetConsumptionMonitor implements Serializable {
 
     private static final Logger logger = LoggerFactory.getLogger(BudgetConsumptionMonitor.class);
     /**
-     * Coverage achieved in the previous generation
+     * Coverage achieved in the previous generation.
      */
-    private double past_coverage;
+    private double pastCoverage;
 
     /**
-     * To keep track when the overall search started
+     * To keep track when the overall search started.
      */
     private final long startGlobalSearch;
 
     /**
-     * Time required to achieve the maximum coverage
+     * Time required to achieve the maximum coverage.
      */
     private long time2MaxCoverage;
 
     /**
-     * Constructor that initialises the counters
+     * Constructor that initialises the counters.
      */
     public BudgetConsumptionMonitor() {
-        past_coverage = 0;
+        pastCoverage = 0;
         startGlobalSearch = System.currentTimeMillis();
         time2MaxCoverage = 0;
     }
 
     /**
      * This method updates the time needed to reach the maximum coverage if
-     * the new coverage is greater than the previous one stored in "past_coverage"
+     * the new coverage is greater than the previous one stored in "past_coverage".
      *
      * @param coverage new coverage value
      */
     public void checkMaxCoverage(double coverage) {
-        if (coverage > past_coverage) {
-            past_coverage = coverage;
+        if (coverage > pastCoverage) {
+            pastCoverage = coverage;
             time2MaxCoverage = System.currentTimeMillis() - startGlobalSearch;
             logger.debug("Time to reach max coverage updated to {}", time2MaxCoverage);
         }
