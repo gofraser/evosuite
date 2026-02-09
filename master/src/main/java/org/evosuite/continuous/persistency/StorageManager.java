@@ -46,7 +46,7 @@ import java.text.NumberFormat;
 import java.util.*;
 
 /**
- * Class used to store all CTG info on disk
+ * Class used to store all CTG info on disk.
  *
  * @author arcuri
  */
@@ -73,10 +73,10 @@ public class StorageManager {
     }
 
     /**
-     * Open connection to Storage Manager
-     * Note: Here we just make sure we can write on disk
+     * Open connection to Storage Manager.
+     * Note: Here we just make sure we can write on disk.
      *
-     * @return
+     * @return true if opened
      */
     private boolean openForWriting() {
 
@@ -134,8 +134,8 @@ public class StorageManager {
         if (baseDir != null) {
             base = baseDir.getAbsolutePath() + File.separator;
         }
-        return new File(base + Properties.CTG_DIR +
-                File.separator + Properties.CTG_BESTS_DIR_NAME);
+        return new File(base + Properties.CTG_DIR
+                + File.separator + Properties.CTG_BESTS_DIR_NAME);
     }
 
     public static File getSeedInFolder() {
@@ -143,9 +143,9 @@ public class StorageManager {
     }
 
     /**
-     * Create a new tmp folder for this CTG session
+     * Create a new tmp folder for this CTG session.
      *
-     * @return
+     * @return true if created
      */
     public boolean createNewTmpFolders() {
 
@@ -156,13 +156,16 @@ public class StorageManager {
         String time = DateFormatUtils.format(new Date(), "yyyy_MM_dd_HH_mm_ss", Locale.getDefault());
         File tmp = null;
 
-        if (Properties.CTG_GENERATION_DIR_PREFIX == null)
+        if (Properties.CTG_GENERATION_DIR_PREFIX == null) {
             tmp = new File(Properties.CTG_DIR + File.separator + TMP_PREFIX + time);
-        else
-            tmp = new File(Properties.CTG_DIR + File.separator + TMP_PREFIX + Properties.CTG_GENERATION_DIR_PREFIX + "_" + time);
+        } else {
+            tmp = new File(Properties.CTG_DIR + File.separator + TMP_PREFIX
+                    + Properties.CTG_GENERATION_DIR_PREFIX + "_" + time);
+        }
 
-        if (!tmp.mkdirs())
+        if (!tmp.mkdirs()) {
             return false;
+        }
 
         // if we created the "tmp" folder or already exists, then it should be fine to create new folders in it
 
@@ -209,9 +212,9 @@ public class StorageManager {
     }
 
     /**
-     * Delete all CTG files
+     * Delete all CTG files.
      *
-     * @return
+     * @return true if clean
      */
     public boolean clean() {
         try {
@@ -238,12 +241,11 @@ public class StorageManager {
         }
 
         public boolean isValid() {
-            return testSuite != null && testSuite.exists() &&
-                    cut != null && !cut.isEmpty() &&
-                    csvData != null &&
-                    cut.equals(csvData.getTargetClass()) &&
-                    (serializedSuite == null || serializedSuite.getName().endsWith(Properties.CTG_SEEDS_EXT))
-                    ;
+            return testSuite != null && testSuite.exists()
+                    && cut != null && !cut.isEmpty()
+                    && csvData != null
+                    && cut.equals(csvData.getTargetClass())
+                    && (serializedSuite == null || serializedSuite.getName().endsWith(Properties.CTG_SEEDS_EXT));
         }
     }
 
@@ -251,8 +253,9 @@ public class StorageManager {
      * Compare the results of this CTG run with what was in
      * the database. Keep/update the best results.
      *
-     * @param
-     * @return
+     * @param current current project data
+     * @param cuts cuts
+     * @return summary string
      */
     public String mergeAndCommitChanges(ProjectStaticData current, String[] cuts) throws NullPointerException {
 
@@ -301,7 +304,8 @@ public class StorageManager {
                 for (String missingCUT : missingCUTs) {
                     info += "\n" + missingCUT;
                 }
-                String summary = "\n\nWARN: failed to generate tests for " + missingCUTs.size() + " classes out of " + current.getTotalNumberOfTestableCUTs();
+                String summary = "\n\nWARN: failed to generate tests for " + missingCUTs.size()
+                        + " classes out of " + current.getTotalNumberOfTestableCUTs();
                 info += summary;
             }
         }
@@ -321,9 +325,12 @@ public class StorageManager {
     public List<TestsOnDisk> gatherGeneratedTestsOnDisk() {
 
         List<TestsOnDisk> list = new LinkedList<>();
-        List<File> generatedTests = FileIOUtils.getRecursivelyAllFilesInAllSubfolders(tmpTests.getAbsolutePath(), ".java");
-        List<File> generatedReports = FileIOUtils.getRecursivelyAllFilesInAllSubfolders(tmpReports.getAbsolutePath(), ".csv");
-        List<File> generatedSerialized = FileIOUtils.getRecursivelyAllFilesInAllSubfolders(tmpSeeds.getAbsolutePath(), Properties.CTG_SEEDS_EXT);
+        List<File> generatedTests = FileIOUtils.getRecursivelyAllFilesInAllSubfolders(tmpTests.getAbsolutePath(),
+                ".java");
+        List<File> generatedReports = FileIOUtils.getRecursivelyAllFilesInAllSubfolders(tmpReports.getAbsolutePath(),
+                ".csv");
+        List<File> generatedSerialized = FileIOUtils.getRecursivelyAllFilesInAllSubfolders(tmpSeeds.getAbsolutePath(),
+                Properties.CTG_SEEDS_EXT);
 
         /*
          * Key -> name of CUT
@@ -349,7 +356,8 @@ public class StorageManager {
         Map<String, File> seeds = new LinkedHashMap<>();
         for (File file : generatedSerialized) {
             //this assumes that seed files are in the form cutName.seed
-            String cut = file.getName().substring(0, file.getName().length() - (Properties.CTG_SEEDS_EXT.length() + 1));
+            String cut = file.getName().substring(0,
+                    file.getName().length() - (Properties.CTG_SEEDS_EXT.length() + 1));
             seeds.put(cut, file);
         }
 
@@ -377,7 +385,8 @@ public class StorageManager {
                     cut = className;
                 }
             }
-            //String cut = testName.substring(0, testName.indexOf(junitSuffix)); //This does not work, eg cases like _N_suffix
+            //String cut = testName.substring(0, testName.indexOf(junitSuffix));
+            //This does not work, eg cases like _N_suffix
 
             CsvJUnitData data = reports.get(cut);
             if (data == null) {
@@ -403,11 +412,15 @@ public class StorageManager {
     }
 
     /**
-     * Example: </br>
-     * base   = /some/where/in/file/system  </br>
-     * target = /some/where/in/file/system/com/name/of/a/package/AClass.java  </br>
-     * </br>
-     * We want "com.name.of.a.package.AClass" as a result
+     * Example: <br>
+     * base   = /some/where/in/file/system  <br>
+     * target = /some/where/in/file/system/com/name/of/a/package/AClass.java  <br>
+     * <br>
+     * We want "com.name.of.a.package.AClass" as a result.
+     *
+     * @param base base folder
+     * @param target target file
+     * @return class name
      */
     protected String extractClassName(File base, File target) {
         int len = base.getAbsolutePath().length();
@@ -460,10 +473,12 @@ public class StorageManager {
 
     /**
      * Not only modify the state of <code>db</code>, but
-     * also copy/replace new test cases on file disk
+     * also copy/replace new test cases on file disk.
      *
-     * @param ondisk
-     * @param db
+     * @param targetClass target class
+     * @param ondisk test on disk
+     * @param db project db
+     * @param current current data
      */
     private void updateDatabase(String targetClass, TestsOnDisk ondisk, Project db, ProjectStaticData current) {
 
@@ -487,7 +502,8 @@ public class StorageManager {
         generation.setId(BigInteger.valueOf(cut.getGeneration().size()));
         generation.setFailed(false); // by default
         generation.setModified(current.getClassInfo(targetClass).hasChanged());
-        generation.setTimeBudgetInSeconds(BigInteger.valueOf(current.getClassInfo(targetClass).getTimeBudgetInSeconds()));
+        generation.setTimeBudgetInSeconds(
+                BigInteger.valueOf(current.getClassInfo(targetClass).getTimeBudgetInSeconds()));
         generation.setMemoryInMB(BigInteger.valueOf(current.getClassInfo(targetClass).getMemoryInMB()));
 
         if (!current.getClassInfo(targetClass).isToTest()) {
@@ -499,22 +515,22 @@ public class StorageManager {
             return; // we do not have more information, so return
         }
 
-        File std_err_CLIENT = new File(this.tmpLogs + File.separator + targetClass
+        File stdErrClient = new File(this.tmpLogs + File.separator + targetClass
                 + File.separator + "std_err_CLIENT.log");
-        assert std_err_CLIENT.exists();
-        File std_out_CLIENT = new File(this.tmpLogs + File.separator + targetClass
+        assert stdErrClient.exists();
+        File stdOutClient = new File(this.tmpLogs + File.separator + targetClass
                 + File.separator + "std_out_CLIENT.log");
-        assert std_out_CLIENT.exists();
-        File std_err_MASTER = new File(this.tmpLogs + File.separator + targetClass
+        assert stdOutClient.exists();
+        File stdErrMaster = new File(this.tmpLogs + File.separator + targetClass
                 + File.separator + "std_err_MASTER.log");
-        assert std_err_MASTER.exists();
-        File std_out_MASTER = new File(this.tmpLogs + File.separator + targetClass
+        assert stdErrMaster.exists();
+        File stdOutMaster = new File(this.tmpLogs + File.separator + targetClass
                 + File.separator + "std_out_MASTER.log");
-        assert std_out_MASTER.exists();
-        generation.setStdErrCLIENT(std_err_CLIENT.getAbsolutePath());
-        generation.setStdOutCLIENT(std_out_CLIENT.getAbsolutePath());
-        generation.setStdErrMASTER(std_err_MASTER.getAbsolutePath());
-        generation.setStdOutMASTER(std_out_MASTER.getAbsolutePath());
+        assert stdOutMaster.exists();
+        generation.setStdErrCLIENT(stdErrClient.getAbsolutePath());
+        generation.setStdOutCLIENT(stdOutClient.getAbsolutePath());
+        generation.setStdErrMASTER(stdErrMaster.getAbsolutePath());
+        generation.setStdOutMASTER(stdOutMaster.getAbsolutePath());
 
         cut.getGeneration().add(generation);
 
@@ -613,9 +629,9 @@ public class StorageManager {
 
     /**
      * From the test suites generated in the last CTG run, add the given
-     * one to the current best set
+     * one to the current best set.
      *
-     * @param newlyGeneratedTestSuite
+     * @param newlyGeneratedTestSuite the new test suite
      */
     private void addBestTestSuite(File newlyGeneratedTestSuite) {
         String testName = extractClassName(tmpTests, newlyGeneratedTestSuite);
@@ -645,11 +661,11 @@ public class StorageManager {
      * it returns true (and the generated test suite is accepted),
      * false otherwise.
      *
-     * @param db
-     * @param current
-     * @param suite
+     * @param db db
+     * @param current current data
+     * @param suite suite
      * @return true is the generated test suite is better (in terms of
-     * coverage) than any existing test suite, false otherwise
+     *     coverage) than any existing test suite, false otherwise
      */
     private boolean isBetterThanAnyExistingTestSuite(Project db, ProjectStaticData current, TestsOnDisk suite) {
 
@@ -670,8 +686,8 @@ public class StorageManager {
         // the coverage of each existing test suite
 
         String statistics = Properties.REPORT_DIR + File.separator + "statistics.csv";
-        File statistics_file = new File(statistics);
-        if (!statistics_file.exists()) {
+        File statisticsFile = new File(statistics);
+        if (!statisticsFile.exists()) {
             // this could happen if file was manually removed
             // or if is a project without test cases. before giving
             // up, let's check if it's better than any previous generated
@@ -681,7 +697,7 @@ public class StorageManager {
 
         List<String[]> rows = null;
         try {
-            CSVReader reader = new CSVReader(new FileReader(statistics_file));
+            CSVReader reader = new CSVReader(new FileReader(statisticsFile));
             rows = reader.readAll();
             reader.close();
         } catch (IOException | CsvException e) {
@@ -767,11 +783,11 @@ public class StorageManager {
      * class has not been changed it then checks if the new test
      * suite improves the coverage of the previous one.
      *
-     * @param db
-     * @param current
-     * @param suite
+     * @param db db
+     * @param current current data
+     * @param suite suite
      * @return true if the generated test suite is better (in terms of
-     * coverage) than a previous generated test suite, false otherwise
+     *     coverage) than a previous generated test suite, false otherwise
      */
     private boolean isBetterThanPreviousGeneration(Project db, ProjectStaticData current, TestsOnDisk suite) {
 
@@ -867,9 +883,10 @@ public class StorageManager {
 
     /**
      * Some classes could had been removed/renamed.
-     * So just delete all info regarding them
+     * So just delete all info regarding them.
      *
-     * @param
+     * @param db project db
+     * @param current current data
      */
     private String removeNoMoreExistentData(Project db,
                                             ProjectStaticData current) {
@@ -891,9 +908,9 @@ public class StorageManager {
     }
 
     /**
-     * Remove the given test suite
+     * Remove the given test suite.
      *
-     * @param
+     * @param testName name of test suite
      */
     private void removeBestTestSuite(String testName) {
 
@@ -916,9 +933,9 @@ public class StorageManager {
     }
 
     /**
-     * Get current representation of the test cases in the database
+     * Get current representation of the test cases in the database.
      *
-     * @return
+     * @return the project
      */
     public static Project getDatabaseProject() {
 
@@ -953,7 +970,8 @@ public class StorageManager {
     }
 
     private static InputStream getDefaultXmlStream() {
-        InputStream stream;/*
+        InputStream stream;
+        /*
          * this will happen the first time CTG is run
          */
         String empty = "/xsd/ctg_project_report_empty.xml";
@@ -969,7 +987,8 @@ public class StorageManager {
         try {
             JAXBContext jaxbContext = JAXBContext.newInstance(Project.class);
             SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-            Schema schema = factory.newSchema(new StreamSource(StorageManager.class.getResourceAsStream("/xsd/ctg_project_report.xsd")));
+            Schema schema = factory.newSchema(
+                    new StreamSource(StorageManager.class.getResourceAsStream("/xsd/ctg_project_report.xsd")));
             Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
             jaxbUnmarshaller.setSchema(schema);
             return (Project) jaxbUnmarshaller.unmarshal(stream);

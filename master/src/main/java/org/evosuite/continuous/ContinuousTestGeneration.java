@@ -45,7 +45,7 @@ import java.util.List;
  * experiment reasons, but its usage for practitioners
  * will be based on build environments like Maven/Ant
  * and continuous integration environments like
- * Jenkins/Hudson/Bamboo
+ * Jenkins/Hudson/Bamboo.
  * </p>
  *
  * <p>
@@ -74,17 +74,17 @@ import java.util.List;
  * This will be useful to see how EvoSuite is used in practice.
  * </p>
  *
- *
  * <p>
  * TODO we should also have an option "regression" to run
  * current test suites, and see if any fails.
  * Even if do not want to explicitly do regression, we might still
  * have to run old test cases, as failing ones should be (re)moved and
  * labelled as "regression-failing"
- *
+ * </p>
  *
  * <p>
  * TODO need also option to automatically commit to repository any new, better test
+ * </p>
  *
  * @author arcuri
  */
@@ -92,35 +92,35 @@ public class ContinuousTestGeneration {
 
 
     /**
-     * Target folder/jar defining the SUT
+     * Target folder/jar defining the SUT.
      */
     private final String target;
 
     /**
      * Defines what classes in the target should be used by specifying
-     * a common package prefix
+     * a common package prefix.
      */
     private final String prefix;
 
     /**
-     * The complete, used classpath
+     * The complete, used classpath.
      */
     private final String projectClassPath;
 
     private CtgConfiguration configuration;
 
     /**
-     * An optional folder where to make a copy of the generated tests
+     * An optional folder where to make a copy of the generated tests.
      */
     private final String exportFolder;
 
     /**
-     * Specify which CUT to use. If {@code null} then use everything in target/prefix
+     * Specify which CUT to use. If {@code null} then use everything in target/prefix.
      */
     private final String[] cuts;
 
-    public ContinuousTestGeneration(String target, String projectClassPath, String prefix, CtgConfiguration conf, String[] cuts,
-                                    String exportFolder) {
+    public ContinuousTestGeneration(String target, String projectClassPath, String prefix, CtgConfiguration conf,
+                                    String[] cuts, String exportFolder) {
         super();
         this.target = target;
         this.prefix = prefix;
@@ -131,9 +131,9 @@ public class ContinuousTestGeneration {
     }
 
     /**
-     * Apply CTG, and return a string with some summary
+     * Apply CTG, and return a string with some summary.
      *
-     * @return
+     * @return a summary string
      */
     public String execute() {
 
@@ -156,9 +156,9 @@ public class ContinuousTestGeneration {
         ProjectStaticData data = analyzer.analyze();
 
         if (data.getTotalNumberOfTestableCUTs() == 0) {
-            return "There is no class to test in the chosen project\n" +
-                    "Target: " + target + "\n" +
-                    "Prefix: '" + prefix + "'\n";
+            return "There is no class to test in the chosen project\n"
+                    + "Target: " + target + "\n"
+                    + "Prefix: '" + prefix + "'\n";
         }
 
         if (Properties.CTG_DEBUG_PORT != null && data.getTotalNumberOfTestableCUTs() != 1) {
@@ -166,7 +166,8 @@ public class ContinuousTestGeneration {
         }
 
         if (Properties.CTG_TIME_PER_CLASS != null) {
-            configuration = configuration.getWithChangedTime(Properties.CTG_TIME_PER_CLASS, data.getTotalNumberOfTestableCUTs());
+            configuration = configuration.getWithChangedTime(Properties.CTG_TIME_PER_CLASS,
+                    data.getTotalNumberOfTestableCUTs());
         }
 
         JobScheduler scheduler = new JobScheduler(data, configuration);
@@ -229,7 +230,9 @@ public class ContinuousTestGeneration {
 
     /**
      * Clean all persistent data (eg files on disk) that
-     * CTG has created so far
+     * CTG has created so far.
+     *
+     * @return true if successful
      */
     public boolean clean() {
         StorageManager storage = new StorageManager();
@@ -237,9 +240,9 @@ public class ContinuousTestGeneration {
     }
 
     /**
-     * Get info on the current test cases in the database
+     * Get info on the current test cases in the database.
      *
-     * @return
+     * @return info string
      */
     public String info() {
 
@@ -252,14 +255,14 @@ public class ContinuousTestGeneration {
         //TODO all info
 
         StringBuilder sb = new StringBuilder();
-        sb.append("Total number of classes in the project: " +
-                ProjectUtil.getNumberTestableClasses(project) + "\n");
-        sb.append("Number of classes in the project that are testable: " +
-                ProjectUtil.getNumberTestableClasses(project) + "\n");
-        sb.append("Number of generated test suites: " +
-                ProjectUtil.getNumberGeneratedTestSuites(project) + "\n");
-        sb.append("Overall coverage: " +
-                ProjectUtil.getOverallCoverage(project) + "\n");
+        sb.append("Total number of classes in the project: "
+                + ProjectUtil.getNumberTestableClasses(project) + "\n");
+        sb.append("Number of classes in the project that are testable: "
+                + ProjectUtil.getNumberTestableClasses(project) + "\n");
+        sb.append("Number of generated test suites: "
+                + ProjectUtil.getNumberGeneratedTestSuites(project) + "\n");
+        sb.append("Overall coverage: "
+                + ProjectUtil.getOverallCoverage(project) + "\n");
 
         return sb.toString();
     }

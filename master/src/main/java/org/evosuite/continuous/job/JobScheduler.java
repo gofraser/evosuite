@@ -31,7 +31,7 @@ import java.util.List;
 
 /**
  * Class used to define which classes should be used as CUT for this CTG execution,
- * and how to allocate the search budget
+ * and how to allocate the search budget.
  *
  * @author arcuri
  */
@@ -48,9 +48,10 @@ public class JobScheduler {
     private ScheduleType currentSchedule;
 
     /**
-     * Main constructor
+     * Main constructor.
      *
-     * @param projectData
+     * @param projectData data of the project
+     * @param conf configuration
      */
     public JobScheduler(ProjectStaticData projectData,
                         CtgConfiguration conf) {
@@ -85,9 +86,9 @@ public class JobScheduler {
     }
 
     /**
-     * Return new schedule, or <code>null</code> if scheduling is finished
+     * Return new schedule, or <code>null</code> if scheduling is finished.
      *
-     * @return
+     * @return new schedule or null
      */
     public List<JobDefinition> createNewSchedule() {
         if (!canExecuteMore()) {
@@ -111,9 +112,9 @@ public class JobScheduler {
     /**
      * When we get a schedule, the scheduler might decide to do not use the entire
      * budget. Reason? It might decide to generate some test cases first, and then
-     * use those as seeding for a new round of execution
+     * use those as seeding for a new round of execution.
      *
-     * @return
+     * @return true if can execute more
      */
     public boolean canExecuteMore() {
         return currentSchedule.canExecuteMore();
