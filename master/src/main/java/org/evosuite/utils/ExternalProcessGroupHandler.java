@@ -712,7 +712,9 @@ public class ExternalProcessGroupHandler {
                 }
                 boolean finished = false;
                 ClientState clientState = MasterServices.getInstance().getMasterNode().getCurrentState(entry.getKey());
-                if (clientState == null || !clientState.equals(ClientState.FINISHED)) {
+                if (clientState == ClientState.DONE || clientState == ClientState.FINISHED) {
+                    finished = true;
+                } else if (clientState == null || !clientState.equals(ClientState.FINISHED)) {
                     try {
                         finished = entry.getValue().waitUntilFinished(remaining);
                     } catch (ConnectException e) {
