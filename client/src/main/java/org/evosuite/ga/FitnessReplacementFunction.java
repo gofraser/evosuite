@@ -21,7 +21,7 @@ package org.evosuite.ga;
 
 /**
  * Replacement function that only looks at the fitness and secondary objectives,
- * without checking any further constraint on the parents
+ * without checking any further constraint on the parents.
  *
  * @author Gordon Fraser
  */

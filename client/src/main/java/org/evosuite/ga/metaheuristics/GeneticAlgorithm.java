@@ -326,7 +326,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     /**
      * {@inheritDoc}
      *
-     * <p>Generate solution
+     * <p>Generate solution.
      */
     @Override
     public abstract void generateSolution();
@@ -350,7 +350,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * possibly overcrowded.
      *
      * <p>Depending on the Property "starve_by_fitness" chromosome are either
-     * kicked out randomly or according to their fitness
+     * kicked out randomly or according to their fitness.
      *
      * @param limit a int.
      */
@@ -848,7 +848,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * Sort the population by fitness.
      *
      * <p>WARN: used only with singular objective algorithms, multi-objective
-     * algorithms should implement their own 'sort'
+     * algorithms should implement their own 'sort'.
      */
     protected void sortPopulation() {
         if (Properties.SHUFFLE_GOALS) {
@@ -1000,7 +1000,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     /**
      * Prints out all information regarding this GAs stopping conditions.
      *
-     * <p>So far only used for testing purposes in TestSuiteGenerator
+     * <p>So far only used for testing purposes in TestSuiteGenerator.
      */
     public void printBudget() {
         final Logger logger = LoggingUtils.getEvoLogger();
@@ -1038,5 +1038,14 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         }
 
         return (double) currentbudget / (double) totalbudget;
+    }
+
+    /**
+     * Updates the set of covered goals.
+     *
+     * @return true if any goal was covered
+     */
+    public boolean updateCoveredGoals() {
+        return false;
     }
 }

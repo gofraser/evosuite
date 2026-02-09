@@ -23,6 +23,8 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.jgrapht.graph.DefaultEdge;
 
 /**
+ * DependencyEdge class.
+ *
  * @author Annibale Panichella
  */
 public class DependencyEdge extends DefaultEdge {

@@ -42,22 +42,22 @@ public abstract class StructuralGoalManager implements Serializable {
 
     /**
      * Set of goals currently used as objectives.
-     * <p>
-     * The idea is to consider only those gaols that are independent from any other targets. That
+     *
+     * <p>The idea is to consider only those gaols that are independent from any other targets. That
      * is, the gaols that
      * <ol>
      *     <li>are free of control dependencies, or</li>
      *     <li>only have direct control dependencies to already covered gaols.</li>
      * </ol>
-     * <p>
-     * Each goal is encoded by a corresponding fitness function, which returns an optimal fitness value if the goal has been reached by a given
-     * chromosome. All functions are required to be either minimization or maximization functions,
-     * not a mix of both.
+     *
+     * <p>Each goal is encoded by a corresponding fitness function, which returns an optimal fitness
+     * value if the goal has been reached by a given chromosome. All functions are required to be
+     * either minimization or maximization functions, not a mix of both.
      */
     protected Set<TestFitnessFunction> currentGoals;
 
     /**
-     * Archive of tests and corresponding covered targets
+     * Archive of tests and corresponding covered targets.
      */
     protected Archive archive;
 
@@ -76,7 +76,7 @@ public abstract class StructuralGoalManager implements Serializable {
     }
 
     /**
-     * Update the set of covered goals and the set of current goals (actual objectives)
+     * Update the set of covered goals and the set of current goals (actual objectives).
      *
      * @param c a TestChromosome
      * @return covered goals along with the corresponding test case

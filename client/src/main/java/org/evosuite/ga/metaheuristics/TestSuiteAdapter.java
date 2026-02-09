@@ -48,8 +48,8 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 /**
- * A wrapper class that facilitates the use of genetic algorithms operating on {@code
- * TestChromosome}s in such contexts where {@code TestSuiteChromosome}s are expected.
+ * A wrapper class that facilitates the use of genetic algorithms operating on {@code TestChromosome}s
+ * in such contexts where {@code TestSuiteChromosome}s are expected.
  *
  * @param <A> the type of adaptee genetic algorithm
  */

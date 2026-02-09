@@ -55,19 +55,19 @@ public abstract class Chromosome<T extends Chromosome<T>>
     private static final Logger logger = LoggerFactory.getLogger(Chromosome.class);
 
     /**
-     * only used for testing/debugging
+     * only used for testing/debugging.
      */
     protected Chromosome() {
         // empty
     }
 
     /**
-     * Last recorded fitness value
+     * Last recorded fitness value.
      */
     private final LinkedHashMap<FitnessFunction<T>, Double> fitnessValues = new LinkedHashMap<>();
 
     /**
-     * Previous fitness, to see if there was an improvement
+     * Previous fitness, to see if there was an improvement.
      */
     private final LinkedHashMap<FitnessFunction<T>, Double> previousFitnessValues = new LinkedHashMap<>();
 
@@ -84,17 +84,17 @@ public abstract class Chromosome<T extends Chromosome<T>>
     private final LinkedHashMap<FitnessFunction<T>, Double> coverageValues = new LinkedHashMap<>();
 
     /**
-     * The number of uncovered goals with regard to the fitness function given as key
+     * The number of uncovered goals with regard to the fitness function given as key.
      */
     private final LinkedHashMap<FitnessFunction<T>, Integer> numsNotCoveredGoals = new LinkedHashMap<>();
 
     /**
-     * The number of covered goals with regard to the fitness function given as key
+     * The number of covered goals with regard to the fitness function given as key.
      */
     private final LinkedHashMap<FitnessFunction<T>, Integer> numsCoveredGoals = new LinkedHashMap<>();
 
     /**
-     * Generation in which this chromosome was created
+     * Generation in which this chromosome was created.
      */
     protected int age = 0;
 
@@ -105,17 +105,17 @@ public abstract class Chromosome<T extends Chromosome<T>>
     protected int rank = -1;
 
     /**
-     *
+     * Distance.
      */
     protected double distance = 0.0;
 
     /**
-     * Keep track of how many times this Chromosome has been mutated
+     * Keep track of how many times this Chromosome has been mutated.
      */
     private int numberOfMutations = 0;
 
     /**
-     * Keep track of how many times this Chromosome has been evaluated
+     * Keep track of how many times this Chromosome has been evaluated.
      */
     private int numberOfEvaluations = 0;
 
@@ -131,7 +131,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     protected int numCollisions = 0;
 
     /**
-     * Return current fitness value
+     * Return current fitness value.
      *
      * @return a double.
      */
@@ -166,7 +166,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
      * given fitness function.
      *
      * @param ff the fitness function
-     * @return
+     * @return true if executed
      */
     public boolean hasExecutedFitness(FitnessFunction<T> ff) {
         return this.previousFitnessValues.containsKey(ff);
@@ -195,7 +195,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Adds a fitness function with an associated fitness value
+     * Adds a fitness function with an associated fitness value.
      *
      * @param ff           a fitness function
      * @param fitnessValue the fitness value for {@code ff}
@@ -206,7 +206,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     /**
      * Adds a fitness function with an associated fitness value and coverage
-     * value
+     * value.
      *
      * @param ff           a fitness function
      * @param fitnessValue the fitness value for {@code ff}
@@ -254,7 +254,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
      * Tells whether the fitness of this chromosome has changed from the previous to the current
      * generation.
      *
-     * @return
+     * @return true if changed
      */
     public boolean hasFitnessChanged() {
         return fitnessValues.keySet().stream()
@@ -267,8 +267,8 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Create a deep copy of the chromosome
+     *
+     * <p>Create a deep copy of the chromosome
      */
     @Override
     public abstract T clone();
@@ -287,8 +287,8 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Determine relative ordering of this chromosome to another chromosome. If
+     *
+     * <p>Determine relative ordering of this chromosome to another chromosome. If
      * the fitness values are equal, go through all secondary objectives and try
      * to find one where the two are not equal.
      */
@@ -297,12 +297,13 @@ public abstract class Chromosome<T extends Chromosome<T>>
         int i = (int) Math.signum(this.getFitness() - c.getFitness());
         if (i == 0) {
             return compareSecondaryObjective(c.self());
-        } else
+        } else {
             return i;
+        }
     }
 
     /**
-     * Secondary Objectives are specific to chromosome types
+     * Secondary Objectives are specific to chromosome types.
      *
      * @param o a {@link org.evosuite.ga.Chromosome} object.
      * @return a int.
@@ -310,12 +311,12 @@ public abstract class Chromosome<T extends Chromosome<T>>
     public abstract int compareSecondaryObjective(T o);
 
     /**
-     * Apply mutation
+     * Apply mutation.
      */
     public abstract void mutate();
 
     /**
-     * Fixed single point cross over
+     * Fixed single point cross over.
      *
      * @param other    a {@link org.evosuite.ga.Chromosome} object.
      * @param position a int.
@@ -326,7 +327,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Single point cross over
+     * Single point cross over.
      *
      * @param other     a {@link org.evosuite.ga.Chromosome} object.
      * @param position1 a int.
@@ -337,7 +338,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
             throws ConstructionFailedException;
 
     /**
-     * Apply the local search
+     * Apply the local search.
      *
      * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective}
      *                  object.
@@ -345,7 +346,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     public abstract boolean localSearch(LocalSearchObjective<T> objective);
 
     /**
-     * Return length of individual
+     * Return length of individual.
      *
      * @return a int.
      */
@@ -353,7 +354,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     /**
      * Return whether the chromosome has changed since the fitness value was
-     * computed last
+     * computed last.
      *
      * @return a boolean.
      */
@@ -385,11 +386,9 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * <p>
-     * Getter for the field <code>coverage</code>.
-     * </p>
-     * <p>
-     * Returns a single coverage value calculated as the average of
+     * <p>Getter for the field <code>coverage</code>.</p>
+     *
+     * <p>Returns a single coverage value calculated as the average of
      * coverage values for all fitness functions.
      *
      * @return a double.
@@ -404,7 +403,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
      * Computes the total number of goals covered by this chromosome taking into account all the
      * fitness functions known to this chromosome.
      *
-     * @return
+     * @return number of covered goals
      */
     public int getNumOfCoveredGoals() {
         return numsCoveredGoals.values().stream()
@@ -416,7 +415,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
      * Computes the total number of goals not covered by this chromosome taking into account all the
      * fitness functions known to this chromosome.
      *
-     * @return
+     * @return number of not covered goals
      */
     public int getNumOfNotCoveredGoals() {
         return numsNotCoveredGoals.values().stream()
@@ -534,8 +533,8 @@ public abstract class Chromosome<T extends Chromosome<T>>
      * instance <code>clazz</code> as the fitness function. Returns <code>0.0</code> if none of the
      * fitness functions known to this chromosome is assignment compatible with <code>clazz</code>.
      *
-     * @param clazz
-     * @return
+     * @param clazz the class
+     * @return the fitness
      */
     public double getFitnessInstanceOf(Class<?> clazz) {
         Optional<FitnessFunction<T>> off = fitnessValues.keySet().stream()
@@ -549,8 +548,8 @@ public abstract class Chromosome<T extends Chromosome<T>>
      * instance <code>clazz</code> as the fitness function. Returns <code>0.0</code> if none of the
      * fitness functions known to this chromosome is assignment compatible with <code>clazz</code>.
      *
-     * @param clazz
-     * @return
+     * @param clazz the class
+     * @return the coverage
      */
     public double getCoverageInstanceOf(Class<?> clazz) {
         Optional<FitnessFunction<T>> off = coverageValues.keySet().stream()
@@ -560,42 +559,42 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Increases by one the number of times this chromosome has been mutated
+     * Increases by one the number of times this chromosome has been mutated.
      */
     public void increaseNumberOfMutations() {
         this.numberOfMutations++;
     }
 
     /**
-     * Return number of times this chromosome has been mutated
+     * Return number of times this chromosome has been mutated.
      */
     public int getNumberOfMutations() {
         return this.numberOfMutations;
     }
 
     /**
-     * Set number of times this chromosome has been mutated
+     * Set number of times this chromosome has been mutated.
      */
     public void setNumberOfMutations(int numberOfMutations) {
         this.numberOfMutations = numberOfMutations;
     }
 
     /**
-     * Increases by one the number of times this chromosome has been evaluated
+     * Increases by one the number of times this chromosome has been evaluated.
      */
     public void increaseNumberOfEvaluations() {
         this.numberOfEvaluations++;
     }
 
     /**
-     * Return number of times this chromosome has been evaluated
+     * Return number of times this chromosome has been evaluated.
      */
     public int getNumberOfEvaluations() {
         return this.numberOfEvaluations;
     }
 
     /**
-     * Set number of times this chromosome has been evaluated
+     * Set number of times this chromosome has been evaluated.
      */
     public void setNumberOfEvaluations(int numberOfEvaluations) {
         this.numberOfEvaluations = numberOfEvaluations;

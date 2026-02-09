@@ -41,7 +41,7 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     private final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(StandardGA.class);
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */

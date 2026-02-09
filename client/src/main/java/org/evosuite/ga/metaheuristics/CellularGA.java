@@ -172,8 +172,8 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     /**
      * Get the best offspring.
      *
-     * @param offspring1 a T object.
-     * @param offspring2 a T object.
+     * @param offspring1 offspring 1
+     * @param offspring2 offspring 2
      * @return better offspring
      */
     public T getBestOffspring(T offspring1, T offspring2) {

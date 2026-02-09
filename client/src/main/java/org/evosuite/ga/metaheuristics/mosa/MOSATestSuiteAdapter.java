@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -57,7 +57,8 @@ public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
     @Override
     public List<TestSuiteChromosome> getBestIndividuals() {
         // get final test suite (i.e., non dominated solutions in Archive)
-        TestSuiteChromosome bestTestCases = Archive.getArchiveInstance().mergeArchiveAndSolution(new TestSuiteChromosome());
+        TestSuiteChromosome bestTestCases = Archive.getArchiveInstance()
+                .mergeArchiveAndSolution(new TestSuiteChromosome());
         if (bestTestCases.getTestChromosomes().isEmpty()) {
             for (TestChromosome test : getAlgorithm().getBestIndividuals()) {
                 bestTestCases.addTest(test);
@@ -73,9 +74,10 @@ public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
     /**
      * {@inheritDoc}
      *
-     * <p>This method is used by the Progress Monitor at the and of each generation to show the total coverage reached by the algorithm.
-     * Since the Progress Monitor requires a {@link TestSuiteChromosome} object, this method artificially creates
-     * a {@link TestSuiteChromosome} object as the union of all solutions stored in the {@link
+     * <p>This method is used by the Progress Monitor at the and of each generation to show the total
+     * coverage reached by the algorithm. Since the Progress Monitor requires a
+     * {@link TestSuiteChromosome} object, this method artificially creates a
+     * {@link TestSuiteChromosome} object as the union of all solutions stored in the {@link
      * Archive}.</p>
      *
      * <p>The coverage score of the {@link TestSuiteChromosome} object is given by the percentage of targets marked
@@ -130,5 +132,14 @@ public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
         population.add(testSuite);
         super.applyLocalSearch();
         population = null;
+    }
+
+    @Override
+    public boolean updateCoveredGoals() {
+        if (!getAlgorithm().isFinished()) {
+            return false;
+        }
+
+        return super.updateCoveredGoals();
     }
 }

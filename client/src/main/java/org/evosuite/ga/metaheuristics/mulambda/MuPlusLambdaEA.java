@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * (Mu + Lambda) EA
+ * (Mu + Lambda) EA.
  *
  * @author José Campos
  */

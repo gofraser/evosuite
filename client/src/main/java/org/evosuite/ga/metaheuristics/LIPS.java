@@ -49,9 +49,9 @@ import java.util.stream.Collectors;
 /**
  * Implementation of the LIPS (Linearly Independent Path based Search) described in:
  *
- * <p>[1] S. Scalabrino, G. Grano, D. Di Nucci, R. Oliveto, A. De Lucia. "Search-Based Testing
- * of Procedural Programs: Iterative Single-Target or Multi-target Approach?".
- * International Symposium on Search Based Software Engineering (SSBSE 2016)
+ * <p>[1] S. Scalabrino, G. Grano, D. Di Nucci, R. Oliveto, A. De Lucia. "Search-Based Testing of Procedural
+ * Programs: Iterative Single-Target or Multi-target Approach?".
+ * International Symposium on Search Based Software Engineering (SSBSE 2016).
  *
  * @author Annibale Panichella
  */
