@@ -33,8 +33,7 @@ import java.lang.instrument.Instrumentation;
  * During EvoSuite search, EvoSuite does not need an agent,
  * as instrumentation can be done at classloader level.
  *
- * <p>
- * Note: we need JavaAgent in JUnit as the classes could have already
+ * <p>Note: we need JavaAgent in JUnit as the classes could have already
  * been loaded/instrumented, eg as it happens when tools like
  * Emma, Cobertura, Javalanche, etc., are used.
  *
@@ -59,11 +58,11 @@ public class InstrumentingAgent {
     }
 
     /**
-     * This is called by JVM when agent starts
+     * This is called by JVM when agent starts.
      *
-     * @param args
-     * @param inst
-     * @throws Exception
+     * @param args command line arguments
+     * @param inst instrumentation instance
+     * @throws Exception if something goes wrong
      */
     public static void premain(String args, Instrumentation inst) throws Exception {
         logger.info("Executing premain of JavaAgent");
@@ -73,11 +72,11 @@ public class InstrumentingAgent {
     }
 
     /**
-     * This is called by JVM when agent starts
+     * This is called by JVM when agent starts.
      *
-     * @param args
-     * @param inst
-     * @throws Exception
+     * @param args command line arguments
+     * @param inst instrumentation instance
+     * @throws Exception if something goes wrong
      */
     public static void agentmain(String args, Instrumentation inst) throws Exception {
         logger.info("Executing agentmain of JavaAgent");
@@ -95,7 +94,7 @@ public class InstrumentingAgent {
     }
 
     /**
-     * Force the dynamic loading of the agent
+     * Force the dynamic loading of the agent.
      */
     public static void initialize() {
         MockFramework.disable(); //need an explicit "activate" call
@@ -114,7 +113,7 @@ public class InstrumentingAgent {
     /**
      * Once loaded, an agent will always read the byte[]
      * of the loaded classes. Here we tell it if those byte[]
-     * should be instrumented
+     * should be instrumented.
      */
     public static void activate() {
         checkTransformerState();
@@ -124,7 +123,7 @@ public class InstrumentingAgent {
     }
 
     /**
-     * Stop instrumenting classes
+     * Stop instrumenting classes.
      */
     public static void deactivate() {
         checkTransformerState();
@@ -135,9 +134,9 @@ public class InstrumentingAgent {
 
     /**
      * Tells EvoSuite that we are going to re-instrument classes.
-     * In these cases, we cannot change the class signatures
+     * In these cases, we cannot change the class signatures.
      *
-     * @param on
+     * @param on whether to enable retransformation
      */
     public static void setRetransformingMode(boolean on) {
         transformer.setRetransformingMode(on);

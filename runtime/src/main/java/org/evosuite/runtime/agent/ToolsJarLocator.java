@@ -61,28 +61,32 @@ public class ToolsJarLocator {
                 Class<?> clazz = Class.forName(EXAMPLE_CLASS);
                 return clazz.getClassLoader();
             } catch (ClassNotFoundException e) {
-                throw new RuntimeException("Did not manage to automatically find tools.jar. Use -Dtools_jar_location=<path> property");
+                throw new RuntimeException("Did not manage to automatically find tools.jar. "
+                        + "Use -Dtools_jar_location=<path> property");
             }
 
         }
 
-		/*
-			This was a problem, as PowerMock and JMockit ship with their own version of tools.jar taken from OpenJDK
-		 */
-//		try {
-//			Class.forName(EXAMPLE_CLASS,true,ClassLoader.getSystemClassLoader());
-//			logger.info("Tools.jar already on system classloader");
-//			return ClassLoader.getSystemClassLoader(); //if this code is reached, the tools.jar is available on system classpath
-//		} catch (ClassNotFoundException e) {
-//			//OK, it is missing, so lets try to locate it
-//		}
-//		try {
-//			Class.forName(EXAMPLE_CLASS);
-//			logger.info("Tools.jar already on current classloader");
-//			return ToolsJarLocator.class.getClassLoader(); //if this code is reached, the tools.jar is available on classpath
-//		} catch (ClassNotFoundException e) {
-//			//OK, it is missing, so lets try to locate it
-//		}
+        /*
+         * This was a problem, as PowerMock and JMockit ship with their own version of tools.jar
+         * taken from OpenJDK
+         */
+        // try {
+        // Class.forName(EXAMPLE_CLASS,true,ClassLoader.getSystemClassLoader());
+        // logger.info("Tools.jar already on system classloader");
+        // return ClassLoader.getSystemClassLoader();
+        // //if this code is reached, the tools.jar is available on system classpath
+        // } catch (ClassNotFoundException e) {
+        // //OK, it is missing, so lets try to locate it
+        // }
+        // try {
+        // Class.forName(EXAMPLE_CLASS);
+        // logger.info("Tools.jar already on current classloader");
+        // return ToolsJarLocator.class.getClassLoader();
+        // //if this code is reached, the tools.jar is available on classpath
+        // } catch (ClassNotFoundException e) {
+        // //OK, it is missing, so lets try to locate it
+        // }
 
         if (manuallySpecifiedToolLocation != null) {
             //if defined, then use it, and throws exception if it is not valid
@@ -113,12 +117,14 @@ public class ToolsJarLocator {
             }
         }
 
-        throw new RuntimeException("Did not manage to automatically find tools.jar. Use -Dtools_jar_location=<path> property");
+        throw new RuntimeException("Did not manage to automatically find tools.jar. "
+                + "Use -Dtools_jar_location=<path> property");
     }
 
     private ClassLoader considerPathInProperties() {
         if (!manuallySpecifiedToolLocation.endsWith(".jar")) {
-            throw new RuntimeException("Property tools_jar_location does not point to a jar file: " + manuallySpecifiedToolLocation);
+            throw new RuntimeException("Property tools_jar_location does not point to a jar file: "
+                    + manuallySpecifiedToolLocation);
         }
 
         return validateAndGetLoader(manuallySpecifiedToolLocation);
