@@ -256,13 +256,66 @@ public class Randomness implements Serializable {
             return ((List<T>) set).get(random.nextInt(set.size()));
         }
 
-        int position = random.nextInt(set.size());
-        java.util.Iterator<T> iterator = set.iterator();
-        T result = null;
-        for (int i = 0; i <= position; i++) {
-            result = iterator.next();
+        List<T> list = new java.util.ArrayList<>(set);
+        // Stabilize iteration order for non-List collections when possible.
+        list.sort(Randomness::deterministicCompare);
+        return list.get(random.nextInt(list.size()));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static int deterministicCompare(Object a, Object b) {
+        if (a == b) {
+            return 0;
         }
-        return result;
+        if (a == null) {
+            return -1;
+        }
+        if (b == null) {
+            return 1;
+        }
+
+        if (a instanceof Class && b instanceof Class) {
+            return ((Class<?>) a).getName().compareTo(((Class<?>) b).getName());
+        }
+
+        if (a instanceof java.lang.reflect.Type && b instanceof java.lang.reflect.Type) {
+            return ((java.lang.reflect.Type) a).getTypeName()
+                    .compareTo(((java.lang.reflect.Type) b).getTypeName());
+        }
+
+        if (a instanceof java.lang.reflect.Member && b instanceof java.lang.reflect.Member) {
+            java.lang.reflect.Member ma = (java.lang.reflect.Member) a;
+            java.lang.reflect.Member mb = (java.lang.reflect.Member) b;
+            int c = ma.getDeclaringClass().getName().compareTo(mb.getDeclaringClass().getName());
+            if (c != 0) {
+                return c;
+            }
+            c = ma.getName().compareTo(mb.getName());
+            if (c != 0) {
+                return c;
+            }
+            return ma.toString().compareTo(mb.toString());
+        }
+
+        if (a instanceof Enum && b instanceof Enum) {
+            Enum<?> ea = (Enum<?>) a;
+            Enum<?> eb = (Enum<?>) b;
+            int c = ea.getDeclaringClass().getName().compareTo(eb.getDeclaringClass().getName());
+            if (c != 0) {
+                return c;
+            }
+            return ea.name().compareTo(eb.name());
+        }
+
+        if (a instanceof CharSequence && b instanceof CharSequence) {
+            return a.toString().compareTo(b.toString());
+        }
+
+        if (a.getClass().equals(b.getClass()) && a instanceof Comparable) {
+            return ((Comparable) a).compareTo(b);
+        }
+
+        return a.toString().compareTo(b.toString());
     }
 
     /**

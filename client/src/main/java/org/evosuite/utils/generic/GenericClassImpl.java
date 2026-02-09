@@ -521,7 +521,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
     public GenericClass<?> getGenericInstantiation(Map<TypeVariable<?>, Type> typeMap, int recursionLevel) throws ConstructionFailedException {
 
-        logger.debug("Instantiation " + this + " with type map " + typeMap);
+        logger.debug("Instantiation " + this + " with type map " + GenericUtils.stableTypeVariableMapToString(typeMap));
         // If there are no type variables, create copy
         if (isRawClass() || !hasWildcardOrTypeVariables()) {
             logger.debug("Nothing to replace: " + this + ", " + isRawClass() + ", " + hasWildcardOrTypeVariables());
@@ -588,7 +588,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             Map<TypeVariable<?>, Type> typeMap, int recursionLevel)
             throws ConstructionFailedException {
         if (typeMap.containsKey(type) && !isLoopInTypeMap(type, typeMap)) {
-            logger.debug("Type contains {}: {}", this, typeMap);
+            logger.debug("Type contains {}: {}", this, GenericUtils.stableTypeVariableMapToString(typeMap));
             GenericClass<?> selectedClass = new GenericClassImpl(typeMap.get(type)).getGenericInstantiation(typeMap,
                     recursionLevel + 1);
             if (!selectedClass.satisfiesBoundaries((TypeVariable<?>) type)) {
@@ -598,7 +598,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                 return selectedClass;
             }
         }
-        logger.debug("Type map does not contain {}: {}", this, typeMap);
+        logger.debug("Type map does not contain {}: {}", this, GenericUtils.stableTypeVariableMapToString(typeMap));
 
         // If we select a recursive type here, its parameter instantiation will happen at recursionLevel + 1.
         // Therefore, we must ensure that recursionLevel + 1 is still strictly less than MAX_GENERIC_DEPTH
@@ -712,7 +712,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                 extendedMap.putAll(parameterClass.getTypeVariableMap());
                 if (!extendedMap.containsKey(typeParameters.get(numParam)) && !parameterClass.isTypeVariable())
                     extendedMap.put(typeParameters.get(numParam), parameterClass.getType());
-                logger.debug("New type map: " + extendedMap);
+                logger.debug("New type map: " + GenericUtils.stableTypeVariableMapToString(extendedMap));
 
                 // Shrink type mapping : A --> B --> C ==> A --> C
                 for(int i=0; i<numParam; i++) {

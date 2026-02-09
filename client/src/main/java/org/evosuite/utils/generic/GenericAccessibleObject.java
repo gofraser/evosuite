@@ -226,7 +226,7 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         Map<TypeVariable<?>, Type> typeMap = copy.getOwnerClass().getTypeVariableMap();
 
         logger.debug("Getting random generic instantiation of method: " + this
-                + " with owner type map: " + typeMap);
+                + " with owner type map: " + GenericUtils.stableTypeVariableMapToString(typeMap));
         List<GenericClass<?>> typeParameters = new ArrayList<>();
 
         // TODO: The bounds of this type parameter need to be updataed for the owner of the call
@@ -295,7 +295,7 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         Map<TypeVariable<?>, Type> concreteTypes = new HashMap<>();
         logger.debug("Getting type map of generated type");
         Map<TypeVariable<?>, Type> generatorTypes = generatedType.getTypeVariableMap();
-        logger.debug("Got type map of generated type: " + generatorTypes);
+        logger.debug("Got type map of generated type: " + GenericUtils.stableTypeVariableMapToString(generatorTypes));
         Type genericReturnType = getGenericGeneratedType();
 
         logger.debug("Getting generic instantiation for return type " + generatedType
@@ -321,11 +321,11 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
                         if (!generatorTypes.containsKey(var))
                             generatorTypes.put(var, matchedMap.get(var));
                     }
-                    logger.debug("Map is now " + generatorTypes);
+                    logger.debug("Map is now " + GenericUtils.stableTypeVariableMapToString(generatorTypes));
                 }
             }
         }
-        logger.debug("GeneratorTypes is now: " + generatorTypes);
+        logger.debug("GeneratorTypes is now: " + GenericUtils.stableTypeVariableMapToString(generatorTypes));
         List<TypeVariable<?>> parameters = Arrays.asList(getTypeParameters());
         for (TypeVariable<?> var : generatorTypes.keySet()) {
             if (parameters.contains(var) && !(generatorTypes.get(var) instanceof WildcardType)) {
@@ -344,7 +344,7 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         // we need to look at the owner type, and not the return type!
 
         List<GenericClass<?>> typeParameters = new ArrayList<>();
-        logger.debug("Setting parameters with map: " + concreteTypes);
+        logger.debug("Setting parameters with map: " + GenericUtils.stableTypeVariableMapToString(concreteTypes));
         for (TypeVariable<?> parameter : getTypeParameters()) {
             GenericClass<?> concreteType = GenericClassFactory.get(parameter);
             logger.debug("(I) Setting parameter " + parameter + " to type "

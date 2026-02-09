@@ -26,7 +26,10 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -53,6 +56,59 @@ public class GenericUtils {
     }
 
     private static final Logger logger = LoggerFactory.getLogger(GenericUtils.class);
+
+    static String stableTypeVariableMapToString(Map<TypeVariable<?>, Type> map) {
+        if (map == null) {
+            return "null";
+        }
+        if (map.isEmpty()) {
+            return "{}";
+        }
+        List<Entry<TypeVariable<?>, Type>> entries = new ArrayList<>(map.entrySet());
+        entries.sort(Comparator
+                .comparing((Entry<TypeVariable<?>, Type> e) -> typeVariableKeyForSort(e.getKey()))
+                .thenComparing(e -> typeValueForSort(e.getValue())));
+
+        StringBuilder builder = new StringBuilder("{");
+        for (int i = 0; i < entries.size(); i++) {
+            if (i > 0) {
+                builder.append(", ");
+            }
+            Entry<TypeVariable<?>, Type> entry = entries.get(i);
+            builder.append(typeVariableDisplay(entry.getKey()))
+                   .append("=")
+                   .append(typeValueDisplay(entry.getValue()));
+        }
+        builder.append("}");
+        return builder.toString();
+    }
+
+    private static String typeVariableKeyForSort(TypeVariable<?> variable) {
+        if (variable == null) {
+            return "null";
+        }
+        String name = variable.getName();
+        String declaration = String.valueOf(variable.getGenericDeclaration());
+        return name + "|" + declaration;
+    }
+
+    private static String typeValueForSort(Type value) {
+        return typeValueDisplay(value);
+    }
+
+    private static String typeVariableDisplay(TypeVariable<?> variable) {
+        if (variable == null) {
+            return "null";
+        }
+        return variable.getName();
+    }
+
+    private static String typeValueDisplay(Type value) {
+        if (value instanceof TypeVariable<?>) {
+            return ((TypeVariable<?>) value).getName();
+        }
+        return String.valueOf(value);
+    }
 
     public static Type replaceTypeVariables(Type targetType,
                                             Map<TypeVariable<?>, Type> typeMap) {
@@ -233,7 +289,7 @@ public class GenericUtils {
 //						//	map.put((TypeVariable<?>)b, a);
 //					}
 
-                    logger.debug("Updated map: " + map);
+                    logger.debug("Updated map: " + stableTypeVariableMapToString(map));
                 }
 
             }
@@ -270,7 +326,7 @@ public class GenericUtils {
                 map.putAll(getMatchingTypeParameters((ParameterizedType) t1,
                         (ParameterizedType) t2));
             }
-            logger.debug("Updated map: " + map);
+            logger.debug("Updated map: " + stableTypeVariableMapToString(map));
 
         }
 

@@ -391,7 +391,10 @@ public class CastClassManager {
      */
     private GenericClass<?> addToClassMapIfNotEmpty(Collection<Class<?>> assignableClasses, int priority) {
         if (!assignableClasses.isEmpty()) {
-            final Class<?> choice = Randomness.choice(assignableClasses);
+            // Ensure deterministic selection across JVM runs by stabilizing iteration order.
+            List<Class<?>> sortedAssignableClasses = new ArrayList<>(assignableClasses);
+            sortedAssignableClasses.sort(Comparator.comparing(Class::getName));
+            final Class<?> choice = Randomness.choice(sortedAssignableClasses);
             final GenericClass<?> castClass = GenericClassFactory.get(choice);
             logger.debug("Adding cast class " + castClass);
             putCastClass(castClass, priority);
