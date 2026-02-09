@@ -26,11 +26,15 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.rmi.NoSuchObjectException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * This class should be used only in the Master process, not the clients.
@@ -67,7 +71,8 @@ public class MasterServices {
     public boolean startRegistry() throws IllegalStateException {
 
         if (registry != null) {
-            throw new IllegalStateException("RMI registry is already running");
+            logger.warn("RMI registry already running on port {}", registryPort);
+            return true;
         }
 
         /*
@@ -81,19 +86,59 @@ public class MasterServices {
         port += Randomness.nextInt(20000);
 
         final int TRIES = 100;
+        List<Integer> candidates = new ArrayList<>(TRIES + 2);
         for (int i = 0; i < TRIES; i++) {
+            candidates.add(port + i);
+        }
+        Integer ephemeralPort = findEphemeralPort();
+        if (ephemeralPort != null) {
+            candidates.add(ephemeralPort);
+        }
+        // Default RMI registry port as a last resort
+        candidates.add(1099);
+
+        RemoteException lastException = null;
+        for (Integer candidatePort : candidates) {
             try {
-                int candidatePort = port + i;
                 UtilsRMI.ensureRegistryOnLoopbackAddress();
 
                 registry = LocateRegistry.createRegistry(candidatePort);
                 registryPort = candidatePort;
                 return true;
             } catch (RemoteException e) {
+                lastException = e;
+                // Try to reuse an existing registry on this port
+                if (attachToExistingRegistry(candidatePort)) {
+                    return true;
+                }
             }
         }
 
+        if (lastException != null) {
+            logger.error("Failed to start RMI registry", lastException);
+        }
         return false;
+    }
+
+    private static Integer findEphemeralPort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            socket.setReuseAddress(true);
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private boolean attachToExistingRegistry(int port) {
+        try {
+            Registry existing = LocateRegistry.getRegistry("127.0.0.1", port);
+            existing.list(); // force connection attempt
+            registry = existing;
+            registryPort = port;
+            return true;
+        } catch (RemoteException e) {
+            return false;
+        }
     }
 
     /**
