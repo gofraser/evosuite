@@ -19,9 +19,9 @@
  */
 package org.evosuite.executionmode;
 
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
+import org.apache.commons.cli.help.HelpFormatter;
 
 public class Help {
 
@@ -32,8 +32,12 @@ public class Help {
     }
 
     public static Object execute(Options options) {
-        HelpFormatter formatter = new HelpFormatter();
-        formatter.printHelp("EvoSuite", options);
+        HelpFormatter formatter = HelpFormatter.builder().get();
+        try {
+            formatter.printHelp("EvoSuite", null, options, null, true);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Failed to render help text", e);
+        }
         return null;
     }
 }
