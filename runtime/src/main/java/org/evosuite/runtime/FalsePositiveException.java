@@ -32,9 +32,8 @@ import org.junit.internal.AssumptionViolatedException;
  * a semantic-preserving refactoring
  * broke the test, then it should not fail, as otherwise it would be a time consuming
  * false positive.
- * <p>
- * <p>
- * Created by Andrea Arcuri on 05/10/15.
+ *
+ * <p>Created by Andrea Arcuri on 05/10/15.
  */
 public class FalsePositiveException extends AssumptionViolatedException {
 

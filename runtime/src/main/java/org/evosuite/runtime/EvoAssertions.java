@@ -49,18 +49,19 @@ public class EvoAssertions {
     }
 
     /**
-     * Check if the given exception was thrown in the given class
+     * Check if the given exception was thrown in the given class.
      *
-     * @param sourceClass
-     * @param t
-     * @throws AssertionError
+     * @param sourceClass a {@link java.lang.String} object.
+     * @param t a {@link java.lang.Throwable} object.
+     * @throws java.lang.AssertionError if any.
      */
     public static void assertThrownBy(String sourceClass, Throwable t) throws AssertionError {
         StackTraceElement[] stackTrace = t.getStackTrace();
 
         // TODO: Force mocked exceptions to always have stack trace
-        if (stackTrace.length == 0)
+        if (stackTrace.length == 0) {
             return;
+        }
 
         StackTraceElement el = stackTrace[0];
 
@@ -101,7 +102,8 @@ public class EvoAssertions {
         }
 
         // Exceptions in arraycopy / StrBuilder seem to be non-deterministically changing:
-        // Exception was not thrown in java.lang.AbstractStringBuilder but in java.lang.System.arraycopy(Native Method): java.lang.ArrayIndexOutOfBoundsException
+        // Exception was not thrown in java.lang.AbstractStringBuilder but in java.lang.System.arraycopy(Native Method):
+        // java.lang.ArrayIndexOutOfBoundsException
         // Until we know what exactly is happening here, let's ignore this case
         if (name.equals("java.lang.System")) {
             return;

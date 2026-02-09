@@ -1,21 +1,21 @@
 /**
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
- * <p>
- * This file is part of EvoSuite.
- * <p>
- * EvoSuite is free software: you can redistribute it and/or modify it
+ *
+ * <p>This file is part of EvoSuite.
+ *
+ * <p>EvoSuite is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation, either version 3.0 of the License, or
  * (at your option) any later version.
- * <p>
- * EvoSuite is distributed in the hope that it will be useful, but
+ *
+ * <p>EvoSuite is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser Public License for more details.
- * <p>
- * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * <p>You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see {@code http://www.gnu.org/licenses/}.
  */
 package org.evosuite.runtime;
 
@@ -49,12 +49,13 @@ public class EvoRunnerJUnit5 implements TestInstanceFactory {
 
     private final EvoClassLoader evoClassLoader = null;
 
-    public EvoRunnerJUnit5(Class<?> _class) {
-        EvoRunnerParameters ep = _class.getAnnotation(EvoRunnerParameters.class);
+    public EvoRunnerJUnit5(Class<?> testClass) {
+        EvoRunnerParameters ep = testClass.getAnnotation(EvoRunnerParameters.class);
 
-        if (ep == null)
-            throw new IllegalStateException("EvoSuite test class " + _class.getName() + " is not annotated with " +
-                    "EvoRunnerParameters");
+        if (ep == null) {
+            throw new IllegalStateException("EvoSuite test class " + testClass.getName() + " is not annotated with "
+                    + "EvoRunnerParameters");
+        }
 
         RuntimeSettings.resetStaticState = ep.resetStaticState();
         RuntimeSettings.mockJVMNonDeterminism = ep.mockJVMNonDeterminism();
@@ -64,10 +65,13 @@ public class EvoRunnerJUnit5 implements TestInstanceFactory {
         RuntimeSettings.useSeparateClassLoader = ep.separateClassLoader();
         RuntimeSettings.useJEE = ep.useJEE();
 
-        if (RuntimeSettings.useSeparateClassLoader && useClassLoader)
+        if (RuntimeSettings.useSeparateClassLoader && useClassLoader) {
             return;
+        }
 
-        if (useAgent) org.evosuite.runtime.agent.InstrumentingAgent.initialize();
+        if (useAgent) {
+            org.evosuite.runtime.agent.InstrumentingAgent.initialize();
+        }
         org.evosuite.runtime.agent.InstrumentingAgent.activate();
 
 
@@ -76,16 +80,17 @@ public class EvoRunnerJUnit5 implements TestInstanceFactory {
              *  be sure that reflection on "klass" is executed here when
              *  the agent is active
              */
-            _class.newInstance();
+            testClass.newInstance();
         } catch (InstantiationException | IllegalAccessException e) {
             //shouldn't really happen
-            logger.error("Failed to initialize test class " + _class.getName());
+            logger.error("Failed to initialize test class " + testClass.getName());
         }
         org.evosuite.runtime.agent.InstrumentingAgent.deactivate();
     }
 
     @Override
-    public Object createTestInstance(TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext) throws TestInstantiationException {
+    public Object createTestInstance(TestInstanceFactoryContext factoryContext,
+                                     ExtensionContext extensionContext) throws TestInstantiationException {
         Class<?> testClass = factoryContext.getTestClass();
         String name = testClass.getName();
         if (RuntimeSettings.useSeparateClassLoader && useClassLoader) {
@@ -93,19 +98,21 @@ public class EvoRunnerJUnit5 implements TestInstanceFactory {
             // When this is supported we may implement this.
             logger.error("EvoSuite can't run JUnit 5 tests with a separate ClassLoader");
             throw new TestInstantiationException("Could not instantiate the class under test with a EvoClassLoader");
-//            EvoClassLoader classLoader = evoClassLoader == null ? new EvoClassLoader() : evoClassLoader;
-//            classLoader.skipInstrumentation(name);
-//            Thread.currentThread().setContextClassLoader(classLoader);
-//            try {
-//                Class<?> evoClass = Class.forName(name, true, classLoader);
-//                return evoClass.getConstructor().newInstance();
-//            } catch (Exception e) {
-//                 throw new TestInstantiationException("Could not instantiate the class under test with the EvoClassLoader",e);
-//            }
+            // EvoClassLoader classLoader = evoClassLoader == null ? new EvoClassLoader() : evoClassLoader;
+            // classLoader.skipInstrumentation(name);
+            // Thread.currentThread().setContextClassLoader(classLoader);
+            // try {
+            //     Class<?> evoClass = Class.forName(name, true, classLoader);
+            //     return evoClass.getConstructor().newInstance();
+            // } catch (Exception e) {
+            //      throw new TestInstantiationException("Could not instantiate class under test with the "
+            //              + "EvoClassLoader", e);
+            // }
         } else {
             try {
                 return factoryContext.getTestClass().getConstructor().newInstance();
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException
+                     | NoSuchMethodException e) {
                 throw new TestInstantiationException("Could not instantiate test class");
             }
         }

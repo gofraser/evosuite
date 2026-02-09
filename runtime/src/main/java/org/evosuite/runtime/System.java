@@ -40,7 +40,7 @@ public class System {
     private static boolean wasTimeAccessed = false;
 
     /**
-     * Default Java properties before we run the SUT
+     * Default Java properties before we run the SUT.
      */
     private static final java.util.Properties defaultProperties;
 
@@ -51,11 +51,16 @@ public class System {
         // We have to allow some system properties like "java.io.tmpdir",  "user.home",  "user.name"
         // as otherwise tests using the VFS at runtime might break
         // We are not including "user.dir" because that will break Jacoco and other instrumentation tools
-        systemProperties = new HashSet<>(Arrays.asList("java.version", "java.vendor", "java.vendor.url", "java.home", "java.vm.specification.version", "java.vm.specification.vendor",
-                "java.vm.specification.name", "java.vm.version", "java.vm.vendor", "java.vm.name", "java.specification.version", "java.specification.vendor",
-                "java.specification.name", "java.class.version", "java.class.path", "java.library.path", "java.compiler", "java.ext.dirs",
-                "os.name", "os.arch", "os.version", "file.separator", "path.separator", "line.separator", "java.endorsed.dirs",
-                "awt.toolkit", "java.awt.graphicsenv", "java.awt.printerjob", "java.vm.info", "java.runtime.version", "java.runtime.name"));
+        systemProperties = new HashSet<>(Arrays.asList("java.version", "java.vendor", "java.vendor.url", "java.home",
+                "java.vm.specification.version", "java.vm.specification.vendor",
+                "java.vm.specification.name", "java.vm.version", "java.vm.vendor", "java.vm.name",
+                "java.specification.version", "java.specification.vendor",
+                "java.specification.name", "java.class.version", "java.class.path", "java.library.path",
+                "java.compiler", "java.ext.dirs",
+                "os.name", "os.arch", "os.version", "file.separator", "path.separator", "line.separator",
+                "java.endorsed.dirs",
+                "awt.toolkit", "java.awt.graphicsenv", "java.awt.printerjob", "java.vm.info", "java.runtime.version",
+                "java.runtime.name"));
 
         java.util.Properties prop = null;
         try {
@@ -68,22 +73,23 @@ public class System {
 
 
     /**
-     * If SUT changed some properties, we need to re-set the default values
+     * If SUT changed some properties, we need to re-set the default values.
      */
     private static volatile boolean needToRestoreProperties;
 
     /**
-     * Keep track of which System properties were read
+     * Keep track of which System properties were read.
      */
     private static final Set<String> readProperties = new LinkedHashSet<>();
 
     /**
      * Restore to their original values all the properties that have
-     * been modified during test execution
+     * been modified during test execution.
      */
     public static void restoreProperties() {
         /*
-         * The synchronization is used to avoid (if possible) a SUT thread to modify a property just immediately after we restore them. this could
+         * The synchronization is used to avoid (if possible) a SUT thread to modify a property
+         * just immediately after we restore them. this could
          * actually happen if this method is called while a SUT thread is executing a permission check
          */
         synchronized (defaultProperties) {
@@ -104,8 +110,10 @@ public class System {
 
     public static boolean handlePropertyPermission(PropertyPermission perm) {
         /*
-         * we allow both writing and reading any properties. But, if SUT writes anything, then we need to re-store the values to their default. this
-         * is very important, otherwise: 1) test cases might have side effects on each other 2) SUT might change properties that are used by EvoSuite
+         * we allow both writing and reading any properties. But, if SUT writes anything, then we need
+         * to re-store the values to their default. this
+         * is very important, otherwise: 1) test cases might have side effects on each other
+         * 2) SUT might change properties that are used by EvoSuite
          */
 
         if (readProperties == null) {
@@ -119,15 +127,17 @@ public class System {
         if (perm.getActions().contains("write")) {
 
             if (!RuntimeSettings.mockJVMNonDeterminism) {
-                // We cannot restore these properties to ensure cross-OS compatibility, so they can't be written to
+                // We cannot restore these properties to ensure cross-OS compatibility,
+                // so they can't be written to
                 return !isSystemProperty(perm.getName());
             } else {
-                // As we do not restore these properties to ensure cross-OS compatibility they should not be written to
+                // As we do not restore these properties to ensure cross-OS compatibility
+                // they should not be written to
                 // ...but that would break compatibility with exiting test sets, so ignoring it for now.
                 // This risks potentially unstable tests.
                 //
                 // if(isSystemProperty(perm.getName())) {
-                //	return false;
+                //    return false;
                 // }
             }
 
@@ -158,13 +168,13 @@ public class System {
     }
 
     /**
-     * <p >
-     * This exception tells the test execution that it should stop at this point
+     * <p>
+     * This exception tells the test execution that it should stop at this point.
      * </p>
      *
      * <p>
      * Note that it extends {@code Error}, as we need something that is
-     * unchecked
+     * unchecked.
      * </p>
      */
     public static class SystemExitException extends Error {
@@ -174,7 +184,7 @@ public class System {
     }
 
     /**
-     * Replacement function for System.exit
+     * Replacement function for System.exit.
      *
      * @param status a int.
      */
@@ -189,13 +199,13 @@ public class System {
     }
 
     /**
-     * Current time returns numbers increased by 1
+     * Current time returns numbers increased by 1.
      */
     // Initialised to 2014-02-14, 20:21
     private static long currentTime = 1392409281320L;
 
     /**
-     * Replacement function for System.currentTimeMillis
+     * Replacement function for System.currentTimeMillis.
      *
      * @return a long.
      */
@@ -207,9 +217,9 @@ public class System {
     /**
      * Get time without modifying whether the time was accessed.
      * This is important as otherwise the use of VFS would always
-     * mark the time as accessed
+     * mark the time as accessed.
      *
-     * @return
+     * @return Current time in milliseconds
      */
     public static long getCurrentTimeMillisForVFS() {
         //wasTimeAccessed = true;
@@ -223,27 +233,30 @@ public class System {
     }
 
     public static int identityHashCode(Object o) {
-        if (o == null)
+        if (o == null) {
             return 0;
+        }
 
         synchronized (hashKeys) {
             Integer realId = java.lang.System.identityHashCode(o);
-            if (!hashKeys.containsKey(realId))
+            if (!hashKeys.containsKey(realId)) {
                 hashKeys.put(realId, hashKeys.size() + 1);
+            }
 
             return hashKeys.get(realId);
         }
     }
 
     public static String toString(Object o) {
-        if (o == null)
+        if (o == null) {
             throw new NullPointerException();
+        }
 
         return o.getClass().getName() + "@" + String.format("%010d", identityHashCode(o));
     }
 
     /**
-     * Replacement function for System.currentTimeMillis
+     * Replacement function for System.currentTimeMillis.
      *
      * @return a long.
      */
@@ -253,36 +266,36 @@ public class System {
     }
 
     /**
-     * Replacement function for for Runtime.freeMemory()
+     * Replacement function for for Runtime.freeMemory().
      *
-     * @return
+     * @return a long.
      */
     public static long freeMemory() {
         return 0L;
     }
 
     /**
-     * Replacement function for for Runtime.maxMemory()
+     * Replacement function for for Runtime.maxMemory().
      *
-     * @return
+     * @return a long.
      */
     public static long maxMemory() {
         return 0L;
     }
 
     /**
-     * Replacement function for for Runtime.totalMemory()
+     * Replacement function for for Runtime.totalMemory().
      *
-     * @return
+     * @return a long.
      */
     public static long totalMemory() {
         return 0L;
     }
 
     /**
-     * Replacement function for for Runtime.availableProcessors()
+     * Replacement function for for Runtime.availableProcessors().
      *
-     * @return
+     * @return a int.
      */
     public static int availableProcessors() {
         return 0;
@@ -290,7 +303,7 @@ public class System {
 
 
     /**
-     * Allow setting the time
+     * Allow setting the time.
      *
      * @param time a long.
      */
@@ -300,16 +313,16 @@ public class System {
 
     /**
      * TODO: Reflection and class initialisation may cause setSecurityManager to be called by the SUT.
-     * Until this is resolved, we avoid this using instrumentation
+     * Until this is resolved, we avoid this using instrumentation.
      *
-     * @param manager
+     * @param manager a {@link java.lang.SecurityManager} object.
      */
     public static void setSecurityManager(SecurityManager manager) {
         throw new SecurityException("Permission Denied");
     }
 
     /**
-     * Reset runtime to initial state
+     * Reset runtime to initial state.
      */
     public static void resetRuntime() {
         currentTime = 1392409281320L; // 2014-02-14, 20:21
@@ -322,7 +335,7 @@ public class System {
 
     /**
      * Fully reset the state, not only the one related to
-     * latest test case execution
+     * latest test case execution.
      */
     public static void fullReset() {
         resetRuntime();
@@ -339,7 +352,7 @@ public class System {
 
     /**
      * Getter to check whether the runtime replacement for time was accessed during test
-     * execution
+     * execution.
      *
      * @return a boolean.
      */

@@ -28,16 +28,16 @@ import java.nio.file.FileSystems;
 
 /**
  * Class used to handle some particular behaviors of GUI components in the
- * generated JUnit test files
+ * generated JUnit test files.
  *
  * @author arcuri
  */
 public class GuiSupport {
 
-    private final static Logger logger = LoggerFactory.getLogger(GuiSupport.class);
+    private static final Logger logger = LoggerFactory.getLogger(GuiSupport.class);
 
     /**
-     * Where the tests run in headless mode?
+     * Where the tests run in headless mode?.
      */
     private static final boolean isDefaultHeadless = GraphicsEnvironment.isHeadless();
 
@@ -55,7 +55,7 @@ public class GuiSupport {
     }
 
     /**
-     * Set the JVM in headless mode
+     * Set the JVM in headless mode.
      */
     public static void setHeadless() {
 
@@ -69,17 +69,17 @@ public class GuiSupport {
 
     public static void initialize() {
 
-		/*
-			Since trying Java 8, started to get weird behavior on a Linux cluster.
-			Issue raises from GUI now trying to write on disk (ie due to Fonts...).
-			However, that sometimes strangely fails, even though executed before any
-			sandbox. It happens quite often on cluster experiments, but was not able
-			to reproduce it to debug :(
-			As workaround, we try here to load default file system (it would happen anyway when
-			loading fonts in Java 8), but do not crash the test suite (ie throw exception here
-			in this method, which is usually called from a @BeforeClass). Reason is that
-			maybe not all tests will access GUI.
-		 */
+        /*
+            Since trying Java 8, started to get weird behavior on a Linux cluster.
+            Issue raises from GUI now trying to write on disk (ie due to Fonts...).
+            However, that sometimes strangely fails, even though executed before any
+            sandbox. It happens quite often on cluster experiments, but was not able
+            to reproduce it to debug :(
+            As workaround, we try here to load default file system (it would happen anyway when
+            loading fonts in Java 8), but do not crash the test suite (ie throw exception here
+            in this method, which is usually called from a @BeforeClass). Reason is that
+            maybe not all tests will access GUI.
+         */
         try {
             FileSystems.getDefault();
         } catch (Throwable t) {

@@ -27,11 +27,10 @@ import java.util.List;
  * a very large input parameter, or simply it is the expected behavior of the CUT.
  * In such cases, we will every time hit the test timeout, which will hinder the search.
  *
- * <p>
- * Therefore, for each loop in the instrumented CUTs, we can have a limit, and throw an exception
- * if too many iterations have occurred
- * <p>
- * Created by Andrea Arcuri on 29/03/15.
+ * <p>Therefore, for each loop in the instrumented CUTs, we can have a limit, and throw an exception
+ * if too many iterations have occurred.
+ *
+ * <p>Created by Andrea Arcuri on 29/03/15.
  */
 public class LoopCounter {
 
@@ -40,7 +39,7 @@ public class LoopCounter {
     private boolean activated = true;
 
     /**
-     * Number of iterations so far
+     * Number of iterations so far.
      */
     private final List<Long> counters;
 
@@ -67,7 +66,7 @@ public class LoopCounter {
 
     /**
      * This is called during bytecode instrumentation to determine which index
-     * to assign to a new parsed loop
+     * to assign to a new parsed loop.
      *
      * @return the next valid index for a new loop
      */
@@ -79,11 +78,12 @@ public class LoopCounter {
 
 
     /**
-     * This is added directly in the instrumented CUT after each loop statement
+     * This is added directly in the instrumented CUT after each loop statement.
      *
-     * @param index
-     * @throws TooManyResourcesException if this loop has executed too many iterations
-     * @throws IllegalArgumentException
+     * @param index a int.
+     * @throws org.evosuite.runtime.TooManyResourcesException if this loop has executed too
+     *     many iterations
+     * @throws java.lang.IllegalArgumentException if any.
      */
     public void checkLoop(int index) throws TooManyResourcesException, IllegalArgumentException {
         if (index < 0) {
@@ -114,8 +114,8 @@ public class LoopCounter {
 
             if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop && !isInStaticInit()) {
                 this.reset();
-                throw new TooManyResourcesException("Loop has been executed more times than the allowed " +
-                        RuntimeSettings.maxNumberOfIterationsPerLoop);
+                throw new TooManyResourcesException("Loop has been executed more times than the allowed "
+                        + RuntimeSettings.maxNumberOfIterationsPerLoop);
             }
         } catch (NullPointerException e) {
             // Some weird Java internal NPE can happen:
@@ -127,8 +127,9 @@ public class LoopCounter {
 
     private boolean isInStaticInit() {
         for (StackTraceElement elem : new Throwable().getStackTrace()) {
-            if (elem.getMethodName().startsWith("<clinit>"))
+            if (elem.getMethodName().startsWith("<clinit>")) {
                 return true;
+            }
         }
         return false;
     }

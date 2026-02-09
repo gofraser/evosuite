@@ -34,67 +34,67 @@ public class RuntimeSettings {
      */
 
     /**
-     * The full name of the class we are unit testing, ie the system under test (SUT)
+     * The full name of the class we are unit testing, ie the system under test (SUT).
      */
     public static String className = "unknown";
 
     /**
      * Shall the test cases use the mocking framework to remove non-determinism like
-     * CPU clock?
+     * CPU clock?.
      */
     public static boolean mockJVMNonDeterminism = false;
 
     /**
-     * Should the use of System.in be mocked?
+     * Should the use of System.in be mocked?.
      */
     public static boolean mockSystemIn = false;
 
 
     /**
-     * Should the use the GUI (javax.swing, etc.) be mocked?
+     * Should the use the GUI (javax.swing, etc.) be mocked?.
      */
     public static boolean mockGUI = false;
     /**
-     * Shall the test cases use a virtual file system?
+     * Shall the test cases use a virtual file system?.
      */
     public static boolean useVFS = false;
 
     /**
-     * Shall the test cases use a virtual network?
+     * Shall the test cases use a virtual network?.
      */
     public static boolean useVNET = false;
 
 
     /**
-     * Shall we have support for Java Enterprise Edition?
+     * Shall we have support for Java Enterprise Edition?.
      */
     public static boolean useJEE = false;
 
     /**
-     * Should the static state be reset after each test execution?
+     * Should the static state be reset after each test execution?.
      */
     public static boolean resetStaticState = false;
 
 
     /**
-     * How is the sandbox configured?
+     * How is the sandbox configured?.
      */
     public static Sandbox.SandboxMode sandboxMode = Sandbox.SandboxMode.RECOMMENDED;
 
     /**
-     * How many threads is each test allowed to start?
-     * Note: such checks depend on RuntimeSettings#mockJVMNonDeterminism
+     * How many threads is each test allowed to start?.
+     * Note: such checks depend on {@link #mockJVMNonDeterminism}.
      */
     public static int maxNumberOfThreads = 100;
 
     /**
-     * How many iterations is each loop allowed to take?
+     * How many iterations is each loop allowed to take?.
      */
     public static long maxNumberOfIterationsPerLoop = 10_000;
 
     /**
      * Should tests be executed in a separate instrumenting class loader
-     * or with the standard classloader and instrumentation via an agent?
+     * or with the standard classloader and instrumentation via an agent?.
      */
     public static boolean useSeparateClassLoader = true;
 
@@ -105,13 +105,13 @@ public class RuntimeSettings {
      * avoid problems in serialising the class, as reading Master will not do instrumentation.
      * The serialVersionUID HAS to be the same as the un-instrumented class.
      * However, this should not be done in the final JUnit, as it leads to a lot of issues
-     * with classloaders
+     * with classloaders.
      */
     public static boolean applyUIDTransformation = false;
 
 
     /**
-     * Used internally in EvoSuite when its regression suites are run
+     * Used internally in EvoSuite when its regression suites are run.
      */
     public static boolean isRunningASystemTest = false;
 

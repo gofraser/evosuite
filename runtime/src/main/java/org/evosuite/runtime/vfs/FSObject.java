@@ -24,7 +24,7 @@ import org.evosuite.runtime.RuntimeSettings;
 import java.io.File;
 
 /**
- * Parent class for both files and folders
+ * Parent class for both files and folders.
  *
  * @author arcuri
  */
@@ -37,12 +37,12 @@ public abstract class FSObject {
     private volatile boolean executePermission;
 
     /**
-     * Normalized path uniquely identifying this file on the VFS
+     * Normalized path uniquely identifying this file on the VFS.
      */
     protected volatile String path;
 
     /**
-     * The direct parent folder
+     * The direct parent folder.
      */
     protected final VFolder parent;
 
@@ -81,7 +81,8 @@ public abstract class FSObject {
 
 
     private boolean isSpecialWindowsRoot(String givenPath) {
-        return parent != null && givenPath != null && parent.isRoot() && givenPath.endsWith(":") && !File.separator.equals("/");
+        return parent != null && givenPath != null && parent.isRoot()
+                && givenPath.endsWith(":") && !File.separator.equals("/");
     }
 
     public boolean rename(String newPath) {
@@ -158,11 +159,13 @@ public abstract class FSObject {
     }
 
     /**
-     * Once a file/folder is deleted, it shouldn't be accessible any more from the VFS.
-     * But in case some thread holds a reference to this instance, we need to mark
-     * that it is supposed to be deleted
+     * Checks whether this file or folder has been deleted.
      *
-     * @return
+     * <p>Once a file/folder is deleted, it shouldn't be accessible any more from the VFS.
+     * But in case some thread holds a reference to this instance, we need to mark
+     * that it is supposed to be deleted.
+     *
+     * @return {@code true} if this object has been deleted, {@code false} otherwise
      */
     public boolean isDeleted() {
         return deleted;

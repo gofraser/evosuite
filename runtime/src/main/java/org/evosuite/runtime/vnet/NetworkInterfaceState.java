@@ -43,9 +43,9 @@ public class NetworkInterfaceState {
 
     private static final Logger logger = LoggerFactory.getLogger(NetworkInterfaceState.class);
 
-    private final static Constructor<NetworkInterface> constructor;
-    private final static Field nameField;
-    private final static Field indexField;
+    private static final Constructor<NetworkInterface> constructor;
+    private static final Field nameField;
+    private static final Field indexField;
 
     static {
         try {
@@ -57,7 +57,8 @@ public class NetworkInterfaceState {
             indexField.setAccessible(true);
         } catch (NoSuchMethodException | NoSuchFieldException e) {
             //shouldn't really happen
-            throw new RuntimeException("Bug: failed to init " + NetworkInterfaceState.class + ": " + e.getMessage());
+            throw new RuntimeException("Bug: failed to init " + NetworkInterfaceState.class
+                    + ": " + e.getMessage());
         }
     }
 
@@ -85,7 +86,8 @@ public class NetworkInterfaceState {
             ni = constructor.newInstance();
             nameField.set(ni, name);
             indexField.set(ni, index);
-        } catch (IllegalArgumentException | InvocationTargetException | InstantiationException | IllegalAccessException | SecurityException e) {
+        } catch (IllegalArgumentException | InvocationTargetException
+                | InstantiationException | IllegalAccessException | SecurityException e) {
             //shouldn't really happen
             logger.error("Reflection problems: " + e.getMessage());
         }

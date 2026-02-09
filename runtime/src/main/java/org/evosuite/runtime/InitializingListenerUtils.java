@@ -60,7 +60,8 @@ public class InitializingListenerUtils {
                 }
             });
         } catch (IOException e) {
-            throw new RuntimeException("Failed to scan compiled test folder " + dir.getAbsolutePath() + " : " + e.getMessage(), e);
+            throw new RuntimeException("Failed to scan compiled test folder " + dir.getAbsolutePath() + " : "
+                    + e.getMessage(), e);
         }
 
         return list;

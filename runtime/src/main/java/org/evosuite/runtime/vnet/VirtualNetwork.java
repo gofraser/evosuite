@@ -37,20 +37,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Singleton class used to simulate a virtual network.
- * This is useful to test classes that use UDP/TCP connections
+ * This is useful to test classes that use UDP/TCP connections.
  *
  * @author arcuri
  */
 public class VirtualNetwork {
 
     /**
-     * Specify a network protocol
+     * Specifies a network protocol.
      */
-    public enum ConnectionType {UDP, TCP}
+    public enum ConnectionType { UDP, TCP }
 
 
     /**
-     * Singleton instance
+     * Singleton instance.
      */
     private static final VirtualNetwork instance = new VirtualNetwork();
 
@@ -58,7 +58,7 @@ public class VirtualNetwork {
      * When we simulate a remote incoming connection, we still need a remote port.
      * Note: in theory we could have the same port if we simulate several different
      * remote hosts. But, for unit testing purposes, it is likely an unnecessary
-     * overhead/complication
+     * overhead/complication.
      */
     private static final int START_OF_REMOTE_EPHEMERAL_PORTS = 40000;
 
@@ -75,9 +75,9 @@ public class VirtualNetwork {
     private final Set<EndPointInfo> remoteContactedPorts;
 
     /**
-     * key -> address of a remote server
-     * <p>
-     * value -> a queue of instances of remote servers for the given address.
+     * Key is address of a remote server.
+     *
+     * <p>Value is a queue of instances of remote servers for the given address.
      * Note: we need a queue as a server listening on a port could handle several
      * connections (eg with thread-pool), and each one needs its own object instance.
      */
@@ -86,10 +86,10 @@ public class VirtualNetwork {
     /**
      * Buffer of incoming connections.
      *
-     * <p>
-     * Key -> local address/port
-     * <p>
-     * Value -> queue of foreign addresses/ports waiting to connect to the given local address (key)
+     * <p>Key is local address/port.
+     *
+     * <p>Value is queue of foreign addresses/ports waiting to connect to the given local address
+     * (key).
      */
     private final Map<EndPointInfo, Queue<NativeTcp>> incomingConnections;
 
@@ -100,7 +100,7 @@ public class VirtualNetwork {
     private final Set<NativeTcp> openedTcpConnections;
 
     /**
-     * Current remote port number that can be opened
+     * Current remote port number that can be opened.
      */
     private final AtomicInteger remotePortIndex;
 
@@ -114,47 +114,45 @@ public class VirtualNetwork {
     private final Map<EndPointInfo, AtomicInteger> sentUdpPackets;
 
     /**
-     * key -> local address/port for SUT
-     * <p>
-     * value -> queue of incoming UDP packets
+     * Key is local address/port for SUT.
+     *
+     * <p>Value is queue of incoming UDP packets.
      */
     private final Map<EndPointInfo, Queue<DatagramPacket>> udpPacketsToSUT;
 
     /**
      * Define what interfaces are available:
-     * eg, a loopback one and a wifi
+     * eg, a loopback one and a wifi.
      */
     private final List<NetworkInterfaceState> networkInterfaces;
 
 
     /**
-     * Key -> resolved URL (ie based on DNS) of the remote file
-     * Value -> the remote file we ll allow the tests to read from
+     * Key is resolved URL (ie based on DNS) of the remote file.
+     * Value is the remote file we ll allow the tests to read from.
      *
-     * <p>
-     * This data structure represents remote files that are on a different host, and that could be accessed
-     * for example by http/s using an URL object.
+     * <p>This data structure represents remote files that are on a different host, and that could
+     * be accessed for example by http/s using an URL object.
      *
-     * <p>
-     * For simplicity, we focus on text files (eg webpages), as those are the most common example.
+     * <p>For simplicity, we focus on text files (eg webpages), as those are the most common
+     * example.
      *
-     * <p>
-     * Note: ideally we should have a full mock of remote servers. For example, accessing a http URL
-     * should be equivalent to open a TCP socket and send a GET command manually. However, as we
-     * do unit testing, this level of realism seems unnecessary (and anyway far too complicated to
-     * implement at the moment).
+     * <p>Note: ideally we should have a full mock of remote servers. For example, accessing a
+     * http URL should be equivalent to open a TCP socket and send a GET command manually. However,
+     * as we do unit testing, this level of realism seems unnecessary (and anyway far too
+     * complicated to implement at the moment).
      */
     private final Map<String, RemoteFile> remoteFiles;
 
     /**
-     * Keep track of what remote URL the SUT tried to access/read from
+     * Keep track of what remote URL the SUT tried to access/read from.
      */
     private final Set<String> remoteAccessedFiles;
 
     private DNS dns;
 
     /**
-     * private, singleton constructor
+     * Private, singleton constructor.
      */
     private VirtualNetwork() {
         localListeningPorts = new CopyOnWriteArraySet<>();
@@ -230,9 +228,9 @@ public class VirtualNetwork {
     }
 
     /**
-     * Get a copy of all available interfaces
+     * Gets a copy of all available interfaces.
      *
-     * @return
+     * @return a list containing copies of all network interface states
      */
     public List<NetworkInterfaceState> getAllNetworkInterfaceStates() {
         return new ArrayList<>(networkInterfaces);
@@ -243,12 +241,12 @@ public class VirtualNetwork {
 
 
     /**
-     * Create a new remote file that can be accessed by the given URL
+     * Creates a new remote file that can be accessed by the given URL.
      *
-     * @param url
-     * @param content
-     * @return {@code false} if URL is malformed, if the protocol is not a remote one (eg "file"), or
-     * if the file was already created
+     * @param url the URL string for the remote file
+     * @param content the text content of the remote file
+     * @return {@code false} if URL is malformed, if the protocol is not a remote one (eg "file"),
+     *     or if the file was already created
      */
     public boolean addRemoteTextFile(String url, String content) {
 
@@ -277,9 +275,9 @@ public class VirtualNetwork {
     }
 
     /**
-     * Represent the fact that a UDP was sent to a remote host
+     * Represents the fact that a UDP was sent to a remote host.
      *
-     * @param packet
+     * @param packet the datagram packet that was sent
      */
     public void sentPacketBySUT(DatagramPacket packet) {
         InetAddress addr = packet.getAddress();
@@ -298,8 +296,10 @@ public class VirtualNetwork {
     }
 
     /**
-     * @param sutAddress
-     * @param sutPort
+     * Pulls a buffered UDP packet destined for the given SUT address.
+     *
+     * @param sutAddress the SUT's address
+     * @param sutPort the SUT's port
      * @return {@code null} if there is no buffered incoming packet for the given SUT address
      */
     public DatagramPacket pullUdpPacket(String sutAddress, int sutPort) {
@@ -313,8 +313,19 @@ public class VirtualNetwork {
         return p;
     }
 
-    public void sendPacketToSUT(byte[] data, InetAddress remoteAddress, int remotePort, String sutAddress, int sutPort) {
-        DatagramPacket packet = new DatagramPacket(data.clone(), data.length, remoteAddress, remotePort);
+    /**
+     * Sends a UDP packet to the SUT.
+     *
+     * @param data the packet data
+     * @param remoteAddress the remote sender's address
+     * @param remotePort the remote sender's port
+     * @param sutAddress the SUT's address
+     * @param sutPort the SUT's port
+     */
+    public void sendPacketToSUT(byte[] data, InetAddress remoteAddress, int remotePort,
+            String sutAddress, int sutPort) {
+        DatagramPacket packet = new DatagramPacket(data.clone(), data.length,
+                remoteAddress, remotePort);
         EndPointInfo sut = new EndPointInfo(sutAddress, sutPort, ConnectionType.UDP);
 
         synchronized (udpPacketsToSUT) {
@@ -328,9 +339,9 @@ public class VirtualNetwork {
     }
 
     /**
-     * If it is present on the VNET, return a remote file handler to read such file pointed by the URL.
+     * Gets a remote file handler to read a file pointed by the URL, if present on the VNET.
      *
-     * @param url
+     * @param url the URL of the remote file
      * @return {@code null} if there is no such file
      */
     public RemoteFile getFile(URL url) {
@@ -340,25 +351,27 @@ public class VirtualNetwork {
     }
 
     /**
-     * Create new port to open on remote host
+     * Creates a new port to open on remote host.
      *
-     * @return a integer representing a port number on remote host
+     * @return an integer representing a port number on remote host
      */
     public int getNewRemoteEphemeralPort() {
         return remotePortIndex.getAndIncrement();
     }
 
     /**
-     * Create new port on local host
+     * Creates a new port on local host.
      *
-     * @return a integer representing a port number on local host
+     * @return an integer representing a port number on local host
      */
     public int getNewLocalEphemeralPort() {
         return remotePortIndex.getAndIncrement(); //Note: could use a new variable, but doesn't really matter
     }
 
     /**
-     * @param name
+     * Gets the network interface state for the given interface name.
+     *
+     * @param name the name of the network interface
      * @return {@code null} if the interface does not exist
      */
     public NetworkInterfaceState getNetworkInterfaceState(String name) {
@@ -371,23 +384,24 @@ public class VirtualNetwork {
     }
 
     /**
-     * Use mocked DNS to resolve host
+     * Uses mocked DNS to resolve host.
      *
-     * @param host
-     * @return
+     * @param host the host name to resolve
+     * @return the resolved IP address, or {@code null} if resolution failed
      */
     public String dnsResolve(String host) {
         return dns.resolve(host);
     }
 
     /**
-     * Simulate an incoming connection. The connection is put on a buffer till
-     * the SUT open a listening port
+     * Simulates an incoming connection. The connection is put on a buffer till
+     * the SUT opens a listening port.
      *
-     * @param originAddr
-     * @param originPort
-     * @param destAddr
-     * @param destPort
+     * @param originAddr the origin address
+     * @param originPort the origin port
+     * @param destAddr the destination address
+     * @param destPort the destination port
+     * @return the native TCP connection object
      */
     public synchronized NativeTcp registerIncomingTcpConnection(
             String originAddr, int originPort,
@@ -408,14 +422,15 @@ public class VirtualNetwork {
     }
 
     /**
-     * Return a TCP connection for the given local address if there is any inbound remote connection to it.
-     * 
+     * Returns a TCP connection for the given local address if there is any inbound remote
+     * connection to it.
+     *
      * <p>If no exact match (host + port) is found, this method will try to find a connection
      * registered for the same host with any port. This allows tests where the port in the
      * NetworkHandling.sendDataOnTcp() call doesn't exactly match the SUT's ServerSocket port.
      *
-     * @param localAddress
-     * @param localPort
+     * @param localAddress the local address
+     * @param localPort the local port
      * @return {@code null} if the test case has not set up an incoming TCP connection
      */
     public synchronized NativeTcp pullTcpConnection(String localAddress, int localPort) {
@@ -448,16 +463,24 @@ public class VirtualNetwork {
 
 
     /**
-     * @param addr
+     * Opens a TCP server on the given address and port.
+     *
+     * @param addr the address to bind to
+     * @param port the port to listen on
      * @return {@code false} if it was not possible to open the listening port
+     * @throws IllegalArgumentException if the port is invalid
      */
     public synchronized boolean openTcpServer(String addr, int port) throws IllegalArgumentException {
         return openServer(addr, port, ConnectionType.TCP);
     }
 
     /**
-     * @param addr
+     * Opens a UDP server on the given address and port.
+     *
+     * @param addr the address to bind to
+     * @param port the port to listen on
      * @return {@code false} if it was not possible to open the listening port
+     * @throws IllegalArgumentException if the port is invalid
      */
     public synchronized boolean openUdpServer(String addr, int port) throws IllegalArgumentException {
         return openServer(addr, port, ConnectionType.UDP);
@@ -491,7 +514,9 @@ public class VirtualNetwork {
 
 
     /**
-     * Register a remote server that can reply to SUT's connection requests
+     * Registers a remote server that can reply to SUT's connection requests.
+     *
+     * @param server the remote TCP server to register
      */
     public synchronized void addRemoteTcpServer(RemoteTcpServer server) {
 
@@ -506,13 +531,13 @@ public class VirtualNetwork {
 
 
     /**
-     * Create a mocked TCP connection from the SUT to a remote host
+     * Creates a mocked TCP connection from the SUT to a remote host.
      *
-     * @param localOrigin
-     * @param remoteTarget
-     * @return
-     * @throws IllegalArgumentException
-     * @throws IOException
+     * @param localOrigin the local origin endpoint
+     * @param remoteTarget the remote target endpoint
+     * @return the native TCP connection
+     * @throws IllegalArgumentException if the input is invalid
+     * @throws IOException if the connection cannot be established
      */
     public synchronized NativeTcp connectToRemoteAddress(EndPointInfo localOrigin, EndPointInfo remoteTarget)
             throws IllegalArgumentException, IOException {

@@ -37,7 +37,7 @@ import java.io.IOException;
 public class RemoteTcpServer {
 
     /**
-     * Connection (if any) toward the SUT
+     * Connection (if any) toward the SUT.
      */
     private final NativeTcp connection;
 
@@ -46,8 +46,10 @@ public class RemoteTcpServer {
     private final SocketIn in;
 
     /**
-     * @param address of the remote server
-     * @throws IllegalArgumentException
+     * Constructs a remote TCP server with the given address.
+     *
+     * @param address the address of the remote server
+     * @throws IllegalArgumentException if the address is not a TCP connection type
      */
     public RemoteTcpServer(EndPointInfo address) throws IllegalArgumentException {
         if (!address.getType().equals(ConnectionType.TCP)) {
@@ -63,10 +65,11 @@ public class RemoteTcpServer {
     }
 
     /**
-     * This will be called by the virtual network when the
-     * system under test will try to connect to this server
+     * Called by the virtual network when the system under test tries to connect to this server.
      *
-     * @throws IOException
+     * @param sutAddress the address of the SUT
+     * @return the native TCP connection
+     * @throws IOException if the server is already connected or the SUT address is null
      */
     public synchronized NativeTcp connect(EndPointInfo sutAddress) throws IOException {
         if (this.connection.isBound()) {

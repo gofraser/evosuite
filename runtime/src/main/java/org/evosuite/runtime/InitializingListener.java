@@ -56,7 +56,7 @@ import java.util.Scanner;
 public class InitializingListener extends RunListener {
 
     /**
-     * Name of the method that is used to initialize the SUT classes
+     * Name of the method that is used to initialize the SUT classes.
      */
     public static final String INITIALIZE_CLASSES_METHOD = "initializeClasses";
 
@@ -82,11 +82,11 @@ public class InitializingListener extends RunListener {
 
         java.lang.System.out.println("Executing " + InitializingListener.class.getName());
 
-		/*
+        /*
             Here we cannot trust what passed as "Description", as it could had
-			been not initialized. This is for example the case for Maven, and
-			who knows what would be in Ant and Gradle.
-		 */
+            been not initialized. This is for example the case for Maven, and
+            who knows what would be in Ant and Gradle.
+         */
 
 
         /*
@@ -140,7 +140,8 @@ public class InitializingListener extends RunListener {
             try {
                 m.invoke(null);
             } catch (Exception e) {
-                java.lang.System.out.println("Exception while calling " + name + "." + INITIALIZE_CLASSES_METHOD + "(): " + e.getMessage());
+                java.lang.System.out.println("Exception while calling " + name + "." + INITIALIZE_CLASSES_METHOD
+                        + "(): " + e.getMessage());
             }
         }
     }
@@ -153,9 +154,10 @@ public class InitializingListener extends RunListener {
         File scaffolding = new File(InitializingListener.SCAFFOLDING_LIST_FILE_STRING);
         if (!scaffolding.exists()) {
             java.lang.System.out.println(
-                    "WARN: scaffolding file not found. If this module has tests, recall to call the preparation step " +
-                            "before executing the tests. For example, in Maven you need to make sure that " +
-                            "'evosuite:prepare' is called. See documentation at www.evosuite.org for further details.");
+                    "WARN: scaffolding file not found. If this module has tests, recall to call the preparation step "
+                            + "before executing the tests. For example, in Maven you need to make sure that "
+                            + "'evosuite:prepare' is called. See documentation at www.evosuite.org for "
+                            + "further details.");
             return list;
         }
 

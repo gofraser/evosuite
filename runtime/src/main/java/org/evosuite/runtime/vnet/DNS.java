@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
- * Used to resolve host names
+ * Used to resolve host names.
  *
  * @author arcuri
  */
@@ -33,20 +33,20 @@ public class DNS {
 
     /**
      * The actual IP address does not really matter, as long
-     * as it is in the valid format
+     * as it is in the valid format.
      */
     private static final String MASK = "200.42.42.";
 
     /**
-     * Used to create unique new mappings
+     * Used to create unique new mappings.
      */
     private final AtomicInteger counter;
 
 
     /**
-     * Key -> a host name to resolve
-     * <p>
-     * Value -> the IP address for the given host
+     * Key is a host name to resolve.
+     *
+     * <p>Value is the IP address for the given host.
      */
     private final Map<String, String> resolved;
 
@@ -57,9 +57,9 @@ public class DNS {
     }
 
     /**
-     * Get the IP address for the given host name (eg www.evosuite.org)
+     * Gets the IP address for the given host name (eg www.evosuite.org).
      *
-     * @param host
+     * @param host the host name to resolve
      * @return {@code null} if the host was not resolved
      */
     public synchronized String resolve(String host) {

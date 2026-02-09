@@ -24,11 +24,10 @@ import java.util.Queue;
 
 /**
  * Class used to simulate a bi-directional TCP socket connection between two hosts.
- * This class only handle the exchange of data between SUT and EvoSuite tests, and not
- * whether the connections are actually in place
+ * This class only handles the exchange of data between SUT and EvoSuite tests, and not
+ * whether the connections are actually in place.
  *
- * <p>
- * This class is thread-safe
+ * <p>This class is thread-safe.
  *
  * @author arcuri
  */
@@ -40,22 +39,22 @@ public class NativeTcp {
      */
 
     /**
-     * The TCP buffer used locally by the SUT
+     * The TCP buffer used locally by the SUT.
      */
     private final Queue<Byte> localBuffer;
 
     /**
-     * The TCP buffer used by the EvoSuite tests to simulate a remote connection
+     * The TCP buffer used by the EvoSuite tests to simulate a remote connection.
      */
     private final Queue<Byte> remoteBuffer;
 
     /**
-     * Info on local (SUT) address/port
+     * Info on local (SUT) address/port.
      */
     private volatile EndPointInfo localEndPoint;
 
     /**
-     * Info on remote (EvoSuite tests) address/port
+     * Info on remote (EvoSuite tests) address/port.
      */
     private final EndPointInfo remoteEndPoint;
 
@@ -84,7 +83,9 @@ public class NativeTcp {
     }
 
     /**
-     * Used by SUT to simulate sending of data to remote host
+     * Used by SUT to simulate sending of data to remote host.
+     *
+     * @param b the byte to send
      */
     public synchronized void writeToRemote(byte b) {
         //the data is directly added to remote buffer
@@ -92,11 +93,11 @@ public class NativeTcp {
     }
 
     /**
-     * Read one byte from stream
+     * Reads one byte from stream.
      *
      * @return a value between 0 and 255 representing a byte, or -1 if stream is empty.
-     * Note: in Java bytes are signed in -128,127, whereas here we need to return a unsigned
-     * int representation
+     *     Note: in Java bytes are signed in -128,127, whereas here we need to return
+     *     an unsigned int representation
      */
     public synchronized int readInSUTfromRemote() {
         if (localBuffer.isEmpty()) {
@@ -110,20 +111,19 @@ public class NativeTcp {
     }
 
     /**
-     * Used by tests to simulate sending of data to the SUT opening a server connection
+     * Used by tests to simulate sending of data to the SUT opening a server connection.
      *
-     * @param b
+     * @param b the byte to send
      */
     public synchronized void writeToSUT(byte b) {
         localBuffer.add(b);
     }
 
     /**
-     * Get the data sent by the SUT.
-     * This would mainly be useful for assertion generation and
-     * not the search.
+     * Gets the data sent by the SUT.
+     * This would mainly be useful for assertion generation and not the search.
      *
-     * @return
+     * @return the next byte from the remote buffer, or -1 if empty
      */
     public synchronized int readInTestFromSUT() {
         if (remoteBuffer.isEmpty()) {
@@ -133,15 +133,19 @@ public class NativeTcp {
     }
 
     /**
-     * @return the amount of data sent by the remote host and that
-     * has not been read yet by the local SUT
+     * Gets the amount of data sent by the remote host and that has not been read yet by
+     * the local SUT.
+     *
+     * @return the number of bytes in the local buffer
      */
     public synchronized int getAmountOfDataInLocalBuffer() {
         return localBuffer.size();
     }
 
     /**
-     * @return the amount of data sent by the SUT to the remote host
+     * Gets the amount of data sent by the SUT to the remote host.
+     *
+     * @return the number of bytes in the remote buffer
      */
     public synchronized int getAmountOfDataInRemoteBuffer() {
         return remoteBuffer.size();

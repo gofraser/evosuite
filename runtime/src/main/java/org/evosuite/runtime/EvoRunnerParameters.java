@@ -24,7 +24,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Annotation needed to pass parameters to EvoRunner
+ * Annotation needed to pass parameters to EvoRunner.
  *
  * @author arcuri
  */

@@ -26,8 +26,8 @@ import java.io.InputStream;
 /**
  * Class representing a file on a remote host.
  * A remote file can only be created once, and cannot be modified, just read.
- * <p>
- * Created by arcuri on 12/6/14.
+ *
+ * <p>Created by arcuri on 12/6/14.
  */
 public class RemoteFile {
 
@@ -49,7 +49,9 @@ public class RemoteFile {
 
 
     /**
-     * @return a new {@code InputStream} instance that can be used to read the content of this remote file
+     * Creates a new InputStream instance that can be used to read the content of this remote file.
+     *
+     * @return a new {@code InputStream} instance for reading the file content
      */
     public InputStream getInputStream() {
         return new ByteDataInputStream(data);

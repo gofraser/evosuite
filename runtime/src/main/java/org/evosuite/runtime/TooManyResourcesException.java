@@ -24,8 +24,8 @@ package org.evosuite.runtime;
  * These resources are for example number of threads and number of iterations in loops.
  * This is done to avoid very expensive test cases, although technically it does not represent
  * a bug in the class under test.
- * <p>
- * Created by Andrea Arcuri on 29/03/15.
+ *
+ * <p>Created by Andrea Arcuri on 29/03/15.
  */
 public class TooManyResourcesException extends RuntimeException {
 

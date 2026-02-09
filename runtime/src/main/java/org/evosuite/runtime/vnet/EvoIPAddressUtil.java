@@ -20,8 +20,17 @@
 package org.evosuite.runtime.vnet;
 
 
+/**
+ * Utility class for IP address parsing and conversion.
+ */
 public class EvoIPAddressUtil {
 
+    /**
+     * Converts a textual representation of an IPv4 address to its numeric format.
+     *
+     * @param src the textual representation of the IP address
+     * @return a byte array containing the numeric format, or null if the input is invalid
+     */
     public static byte[] textToNumericFormatV4(String src) {
         //TODO byte[] addr = sun.net.util.IPAddressUtil.textToNumericFormatV4(host); //FIXME
         byte[] res = new byte[4];
@@ -56,12 +65,16 @@ public class EvoIPAddressUtil {
                 switch (currByte) {
                     case 0:
                         res[0] = (byte) ((int) (tmpValue >> 24 & 255L));
+                        // fall through
                     case 1:
                         res[1] = (byte) ((int) (tmpValue >> 16 & 255L));
+                        // fall through
                     case 2:
                         res[2] = (byte) ((int) (tmpValue >> 8 & 255L));
+                        // fall through
                     case 3:
                         res[3] = (byte) ((int) (tmpValue >> 0 & 255L));
+                        // fall through
                     default:
                         return res;
                 }

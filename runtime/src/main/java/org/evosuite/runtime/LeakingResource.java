@@ -21,16 +21,16 @@ package org.evosuite.runtime;
 
 /**
  * Even in the case of virtual/mock objects, there might be resources that
- * need to be deallocated after the search if the SUT does not do it
+ * need to be deallocated after the search if the SUT does not do it.
  *
  * @author arcuri
  */
 public interface LeakingResource {
 
     /**
-     * Release this resource
+     * Release this resource.
      *
-     * @throws Exception
+     * @throws java.lang.Exception if any.
      */
     void release() throws Exception;
 

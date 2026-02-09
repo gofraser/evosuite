@@ -26,9 +26,9 @@ import org.junit.runners.model.Statement;
 
 
 /**
- * Avoid failing tests due to changes in non-functional requirements, like
+ * JUnit 4 rule to avoid failing tests due to changes in non-functional requirements, like
  * for example execution time. This is necessary due to EvoSuite adding
- * arbitrary timeouts to prevent tests hanging or taking too long
+ * arbitrary timeouts to prevent tests hanging or taking too long.
  */
 public class NonFunctionalRequirementRule implements TestRule {
 
@@ -41,7 +41,6 @@ public class NonFunctionalRequirementRule implements TestRule {
                     base.evaluate();
                 } catch (TooManyResourcesException e) {
                     //prevent TMRE to propagate to the JUnit runner
-                } finally {
                 }
             }
         };

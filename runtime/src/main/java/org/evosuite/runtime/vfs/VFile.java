@@ -23,14 +23,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Representation of a virtual file
+ * Representation of a virtual file.
  *
  * @author arcuri
  */
 public class VFile extends FSObject {
 
     /**
-     * the actual data contained in file as a list of bytes
+     * The actual data contained in file as a list of bytes.
      */
     private final List<Byte> data;
 
@@ -72,8 +72,12 @@ public class VFile extends FSObject {
     }
 
     /**
-     * @return a converted unsigned int [0,255] representation of the [-128,127] byte at {@code position}.
-     * A -1 value represents the end of the file (ie position higher than size)
+     * Reads the byte at the specified position.
+     *
+     * @param position the position in the file to read from
+     * @return a converted unsigned int [0,255] representation of the [-128,127] byte at
+     *     {@code position}, or -1 if position is at or past the end of the file
+     * @throws IllegalArgumentException if position is negative
      */
     public synchronized int read(int position) throws IllegalArgumentException {
         if (position < 0) {

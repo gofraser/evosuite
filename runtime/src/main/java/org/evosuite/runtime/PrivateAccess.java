@@ -32,9 +32,9 @@ import java.util.List;
 /**
  * Class used to access private fields/methods by reflection.
  * If the accessed fields/methods do not exist any more, than
- * the tests would gracefully stop
- * <p>
- * Created by Andrea on 20/02/15.
+ * the tests would gracefully stop.
+ *
+ * <p>Created by Andrea on 20/02/15.
  */
 public class PrivateAccess {
 
@@ -52,15 +52,16 @@ public class PrivateAccess {
 
 
     /**
-     * Use reflection to set the given field
+     * Use reflection to set the given field.
      *
-     * @param klass
+     * @param klass a {@link java.lang.Class} object.
      * @param instance  null if field is static
-     * @param fieldName
-     * @param value
+     * @param fieldName a {@link java.lang.String} object.
+     * @param value a {@link java.lang.Object} object.
      * @param <T>       the class type
-     * @throws IllegalArgumentException if klass or fieldName are null
-     * @throws FalsePositiveException   if the the field does not exist anymore (eg due to refactoring)
+     * @throws java.lang.IllegalArgumentException if klass or fieldName are null
+     * @throws org.evosuite.runtime.FalsePositiveException   if the the field does not exist
+     *     anymore (eg due to refactoring)
      */
     public static <T> void setVariable(Class<?> klass, T instance, String fieldName, Object value)
             throws IllegalArgumentException, FalsePositiveException {
@@ -108,7 +109,8 @@ public class PrivateAccess {
      * classes used to prevent instantiating them (eg those classes only have
      * static methods)
      *
-     * @throws Throwable
+     * @return a {@link java.lang.Object} object.
+     * @throws java.lang.Throwable if any.
      */
     public static Object callDefaultConstructorOfTheClassUnderTest() throws Throwable {
 
@@ -122,9 +124,10 @@ public class PrivateAccess {
      * classes used to prevent instantiating them (eg those classes only have
      * static methods)
      *
-     * @param klass
-     * @param <T>
-     * @throws Throwable
+     * @param klass a {@link java.lang.Class} object.
+     * @param <T> type of the class
+     * @return a {@link java.lang.Object} object.
+     * @throws java.lang.Throwable if any.
      */
     public static <T> T callDefaultConstructor(Class<T> klass) throws Throwable {
 
@@ -162,20 +165,22 @@ public class PrivateAccess {
     }
 
     /**
-     * Use reflection to call the given method
+     * Use reflection to call the given method.
      *
-     * @param klass
+     * @param klass a {@link java.lang.Class} object.
      * @param instance   null for static methods
-     * @param methodName
+     * @param methodName a {@link java.lang.String} object.
      * @param inputs     arrays of inputs
      * @param types      types for the inputs
-     * @param <T>
+     * @param <T> type of the class
      * @return the result of calling the method
-     * @throws IllegalArgumentException if either klass or methodName are null
-     * @throws FalsePositiveException   if method does not exist any more (eg, refactoring)
-     * @throws Throwable                the method might throw an internal exception
+     * @throws java.lang.IllegalArgumentException if either klass or methodName are null
+     * @throws org.evosuite.runtime.FalsePositiveException   if method does not exist any more
+     *     (eg, refactoring)
+     * @throws java.lang.Throwable                the method might throw an internal exception
      */
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object[] inputs, Class<?>[] types)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object[] inputs,
+                                        Class<?>[] types)
             throws Throwable {
 
         if (klass == null) {
@@ -186,7 +191,8 @@ public class PrivateAccess {
         }
         // note: 'instance' can be null (ie, for static methods), and of course "inputs"
 
-        if ((types == null && inputs != null) || (types != null && inputs == null) || (types != null && inputs != null && types.length != inputs.length)) {
+        if ((types == null && inputs != null) || (types != null && inputs == null)
+                || (types != null && inputs != null && types.length != inputs.length)) {
             throw new IllegalArgumentException("Mismatch between input parameters and their type description");
         }
 
@@ -233,182 +239,219 @@ public class PrivateAccess {
         return callMethod(klass, instance, methodName, new Object[]{input}, new Class<?>[]{type});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1)
             throws Throwable {
         return callMethod(klass, instance, methodName, new Object[]{i0, i1}, new Class<?>[]{t0, t1});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2)
             throws Throwable {
         return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2}, new Class<?>[]{t0, t1, t2});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3}, new Class<?>[]{t0, t1, t2, t3});
+        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3},
+                new Class<?>[]{t0, t1, t2, t3});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4}, new Class<?>[]{t0, t1, t2, t3, t4});
+        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4},
+                new Class<?>[]{t0, t1, t2, t3, t4});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5}, new Class<?>[]{t0, t1, t2, t3, t4, t5});
+        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5},
+                new Class<?>[]{t0, t1, t2, t3, t4, t5});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6}, new Class<?>[]{t0, t1, t2, t3, t4, t5, t6});
+        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6},
+                new Class<?>[]{t0, t1, t2, t3, t4, t5, t6});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7}, new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7});
+        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7},
+                new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8}, new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8});
+        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8},
+                new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9)
             throws Throwable {
         return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9
-            , Object i10, Class<?> t10)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9,
+                                        Object i10, Class<?> t10)
             throws Throwable {
         return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9
-            , Object i10, Class<?> t10, Object i11, Class<?> t11)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9,
+                                        Object i10, Class<?> t10, Object i11, Class<?> t11)
             throws Throwable {
         return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9
-            , Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9,
+                                        Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12},
+        return callMethod(klass, instance, methodName,
+                new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9
-            , Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12, Object i13, Class<?> t13)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9,
+                                        Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12,
+                                        Object i13, Class<?> t13)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13},
+        return callMethod(klass, instance, methodName,
+                new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9
-            , Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12, Object i13, Class<?> t13, Object i14, Class<?> t14
-    )
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9,
+                                        Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12,
+                                        Object i13, Class<?> t13, Object i14, Class<?> t14)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14},
+        return callMethod(klass, instance, methodName,
+                new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9
-            , Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12, Object i13, Class<?> t13, Object i14, Class<?> t14
-            , Object i15, Class<?> t15)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9,
+                                        Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12,
+                                        Object i13, Class<?> t13, Object i14, Class<?> t14, Object i15, Class<?> t15)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15},
+        return callMethod(klass, instance, methodName,
+                new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9
-            , Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12, Object i13, Class<?> t13, Object i14, Class<?> t14
-            , Object i15, Class<?> t15, Object i16, Class<?> t16)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9,
+                                        Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12,
+                                        Object i13, Class<?> t13, Object i14, Class<?> t14, Object i15, Class<?> t15,
+                                        Object i16, Class<?> t16)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16},
+        return callMethod(klass, instance, methodName,
+                new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9
-            , Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12, Object i13, Class<?> t13, Object i14, Class<?> t14
-            , Object i15, Class<?> t15, Object i16, Class<?> t16, Object i17, Class<?> t17)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9,
+                                        Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12,
+                                        Object i13, Class<?> t13, Object i14, Class<?> t14, Object i15, Class<?> t15,
+                                        Object i16, Class<?> t16, Object i17, Class<?> t17)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16, i17},
+        return callMethod(klass, instance, methodName,
+                new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16, i17},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9
-            , Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12, Object i13, Class<?> t13, Object i14, Class<?> t14
-            , Object i15, Class<?> t15, Object i16, Class<?> t16, Object i17, Class<?> t17, Object i18, Class<?> t18)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9,
+                                        Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12,
+                                        Object i13, Class<?> t13, Object i14, Class<?> t14, Object i15, Class<?> t15,
+                                        Object i16, Class<?> t16, Object i17, Class<?> t17, Object i18, Class<?> t18)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16, i17, i18},
+        return callMethod(klass, instance, methodName,
+                new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16, i17, i18},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18});
     }
 
-    public static <T> Object callMethod(Class<T> klass, T instance, String methodName
-            , Object i0, Class<?> t0, Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3, Object i4, Class<?> t4
-            , Object i5, Class<?> t5, Object i6, Class<?> t6, Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9
-            , Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12, Object i13, Class<?> t13, Object i14, Class<?> t14
-            , Object i15, Class<?> t15, Object i16, Class<?> t16, Object i17, Class<?> t17, Object i18, Class<?> t18, Object i19, Class<?> t19)
+    public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
+                                        Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
+                                        Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
+                                        Object i7, Class<?> t7, Object i8, Class<?> t8, Object i9, Class<?> t9,
+                                        Object i10, Class<?> t10, Object i11, Class<?> t11, Object i12, Class<?> t12,
+                                        Object i13, Class<?> t13, Object i14, Class<?> t14, Object i15, Class<?> t15,
+                                        Object i16, Class<?> t16, Object i17, Class<?> t17, Object i18, Class<?> t18,
+                                        Object i19, Class<?> t19)
             throws Throwable {
-        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16, i17, i18, i19},
-                new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19});
+        return callMethod(klass, instance, methodName,
+                new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16, i17, i18, i19},
+                new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17,
+                        t18, t19});
     }
 
 
-    public static Method getCallMethod(int nParameters) {
+    public static Method getCallMethod(int nparameters) {
         int max = 20; //TODO might consider have more
-        if (nParameters < 0 || nParameters > max) {
-            logger.error("Cannot handle reflection on methods with more than {} parameters: asked for {}", max, nParameters);
+        if (nparameters < 0 || nparameters > max) {
+            logger.error("Cannot handle reflection on methods with more than {} parameters: asked for {}",
+                    max, nparameters);
             return null;
         }
 
         List<Class<?>> types = new ArrayList<>();
-        types.add(Class.class);//klass
-        types.add(Object.class);//T
-        types.add(String.class);//methodName
+        types.add(Class.class); //klass
+        types.add(Object.class); //T
+        types.add(String.class); //methodName
 
-        for (int i = 0; i < nParameters; i++) {
+        for (int i = 0; i < nparameters; i++) {
             types.add(Object.class);
             types.add(Class.class);
         }
 
         try {
-            return PrivateAccess.class.getDeclaredMethod("callMethod", types.toArray(new Class[0]));
+            return PrivateAccess.class.getDeclaredMethod("callMethod",
+                    types.toArray(new Class[0]));
         } catch (NoSuchMethodException e) {
             logger.error("" + e.getMessage());
             return null;

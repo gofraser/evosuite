@@ -24,7 +24,7 @@ import org.evosuite.runtime.vnet.VirtualNetwork.ConnectionType;
 import java.io.Serializable;
 
 /**
- * Immutable class used to store connection info
+ * Immutable class used to store connection info.
  */
 public class EndPointInfo implements Serializable {
 
@@ -52,20 +52,26 @@ public class EndPointInfo implements Serializable {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         EndPointInfo other = (EndPointInfo) obj;
         if (host == null) {
-            if (other.host != null)
+            if (other.host != null) {
                 return false;
-        } else if (!host.equals(other.host))
+            }
+        } else if (!host.equals(other.host)) {
             return false;
-        if (port != other.port)
+        }
+        if (port != other.port) {
             return false;
+        }
         return type == other.type;
     }
 
@@ -81,4 +87,3 @@ public class EndPointInfo implements Serializable {
         return type;
     }
 }
-

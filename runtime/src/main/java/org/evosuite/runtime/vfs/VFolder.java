@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * A virtual folder
+ * A virtual folder.
  *
  * @author arcuri
  */

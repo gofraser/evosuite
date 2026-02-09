@@ -49,17 +49,17 @@ public class Runtime {
     protected Runtime() {
     }
 
-    public synchronized static Runtime getInstance() {
+    public static synchronized Runtime getInstance() {
         return singleton;
     }
 
-    public synchronized static void resetSingleton() {
+    public static synchronized void resetSingleton() {
         singleton.resetRuntime();
     }
 
     /**
      * Resets all simulated classes to an initial default state (so that it
-     * seems they have never been used by previous test case executions)
+     * seems they have never been used by previous test case executions).
      */
     public void resetRuntime() {
 

@@ -35,12 +35,12 @@ public class Random {
 
     /**
      * We have a unique number that is increased every time a new random number
-     * is accessed
+     * is accessed.
      */
     private static int currentNumber = 0;
 
     /**
-     * Replacement function for nextInt
+     * Replacement function for nextInt.
      *
      * @return a int.
      */
@@ -50,7 +50,7 @@ public class Random {
     }
 
     /**
-     * Replacement function for nextInt
+     * Replacement function for nextInt.
      *
      * @param max a int.
      * @return a int.
@@ -61,7 +61,7 @@ public class Random {
     }
 
     /**
-     * Replacement function for nextFloat
+     * Replacement function for nextFloat.
      *
      * @return a float.
      */
@@ -72,22 +72,26 @@ public class Random {
 
 
     /**
-     * Replacement function for nextBytes
+     * Replacement function for nextBytes.
      *
-     * @param bytes
+     * @param bytes an array of bytes.
      */
     public static void nextBytes(byte[] bytes) {
         wasAccessed = true;
 
-        for (int i = 0; i < bytes.length; )
-            for (int rnd = nextInt(), n = Math.min(bytes.length - i, 4);
-                 n-- > 0; rnd >>= 8)
+        for (int i = 0; i < bytes.length; ) {
+            int rnd = nextInt();
+            int n = Math.min(bytes.length - i, 4);
+            while (n-- > 0) {
                 bytes[i++] = (byte) rnd;
+                rnd >>= 8;
+            }
+        }
     }
 
 
     /**
-     * Replacement function for nextDouble
+     * Replacement function for nextDouble.
      *
      * @return a double.
      */
@@ -97,7 +101,7 @@ public class Random {
     }
 
     /**
-     * Replacement function for nextGaussian
+     * Replacement function for nextGaussian.
      *
      * @return a double.
      */
@@ -107,7 +111,7 @@ public class Random {
     }
 
     /**
-     * Replacement function for nextBoolean
+     * Replacement function for nextBoolean.
      *
      * @return a boolean.
      */
@@ -118,7 +122,7 @@ public class Random {
 
 
     /**
-     * Replacement function for nextLong
+     * Replacement function for nextLong.
      *
      * @return a long.
      */
@@ -128,7 +132,7 @@ public class Random {
     }
 
     /**
-     * Set the next random number to a value
+     * Set the next random number to a value.
      *
      * @param number a int.
      */
@@ -137,7 +141,7 @@ public class Random {
     }
 
     /**
-     * Reset runtime to initial state
+     * Reset runtime to initial state.
      */
     public static void reset() {
         currentNumber = 0;
@@ -146,7 +150,7 @@ public class Random {
 
     /**
      * Getter to check whether this runtime replacement was accessed during test
-     * execution
+     * execution.
      *
      * @return a boolean.
      */
@@ -155,9 +159,9 @@ public class Random {
     }
 
     /**
-     * Replacement for function java.util.UUID.randomUUID()
+     * Replacement for function java.util.UUID.randomUUID().
      *
-     * @return
+     * @return a {@link java.util.UUID} object.
      */
     public static UUID randomUUID() {
         wasAccessed = true;
@@ -169,26 +173,28 @@ public class Random {
         randomBytes[8] &= 0x3f;  /* clear variant        */
         randomBytes[8] |= 0x80;  /* set to IETF variant  */
 
-        UUID newUUID = buildNewUUID(randomBytes);
-        return newUUID;
+        UUID newId = buildNewUUID(randomBytes);
+        return newId;
     }
 
     /**
-     * Replacement for creation of new UUID using byte[]
+     * Replacement for creation of new UUID using byte[].
      *
-     * @param data
-     * @return
+     * @param data an array of bytes.
+     * @return a {@link java.util.UUID} object.
      */
     private static UUID buildNewUUID(byte[] data) {
         long msb = 0;
         long lsb = 0;
         assert data.length == 16 : "data must be 16 bytes in length";
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 8; i++) {
             msb = (msb << 8) | (data[i] & 0xff);
-        for (int i = 8; i < 16; i++)
+        }
+        for (int i = 8; i < 16; i++) {
             lsb = (lsb << 8) | (data[i] & 0xff);
-        UUID newUUID = new UUID(msb, lsb);
-        return newUUID;
+        }
+        UUID newId = new UUID(msb, lsb);
+        return newId;
     }
 
     public static int getCurrentNumber() {

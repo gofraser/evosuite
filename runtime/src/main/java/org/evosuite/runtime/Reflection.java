@@ -35,7 +35,7 @@ import static java.util.Comparator.comparing;
 
 /**
  * The content of arrays in reflection methods may differ between classloaders, therefore
- * we sort the output alphabetically
+ * we sort the output alphabetically.
  *
  * @author gordon
  */
@@ -71,7 +71,8 @@ public class Reflection {
     }
 
     public static Class<?>[] getInterfaces(Class<?> clazz) throws SecurityException {
-        return sortArrayInPlace(Arrays.stream(ReflectionUtils.getInterfaces(clazz)).filter(c -> !c.equals(InstrumentedClass.class)).toArray(Class[]::new));
+        return sortArrayInPlace(Arrays.stream(ReflectionUtils.getInterfaces(clazz))
+                .filter(c -> !c.equals(InstrumentedClass.class)).toArray(Class[]::new));
     }
 
     public static Annotation[] getDeclaredAnnotations(Class<?> clazz) throws SecurityException {
@@ -107,23 +108,23 @@ public class Reflection {
     }
 
     public static void setField(Field field, Object sourceObject, Object value) throws IllegalAccessException {
-        if (field.getType().equals(int.class))
+        if (field.getType().equals(int.class)) {
             field.setInt(sourceObject, getIntValue(value));
-        else if (field.getType().equals(boolean.class))
+        } else if (field.getType().equals(boolean.class)) {
             field.setBoolean(sourceObject, (Boolean) value);
-        else if (field.getType().equals(byte.class))
+        } else if (field.getType().equals(byte.class)) {
             field.setByte(sourceObject, (byte) getIntValue(value));
-        else if (field.getType().equals(char.class))
+        } else if (field.getType().equals(char.class)) {
             field.setChar(sourceObject, getCharValue(value));
-        else if (field.getType().equals(double.class))
+        } else if (field.getType().equals(double.class)) {
             field.setDouble(sourceObject, getDoubleValue(value));
-        else if (field.getType().equals(float.class))
+        } else if (field.getType().equals(float.class)) {
             field.setFloat(sourceObject, getFloatValue(value));
-        else if (field.getType().equals(long.class))
+        } else if (field.getType().equals(long.class)) {
             field.setLong(sourceObject, getLongValue(value));
-        else if (field.getType().equals(short.class))
+        } else if (field.getType().equals(short.class)) {
             field.setShort(sourceObject, (short) getIntValue(value));
-        else {
+        } else {
             field.set(sourceObject, value);
         }
     }
@@ -133,8 +134,9 @@ public class Reflection {
             return ((Number) object).intValue();
         } else if (object instanceof Character) {
             return (Character) object;
-        } else
+        } else {
             return 0;
+        }
     }
 
     private static long getLongValue(Object object) {
@@ -142,8 +144,9 @@ public class Reflection {
             return ((Number) object).longValue();
         } else if (object instanceof Character) {
             return (Character) object;
-        } else
+        } else {
             return 0L;
+        }
     }
 
     private static float getFloatValue(Object object) {
@@ -151,8 +154,9 @@ public class Reflection {
             return ((Number) object).floatValue();
         } else if (object instanceof Character) {
             return (Character) object;
-        } else
+        } else {
             return 0F;
+        }
     }
 
     private static double getDoubleValue(Object object) {
@@ -160,8 +164,9 @@ public class Reflection {
             return ((Number) object).doubleValue();
         } else if (object instanceof Character) {
             return (Character) object;
-        } else
+        } else {
             return 0.0;
+        }
     }
 
     private static char getCharValue(Object object) {
@@ -169,8 +174,9 @@ public class Reflection {
             return (Character) object;
         } else if (object instanceof Number) {
             return (char) ((Number) object).intValue();
-        } else
+        } else {
             return '0';
+        }
     }
 
 }
