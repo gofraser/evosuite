@@ -26,7 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Backend to be used only for helping writing test cases
+ * Backend to be used only for helping writing test cases.
  *
  * @author arcuri
  */
