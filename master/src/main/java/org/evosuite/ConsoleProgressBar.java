@@ -38,7 +38,7 @@ public class ConsoleProgressBar implements Listener<ClientStateInformation> {
 
     /**
      * <p>
-     * startProgressBar
+     * Starts the progress bar.
      * </p>
      */
     public static void startProgressBar() {

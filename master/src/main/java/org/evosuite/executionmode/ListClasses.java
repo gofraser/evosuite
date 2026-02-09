@@ -45,14 +45,15 @@ public class ListClasses {
     }
 
     public static Object execute(Options options, CommandLine line) {
-        if (line.hasOption("prefix"))
+        if (line.hasOption("prefix")) {
             listClassesPrefix(line.getOptionValue("prefix"));
-        else if (line.hasOption("target"))
+        } else if (line.hasOption("target")) {
             listClassesTarget(line.getOptionValue("target"));
-        else if (EvoSuite.hasLegacyTargets())
+        } else if (EvoSuite.hasLegacyTargets()) {
             listClassesLegacy();
-        else {
-            LoggingUtils.getEvoLogger().error("Please specify target prefix ('-prefix' option) or classpath entry ('-target' option) to list testable classes");
+        } else {
+            LoggingUtils.getEvoLogger().error("Please specify target prefix ('-prefix' option) or "
+                    + "classpath entry ('-target' option) to list testable classes");
             Help.execute(options);
         }
         return null;
@@ -60,21 +61,25 @@ public class ListClasses {
 
 
     private static void listClassesTarget(String target) {
-        Set<String> classes = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(target, false);
+        Set<String> classes = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getAllClasses(target, false);
         try {
             ClassPathHacker.addFile(target);
         } catch (IOException e) {
-            // Ignore?
+            // ignored
         }
         for (String sut : classes) {
             try {
-                if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).isClassAnInterface(sut)) {
+                if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                        .isClassAnInterface(sut)) {
                     continue;
                 }
-                if (!Properties.USE_DEPRECATED && ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).isClassDeprecated(sut)) {
+                if (!Properties.USE_DEPRECATED && ResourceList.getInstance(TestGenerationContext.getInstance()
+                        .getClassLoaderForSUT()).isClassDeprecated(sut)) {
                     continue;
                 }
-                if (!ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).isClassTestable(sut)) {
+                if (!ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                        .isClassTestable(sut)) {
                     continue;
                 }
             } catch (IOException e) {
@@ -108,16 +113,18 @@ public class ListClasses {
         Set<String> classes = new LinkedHashSet<>();
 
         for (String classPathElement : cp.split(File.pathSeparator)) {
-            classes.addAll(ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(classPathElement, prefix, false));
+            classes.addAll(ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getAllClasses(classPathElement, prefix, false));
             try {
                 ClassPathHacker.addFile(classPathElement);
             } catch (IOException e) {
-                // Ignore?
+                // ignored
             }
         }
         for (String sut : classes) {
             try {
-                if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).isClassAnInterface(sut)) {
+                if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                        .isClassAnInterface(sut)) {
                     continue;
                 }
             } catch (IOException e) {

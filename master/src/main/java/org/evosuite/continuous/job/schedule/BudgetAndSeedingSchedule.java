@@ -22,7 +22,7 @@ package org.evosuite.continuous.job.schedule;
 import org.evosuite.continuous.job.JobScheduler;
 
 /**
- * Combine Budget and Seeding schedules
+ * Combine Budget and Seeding schedules.
  *
  * @author arcuri
  */

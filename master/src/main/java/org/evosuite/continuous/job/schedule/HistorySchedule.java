@@ -68,9 +68,9 @@ public class HistorySchedule extends OneTimeSchedule {
         int extraTime = totalBudget - minTime;
 
         // check how much time we can give extra for each branch in a CUT
-        int number_of_branches = data.getTotalNumberOfBranches();
+        int numberOfBranches = data.getTotalNumberOfBranches();
         double timePerBranch =
-                number_of_branches == 0.0 ? 0.0 : (double) extraTime / (double) number_of_branches;
+                numberOfBranches == 0.0 ? 0.0 : (double) extraTime / (double) numberOfBranches;
 
         List<ClassInfo> classesInfo = new ArrayList<>(data.getClassInfos());
 
@@ -90,21 +90,21 @@ public class HistorySchedule extends OneTimeSchedule {
         int totalBudgetUsed = 0;
         List<JobDefinition> jobs = new LinkedList<>();
 
-        for (ClassInfo c_info : classesInfo) {
-            if (!c_info.isTestable()) {
+        for (ClassInfo info : classesInfo) {
+            if (!info.isTestable()) {
                 continue;
             }
-            if (!c_info.hasChanged() && !c_info.isToTest()) {
-                LoggingUtils.getEvoLogger().info("- Skipping class " + c_info.getClassName()
+            if (!info.hasChanged() && !info.isToTest()) {
+                LoggingUtils.getEvoLogger().info("- Skipping class " + info.getClassName()
                         + " because it does not seem to be worth it");
                 continue;
             }
 
             double budget = 60.0 * scheduler.getConfiguration().minMinutesPerJob
-                    + (c_info.numberOfBranches * timePerBranch);
+                    + (info.numberOfBranches * timePerBranch);
 
             // classes that have been modified could get more time than 'normal' classes
-            budget *= c_info.hasChanged() ? HistorySchedule.MODIFIED : HistorySchedule.NOT_MODIFIED;
+            budget *= info.hasChanged() ? HistorySchedule.MODIFIED : HistorySchedule.NOT_MODIFIED;
 
             if (budget > maximumBudgetPerCore) {
                 /*
@@ -119,22 +119,22 @@ public class HistorySchedule extends OneTimeSchedule {
                 totalBudgetUsed += budget;
 
                 LoggingUtils.getEvoLogger()
-                        .info("+ Going to generate test cases for " + c_info.getClassName()
+                        .info("+ Going to generate test cases for " + info.getClassName()
                                 + " using a time budget of " + budget + " seconds. Status of it ["
-                                + (c_info.hasChanged() ? "modified" : "not modified") + "]");
+                                + (info.hasChanged() ? "modified" : "not modified") + "]");
 
                 jobs.add(new JobDefinition((int) budget,
-                        this.scheduler.getConfiguration().getConstantMemoryPerJob(), c_info.getClassName(), 0,
+                        this.scheduler.getConfiguration().getConstantMemoryPerJob(), info.getClassName(), 0,
                         null, null));
             } else {
                 LoggingUtils.getEvoLogger()
-                        .info("- There is not enough time budget to test " + c_info.getClassName()
-                                + ". Status of it [" + (c_info.hasChanged() ? "modified" : "not modified") + "]");
+                        .info("- There is not enough time budget to test " + info.getClassName()
+                                + ". Status of it [" + (info.hasChanged() ? "modified" : "not modified") + "]");
 
                 // mark this CUT as not tested. this is useful to later on distinguish
                 // classes that EvoSuite failed to generate test cases and classes that
                 // we didn't actually create any job for
-                c_info.isToTest(false);
+                info.isToTest(false);
             }
         }
 

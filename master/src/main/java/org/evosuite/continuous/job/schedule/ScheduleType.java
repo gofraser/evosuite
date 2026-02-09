@@ -34,21 +34,26 @@ import java.util.List;
  * TODO: memory based on number of branches, as we can/should use larger population size, longer
  * test cases, larger test suites, etc. These latter are an initial proof-of-concept of a more
  * general optimized tuning.
+ * </p>
  *
  * <p>
- * TODO: handle schedule that is specific for the SVN/Git changes (ie only recently modified classes used for search).
- * Would be interesting to analyze how often there are commits (how many classes are modified) in open source / industrial projects.
+ * TODO: handle schedule that is specific for the SVN/Git changes (ie only recently modified
+ * classes used for search).
+ * Would be interesting to analyze how often there are commits (how many classes are modified)
+ * in open source / industrial projects.
  * If in last commit there were added/modified a set X of classes, not only we might
  * want to focus on those, but also on the others that take them as input.
  * Furthermore, we can look at the history: if CTG has been run for weeks/months,
  * and then new classes are added, those should have much higher priority than old,
- * heavily tested classes
+ * heavily tested classes.
+ * </p>
  *
  * <p>
  * TODO: we should also consider what version of EvoSuite has been used.
  * If a new version of EvoSuite is introduced during CTG, it would make sense
  * to re-generate test cases for all CUTs, as new version might achieve higher
- * coverage
+ * coverage.
+ * </p>
  *
  * @author arcuri
  */
@@ -62,16 +67,17 @@ public abstract class ScheduleType {
 
 
     protected boolean enoughBudgetForAll() {
-        int totalBudget = 60 * scheduler.getConfiguration().timeInMinutes * scheduler.getConfiguration().getNumberOfUsableCores();
+        int totalBudget = 60 * scheduler.getConfiguration().timeInMinutes
+                * scheduler.getConfiguration().getNumberOfUsableCores();
         int maximumNumberOfJobs = totalBudget / (60 * scheduler.getConfiguration().minMinutesPerJob);
         return maximumNumberOfJobs >= scheduler.getProjectData().getTotalNumberOfTestableCUTs();
     }
 
     /**
-     * Create a new partial/complete schedule if there is still search budget left
+     * Create a new partial/complete schedule if there is still search budget left.
      *
-     * @return
-     * @throws IllegalStateException
+     * @return the new schedule
+     * @throws IllegalStateException if can't schedule
      */
     public abstract List<JobDefinition> createNewSchedule() throws IllegalStateException;
 
@@ -87,20 +93,21 @@ public abstract class ScheduleType {
      * instance needs to be created.
      * </p>
      *
-     * @return
+     * @return true if can execute more
      */
     public abstract boolean canExecuteMore();
 
     /**
      * if there is not enough search budget, then try
-     * to target as many CUTs as possible
+     * to target as many CUTs as possible.
      *
-     * @return
+     * @return the schedule
      */
     protected List<JobDefinition> createScheduleForWhenNotEnoughBudget() {
 
         ProjectStaticData data = scheduler.getProjectData();
-        int totalBudget = 60 * scheduler.getConfiguration().timeInMinutes * scheduler.getConfiguration().getNumberOfUsableCores();
+        int totalBudget = 60 * scheduler.getConfiguration().timeInMinutes
+                * scheduler.getConfiguration().getNumberOfUsableCores();
 
         List<JobDefinition> jobs = new LinkedList<>();
 
@@ -115,7 +122,8 @@ public abstract class ScheduleType {
                 continue;
             }
             JobDefinition job = new JobDefinition(
-                    60 * scheduler.getConfiguration().minMinutesPerJob, scheduler.getConfiguration().getConstantMemoryPerJob(),
+                    60 * scheduler.getConfiguration().minMinutesPerJob,
+                    scheduler.getConfiguration().getConstantMemoryPerJob(),
                     info.getClassName(), 0, null, null);
             jobs.add(job);
 

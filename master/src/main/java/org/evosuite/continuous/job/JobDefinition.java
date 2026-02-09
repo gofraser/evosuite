@@ -32,7 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Definition of a "job", ie a run of EvoSuite on a CUT.
  *
  * <p>
- * Note: this class is/should be immutable
+ * Note: this class is/should be immutable.
+ * </p>
  *
  * @author arcuri
  */
@@ -41,64 +42,66 @@ public class JobDefinition {
     private static final Logger logger = LoggerFactory.getLogger(JobDefinition.class);
 
     /**
-     * counter used to create unique ids in a thread-safe manner
+     * counter used to create unique ids in a thread-safe manner.
      */
     private static final AtomicInteger counter = new AtomicInteger(0);
 
     /**
-     * A unique, human-readable identifier for this job
+     * A unique, human-readable identifier for this job.
      */
-    public final int jobID;
+    public final int jobId;
 
     /**
-     * define for how long this job should be run
+     * define for how long this job should be run.
      */
     public final int seconds;
 
     /**
-     * define how much memory this job can allocate
+     * define how much memory this job can allocate.
      */
     public final int memoryInMB;
 
     /**
-     * full qualifying name of the class under test (CUT)
+     * full qualifying name of the class under test (CUT).
      */
     public final String cut;
 
     /**
-     * the configuration id, identify which parameter settings were used
+     * the configuration id, identify which parameter settings were used.
      */
     public final int configurationId;
 
     /**
      * the name of all classes this CUT depends on, and that would be good to
      * have generated test cases before starting this job. This is a union of
-     * all the the types of dependency (eg, input and parent)
+     * all the the types of dependency (eg, input and parent).
      */
     public final Set<String> dependentOnClasses;
 
     /**
-     * All dependent classes used as input for this CUT
+     * All dependent classes used as input for this CUT.
      */
     public final Set<String> inputClasses;
 
     /**
-     * All dependent classes in the parent hierarchy
+     * All dependent classes in the parent hierarchy.
      */
     public final Set<String> parentClasses;
 
     /**
-     * Main constructor
+     * Main constructor.
      *
-     * @param seconds
-     * @param memoryInMB
-     * @param cut
-     * @param configurationId
+     * @param seconds seconds
+     * @param memoryInMB memory in MB
+     * @param cut cut
+     * @param configurationId configuration id
+     * @param inputDependencies input dependencies
+     * @param parentDependencies parent dependencies
      */
     public JobDefinition(int seconds, int memoryInMB, String cut, int configurationId,
                          Set<String> inputDependencies, Set<String> parentDependencies) {
         super();
-        this.jobID = counter.getAndIncrement();
+        this.jobId = counter.getAndIncrement();
         this.seconds = seconds;
         this.memoryInMB = memoryInMB;
         this.cut = cut;
@@ -132,13 +135,15 @@ public class JobDefinition {
 
     /**
      * Create a copy of this job, and add the input and parent dependencies to
-     * the set of CUT dependencies
+     * the set of CUT dependencies.
      *
      * <p>
-     * It is OK to have one of the sets null, but not both
+     * It is OK to have one of the sets null, but not both.
+     * </p>
      *
-     * @param input
-     * @return
+     * @param inputs inputs
+     * @param parents parents
+     * @return a copy of this job with dependencies
      */
     public JobDefinition getByAddingDependencies(Set<String> inputs, Set<String> parents)
             throws IllegalArgumentException {
@@ -157,7 +162,7 @@ public class JobDefinition {
 
         if (inputClasses != null) {
 
-            logger.debug("Adding " + inputClasses.size() + "input dependecies in job " + jobID);
+            logger.debug("Adding " + inputClasses.size() + "input dependecies in job " + jobId);
 
             if (inputs == null) {
                 inputs = inputClasses;
@@ -178,10 +183,10 @@ public class JobDefinition {
     }
 
     /**
-     * Create a copy of this job by adding extra seconds
+     * Create a copy of this job by adding extra seconds.
      *
-     * @param input
-     * @return
+     * @param moreSeconds extra seconds
+     * @return a copy of this job with extra budget
      */
     public JobDefinition getByAddingBudget(int moreSeconds)
             throws IllegalArgumentException {
@@ -196,10 +201,10 @@ public class JobDefinition {
 
 
     /**
-     * Does the execution of this job depend on the other?
+     * Does the execution of this job depend on the other.
      *
-     * @param other
-     * @return
+     * @param other other job
+     * @return true if depends
      */
     public boolean dependOn(JobDefinition other) {
         return dependentOnClasses != null && dependentOnClasses.contains(other.cut);
@@ -207,9 +212,9 @@ public class JobDefinition {
 
     /**
      * The number of classes this job depends on and
-     * should be executed before this job
+     * should be executed before this job.
      *
-     * @return
+     * @return number of dependencies
      */
     public int getNumberOfDependencies() {
         if (dependentOnClasses == null) {
@@ -220,10 +225,11 @@ public class JobDefinition {
     }
 
     /**
-     * Check if all jobs this one depends on are finished
+     * Check if all jobs this one depends on are finished.
      *
-     * @param job
-     * @return
+     * @param schedule the schedule
+     * @param done set of completed jobs
+     * @return true if satisfied
      */
     public boolean areDependenciesSatisfied(List<JobDefinition> schedule, Set<String> done) {
 
@@ -266,7 +272,7 @@ public class JobDefinition {
         result = prime * result + ((cut == null) ? 0 : cut.hashCode());
         result = prime * result
                 + ((dependentOnClasses == null) ? 0 : dependentOnClasses.hashCode());
-        result = prime * result + jobID;
+        result = prime * result + jobId;
         result = prime * result + memoryInMB;
         result = prime * result + seconds;
         return result;
@@ -274,29 +280,39 @@ public class JobDefinition {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         JobDefinition other = (JobDefinition) obj;
-        if (configurationId != other.configurationId)
+        if (configurationId != other.configurationId) {
             return false;
+        }
         if (cut == null) {
-            if (other.cut != null)
+            if (other.cut != null) {
                 return false;
-        } else if (!cut.equals(other.cut))
+            }
+        } else if (!cut.equals(other.cut)) {
             return false;
+        }
         if (dependentOnClasses == null) {
-            if (other.dependentOnClasses != null)
+            if (other.dependentOnClasses != null) {
                 return false;
-        } else if (!dependentOnClasses.equals(other.dependentOnClasses))
+            }
+        } else if (!dependentOnClasses.equals(other.dependentOnClasses)) {
             return false;
-        if (jobID != other.jobID)
+        }
+        if (jobId != other.jobId) {
             return false;
-        if (memoryInMB != other.memoryInMB)
+        }
+        if (memoryInMB != other.memoryInMB) {
             return false;
+        }
         return seconds == other.seconds;
     }
 
@@ -305,8 +321,8 @@ public class JobDefinition {
      */
     @Override
     public String toString() {
-        return "job " + jobID + ", target " + cut +
-                ", number of dependencies " + getNumberOfDependencies();
+        return "job " + jobId + ", target " + cut
+                + ", number of dependencies " + getNumberOfDependencies();
     }
 
 }

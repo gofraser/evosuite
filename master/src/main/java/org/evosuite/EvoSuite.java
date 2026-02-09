@@ -27,7 +27,6 @@ import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.executionmode.*;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.sandbox.MSecurityManager;
-import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.setup.InheritanceTree;
 import org.evosuite.setup.InheritanceTreeGenerator;
 import org.evosuite.utils.LoggingUtils;
@@ -85,7 +84,7 @@ public class EvoSuite {
 
     /**
      * <p>
-     * main
+     * main.
      * </p>
      *
      * @param args an array of {@link java.lang.String} objects.
@@ -121,7 +120,7 @@ public class EvoSuite {
 
     /**
      * <p>
-     * parseCommandLine
+     * parseCommandLine.
      * </p>
      *
      * @param args an array of {@link java.lang.String} objects.
@@ -167,9 +166,9 @@ public class EvoSuite {
             setupProperties();
             final Integer javaVersion = Integer.valueOf(SystemUtils.JAVA_VERSION.split("\\.")[0]);
 
-            if (TestSuiteWriterUtils.needToUseAgent() &&
-                    (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE ||
-                            Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
+            if (TestSuiteWriterUtils.needToUseAgent()
+                    && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
+                    || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
                 ClassPathHacker.initializeToolJar();
             }
 
@@ -223,9 +222,9 @@ public class EvoSuite {
 
             CommandLineParameters.addJavaDOptions(javaOpts, line);
 
-//            if (TestSuiteWriterUtils.needToUseAgent() && Properties.JUNIT_CHECK) {
-//                ClassPathHacker.initializeToolJar();
-//            }
+            //            if (TestSuiteWriterUtils.needToUseAgent() && Properties.JUNIT_CHECK) {
+            //                ClassPathHacker.initializeToolJar();
+            //            }
 
             CommandLineParameters.handleClassPath(line);
 
@@ -234,7 +233,8 @@ public class EvoSuite {
 
             if (!ClassPathHacker.isJunitCheckAvailable()) {
                 if (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE) {
-                    logger.error("Can not execute Junit tests. Run EvoSuite with -Djunit_check=optional to generate tests, but dont check them.");
+                    logger.error("Can not execute Junit tests. "
+                            + "Run EvoSuite with -Djunit_check=optional to generate tests, but dont check them.");
                     throw new IllegalStateException(ClassPathHacker.getCause());
                 }
             }
@@ -341,8 +341,9 @@ public class EvoSuite {
     private static void checkProperties() {
         Logger evoLogger = LoggingUtils.getEvoLogger();
         if (Properties.USE_SEPARATE_CLASSLOADER && Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5) {
-            evoLogger.warn("* WARNING - Generating JUnit 5 tests with the option to use a separate classloader will result in not " +
-                    "runnable tests. Set either -Dtest_format=JUNIT4 or -Duse_separate_classloader=false");
+            evoLogger.warn("* WARNING - Generating JUnit 5 tests with the option to use a separate classloader "
+                    + "will result in not runnable tests. "
+                    + "Set either -Dtest_format=JUNIT4 or -Duse_separate_classloader=false");
         }
     }
 

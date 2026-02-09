@@ -24,22 +24,20 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * <p>GenerationUtil class</p>
- * <p>
- * Useful to get data (total, averages, etc) from a {@code Generation} instance.
+ * GenerationUtil class.
+ *
+ * <p>Useful to get data (total, averages, etc) from a {@code Generation} instance.
  *
  * @author José Campos
  */
 public abstract class GenerationUtil {
 
-    /**
-     * Total Numbers
-     */
+    // Total Numbers
 
     /**
-     * Returns the total length (i.e., number of statements) of a successful generation
+     * Returns the total length (i.e., number of statements) of a successful generation.
      *
-     * @param generation
+     * @param generation the generation
      * @return total length or 0 if the generation failed
      */
     public static int getNumberStatements(Generation generation) {
@@ -51,9 +49,9 @@ public abstract class GenerationUtil {
     }
 
     /**
-     * Returns the total time (minutes) spent on a generation
+     * Returns the total time (minutes) spent on a generation.
      *
-     * @param generation
+     * @param generation the generation
      * @return total time (minutes) spent on a generation or 0 if the generation failed
      */
     public static int getTotalEffort(Generation generation) {
@@ -65,9 +63,9 @@ public abstract class GenerationUtil {
     }
 
     /**
-     * Returns the total time (minutes) settled by the scheduler
+     * Returns the total time (minutes) settled by the scheduler.
      *
-     * @param generation
+     * @param generation the generation
      * @return total time (minutes) settled by the scheduler or 0 if the generation failed
      */
     public static int getTimeBudget(Generation generation) {
@@ -79,9 +77,9 @@ public abstract class GenerationUtil {
     }
 
     /**
-     * Returns the total number of generated tests of a successful generation
+     * Returns the total number of generated tests of a successful generation.
      *
-     * @param generation
+     * @param generation the generation
      * @return total number of tests or 0 if the generation failed
      */
     public static int getNumberTests(Generation generation) {
@@ -93,10 +91,10 @@ public abstract class GenerationUtil {
     }
 
     /**
-     * Returns all criteria used on a successful generation
+     * Returns all criteria used on a successful generation.
      *
-     * @param generation
-     * @return all criteria used or an empty Set<> if the generation failed
+     * @param generation the generation
+     * @return all criteria used or an empty Set if the generation failed
      */
     public static Set<String> getCriteria(Generation generation) {
         if (generation == null || generation.isFailed() || generation.getSuite() == null) {
@@ -109,10 +107,10 @@ public abstract class GenerationUtil {
     }
 
     /**
-     * Returns the coverage of a particular criterion of a successful generation
+     * Returns the coverage of a particular criterion of a successful generation.
      *
-     * @param generation
-     * @param criterionName
+     * @param generation    the generation
+     * @param criterionName the name of the criterion
      * @return coverage of a criterion or 0.0 if the generation failed
      */
     public static double getCriterionCoverage(Generation generation, String criterionName) {
@@ -129,14 +127,12 @@ public abstract class GenerationUtil {
         return 0.0; // criterionName not found
     }
 
-    /**
-     * Averages
-     */
+    // Averages
 
     /**
-     * Returns the overall coverage of a successful generation
+     * Returns the overall coverage of a successful generation.
      *
-     * @param generation
+     * @param generation the generation
      * @return overall coverage or 0.0 if the generation failed
      */
     public static double getOverallCoverage(Generation generation) {

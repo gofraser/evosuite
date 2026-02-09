@@ -23,7 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.AvailableSchedule;
 
 /**
- * This class contain the starting, fixed configurations for CTG
+ * This class contain the starting, fixed configurations for CTG.
  *
  * @author arcuri
  */
@@ -34,23 +34,23 @@ public class CtgConfiguration {
      * If not enough RAM, then no point in even trying to start
      * a search.
      * Note: this include the memory of both the master and
-     * clients together
+     * clients together.
      */
-    protected final int MINIMUM_MEMORY_PER_JOB_MB = 500;
+    protected final int minimumMemoryPerJobMB = 500;
 
     /**
-     * how much max memory should be used at the same time
-     * among all the parallel CTG runs?
+     * How much max memory should be used at the same time
+     * among all the parallel CTG runs.
      */
     public final int totalMemoryInMB;
 
     /**
-     * Number of cores CTG is allowed to use
+     * Number of cores CTG is allowed to use.
      */
     public final int numberOfCores;
 
     /**
-     * for how long CTG is allowed to run
+     * for how long CTG is allowed to run.
      */
     public final int timeInMinutes;
 
@@ -62,18 +62,18 @@ public class CtgConfiguration {
     public final int minMinutesPerJob;
 
     /**
-     * Should we call home to upload status/usage statistics?
+     * Should we call home to upload status/usage statistics.
      */
     public final boolean callHome;
 
     /**
-     * The type of job scheduler CTG will use
+     * The type of job scheduler CTG will use.
      */
     public final AvailableSchedule schedule;
 
     /**
      * Extra parameters for the test data generation jobs.
-     * Should only be used for experiments/debugging
+     * Should only be used for experiments/debugging.
      */
     public final String extraArgs;
 
@@ -96,29 +96,30 @@ public class CtgConfiguration {
         this.schedule = schedule;
         this.extraArgs = extraArgs;
 
-        if (totalMemoryInMB < MINIMUM_MEMORY_PER_JOB_MB) {
-            throw new IllegalArgumentException("Should use at least " + MINIMUM_MEMORY_PER_JOB_MB + "MB");
+        if (totalMemoryInMB < minimumMemoryPerJobMB) {
+            throw new IllegalArgumentException("Should use at least " + minimumMemoryPerJobMB + "MB");
         }
         if (numberOfCores < 1) {
             throw new IllegalArgumentException("Need at least one core");
         }
 
 
-        int requiredMemory = numberOfCores * MINIMUM_MEMORY_PER_JOB_MB;
+        int requiredMemory = numberOfCores * minimumMemoryPerJobMB;
         if (totalMemoryInMB < requiredMemory) {
             throw new IllegalArgumentException(
-                    "Not enough memory assigned. You need at least " + MINIMUM_MEMORY_PER_JOB_MB + "MB per core." +
-                            " You are using " + numberOfCores + " cores for a total of " + totalMemoryInMB + "MB of memory." +
-                            " Decrease the number of cores or increase the total memory. See documentation."
+                    "Not enough memory assigned. You need at least " + minimumMemoryPerJobMB + "MB per core."
+                            + " You are using " + numberOfCores + " cores for a total of " + totalMemoryInMB
+                            + "MB of memory."
+                            + " Decrease the number of cores or increase the total memory. See documentation."
             );
         }
 
     }
 
     /**
-     * Get instance based on values in {@link Properties}
+     * Get instance based on values in {@link Properties}.
      *
-     * @return
+     * @return the configuration from parameters
      */
     public static CtgConfiguration getFromParameters() {
 
@@ -134,12 +135,12 @@ public class CtgConfiguration {
     }
 
     /**
-     * Get new configuration with budget time proportional to the number of classes (and available cores)
+     * Get new configuration with budget time proportional to the number of classes (and available cores).
      *
-     * @param minutesPerClass
-     * @param numberOfCUTs
-     * @return
-     * @throws IllegalArgumentException
+     * @param minutesPerClass minutes per class
+     * @param numberOfCUTs number of CUTs
+     * @return the new configuration
+     * @throws IllegalArgumentException if arguments are invalid
      */
     public CtgConfiguration getWithChangedTime(int minutesPerClass, int numberOfCUTs) throws IllegalArgumentException {
 
@@ -169,11 +170,11 @@ public class CtgConfiguration {
         return numberOfCores;
 
         //shouldn't silently reduce number of cores if not enough memory
-//		if(numberOfCores * MINIMUM_MEMORY_PER_JOB_MB <=  totalMemoryInMB) {
-//			return numberOfCores;
-//		} else {
-//			return totalMemoryInMB / MINIMUM_MEMORY_PER_JOB_MB;
-//		}
+        // if(numberOfCores * minimumMemoryPerJobMB <=  totalMemoryInMB) {
+        // return numberOfCores;
+        // } else {
+        // return totalMemoryInMB / minimumMemoryPerJobMB;
+        // }
     }
 
     public int getConstantMemoryPerJob() {

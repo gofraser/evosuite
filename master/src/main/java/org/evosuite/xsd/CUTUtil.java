@@ -23,22 +23,20 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * <p>CUTUtil class</p>
- * <p>
- * Useful to get data (total, averages, etc) from a {@code CUT} instance.
+ * CUTUtil class.
+ *
+ * <p>Useful to get data (total, averages, etc) from a {@code CUT} instance.
  *
  * @author José Campos
  */
 public abstract class CUTUtil {
 
-    /**
-     * Total Numbers
-     */
+    // Total Numbers
 
     /**
-     * Returns the total length (i.e., number of statements) of the latest successful generation
+     * Returns the total length (i.e., number of statements) of the latest successful generation.
      *
-     * @param cut
+     * @param cut the class under test
      * @return total length or 0 if there is not any successful generation for {@code CUT}
      */
     public static int getNumberStatements(CUT cut) {
@@ -51,10 +49,10 @@ public abstract class CUTUtil {
     }
 
     /**
-     * Returns the total time (minutes) spent on the latest generation
+     * Returns the total time (minutes) spent on the latest generation.
      *
-     * @param cut
-     * @return
+     * @param cut the class under test
+     * @return the total time (minutes) spent on the latest generation
      */
     public static int getTotalEffort(CUT cut) {
         Generation latestSuccessfulGeneration = CUTUtil.getLatestGeneration(cut);
@@ -62,10 +60,10 @@ public abstract class CUTUtil {
     }
 
     /**
-     * Returns the total time (minutes) settled by the scheduler on the latest generation
+     * Returns the total time (minutes) settled by the scheduler on the latest generation.
      *
-     * @param cut
-     * @return
+     * @param cut the class under test
+     * @return the total time (minutes) settled by the scheduler on the latest generation
      */
     public static int getTimeBudget(CUT cut) {
         Generation latestSuccessfulGeneration = CUTUtil.getLatestGeneration(cut);
@@ -73,44 +71,44 @@ public abstract class CUTUtil {
     }
 
     /**
-     * Returns the total time (minutes) spent on a generation with an ID equal to generationID
+     * Returns the total time (minutes) spent on a generation with an ID equal to generationId.
      *
-     * @param cut
-     * @param generationID
-     * @return total time (minutes) spent on a generation with ID equal to generationID, or 0 if there
-     * is not a generation with the ID equal to generationID
+     * @param cut          the class under test
+     * @param generationId the generation ID
+     * @return total time (minutes) spent on a generation with ID equal to generationId, or 0 if there
+     *     is not a generation with the ID equal to generationId
      */
-    public static int getTotalEffort(CUT cut, int generationID) {
-        if (generationID >= cut.getGeneration().size()) {
+    public static int getTotalEffort(CUT cut, int generationId) {
+        if (generationId >= cut.getGeneration().size()) {
             return 0;
         }
 
-        Generation generation = cut.getGeneration().get(generationID);
+        Generation generation = cut.getGeneration().get(generationId);
         return GenerationUtil.getTotalEffort(generation);
     }
 
     /**
      * Returns the total time (minutes) settled by the scheduler on a generation with an ID equal to
-     * generationID
+     * generationId.
      *
-     * @param cut
-     * @param generationID
+     * @param cut          the class under test
+     * @param generationId the generation ID
      * @return total time (minutes) settled by the scheduler on a generation with ID equal to
-     * generationID, or 0 if there is not a generation with the ID equal to generationID
+     *     generationId, or 0 if there is not a generation with the ID equal to generationId
      */
-    public static int getTimeBudget(CUT cut, int generationID) {
-        if (generationID >= cut.getGeneration().size()) {
+    public static int getTimeBudget(CUT cut, int generationId) {
+        if (generationId >= cut.getGeneration().size()) {
             return 0;
         }
 
-        Generation generation = cut.getGeneration().get(generationID);
+        Generation generation = cut.getGeneration().get(generationId);
         return GenerationUtil.getTimeBudget(generation);
     }
 
     /**
-     * Returns the total number of generated tests of the latest successful generation
+     * Returns the total number of generated tests of the latest successful generation.
      *
-     * @param cut
+     * @param cut the class under test
      * @return total number of tests or 0 if there is not any successful generation for {@code CUT}
      */
     public static int getNumberTests(CUT cut) {
@@ -123,10 +121,10 @@ public abstract class CUTUtil {
     }
 
     /**
-     * Returns all criteria used on the latest successful generation
+     * Returns all criteria used on the latest successful generation.
      *
-     * @param cut
-     * @return all criteria used or an empty Set<> if there is not any successful generation for {@code CUT}
+     * @param cut the class under test
+     * @return all criteria used or an empty Set if there is not any successful generation for {@code CUT}
      */
     public static Set<String> getCriteria(CUT cut) {
         Generation latestSuccessfulGeneration = CUTUtil.getLatestSuccessfulGeneration(cut);
@@ -138,10 +136,10 @@ public abstract class CUTUtil {
     }
 
     /**
-     * Returns the coverage of a particular criterion of the latest successful generation
+     * Returns the coverage of a particular criterion of the latest successful generation.
      *
-     * @param cut
-     * @param criterionName
+     * @param cut           the class under test
+     * @param criterionName the name of the criterion
      * @return coverage of a criterion or 0.0 if there is not any successful generation for {@code CUT}
      */
     public static double getCriterionCoverage(CUT cut, String criterionName) {
@@ -153,14 +151,12 @@ public abstract class CUTUtil {
         return GenerationUtil.getCriterionCoverage(latestSuccessfulGeneration, criterionName);
     }
 
-    /**
-     * Averages
-     */
+    // Averages
 
     /**
-     * Returns the overall coverage of the latest successful generation
+     * Returns the overall coverage of the latest successful generation.
      *
-     * @param cut
+     * @param cut the class under test
      * @return overall coverage or or 0.0 if there is not any successful generation for {@code CUT}
      */
     public static double getOverallCoverage(CUT cut) {
@@ -172,26 +168,24 @@ public abstract class CUTUtil {
         return GenerationUtil.getOverallCoverage(latestSuccessfulGeneration);
     }
 
-    /**
-     * Aux
-     */
+    // Aux
 
     /**
-     * Returns the latest test generation
+     * Returns the latest test generation.
      *
-     * @param cut
-     * @return
+     * @param cut the class under test
+     * @return the latest test generation
      */
     public static Generation getLatestGeneration(CUT cut) {
         return cut.getGeneration().get(cut.getGeneration().size() - 1);
     }
 
     /**
-     * Returns the latest successful test generation
+     * Returns the latest successful test generation.
      *
-     * @param cut
+     * @param cut the class under test
      * @return the latest successful test generation or null if: one of the latest generation failed
-     * and the class was modified; or if there is not any successful generation for {@code CUT}
+     *     and the class was modified; or if there is not any successful generation for {@code CUT}
      */
     public static Generation getLatestSuccessfulGeneration(CUT cut) {
         for (int i = cut.getGeneration().size() - 1; i >= 0; i--) {

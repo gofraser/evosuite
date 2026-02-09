@@ -27,7 +27,7 @@ import java.util.List;
 
 /**
  * A schedule that can only be called once.
- * In other words, the entire schedule is calculated
+ * In other words, the entire schedule is calculated.
  *
  * @author arcuri
  */
@@ -53,7 +53,8 @@ public abstract class OneTimeSchedule extends ScheduleType {
         called = true;
 
         if (!enoughBudgetForAll()) {
-            LoggingUtils.getEvoLogger().info("There is no enough time budget to generate test cases for all classes in the project");
+            LoggingUtils.getEvoLogger().info("There is no enough time budget to generate test cases "
+                    + "for all classes in the project");
             return createScheduleForWhenNotEnoughBudget();
         }
 

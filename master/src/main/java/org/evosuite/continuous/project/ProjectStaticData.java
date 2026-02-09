@@ -61,7 +61,7 @@ public class ProjectStaticData {
     private static final Logger logger = LoggerFactory.getLogger(ProjectStaticData.class);
 
     /**
-     * Map from CUT full class name (key) to ClassInfo object (value)
+     * Map from CUT full class name (key) to ClassInfo object (value).
      */
     private final Map<String, ClassInfo> classes;
 
@@ -90,24 +90,26 @@ public class ProjectStaticData {
         // Load history file
         BufferedReader br = null;
         try {
-            String sCurrentLine;
+            String currentLine;
 
             br = new BufferedReader(new FileReader(Properties.CTG_HISTORY_FILE));
-            while ((sCurrentLine = br.readLine()) != null) {
-                String[] split = sCurrentLine.split("\t");
+            while ((currentLine = br.readLine()) != null) {
+                String[] split = currentLine.split("\t");
 
                 switch (split[0]) {
                     case "A": // 'added' and 'modified' are treated equally
                     case "M":
                         // only consider .java entries
-                        if (split[1].endsWith(".java"))
+                        if (split[1].endsWith(".java")) {
                             this.modifiedFiles.add(split[1].replace(File.separator, "."));
+                        }
                         break;
                     case "D":
                         // ignore
                         break;
                     default:
-                        logger.error("option '" + split[0] + "' in the " + Properties.CTG_HISTORY_FILE + " file not supported");
+                        logger.error("option '" + split[0] + "' in the "
+                                + Properties.CTG_HISTORY_FILE + " file not supported");
                         break;
                 }
             }
@@ -117,8 +119,9 @@ public class ProjectStaticData {
             logger.error("error reading '" + Properties.CTG_HISTORY_FILE + "' file", e);
         } finally {
             try {
-                if (br != null)
+                if (br != null) {
                     br.close();
+                }
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
@@ -128,7 +131,7 @@ public class ProjectStaticData {
     }
 
     /**
-     * Immutable class representing all the info data for a class
+     * Immutable class representing all the info data for a class.
      *
      * @author arcuri
      */
@@ -137,29 +140,29 @@ public class ProjectStaticData {
         public final int numberOfBranches;
         /**
          * we cannot only consider the number of branches, as there might be
-         * CUTs with code but no branches
+         * CUTs with code but no branches.
          */
         public final boolean hasCode;
 
         /**
-         * has the last commit added/modified the CUT?
+         * Has the last commit added/modified the CUT.
          */
         private boolean hasChanged = true;
 
         /**
-         * a class should be tested if we still don't have
+         * A class should be tested if we still don't have
          * 100% coverage or if the coverage has improved
-         * in the last N generations
+         * in the last N generations.
          */
         private boolean isToTest = true;
 
         /**
-         * time budget in seconds allocated to test this class
+         * time budget in seconds allocated to test this class.
          */
         private int timeBudgetInSeconds = 0;
 
         /**
-         * amount of memory in Megabytes used to test this class
+         * amount of memory in Megabytes used to test this class.
          */
         private int memoryInMB = 0;
 
@@ -213,9 +216,9 @@ public class ProjectStaticData {
 
     /**
      * Add a new ClassInfo. Note: this is protected, as only classes in this
-     * package should be allowed to modify the state of this class
+     * package should be allowed to modify the state of this class.
      *
-     * @param info
+     * @param info class info
      */
     protected void addNewClass(ClassInfo info) {
         classes.put(info.getClassName(), info);
@@ -227,19 +230,19 @@ public class ProjectStaticData {
 
     /**
      * Return the class info of the given class (with full qualifying name),
-     * or <code>null</code> if missing
+     * or <code>null</code> if missing.
      *
-     * @param name
-     * @return
+     * @param name class name
+     * @return class info
      */
     public ClassInfo getClassInfo(String name) {
         return classes.get(name);
     }
 
     /**
-     * Return the number of classes in the project, including non-testable ones
+     * Return the number of classes in the project, including non-testable ones.
      *
-     * @return
+     * @return number of classes
      */
     public int getTotalNumberOfClasses() {
         return classes.size();
@@ -247,9 +250,9 @@ public class ProjectStaticData {
 
     /**
      * If an abstract class or interface has no coded/implemented method, then
-     * there would be no point in generating test cases for it
+     * there would be no point in generating test cases for it.
      *
-     * @return
+     * @return number of testable cuts
      */
     public int getTotalNumberOfTestableCUTs() {
         int total = 0;
@@ -271,25 +274,28 @@ public class ProjectStaticData {
     }
 
     /**
-     * Return an unmodifiable copy of the current data info of the classes in the SUT
+     * Return an unmodifiable copy of the current data info of the classes in the SUT.
      *
-     * @return
+     * @return class infos
      */
     public Collection<ClassInfo> getClassInfos() {
         return Collections.unmodifiableCollection(classes.values());
     }
 
     /**
-     * Return an unmodifiable copy of the names of the classes in the SUT
+     * Return an unmodifiable copy of the names of the classes in the SUT.
      *
-     * @return
+     * @return class names
      */
     public Collection<String> getClassNames() {
         return Collections.unmodifiableCollection(classes.keySet());
     }
 
     /**
-     * Returns true if a class has been changed, false otherwise
+     * Returns true if a class has been changed, false otherwise.
+     *
+     * @param javaFileName java file name
+     * @return true if changed
      */
     public boolean hasChanged(String javaFileName) {
         return this.modifiedFiles.parallelStream().anyMatch(m -> m.endsWith(javaFileName));
@@ -305,9 +311,9 @@ public class ProjectStaticData {
      * generations. I.e., it checks whether it is worth to test
      * 'className'.
      *
-     * @param className
-     * @param n
-     * @return
+     * @param className class name
+     * @param n number of generations
+     * @return true if should test
      */
     public boolean isToTest(String className, int n) {
 
@@ -323,15 +329,15 @@ public class ProjectStaticData {
             return true; // we don't have any coverage yet
         }
 
-        int how_many_generations_so_far = cut.getGeneration().size();
+        int howManyGenerationsSoFar = cut.getGeneration().size();
 
         // did EvoSuite crashed?
-        if (cut.getGeneration().get(how_many_generations_so_far - 1).isFailed()) {
+        if (cut.getGeneration().get(howManyGenerationsSoFar - 1).isFailed()) {
             return true;
         }
 
         // not enough data to compare
-        if (how_many_generations_so_far < n) {
+        if (howManyGenerationsSoFar < n) {
             return true;
         }
 
@@ -343,7 +349,7 @@ public class ProjectStaticData {
 
         List<Generation> lastNGenerations = cut.getGeneration().stream()
                 .filter(g -> g.getTimeBudgetInSeconds().intValue() > 0)
-                .skip(how_many_generations_so_far - n)
+                .skip(howManyGenerationsSoFar - n)
                 .collect(Collectors.toList());
 
         // project_info.xml is populated with many 'generation' elements,
@@ -374,9 +380,9 @@ public class ProjectStaticData {
     }
 
     /**
-     * Return a read-only view of the current project CUT graph
+     * Return a read-only view of the current project CUT graph.
      *
-     * @return
+     * @return project graph
      */
     public ProjectGraph getProjectGraph() {
         if (graph == null) {

@@ -45,7 +45,8 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
     private final Registry registry;
     private final Map<String, ClientNodeRemote> clients;
 
-    protected final Collection<Listener<ClientStateInformation>> listeners = Collections.synchronizedList(new ArrayList<>());
+    protected final Collection<Listener<ClientStateInformation>> listeners =
+            Collections.synchronizedList(new ArrayList<>());
 
     /**
      * It is important to keep track of client states for debugging reasons. For
@@ -88,7 +89,8 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
 
     @Override
     public void evosuite_informChangeOfStateInClient(String clientRmiIdentifier,
-                                                     ClientState state, ClientStateInformation information) throws RemoteException {
+                                                     ClientState state,
+                                                     ClientStateInformation information) throws RemoteException {
         clientStates.put(clientRmiIdentifier, state);
         // To be on the safe side
         information.setState(state);
@@ -227,7 +229,7 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
 
     /**
      * <p>
-     * fireEvent
+     * fireEvent.
      * </p>
      *
      * @param event a T object.

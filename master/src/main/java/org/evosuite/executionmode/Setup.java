@@ -57,11 +57,11 @@ public class Setup {
 
         Properties.CP = "";
 
-		/*
-			Important that target will be first on the CP.
-			Otherwise, if for some reasons a dependency uses a same class,
-			that would take precedence
-		 */
+        /*
+         * Important that target will be first on the CP.
+         * Otherwise, if for some reasons a dependency uses a same class,
+         * that would take precedence
+         */
         File targetFile = new File(target);
         if (targetFile.exists()) {
             if (targetFile.isDirectory() || target.endsWith(".jar")) {

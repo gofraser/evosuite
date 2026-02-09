@@ -39,7 +39,8 @@ public class SimpleSchedule extends OneTimeSchedule {
         assert enoughBudgetForAll();
 
         ProjectStaticData data = scheduler.getProjectData();
-        int totalBudgetInSeconds = 60 * scheduler.getConfiguration().timeInMinutes * scheduler.getConfiguration().getNumberOfUsableCores();
+        int totalBudgetInSeconds = 60 * scheduler.getConfiguration().timeInMinutes
+                * scheduler.getConfiguration().getNumberOfUsableCores();
 
         List<JobDefinition> jobs = new LinkedList<>();
 
@@ -54,7 +55,8 @@ public class SimpleSchedule extends OneTimeSchedule {
                 continue;
             }
             JobDefinition job = new JobDefinition(
-                    budgetInSecondsPerCUT, scheduler.getConfiguration().getConstantMemoryPerJob(), info.getClassName(), 0, null, null);
+                    budgetInSecondsPerCUT, scheduler.getConfiguration().getConstantMemoryPerJob(),
+                    info.getClassName(), 0, null, null);
             jobs.add(job);
         }
         return jobs;

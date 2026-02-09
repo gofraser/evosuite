@@ -42,7 +42,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * The class that actually execute the job as a separated process
+ * The class that actually execute the job as a separated process.
  *
  * @author arcuri
  */
@@ -55,7 +55,9 @@ public class JobHandler extends Thread {
     private Process latestProcess;
 
     /**
-     * Main constructor
+     * Main constructor.
+     *
+     * @param executor the job executor
      */
     public JobHandler(JobExecutor executor) {
         super();
@@ -78,10 +80,11 @@ public class JobHandler extends Thread {
     }
 
     /**
-     * Return a pool of handlers, all sharing same queue and latch
+     * Return a pool of handlers, all sharing same queue and latch.
      *
-     * @param n
-     * @return
+     * @param n number of handlers
+     * @param executor the job executor
+     * @return an array of JobHandlers
      */
     public static JobHandler[] getPool(int n, JobExecutor executor) {
         JobHandler[] jobs = new JobHandler[n];
@@ -126,21 +129,23 @@ public class JobHandler extends Thread {
 
                 LocalDateTime endBy = LocalDateTime.now().plus(job.seconds, ChronoUnit.SECONDS);
 
-                LoggingUtils.getEvoLogger().info("Going to start job for: " + job.cut +
-                        ". Expected to end in " + job.seconds + " seconds, by " + endBy.toString());
+                LoggingUtils.getEvoLogger().info("Going to start job for: " + job.cut
+                        + ". Expected to end in " + job.seconds + " seconds, by " + endBy.toString());
 
 
                 logger.debug("Base directory: " + baseDir);
                 if (logger.isDebugEnabled()) {
                     String commandString = String.join(" ", parsedCommand);
-                    commandString = commandString.replace("\\", "\\\\"); //needed for nice print in bash shell on Windows (eg Cygwin and GitBash)
+                    //needed for nice print in bash shell on Windows (eg Cygwin and GitBash)
+                    commandString = commandString.replace("\\", "\\\\");
                     logger.debug("Commands: " + commandString);
                 }
                 process = builder.start();
                 latestProcess = process;
                 handleProcessOutput(process);
 
-                int exitCode = process.waitFor(); //no need to have timeout here, as it is handled by the scheduler/executor
+                //no need to have timeout here, as it is handled by the scheduler/executor
+                int exitCode = process.waitFor();
 
                 if (exitCode != 0) {
                     handleProcessError(job, process);
@@ -170,7 +175,8 @@ public class JobHandler extends Thread {
             }
         }
     }
-    private final void handleProcessOutput(final Process process) {
+
+    private void handleProcessOutput(final Process process) {
         Thread reader = new Thread() {
             @Override
             public void run() {
@@ -195,11 +201,11 @@ public class JobHandler extends Thread {
 
     /**
      * Print process console output if it died, as its logs on disks might not
-     * have been generated yet
+     * have been generated yet.
      *
-     * @param job
-     * @param process
-     * @throws IOException
+     * @param job the job
+     * @param process the process
+     * @throws IOException if io error
      */
     private void handleProcessError(JobDefinition job, Process process)
             throws IOException {
@@ -287,10 +293,10 @@ public class JobHandler extends Thread {
             );
         }
 
-		/*
-			Actual call to EvoSuite. "Commands" before this line will be applied
-			to the spawn process, whereas the ones after will be its input parameters
-		 */
+        /*
+            Actual call to EvoSuite. "Commands" before this line will be applied
+            to the spawn process, whereas the ones after will be its input parameters
+         */
         commands.add(org.evosuite.EvoSuite.class.getName());
 
         if (Properties.CTG_DEBUG_PORT != null) {
@@ -367,10 +373,10 @@ public class JobHandler extends Thread {
         commands.addAll(getOutputVariables());
         commands.add("-Danalysis_criteria=" + Properties.ANALYSIS_CRITERIA);
 
-        commands.add("-Dcriterion=" + Arrays.toString(Properties.CRITERION).
-                replace("[", "").
-                replace("]", "").
-                replaceAll(", ", ":"));
+        commands.add("-Dcriterion=" + Arrays.toString(Properties.CRITERION)
+                .replace("[", "")
+                .replace("]", "")
+                .replaceAll(", ", ":"));
 
         commands.add("-Djunit_suffix=" + Properties.JUNIT_SUFFIX);
 
@@ -483,8 +489,10 @@ public class JobHandler extends Thread {
 
                 //special cases
                 if (criterion.equals(Properties.Criterion.EXCEPTION)) {
-                    cmd.append("," + RuntimeVariable.Explicit_MethodExceptions + "," + RuntimeVariable.Explicit_TypeExceptions);
-                    cmd.append("," + RuntimeVariable.Implicit_MethodExceptions + "," + RuntimeVariable.Implicit_TypeExceptions);
+                    cmd.append("," + RuntimeVariable.Explicit_MethodExceptions
+                            + "," + RuntimeVariable.Explicit_TypeExceptions);
+                    cmd.append("," + RuntimeVariable.Implicit_MethodExceptions
+                            + "," + RuntimeVariable.Implicit_TypeExceptions);
                 } else if (criterion.equals(Properties.Criterion.STATEMENT)) {
                     cmd.append("," + RuntimeVariable.Statements_Executed);
                 }
@@ -522,7 +530,8 @@ public class JobHandler extends Thread {
                     continue;
                 }
                 if (!token.startsWith("-D")) {
-                    throw new IllegalStateException("Invalid extra parameter \"" + token + "\" as it does not start with '-D'");
+                    throw new IllegalStateException("Invalid extra parameter \"" + token
+                            + "\" as it does not start with '-D'");
                 }
                 commands.add(token);
             }
