@@ -262,19 +262,20 @@ public class TestGeneration {
         }
 
         LoggingUtils[] logServer = new LoggingUtils[Properties.NUM_PARALLEL_CLIENTS];
-        ExternalProcessGroupHandler handler = new ExternalProcessGroupHandler(Properties.NUM_PARALLEL_CLIENTS);
-        int port = handler.openServer();
+        ExternalProcessGroupHandler handler = ExecutionModeUtils.createParallelClientHandler(
+                Properties.NUM_PARALLEL_CLIENTS);
+        int port = ExecutionModeUtils.openServer(handler);
         if (port <= 0) {
             throw new RuntimeException("Not possible to start RMI service");
         }
         handler.setBaseDir(EvoSuite.base_dir_path);
 
-        cmdLine.add("-Dprocess_communication_port=" + port);
+        ExecutionModeUtils.addProcessCommunicationPort(cmdLine, port);
         cmdLine.add("-Dinline=true");
         if (Properties.HEADLESS_MODE) {
-            cmdLine.add("-Djava.awt.headless=true");
+            ExecutionModeUtils.addHeadlessMode(cmdLine);
         }
-        cmdLine.add("-Dlogback.configurationFile=" + LoggingUtils.getLogbackFileName());
+        ExecutionModeUtils.addLogbackConfiguration(cmdLine);
         cmdLine.add("-Dlog4j.configuration=SUT.log4j.properties");
 
         /*
@@ -295,7 +296,7 @@ public class TestGeneration {
         }
         //------------------------------------------------
 
-        cmdLine.add("-Djava.library.path=lib");
+        ExecutionModeUtils.addJavaLibraryPath(cmdLine);
         // cmdLine.add("-Dminimize_values=true");
 
         if (!Properties.PROFILE.isEmpty()) {
@@ -322,22 +323,9 @@ public class TestGeneration {
         cmdLine.add("-XX:MaxJavaStackTraceDepth=1000000");
         cmdLine.add("-XX:+StartAttachListener");
 
-        // Add module access flags needed for XStream serialization (Java 9+)
-        cmdLine.add("--add-opens");
-        cmdLine.add("java.base/java.util=ALL-UNNAMED");
-        cmdLine.add("--add-opens");
-        cmdLine.add("java.base/java.lang=ALL-UNNAMED");
-        // Add module access flags needed for VirtualNetwork (Java 9+)
-        cmdLine.add("--add-opens");
-        cmdLine.add("java.base/java.net=ALL-UNNAMED");
-        cmdLine.add("--add-opens");
-        cmdLine.add("java.desktop/java.awt=ALL-UNNAMED");
+        ExecutionModeUtils.addCommonModuleOpens(cmdLine);
 
-        for (String arg : args) {
-            if (!arg.startsWith("-DCP=")) {
-                cmdLine.add(arg);
-            }
-        }
+        ExecutionModeUtils.addArgsExcludingCpProperty(cmdLine, args);
 
         switch (strategy) {
             case EVOSUITE:
@@ -396,10 +384,8 @@ public class TestGeneration {
             default:
                 throw new RuntimeException("Unsupported strategy: " + strategy);
         }
-        cmdLine.add("-DTARGET_CLASS=" + target);
-        if (Properties.PROJECT_PREFIX != null) {
-            cmdLine.add("-DPROJECT_PREFIX=" + Properties.PROJECT_PREFIX);
-        }
+        ExecutionModeUtils.addTargetClassProperty(cmdLine, target);
+        ExecutionModeUtils.addProjectPrefixPropertyIfPresent(cmdLine);
 
         for (String entry : ClassPathHandler.getInstance().getTargetProjectClasspath().split(File.pathSeparator)) {
             try {
@@ -415,9 +401,7 @@ public class TestGeneration {
          * visible to the master process (ie this process), when we access the Properties file. At the moment, we only
          * need few parameters, so we can hack them
          */
-        Properties.getInstance();// should force the load, just to be sure
-        Properties.TARGET_CLASS = target;
-        Properties.PROCESS_COMMUNICATION_PORT = port;
+        ExecutionModeUtils.applyClientProperties(target, port);
 
         for (int i = 0; i < Properties.NUM_PARALLEL_CLIENTS; i++) {
             List<String> cmdLineClone = new ArrayList<>(cmdLine);
@@ -432,7 +416,7 @@ public class TestGeneration {
                         + Properties.PORT + "...");
             }
 
-            cmdLineClone.add(ClientProcess.class.getName());
+            ExecutionModeUtils.addClientMainClass(cmdLineClone);
 
             if (Properties.NUM_PARALLEL_CLIENTS == 1) {
                 cmdLineClone.add(ClientProcess.DEFAULT_CLIENT_NAME); //to keep functionality for non parallel runs

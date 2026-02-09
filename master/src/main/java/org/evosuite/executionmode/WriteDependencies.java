@@ -22,12 +22,8 @@ package org.evosuite.executionmode;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import org.evosuite.ClientProcess;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
-import org.evosuite.classpath.ClassPathHacker;
-import org.evosuite.classpath.ClassPathHandler;
-import org.evosuite.instrumentation.BytecodeInstrumentation;
 import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
 import org.evosuite.runtime.util.JavaExecCmdUtil;
@@ -36,8 +32,6 @@ import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,85 +62,46 @@ public class WriteDependencies {
     private static void writeDependencies(String targetFile, String targetClass,
                                           List<String> args) {
 
-        if (!BytecodeInstrumentation.checkIfCanInstrument(targetClass)) {
-            throw new IllegalArgumentException(
-                    "Cannot consider "
-                            + targetClass
-                            + " because it belongs to one of the packages EvoSuite cannot currently handle");
-        }
-        String classPath = ClassPathHandler.getInstance().getEvoSuiteClassPath();
-        String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
-        classPath += File.pathSeparator + cp;
+        ExecutionModeUtils.ensureInstrumentableTargetClass(targetClass);
+        ExecutionModeUtils.ClasspathInfo classpathInfo = ExecutionModeUtils.getClasspathInfo();
+        String classPath = classpathInfo.combinedClasspath;
+        String cp = classpathInfo.projectClasspath;
 
-        ExternalProcessGroupHandler handler = new ExternalProcessGroupHandler();
-        int port = handler.openServer();
+        ExternalProcessGroupHandler handler = ExecutionModeUtils.createSingleClientHandler();
+        int port = ExecutionModeUtils.openServer(handler);
         List<String> cmdLine = new ArrayList<>();
         cmdLine.add(JavaExecCmdUtil.getJavaBinExecutablePath(true)/*EvoSuite.JAVA_CMD*/);
         cmdLine.add("-cp");
         cmdLine.add(classPath);
-        cmdLine.add("-Dprocess_communication_port=" + port);
-        cmdLine.add("-Djava.awt.headless=true");
-        cmdLine.add("-Dlogback.configurationFile=" + LoggingUtils.getLogbackFileName());
-        cmdLine.add("-Djava.library.path=lib");
-        // Add module access flags needed for XStream serialization (Java 9+)
-        cmdLine.add("--add-opens");
-        cmdLine.add("java.base/java.util=ALL-UNNAMED");
-        cmdLine.add("--add-opens");
-        cmdLine.add("java.base/java.lang=ALL-UNNAMED");
-        // Add module access flags needed for VirtualNetwork (Java 9+)
-        cmdLine.add("--add-opens");
-        cmdLine.add("java.base/java.net=ALL-UNNAMED");
-        cmdLine.add("-DCP=" + cp);
+        ExecutionModeUtils.addProcessCommunicationPort(cmdLine, port);
+        ExecutionModeUtils.addHeadlessMode(cmdLine);
+        ExecutionModeUtils.addLogbackConfiguration(cmdLine);
+        ExecutionModeUtils.addJavaLibraryPath(cmdLine);
+        ExecutionModeUtils.addCommonModuleOpens(cmdLine);
+        ExecutionModeUtils.addCpProperty(cmdLine, cp);
         // cmdLine.add("-Dminimize_values=true");
 
-        for (String arg : args) {
-            if (!arg.startsWith("-DCP=")) {
-                cmdLine.add(arg);
-            }
-        }
+        ExecutionModeUtils.addArgsExcludingCpProperty(cmdLine, args);
 
-        cmdLine.add("-DTARGET_CLASS=" + targetClass);
-        if (Properties.PROJECT_PREFIX != null) {
-            cmdLine.add("-DPROJECT_PREFIX=" + Properties.PROJECT_PREFIX);
-        }
-
-        cmdLine.add("-Dclassloader=true");
-        cmdLine.add(ClientProcess.class.getName());
+        ExecutionModeUtils.addTargetClassProperty(cmdLine, targetClass);
+        ExecutionModeUtils.addProjectPrefixPropertyIfPresent(cmdLine);
+        ExecutionModeUtils.addClassloaderProperty(cmdLine);
+        ExecutionModeUtils.addClientMainClass(cmdLine);
 
         /*
          * TODO: here we start the client with several properties that are set through -D. These properties are not
          * visible to the master process (ie this process), when we access the Properties file. At the moment, we only
          * need few parameters, so we can hack them
          */
-        Properties.getInstance();// should force the load, just to be sure
-        Properties.TARGET_CLASS = targetClass;
-        Properties.PROCESS_COMMUNICATION_PORT = port;
+        ExecutionModeUtils.applyClientProperties(targetClass, port);
 
-        LoggingUtils logUtils = new LoggingUtils();
-
-        if (!Properties.CLIENT_ON_THREAD) {
-            /*
-             * We want to completely mute the SUT. So, we block all outputs from client, and use a remote logging
-             */
-            boolean logServerStarted = logUtils.startLogServer();
-            if (!logServerStarted) {
-                logger.error("Cannot start the log server");
-                return;
-            }
-            int logPort = logUtils.getLogServerPort(); //
-            cmdLine.add(1, "-Dmaster_log_port=" + logPort);
-            cmdLine.add(1, "-Devosuite.log.appender=CLIENT");
+        LoggingUtils logUtils = ExecutionModeUtils.configureRemoteLoggingIfNeeded(cmdLine, logger);
+        if (!Properties.CLIENT_ON_THREAD && logUtils == null) {
+            return;
         }
 
         String[] newArgs = cmdLine.toArray(new String[cmdLine.size()]);
-        for (String entry : ClassPathHandler.getInstance().getClassPathElementsForTargetProject()) {
-            try {
-                ClassPathHacker.addFile(entry);
-            } catch (IOException e) {
-                LoggingUtils.getEvoLogger().info("* Error while adding classpath entry: "
-                        + entry);
-            }
-        }
+        ExecutionModeUtils.addTargetProjectClasspathElementsToSystem();
 
         handler.setBaseDir(EvoSuite.base_dir_path);
         if (handler.startProcess(newArgs)) {
@@ -190,7 +145,7 @@ public class WriteDependencies {
 
         handler.closeServer();
 
-        if (!Properties.CLIENT_ON_THREAD) {
+        if (logUtils != null) {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
