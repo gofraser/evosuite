@@ -25,7 +25,7 @@ import org.objectweb.asm.Opcodes;
 
 /**
  * Add instrumentation in each method to set up a kill switch to stop
- * the SUT threads
+ * the SUT threads.
  *
  * @author arcuri
  */

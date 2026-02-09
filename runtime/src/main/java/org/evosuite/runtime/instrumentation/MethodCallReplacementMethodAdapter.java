@@ -84,9 +84,10 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         // not for super calls because not all mock classes may be superclasses
         // of the actual object. E.g. Throwable -> Exception -> RuntimeException
         // A MockRuntimeException is not a subclass of MockException and MockThrowable
-        if (MethodCallReplacementCache.getInstance().hasReplacementCall(owner, name + desc) &&
-                (opcode != Opcodes.INVOKESPECIAL || name.equals("<init>"))) {
-            MethodCallReplacement replacement = MethodCallReplacementCache.getInstance().getReplacementCall(owner, name + desc);
+        if (MethodCallReplacementCache.getInstance().hasReplacementCall(owner, name + desc)
+                && (opcode != Opcodes.INVOKESPECIAL || name.equals("<init>"))) {
+            MethodCallReplacement replacement = MethodCallReplacementCache.getInstance().getReplacementCall(owner,
+                    name + desc);
             isReplaced = true;
             replacement.insertMethodCall(this, Opcodes.INVOKESTATIC);
             hasBeenInstrumented = true;
@@ -95,7 +96,8 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         // for constructors
         if (!isReplaced) {
             if (MethodCallReplacementCache.getInstance().hasSpecialReplacementCall(owner, name + desc)) {
-                MethodCallReplacement replacement = MethodCallReplacementCache.getInstance().getSpecialReplacementCall(owner, name + desc);
+                MethodCallReplacement replacement = MethodCallReplacementCache.getInstance()
+                        .getSpecialReplacementCall(owner, name + desc);
                 if (replacement.isTarget(owner, name, desc)
                         && opcode == Opcodes.INVOKESPECIAL && name.equals("<init>")) {
                     isReplaced = true;
@@ -107,9 +109,9 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
                             isSelf = true;
                         }
                     }
-                    if (replacement.getMethodName().equals("<init>"))
+                    if (replacement.getMethodName().equals("<init>")) {
                         replacement.insertConstructorCall(this, replacement, isSelf);
-                    else {
+                    } else {
                         replacement.insertMethodCall(this, Opcodes.INVOKESPECIAL);
                     }
                 }
@@ -117,17 +119,17 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         }
 
         // non-static replacement methods
-//		if (!isReplaced) {
-//			iterator = MethodCallReplacementCache.getInstance().getVirtualReplacementCalls();
-//			while(iterator.hasNext()) {
-//				MethodCallReplacement replacement = iterator.next();
-//				if (replacement.isTarget(owner, name, desc)) {
-//					isReplaced = true;
-//					replacement.insertMethodCall(this, Opcodes.INVOKEVIRTUAL);
-//					break;
-//				}
-//			}
-//		}
+        //        if (!isReplaced) {
+        //            iterator = MethodCallReplacementCache.getInstance().getVirtualReplacementCalls();
+        //            while(iterator.hasNext()) {
+        //                MethodCallReplacement replacement = iterator.next();
+        //                if (replacement.isTarget(owner, name, desc)) {
+        //                    isReplaced = true;
+        //                    replacement.insertMethodCall(this, Opcodes.INVOKEVIRTUAL);
+        //                    break;
+        //                }
+        //            }
+        //        }
 
         if (!isReplaced) {
             super.visitMethodInsn(opcode, owner, name, desc, itf);
@@ -148,9 +150,10 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         // which _may_ increase the max stack size. A ASM
         // doesn't manage to calculate the maximum stack size
         // correctly we just add one here
-        if (hasBeenInstrumented)
+        if (hasBeenInstrumented) {
             super.visitMaxs(maxStack + 1, maxLocals);
-        else
+        } else {
             super.visitMaxs(maxStack, maxLocals);
+        }
     }
 }

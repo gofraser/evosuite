@@ -26,14 +26,14 @@ import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.MethodNode;
 
 /**
- * <p>AnnotatedMethodNode class.</p>
+ * AnnotatedMethodNode class.
  *
  * @author fraser
  */
 public class AnnotatedMethodNode extends MethodNode {
 
     /**
-     * <p>Constructor for AnnotatedMethodNode.</p>
+     * Constructor for AnnotatedMethodNode.
      *
      * @param access     a int.
      * @param name       a {@link java.lang.String} object.
@@ -48,8 +48,8 @@ public class AnnotatedMethodNode extends MethodNode {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Returns the LabelNode corresponding to the given Label. Creates a new
+     *
+     * <p>Returns the LabelNode corresponding to the given Label. Creates a new
      * LabelNode if necessary. The default implementation of this method uses
      * the {@link Label#info} field to store associations between labels and
      * label nodes.

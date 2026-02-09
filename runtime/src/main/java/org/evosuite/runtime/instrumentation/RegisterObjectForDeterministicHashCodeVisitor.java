@@ -38,7 +38,8 @@ public class RegisterObjectForDeterministicHashCodeVisitor extends AdviceAdapter
         // exited with an exception
         if (opcode == Opcodes.RETURN) {
             loadThis();
-            invokeStatic(Type.getType(org.evosuite.runtime.System.class), Method.getMethod("void registerObjectForIdentityHashCode(Object)"));
+            invokeStatic(Type.getType(org.evosuite.runtime.System.class),
+                    Method.getMethod("void registerObjectForIdentityHashCode(Object)"));
         }
         super.visitInsn(opcode);
     }

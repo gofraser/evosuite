@@ -26,7 +26,7 @@ import org.objectweb.asm.Opcodes;
 
 
 /**
- * Add a kill switch call at each line statement and before each jump
+ * Add a kill switch call at each line statement and before each jump.
  *
  * @author arcuri
  */
