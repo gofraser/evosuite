@@ -20,7 +20,6 @@
 package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.mock.OverrideMock;
-
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,7 +29,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketImpl;
-
 
 public abstract class MockSocketImpl extends SocketImpl implements OverrideMock {
 
@@ -66,75 +64,74 @@ public abstract class MockSocketImpl extends SocketImpl implements OverrideMock 
     protected abstract void close() throws IOException;
     protected abstract void sendUrgentData (int data) throws IOException;
      
-
     @Override
     protected void shutdownInput() throws IOException {
       //throw new IOException("Method not implemented!");
-    		super.shutdownInput();
+            super.shutdownInput();
     }
 
     @Override
     protected void shutdownOutput() throws IOException {
       //throw new IOException("Method not implemented!");
-    		super.shutdownOutput();
+            super.shutdownOutput();
     }
 
     @Override
     protected FileDescriptor getFileDescriptor() {
         //return fd;
-    		return super.getFileDescriptor();
+            return super.getFileDescriptor();
     }
 
     @Override
     protected InetAddress getInetAddress() {
         //return address;
-    		return super.getInetAddress();
+            return super.getInetAddress();
     }
 
     @Override
     protected int getPort() {
         //return port;
-    		return super.getPort();
+            return super.getPort();
     }
 
     @Override
     protected int getLocalPort() {
         //return localport;
-    		return super.getLocalPort();
+            return super.getLocalPort();
     }
         
     @Override
     protected boolean supportsUrgentData () {
         //return false; // must be overridden in sub-class
-    		return super.supportsUrgentData();
+            return super.supportsUrgentData();
     }
 
     @Override
     protected void setPerformancePreferences(int connectionTime,
                                           int latency,
-                                          int bandwidth){
+                                          int bandwidth) {
         super.setPerformancePreferences(connectionTime, latency, bandwidth);
     }
     
     @Override
     public String toString() {
-    		return super.toString();
+            return super.toString();
         //return "Socket[addr=" + getInetAddress() +
           //  ",port=" + getPort() + ",localport=" + getLocalPort()  + "]";
     }
 
     //-----------------------------------------------
 
-    protected void setRemoteAddress(InetAddress remoteAddress){
-    		address = remoteAddress;
+    protected void setRemoteAddress(InetAddress remoteAddress) {
+            address = remoteAddress;
     }
         
-    protected void setRemotePort(int p){
-    		port = p;
+    protected void setRemotePort(int p) {
+            port = p;
     }
     
-    protected void setLocalPort(int p){
-    		localport = p;
+    protected void setLocalPort(int p) {
+            localport = p;
     }
     
     //-----------------------------------------------
@@ -145,7 +142,6 @@ public abstract class MockSocketImpl extends SocketImpl implements OverrideMock 
      *  
      *  TODO need to check ALL of their callers in java.net.*
      */
-    
     
     protected void setSocket(MockSocket soc) {
         this.socket = soc;
@@ -163,12 +159,10 @@ public abstract class MockSocketImpl extends SocketImpl implements OverrideMock 
         return serverSocket;
     }
 
-
     protected void reset() throws IOException {
         address = null;
         port = 0;
         localport = 0;
     }
 
-	
 }

@@ -28,7 +28,6 @@ import java.util.Locale;
  */
 public class MockLocale { // extends Locale {
 
-
     public static void reset() {
         Locale.setDefault(Locale.ENGLISH);
     }

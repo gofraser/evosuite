@@ -26,7 +26,6 @@ import org.evosuite.runtime.mock.java.lang.MockError;
 import org.evosuite.runtime.mock.java.lang.MockIllegalArgumentException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -73,7 +72,6 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
         IMPL = f;
     }
 
-
     /*
         following fields are the same as in superclass.
         however, they are not overwritten, as in superclass they
@@ -100,8 +98,6 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
     }
     */
 
-
-
     protected MockDatagramSocket(DatagramSocketImpl impl) throws SocketException {
     /*
         note: we need to pass to the super(impl) constructor a non-null reference.
@@ -112,7 +108,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
                 new EvoDatagramSocketImpl():
                 impl);
 
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return;
         }
 
@@ -122,7 +118,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
     public MockDatagramSocket() throws SocketException {
         super(new EvoDatagramSocketImpl());
 
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             try {
                 IMPL.set(this, null);
                 CREATE_IMPL.invoke(this);
@@ -142,16 +138,15 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
             bind(new MockInetSocketAddress(0));
         } catch (SocketException se) {
             throw se;
-        } catch(IOException e) {
+        } catch (IOException e) {
             throw new SocketException(e.getMessage());
         }
     }
 
-
     public MockDatagramSocket(SocketAddress bindaddr) throws SocketException {
         super(new EvoDatagramSocketImpl());
 
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             try {
                 IMPL.set(this, null);
                 CREATE_IMPL.invoke(this);
@@ -161,7 +156,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
                 //should never happen
                 logger.error("Failed reflection");
             }
-            if(bindaddr!=null) {
+            if (bindaddr != null) {
                 super.bind(bindaddr);
             }
             return;
@@ -177,7 +172,6 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
         this(port, null);
     }
 
-
     public MockDatagramSocket(int port, InetAddress laddr) throws SocketException {
         this(MockFramework.isEnabled() ?
                         new MockInetSocketAddress(laddr, port) :
@@ -185,9 +179,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
         );
     }
 
-
     // -----------------------------------
-
 
     /*
         it was package level in superclass
@@ -237,7 +229,6 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
         connectedPort = port;
     }
 
-
     private EvoDatagramSocketImpl getImpl() throws SocketException {
         if (!created) {
             createImpl();
@@ -247,7 +238,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public synchronized void bind(SocketAddress addr) throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.bind(addr);
             return;
         }
@@ -287,7 +278,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public void connect(InetAddress address, int port) {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.connect(address,port);
             return;
         }
@@ -300,7 +291,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public void connect(SocketAddress addr) throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.connect(addr);
             return;
         }
@@ -316,7 +307,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public void disconnect() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.disconnect();
             return;
         }
@@ -334,7 +325,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public boolean isBound() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.isBound();
         }
         return bound;
@@ -342,7 +333,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public boolean isConnected() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.isConnected();
         }
         return connectState != ST_NOT_CONNECTED;
@@ -350,7 +341,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public InetAddress getInetAddress() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getInetAddress();
         }
         return connectedAddress;
@@ -358,7 +349,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public int getPort() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getPort();
         }
         return connectedPort;
@@ -366,7 +357,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public SocketAddress getRemoteSocketAddress() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getRemoteSocketAddress();
         }
         if (!isConnected())
@@ -376,7 +367,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public SocketAddress getLocalSocketAddress() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getLocalSocketAddress();
         }
         if (isClosed())
@@ -388,7 +379,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public void send(DatagramPacket p) throws IOException  {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.send(p);
             return;
         }
@@ -421,7 +412,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public synchronized void receive(DatagramPacket p) throws IOException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.receive(p);
             return;
         }
@@ -442,7 +433,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public InetAddress getLocalAddress() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getLocalAddress();
         }
         if (isClosed())
@@ -459,15 +450,13 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
         return in;
     }
 
-
-
     @Override
     public void close() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.close();
             return;
         }
-        synchronized(closeLock) {
+        synchronized (closeLock) {
             if (isClosed())
                 return;
             impl.close();
@@ -477,26 +466,25 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public boolean isClosed() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.isClosed();
         }
-        synchronized(closeLock) {
+        synchronized (closeLock) {
             return closed;
         }
     }
 
     @Override
     public DatagramChannel getChannel() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getChannel();
         }
         return null;
     }
 
-
     @Override
     public int getLocalPort() {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getLocalPort();
         }
         if (isClosed())
@@ -508,7 +496,6 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
         }
     }
 
-
     public static synchronized void setDatagramSocketImplFactory(DatagramSocketImplFactory fac)
             throws IOException
     {
@@ -516,12 +503,11 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
         throw new MockIOException("Setting of factory is not supported");
     }
 
-
     //-----------------------------------
 
     @Override
     public synchronized void setSoTimeout(int timeout) throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.setSoTimeout(timeout);
             return;
         }
@@ -532,7 +518,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public synchronized int getSoTimeout() throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getSoTimeout();
         }
         if (isClosed())
@@ -551,7 +537,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
     @Override
     public synchronized void setSendBufferSize(int size)
             throws SocketException{
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.setSendBufferSize(size);
             return;
         }
@@ -565,7 +551,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public synchronized int getSendBufferSize() throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getSendBufferSize();
         }
         if (isClosed())
@@ -581,7 +567,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
     @Override
     public synchronized void setReceiveBufferSize(int size)
             throws SocketException{
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.setReceiveBufferSize(size);
             return;
         }
@@ -596,7 +582,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
     @Override
     public synchronized int getReceiveBufferSize()
             throws SocketException{
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getReceiveBufferSize();
         }
         if (isClosed())
@@ -611,7 +597,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public synchronized void setReuseAddress(boolean on) throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.setReuseAddress(on);
             return;
         }
@@ -623,7 +609,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public synchronized boolean getReuseAddress() throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getReuseAddress();
         }
         if (isClosed())
@@ -634,7 +620,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public synchronized void setBroadcast(boolean on) throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.setBroadcast(on);
             return;
         }
@@ -645,7 +631,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public synchronized boolean getBroadcast() throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getBroadcast();
         }
         if (isClosed())
@@ -655,7 +641,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public synchronized void setTrafficClass(int tc) throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             super.setTrafficClass(tc);
             return;
         }
@@ -669,7 +655,7 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock{
 
     @Override
     public synchronized int getTrafficClass() throws SocketException {
-        if(!MockFramework.isEnabled()){
+        if (!MockFramework.isEnabled()) {
             return super.getTrafficClass();
         }
         if (isClosed())

@@ -19,14 +19,15 @@
  */
 package org.evosuite.runtime.mock.java.util.zip;
 
-/*
+import sun.security.action.GetPropertyAction;
 import java.io.Closeable;
-import java.io.InputStream;
-import java.io.IOException;
 import java.io.EOFException;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.security.AccessController;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Enumeration;
@@ -40,9 +41,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipError;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
-import java.security.AccessController;
-import sun.security.action.GetPropertyAction;
 import static org.evosuite.runtime.mock.java.util.zip.EvoZipConstants64.*;
+
+/*
 */
 
 //ZipFile implements ZipConstants, but it is package level access
@@ -52,8 +53,8 @@ import static org.evosuite.runtime.mock.java.util.zip.EvoZipConstants64.*;
  */
 public class MockZipFile { //extends ZipFile implements  Closeable {
 /*
-	
-	private long jzfile;           // address of jzfile data
+
+    private long jzfile;           // address of jzfile data
     private final String name;     // zip file name
     private final int total;       // total number of entries
     private final boolean locsig;  // if zip file starts with LOCSIG (usually true)
@@ -88,7 +89,6 @@ public class MockZipFile { //extends ZipFile implements  Closeable {
     // mapped to the inflater objects they use.
     private final Map<InputStream, Inflater> streams = new WeakHashMap<>();
 
-    
     //----- constructors ----------------------
     
     public MockZipFile(String name) throws IOException {
@@ -102,7 +102,6 @@ public class MockZipFile { //extends ZipFile implements  Closeable {
     public MockZipFile(File file) throws ZipException, IOException {
         this(file, OPEN_READ);
     }
-
 
     public MockZipFile(File file, int mode, Charset charset) throws IOException
     {
@@ -153,29 +152,28 @@ public class MockZipFile { //extends ZipFile implements  Closeable {
         }
     }
 
-    public ZipEntry getEntry(String name) {
+    public ZipEntry getEntry (String name) {
         if (name == null) {
             throw new NullPointerException("name");
         }
         long jzentry = 0;
         synchronized (this) {
             ensureOpen();
-            jzentry = getEntry(jzfile, zc.getBytes(name), true);
+            jzentry = getEntry (jzfile, zc.getBytes(name), true);
             if (jzentry != 0) {
-                ZipEntry ze = getZipEntry(name, jzentry);
-                freeEntry(jzfile, jzentry);
+                ZipEntry ze = getZipEntry (name, jzentry);
+                freeEntry (jzfile, jzentry);
                 return ze;
             }
         }
         return null;
     }
 
-    private static native long getEntry(long jzfile, byte[] name,
+    private static native long getEntry (long jzfile, byte[] name,
                                         boolean addSlash);
 
     // freeEntry releases the C jzentry struct.
-    private static native void freeEntry(long jzfile, long jzentry);
-
+    private static native void freeEntry (long jzfile, long jzentry);
 
     public InputStream getInputStream(ZipEntry entry) throws IOException {
         if (entry == null) {
@@ -186,9 +184,9 @@ public class MockZipFile { //extends ZipFile implements  Closeable {
         synchronized (this) {
             ensureOpen();
             if (!zc.isUTF8() && (entry.flag & EFS) != 0) {
-                jzentry = getEntry(jzfile, zc.getBytesUTF8(entry.name), false);
+                jzentry = getEntry (jzfile, zc.getBytesUTF8(entry.name), false);
             } else {
-                jzentry = getEntry(jzfile, zc.getBytes(entry.name), false);
+                jzentry = getEntry (jzfile, zc.getBytes(entry.name), false);
             }
             if (jzentry == 0) {
                 return null;
@@ -320,7 +318,7 @@ public class MockZipFile { //extends ZipFile implements  Closeable {
                         if (i >= total) {
                             throw new NoSuchElementException();
                         }
-                        long jzentry = getNextEntry(jzfile, i++);
+                        long jzentry = getNextEntry (jzfile, i++);
                         if (jzentry == 0) {
                             String message;
                             if (closeRequested) {
@@ -336,16 +334,16 @@ public class MockZipFile { //extends ZipFile implements  Closeable {
                                                ",\n message = " + message
                                 );
                         }
-                        ZipEntry ze = getZipEntry(null, jzentry);
-                        freeEntry(jzfile, jzentry);
+                        ZipEntry ze = getZipEntry (null, jzentry);
+                        freeEntry (jzfile, jzentry);
                         return ze;
                     }
                 }
             };
     }
 
-    private ZipEntry getZipEntry(String name, long jzentry) {
-        ZipEntry e = new ZipEntry();
+    private ZipEntry getZipEntry (String name, long jzentry) {
+        ZipEntry e = new ZipEntry ();
         e.flag = getEntryFlag(jzentry);  // get the flag first
         if (name != null) {
             e.name = name;
@@ -376,7 +374,7 @@ public class MockZipFile { //extends ZipFile implements  Closeable {
         return e;
     }
 
-    private static native long getNextEntry(long jzfile, int i);
+    private static native long getNextEntry (long jzfile, int i);
 
     public int size() {
         ensureOpen();
@@ -520,7 +518,7 @@ public class MockZipFile { //extends ZipFile implements  Closeable {
             rem = 0;
             synchronized (MockZipFile.this) {
                 if (jzentry != 0 && MockZipFile.this.jzfile != 0) {
-                    freeEntry(MockZipFile.this.jzfile, jzentry);
+                    freeEntry (MockZipFile.this.jzfile, jzentry);
                     jzentry = 0;
                 }
             }

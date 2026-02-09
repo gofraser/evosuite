@@ -20,11 +20,9 @@
 package org.evosuite.runtime.mock.java.time;
 
 import org.evosuite.runtime.mock.StaticReplacementMock;
-
 import java.time.*;
 import java.time.temporal.*;
 import java.util.Objects;
-
 
 /**
  * Created by gordon on 23/01/2016.
@@ -34,7 +32,6 @@ public class MockInstant implements StaticReplacementMock {
     public String getMockedClassName() {
         return Instant.class.getName();
     }
-
 
     // ---- static methods -------
 
@@ -55,7 +52,6 @@ public class MockInstant implements StaticReplacementMock {
         return Instant.ofEpochSecond(epochSecond, nanoAdjustment);
     }
 
-
     public static Instant ofEpochMilli(long epochMilli) {
         return Instant.ofEpochMilli(epochMilli);
     }
@@ -63,7 +59,6 @@ public class MockInstant implements StaticReplacementMock {
     public static Instant from(TemporalAccessor temporal) {
         return Instant.from(temporal);
     }
-
 
     public static Instant parse(final CharSequence text) {
         return Instant.parse(text);
@@ -199,7 +194,5 @@ public class MockInstant implements StaticReplacementMock {
     public static String toString(Instant instant) {
         return instant.toString();
     }
-
-
 
 }

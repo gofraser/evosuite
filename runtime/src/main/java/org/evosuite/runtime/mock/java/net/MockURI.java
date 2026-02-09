@@ -21,12 +21,10 @@ package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.mock.StaticReplacementMock;
 import org.evosuite.runtime.mock.java.lang.MockIllegalArgumentException;
-
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-
 
 public class MockURI implements StaticReplacementMock {
 
@@ -59,14 +57,12 @@ public class MockURI implements StaticReplacementMock {
         return new URI(str);
     }
 
-
     public static URI URI(String scheme,
                           String userInfo, String host, int port,
                           String path, String query, String fragment)
             throws URISyntaxException {
         return new URI(scheme, userInfo, host, port, path, query, fragment);
     }
-
 
     public static URI URI(String scheme,
                           String authority,
@@ -76,25 +72,21 @@ public class MockURI implements StaticReplacementMock {
                 path, query, fragment);
     }
 
-
     public static URI URI(String scheme, String host, String path, String fragment)
             throws URISyntaxException {
         return new URI(scheme, host, path, fragment);
     }
-
 
     public static URI URI(String scheme, String ssp, String fragment)
             throws URISyntaxException {
         return new URI(scheme, ssp, fragment);
     }
 
-
     // --------- static method(s) -------------
 
     public static URI create(String str) {
         return URI.create(str);
     }
-
 
     // ---------  instance methods --------------
 
@@ -103,21 +95,17 @@ public class MockURI implements StaticReplacementMock {
         return uri.parseServerAuthority();
     }
 
-
     public static URI normalize(URI uri) {
         return uri.normalize();
     }
-
 
     public static URI resolve(URI instance, URI uri) {
         return instance.resolve(uri);
     }
 
-
     public static URI resolve(URI uri, String str) {
         return uri.resolve(str);
     }
-
 
     public static URI relativize(URI instance, URI uri) {
         return instance.relativize(uri);
@@ -135,26 +123,21 @@ public class MockURI implements StaticReplacementMock {
         return instance.isOpaque();
     }
 
-
     public static String getRawSchemeSpecificPart(URI instance) {
         return instance.getRawSchemeSpecificPart();
     }
-
 
     public static String getSchemeSpecificPart(URI instance) {
         return instance.getSchemeSpecificPart();
     }
 
-
     public static String getRawAuthority(URI instance) {
         return instance.getRawAuthority();
     }
 
-
     public static String getAuthority(URI instance) {
         return instance.getAuthority();
     }
-
 
     public static String getRawUserInfo(URI instance) {
         return instance.getRawUserInfo();
@@ -164,31 +147,25 @@ public class MockURI implements StaticReplacementMock {
         return instance.getUserInfo();
     }
 
-
     public static String getHost(URI instance) {
         return instance.getHost();
     }
-
 
     public static int getPort(URI instance) {
         return instance.getPort();
     }
 
-
     public static String getRawPath(URI instance) {
         return instance.getRawPath();
     }
-
 
     public static String getPath(URI instance) {
         return instance.getPath();
     }
 
-
     public static String getRawQuery(URI instance) {
         return instance.getRawQuery();
     }
-
 
     public static String getQuery(URI instance) {
         return instance.getQuery();
@@ -198,16 +175,13 @@ public class MockURI implements StaticReplacementMock {
         return instance.getRawFragment();
     }
 
-
     public static String getFragment(URI instance) {
         return instance.getFragment();
     }
 
-
     public static int compareTo(URI instance, URI that) {
         return instance.compareTo(that);
     }
-
 
     public static String toASCIIString(URI instance) {
         return instance.toASCIIString();

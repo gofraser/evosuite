@@ -20,7 +20,6 @@
 package org.evosuite.runtime.mock.java.util.prefs;
 
 import org.evosuite.runtime.mock.StaticReplacementMock;
-
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 

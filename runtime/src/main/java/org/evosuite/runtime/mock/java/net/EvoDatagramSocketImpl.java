@@ -22,7 +22,6 @@ package org.evosuite.runtime.mock.java.net;
 import org.evosuite.runtime.mock.java.io.MockIOException;
 import org.evosuite.runtime.mock.java.lang.MockNullPointerException;
 import org.evosuite.runtime.vnet.VirtualNetwork;
-
 import java.io.IOException;
 import java.net.*;
 
@@ -56,8 +55,6 @@ public class EvoDatagramSocketImpl extends DatagramSocketImpl{
         return super.getLocalPort();
     }
 
-
-
     // ------   abstract methods   ------
 
     @Override
@@ -68,7 +65,7 @@ public class EvoDatagramSocketImpl extends DatagramSocketImpl{
     @Override
     public void bind(int lport, InetAddress laddr) throws SocketException {
 
-        if(lport == 0){
+        if (lport == 0) {
             lport = VirtualNetwork.getInstance().getNewLocalEphemeralPort();
         }
 
@@ -79,7 +76,7 @@ public class EvoDatagramSocketImpl extends DatagramSocketImpl{
 
     @Override
     public void send(DatagramPacket p) throws IOException {
-        if(p.getData()==null || p.getAddress()==null){
+        if (p.getData() == null || p.getAddress() == null) {
             throw new MockNullPointerException("null buffer || null address");
         }
         VirtualNetwork.getInstance().sentPacketBySUT(p);
@@ -88,7 +85,7 @@ public class EvoDatagramSocketImpl extends DatagramSocketImpl{
     @Override
     public void receive(DatagramPacket p) throws IOException {
        DatagramPacket received = VirtualNetwork.getInstance().pullUdpPacket(localHost,localPort);
-       if(received != null){
+       if (received != null) {
            p.setData(received.getData());
            p.setAddress(received.getAddress());
            p.setPort(received.getPort());
