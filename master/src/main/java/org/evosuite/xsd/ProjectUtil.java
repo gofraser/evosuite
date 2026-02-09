@@ -23,33 +23,31 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * <p>ProjectUtil class</p>
- * <p>
- * Useful to get data (total, averages, etc) from a {@code Project} instance.
+ * ProjectUtil class.
+ *
+ * <p>Useful to get data (total, averages, etc) from a {@code Project} instance.
  *
  * @author José Campos
  */
 public abstract class ProjectUtil {
 
-    /**
-     * Total Numbers
-     */
+    // Total Numbers
 
     /**
-     * Returns the total number of tested classes
+     * Returns the total number of tested classes.
      *
-     * @param project
-     * @return
+     * @param project the project
+     * @return the total number of tested classes
      */
     public static int getTotalNumberTestedClasses(Project project) {
         return project.getCut().size();
     }
 
     /**
-     * Returns the total number of tested classes on the latest execution
+     * Returns the total number of tested classes on the latest execution.
      *
-     * @param project
-     * @return
+     * @param project the project
+     * @return the total number of tested classes on the latest execution
      */
     public static int getNumberLatestTestedClasses(Project project) {
         if (project.getCut().isEmpty()) {
@@ -63,19 +61,19 @@ public abstract class ProjectUtil {
     }
 
     /**
-     * Returns the total number of testable classes
+     * Returns the total number of testable classes.
      *
-     * @param project
-     * @return
+     * @param project the project
+     * @return the total number of testable classes
      */
     public static int getNumberTestableClasses(Project project) {
         return project.getTotalNumberOfTestableClasses().intValue();
     }
 
     /**
-     * Returns the total time (minutes) spent on all successful generations
+     * Returns the total time (minutes) spent on all successful generations.
      *
-     * @param project
+     * @param project the project
      * @return total time (minutes) or 0 if there is not any {@code CUT}
      */
     public static int getTotalEffort(Project project) {
@@ -90,9 +88,9 @@ public abstract class ProjectUtil {
     }
 
     /**
-     * Returns the total time (minutes) settled by the scheduler on all successful generations
+     * Returns the total time (minutes) settled by the scheduler on all successful generations.
      *
-     * @param project
+     * @param project the project
      * @return total time (minutes) or 0 if there is not any {@code CUT}
      */
     public static int getTimeBudget(Project project) {
@@ -107,9 +105,9 @@ public abstract class ProjectUtil {
     }
 
     /**
-     * Returns the total number of generated test suites of all successful generations
+     * Returns the total number of generated test suites of all successful generations.
      *
-     * @param project
+     * @param project the project
      * @return number of generated test suites or 0 if there is not any {@code CUT}
      */
     public static int getNumberGeneratedTestSuites(Project project) {
@@ -121,10 +119,10 @@ public abstract class ProjectUtil {
     }
 
     /**
-     * Returns all criteria used on all successful generations
+     * Returns all criteria used on all successful generations.
      *
-     * @param project
-     * @return all criteria used or an empty Set<> if there is not any {@code CUT}
+     * @param project the project
+     * @return all criteria used or an empty Set if there is not any {@code CUT}
      */
     public static Set<String> getUnionCriteria(Project project) {
         Set<String> criteria = new LinkedHashSet<>();
@@ -137,14 +135,12 @@ public abstract class ProjectUtil {
                 .collect(Collectors.toSet());
     }
 
-    /**
-     * Averages
-     */
+    // Averages
 
     /**
-     * Returns the average length (i.e., number of statements) of all successful generations
+     * Returns the average length (i.e., number of statements) of all successful generations.
      *
-     * @param project
+     * @param project the project
      * @return average length or 0.0 if there is not any {@code CUT}
      */
     public static double getAverageNumberStatements(Project project) {
@@ -158,9 +154,9 @@ public abstract class ProjectUtil {
     }
 
     /**
-     * Returns the overall coverage of all successful generations
+     * Returns the overall coverage of all successful generations.
      *
-     * @param project
+     * @param project the project
      * @return overall coverage or 0.0 if there is not any {@code CUT}
      */
     public static double getOverallCoverage(Project project) {
@@ -174,10 +170,10 @@ public abstract class ProjectUtil {
     }
 
     /**
-     * Returns the coverage of a particular criterion of all successful generations
+     * Returns the coverage of a particular criterion of all successful generations.
      *
-     * @param project
-     * @param criterionName
+     * @param project       the project
+     * @param criterionName the name of the criterion
      * @return average coverage of a criterion or 0.0 if there is not any {@code CUT}
      */
     public static double getAverageCriterionCoverage(Project project, String criterionName) {
@@ -191,9 +187,9 @@ public abstract class ProjectUtil {
     }
 
     /**
-     * Returns the average number of generated tests of all successful generations
+     * Returns the average number of generated tests of all successful generations.
      *
-     * @param project
+     * @param project the project
      * @return average number of tests or 0.0 if there is not any {@code CUT}
      */
     public static double getAverageNumberTests(Project project) {
@@ -206,15 +202,13 @@ public abstract class ProjectUtil {
                 / project.getTotalNumberOfTestableClasses().doubleValue();
     }
 
-    /**
-     * Aux
-     */
+    // Aux
 
     /**
-     * Returns the {@code CUT} object of a particular class name
+     * Returns the {@code CUT} object of a particular class name.
      *
-     * @param project
-     * @param className
+     * @param project   the project
+     * @param className the name of the class
      * @return a {@code CUT} object or null if there is not any {@code CUT} with class name
      */
     public static CUT getCUT(Project project, String className) {
@@ -223,11 +217,11 @@ public abstract class ProjectUtil {
     }
 
     /**
-     * Returns all successful generations
+     * Returns all successful generations.
      *
-     * @param project
-     * @return all successful generations or an empty Set<> if: there is not any {@code CUT}; or if
-     * there is not any successful generation at all
+     * @param project the project
+     * @return all successful generations or an empty Set if: there is not any {@code CUT}; or if
+     *     there is not any successful generation at all
      */
     protected static List<Generation> getAllSuccessfulGenerations(Project project) {
         List<Generation> all = new ArrayList<>();
