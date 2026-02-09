@@ -19,7 +19,7 @@
  */
 package org.evosuite.runtime.mock.java.util.zip;
 
-import sun.security.action.GetPropertyAction;
+/*
 import java.io.Closeable;
 import java.io.EOFException;
 import java.io.File;
@@ -42,8 +42,6 @@ import java.util.zip.ZipError;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 import static org.evosuite.runtime.mock.java.util.zip.EvoZipConstants64.*;
-
-/*
 */
 
 //ZipFile implements ZipConstants, but it is package level access
