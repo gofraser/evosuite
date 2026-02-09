@@ -29,9 +29,8 @@ import org.evosuite.runtime.TooManyResourcesException;
  * So, if a test starts too many threads, just throw an exception.
  * This is particularly useful when running tests in parallel,
  * or in a CI server.
- * <p>
- * <p>
- * Created by arcuri on 9/25/14.
+ *
+ * <p>Created by arcuri on 9/25/14.
  */
 public class ThreadCounter {
 
@@ -53,8 +52,8 @@ public class ThreadCounter {
 
     public synchronized void checkIfCanStartNewThread() throws TooManyResourcesException {
         if (counter >= RuntimeSettings.maxNumberOfThreads) {
-            throw new TooManyResourcesException("This test case has tried to start too many threads. " +
-                    "Maximum allowed per test is " + RuntimeSettings.maxNumberOfThreads + " threads.");
+            throw new TooManyResourcesException("This test case has tried to start too many threads. "
+                    + "Maximum allowed per test is " + RuntimeSettings.maxNumberOfThreads + " threads.");
         }
         counter++;
     }

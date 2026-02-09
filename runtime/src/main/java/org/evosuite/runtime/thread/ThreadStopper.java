@@ -42,20 +42,20 @@ public class ThreadStopper {
     private final KillSwitch killSwitch;
 
     /**
-     * Set of threads that we shouldn't try to stop, usually
-     * based on:
+     * Set of threads that we shouldn't try to stop.
+     * Usually based on:
      * TestCaseExecutor.TEST_EXECUTION_THREAD,
-     * Properties.IGNORE_THREADS
+     * Properties.IGNORE_THREADS.
      */
     private final Set<String> threadsToIgnore;
 
     /**
-     * for how many ms should we wait on joining the threads?
+     * For how many ms should we wait on joining the threads.
      */
     private final long timeout;
 
     /**
-     * time stamp from when timeout are calculated
+     * Time stamp from when timeout are calculated.
      */
     private long startTime;
 
@@ -166,8 +166,9 @@ public class ThreadStopper {
         checkThreads:
         for (Thread t : threadArray) {
             // May happen...
-            if (t == null)
+            if (t == null) {
                 continue;
+            }
 
             if (t.isAlive() && !currentRunningThreads.contains(t)) {
                 for (String name : threadsToIgnore) {
