@@ -30,7 +30,7 @@ import java.util.List;
 
 /**
  * This singleton class is used to store/run the the shutdown thread hooks that
- * have been registered during test execution
+ * have been registered during test execution.
  *
  * @author arcuri
  */
@@ -48,16 +48,16 @@ public class ShutdownHookHandler {
 
     /**
      * Map of existing hooks before test case execution.
-     * This is needed to identify the new ones that will be added
+     * This is needed to identify the new ones that will be added.
      */
     private IdentityHashMap<Thread, Thread> existingHooks;
 
     /**
-     * Singleton constructor
+     * Singleton constructor.
      *
-     * @throws Exception
-     * @throws SecurityException
-     * @throws NoSuchFieldException
+     * @throws Exception if reflection fails
+     * @throws SecurityException if access is denied
+     * @throws NoSuchFieldException if the field doesn't exist
      */
     @SuppressWarnings("unchecked")
     private ShutdownHookHandler() {
@@ -82,7 +82,7 @@ public class ShutdownHookHandler {
     }
 
     /**
-     * Important to check what hooks are currently registered
+     * Important to check what hooks are currently registered.
      */
     public void initHandler() {
         if (hooksReference == null) {
@@ -103,9 +103,9 @@ public class ShutdownHookHandler {
 
     /**
      * Get all hooks added since the call to initHandler
-     * but before executeAddedHooks
+     * but before executeAddedHooks.
      *
-     * @return
+     * @return the list of added hooks
      */
     public List<Thread> getAddedHooks() {
         if (hooksReference == null || existingHooks == null) {
@@ -123,9 +123,9 @@ public class ShutdownHookHandler {
     }
 
     /**
-     * This is mainly needed for test/debugging
+     * This is mainly needed for test/debugging.
      *
-     * @return
+     * @return the number of existing hooks
      */
     public int getNumberOfAllExistingHooks() {
         if (hooksReference == null) {
@@ -144,7 +144,7 @@ public class ShutdownHookHandler {
 
 
     /**
-     * Run {@link ShutdownHookHandler#executeAddedHooks()} in a try/catch
+     * Run {@link ShutdownHookHandler#executeAddedHooks()} in a try/catch.
      *
      * @return a negative value if there was any exception
      */
