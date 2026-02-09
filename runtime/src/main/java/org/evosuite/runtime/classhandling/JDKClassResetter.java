@@ -28,9 +28,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Class used to handle static state of JDK API classes we cannot instrument
- * <p>
- * Created by Andrea Arcuri on 08/11/15.
+ * Class used to handle static state of JDK API classes we cannot instrument.
+ *
+ * <p>Created by Andrea Arcuri on 08/11/15.
  */
 public class JDKClassResetter {
 
@@ -41,7 +41,7 @@ public class JDKClassResetter {
 
 
     /**
-     * Save current state of all JDK static fields we are going te reset later on
+     * Save current state of all JDK static fields we are going te reset later on.
      */
     public static void init() {
 
