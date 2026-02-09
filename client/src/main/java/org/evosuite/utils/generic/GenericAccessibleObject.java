@@ -327,7 +327,7 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         }
         logger.debug("GeneratorTypes is now: " + GenericUtils.stableTypeVariableMapToString(generatorTypes));
         List<TypeVariable<?>> parameters = Arrays.asList(getTypeParameters());
-        for (TypeVariable<?> var : generatorTypes.keySet()) {
+        for (TypeVariable<?> var : GenericUtils.sortedTypeVariables(generatorTypes)) {
             if (parameters.contains(var) && !(generatorTypes.get(var) instanceof WildcardType)) {
                 logger.debug("Parameter " + var + " in map, adding to concrete types: " + generatorTypes.get(var));
                 concreteTypes.put(var, generatorTypes.get(var));

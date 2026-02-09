@@ -57,7 +57,7 @@ public class GenericUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(GenericUtils.class);
 
-    static String stableTypeVariableMapToString(Map<TypeVariable<?>, Type> map) {
+    public static String stableTypeVariableMapToString(Map<TypeVariable<?>, Type> map) {
         if (map == null) {
             return "null";
         }
@@ -81,6 +81,15 @@ public class GenericUtils {
         }
         builder.append("}");
         return builder.toString();
+    }
+
+    static List<TypeVariable<?>> sortedTypeVariables(Map<TypeVariable<?>, ?> map) {
+        if (map == null || map.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<TypeVariable<?>> variables = new ArrayList<>(map.keySet());
+        variables.sort(Comparator.comparing(GenericUtils::typeVariableKeyForSort));
+        return variables;
     }
 
     private static String typeVariableKeyForSort(TypeVariable<?> variable) {

@@ -29,6 +29,7 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericClassUtils;
+import org.evosuite.utils.generic.GenericUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
