@@ -32,15 +32,16 @@ public class CCFGFieldClassCallNode extends CCFGCodeNode {
     private final String methodName;
     private final String methodParameters;
 
-
-//	
-
     /**
      * <p>Constructor for CCFGFieldClassCallNode.</p>
      *
      * @param code a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
+     * @param className a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
+     * @param methodParameters a {@link java.lang.String} object.
      */
-    public CCFGFieldClassCallNode(BytecodeInstruction code, String className, String methodName, String methodParameters) {
+    public CCFGFieldClassCallNode(BytecodeInstruction code, String className, String methodName,
+                                  String methodParameters) {
         super(code);
         this.className = className;
         this.methodName = methodName;
@@ -48,6 +49,8 @@ public class CCFGFieldClassCallNode extends CCFGCodeNode {
     }
 
     /**
+     * Returns the class name.
+     *
      * @return the className
      */
     public String getClassName() {
@@ -55,6 +58,8 @@ public class CCFGFieldClassCallNode extends CCFGCodeNode {
     }
 
     /**
+     * Returns the method name with parameters.
+     *
      * @return the methodName
      */
     public String getMethodName() {
@@ -85,26 +90,35 @@ public class CCFGFieldClassCallNode extends CCFGCodeNode {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (!super.equals(obj))
+        }
+        if (!super.equals(obj)) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CCFGFieldClassCallNode other = (CCFGFieldClassCallNode) obj;
         if (className == null) {
-            if (other.className != null)
+            if (other.className != null) {
                 return false;
-        } else if (!className.equals(other.className))
+            }
+        } else if (!className.equals(other.className)) {
             return false;
+        }
         if (methodName == null) {
-            if (other.methodName != null)
+            if (other.methodName != null) {
                 return false;
-        } else if (!methodName.equals(other.methodName))
+            }
+        } else if (!methodName.equals(other.methodName)) {
             return false;
+        }
         if (methodParameters == null) {
             return other.methodParameters == null;
-        } else return methodParameters.equals(other.methodParameters);
+        } else {
+            return methodParameters.equals(other.methodParameters);
+        }
     }
 
 

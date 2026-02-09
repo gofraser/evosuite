@@ -38,7 +38,7 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
     private final String methodName;
 
     /**
-     * <p>Constructor for ControlDependenceGraph.</p>
+     * Constructor for ControlDependenceGraph.
      *
      * @param cfg a {@link org.evosuite.graphs.cfg.ActualControlFlowGraph} object.
      */
@@ -64,7 +64,7 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
     }
 
     /**
-     * <p>getControlDependenceDepth</p>
+     * Returns the depth of the control dependence.
      *
      * @param dependence a {@link org.evosuite.graphs.cfg.ControlDependency} object.
      * @return a int.
@@ -74,14 +74,15 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         for (BasicBlock root : determineEntryPoints()) {
             int distance = getDistance(root,
                     dependence.getBranch().getInstruction().getBasicBlock());
-            if (distance < min)
+            if (distance < min) {
                 min = distance;
+            }
         }
         return min;
     }
 
     /**
-     * <p>getAlternativeBlocks</p>
+     * Returns the alternative blocks for the given control dependency.
      *
      * @param dependency a {@link org.evosuite.graphs.cfg.ControlDependency} object.
      * @return a {@link java.util.Set} object.
@@ -94,8 +95,9 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         for (ControlFlowEdge e : outgoingEdgesOf(block)) {
             // ControlDependency can be null on edges that are not control dependent (e.g. unconditional)
             if (e.getControlDependency() == null
-                    || e.getControlDependency().equals(dependency))
+                    || e.getControlDependency().equals(dependency)) {
                 continue;
+            }
             BasicBlock next = getEdgeTarget(e);
             blocks.add(next);
             getReachableBasicBlocks(blocks, next);
@@ -116,8 +118,8 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
     /**
      * Returns a Set containing all Branches the given BasicBlock is control
      * dependent on.
-     * <p>
-     * This is for each incoming ControlFlowEdge of the given block within this
+     *
+     * <p>This is for each incoming ControlFlowEdge of the given block within this
      * CDG, the branch instruction of that edge will be added to the returned
      * set.
      *
@@ -125,17 +127,21 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
      * @return a {@link java.util.Set} object.
      */
     public Set<ControlDependency> getControlDependentBranches(BasicBlock insBlock) {
-        if (insBlock == null)
+        if (insBlock == null) {
             throw new IllegalArgumentException("null not accepted");
-        if (!containsVertex(insBlock))
+        }
+        if (!containsVertex(insBlock)) {
             throw new IllegalArgumentException("unknown block: " + insBlock.getName());
+        }
 
-        if (insBlock.hasControlDependenciesSet())
+        if (insBlock.hasControlDependenciesSet()) {
             return insBlock.getControlDependencies();
+        }
 
         Set<ControlDependency> direct = retrieveControlDependencies(insBlock, new LinkedHashSet<>());
-        if (direct.isEmpty())
+        if (direct.isEmpty()) {
             return direct;
+        }
 
         // Expand with transitive control dependencies (e.g., nested branches).
         Set<ControlDependency> expanded = new LinkedHashSet<>(direct);
@@ -151,8 +157,9 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
     private void expandTransitiveDependencies(Set<ControlDependency> out,
                                               BasicBlock start,
                                               Set<BasicBlock> visited) {
-        if (start == null || !visited.add(start))
+        if (start == null || !visited.add(start)) {
             return;
+        }
 
         Set<ControlDependency> deps = retrieveControlDependencies(start, new LinkedHashSet<>());
         for (ControlDependency cd : deps) {
@@ -170,8 +177,9 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         Set<ControlDependency> r = new LinkedHashSet<>();
 
         for (ControlFlowEdge e : incomingEdgesOf(insBlock)) {
-            if (handled.contains(e))
+            if (handled.contains(e)) {
                 continue;
+            }
             handled.add(e);
 
             ControlDependency cd = e.getControlDependency();
@@ -190,7 +198,7 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
     }
 
     /**
-     * <p>getControlDependentBranchIds</p>
+     * Returns the IDs of the control dependent branches.
      *
      * @param ins a {@link org.evosuite.graphs.cfg.BasicBlock} object.
      * @return a {@link java.util.Set} object.
@@ -202,17 +210,19 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         Set<Integer> r = new LinkedHashSet<>();
 
         for (ControlDependency cd : dependentBranches) {
-            if (cd == null)
+            if (cd == null) {
                 throw new IllegalStateException(
                         "expect set returned by getControlDependentBranches() not to contain null");
+            }
 
             r.add(cd.getBranch().getActualBranchId());
         }
 
         // to indicate this is only dependent on root branch,
         // meaning entering the method
-        if (isRootDependent(ins))
+        if (isRootDependent(ins)) {
             r.add(-1);
+        }
 
         return r;
     }
@@ -223,10 +233,10 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
      * Determines whether the given BytecodeInstruction is directly control
      * dependent on the given Branch. It's BasicBlock is control dependent on
      * the given Branch.
-     * <p>
-     * If b is null, it is assumed to be the root branch.
-     * <p>
-     * If the given instruction is not known to this CDG an
+     *
+     * <p>If b is null, it is assumed to be the root branch.
+     *
+     * <p>If the given instruction is not known to this CDG an
      * IllegalArgumentException is thrown.
      *
      * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -234,8 +244,9 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
      * @return a boolean.
      */
     public boolean isDirectlyControlDependentOn(BytecodeInstruction ins, Branch b) {
-        if (ins == null)
+        if (ins == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         BasicBlock insBlock = ins.getBasicBlock();
 
@@ -247,10 +258,10 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
      * the given Branch. Meaning within this CDG there is an incoming
      * ControlFlowEdge to this instructions BasicBlock holding the given Branch
      * as it's branchInstruction.
-     * <p>
-     * If b is null, it is assumed to be the root branch.
-     * <p>
-     * If the given instruction is not known to this CDG an
+     *
+     * <p>If b is null, it is assumed to be the root branch.
+     *
+     * <p>If the given instruction is not known to this CDG an
      * IllegalArgumentException is thrown.
      *
      * @param insBlock a {@link org.evosuite.graphs.cfg.BasicBlock} object.
@@ -274,27 +285,32 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         }
 
         boolean isRootDependent = isRootDependent(insBlock);
-        if (b == null)
+        if (b == null) {
             return isRootDependent;
-        if (isRootDependent && b != null)
+        }
+        if (isRootDependent && b != null) {
             return false;
+        }
 
         for (ControlFlowEdge e : incomming) {
             Branch current = e.getBranchInstruction();
 
             if (e.isExceptionEdge()) {
-                if (current != null)
+                if (current != null) {
                     throw new IllegalStateException(
                             "expect exception edges to have no BranchInstruction set");
-                else
+                } else {
                     continue;
+                }
             }
 
-            if (current == null)
+            if (current == null) {
                 continue;
+            }
 
-            if (current.equals(b))
+            if (current.equals(b)) {
                 return true;
+            }
         }
 
         return false;
@@ -302,9 +318,9 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
     /**
      * Checks whether the given instruction is dependent on the root branch of
-     * it's method
-     * <p>
-     * This is the case if the BasicBlock of the given instruction is directly
+     * it's method.
+     *
+     * <p>This is the case if the BasicBlock of the given instruction is directly
      * adjacent to the EntryBlock
      *
      * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -317,27 +333,31 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
     /**
      * Checks whether the given basicBlock is dependent on the root branch of
-     * it's method
-     * <p>
-     * This is the case if the BasicBlock of the given instruction is directly
+     * it's method.
+     *
+     * <p>This is the case if the BasicBlock of the given instruction is directly
      * adjacent to the EntryBlock
      *
      * @param insBlock a {@link org.evosuite.graphs.cfg.BasicBlock} object.
      * @return a boolean.
      */
     public boolean isRootDependent(BasicBlock insBlock) {
-        if (isAdjacentToEntryBlock(insBlock))
+        if (isAdjacentToEntryBlock(insBlock)) {
             return true;
+        }
 
         for (ControlFlowEdge in : incomingEdgesOf(insBlock)) {
-            if (in.hasControlDependency())
+            if (in.hasControlDependency()) {
                 continue;
+            }
             BasicBlock inBlock = getEdgeSource(in);
-            if (inBlock.equals(insBlock))
+            if (inBlock.equals(insBlock)) {
                 continue;
+            }
 
-            if (isRootDependent(inBlock))
+            if (isRootDependent(inBlock)) {
                 return true;
+            }
         }
 
         return false;
@@ -346,20 +366,23 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
     /**
      * Returns true if the given BasicBlock has an incoming edge from this CDG's
-     * EntryBlock or is itself the EntryBlock
+     * EntryBlock or is itself the EntryBlock.
      *
      * @param insBlock a {@link org.evosuite.graphs.cfg.BasicBlock} object.
      * @return a boolean.
      */
     public boolean isAdjacentToEntryBlock(BasicBlock insBlock) {
 
-        if (insBlock.isEntryBlock())
+        if (insBlock.isEntryBlock()) {
             return true;
+        }
 
         Set<BasicBlock> parents = getParents(insBlock);
-        for (BasicBlock parent : parents)
-            if (parent.isEntryBlock())
+        for (BasicBlock parent : parents) {
+            if (parent.isEntryBlock()) {
                 return true;
+            }
+        }
 
         return false;
     }
@@ -377,13 +400,16 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
         // Remove exit blocks from CDG as they don't have control dependencies
         Set<BasicBlock> toRemove = new LinkedHashSet<>();
-        for (BasicBlock b : vertexSet())
-            if (b.isExitBlock())
+        for (BasicBlock b : vertexSet()) {
+            if (b.isExitBlock()) {
                 toRemove.add(b);
+            }
+        }
 
         for (BasicBlock b : toRemove) {
-            if (!graph.removeVertex(b))
+            if (!graph.removeVertex(b)) {
                 throw new IllegalStateException("internal error building up CDG: failed to remove exit block");
+            }
         }
     }
 
@@ -393,7 +419,9 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         DominatorTree<BasicBlock> dt = new DominatorTree<>(rcfg);
 
         for (BasicBlock b : rcfg.vertexSet()) {
-            if (b.isExitBlock()) continue;
+            if (b.isExitBlock()) {
+                continue;
+            }
 
             logger.debug("DFs for: " + b.getName());
             for (BasicBlock cd : dt.getDominatingFrontiers(b)) {
@@ -407,7 +435,8 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
                     Set<ControlFlowEdge> candidates = cfg.outgoingEdgesOf(cd);
                     if (candidates.size() < 2) {
-                        logger.warn("Expected branch node " + cd + " to have multiple outgoing edges, but found " + candidates.size());
+                        logger.warn("Expected branch node " + cd + " to have multiple outgoing edges, but found "
+                                + candidates.size());
                     }
 
                     boolean leadToB = false;
@@ -431,17 +460,20 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
                             orig = e;
                         }
                     }
-                    if (skip)
+                    if (skip) {
                         continue;
+                    }
 
                     if (!leadToB) {
-                        logger.warn("Unexpected: node " + cd + " determined as control dependency for " + b + " but no path found.");
+                        logger.warn("Unexpected: node " + cd + " determined as control dependency for " + b
+                                + " but no path found.");
                     }
                 }
 
                 if (orig != null) {
-                    if (!addEdge(cd, b, new ControlFlowEdge(orig)))
+                    if (!addEdge(cd, b, new ControlFlowEdge(orig))) {
                         throw new IllegalStateException("internal error while adding CD edge");
+                    }
 
                     logger.debug("  " + cd.getName());
                 } else {

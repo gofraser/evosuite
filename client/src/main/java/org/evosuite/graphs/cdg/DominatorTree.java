@@ -25,7 +25,6 @@ import org.jgrapht.graph.DefaultEdge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -34,23 +33,22 @@ import java.util.Set;
 
 /**
  * Given a CFG this class computes the immediateDominators and the
- * dominatingFrontiers for each CFG vertex
- * <p>
- * The current algorithm to determine the immediateDominators runs in time
+ * dominatingFrontiers for each CFG vertex.
+ *
+ * <p>The current algorithm to determine the immediateDominators runs in time
  * O(e*log n) where e is the number of control flow edges and n the number of
  * CFG vertices and is taken from:
- * <p>
- * "A Fast Algorithm for Finding Dominators in a Flowgraph" THOMAS LENGAUER and
+ *
+ * <p>"A Fast Algorithm for Finding Dominators in a Flowgraph" THOMAS LENGAUER and
  * ROBERT ENDRE TARJAN 1979, Stanford University
- * <p>
- * DOI: 10.1145/357062.357071
+ *
+ * <p>DOI: 10.1145/357062.357071
  * http://portal.acm.org/citation.cfm?doid=357062.357071
- * <p>
- * <p>
- * The algorithm for computing the dominatingFrontiers when given the
+ *
+ * <p>The algorithm for computing the dominatingFrontiers when given the
  * immediateDominators is taken from
- * <p>
- * "Efficiently Computing Static Single Assignment Form and the Control
+ *
+ * <p>"Efficiently Computing Static Single Assignment Form and the Control
  * Dependence Graph" RON CYTRON, JEANNE FERRANTE, BARRY K. ROSEN, and MARK N.
  * WEGMAN IBM Research Division and F. KENNETH ZADECK Brown University 1991
  *
@@ -64,12 +62,12 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
     private final ControlFlowGraph<V> cfg;
 
     private final Map<V, DominatorNode<V>> dominatorNodesMap = new LinkedHashMap<>();
-    private final Map<Integer, DominatorNode<V>> dominatorIDMap = new LinkedHashMap<>();
+    private final Map<Integer, DominatorNode<V>> dominatorIdMap = new LinkedHashMap<>();
     private final Map<V, Set<V>> dominatingFrontiers = new LinkedHashMap<>();
 
     /**
      * Will start the computation of all immediateDominators for the given CFG
-     * which can later be retrieved via getImmediateDominator()
+     * which can later be retrieved via getImmediateDominator().
      *
      * @param cfg a {@link org.evosuite.graphs.cfg.ControlFlowGraph} object.
      */
@@ -100,53 +98,58 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
 
             computeDominatorFrontiers(rootNode);
         } else if (!cfg.vertexSet().isEmpty()) {
-             logger.warn("Could not determine entry point for non-empty CFG: " + cfg.getName());
+            logger.warn("Could not determine entry point for non-empty CFG: " + cfg.getName());
         }
     }
 
     private void createDominatorTree() {
 
         // add dominator nodes
-        addVertices(dominatorIDMap.values());
+        addVertices(dominatorIdMap.values());
 
         logger.debug("DTNodes: " + vertexCount());
 
         // build up tree by adding for each node v an edge from v.iDom to v
         for (DominatorNode<V> v : vertexSet()) {
-            if (v.isRootNode())
+            if (v.isRootNode()) {
                 continue;
+            }
 
             if (v.immediateDominator != null) {
-                if (addEdge(v.immediateDominator, v) == null)
+                if (addEdge(v.immediateDominator, v) == null) {
                     throw new IllegalStateException(
                             "internal error while building dominator tree edges");
+                }
 
-                logger.debug("added DTEdge from " + v.immediateDominator.n + " to " + v.n);
+                logger.debug("added DTEdge from " + v.immediateDominator.dfsNum + " to " + v.dfsNum);
             }
         }
 
         logger.debug("DTEdges: " + edgeCount());
 
         // sanity check
-        if (isEmpty() && !cfg.vertexSet().isEmpty())
+        if (isEmpty() && !cfg.vertexSet().isEmpty()) {
             throw new IllegalStateException("expect dominator trees to not be empty for non-empty CFG");
+        }
     }
 
     private void computeDominatorFrontiers(DominatorNode<V> currentNode) {
 
-        for (DominatorNode<V> child : getChildren(currentNode))
+        for (DominatorNode<V> child : getChildren(currentNode)) {
             computeDominatorFrontiers(child);
+        }
 
         logger.debug("computing dominatingFrontier for: " + currentNode.toString());
 
         Set<V> dominatingFrontier = dominatingFrontiers.get(currentNode.node);
-        if (dominatingFrontier == null)
+        if (dominatingFrontier == null) {
             dominatingFrontier = new LinkedHashSet<>();
+        }
 
         // "local"
         for (V child : cfg.getChildren(currentNode.node)) {
             DominatorNode<V> y = getDominatorNodeFor(child);
-            if (y.immediateDominator == null || y.immediateDominator.n != currentNode.n) {
+            if (y.immediateDominator == null || y.immediateDominator.dfsNum != currentNode.dfsNum) {
                 logger.debug("  LOCAL adding to DFs: " + y.node);
                 dominatingFrontier.add(y.node);
             }
@@ -157,8 +160,9 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
             Set<V> childDF = dominatingFrontiers.get(z.node);
             if (childDF != null) {
                 for (V y : childDF) {
-                    DominatorNode<V> yDomNode = getDominatorNodeFor(y);
-                    if (yDomNode.immediateDominator == null || yDomNode.immediateDominator.n != currentNode.n) {
+                    DominatorNode<V> domNodeY = getDominatorNodeFor(y);
+                    if (domNodeY.immediateDominator == null
+                            || domNodeY.immediateDominator.dfsNum != currentNode.dfsNum) {
                         logger.debug("  UP adding to DFs: " + y);
                         dominatingFrontier.add(y);
                     }
@@ -171,15 +175,15 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
 
     /**
      * Given a node of this objects CFG this method returns it's previously
-     * computed immediateDominator
-     * <p>
-     * The immediateDominator iDom of a node v has the following properties:
-     * <p>
-     * 1) iDom dominates v
-     * <p>
-     * 2) every other dominator of v dominates iDom
-     * <p>
-     * A node w dominates v or is a dominator of v if and only if every path
+     * computed immediateDominator.
+     *
+     * <p>The immediateDominator iDom of a node v has the following properties:
+     *
+     * <p>1) iDom dominates v
+     *
+     * <p>2) every other dominator of v dominates iDom
+     *
+     * <p>A node w dominates v or is a dominator of v if and only if every path
      * from the CFG's entryPoint to v contains w
      *
      * @param v A node within this objects CFG for wich the immediateDominator
@@ -187,17 +191,19 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
      * @return a V object.
      */
     public V getImmediateDominator(V v) {
-        if (v == null)
+        if (v == null) {
             throw new IllegalArgumentException("null given");
+        }
         DominatorNode<V> domNode = dominatorNodesMap.get(v);
-        if (domNode == null)
+        if (domNode == null) {
             throw new IllegalStateException("unknown vertice given");
+        }
 
         if (domNode.immediateDominator == null) {
             // sanity check: this is only allowed to happen if v is root of CFG
-            if (domNode.n != 1) {
-                 // Or if node is unreachable from root.
-                 return null;
+            if (domNode.dfsNum != 1) {
+                // Or if node is unreachable from root.
+                return null;
             }
             return null;
         }
@@ -212,8 +218,9 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
      * @return a {@link java.util.Set} object.
      */
     public Set<V> getDominatingFrontiers(V v) {
-        if (v == null)
+        if (v == null) {
             throw new IllegalStateException("null given");
+        }
 
         Set<V> df = dominatingFrontiers.get(v);
         return df != null ? df : new LinkedHashSet<>();
@@ -223,8 +230,9 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
 
     private void createDominatorNodes() {
 
-        for (V v : cfg.vertexSet())
+        for (V v : cfg.vertexSet()) {
             dominatorNodesMap.put(v, new DominatorNode<>(v));
+        }
     }
 
     private void depthFirstAnalyze(DominatorNode<V> currentNode) {
@@ -233,10 +241,10 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
         initialize(currentNode);
 
         for (V w : cfg.getChildren(currentNode.node)) {
-            DominatorNode<V> wNode = getDominatorNodeFor(w);
-            if (wNode.semiDominator == null) {
-                wNode.parent = currentNode;
-                depthFirstAnalyze(wNode);
+            DominatorNode<V> domNodeW = getDominatorNodeFor(w);
+            if (domNodeW.semiDominator == null) {
+                domNodeW.parent = currentNode;
+                depthFirstAnalyze(domNodeW);
             }
         }
     }
@@ -244,13 +252,13 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
     private void initialize(DominatorNode<V> currentNode) {
 
         nodeCount++;
-        currentNode.n = nodeCount;
+        currentNode.dfsNum = nodeCount;
         currentNode.semiDominator = currentNode;
 
         logger.debug("created " + currentNode + " for "
                 + currentNode.node.toString());
 
-        dominatorIDMap.put(nodeCount, currentNode);
+        dominatorIdMap.put(nodeCount, currentNode);
     }
 
     private void computeSemiDominators() {
@@ -261,12 +269,15 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
             // step 2
             for (V current : cfg.getParents(w.node)) {
                 DominatorNode<V> v = getDominatorNodeFor(current);
-                if (v.n == 0) continue; // Skip unreachable nodes
+                if (v.dfsNum == 0) {
+                    continue; // Skip unreachable nodes
+                }
 
                 DominatorNode<V> u = v.eval();
 
-                if (u.semiDominator.n < w.semiDominator.n)
+                if (u.semiDominator.dfsNum < w.semiDominator.dfsNum) {
                     w.semiDominator = u.semiDominator;
+                }
             }
 
             w.semiDominator.bucket.add(w);
@@ -276,11 +287,12 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
             while (!w.parent.bucket.isEmpty()) {
 
                 DominatorNode<V> v = w.parent.getFromBucket();
-                if (!w.parent.bucket.remove(v))
+                if (!w.parent.bucket.remove(v)) {
                     throw new IllegalStateException("internal error");
+                }
 
                 DominatorNode<V> u = v.eval();
-                v.immediateDominator = (u.semiDominator.n < v.semiDominator.n ? u
+                v.immediateDominator = (u.semiDominator.dfsNum < v.semiDominator.dfsNum ? u
                         : w.parent);
             }
         }
@@ -291,28 +303,31 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
         for (int i = 2; i <= nodeCount; i++) {
             DominatorNode<V> w = getDominatorNodeById(i);
 
-            if (w.immediateDominator != w.semiDominator)
+            if (w.immediateDominator != w.semiDominator) {
                 w.immediateDominator = w.immediateDominator.immediateDominator;
+            }
 
-            //			logger.debug("iDom for node "+i+" was: "+w.immediateDominator.n);
+            // logger.debug("iDom for node "+i+" was: "+w.immediateDominator.n);
         }
 
         rootNode.immediateDominator = null;
     }
 
     private DominatorNode<V> getDominatorNodeById(int id) {
-        DominatorNode<V> r = dominatorIDMap.get(id);
-        if (r == null)
+        DominatorNode<V> r = dominatorIdMap.get(id);
+        if (r == null) {
             throw new IllegalArgumentException("id unknown to this tree");
+        }
 
         return r;
     }
 
     private DominatorNode<V> getDominatorNodeFor(V v) {
         DominatorNode<V> r = dominatorNodesMap.get(v);
-        if (r == null)
+        if (r == null) {
             throw new IllegalStateException(
                     "expect dominatorNodesMap to contain domNodes for all Vs");
+        }
 
         return r;
     }

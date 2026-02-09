@@ -35,7 +35,7 @@ public class CCFGCodeNode extends CCFGNode {
     }
 
     /**
-     * <p>getMethod</p>
+     * <p>getMethod.</p>
      *
      * @return a {@link java.lang.String} object.
      */
@@ -69,16 +69,21 @@ public class CCFGCodeNode extends CCFGNode {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CCFGCodeNode other = (CCFGCodeNode) obj;
         if (codeInstruction == null) {
             return other.codeInstruction == null;
-        } else return codeInstruction.equals(other.codeInstruction);
+        } else {
+            return codeInstruction.equals(other.codeInstruction);
+        }
     }
 
     /**
@@ -86,9 +91,10 @@ public class CCFGCodeNode extends CCFGNode {
      */
     @Override
     public String toString() {
-        if (codeInstruction.isMethodCall())
+        if (codeInstruction.isMethodCall()) {
             return codeInstruction.toString() + " in class " + codeInstruction.getCalledMethodsClass();
-        else
+        } else {
             return codeInstruction.toString();
+        }
     }
 }

@@ -34,13 +34,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Gives access to all Graphs computed during CUT analysis such as CFGs created
- * by the CFGGenerator and BytcodeAnalyzer in the CFGMethodAdapter
- * <p>
- * For each CUT and each of their methods a Raw- and an ActualControlFlowGraph
+ * by the CFGGenerator and BytcodeAnalyzer in the CFGMethodAdapter.
+ *
+ * <p>For each CUT and each of their methods a Raw- and an ActualControlFlowGraph
  * instance are stored within this pool. Additionally a ControlDependenceGraph
  * is computed and stored for each such method.
- * <p>
- * This pool also offers the possibility to generate the ClassCallGraph and
+ *
+ * <p>This pool also offers the possibility to generate the ClassCallGraph and
  * ClassControlFlowGraph for a CUT. They represents the call hierarchy and
  * interaction of different methods within a class.
  *
@@ -55,7 +55,7 @@ public class GraphPool {
     private final ClassLoader classLoader;
 
     /**
-     * Private constructor
+     * Private constructor.
      */
     private GraphPool(ClassLoader classLoader) {
         this.classLoader = classLoader;
@@ -70,12 +70,12 @@ public class GraphPool {
 
     /**
      * Complete control flow graph, contains each bytecode instruction, each
-     * label and line number node Think of the direct Known Subclasses of
+     * label and line number node. Think of the direct Known Subclasses of
      * http://
      * asm.ow2.org/asm33/javadoc/user/org/objectweb/asm/tree/AbstractInsnNode
-     * .html for a complete list of the nodes in this cfg
-     * <p>
-     * Maps from classNames to methodNames to corresponding RawCFGs
+     * .html for a complete list of the nodes in this cfg.
+     *
+     * <p>Maps from classNames to methodNames to corresponding RawCFGs.
      */
     private final Map<String, Map<String, RawControlFlowGraph>> rawCFGs = new ConcurrentHashMap<>();
 
@@ -83,22 +83,22 @@ public class GraphPool {
      * Minimized control flow graph. This graph only contains the first and last
      * node (usually a LABEL and IRETURN), nodes which create branches (all
      * jumps/switches except GOTO) and nodes which were mutated.
-     * <p>
-     * Maps from classNames to methodNames to corresponding ActualCFGs
+     *
+     * <p>Maps from classNames to methodNames to corresponding ActualCFGs.
      */
     private final Map<String, Map<String, ActualControlFlowGraph>> actualCFGs = new ConcurrentHashMap<>();
 
     /**
      * Control Dependence Graphs for each method.
-     * <p>
-     * Maps from classNames to methodNames to corresponding CDGs
+     *
+     * <p>Maps from classNames to methodNames to corresponding CDGs.
      */
     private final Map<String, Map<String, ControlDependenceGraph>> controlDependencies = new ConcurrentHashMap<>();
 
     /**
-     * Cache of all created CCFGs
-     * <p>
-     * Maps from classNames to computed CCFG of that class
+     * Cache of all created CCFGs.
+     *
+     * <p>Maps from classNames to computed CCFG of that class.
      */
     private final Map<String, ClassControlFlowGraph> ccfgs = new ConcurrentHashMap<>();
 
@@ -150,7 +150,7 @@ public class GraphPool {
 
     /**
      * <p>
-     * getActualCFG
+     * getActualCFG.
      * </p>
      *
      * @param className  a {@link java.lang.String} object.
@@ -160,15 +160,16 @@ public class GraphPool {
     public ActualControlFlowGraph getActualCFG(String className, String methodName) {
 
         Map<String, ActualControlFlowGraph> methods = actualCFGs.get(className);
-        if (methods == null)
+        if (methods == null) {
             return null;
+        }
 
         return methods.get(methodName);
     }
 
     /**
      * <p>
-     * getCDG
+     * getCDG.
      * </p>
      *
      * @param className  a {@link java.lang.String} object.
@@ -178,8 +179,9 @@ public class GraphPool {
     public ControlDependenceGraph getCDG(String className, String methodName) {
 
         Map<String, ControlDependenceGraph> methods = controlDependencies.get(className);
-        if (methods == null)
+        if (methods == null) {
             return null;
+        }
 
         return methods.get(methodName);
     }
@@ -187,9 +189,7 @@ public class GraphPool {
     // register graphs
 
     /**
-     * <p>
-     * registerRawCFG
-     * </p>
+     * Registers the given RawControlFlowGraph.
      *
      * @param cfg a {@link org.evosuite.graphs.cfg.RawControlFlowGraph} object.
      */
@@ -197,23 +197,24 @@ public class GraphPool {
         String className = cfg.getClassName();
         String methodName = cfg.getMethodName();
 
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalStateException(
                     "expect class and method name of CFGs to be set before entering the GraphPool");
+        }
 
-        Map<String, RawControlFlowGraph> methods = rawCFGs.computeIfAbsent(className, k -> new ConcurrentHashMap<>());
+        Map<String, RawControlFlowGraph> methods =
+                rawCFGs.computeIfAbsent(className, k -> new ConcurrentHashMap<>());
         logger.debug("Added complete CFG for class " + className + " and method "
                 + methodName);
         methods.put(methodName, cfg);
 
-        if (Properties.WRITE_CFG)
+        if (Properties.WRITE_CFG) {
             cfg.toDot();
+        }
     }
 
     /**
-     * <p>
-     * registerActualCFG
-     * </p>
+     * Registers the given ActualControlFlowGraph.
      *
      * @param cfg a {@link org.evosuite.graphs.cfg.ActualControlFlowGraph}
      *            object.
@@ -222,17 +223,20 @@ public class GraphPool {
         String className = cfg.getClassName();
         String methodName = cfg.getMethodName();
 
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalStateException(
                     "expect class and method name of CFGs to be set before entering the GraphPool");
+        }
 
-        Map<String, ActualControlFlowGraph> methods = actualCFGs.computeIfAbsent(className, k -> new ConcurrentHashMap<>());
+        Map<String, ActualControlFlowGraph> methods =
+                actualCFGs.computeIfAbsent(className, k -> new ConcurrentHashMap<>());
         logger.debug("Added CFG for class " + className + " and method " + methodName);
         cfg.finalise();
         methods.put(methodName, cfg);
 
-        if (Properties.WRITE_CFG)
+        if (Properties.WRITE_CFG) {
             cfg.toDot();
+        }
 
         if (DependencyAnalysis.shouldInstrument(cfg.getClassName(), cfg.getMethodName())) {
             createAndRegisterControlDependence(cfg);
@@ -246,15 +250,18 @@ public class GraphPool {
         String className = cd.getClassName();
         String methodName = cd.getMethodName();
 
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalStateException(
                     "expect class and method name of CFGs to be set before entering the GraphPool");
+        }
 
-        Map<String, ControlDependenceGraph> cds = controlDependencies.computeIfAbsent(className, k -> new ConcurrentHashMap<>());
+        Map<String, ControlDependenceGraph> cds =
+                controlDependencies.computeIfAbsent(className, k -> new ConcurrentHashMap<>());
 
         cds.put(methodName, cd);
-        if (Properties.WRITE_CFG)
+        if (Properties.WRITE_CFG) {
             cd.toDot();
+        }
     }
 
     /**
@@ -264,47 +271,48 @@ public class GraphPool {
      * @param className the name of the class of the CCFG as a
      *                  {@link java.lang.String}
      * @return The cached CCFG of type
-     * {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph}
+     *     {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph}
      */
     public ClassControlFlowGraph getCCFG(String className) {
         return ccfgs.computeIfAbsent(className, this::computeCCFG);
     }
 
     public boolean canMakeCCFGForClass(String className) {
-        //		if(!rawCFGs.containsKey(className))
-        //			LoggingUtils.getEvoLogger().info("unable to create CCFG for "+className);
+        // if(!rawCFGs.containsKey(className))
+        // LoggingUtils.getEvoLogger().info("unable to create CCFG for "+className);
         return rawCFGs.containsKey(className);
     }
 
     /**
-     * Computes the CCFG for the given class
-     * <p>
-     * If no CFG is known for the given class, an IllegalArgumentException is
+     * Computes the CCFG for the given class.
+     *
+     * <p>If no CFG is known for the given class, an IllegalArgumentException is
      * thrown
      *
      * @param className a {@link java.lang.String} object.
      * @return a {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph} object.
      */
     private ClassControlFlowGraph computeCCFG(String className) {
-        if (rawCFGs.get(className) == null)
+        if (rawCFGs.get(className) == null) {
             throw new IllegalArgumentException(
                     "can't compute CCFG, don't know CFGs for class " + className);
+        }
 
         ClassCallGraph ccg = new ClassCallGraph(classLoader, className);
-        if (Properties.WRITE_CFG)
+        if (Properties.WRITE_CFG) {
             ccg.toDot();
+        }
 
         ClassControlFlowGraph ccfg = new ClassControlFlowGraph(ccg);
-        if (Properties.WRITE_CFG)
+        if (Properties.WRITE_CFG) {
             ccfg.toDot();
+        }
 
         return ccfg;
     }
 
     /**
-     * <p>
-     * clear
-     * </p>
+     * Clears all graphs.
      */
     public void clear() {
         rawCFGs.clear();
@@ -313,9 +321,7 @@ public class GraphPool {
     }
 
     /**
-     * <p>
-     * clear
-     * </p>
+     * Clears graphs for the given class.
      *
      * @param className a {@link java.lang.String} object.
      */
@@ -326,20 +332,21 @@ public class GraphPool {
     }
 
     /**
-     * <p>
-     * clear
-     * </p>
+     * Clears graphs for the given class and method.
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      */
     public void clear(String className, String methodName) {
-        if (rawCFGs.containsKey(className))
+        if (rawCFGs.containsKey(className)) {
             rawCFGs.get(className).remove(methodName);
-        if (actualCFGs.containsKey(className))
+        }
+        if (actualCFGs.containsKey(className)) {
             actualCFGs.get(className).remove(methodName);
-        if (controlDependencies.containsKey(className))
+        }
+        if (controlDependencies.containsKey(className)) {
             controlDependencies.get(className).remove(methodName);
+        }
     }
 
     public static void clearAll(String className) {

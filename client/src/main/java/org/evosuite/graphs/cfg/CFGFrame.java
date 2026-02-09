@@ -30,11 +30,11 @@ public class CFGFrame extends Frame {
     /**
      * <p>Constructor for CFGFrame.</p>
      *
-     * @param nLocals a int.
-     * @param nStack  a int.
+     * @param numLocals a int.
+     * @param numStack  a int.
      */
-    public CFGFrame(int nLocals, int nStack) {
-        super(nLocals, nStack);
+    public CFGFrame(int numLocals, int numStack) {
+        super(numLocals, numStack);
     }
 
     /**

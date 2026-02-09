@@ -76,10 +76,12 @@ public class FloydWarshall<V, E> {
         // Floyd-Warshall algorithm
         for (int k = 0; k < n; k++) {
             for (int i = 0; i < n; i++) {
-                if (dist[i][k] == Double.POSITIVE_INFINITY) continue;
+                if (dist[i][k] == Double.POSITIVE_INFINITY) {
+                    continue;
+                }
                 for (int j = 0; j < n; j++) {
                     if (dist[k][j] != Double.POSITIVE_INFINITY) {
-                         dist[i][j] = Math.min(dist[i][j], dist[i][k] + dist[k][j]);
+                        dist[i][j] = Math.min(dist[i][j], dist[i][k] + dist[k][j]);
                     }
                 }
             }
