@@ -24,7 +24,7 @@ public class ExitBlock extends BasicBlock {
     private static final long serialVersionUID = 970110985248711972L;
 
     /**
-     * <p>Constructor for ExitBlock.</p>
+     * Constructor for ExitBlock.
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.

@@ -72,21 +72,28 @@ public class CCFGMethodEntryNode extends CCFGNode {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CCFGMethodEntryNode other = (CCFGMethodEntryNode) obj;
         if (entryInstruction == null) {
-            if (other.entryInstruction != null)
+            if (other.entryInstruction != null) {
                 return false;
-        } else if (!entryInstruction.equals(other.entryInstruction))
+            }
+        } else if (!entryInstruction.equals(other.entryInstruction)) {
             return false;
+        }
         if (method == null) {
             return other.method == null;
-        } else return method.equals(other.method);
+        } else {
+            return method.equals(other.method);
+        }
     }
 
     /**

@@ -38,9 +38,10 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
      * @param branchExpressionValue a boolean.
      */
     public ControlDependency(Branch branch, boolean branchExpressionValue) {
-        if (branch == null)
+        if (branch == null) {
             throw new IllegalArgumentException(
                     "control dependencies for the root branch are not permitted (null)");
+        }
 
         this.branch = branch;
         this.branchExpressionValue = branchExpressionValue;
@@ -64,33 +65,39 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
         return branchExpressionValue;
     }
 
-//	@Override
-//	public int hashCode() {
-//		final int prime = 31;
-//		int result = 1;
-//		result = prime * result + ((branch == null) ? 0 : branch.hashCode());
-//		result = prime * result + (branchExpressionValue ? 1231 : 1237);
-//		return result;
-//	}
-//
-//	@Override
-//	public boolean equals(Object obj) {
-//		if (this == obj)
-//			return true;
-//		if (obj == null)
-//			return false;
-//		if (getClass() != obj.getClass())
-//			return false;
-//		ControlDependency other = (ControlDependency) obj;
-//		if (branch == null) {
-//			if (other.branch != null)
-//				return false;
-//		} else if (!branch.equals(other.branch))
-//			return false;
-//		if (branchExpressionValue != other.branchExpressionValue)
-//			return false;
-//		return true;
-//	}
+    // @Override
+    // public int hashCode() {
+    //     final int prime = 31;
+    //     int result = 1;
+    //     result = prime * result + ((branch == null) ? 0 : branch.hashCode());
+    //     result = prime * result + (branchExpressionValue ? 1231 : 1237);
+    //     return result;
+    // }
+    //
+    // @Override
+    // public boolean equals(Object obj) {
+    //     if (this == obj) {
+    //         return true;
+    //     }
+    //     if (obj == null) {
+    //         return false;
+    //     }
+    //     if (getClass() != obj.getClass()) {
+    //         return false;
+    //     }
+    //     ControlDependency other = (ControlDependency) obj;
+    //     if (branch == null) {
+    //         if (other.branch != null) {
+    //             return false;
+    //         }
+    //     } else if (!branch.equals(other.branch)) {
+    //         return false;
+    //     }
+    //     if (branchExpressionValue != other.branchExpressionValue) {
+    //         return false;
+    //     }
+    //     return true;
+    // }
 
     /**
      * {@inheritDoc}
@@ -101,10 +108,11 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
         String r = "CD " + branch;
 
         if (!branch.isSwitchCaseBranch()) {
-            if (branchExpressionValue)
+            if (branchExpressionValue) {
                 r += " - TRUE";
-            else
+            } else {
                 r += " - FALSE";
+            }
         }
 
         return r;
@@ -112,11 +120,15 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         ControlDependency that = (ControlDependency) o;
-        return branchExpressionValue == that.branchExpressionValue &&
-                Objects.equals(branch, that.branch);
+        return branchExpressionValue == that.branchExpressionValue
+                && Objects.equals(branch, that.branch);
     }
 
     @Override
@@ -128,8 +140,9 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
     @Override
     public int compareTo(ControlDependency o) {
         int x = branch.compareTo(o.branch);
-        if (x != 0)
+        if (x != 0) {
             return x;
+        }
 
         if (branchExpressionValue == o.branchExpressionValue) {
             return 0;

@@ -30,7 +30,7 @@ public class ControlFlowEdge extends DefaultEdge {
     private boolean isExceptionEdge;
 
     /**
-     * <p>Constructor for ControlFlowEdge.</p>
+     * Constructor for ControlFlowEdge.
      */
     public ControlFlowEdge() {
         this.cd = null;
@@ -38,7 +38,7 @@ public class ControlFlowEdge extends DefaultEdge {
     }
 
     /**
-     * <p>Constructor for ControlFlowEdge.</p>
+     * Constructor for ControlFlowEdge.
      *
      * @param isExceptionEdge a boolean.
      */
@@ -47,7 +47,7 @@ public class ControlFlowEdge extends DefaultEdge {
     }
 
     /**
-     * <p>Constructor for ControlFlowEdge.</p>
+     * Constructor for ControlFlowEdge.
      *
      * @param cd              a {@link org.evosuite.graphs.cfg.ControlDependency} object.
      * @param isExceptionEdge a boolean.
@@ -59,7 +59,7 @@ public class ControlFlowEdge extends DefaultEdge {
 
 
     /**
-     * Sort of a copy constructor
+     * Sort of a copy constructor.
      *
      * @param clone a {@link org.evosuite.graphs.cfg.ControlFlowEdge} object.
      */
@@ -71,7 +71,7 @@ public class ControlFlowEdge extends DefaultEdge {
     }
 
     /**
-     * <p>getControlDependency</p>
+     * <p>getControlDependency.</p>
      *
      * @return a {@link org.evosuite.graphs.cfg.ControlDependency} object.
      */
@@ -80,7 +80,7 @@ public class ControlFlowEdge extends DefaultEdge {
     }
 
     /**
-     * <p>hasControlDependency</p>
+     * <p>hasControlDependency.</p>
      *
      * @return a boolean.
      */
@@ -89,19 +89,20 @@ public class ControlFlowEdge extends DefaultEdge {
     }
 
     /**
-     * <p>getBranchInstruction</p>
+     * <p>getBranchInstruction.</p>
      *
      * @return a {@link org.evosuite.coverage.branch.Branch} object.
      */
     public Branch getBranchInstruction() {
-        if (cd == null)
+        if (cd == null) {
             return null;
+        }
 
         return cd.getBranch();
     }
 
     /**
-     * <p>isExceptionEdge</p>
+     * <p>isExceptionEdge.</p>
      *
      * @return a boolean.
      */
@@ -110,44 +111,45 @@ public class ControlFlowEdge extends DefaultEdge {
     }
 
     /**
-     * <p>getBranchExpressionValue</p>
+     * <p>getBranchExpressionValue.</p>
      *
      * @return a boolean.
      */
     public boolean getBranchExpressionValue() {
-        if (hasControlDependency())
+        if (hasControlDependency()) {
             return cd.getBranchExpressionValue();
+        }
 
         return true;
     }
 
-//	@Override
-//	public int hashCode() {
-//		final int prime = 31;
-//		int result = 1;
-//		result = prime * result + ((cd == null) ? 0 : cd.hashCode());
-//		result = prime * result + (isExceptionEdge ? 1231 : 1237);
-//		return result;
-//	}
-//
-//	@Override
-//	public boolean equals(Object obj) {
-//		if (this == obj)
-//			return true;
-//		if (obj == null)
-//			return false;
-//		if (getClass() != obj.getClass())
-//			return false;
-//		ControlFlowEdge other = (ControlFlowEdge) obj;
-//		if (cd == null) {
-//			if (other.cd != null)
-//				return false;
-//		} else if (!cd.equals(other.cd))
-//			return false;
-//		if (isExceptionEdge != other.isExceptionEdge)
-//			return false;
-//		return true;
-//	}
+    //    @Override
+    //    public int hashCode() {
+    //        final int prime = 31;
+    //        int result = 1;
+    //        result = prime * result + ((cd == null) ? 0 : cd.hashCode());
+    //        result = prime * result + (isExceptionEdge ? 1231 : 1237);
+    //        return result;
+    //    }
+    //
+    //    @Override
+    //    public boolean equals(Object obj) {
+    //        if (this == obj)
+    //            return true;
+    //        if (obj == null)
+    //            return false;
+    //        if (getClass() != obj.getClass())
+    //            return false;
+    //        ControlFlowEdge other = (ControlFlowEdge) obj;
+    //        if (cd == null) {
+    //            if (other.cd != null)
+    //                return false;
+    //        } else if (!cd.equals(other.cd))
+    //            return false;
+    //        if (isExceptionEdge != other.isExceptionEdge)
+    //            return false;
+    //        return true;
+    //    }
 
     /**
      * {@inheritDoc}
@@ -155,10 +157,12 @@ public class ControlFlowEdge extends DefaultEdge {
     @Override
     public String toString() {
         String r = "";
-        if (isExceptionEdge)
+        if (isExceptionEdge) {
             r += "E ";
-        if (cd != null)
+        }
+        if (cd != null) {
             r += cd.toString();
+        }
         return r;
     }
 }
