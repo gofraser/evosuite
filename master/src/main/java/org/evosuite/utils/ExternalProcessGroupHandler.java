@@ -45,22 +45,22 @@ import java.util.concurrent.CountDownLatch;
 
 public class ExternalProcessGroupHandler {
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(ExternalProcessGroupHandler.class);
 
     protected Process[] processGroup;
-    protected String[][] last_commands;
+    protected String[][] lastCommands;
 
-    protected Thread[] output_printers;
-    protected Thread[] error_printers;
-    protected Thread[] message_handlers;
+    protected Thread[] outputPrinters;
+    protected Thread[] errorPrinters;
+    protected Thread[] messageHandlers;
 
     protected ObjectInputStream in;
 
-    protected Object final_result;
+    protected Object finalResult;
     /**
-     * Constant <code>WAITING_FOR_DATA</code>
+     * Constant <code>WAITING_FOR_DATA</code>.
      */
     protected static final Object WAITING_FOR_DATA = "waiting_for_data_"
             + System.currentTimeMillis();
@@ -70,7 +70,7 @@ public class ExternalProcessGroupHandler {
 
     protected volatile CountDownLatch[] latches;
 
-    protected String base_dir = System.getProperty("user.dir");
+    protected String baseDir = System.getProperty("user.dir");
 
     private final String[] hsErrFiles;
 
@@ -85,11 +85,11 @@ public class ExternalProcessGroupHandler {
      */
     public ExternalProcessGroupHandler(final int nrOfProcesses) {
         this.processGroup = new Process[nrOfProcesses];
-        this.last_commands = new String[nrOfProcesses][];
+        this.lastCommands = new String[nrOfProcesses][];
 
-        this.output_printers = new Thread[nrOfProcesses];
-        this.error_printers = new Thread[nrOfProcesses];
-        this.message_handlers = new Thread[nrOfProcesses];
+        this.outputPrinters = new Thread[nrOfProcesses];
+        this.errorPrinters = new Thread[nrOfProcesses];
+        this.messageHandlers = new Thread[nrOfProcesses];
 
         this.processKillHooks = new Thread[nrOfProcesses];
         this.latches = new CountDownLatch[nrOfProcesses];
@@ -99,7 +99,7 @@ public class ExternalProcessGroupHandler {
     /**
      * Only for debug reasons.
      *
-     * @param ms
+     * @param ms time to wait in milliseconds
      */
     public void stopAndWaitForClientOnThread(long ms) {
 
@@ -114,6 +114,7 @@ public class ExternalProcessGroupHandler {
                     clientRunningOnThread.join(ms - (System.currentTimeMillis() - start));
                     break;
                 } catch (InterruptedException e) {
+                    // ignored
                 }
             } else {
                 break;
@@ -129,24 +130,24 @@ public class ExternalProcessGroupHandler {
     /**
      * Sets the base directory.
      *
-     * @param base_dir the base directory
+     * @param baseDir the base directory
      */
-    public void setBaseDir(String base_dir) {
-        this.base_dir = base_dir;
+    public void setBaseDir(String baseDir) {
+        this.baseDir = baseDir;
     }
 
     /**
      * <p>
-     * startProcess
+     * startProcess.
      * </p>
      *
      * @param commands an array of {@link java.lang.String} objects.
      * @return a boolean.
      */
     public boolean startProcess(String[] commands) {
-        List<String[]> l_commands = new ArrayList<>();
-        l_commands.add(commands);
-        return this.startProcessGroup(l_commands);
+        List<String[]> commandsList = new ArrayList<>();
+        commandsList.add(commands);
+        return this.startProcessGroup(commandsList);
     }
 
     /**
@@ -254,21 +255,22 @@ public class ExternalProcessGroupHandler {
 
     /**
      * <p>
-     * startProcess
+     * startProcess.
      * </p>
      *
      * @param command         an array of {@link java.lang.String} objects.
-     * @param population_data a {@link java.lang.Object} object.
+     * @param processIndex    index of process
+     * @param populationData a {@link java.lang.Object} object.
      * @return a boolean.
      */
-    protected boolean startProcess(String[] command, int processIndex, Object population_data) {
+    protected boolean startProcess(String[] command, int processIndex, Object populationData) {
         if (processGroup[processIndex] != null) {
             logger.warn("Already running an external process");
             return false;
         }
 
         latches[processIndex] = new CountDownLatch(1);
-        final_result = WAITING_FOR_DATA;
+        finalResult = WAITING_FOR_DATA;
 
 
         //the following thread is important to make sure that the external process is killed
@@ -286,7 +288,7 @@ public class ExternalProcessGroupHandler {
         // now start the process
 
         if (!Properties.CLIENT_ON_THREAD) {
-            File dir = new File(base_dir);
+            File dir = new File(baseDir);
             ProcessBuilder builder = new ProcessBuilder(command);
             builder.directory(dir);
             builder.redirectErrorStream(false);
@@ -321,14 +323,14 @@ public class ExternalProcessGroupHandler {
         }
 
         startSignalHandler(processIndex);
-        last_commands[processIndex] = command;
+        lastCommands[processIndex] = command;
 
         return true;
     }
 
     /**
      * <p>
-     * killProcess
+     * killProcess.
      * </p>
      */
     public void killProcess() {
@@ -373,18 +375,20 @@ public class ExternalProcessGroupHandler {
         }
         clientRunningOnThread = null;
 
-        if (output_printers[processIndex] != null && output_printers[processIndex].isAlive())
-            output_printers[processIndex].interrupt();
-        output_printers[processIndex] = null;
-
-        if (error_printers[processIndex] != null && error_printers[processIndex].isAlive())
-            error_printers[processIndex].interrupt();
-        error_printers[processIndex] = null;
-
-        if (message_handlers[processIndex] != null && message_handlers[processIndex].isAlive()) {
-            message_handlers[processIndex].interrupt();
+        if (outputPrinters[processIndex] != null && outputPrinters[processIndex].isAlive()) {
+            outputPrinters[processIndex].interrupt();
         }
-        message_handlers[processIndex] = null;
+        outputPrinters[processIndex] = null;
+
+        if (errorPrinters[processIndex] != null && errorPrinters[processIndex].isAlive()) {
+            errorPrinters[processIndex].interrupt();
+        }
+        errorPrinters[processIndex] = null;
+
+        if (messageHandlers[processIndex] != null && messageHandlers[processIndex].isAlive()) {
+            messageHandlers[processIndex].interrupt();
+        }
+        messageHandlers[processIndex] = null;
     }
 
     /**
@@ -398,7 +402,7 @@ public class ExternalProcessGroupHandler {
 
     /**
      * <p>
-     * getServerPort
+     * getServerPort.
      * </p>
      *
      * @return a int.
@@ -409,7 +413,7 @@ public class ExternalProcessGroupHandler {
 
     /**
      * <p>
-     * openServer
+     * openServer.
      * </p>
      *
      * @return a int.
@@ -430,24 +434,24 @@ public class ExternalProcessGroupHandler {
 
         return MasterServices.getInstance().getRegistryPort();
 
-		/*
-		if (server == null) {
-			try {
-				server = new ServerSocket();
-				server.setSoTimeout(10000);
-				server.bind(null);
-				return server.getLocalPort();
-			} catch (Exception e) {
-				logger.error("Not possible to start TCP server", e);
-			}
-		}
-		return -1;
-		 */
+        /*
+        if (server == null) {
+            try {
+                server = new ServerSocket();
+                server.setSoTimeout(10000);
+                server.bind(null);
+                return server.getLocalPort();
+            } catch (Exception e) {
+                logger.error("Not possible to start TCP server", e);
+            }
+        }
+        return -1;
+         */
     }
 
     /**
      * <p>
-     * closeServer
+     * closeServer.
      * </p>
      */
     public void closeServer() {
@@ -456,32 +460,33 @@ public class ExternalProcessGroupHandler {
 
     /**
      * <p>
-     * startExternalProcessPrinter
+     * startExternalProcessPrinter.
      * </p>
      *
      * @param processIndex index of process
      */
     protected void startExternalProcessPrinter(final int processIndex) {
 
-        if (output_printers[processIndex] == null || !output_printers[processIndex].isAlive()) {
-            output_printers[processIndex] = new Thread() {
+        if (outputPrinters[processIndex] == null || !outputPrinters[processIndex].isAlive()) {
+            outputPrinters[processIndex] = new Thread() {
                 @Override
                 public void run() {
                     try {
-                        BufferedReader proc_in = new BufferedReader(
+                        BufferedReader procIn = new BufferedReader(
                                 new InputStreamReader(processGroup[processIndex].getInputStream()));
 
                         int data = 0;
                         while (data != -1 && !isInterrupted()) {
-                            data = proc_in.read();
+                            data = procIn.read();
                             if (data != -1 && Properties.PRINT_TO_SYSTEM) {
                                 System.out.print((char) data);
                             }
                         }
 
                     } catch (Exception e) {
-                        if (MasterServices.getInstance().getMasterNode() == null)
+                        if (MasterServices.getInstance().getMasterNode() == null) {
                             return;
+                        }
 
                         boolean finished = true;
                         for (ClientState state : MasterServices.getInstance().getMasterNode().getCurrentState()) {
@@ -490,31 +495,32 @@ public class ExternalProcessGroupHandler {
                                 break;
                             }
                         }
-                        if (!finished)
+                        if (!finished) {
                             logger.error("Exception while reading output of client process. "
                                     + e.getMessage());
-                        else
+                        } else {
                             logger.debug("Exception while reading output of client process. "
                                     + e.getMessage());
+                        }
                     }
                 }
             };
 
-            output_printers[processIndex].start();
+            outputPrinters[processIndex].start();
         }
 
-        if (error_printers[processIndex] == null || !error_printers[processIndex].isAlive()) {
-            error_printers[processIndex] = new Thread() {
+        if (errorPrinters[processIndex] == null || !errorPrinters[processIndex].isAlive()) {
+            errorPrinters[processIndex] = new Thread() {
                 @Override
                 public void run() {
                     try {
-                        BufferedReader proc_in = new BufferedReader(
+                        BufferedReader procIn = new BufferedReader(
                                 new InputStreamReader(processGroup[processIndex].getErrorStream()));
 
                         int data = 0;
                         String errorLine = "";
                         while (data != -1 && !isInterrupted()) {
-                            data = proc_in.read();
+                            data = procIn.read();
                             if (data != -1 && Properties.PRINT_TO_SYSTEM) {
                                 System.err.print((char) data);
 
@@ -527,8 +533,9 @@ public class ExternalProcessGroupHandler {
                         }
 
                     } catch (Exception e) {
-                        if (MasterServices.getInstance().getMasterNode() == null)
+                        if (MasterServices.getInstance().getMasterNode() == null) {
                             return;
+                        }
 
                         boolean finished = true;
                         for (ClientState state : MasterServices.getInstance().getMasterNode().getCurrentState()) {
@@ -537,24 +544,25 @@ public class ExternalProcessGroupHandler {
                                 break;
                             }
                         }
-                        if (!finished)
+                        if (!finished) {
                             logger.error("Exception while reading output of client process. "
                                     + e.getMessage());
-                        else
+                        } else {
                             logger.debug("Exception while reading output of client process. "
                                     + e.getMessage());
+                        }
                     }
                 }
             };
 
-            error_printers[processIndex].start();
+            errorPrinters[processIndex].start();
         }
 
-        if (Properties.SHOW_PROGRESS &&
-                (Properties.LOG_LEVEL == null ||
-                        (!Properties.LOG_LEVEL.equals("info")
-                                && !Properties.LOG_LEVEL.equals("debug")
-                                && !Properties.LOG_LEVEL.equals("trace"))
+        if (Properties.SHOW_PROGRESS
+                && (Properties.LOG_LEVEL == null
+                || (!Properties.LOG_LEVEL.equals("info")
+                && !Properties.LOG_LEVEL.equals("debug")
+                && !Properties.LOG_LEVEL.equals("trace"))
                 )
         ) {
             ConsoleProgressBar.startProgressBar();
@@ -564,16 +572,17 @@ public class ExternalProcessGroupHandler {
 
     /**
      * <p>
-     * startExternalProcessMessageHandler
+     * startExternalProcessMessageHandler.
      * </p>
      *
      * @param processIndex index of process
      */
     protected void startExternalProcessMessageHandler(final int processIndex) {
-        if (message_handlers[processIndex] != null && message_handlers[processIndex].isAlive())
+        if (messageHandlers[processIndex] != null && messageHandlers[processIndex].isAlive()) {
             return;
+        }
 
-        message_handlers[processIndex] = new Thread() {
+        messageHandlers[processIndex] = new Thread() {
             @Override
             public void run() {
                 boolean read = true;
@@ -607,7 +616,7 @@ public class ExternalProcessGroupHandler {
                         LoggingUtils.getEvoLogger().info("* Computation finished");
                         read = false;
                         killProcess(processIndex);
-                        final_result = data;
+                        finalResult = data;
                         latches[processIndex].countDown();
                     } else if (message.equals(Messages.NEED_RESTART)) {
                         //now data represent the current generation
@@ -617,7 +626,7 @@ public class ExternalProcessGroupHandler {
                          * TODO: this will need to be changed, to take into account
                          * a possible reduced budget
                          */
-                        startProcess(last_commands[processIndex], processIndex, data);
+                        startProcess(lastCommands[processIndex], processIndex, data);
                     } else {
                         killProcess(processIndex);
                         logger.error("Class " + Properties.TARGET_CLASS
@@ -627,7 +636,7 @@ public class ExternalProcessGroupHandler {
                 }
             }
         };
-        message_handlers[processIndex].start();
+        messageHandlers[processIndex].start();
     }
 
     /**
@@ -649,7 +658,8 @@ public class ExternalProcessGroupHandler {
                         private boolean interrupted = false;
 
                         @Override
-                        public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+                        public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args)
+                                throws Throwable {
                             if (method.getName().equals("handle")) {
                                 if (interrupted) {
                                     System.exit(0);
@@ -678,7 +688,7 @@ public class ExternalProcessGroupHandler {
 
     /**
      * <p>
-     * waitForResult
+     * waitForResult.
      * </p>
      *
      * @param timeout a int.
@@ -719,13 +729,17 @@ public class ExternalProcessGroupHandler {
                      * TODO what to do here? Try to stop the client through RMI?
                      * Or check in which state it is, and based on that decide if giving more time?
                      */
-                    logger.error("Class " + Properties.TARGET_CLASS + ". Clients have not finished yet, although a timeout occurred.\n" + MasterServices.getInstance().getMasterNode().getSummaryOfClientStatuses());
+                    logger.error("Class " + Properties.TARGET_CLASS
+                            + ". Clients have not finished yet, although a timeout occurred.\n"
+                            + MasterServices.getInstance().getMasterNode().getSummaryOfClientStatuses());
                 }
             }
         } catch (InterruptedException e) {
+            // ignored
         } catch (RemoteException e) {
 
-            String msg = "Class " + Properties.TARGET_CLASS + ". Lost connection with clients.\n" + MasterServices.getInstance().getMasterNode().getSummaryOfClientStatuses();
+            String msg = "Class " + Properties.TARGET_CLASS + ". Lost connection with clients.\n"
+                    + MasterServices.getInstance().getMasterNode().getSummaryOfClientStatuses();
 
             boolean crashOccurred = false;
             for (int i = 0; i < processGroup.length; i++) {
@@ -747,18 +761,18 @@ public class ExternalProcessGroupHandler {
         }
         LoggingUtils.getEvoLogger().info("* Computation finished");
         return null; //TODO refactoring
-		/*
-		try {
-			latch.await(timeout, TimeUnit.MILLISECONDS);
-		} catch (InterruptedException e) {
-			logger.warn("Class "
-			                    + Properties.TARGET_CLASS
-			                    + ". Thread interrupted while waiting for results from client process",
-			            e);
-		}
+        /*
+        try {
+            latch.await(timeout, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            logger.warn("Class "
+                                + Properties.TARGET_CLASS
+                                + ". Thread interrupted while waiting for results from client process",
+                        e);
+        }
 
-		return final_result;
-		 */
+        return finalResult;
+         */
     }
 
 }
