@@ -20,11 +20,9 @@
 package org.evosuite.runtime.mock.java.time;
 
 import org.evosuite.runtime.mock.StaticReplacementMock;
-
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.*;
-
 
 /**
  * Created by gordon on 24/01/2016.

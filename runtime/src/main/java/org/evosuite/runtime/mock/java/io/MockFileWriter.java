@@ -19,137 +19,134 @@
  */
 package org.evosuite.runtime.mock.java.io;
 
+import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.runtime.mock.OverrideMock;
+import org.evosuite.runtime.vfs.VirtualFileSystem;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 
-import org.evosuite.runtime.mock.MockFramework;
-import org.evosuite.runtime.mock.OverrideMock;
-import org.evosuite.runtime.vfs.VirtualFileSystem;
-
 public class MockFileWriter extends FileWriter  implements OverrideMock{
 
-	/*
-	 * This class is specular to MockFileReader
-	 */
+    /*
+     * This class is specular to MockFileReader
+     */
 
-	private OutputStreamWriter stream;
+    private OutputStreamWriter stream;
 
-	/*
-	 *  -- constructors --------
-	 */
+    /*
+     *  -- constructors --------
+     */
 
-	public MockFileWriter(String fileName) throws IOException {
-		this(fileName != null ? 
-				(!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName)) : 
-					null);
-	}
+    public MockFileWriter(String fileName) throws IOException {
+        this(fileName != null ?
+                (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName)) :
+                    null);
+    }
 
-	public MockFileWriter(String fileName, boolean append) throws IOException {
-		this(fileName != null ? 
-				(!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName)) : 
-					null, append);
-	}
+    public MockFileWriter(String fileName, boolean append) throws IOException {
+        this(fileName != null ?
+                (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName)) :
+                    null, append);
+    }
 
-	public MockFileWriter(File file) throws IOException {
-		this(file,false);
-	}
+    public MockFileWriter(File file) throws IOException {
+        this(file,false);
+    }
 
-	public MockFileWriter(File file, boolean append) throws IOException {
-		super(!MockFramework.isEnabled() ? 
-				file : 
-					VirtualFileSystem.getInstance().getRealTmpFile(),
-					append);
+    public MockFileWriter(File file, boolean append) throws IOException {
+        super(!MockFramework.isEnabled() ?
+                file :
+                    VirtualFileSystem.getInstance().getRealTmpFile(),
+                    append);
 
-		if(!MockFramework.isEnabled()){
-			return;
-		}
+        if (!MockFramework.isEnabled()) {
+            return;
+        }
 
-		MockFileOutputStream mock = new MockFileOutputStream(file,append);
+        MockFileOutputStream mock = new MockFileOutputStream(file,append);
 
-		stream = new OutputStreamWriter(mock);
+        stream = new OutputStreamWriter(mock);
 
-		VirtualFileSystem.getInstance().addLeakingResource(mock);
-	}
+        VirtualFileSystem.getInstance().addLeakingResource(mock);
+    }
 
-	// we do not handle this constructor
-	public MockFileWriter(FileDescriptor fd) {
-		super(fd);
-	}
+    // we do not handle this constructor
+    public MockFileWriter(FileDescriptor fd) {
+        super(fd);
+    }
 
+    // ---- methods from  OutputStreamWriter -----------
 
+    @Override
+    public String getEncoding() {
+        if (!MockFramework.isEnabled()) {
+            return super.getEncoding();
+        }
 
-	// ---- methods from  OutputStreamWriter -----------
+        return stream.getEncoding();
+    }
 
-	@Override
-	public String getEncoding() {
-		if(!MockFramework.isEnabled()){
-			return super.getEncoding();
-		}
-
-		return stream.getEncoding();
-	}
-
-	/*
-	 * cannot override a package-level method...
-	 * 
-	 * but this is not a problem:
-	 * 1) only called by PrintStream
-	 * 2) anyway, the goal would be to mock all objects in
-	 *    a package 
-	 * 
+    /*
+     * cannot override a package-level method...
+     *
+     * but this is not a problem:
+     * 1) only called by PrintStream
+     * 2) anyway, the goal would be to mock all objects in
+     *    a package
+     *
     void flushBuffer() throws IOException {
         stream.flushBuffer();
     }
-	 */
+     */
 
-	@Override
-	public void write(int c) throws IOException {
-		if(!MockFramework.isEnabled()){
-			super.write(c);
-			return;
-		}
+    @Override
+    public void write(int c) throws IOException {
+        if (!MockFramework.isEnabled()) {
+            super.write(c);
+            return;
+        }
 
-		stream.write(c);
-	}
+        stream.write(c);
+    }
 
-	@Override
-	public void write(char[] cbuf, int off, int len) throws IOException {
-		if(!MockFramework.isEnabled()){
-			super.write(cbuf, off, len);
-			return;
-		}
+    @Override
+    public void write(char[] cbuf, int off, int len) throws IOException {
+        if (!MockFramework.isEnabled()) {
+            super.write(cbuf, off, len);
+            return;
+        }
 
-		stream.write(cbuf, off, len);
-	}
+        stream.write(cbuf, off, len);
+    }
 
-	@Override
-	public void write(String str, int off, int len) throws IOException {
-		if(!MockFramework.isEnabled()){
-			super.write(str, off, len);
-			return;
-		}
-		stream.write(str, off, len);
-	}
+    @Override
+    public void write(String str, int off, int len) throws IOException {
+        if (!MockFramework.isEnabled()) {
+            super.write(str, off, len);
+            return;
+        }
+        stream.write(str, off, len);
+    }
 
-	@Override
-	public void flush() throws IOException {
-		if(!MockFramework.isEnabled()){
-			super.flush();
-			return;
-		}
-		stream.flush();
-	}
+    @Override
+    public void flush() throws IOException {
+        if (!MockFramework.isEnabled()) {
+            super.flush();
+            return;
+        }
+        stream.flush();
+    }
 
-	@Override
-	public void close() throws IOException {
-		if(!MockFramework.isEnabled()){
-			super.close();
-			return;
-		}
-		stream.close();
-	}
+    @Override
+    public void close() throws IOException {
+        if (!MockFramework.isEnabled()) {
+            super.close();
+            return;
+        }
+        stream.close();
+    }
 
 }

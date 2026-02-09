@@ -20,7 +20,6 @@
 package org.evosuite.runtime.mock.java.time;
 
 import org.evosuite.runtime.mock.OverrideMock;
-
 import java.io.Serializable;
 import java.time.*;
 import java.util.Objects;
@@ -43,7 +42,6 @@ public abstract class MockClock extends java.time.Clock implements OverrideMock 
      */
     static final long NANOS_PER_MINUTE = NANOS_PER_SECOND * SECONDS_PER_MINUTE;
 
-
     public static Clock systemUTC() {
         return new MockSystemClock(ZoneOffset.UTC);
     }
@@ -61,50 +59,39 @@ public abstract class MockClock extends java.time.Clock implements OverrideMock 
         return new MockTickClock(system(zone), NANOS_PER_SECOND);
     }
 
-
     public static Clock tickMinutes(ZoneId zone) {
         return new MockTickClock(system(zone), NANOS_PER_MINUTE);
     }
-
 
     public static Clock tick(Clock baseClock, Duration tickDuration) {
         return Clock.tick(baseClock, tickDuration);
     }
 
-
     public static Clock fixed(Instant fixedInstant, ZoneId zone) {
         return Clock.fixed(fixedInstant, zone);
     }
-
 
     public static Clock offset(Clock baseClock, Duration offsetDuration) {
         return Clock.offset(baseClock, offsetDuration);
     }
 
-
     protected MockClock() {
     }
 
-
     public abstract ZoneId getZone();
 
-
     public abstract Clock withZone(ZoneId zone);
-
 
     public long millis() {
         return instant().toEpochMilli();
     }
 
-
     public abstract Instant instant();
-
 
     @Override
     public boolean equals(Object obj) {
         return super.equals(obj);
     }
-
 
     @Override
     public  int hashCode() {

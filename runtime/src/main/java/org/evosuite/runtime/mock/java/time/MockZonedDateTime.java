@@ -20,7 +20,6 @@
 package org.evosuite.runtime.mock.java.time;
 
 import org.evosuite.runtime.mock.StaticReplacementMock;
-
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
@@ -59,7 +58,6 @@ public class MockZonedDateTime implements StaticReplacementMock {
             int hour, int minute, int second, int nanoOfSecond, ZoneId zone) {
         return ZonedDateTime.of(year, month, dayOfMonth, hour, minute, second, nanoOfSecond, zone);
     }
-
 
     public static ZonedDateTime ofLocal(LocalDateTime localDateTime, ZoneId zone, ZoneOffset preferredOffset) {
         return ZonedDateTime.ofLocal(localDateTime, zone, preferredOffset);

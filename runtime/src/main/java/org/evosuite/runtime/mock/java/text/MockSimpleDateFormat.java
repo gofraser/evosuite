@@ -23,7 +23,6 @@ import org.evosuite.runtime.mock.OverrideMock;
 import org.evosuite.runtime.mock.java.util.MockCalendar;
 import org.evosuite.runtime.mock.java.util.MockDate;
 import org.evosuite.runtime.mock.java.util.MockTimeZone;
-
 import java.text.DateFormatSymbols;
 import java.text.NumberFormat;
 import java.util.Locale;

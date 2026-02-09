@@ -20,14 +20,13 @@
 package org.evosuite.runtime.mock.java.lang;
 
 import org.apache.commons.lang3.SystemUtils;
-import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.OverrideMock;
 import org.evosuite.runtime.thread.ThreadCounter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,7 +43,7 @@ public class MockThread extends Thread implements OverrideMock {
 
     static {
         final Integer javaVersion = Integer.valueOf(SystemUtils.JAVA_VERSION.split("\\.")[0]);
-        if(javaVersion < 11){
+        if (javaVersion < 11) {
             try {
                 Method destroy = MockThread.class.getMethod("destroy");
             } catch (NoSuchMethodException e) {
@@ -66,7 +65,7 @@ public class MockThread extends Thread implements OverrideMock {
     private boolean isSutRelated() {
         String sut = RuntimeSettings.className;
         String threadName = this.getClass().getName();
-        String targetName = target==null ? null : target.getClass().getName();
+        String targetName = target == null ? null : target.getClass().getName();
 
         /*
             Note: this check would not recognize code like:
@@ -80,10 +79,10 @@ public class MockThread extends Thread implements OverrideMock {
     }
 
     private boolean match(String sut, String other) {
-        if(other==null || other.length() < sut.length()) {
+        if (other == null || other.length() < sut.length()) {
             return false;
         }
-        if(other.length() == sut.length()) {
+        if (other.length() == sut.length()) {
             //is the thread the SUT itself?
             return other.equals(sut);
         } else {
@@ -102,7 +101,6 @@ public class MockThread extends Thread implements OverrideMock {
     public final static int MIN_PRIORITY = 1;
     public final static int NORM_PRIORITY = 5;
     public final static int MAX_PRIORITY = 10;
-
 
     // ------ static  methods  --------
 
@@ -141,7 +139,7 @@ public class MockThread extends Thread implements OverrideMock {
     }
 
     public static void dumpStack() {
-        if(!MockFramework.isEnabled()) {
+        if (!MockFramework.isEnabled()) {
             Thread.dumpStack();
         } else {
             new MockException("Stack trace").printStackTrace();
@@ -149,7 +147,7 @@ public class MockThread extends Thread implements OverrideMock {
     }
 
     public static Map<Thread, StackTraceElement[]> getAllStackTraces() {
-        if(!MockFramework.isEnabled()) {
+        if (!MockFramework.isEnabled()) {
             return Thread.getAllStackTraces();
         }
         //get actual running threads, and then replace stack traces
@@ -157,7 +155,7 @@ public class MockThread extends Thread implements OverrideMock {
         //this will ask for permissions, but we grant it anyway
         Set<Thread> threads =  Thread.getAllStackTraces().keySet();
         Map<Thread, StackTraceElement[]> m = new HashMap<>(threads.size());
-        for(Thread t : threads) {
+        for (Thread t : threads) {
             m.put(t,MockThrowable.getDefaultStackTrace());
         }
 
@@ -230,11 +228,11 @@ public class MockThread extends Thread implements OverrideMock {
     }
 
     private void mockSetup(String name) {
-        if(!MockFramework.isEnabled()) {
+        if (!MockFramework.isEnabled()) {
             return;
         }
 
-        if(name == null) {
+        if (name == null) {
             /*
                 If SUT did not specify any name, we need
                 to change the one automatically given by the JVM,
@@ -250,12 +248,12 @@ public class MockThread extends Thread implements OverrideMock {
     @EvoSuiteExclude
     public synchronized void start() {
 
-        if(!MockFramework.isEnabled()) {
+        if (!MockFramework.isEnabled()) {
             super.start();
             return;
         }
 
-        if(!isSutRelated()) {
+        if (!isSutRelated()) {
             //no point in starting those 3rd party threads
             return;
         }
@@ -281,7 +279,6 @@ public class MockThread extends Thread implements OverrideMock {
         super.interrupt();
     }
 
-
     @Override
     public boolean isInterrupted() {
         return super.isInterrupted();
@@ -294,8 +291,6 @@ public class MockThread extends Thread implements OverrideMock {
         // inlined super.destroy()
         throw new NoSuchMethodError();
     }
-
-
 
     @Override
     public String toString() {
@@ -314,16 +309,15 @@ public class MockThread extends Thread implements OverrideMock {
 
     @Override
     public StackTraceElement[] getStackTrace() {
-        if(!MockFramework.isEnabled()) {
+        if (!MockFramework.isEnabled()) {
             return super.getStackTrace();
         }
         return MockThrowable.getDefaultStackTrace();
     }
 
-
     @Override
     public long getId() {
-        if(!MockFramework.isEnabled()) {
+        if (!MockFramework.isEnabled()) {
             return super.getId();
         }
 
@@ -341,7 +335,6 @@ public class MockThread extends Thread implements OverrideMock {
         return super.getState();
     }
 
-
     @Override
     public UncaughtExceptionHandler getUncaughtExceptionHandler() {
         return super.getUncaughtExceptionHandler();
@@ -354,11 +347,9 @@ public class MockThread extends Thread implements OverrideMock {
 
     // ----- StaticReplacementMethods  ---------
 
-
     // Handled in the constructors
     // public final void setName(String name) {   }
     // public final String getName() {}
-
 
     //TODO
     // they are final
@@ -383,15 +374,12 @@ public class MockThread extends Thread implements OverrideMock {
         resume0();
     }
 
-
     public final void setPriority(int newPriority) {
     }
 
     public final int getPriority() {
         return priority;
     }
-
-
 
     public final ThreadGroup getThreadGroup() {
         return group;
@@ -413,7 +401,6 @@ public class MockThread extends Thread implements OverrideMock {
         join(0);
     }
 
-
     public final void setDaemon(boolean on) {
     }
 
@@ -424,6 +411,5 @@ public class MockThread extends Thread implements OverrideMock {
     public final void checkAccess() {
     }
 */
-
 
 }
