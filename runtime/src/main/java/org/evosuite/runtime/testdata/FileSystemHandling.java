@@ -27,8 +27,7 @@ import org.evosuite.runtime.vfs.VirtualFileSystem;
  * This class is used create files as test data
  * in the test cases.
  *
- * <p>
- * The methods in this class are the main ones that are going
+ * <p>The methods in this class are the main ones that are going
  * to be used in the generated JUnit files to manipulate
  * the virtual file system.
  * Note: if SUT takes as input a {@code File}, then it can happen
@@ -43,7 +42,9 @@ public class FileSystemHandling {
      * Append a string to the given file.
      * If the file does not exist, it will be created.
      *
-     * @return
+     * @param file  the file to append to
+     * @param value the string to append
+     * @return {@code true} if the string was appended, {@code false} otherwise
      */
     public static boolean appendStringToFile(EvoSuiteFile file, String value) {
 
@@ -59,7 +60,9 @@ public class FileSystemHandling {
      * to the next line.
      * If the file does not exist, it will be created.
      *
-     * @return
+     * @param file the file to append to
+     * @param line the line to append
+     * @return {@code true} if the line was appended, {@code false} otherwise
      */
     public static boolean appendLineToFile(EvoSuiteFile file, String line) {
 
@@ -75,8 +78,9 @@ public class FileSystemHandling {
      * Append a byte array to the given file.
      * If the file does not exist, it will be created.
      *
-     * @param data
-     * @return
+     * @param file the file to append to
+     * @param data the data to append
+     * @return {@code true} if the data was appended, {@code false} otherwise
      */
     public static boolean appendDataToFile(EvoSuiteFile file, byte[] data) {
 
@@ -107,6 +111,12 @@ public class FileSystemHandling {
     }
 
 
+    /**
+     * Create a folder.
+     *
+     * @param file the folder to create
+     * @return {@code true} if the folder was created, {@code false} otherwise
+     */
     public static boolean createFolder(EvoSuiteFile file) {
 
         if (file == null) {
@@ -117,15 +127,16 @@ public class FileSystemHandling {
     }
 
     /**
-     * Set read/write/execute permissions to the given file
+     * Set read/write/execute permissions to the given file.
      *
-     * @param file
-     * @param isReadable
-     * @param isWritable
-     * @param isExecutable
-     * @return
+     * @param file         the file to set permissions for
+     * @param isReadable   read permission
+     * @param isWritable   write permission
+     * @param isExecutable execute permission
+     * @return {@code true} if permissions were set, {@code false} otherwise
      */
-    public static boolean setPermissions(EvoSuiteFile file, boolean isReadable, boolean isWritable, boolean isExecutable) {
+    public static boolean setPermissions(EvoSuiteFile file, boolean isReadable, boolean isWritable,
+                                         boolean isExecutable) {
         if (file == null) {
             return false;
         }
@@ -142,10 +153,10 @@ public class FileSystemHandling {
 
     /**
      * All operations on the given {@code file} will throw an IOException if that
-     * appears in their method signature
+     * appears in their method signature.
      *
-     * @param file
-     * @return
+     * @param file the file on which IOExceptions should be thrown
+     * @return {@code true} if the configuration was successful, {@code false} otherwise
      */
     public static boolean shouldThrowIOException(EvoSuiteFile file) {
         if (file == null) {
@@ -156,7 +167,9 @@ public class FileSystemHandling {
 
     /**
      * All operations in the entire VFS will throw an IOException if that
-     * appears in their method signature
+     * appears in their method signature.
+     *
+     * @return {@code true} if the configuration was successful
      */
     public static boolean shouldAllThrowIOExceptions() {
         return VirtualFileSystem.getInstance().setShouldAllThrowIOExceptions();
