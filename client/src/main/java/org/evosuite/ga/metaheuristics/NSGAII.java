@@ -35,9 +35,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
- * NSGA-II implementation
+ * NSGA-II implementation.
  *
  * @author José Campos
+ *    <pre>
+ * {@code
  * @article{Deb:2002, author = {Deb, K. and Pratap, A. and Agarwal, S. and Meyarivan, T.},
  * title = {{A Fast and Elitist Multiobjective Genetic Algorithm: NSGA-II}},
  * journal = {Trans. Evol. Comp},
@@ -54,6 +56,8 @@ import java.util.List;
  * acmid = {2221582},
  * publisher = {IEEE Press},
  * address = {Piscataway, NJ, USA}}
+ * }
+ *    </pre>
  */
 public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     private static final long serialVersionUID = 146182080947267628L;
@@ -63,7 +67,7 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     private final CrowdingDistance<T> crowdingDistance;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
      */
@@ -93,8 +97,9 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             T offspring2 = parent2.clone();
 
             try {
-                if (Randomness.nextDouble() <= Properties.CROSSOVER_RATE)
+                if (Randomness.nextDouble() <= Properties.CROSSOVER_RATE) {
                     crossoverFunction.crossOver(offspring1, offspring2);
+                }
             } catch (Exception e) {
                 logger.info("CrossOver failed");
             }
@@ -143,8 +148,9 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
             // Obtain the next front
             index++;
-            if (remain > 0)
+            if (remain > 0) {
                 front = this.rankingFunction.getSubfront(index);
+            }
         }
 
         // Remain is less than front(index).size, insert only the best one
@@ -154,8 +160,9 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
             front.sort(new RankAndCrowdingDistanceComparator<>());
 
-            for (int k = 0; k < remain; k++)
+            for (int k = 0; k < remain; k++) {
                 population.add(front.get(k));
+            }
 
             remain = 0;
         }
@@ -186,8 +193,9 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     public void generateSolution() {
         logger.info("executing generateSolution function");
 
-        if (population.isEmpty())
+        if (population.isEmpty()) {
             initializePopulation();
+        }
 
         while (!isFinished()) {
             evolve();

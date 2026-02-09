@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -26,8 +26,8 @@ import java.util.Objects;
 
 /**
  * Search Listener to redirect Notifications from an adaptee algorithm to an adapter algorithm.
- * <p>
- * Evaluation and Mutation notifications are disabled by default.
+ *
+ * <p>Evaluation and Mutation notifications are disabled by default.
  */
 public class AdapteeListener implements SearchListener<TestChromosome> {
 
@@ -65,14 +65,16 @@ public class AdapteeListener implements SearchListener<TestChromosome> {
     @Override
     public void fitnessEvaluation(TestChromosome individual) {
         // The adapter throws currently a exception when notifying a evaluation
-        if (notifyEvaluation)
+        if (notifyEvaluation) {
             adapter.notifyEvaluation(individual.toSuite());
+        }
     }
 
     @Override
     public void modification(TestChromosome individual) {
         // The adapter throws currently a exception when notifying a mutation
-        if (notifyMutation)
+        if (notifyMutation) {
             adapter.notifyMutation(individual.toSuite());
+        }
     }
 }

@@ -25,9 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p>
  * RandomSearch class.
- * </p>
  *
  * @author Gordon Fraser
  */
@@ -36,9 +34,7 @@ public class RandomSearch<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     private static final Logger logger = LoggerFactory.getLogger(RandomSearch.class);
 
     /**
-     * <p>
      * Constructor for RandomSearch.
-     * </p>
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
@@ -90,8 +86,9 @@ public class RandomSearch<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     @Override
     public void generateSolution() {
         notifySearchStarted();
-        if (population.isEmpty())
+        if (population.isEmpty()) {
             initializePopulation();
+        }
 
         currentIteration = 0;
         while (!isFinished()) {

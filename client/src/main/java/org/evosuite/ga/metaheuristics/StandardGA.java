@@ -30,7 +30,7 @@ import java.util.List;
 
 
 /**
- * Standard GA implementation
+ * Standard GA implementation.
  *
  * @author Gordon Fraser
  */
@@ -98,8 +98,9 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                 break;
             }
 
-            if (isNextPopulationFull(newGeneration))
+            if (isNextPopulationFull(newGeneration)) {
                 break;
+            }
 
             if (!isTooLong(offspring2)) {
                 newGeneration.add(offspring2);
@@ -139,8 +140,9 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                 || Properties.ENABLE_SECONDARY_OBJECTIVE_STARVATION) {
             disableFirstSecondaryCriterion();
         }
-        if (population.isEmpty())
+        if (population.isEmpty()) {
             initializePopulation();
+        }
 
         logger.debug("Starting evolution");
         int starvationCounter = 0;
@@ -163,12 +165,13 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
             double newFitness = getBestIndividual().getFitness();
 
-            if (getFitnessFunction().isMaximizationFunction())
+            if (getFitnessFunction().isMaximizationFunction()) {
                 assert (newFitness >= bestFitness) : "best fitness was: " + bestFitness
                         + ", now best fitness is " + newFitness;
-            else
+            } else {
                 assert (newFitness <= bestFitness) : "best fitness was: " + bestFitness
                         + ", now best fitness is " + newFitness;
+            }
             bestFitness = newFitness;
 
             if (Double.compare(bestFitness, lastBestFitness) == 0) {
