@@ -24,8 +24,8 @@ import java.lang.annotation.*;
 /**
  * Manually specify that the tagged method can be used in the generated test cases.
  * Note: this is only needed when the class is tagged with {@link EvoSuiteClassExclude}
- * <p>
- * Created by Andrea Arcuri on 22/05/15.
+ *
+ * <p>Created by Andrea Arcuri on 22/05/15.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
