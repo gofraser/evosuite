@@ -20,9 +20,9 @@
 package org.evosuite.runtime.testdata;
 
 /**
- * A object wrapper for URLs accessed by the SUT
- * <p>
- * Created by arcuri on 12/12/14.
+ * A object wrapper for URLs accessed by the SUT.
+ *
+ * <p>Created by arcuri on 12/12/14.
  */
 public class EvoSuiteURL {
 

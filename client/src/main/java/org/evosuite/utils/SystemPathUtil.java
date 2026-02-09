@@ -30,13 +30,13 @@ import java.util.StringJoiner;
 public class SystemPathUtil {
 
     /**
-     * Exceptions messages
+     * Exceptions messages.
      */
     public static final String ELEMENTS_MUST_NOT_BE_NULL_EXCEPTION_MESSAGE = "Elements must not be null.";
     public static final String DELIMITER_MUST_NOT_BE_NULL_EXCEPTION_MESSAGE = "Delimiter must not be null.";
 
     /**
-     * Different file extensions
+     * Different file extensions.
      */
     public enum FileExtension {
         TXT("txt"),
@@ -54,12 +54,12 @@ public class SystemPathUtil {
     }
 
     /**
-     * Simple Delimiter for file creation
+     * Simple Delimiter for file creation.
      */
     public static final String FILE_NAME_DELIMITER = "_";
 
     /**
-     * Simple Delimiter for file extension
+     * Simple Delimiter for file extension.
      */
     public static final String FILE_EXTENSION_DELIMITER = ".";
 
@@ -67,18 +67,20 @@ public class SystemPathUtil {
     /**
      * Creates a file name from a series of given Strings.
      *
-     * @param params
-     * @return
+     * @param extension the file extension
+     * @param params the parts of the filename
+     * @return the filename
      */
     public static String buildFileName(FileExtension extension, String... params) {
-        return joinWithDelimiter(FILE_EXTENSION_DELIMITER, joinWithDelimiter(FILE_NAME_DELIMITER, params), extension.getName());
+        return joinWithDelimiter(FILE_EXTENSION_DELIMITER, joinWithDelimiter(FILE_NAME_DELIMITER, params),
+                extension.getName());
     }
 
     /**
      * Creates a path from a series of given Strings.
      *
-     * @param pathElements
-     * @return
+     * @param pathElements the path elements
+     * @return the path
      */
     public static String buildPath(String... pathElements) {
         return joinWithDelimiter(File.separator, pathElements);
@@ -87,13 +89,17 @@ public class SystemPathUtil {
     /**
      * Joins a series of String using a delimiter.
      *
-     * @param delimiter
-     * @param elements
-     * @return
+     * @param delimiter the delimiter
+     * @param elements the elements to join
+     * @return the joined string
      */
     public static String joinWithDelimiter(String delimiter, String... elements) {
-        if (delimiter == null) throw new IllegalArgumentException(DELIMITER_MUST_NOT_BE_NULL_EXCEPTION_MESSAGE);
-        if (elements == null) throw new IllegalArgumentException(ELEMENTS_MUST_NOT_BE_NULL_EXCEPTION_MESSAGE);
+        if (delimiter == null) {
+            throw new IllegalArgumentException(DELIMITER_MUST_NOT_BE_NULL_EXCEPTION_MESSAGE);
+        }
+        if (elements == null) {
+            throw new IllegalArgumentException(ELEMENTS_MUST_NOT_BE_NULL_EXCEPTION_MESSAGE);
+        }
 
         StringJoiner joiner = new StringJoiner(delimiter);
 

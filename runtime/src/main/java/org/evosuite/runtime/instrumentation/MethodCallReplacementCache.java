@@ -21,7 +21,11 @@ package org.evosuite.runtime.instrumentation;
 
 import org.evosuite.PackageInfo;
 import org.evosuite.runtime.RuntimeSettings;
-import org.evosuite.runtime.mock.*;
+import org.evosuite.runtime.mock.EvoSuiteMock;
+import org.evosuite.runtime.mock.MockList;
+import org.evosuite.runtime.mock.OverrideMock;
+import org.evosuite.runtime.mock.StaticReplacementMethod;
+import org.evosuite.runtime.mock.StaticReplacementMock;
 import org.evosuite.runtime.mock.java.lang.MockThrowable;
 import org.evosuite.runtime.util.ReflectionUtils;
 import org.objectweb.asm.Opcodes;
@@ -39,6 +43,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Cache for method call replacements.
+ *
  * @author gordon
  */
 public class MethodCallReplacementCache {
@@ -48,18 +54,15 @@ public class MethodCallReplacementCache {
     private static MethodCallReplacementCache instance = null;
 
     /**
-     * method replacements, which are called with Opcodes.INVOKESTATIC
+     * method replacements, which are called with Opcodes.INVOKESTATIC.
      */
     private final Map<String, Map<String, MethodCallReplacement>> replacementCalls = new HashMap<>();
 
-    /**
-     * method replacements, which are called with Opcodes.INVOKEVIRTUAL
-     */
     // private final Set<MethodCallReplacement> virtualReplacementCalls = new
     // HashSet<MethodCallReplacement>();
 
     /**
-     * method replacements, which are called with Opcodes.INVOKESPECIAL
+     * method replacements, which are called with Opcodes.INVOKESPECIAL.
      */
     private final Map<String, Map<String, MethodCallReplacement>> specialReplacementCalls = new HashMap<>();
 
@@ -115,8 +118,9 @@ public class MethodCallReplacementCache {
     // }
 
     public boolean hasReplacementCall(String className, String methodNameWithDesc) {
-        if (!replacementCalls.containsKey(className))
+        if (!replacementCalls.containsKey(className)) {
             return false;
+        }
 
         return replacementCalls.get(className).containsKey(methodNameWithDesc);
     }
@@ -126,8 +130,9 @@ public class MethodCallReplacementCache {
     }
 
     public boolean hasSpecialReplacementCall(String className, String methodNameWithDesc) {
-        if (!specialReplacementCalls.containsKey(className))
+        if (!specialReplacementCalls.containsKey(className)) {
             return false;
+        }
 
         return specialReplacementCalls.get(className).containsKey(methodNameWithDesc);
     }
@@ -149,13 +154,12 @@ public class MethodCallReplacementCache {
      * require to mock the full Java API (which is not going to happen...).
      * Solution is, beside using OverrideMock for them, to also a further static
      * replacement (implemented in this method).
-     * <p/>
-     * <p/>
-     * Note: why not just using static replacement instead of OverrideMock?
+     *
+     * <p>Note: why not just using static replacement instead of OverrideMock?
      * Because static replacement will not work if an exception instance is used
      * in a non-instrumented class, whereas OverrideMock would. Still, it could
      * be tedious to prepare OverrideMock for every single type of exception, so
-     * the static replacement here could be a temporary workaround
+     * the static replacement here could be a temporary workaround.
      */
     private void addExtraceExceptionReplacements() {
 
@@ -265,8 +269,10 @@ public class MethodCallReplacementCache {
         // java/lang/System
         addReplacementCall(new MethodCallReplacement("java/lang/System", "exit", "(I)V", Opcodes.INVOKESTATIC,
                 PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "exit", "(I)V", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/System", "setSecurityManager", "(Ljava/lang/SecurityManager;)V", Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "setSecurityManager", "(Ljava/lang/SecurityManager;)V", false, false));
+        addReplacementCall(new MethodCallReplacement("java/lang/System", "setSecurityManager",
+                "(Ljava/lang/SecurityManager;)V", Opcodes.INVOKESTATIC,
+                PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "setSecurityManager",
+                "(Ljava/lang/SecurityManager;)V", false, false));
         addReplacementCall(new MethodCallReplacement("java/lang/System", "currentTimeMillis", "()J",
                 Opcodes.INVOKESTATIC, PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class),
                 "currentTimeMillis", "()J", false, false));
@@ -381,8 +387,9 @@ public class MethodCallReplacementCache {
             Type[] argumentTypes = Type.getArgumentTypes(m);
             Type[] mockedArgumentTypes = new Type[argumentTypes.length + 1];
             mockedArgumentTypes[0] = Type.getType(target);
-            for (int i = 0; i < argumentTypes.length; i++)
+            for (int i = 0; i < argumentTypes.length; i++) {
                 mockedArgumentTypes[i + 1] = argumentTypes[i];
+            }
             String mockedDesc = Type.getMethodDescriptor(Type.getReturnType(m), mockedArgumentTypes);
             addReplacementCall(new MethodCallReplacement(target.getCanonicalName().replace('.', '/'), m.getName(), desc,
                     Opcodes.INVOKEVIRTUAL, mockClass.getCanonicalName().replace('.', '/'), m.getName(), mockedDesc,
@@ -408,9 +415,9 @@ public class MethodCallReplacementCache {
      * Replace all the constructors of {@code target} with a constructor (with
      * same input parameters) of mock subclass {@code mockClass}.
      *
-     * @param mockClass
-     * @param target
-     * @throws IllegalArgumentException
+     * @param mockClass the mock class
+     * @param target the target class to be mocked
+     * @throws IllegalArgumentException if mockClass is not a subclass of target
      */
     private void replaceAllConstructors(Class<?> mockClass, Class<?> target) throws IllegalArgumentException {
 
@@ -431,9 +438,9 @@ public class MethodCallReplacementCache {
      * Replace all the constructors of {@code target} with a static call (with
      * same input parameters) of static mock class {@code mockClass}.
      *
-     * @param mockClass
-     * @param target
-     * @throws IllegalArgumentException
+     * @param mockClass the mock class
+     * @param target the target class to be mocked
+     * @throws IllegalArgumentException if initialization fails
      */
     private void replaceAllConstructorsWithStaticCalls(Class<?> mockClass, Class<?> target)
             throws IllegalArgumentException {
@@ -451,9 +458,9 @@ public class MethodCallReplacementCache {
      * Replace all the methods of {@code target} with a method (with same input
      * parameters) of mock subclass {@code mockClass}.
      *
-     * @param mockClass
-     * @param target
-     * @throws IllegalArgumentException
+     * @param mockClass the mock class
+     * @param target the target class to be mocked
+     * @throws IllegalArgumentException if mockClass is not a subclass of target
      */
     private void replaceAllInvokeSpecial(Class<?> mockClass, Class<?> target) throws IllegalArgumentException {
 

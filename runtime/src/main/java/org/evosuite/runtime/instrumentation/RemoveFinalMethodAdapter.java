@@ -70,23 +70,25 @@ public class RemoveFinalMethodAdapter extends MethodVisitor {
             } else {
                 //System.out.println("Omitting final field " + name + " in class " + owner);
                 Type type = Type.getType(desc);
-                if (type.getSize() == 1)
+                if (type.getSize() == 1) {
                     super.visitInsn(Opcodes.POP);
-                else if (type.getSize() == 2)
+                } else if (type.getSize() == 2) {
                     super.visitInsn(Opcodes.POP2);
-                if (opcode == Opcodes.PUTFIELD)
+                }
+                if (opcode == Opcodes.PUTFIELD) {
                     super.visitInsn(Opcodes.POP);
+                }
             }
         } else {
             //if (!owner.equals(className))
-            //	System.out.println("Mismatch: " + className + " / " + owner);
+            //    System.out.println("Mismatch: " + className + " / " + owner);
             super.visitFieldInsn(opcode, owner, name, desc);
         }
     }
 
     /**
      * Calls to cobertura methods are removed to avoid that code coverage
-     * data is deleted
+     * data is deleted.
      */
     @Override
     public void visitMethodInsn(int opcode, String owner, String name,

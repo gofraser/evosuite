@@ -32,7 +32,7 @@ import java.net.Socket;
  */
 public class ExternalProcessUtilities {
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(ExternalProcessUtilities.class);
 
@@ -50,7 +50,7 @@ public class ExternalProcessUtilities {
 
     /**
      * <p>
-     * connectToMainProcess
+     * connectToMainProcess.
      * </p>
      *
      * @return a boolean.
@@ -71,7 +71,7 @@ public class ExternalProcessUtilities {
 
     /**
      * <p>
-     * receiveInstruction
+     * receiveInstruction.
      * </p>
      *
      * @return a {@link java.lang.Object} object.
@@ -79,11 +79,11 @@ public class ExternalProcessUtilities {
     public Object receiveInstruction() {
         try {
             String message = (String) in.readObject();
-            if (message.equals(Messages.NEW_SEARCH))
+            if (message.equals(Messages.NEW_SEARCH)) {
                 return null;
-            else if (message.equals(Messages.CONTINUE_SEARCH)) {
-                Object population_data = in.readObject();
-                return population_data;
+            } else if (message.equals(Messages.CONTINUE_SEARCH)) {
+                Object populationData = in.readObject();
+                return populationData;
             }
         } catch (Exception e) {
             logger.error("error in receiving message", e);
@@ -94,42 +94,43 @@ public class ExternalProcessUtilities {
 
     /**
      * <p>
-     * askForRestart
+     * askForRestart.
      * </p>
      *
-     * @param population_data a {@link java.lang.Object} object.
+     * @param populationData a {@link java.lang.Object} object.
      */
-    public void askForRestart(Object population_data) {
-        sendFinalMessage(Messages.NEED_RESTART, population_data);
+    public void askForRestart(Object populationData) {
+        sendFinalMessage(Messages.NEED_RESTART, populationData);
     }
 
     /**
      * <p>
-     * informSearchIsFinished
+     * informSearchIsFinished.
      * </p>
      *
-     * @param population_data a {@link java.lang.Object} object.
+     * @param populationData a {@link java.lang.Object} object.
      */
-    public void informSearchIsFinished(Object population_data) {
-        sendFinalMessage(Messages.FINISHED_COMPUTATION, population_data);
+    public void informSearchIsFinished(Object populationData) {
+        sendFinalMessage(Messages.FINISHED_COMPUTATION, populationData);
     }
 
     /**
      * <p>
-     * sendFinalMessage
+     * sendFinalMessage.
      * </p>
      *
      * @param message         a {@link java.lang.String} object.
-     * @param population_data a {@link java.lang.Object} object.
+     * @param populationData a {@link java.lang.Object} object.
      */
-    public void sendFinalMessage(String message, Object population_data) {
+    public void sendFinalMessage(String message, Object populationData) {
         try {
             out.writeObject(message);
             out.flush();
-            if (Properties.SERIALIZE_RESULT)
-                out.writeObject(population_data);
-            else
+            if (Properties.SERIALIZE_RESULT) {
+                out.writeObject(populationData);
+            } else {
                 out.writeObject(null);
+            }
             out.flush();
         } catch (Exception e) {
             logger.error("error in sending messages", e);

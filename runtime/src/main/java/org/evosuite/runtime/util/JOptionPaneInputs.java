@@ -31,7 +31,7 @@ import java.util.LinkedList;
 public class JOptionPaneInputs {
 
     /**
-     * The type of GUI action that is fed to the JOptionPane mock
+     * The type of GUI action that is fed to the JOptionPane mock.
      *
      * @author galeotti
      */
@@ -53,7 +53,7 @@ public class JOptionPaneInputs {
 
     private static JOptionPaneInputs instance = null;
 
-    public synchronized static JOptionPaneInputs getInstance() {
+    public static synchronized JOptionPaneInputs getInstance() {
         if (instance == null) {
             instance = new JOptionPaneInputs();
         }
@@ -61,14 +61,14 @@ public class JOptionPaneInputs {
     }
 
     /**
-     * Resets the singleton
+     * Resets the singleton.
      */
-    public synchronized static void resetSingleton() {
+    public static synchronized void resetSingleton() {
         instance = null;
     }
 
     /**
-     * This method should clean all the input queues before test case execution
+     * This method should clean all the input queues before test case execution.
      */
     public void initForTestCase() {
         this.stringInputs.clear();
@@ -124,7 +124,7 @@ public class JOptionPaneInputs {
      * Dequeues a string from the string input queue. If no string is in the
      * queue, an IllegalStateException is signaled.
      *
-     * @return
+     * @return the dequeued string
      */
     public String dequeueStringInput() {
         if (stringInputs.isEmpty()) {
@@ -146,7 +146,7 @@ public class JOptionPaneInputs {
     private boolean hasOptionDialogs = false;
 
     /**
-     * Report that the SUT has issued a call to a JOptionPane dialog
+     * Report that the SUT has issued a call to a JOptionPane dialog.
      *
      * @param dialogType the type of the JOptionPane dialog
      */
@@ -179,10 +179,10 @@ public class JOptionPaneInputs {
     }
 
     /**
-     * Returns if the SUT has issued a call to the corresponding dialog
+     * Returns if the SUT has issued a call to the corresponding dialog.
      *
-     * @param dialogType
-     * @return
+     * @param dialogType the type of the dialog
+     * @return true if the dialog has been called
      */
     public boolean hasDialog(GUIAction dialogType) {
         switch (dialogType) {
@@ -207,18 +207,18 @@ public class JOptionPaneInputs {
     }
 
     /**
-     * This method report if any JOptionPane dialog call was issued by the SUT
+     * This method report if any JOptionPane dialog call was issued by the SUT.
      *
-     * @return
+     * @return true if any dialog has been called
      */
     public boolean hasAnyDialog() {
         return hasStringDialogs || hasYesCancelDialogs || hasYesNoCancelDialogs || hasYesNoDialogs || hasOptionDialogs;
     }
 
     /**
-     * The string queue has a string
+     * The string queue has a string.
      *
-     * @return
+     * @return true if string input is present
      */
     public boolean containsStringInput() {
         return !stringInputs.isEmpty();

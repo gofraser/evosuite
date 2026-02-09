@@ -34,6 +34,8 @@ import java.lang.reflect.*;
 import java.util.List;
 
 /**
+ * Generic constructor.
+ *
  * @author Gordon Fraser
  */
 public class GenericConstructor extends GenericExecutable<GenericConstructor, Constructor<?>> {
@@ -67,8 +69,9 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
                 boolean equals = true;
                 Class<?>[] oldParameters = this.constructor.getParameterTypes();
                 Class<?>[] newParameters = newConstructor.getParameterTypes();
-                if (oldParameters.length != newParameters.length)
+                if (oldParameters.length != newParameters.length) {
                     continue;
+                }
 
                 for (int i = 0; i < newParameters.length; i++) {
                     if (!oldParameters[i].getName().equals(newParameters[i].getName())) {
@@ -221,7 +224,7 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
     }
 
     @Override
-    public Type[] getRawParameterTypes() {
+    public Class<?>[] getRawParameterTypes() {
         return constructor.getParameterTypes();
     }
 
@@ -272,23 +275,26 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
                 break;
             }
         }
-        if (isExact)
+        if (isExact) {
             return false;
+        }
         try {
             for (java.lang.reflect.Constructor<?> otherConstructor : declaringClass.getConstructors()) {
-                if (otherConstructor.equals(constructor))
+                if (otherConstructor.equals(constructor)) {
                     continue;
+                }
 
                 // If the number of parameters is different we can uniquely identify the constructor
-                if (parameterTypes.length != otherConstructor.getParameterCount())
+                if (parameterTypes.length != otherConstructor.getParameterCount()) {
                     continue;
+                }
 
                 // Only if the parameters are assignable to both constructors do we need to care about overloading
                 boolean parametersEqual = true;
                 Class<?>[] otherParameterTypes = otherConstructor.getParameterTypes();
                 for (int i = 0; i < parameterClasses.length; i++) {
-                    if (parameters.get(i).isAssignableTo(parameterTypes[i]) !=
-                            parameters.get(i).isAssignableTo(otherParameterTypes[i])) {
+                    if (parameters.get(i).isAssignableTo(parameterTypes[i])
+                            != parameters.get(i).isAssignableTo(otherParameterTypes[i])) {
                         parametersEqual = false;
                         break;
                     }
@@ -298,6 +304,7 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
                 }
             }
         } catch (SecurityException e) {
+            // ignored
         }
 
         return false;
@@ -309,7 +316,8 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         ois.defaultReadObject();
 
         // Read/initialize additional fields
-        Class<?> constructorClass = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass((String) ois.readObject());
+        Class<?> constructorClass = TestGenerationContext.getInstance().getClassLoaderForSUT()
+                .loadClass((String) ois.readObject());
         String constructorDesc = (String) ois.readObject();
         for (Constructor<?> constructor : constructorClass.getDeclaredConstructors()) {
             if (org.objectweb.asm.Type.getConstructorDescriptor(constructor).equals(constructorDesc)) {
@@ -367,15 +375,20 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         GenericConstructor other = (GenericConstructor) obj;
         if (constructor == null) {
             return other.constructor == null;
-        } else return constructor.equals(other.constructor);
+        } else {
+            return constructor.equals(other.constructor);
+        }
     }
 }

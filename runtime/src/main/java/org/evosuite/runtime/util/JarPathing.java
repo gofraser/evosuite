@@ -94,10 +94,12 @@ public class JarPathing {
                 File file = new File(token.replace("%20", " "));
                 if (!file.exists()) {
                     //this should never happen, unless bug in EvoSuite
-                    throw new IllegalStateException("Pathing jar " + pathingJar + " refers to non-existing entry " + token);
+                    throw new IllegalStateException("Pathing jar " + pathingJar
+                            + " refers to non-existing entry " + token);
                 }
                 if (isPathingJar(file.getAbsolutePath())) {
-                    throw new IllegalArgumentException("Pathing jar " + pathingJar + " contains the pathing jar " + file.getAbsolutePath());
+                    throw new IllegalArgumentException("Pathing jar " + pathingJar
+                            + " contains the pathing jar " + file.getAbsolutePath());
                 }
                 list.add(file.getAbsolutePath());
             }
@@ -113,10 +115,10 @@ public class JarPathing {
     /**
      * Create a jar file in the tmp directory having the given {@code classpath}  in the
      * manifest, and return the path to such jar. This is done to avoid issues in
-     * Windows where cannot have too long classpaths
+     * Windows where cannot have too long classpaths.
      *
-     * @param classpath
-     * @return
+     * @param classpath the classpath to be used
+     * @return the path to the created jar file
      */
     public static String createJarPathing(String classpath) {
 
@@ -143,11 +145,11 @@ public class JarPathing {
                     continue;
                 }
 
-				/*
-					as the path separator in the manifest is just spaces " ", we need
-					to escape the paths to URL to avoid issues in Windows where path might
-					have spaces...
-				 */
+                /*
+                    as the path separator in the manifest is just spaces " ", we need
+                    to escape the paths to URL to avoid issues in Windows where path might
+                    have spaces...
+                 */
 
                 element = element.replace("\\", "/");
                 element = element.replace(" ", "%20");

@@ -85,7 +85,7 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         int num = 0;
         for (TypeVariable<?> parameterType : ((Class<?>) type.getRawType()).getTypeParameters()) {
             //for(Type parameterType : type.getActualTypeArguments()) {
-            //	if(parameterType instanceof TypeVariable<?>) {
+            //  if(parameterType instanceof TypeVariable<?>) {
             boolean replaced = false;
             for (TypeVariable<?> var : typeMap.keySet()) {
                 // D'oh! Why the heck do we need this??
@@ -101,10 +101,10 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
                 actualParameters[num] = parameterType;
             }
             //}
-            //    	} else {
-            //    		LoggingUtils.getEvoLogger().info("Not a type variable "+parameterType);
-            //    		actualParameters[num] = parameterType;
-            //    		}
+            //      } else {
+            //          LoggingUtils.getEvoLogger().info("Not a type variable "+parameterType);
+            //          actualParameters[num] = parameterType;
+            //          }
             num++;
         }
 
@@ -113,28 +113,29 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
     }
 
     protected static Type getTypeFromExactReturnType(Type returnType, Type type) {
-        if (returnType instanceof ParameterizedType && type instanceof ParameterizedType)
+        if (returnType instanceof ParameterizedType && type instanceof ParameterizedType) {
             return getTypeFromExactReturnType((ParameterizedType) returnType,
                     (ParameterizedType) type);
-        else if (returnType instanceof GenericArrayType
-                && type instanceof GenericArrayType)
+        } else if (returnType instanceof GenericArrayType
+                && type instanceof GenericArrayType) {
             return getTypeFromExactReturnType((GenericArrayType) returnType,
                     (GenericArrayType) type);
-        else if (returnType instanceof ParameterizedType
-                && type instanceof GenericArrayType)
+        } else if (returnType instanceof ParameterizedType
+                && type instanceof GenericArrayType) {
             return getTypeFromExactReturnType((ParameterizedType) returnType,
                     (GenericArrayType) type);
-        else if (returnType instanceof GenericArrayType
-                && type instanceof ParameterizedType)
+        } else if (returnType instanceof GenericArrayType
+                && type instanceof ParameterizedType) {
             return getTypeFromExactReturnType((GenericArrayType) returnType,
                     (ParameterizedType) type);
-        else if (returnType instanceof Class<?>)
+        } else if (returnType instanceof Class<?>) {
             return returnType;
-        else if (type instanceof Class<?>)
+        } else if (type instanceof Class<?>) {
             return type;
-        else
+        } else {
             throw new RuntimeException("Incompatible types: " + returnType.getClass()
                     + " and " + type.getClass() + ": " + returnType + " and " + type);
+        }
     }
 
     /**
@@ -144,8 +145,9 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
     protected static boolean isMissingTypeParameters(Type type) {
         if (type instanceof Class) {
             for (Class<?> clazz = (Class<?>) type; clazz != null; clazz = clazz.getEnclosingClass()) {
-                if (clazz.getTypeParameters().length != 0)
+                if (clazz.getTypeParameters().length != 0) {
                     return true;
+                }
             }
             return false;
         } else if (type instanceof ParameterizedType) {
@@ -185,6 +187,8 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
 
     /**
      * Creates and returns a copy of this {@code GenericAccessibleObject}.
+     *
+     * @return a copy of this {@code GenericAccessibleObject}
      */
     public abstract T copy();
 
@@ -210,10 +214,10 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
     public abstract Type getGenericGeneratedType();
 
     /**
-     * Instantiate all generic type parameters
+     * Instantiate all generic type parameters.
      *
-     * @return
-     * @throws ConstructionFailedException
+     * @return the generic instantiation
+     * @throws ConstructionFailedException if instantiation fails
      */
     public T getGenericInstantiation() throws ConstructionFailedException {
         T copy = copy();
@@ -229,7 +233,7 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
                 + " with owner type map: " + typeMap);
         List<GenericClass<?>> typeParameters = new ArrayList<>();
 
-        // TODO: The bounds of this type parameter need to be updataed for the owner of the call
+        // TODO: The bounds of this type parameter need to be updated for the owner of the call
         // which may instantiate some of the type parameters
         for (TypeVariable<?> parameter : getTypeParameters()) {
             GenericClass<?> genericType = GenericClassFactory.get(parameter);
@@ -244,11 +248,11 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
     }
 
     /**
-     * Instantiate all generic type parameters based on a new callee type
+     * Instantiate all generic type parameters based on a new callee type.
      *
-     * @param calleeType
-     * @return
-     * @throws ConstructionFailedException
+     * @param calleeType the callee type
+     * @return the generic instantiation
+     * @throws ConstructionFailedException if instantiation fails
      */
     public T getGenericInstantiation(GenericClass<?> calleeType)
             throws ConstructionFailedException {
@@ -278,11 +282,11 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
     }
 
     /**
-     * Set type parameters based on return type
+     * Set type parameters based on return type.
      *
-     * @param generatedType
-     * @return
-     * @throws ConstructionFailedException
+     * @param generatedType the generated type
+     * @return the generic instantiation
+     * @throws ConstructionFailedException if instantiation fails
      */
     public T getGenericInstantiationFromReturnValue(GenericClass<?> generatedType)
             throws ConstructionFailedException {
@@ -304,7 +308,8 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         if (genericReturnType instanceof ParameterizedType
                 && generatedType.isParameterizedType()) {
             logger.debug("Return value is a parameterized type, matching variables");
-            generatorTypes.putAll(GenericUtils.getMatchingTypeParameters((ParameterizedType) generatedType.getType(),
+            generatorTypes.putAll(GenericUtils.getMatchingTypeParameters(
+                    (ParameterizedType) generatedType.getType(),
                     (ParameterizedType) genericReturnType));
         } else if (genericReturnType instanceof TypeVariable<?>) {
             generatorTypes.put((TypeVariable<?>) genericReturnType,
@@ -315,11 +320,13 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
             for (Type parameterType : getGenericParameterTypes()) {
                 logger.debug("Checking parameter " + parameterType);
                 if (parameterType instanceof ParameterizedType) {
-                    Map<TypeVariable<?>, Type> matchedMap = GenericUtils.getMatchingTypeParameters((ParameterizedType) parameterType,
+                    Map<TypeVariable<?>, Type> matchedMap = GenericUtils.getMatchingTypeParameters(
+                            (ParameterizedType) parameterType,
                             (ParameterizedType) genericReturnType);
                     for (TypeVariable<?> var : matchedMap.keySet()) {
-                        if (!generatorTypes.containsKey(var))
+                        if (!generatorTypes.containsKey(var)) {
                             generatorTypes.put(var, matchedMap.get(var));
+                        }
                     }
                     logger.debug("Map is now " + generatorTypes);
                 }
@@ -329,10 +336,12 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         List<TypeVariable<?>> parameters = Arrays.asList(getTypeParameters());
         for (TypeVariable<?> var : generatorTypes.keySet()) {
             if (parameters.contains(var) && !(generatorTypes.get(var) instanceof WildcardType)) {
-                logger.debug("Parameter " + var + " in map, adding to concrete types: " + generatorTypes.get(var));
+                logger.debug("Parameter " + var + " in map, adding to concrete types: "
+                        + generatorTypes.get(var));
                 concreteTypes.put(var, generatorTypes.get(var));
             } else {
-                logger.debug("Parameter " + var + " not in map, not adding to concrete types: " + generatorTypes.get(var));
+                logger.debug("Parameter " + var + " not in map, not adding to concrete types: "
+                        + generatorTypes.get(var));
                 logger.debug("Key: " + var.getGenericDeclaration());
                 for (TypeVariable<?> k : parameters) {
                     logger.debug("Param: " + k.getGenericDeclaration());
@@ -392,8 +401,9 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         Map<TypeVariable<?>, GenericClass<?>> typeMap = new HashMap<>();
         int pos = 0;
         for (TypeVariable<?> variable : getTypeParameters()) {
-            if (typeVariables.size() <= pos)
+            if (typeVariables.size() <= pos) {
                 break;
+            }
             typeMap.put(variable, typeVariables.get(pos));
             pos++;
         }
@@ -438,10 +448,10 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
             VarMap varMap = new VarMap();
             Type handlingTypeAndParams = typeAndParams;
             while (handlingTypeAndParams instanceof ParameterizedType) {
-                ParameterizedType pType = (ParameterizedType) handlingTypeAndParams;
-                Class<?> clazz = (Class<?>) pType.getRawType(); // getRawType should always be Class
-                varMap.addAll(clazz.getTypeParameters(), pType.getActualTypeArguments());
-                handlingTypeAndParams = pType.getOwnerType();
+                ParameterizedType parameterizedType = (ParameterizedType) handlingTypeAndParams;
+                Class<?> clazz = (Class<?>) parameterizedType.getRawType(); // getRawType should always be Class
+                varMap.addAll(clazz.getTypeParameters(), parameterizedType.getActualTypeArguments());
+                handlingTypeAndParams = parameterizedType.getOwnerType();
             }
             varMap.addAll(getTypeVariableMap());
             return varMap.map(toMapType);
@@ -450,8 +460,9 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
 
     public void setTypeParameters(List<GenericClass<?>> parameterTypes) {
         typeVariables.clear();
-        for (GenericClass<?> parameter : parameterTypes)
+        for (GenericClass<?> parameter : parameterTypes) {
             typeVariables.add(GenericClassFactory.get(parameter));
+        }
     }
 
     @Override

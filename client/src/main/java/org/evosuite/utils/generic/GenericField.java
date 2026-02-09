@@ -34,6 +34,8 @@ import java.io.ObjectOutputStream;
 import java.lang.reflect.*;
 
 /**
+ * Generic field.
+ *
  * @author Gordon Fraser
  */
 public class GenericField extends GenericAccessibleObject<GenericField> {
@@ -70,23 +72,23 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
             throws ConstructionFailedException {
         return new GenericField(field,
                 getOwnerClass().getGenericInstantiation(returnType.getTypeVariableMap()));
-		/*
-		if (returnType.isParameterizedType()) {
-			GenericClass newOwner = new GenericClass(
-			        getTypeFromExactReturnType(returnType.getType(), getOwnerType()));
-			return new GenericField(field, newOwner);
-		} else if (returnType.isArray()) {
-			GenericClass newOwner = new GenericClass(
-			        getTypeFromExactReturnType(returnType.getComponentType(),
-			                                   getOwnerType()));
-			return new GenericField(field, newOwner);
-		} else if (returnType.isAssignableTo(getGeneratedType())) {
-			return new GenericField(field, new GenericClass(owner));
-		} else {
-			throw new RuntimeException("Invalid return type: "
-			        + returnType.getClassName() + " for field " + toString());
-		}
-		*/
+        /*
+        if (returnType.isParameterizedType()) {
+            GenericClass newOwner = new GenericClass(
+                    getTypeFromExactReturnType(returnType.getType(), getOwnerType()));
+            return new GenericField(field, newOwner);
+        } else if (returnType.isArray()) {
+            GenericClass newOwner = new GenericClass(
+                    getTypeFromExactReturnType(returnType.getComponentType(),
+                                               getOwnerType()));
+            return new GenericField(field, newOwner);
+        } else if (returnType.isAssignableTo(getGeneratedType())) {
+            return new GenericField(field, new GenericClass(owner));
+        } else {
+            throw new RuntimeException("Invalid return type: "
+                    + returnType.getClassName() + " for field " + toString());
+        }
+        */
     }
 
     @Override
@@ -141,7 +143,7 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
 
     public Type getFieldType() {
         return GenericTypeReflector.getExactFieldType(field, owner.getType());
-        // 		try {
+        //      try {
         // fieldType = field.getGenericType();
         // } catch (java.lang.reflect.GenericSignatureFormatError e) {
         // Ignore
@@ -217,7 +219,8 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         ois.defaultReadObject();
 
         // Read/initialize additional fields
-        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass((String) ois.readObject());
+        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT()
+                .loadClass((String) ois.readObject());
         String fieldName = (String) ois.readObject();
 
         try {
@@ -285,16 +288,21 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         GenericField other = (GenericField) obj;
         if (field == null) {
             return other.field == null;
-        } else return field.equals(other.field);
+        } else {
+            return field.equals(other.field);
+        }
     }
 
 

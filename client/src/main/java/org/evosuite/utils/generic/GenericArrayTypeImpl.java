@@ -51,8 +51,9 @@ public class GenericArrayTypeImpl implements GenericArrayType {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof GenericArrayType))
+        if (!(obj instanceof GenericArrayType)) {
             return false;
+        }
         return componentType.equals(((GenericArrayType) obj).getGenericComponentType());
     }
 

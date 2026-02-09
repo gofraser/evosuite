@@ -33,7 +33,7 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 /**
- * Class used to define the distance between a string and a regex
+ * Class used to define the distance between a string and a regex.
  */
 public class RegexDistanceUtils {
 
@@ -72,8 +72,8 @@ public class RegexDistanceUtils {
         public enum TransitionType {
             INSERTION, DELETION, REPLACEMENT,
             /**
-             * A phantom transition is an artificial transition from the sink/final states to a single artificial sink/state.
-             * This is used to simplify the recursion calculation of the subpath costs.
+             * A phantom transition is an artificial transition from the sink/final states to a single artificial
+             * sink/state. This is used to simplify the recursion calculation of the subpath costs.
              */
             PHANTOM
         }
@@ -92,10 +92,10 @@ public class RegexDistanceUtils {
     }
 
     /**
-     * Normalize x in [0,1]
+     * Normalize x in [0,1].
      *
-     * @param x
-     * @return
+     * @param x the value to normalize
+     * @return the normalized value
      */
     private static double normalize(double x) {
         return x / (x + 1.0);
@@ -103,36 +103,38 @@ public class RegexDistanceUtils {
 
     /**
      * Java regular expressions contain predefined character classes which the
-     * regex parser cannot handle
+     * regex parser cannot handle.
      *
-     * @param regex
-     * @return
+     * @param regex the regex to expand
+     * @return the expanded regex
      */
     public static String expandRegex(String regex) {
-        // .	Any character (may or may not match line terminators)
-        // \d	A digit: [0-9]
+        // .    Any character (may or may not match line terminators)
+        // \d    A digit: [0-9]
         String newRegex = regex.replaceAll("\\\\d", "[0-9]");
 
-        // \D	A non-digit: [^0-9]
+        // \D    A non-digit: [^0-9]
         newRegex = newRegex.replaceAll("\\\\D", "[^0-9]");
 
-        // \s	A whitespace character: [ \t\n\x0B\f\r]
+        // \s    A whitespace character: [ \t\n\x0B\f\r]
         newRegex = newRegex.replaceAll("\\\\s", "[ \\t\\n\\f\\r]");
 
-        // \S	A non-whitespace character: [^\s]
+        // \S    A non-whitespace character: [^\s]
         newRegex = newRegex.replaceAll("\\\\S", "[^ \\t\\n\\f\\r]");
 
-        // \w	A word character: [a-zA-Z_0-9]
+        // \w    A word character: [a-zA-Z_0-9]
         newRegex = newRegex.replaceAll("\\\\w", "[a-zA-Z_0-9]");
 
-        // \W	A non-word character: [^\w]
+        // \W    A non-word character: [^\w]
         newRegex = newRegex.replaceAll("\\\\W", "[^a-zA-Z_0-9]");
 
-        if (newRegex.startsWith("^"))
+        if (newRegex.startsWith("^")) {
             newRegex = newRegex.substring(1);
+        }
 
-        if (newRegex.endsWith("$"))
+        if (newRegex.endsWith("$")) {
             newRegex = newRegex.substring(0, newRegex.length() - 1);
+        }
 
         // TODO: Some of these should be handled, not just ignored!
         newRegex = removeFlagExpressions(newRegex);
@@ -173,20 +175,22 @@ public class RegexDistanceUtils {
     }
 
     /**
-     * Ensure that each row has the full data structures containing the target state
+     * Ensure that each row has the full data structures containing the target state.
      *
-     * @param transitions
-     * @param state
-     * @param numRows
+     * @param transitions map of transitions
+     * @param state       the target state
+     * @param numRows     number of rows
      */
     private static void ensureState(
             Map<Integer, Map<State, Set<GraphTransition>>> transitions, State state,
             int numRows) {
         for (int row = 0; row <= numRows; row++) {
-            if (!transitions.containsKey(row))
+            if (!transitions.containsKey(row)) {
                 transitions.put(row, new HashMap<>());
-            if (!transitions.get(row).containsKey(state))
+            }
+            if (!transitions.get(row).containsKey(state)) {
                 transitions.get(row).put(state, new HashSet<>());
+            }
         }
     }
 
@@ -205,10 +209,12 @@ public class RegexDistanceUtils {
 
         while (!states.isEmpty()) {
             State currentState = states.poll();
-            if (visitedStates.contains(currentState))
+            if (visitedStates.contains(currentState)) {
                 continue;
-            if (!regexGraph.containsVertex(currentState))
+            }
+            if (!regexGraph.containsVertex(currentState)) {
                 regexGraph.addVertex(currentState);
+            }
             for (Transition t : currentState.getTransitions()) {
                 // Need to get rid of back edges, otherwise there is no topological order!
                 if (!t.getDest().equals(currentState)) {
@@ -243,6 +249,10 @@ public class RegexDistanceUtils {
      * There is no assumption on where and how the operations
      * can be done (ie all sequences are valid).
      * </p>
+     *
+     * @param arg   the string to match
+     * @param regex the regex to match against
+     * @return the distance
      */
     public static int getStandardDistance(String arg, String regex) {
         if (!isSupportedRegex(regex)) {
@@ -256,19 +266,20 @@ public class RegexDistanceUtils {
 
     private static int getDefaultDistance(String arg, String regex) {
         Pattern p = Pattern.compile(regex);
-        if (p.matcher(arg).matches())
+        if (p.matcher(arg).matches()) {
             return 0;
-        else
+        } else {
             return 1;
+        }
 
     }
 
     /**
      * Determine whether the regex requires features that are
-     * not supported by the regex automaton library
+     * not supported by the regex automaton library.
      *
-     * @param regex
-     * @return
+     * @param regex the regex to check
+     * @return true if the regex is supported, false otherwise
      */
     private static boolean isSupportedRegex(String regex) {
         return !regex.contains("\\b");
@@ -279,12 +290,12 @@ public class RegexDistanceUtils {
      * Insertion/deletion cost 1, whereas replacement is in [0,1] depending
      * on the actual character values. </p>
      *
-     * <p> Note: the distance is tailored for the <b>StringAVM<b/> algorithm,
+     * <p> Note: the distance is tailored for the <b>StringAVM</b> algorithm,
      * in which characters are only inserted/appended at the end.</p>
      *
-     * @param arg
-     * @param regex
-     * @return
+     * @param arg   the string to match
+     * @param regex the regex to match against
+     * @return the distance
      */
     public static double getDistanceTailoredForStringAVM(String arg, String regex) {
         RegexGraph graph = new RegexGraph(arg, regex);
@@ -324,10 +335,10 @@ public class RegexDistanceUtils {
         private Map<State, Integer> stateToIntMap;
 
         /**
-         * Build the graph
+         * Build the graph.
          *
-         * @param arg
-         * @param regex
+         * @param arg   the string to match
+         * @param regex the regex to match against
          */
         public RegexGraph(String arg, String regex) {
             transitions = createGraph(arg, regex);
@@ -342,11 +353,11 @@ public class RegexDistanceUtils {
         }
 
         /**
-         * Get all the incoming transitions to the node located at coordinate "row" and "column"
+         * Get all the incoming transitions to the node located at coordinate "row" and "column".
          *
-         * @param row
-         * @param column
-         * @return
+         * @param row    the row index
+         * @param column the column index
+         * @return set of incoming transitions
          */
         public Set<GraphTransition> getIncomingTransitions(int row, int column) {
             State state = intToStateMap.get(column);
@@ -374,7 +385,7 @@ public class RegexDistanceUtils {
              */
 
             Automaton automaton = getAndCacheAutomaton(regex);
-            final int NUM_CHARS = arg.length();
+            final int numChars = arg.length();
 
 
             List<State> topologicalOrder = regexStateCache.get(regex);
@@ -397,17 +408,18 @@ public class RegexDistanceUtils {
                 for (Transition t : currentState.getTransitions()) {
 
                     State destination = t.getDest();
-                    ensureState(transitions, destination, NUM_CHARS);
+                    ensureState(transitions, destination, numChars);
 
-                    for (int row = 0; row <= NUM_CHARS; row++) {
+                    for (int row = 0; row <= numChars; row++) {
                         /*
                          *  add an insertion edge from currentState in row to target state in same row
                          */
 
-                        transitions.get(row).get(destination).add(new GraphTransition(1.0, row, currentState, GraphTransition.TransitionType.INSERTION));
+                        transitions.get(row).get(destination).add(new GraphTransition(1.0, row, currentState,
+                                GraphTransition.TransitionType.INSERTION));
                     }
 
-                    for (int row = 0; row < NUM_CHARS; row++) {
+                    for (int row = 0; row < numChars; row++) {
                         /*
                          *  Add a replacement edge from currentState in row to t.getDest in row+1
                          *  if charAt row+1 == the parameter of this transition, this is a zero-cost edge
@@ -422,39 +434,42 @@ public class RegexDistanceUtils {
                         }
 
                         /*
-                         * Important: even if the cost is 0 (eg match on the arg/regex in which we replace char X with X), we CANNOT
-                         * use a PHANTOM transition. Even if we do not replace anything, we still need to consider it as a replacement
-                         * transition. Consider the case
+                         * Important: even if the cost is 0 (eg match on the arg/regex in which we replace char X
+                         * with X) we CANNOT use a PHANTOM transition. Even if we do not replace anything, we still
+                         * need to consider it as a replacement transition. Consider the case
                          *
                          *  "ac".matches("abc")
                          *
-                         *  If we used a phantom transition to represent the alignment c/c, then it would be possible to insert 'b' in the
-                         *  middle of "abc". On the other hand, if we use a replacement c/c, then inserting 'b' would not be allowed, as an
-                         *  insertion cannot be followed by a replacement.
+                         *  If we used a phantom transition to represent the alignment c/c, then it would be possible to
+                         *  insert 'b' in the middle of "abc". On the other hand, if we use a replacement c/c, then
+                         *  inserting 'b' would not be allowed, as an insertion cannot be followed by a replacement.
                          */
 
-                        transitions.get(row + 1).get(destination).add(new GraphTransition(cost, row, currentState, GraphTransition.TransitionType.REPLACEMENT));
+                        transitions.get(row + 1).get(destination).add(new GraphTransition(cost, row, currentState,
+                                GraphTransition.TransitionType.REPLACEMENT));
                     }
                 }
 
-                ensureState(transitions, currentState, NUM_CHARS);
+                ensureState(transitions, currentState, numChars);
 
-                for (int row = 0; row < NUM_CHARS; row++) {
+                for (int row = 0; row < numChars; row++) {
 
                     /*
                      * add a deletion edge with cost 1 from currentState to currentState in next row
                      */
 
-                    transitions.get(row + 1).get(currentState).add(new GraphTransition(1.0, row, currentState, GraphTransition.TransitionType.DELETION));
+                    transitions.get(row + 1).get(currentState).add(new GraphTransition(1.0, row, currentState,
+                            GraphTransition.TransitionType.DELETION));
                 }
             }
 
             // Add zero-cost transitions from accepting states to final state
             State finalState = new State();
-            ensureState(transitions, finalState, NUM_CHARS);
+            ensureState(transitions, finalState, numChars);
             for (State s : automaton.getStates()) {
                 if (s.isAccept()) {
-                    transitions.get(NUM_CHARS).get(finalState).add(new GraphTransition(0, NUM_CHARS, s, GraphTransition.TransitionType.PHANTOM));
+                    transitions.get(numChars).get(finalState).add(new GraphTransition(0, numChars, s,
+                            GraphTransition.TransitionType.PHANTOM));
                 }
             }
             intToStateMap.put(numState, finalState);
@@ -471,34 +486,34 @@ public class RegexDistanceUtils {
      */
     private static class CostMatrix {
 
-        private final static int DEL = 0;
-        private final static int REP = 1;
-        private final static int INS = 2;
+        private static final int DEL = 0;
+        private static final int REP = 1;
+        private static final int INS = 2;
 
         public CostMatrix() {
             super();
         }
 
         public int calculateStandardCost(RegexGraph graph) {
-            final int ROWS = graph.getNumberOfRows();
-            final int COLUMNS = graph.getNumberOfColumns();
+            final int numRows = graph.getNumberOfRows();
+            final int numColumns = graph.getNumberOfColumns();
 
-            final double[][] matrix = new double[ROWS][COLUMNS];
+            final double[][] matrix = new double[numRows][numColumns];
 
             // First row is cost of matching empty sequence on regex
-            final int FIRST_ROW = 0;
+            final int firstRow = 0;
 
             /*
              * init first starting state with 0 costs
              */
-            matrix[FIRST_ROW][0] = 0;
+            matrix[firstRow][0] = 0;
 
             //look at first row (which is special)
             for (int col = 1; col < graph.getNumberOfColumns(); col++) {
 
                 double min = Double.MAX_VALUE;
 
-                for (GraphTransition t : graph.getIncomingTransitions(FIRST_ROW, col)) {
+                for (GraphTransition t : graph.getIncomingTransitions(firstRow, col)) {
 
                     int otherCol = graph.getColumn(t.fromState);
 
@@ -507,18 +522,18 @@ public class RegexDistanceUtils {
                         continue;
                     }
 
-                    double otherCost = matrix[FIRST_ROW][otherCol];
+                    double otherCost = matrix[firstRow][otherCol];
 
                     min = Math.min(min, getSubPathCost(otherCost, Math.ceil(t.cost)));
                 }
 
-                matrix[FIRST_ROW][col] = min;
+                matrix[firstRow][col] = min;
             }
 
             //then look at the other rows
-            for (int i = 1; i < ROWS; i++) {
+            for (int i = 1; i < numRows; i++) {
 
-                for (int col = 0; col < COLUMNS; col++) {
+                for (int col = 0; col < numColumns; col++) {
 
                     matrix[i][col] = Double.MAX_VALUE;
 
@@ -528,7 +543,8 @@ public class RegexDistanceUtils {
                         int otherRow = t.fromRow;
 
                         if (!t.type.equals(GraphTransition.TransitionType.PHANTOM)) {
-                            matrix[i][col] = Math.min(matrix[i][col], getSubPathCost(matrix[otherRow][otherCol], Math.ceil(t.cost)));
+                            matrix[i][col] = Math.min(matrix[i][col],
+                                    getSubPathCost(matrix[otherRow][otherCol], Math.ceil(t.cost)));
                         } else {
                             /*
                              * artificial transition to final/sink state, so just take same values as previous state
@@ -540,7 +556,7 @@ public class RegexDistanceUtils {
                 }
             }
 
-            double min = matrix[ROWS - 1][COLUMNS - 1];
+            double min = matrix[numRows - 1][numColumns - 1];
             return (int) Math.round(min);
         }
 
@@ -548,13 +564,13 @@ public class RegexDistanceUtils {
          * Note: this is different from normal matching algorithms, as we enforce an order
          * among the operators: delete, replace and then insert.
          *
-         * @param graph
-         * @return
+         * @param graph the graph to calculate cost for
+         * @return the cost
          */
         public double calculateCostForStringAVM(RegexGraph graph) {
 
-            final int ROWS = graph.getNumberOfRows();
-            final int COLUMNS = graph.getNumberOfColumns();
+            final int numRows = graph.getNumberOfRows();
+            final int numColumns = graph.getNumberOfColumns();
 
             /*
              * we create a matrix based on each row and each column in the graph.
@@ -564,13 +580,13 @@ public class RegexDistanceUtils {
              * 1) deletions followed by replacement
              * 2) as above, and then followed by insertions
              */
-            final double[][][] matrix = new double[ROWS][COLUMNS][3];
+            final double[][][] matrix = new double[numRows][numColumns][3];
 
             calculateInsertionCostOnFirstRow(graph, matrix);
 
-            for (int i = 1; i < ROWS; i++) {
+            for (int i = 1; i < numRows; i++) {
 
-                for (int col = 0; col < COLUMNS; col++) {
+                for (int col = 0; col < numColumns; col++) {
 
                     /*
                      * unless a path is explicitly updated, it will have maximum distance by default
@@ -589,33 +605,45 @@ public class RegexDistanceUtils {
                             /*
                              * if we have an insertion, only the insertion path can be continued.
                              * that's the reason why on the left side we only update for [INS].
-                             * An insertion can continue any type of path (and so all types are present on the right side).
+                             * An insertion can continue any type of path (and so all types are present on the right
+                             * side).
                              */
-                            matrix[i][col][INS] = Math.min(matrix[i][col][INS], getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
-                            matrix[i][col][INS] = Math.min(matrix[i][col][INS], getSubPathCost(matrix[otherRow][otherCol][REP], t.cost));
-                            matrix[i][col][INS] = Math.min(matrix[i][col][INS], getSubPathCost(matrix[otherRow][otherCol][INS], t.cost));
+                            matrix[i][col][INS] = Math.min(matrix[i][col][INS],
+                                    getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
+                            matrix[i][col][INS] = Math.min(matrix[i][col][INS],
+                                    getSubPathCost(matrix[otherRow][otherCol][REP], t.cost));
+                            matrix[i][col][INS] = Math.min(matrix[i][col][INS],
+                                    getSubPathCost(matrix[otherRow][otherCol][INS], t.cost));
                         } else if (t.type.equals(GraphTransition.TransitionType.REPLACEMENT)) {
                             /*
                              * if we have a replacement, then we cannot continue a delete path.
                              * So, no [DEL] on the left side.
-                             * A replacement can continue a delete or replace path, but not an insertion one (and so [DEL] and
-                             * [REP] on right side)
+                             * A replacement can continue a delete or replace path, but not an insertion one (and so
+                             * [DEL] and [REP] on right side)
                              */
-                            matrix[i][col][REP] = Math.min(matrix[i][col][REP], getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
-                            matrix[i][col][REP] = Math.min(matrix[i][col][REP], getSubPathCost(matrix[otherRow][otherCol][REP], t.cost));
+                            matrix[i][col][REP] = Math.min(matrix[i][col][REP],
+                                    getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
+                            matrix[i][col][REP] = Math.min(matrix[i][col][REP],
+                                    getSubPathCost(matrix[otherRow][otherCol][REP], t.cost));
                             /*
-                             * from this state on, an insertion path can be followed, with same cost (ie right side) as replacement path
+                             * from this state on, an insertion path can be followed, with same cost (ie right side)
+                             * as replacement path
                              */
-                            matrix[i][col][INS] = Math.min(matrix[i][col][INS], getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
-                            matrix[i][col][INS] = Math.min(matrix[i][col][INS], getSubPathCost(matrix[otherRow][otherCol][REP], t.cost));
+                            matrix[i][col][INS] = Math.min(matrix[i][col][INS],
+                                    getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
+                            matrix[i][col][INS] = Math.min(matrix[i][col][INS],
+                                    getSubPathCost(matrix[otherRow][otherCol][REP], t.cost));
                         } else if (t.type.equals(GraphTransition.TransitionType.DELETION)) {
                             /*
                              * deletion can only follow a deletion path (so only [DEL] or right side).
                              * but, from this state on, any new path can be followed (so all on left side)
                              */
-                            matrix[i][col][DEL] = Math.min(matrix[i][col][DEL], getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
-                            matrix[i][col][REP] = Math.min(matrix[i][col][REP], getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
-                            matrix[i][col][INS] = Math.min(matrix[i][col][INS], getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
+                            matrix[i][col][DEL] = Math.min(matrix[i][col][DEL],
+                                    getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
+                            matrix[i][col][REP] = Math.min(matrix[i][col][REP],
+                                    getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
+                            matrix[i][col][INS] = Math.min(matrix[i][col][INS],
+                                    getSubPathCost(matrix[otherRow][otherCol][DEL], t.cost));
                         } else if (t.type.equals(GraphTransition.TransitionType.PHANTOM)) {
                             assert t.cost == 0;
                             /*
@@ -639,7 +667,7 @@ public class RegexDistanceUtils {
              * get the minimum among the 3 different paths in the sink state
              */
             double min = Double.MAX_VALUE;
-            for (double value : matrix[ROWS - 1][COLUMNS - 1]) {
+            for (double value : matrix[numRows - 1][numColumns - 1]) {
                 if (value < min) {
                     min = value;
                 }
@@ -649,12 +677,12 @@ public class RegexDistanceUtils {
         }
 
         /**
-         * We cannot just do previousStateCost + transitionCost, as there might be computational overflows
+         * We cannot just do previousStateCost + transitionCost, as there might be computational overflows.
          *
-         * @param previousStateCost
-         * @param transitionCost
-         * @return
-         * @throws IllegalArgumentException
+         * @param previousStateCost previous cost
+         * @param transitionCost    transition cost
+         * @return sum
+         * @throws IllegalArgumentException if negative
          */
         private double getSubPathCost(double previousStateCost, double transitionCost) throws IllegalArgumentException {
             if (previousStateCost < 0) {
@@ -677,39 +705,48 @@ public class RegexDistanceUtils {
                 return Double.MAX_VALUE;
             }
 
+            boolean c1 = sum < previousStateCost;
+            boolean c2 = sum < transitionCost;
+            if (c1 || c2) {
+                /*
+                 * likely overflow
+                 */
+                return Double.MAX_VALUE;
+            }
+
             return sum;
         }
 
         /**
-         * First row is special, ie very different from the others
+         * First row is special, ie very different from the others.
          *
-         * @param graph
-         * @param matrix
+         * @param graph  the graph
+         * @param matrix the cost matrix
          */
         private void calculateInsertionCostOnFirstRow(RegexGraph graph, final double[][][] matrix) {
 
             // First row is cost of matching empty sequence on regex
-            final int FIRST_ROW = 0;
+            final int firstRow = 0;
 
             /*
              * init first starting state with 0 costs
              */
-            matrix[FIRST_ROW][0][0] = 0;
-            matrix[FIRST_ROW][0][1] = 0;
-            matrix[FIRST_ROW][0][2] = 0;
+            matrix[firstRow][0][0] = 0;
+            matrix[firstRow][0][1] = 0;
+            matrix[firstRow][0][2] = 0;
 
             for (int col = 1; col < graph.getNumberOfColumns(); col++) {
 
                 double min = Double.MAX_VALUE;
 
-                for (GraphTransition t : graph.getIncomingTransitions(FIRST_ROW, col)) {
+                for (GraphTransition t : graph.getIncomingTransitions(firstRow, col)) {
 
                     /*
                      * on first row, there can be only insertions coming from the same row,
                      * apart from last node that can have a phantom transition to sink state
                      */
-                    assert t.type.equals(GraphTransition.TransitionType.INSERTION) ||
-                            t.type.equals(GraphTransition.TransitionType.PHANTOM);
+                    assert t.type.equals(GraphTransition.TransitionType.INSERTION)
+                            || t.type.equals(GraphTransition.TransitionType.PHANTOM);
                     assert t.fromRow == 0;
 
                     int otherCol = graph.getColumn(t.fromState);
@@ -719,7 +756,7 @@ public class RegexDistanceUtils {
                         continue;
                     }
 
-                    double otherCost = matrix[FIRST_ROW][otherCol][2];
+                    double otherCost = matrix[firstRow][otherCol][2];
 
                     min = Math.min(min, getSubPathCost(otherCost, t.cost));
                 }
@@ -728,9 +765,9 @@ public class RegexDistanceUtils {
                  * as there can be only insertions, the delete and replace paths cannot be followed, and
                  * so maximum distance
                  */
-                matrix[FIRST_ROW][col][0] = Double.MAX_VALUE;
-                matrix[FIRST_ROW][col][1] = Double.MAX_VALUE;
-                matrix[FIRST_ROW][col][2] = min;
+                matrix[firstRow][col][0] = Double.MAX_VALUE;
+                matrix[firstRow][col][1] = Double.MAX_VALUE;
+                matrix[firstRow][col][2] = min;
             }
         }
     }

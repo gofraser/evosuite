@@ -37,18 +37,18 @@ import java.util.concurrent.Executors;
  * not properly shut down the spawn processes (JVM hooks only apply if JVM terminates
  * normally). As such, each spawn process should query at regular intervals if it
  * still can keep running.
- * <p>
- * Created by Andrea Arcuri on 26/11/15.
+ *
+ * <p>Created by Andrea Arcuri on 26/11/15.
  */
 public class SpawnProcessKeepAliveChecker {
 
     private static final Logger logger = LoggerFactory.getLogger(SpawnProcessKeepAliveChecker.class);
 
-    private final static SpawnProcessKeepAliveChecker instance = new SpawnProcessKeepAliveChecker();
+    private static final SpawnProcessKeepAliveChecker instance = new SpawnProcessKeepAliveChecker();
 
-    private final static ExecutorService executor = Executors.newCachedThreadPool();
-    private final static String STILL_ALIVE = "still_alive";
-    private final static int DELTA_MS = 5_000;
+    private static final ExecutorService executor = Executors.newCachedThreadPool();
+    private static final String STILL_ALIVE = "still_alive";
+    private static final int DELTA_MS = 5_000;
 
     private volatile ServerSocket server;
     private volatile Thread serverThread;
@@ -153,6 +153,7 @@ public class SpawnProcessKeepAliveChecker {
                     try {
                         sleep(200);
                     } catch (InterruptedException e) {
+                        // expected
                     }
 
                     System.exit(1);

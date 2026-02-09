@@ -27,17 +27,17 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * Class utils related class
+ * Class utils related class.
  *
  * @author ilebrero
  */
 public class ClassUtil {
 
     /**
-     * Returns a set with the static methods of a class
+     * Returns a set with the static methods of a class.
      *
      * @param targetClass a class instance
-     * @return
+     * @return list of static methods
      */
     public static List<Method> getTargetClassStaticMethods(Class<?> targetClass) {
         Method[] declaredMethods = targetClass.getDeclaredMethods();

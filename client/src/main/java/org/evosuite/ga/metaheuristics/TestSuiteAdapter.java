@@ -254,8 +254,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
      * @param <X>      FromType of the conversion
      * @return The converted selection function.
      */
-    private static <T extends Chromosome<T>, X extends Chromosome<X>> SelectionFunction<T> mapSelectionFunction(
-            SelectionFunction<X> function) {
+    private static <T extends Chromosome<T>, X extends Chromosome<X>>
+            SelectionFunction<T> mapSelectionFunction(SelectionFunction<X> function) {
         if (function instanceof FitnessProportionateSelection) {
             return new FitnessProportionateSelection<>((FitnessProportionateSelection<?>) function);
         } else if (function instanceof TournamentSelection) {
@@ -525,8 +525,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     /**
      * This function converts.
      *
-     * @param limit the limit
-     * @return the converted limit
+     * @param limit a {@link PopulationLimit} object.
+     * @return a {@link PopulationLimit} object.
      */
     private static <T extends Chromosome<T>> PopulationLimit<T> mapPopulationLimit(PopulationLimit<?> limit) {
         if (limit instanceof IndividualPopulationLimit) {
@@ -570,7 +570,7 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
      *
      * @param stoppingCondition the stopping condition with "wrong" generic parameters.
      * @param <T>               the desired target chromosome type
-     * @return the converted stopping condition
+     * @return a {@link StoppingCondition} object.
      */
     private static <T extends Chromosome<T>> StoppingCondition<T> mapStoppingCondition(
             StoppingCondition<?> stoppingCondition) {
@@ -620,11 +620,6 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     @Override
     protected final void updateBestIndividualFromArchive() {
         algorithm.updateBestIndividualFromArchive();
-    }
-
-    @Override
-    public boolean updateCoveredGoals() {
-        return algorithm.updateCoveredGoals();
     }
 
     @Override

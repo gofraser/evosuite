@@ -22,7 +22,7 @@ package org.evosuite.runtime.testdata;
 import java.io.Serializable;
 
 /**
- * A object wrapper for host/port addresses accessed by the SUTs
+ * A object wrapper for host/port addresses accessed by the SUTs.
  *
  * @author arcuri
  */

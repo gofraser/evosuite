@@ -19,6 +19,12 @@
  */
 package org.evosuite.runtime.mock.java.io;
 
+import org.evosuite.runtime.LeakingResource;
+import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.runtime.mock.OverrideMock;
+import org.evosuite.runtime.mock.java.lang.MockNullPointerException;
+import org.evosuite.runtime.vfs.VFile;
+import org.evosuite.runtime.vfs.VirtualFileSystem;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -27,215 +33,205 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.evosuite.runtime.LeakingResource;
-import org.evosuite.runtime.mock.MockFramework;
-import org.evosuite.runtime.mock.OverrideMock;
-import org.evosuite.runtime.mock.java.lang.MockNullPointerException;
-import org.evosuite.runtime.vfs.VFile;
-import org.evosuite.runtime.vfs.VirtualFileSystem;
-
 public class MockFileInputStream extends FileInputStream implements LeakingResource, OverrideMock{
 
+    private FileChannel channel = null;
 
-	private FileChannel channel = null;
+    /**
+     * Is this stream closed?
+     */
+    private volatile boolean closed = false;
 
-	/**
-	 * Is this stream closed?
-	 */
-	private volatile boolean closed = false;
+    /**
+     * The path to the file
+     */
+    private final String path;
 
-	/**
-	 * The path to the file
-	 */
-	private final String path;
+    /**
+     * The position to read in the stream next
+     */
+    private final AtomicInteger position = new AtomicInteger(0);
 
-	/**
-	 * The position to read in the stream next
-	 */
-	private final AtomicInteger position = new AtomicInteger(0);
+    // ----- constructors -------------
 
-	// ----- constructors -------------
+    public MockFileInputStream(String name) throws FileNotFoundException {
+        this( name != null ?
+                        (!MockFramework.isEnabled() ? new File(name) : new MockFile(name)) :
+                (File)null
+                );
+    }
 
-	public MockFileInputStream(String name) throws FileNotFoundException {
-		this( name != null ? 
-						(!MockFramework.isEnabled() ? new File(name) : new MockFile(name)) : 
-				(File)null
-				);
-	}
+    public MockFileInputStream(File file) throws FileNotFoundException {
+        super(!MockFramework.isEnabled() ?
+                        file :
+                            VirtualFileSystem.getInstance().getRealTmpFile()  // just to make compiler happy
+                );
+        if (!MockFramework.isEnabled()) {
+            path = null;
+            return;
+        }
 
-	
-	public MockFileInputStream(File file) throws FileNotFoundException {
-		super(!MockFramework.isEnabled() ?
-						file :
-							VirtualFileSystem.getInstance().getRealTmpFile()  // just to make compiler happy
-				);
-		if(!MockFramework.isEnabled()){
-			path = null;
-			return;
-		}
-		
-		VirtualFileSystem.getInstance().addLeakingResource(this);
+        VirtualFileSystem.getInstance().addLeakingResource(this);
 
-		path = (file != null ? file.getAbsolutePath() : null);
-		if (path == null) {
-			throw new MockNullPointerException();
-		}
+        path = (file != null ? file.getAbsolutePath() : null);
+        if (path == null) {
+            throw new MockNullPointerException();
+        }
 
-		VFile vf = NativeMockedIO.getFileForReading(path);
-		if(vf==null){
-			throw new FileNotFoundException();
-		}
-	}
+        VFile vf = NativeMockedIO.getFileForReading(path);
+        if (vf == null) {
+            throw new FileNotFoundException();
+        }
+    }
 
-	/*
-	 * we do not really handle this constructor.
-	 * 
-	 * TODO: we could, by using StaticReplacementMock and reflection, but anyway it is very rare
-	 */
-	public MockFileInputStream(FileDescriptor fdObj) {
-		super(fdObj);
-		path = "";
-	}
+    /*
+     * we do not really handle this constructor.
+     *
+     * TODO: we could, by using StaticReplacementMock and reflection, but anyway it is very rare
+     */
+    public MockFileInputStream(FileDescriptor fdObj) {
+        super(fdObj);
+        path = "";
+    }
 
-	// ----  read methods  ----------
+    // ----  read methods  ----------
 
-	public int read() throws IOException{
+    public int read() throws IOException{
 
-		if(!MockFramework.isEnabled()){
-			return super.read();
-		}
-		
-		throwExceptionIfClosed();
+        if (!MockFramework.isEnabled()) {
+            return super.read();
+        }
 
-		return NativeMockedIO.read(path, position); 
-	}
+        throwExceptionIfClosed();
 
-	private  int readBytes(byte[] b, int off, int len) throws IOException{
+        return NativeMockedIO.read(path, position);
+    }
 
-		if(!MockFramework.isEnabled()){
-			return super.read(b, off, len);
-		}
-		
-		int counter = 0;
-		for(int i=0; i<len; i++){
-			int v = read();
-			if(v == -1){  //EOF
-				if(i==0){
-					//no data to read
-					return -1;
-				} else {
-					return counter;
-				}
-			}
+    private  int readBytes(byte[] b, int off, int len) throws IOException{
 
-			b[off+i] = (byte) v;
-			counter++;
-		}
+        if (!MockFramework.isEnabled()) {
+            return super.read(b, off, len);
+        }
 
-		return counter; 
-	}
+        int counter = 0;
+        for (int i=0; i<len; i++) {
+            int v = read();
+            if (v == -1) {  //EOF
+                if (i == 0) {
+                    //no data to read
+                    return -1;
+                } else {
+                    return counter;
+                }
+            }
 
-	@Override
-	public  long skip(long n) throws IOException{
-		
-		if(!MockFramework.isEnabled()){
-			return super.skip(n);
-		}
-		
-		if(n<0){
-			throw new MockIOException();
-		}
+            b[off+i] = (byte) v;
+            counter++;
+        }
 
-		throwExceptionIfClosed();
+        return counter;
+    }
 
-		VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
-		position.addAndGet((int)n);
-		return n; 
-	}
+    @Override
+    public  long skip(long n) throws IOException{
 
-	@Override
-	public int available() throws IOException{
+        if (!MockFramework.isEnabled()) {
+            return super.skip(n);
+        }
 
-		if(!MockFramework.isEnabled()){
-			return super.available();
-		}
-		
-		throwExceptionIfClosed();
+        if (n<0) {
+            throw new MockIOException();
+        }
 
-		VFile vf = NativeMockedIO.getFileForReading(path);
-		if(vf==null){
-			throw new MockIOException();
-		}
+        throwExceptionIfClosed();
 
-		VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
+        VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
+        position.addAndGet((int)n);
+        return n;
+    }
 
-		int size = vf.getDataSize();
-		int available = size - position.get();
+    @Override
+    public int available() throws IOException{
 
-		return available; 
-	}
+        if (!MockFramework.isEnabled()) {
+            return super.available();
+        }
 
-	@Override
-	public int read(byte[] b) throws IOException {
-		return readBytes(b, 0, b.length);
-	}
+        throwExceptionIfClosed();
 
-	@Override
-	public int read(byte[] b, int off, int len) throws IOException {
-		return readBytes(b, off, len);
-	}
+        VFile vf = NativeMockedIO.getFileForReading(path);
+        if (vf == null) {
+            throw new MockIOException();
+        }
 
+        VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
 
-	//-------- other methods ------------
+        int size = vf.getDataSize();
+        int available = size - position.get();
 
-	@Override
-	public void close() throws IOException {
-		super.close();
+        return available;
+    }
 
-		if(!MockFramework.isEnabled()){
-			return;
-		}
-		
-		if (closed) {
-			return;
-		}
-		closed = true;
-		if (channel != null) {
-			channel.close();
-		}
+    @Override
+    public int read(byte[] b) throws IOException {
+        return readBytes(b, 0, b.length);
+    }
 
-		VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
-	}
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+        return readBytes(b, off, len);
+    }
 
-	/*  //Cannot be overriden
+    //-------- other methods ------------
+
+    @Override
+    public void close() throws IOException {
+        super.close();
+
+        if (!MockFramework.isEnabled()) {
+            return;
+        }
+
+        if (closed) {
+            return;
+        }
+        closed = true;
+        if (channel != null) {
+            channel.close();
+        }
+
+        VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
+    }
+
+    /*  //Cannot be overriden
     public final FileDescriptor getFD() throws IOException {
         if (fd != null) return fd;
         throw new IOException();
     }
-	 */
+     */
 
-	@Override
-	public FileChannel getChannel() {
-		if(!MockFramework.isEnabled()){
-			return super.getChannel();
-		}
-		
-		synchronized (this) {
-			if (channel == null) {
-				channel = new EvoFileChannel(position,path,true,false); 
-			}
-			return channel;
-		}
-	}
+    @Override
+    public FileChannel getChannel() {
+        if (!MockFramework.isEnabled()) {
+            return super.getChannel();
+        }
 
-	private void throwExceptionIfClosed() throws IOException{
-		if(closed){
-			throw new MockIOException();
-		}
-	}
+        synchronized (this) {
+            if (channel == null) {
+                channel = new EvoFileChannel(position,path,true,false);
+            }
+            return channel;
+        }
+    }
 
-	@Override
-	public void release() throws Exception {		
-		super.close();
-	}
+    private void throwExceptionIfClosed() throws IOException{
+        if (closed) {
+            throw new MockIOException();
+        }
+    }
+
+    @Override
+    public void release() throws Exception {
+        super.close();
+    }
 }

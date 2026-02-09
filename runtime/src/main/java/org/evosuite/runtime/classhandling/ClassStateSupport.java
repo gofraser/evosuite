@@ -36,7 +36,7 @@ import java.util.List;
 
 /**
  * Class used to handle the static state of classes, their intialization and
- * re-instrumentation
+ * re-instrumentation.
  *
  * @author arcuri
  */
@@ -54,8 +54,9 @@ public class ClassStateSupport {
      * This method will usually be called in a @BeforeClass initialization
      * </p>
      *
-     * @param classLoader
-     * @param classNames
+     * @param classLoader the class loader to use
+     * @param classNames  the names of the classes to load
+     * @return true if there was a problem loading any class, false otherwise
      */
     public static boolean initializeClasses(ClassLoader classLoader, String... classNames) {
 
@@ -81,10 +82,12 @@ public class ClassStateSupport {
                 }
 
                 if (!InstrumentedClass.class.isAssignableFrom(clazz)) {
-                    String msg = "Class " + clazz.getName() + " was not instrumented by EvoSuite. " +
-                            "This could happen if you are running JUnit tests in a way that is not handled by EvoSuite, in " +
-                            "which some classes are loaded be reflection before the tests are run. Consult the EvoSuite documentation " +
-                            "for possible workarounds for this issue.";
+                    String msg = "Class " + clazz.getName() + " was not instrumented by EvoSuite. "
+                            + "This could happen if you are running JUnit tests in a way that is not handled "
+                            + "by EvoSuite, in "
+                            + "which some classes are loaded be reflection before the tests are run. "
+                            + "Consult the EvoSuite documentation "
+                            + "for possible workarounds for this issue.";
                     logger.error(msg);
                     problem = true;
                     //throw new IllegalStateException(msg); // throwing an exception might be a bit too extreme
@@ -116,7 +119,8 @@ public class ClassStateSupport {
                 } catch (NoSuchMethodException e) {
                     // No instrumentation, no need to do anything
                 } catch (Throwable e) {
-                    logger.info("Error while checking for {} in class {}: {}", externalInitMethod, clazz.getName(), e.getMessage());
+                    logger.info("Error while checking for {} in class {}: {}",
+                            externalInitMethod, clazz.getName(), e.getMessage());
 
                 }
             }
@@ -130,7 +134,7 @@ public class ClassStateSupport {
      * This method will be usually called after a test is executed, ie in a @After
      * </p>
      *
-     * @param classNames
+     * @param classNames the names of the classes to reset
      */
     public static void resetClasses(String... classNames) {
         for (String classNameToReset : classNames) {
@@ -160,8 +164,8 @@ public class ClassStateSupport {
                     Sandbox.goingToExecuteUnsafeCodeOnSameThread();
                 }
                 LoopCounter.getInstance().setActive(false);
-                Class<?> aClass = Class.forName(className, true, classLoader);
-                classes.add(aClass);
+                Class<?> loadedClass = Class.forName(className, true, classLoader);
+                classes.add(loadedClass);
 
             } catch (Exception | Error ex) {
                 AtMostOnceLogger.error(logger, "Could not initialize " + className + ": " + ex.getMessage());
@@ -183,6 +187,9 @@ public class ClassStateSupport {
     /**
      * If any of the loaded class was not instrumented yet, then re-instrument them.
      * Note: re-instrumentation is more limited, as cannot change class signature
+     *
+     * @param classLoader the class loader to use
+     * @param classNames  the names of the classes to re-transform
      */
     @Deprecated
     public static void retransformIfNeeded(ClassLoader classLoader, String... classNames) {
@@ -201,7 +208,7 @@ public class ClassStateSupport {
      * If any of the loaded class was not instrumented yet, then re-instrument them.
      * Note: re-instrumentation is more limited, as cannot change class signature
      *
-     * @param classes
+     * @param classes the list of classes to re-transform
      */
     @Deprecated
     public static void retransformIfNeeded(List<Class<?>> classes) {
@@ -212,28 +219,29 @@ public class ClassStateSupport {
 
         List<Class<?>> classToReInstrument = new ArrayList<>();
 
-		/*
-		InstrumentingAgent.activate();
-		for(Class<?> cl : classes){
+        /*
+        InstrumentingAgent.activate();
+        for(Class<?> cl : classes){
 
-			try{
-				InstrumentingAgent.getInstumentation().retransformClasses(cl);
-			} catch(UnsupportedOperationException e){
-				/ *
-				 * this happens if class was already loaded by JUnit (eg the abstract class problem)
-				 * and re-instrumentation do change the signature
-				 * /
-				classToReInstument.add(cl);
-			} catch(Exception | Error e){
-				//this shouldn't really happen
-				java.lang.System.err.println("Could not instrument "+cl.getName()+". Exception "+e.toString());
-			}
+            try{
+                InstrumentingAgent.getInstumentation().retransformClasses(cl);
+            } catch(UnsupportedOperationException e){
+                / *
+                 * this happens if class was already loaded by JUnit (eg the abstract class problem)
+                 * and re-instrumentation do change the signature
+                 * /
+                classToReInstument.add(cl);
+            } catch(Exception | Error e){
+                //this shouldn't really happen
+                java.lang.System.err.println("Could not instrument "+cl.getName()+". Exception "+e.toString());
+            }
 
-		}
-		*/
+        }
+        */
 
         for (Class<?> cl : classes) {
-            if (!InstrumentingAgent.getTransformer().isClassAlreadyTransformed(cl.getName())) {
+            if (!InstrumentingAgent.getTransformer().isClassAlreadyTransformed(
+                    cl.getName())) {
                 classToReInstrument.add(cl);
             }
         }
@@ -245,7 +253,8 @@ public class ClassStateSupport {
         InstrumentingAgent.setRetransformingMode(true);
         try {
             if (!classToReInstrument.isEmpty()) {
-                InstrumentingAgent.getInstrumentation().retransformClasses(classToReInstrument.toArray(new Class<?>[0]));
+                InstrumentingAgent.getInstrumentation().retransformClasses(
+                        classToReInstrument.toArray(new Class<?>[0]));
             }
         } catch (UnmodifiableClassException e) {
             //this shouldn't really happen, as already checked in previous loop

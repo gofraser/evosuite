@@ -28,12 +28,11 @@ import org.objectweb.asm.Type;
 /**
  * Add loop check before each jump instruction.
  *
- * <p>
- * Note: not all jumps represent a loop (eg, for/while).
+ * <p>Note: not all jumps represent a loop (eg, for/while).
  * Non-loops are for examples if/switch.
- * However, such extra instrumentation should not really be a problem
- * <p>
- * Created by Andrea Arcuri on 29/03/15.
+ * However, such extra instrumentation should not really be a problem.
+ *
+ * <p>Created by Andrea Arcuri on 29/03/15.
  */
 public class LoopCounterMethodAdapter extends MethodVisitor {
 
