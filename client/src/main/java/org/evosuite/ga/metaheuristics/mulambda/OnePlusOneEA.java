@@ -23,7 +23,7 @@ import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
 
 /**
- * (1+1)EA
+ * (1+1)EA.
  *
  * @author Gordon Fraser
  */

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -130,5 +130,14 @@ public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
         population.add(testSuite);
         super.applyLocalSearch();
         population = null;
+    }
+
+    @Override
+    public boolean updateCoveredGoals() {
+        if (!getAlgorithm().isFinished()) {
+            return false;
+        }
+
+        return super.updateCoveredGoals();
     }
 }

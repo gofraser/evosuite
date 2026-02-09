@@ -87,14 +87,15 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
      * @return a {@link org.evosuite.ga.Chromosome} object.
      */
     protected T getBest(T chromosome1, T chromosome2) {
-        if (isBetter(chromosome1, chromosome2))
+        if (isBetter(chromosome1, chromosome2)) {
             return chromosome1;
-        else
+        } else {
             return chromosome2;
+        }
     }
 
     /**
-     * Decide whether to keep the offspring or the parents
+     * Decide whether to keep the offspring or the parents.
      *
      * @param parent1    a {@link org.evosuite.ga.Chromosome} object.
      * @param parent2    a {@link org.evosuite.ga.Chromosome} object.

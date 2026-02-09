@@ -56,7 +56,7 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
     private List<T> elite = new ArrayList<>(Properties.ELITE);
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
@@ -384,21 +384,21 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
         boolean decomposed = false;
 
         if (potentialEnergy + kineticEnergy >= potentialEnergy1 + potentialEnergy2) {
-            double eDec = potentialEnergy + kineticEnergy - (potentialEnergy1 + potentialEnergy2);
-            this.updateMoleculesAfterDecomposition(offspring1, offspring2, eDec);
+            double energyDec = potentialEnergy + kineticEnergy - (potentialEnergy1 + potentialEnergy2);
+            this.updateMoleculesAfterDecomposition(offspring1, offspring2, energyDec);
 
             decomposed = true;
         } else {
             double delta1 = Randomness.nextDouble();
             double delta2 = Randomness.nextDouble();
 
-            double eDec = (potentialEnergy + kineticEnergy + delta1 * delta2 * this.buffer)
+            double energyDec = (potentialEnergy + kineticEnergy + delta1 * delta2 * this.buffer)
                     - (potentialEnergy1 + potentialEnergy2);
-            if (eDec >= 0) {
+            if (energyDec >= 0) {
                 this.buffer = this.buffer * (1.0 - delta1 * delta2);
 
                 // update molecules
-                this.updateMoleculesAfterDecomposition(offspring1, offspring2, eDec);
+                this.updateMoleculesAfterDecomposition(offspring1, offspring2, energyDec);
 
                 // destroy 'molecule', i.e., 'molecule' must be replaced by the two newly generated
                 // molecules ('offspring1', 'offspring2')
@@ -427,11 +427,11 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
         return null;
     }
 
-    private void updateMoleculesAfterDecomposition(T moleculeClone1, T moleculeClone2, double eDec) {
+    private void updateMoleculesAfterDecomposition(T moleculeClone1, T moleculeClone2, double energyDec) {
         // distribute energy
         double delta3 = Randomness.nextDouble();
-        moleculeClone1.setKineticEnergy(eDec * delta3);
-        moleculeClone2.setKineticEnergy(eDec * (1.0 - delta3));
+        moleculeClone1.setKineticEnergy(energyDec * delta3);
+        moleculeClone2.setKineticEnergy(energyDec * (1.0 - delta3));
         // reset number of collisions
         moleculeClone1.resetNumCollisions();
         moleculeClone2.resetNumCollisions();
@@ -488,13 +488,13 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
         double potentialEnergyClone1 = moleculeClone1.getFitness();
         double potentialEnergyClone2 = moleculeClone2.getFitness();
 
-        double eInter = (potentialEnergy1 + potentialEnergy2 + kineticEnergy1 + kineticEnergy2)
+        double energyInter = (potentialEnergy1 + potentialEnergy2 + kineticEnergy1 + kineticEnergy2)
                 - (potentialEnergyClone1 + potentialEnergyClone2);
-        if (eInter >= 0) {
+        if (energyInter >= 0) {
             // distribute energy
             double delta4 = Randomness.nextDouble();
-            moleculeClone1.setKineticEnergy(eInter * delta4);
-            moleculeClone2.setKineticEnergy(eInter * (1.0 - delta4));
+            moleculeClone1.setKineticEnergy(energyInter * delta4);
+            moleculeClone2.setKineticEnergy(energyInter * (1.0 - delta4));
 
             logger.debug("(" + potentialEnergy1 + "," + kineticEnergy1 + ")" + " vs " + "("
                     + potentialEnergyClone1 + "," + moleculeClone1.getKineticEnergy() + ")\n" + "("
@@ -582,7 +582,7 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
     /**
      * Returns the current amount of energy in the system.
      *
-     * @return
+     * @return the energy
      */
     private double getCurrentAmountOfEnergy() {
         double energy = this.buffer;
@@ -595,7 +595,7 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
     /**
      * Given a certain amount of energy, it checks whether energy has been conserved in the system.
      *
-     * @param energy
+     * @param energy the energy
      * @return true if energy has been conserved in the system, false otherwise
      */
     private boolean hasEnergyBeenConserved(double energy) {

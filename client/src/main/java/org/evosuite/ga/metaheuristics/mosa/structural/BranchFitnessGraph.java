@@ -125,9 +125,11 @@ public class BranchFitnessGraph implements Serializable {
      * @return true or false depending on whether a branch is found
      */
     public boolean containsBranches(BasicBlock block) {
-        for (BytecodeInstruction inst : block)
-            if (inst.toBranch() != null)
+        for (BytecodeInstruction inst : block) {
+            if (inst.toBranch() != null) {
                 return true;
+            }
+        }
         return false;
     }
 
@@ -139,9 +141,11 @@ public class BranchFitnessGraph implements Serializable {
      * @return an object of {@link Branch} representing the branch in the block
      */
     public Branch extractBranch(BasicBlock block) {
-        for (BytecodeInstruction inst : block)
-            if (inst.isBranch() || inst.isActualBranch())
+        for (BytecodeInstruction inst : block) {
+            if (inst.isBranch() || inst.isActualBranch()) {
                 return inst.toBranch();
+            }
+        }
         return null;
     }
 

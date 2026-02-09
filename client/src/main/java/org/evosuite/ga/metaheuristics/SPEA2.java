@@ -203,8 +203,10 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * @param union
-     * @return
+     * Environmental selection.
+     *
+     * @param union the union population
+     * @return the selected population
      */
     protected List<T> environmentalSelection(List<T> union) {
 
@@ -228,10 +230,9 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         // selection step is completed
         if (tmpPopulation.size() == Properties.POPULATION) {
             return tmpPopulation;
-        }
-        // If archive is too small, the best dominated individuals in the previous
-        // archive and population are copied to the new archive
-        else if (tmpPopulation.size() < Properties.POPULATION) {
+        } else if (tmpPopulation.size() < Properties.POPULATION) {
+            // If archive is too small, the best dominated individuals in the previous
+            // archive and population are copied to the new archive
             populationCopy.sort(new StrengthFitnessComparator());
             int remain = (union.size() < Properties.POPULATION ? union.size() : Properties.POPULATION) - tmpPopulation.size();
             for (int i = 0; i < remain; i++) {
@@ -324,7 +325,9 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * @param solution
+     * Compute strength.
+     *
+     * @param solution the solution
      */
     protected void computeStrength(List<T> solution) {
         // count the number of individuals each solution dominates
@@ -362,18 +365,18 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         int k = 1;
         for (int i = 0; i < distance.length; i++) {
             Arrays.sort(distance[i]);
-            double kDistance = 1.0 / (distance[i][k] + 2.0);
+            double kthDistance = 1.0 / (distance[i][k] + 2.0);
             // TODO for now let's use 'distance' field, however the right
             // name should be 'strength' or 'fitness-strength'
-            solution.get(i).setDistance(rawFitness[i] + kDistance);
+            solution.get(i).setDistance(rawFitness[i] + kthDistance);
         }
     }
 
     /**
      * Returns a matrix with the euclidean distance between each pair of solutions in the population.
      *
-     * @param solution
-     * @return
+     * @param solution the solution
+     * @return the distance matrix
      */
     protected double[][] euclideanDistanceMatrix(List<T> solution) {
         double[][] distance = new double[solution.size()][solution.size()];
@@ -392,9 +395,9 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     /**
      * Returns the euclidean distance between a pair of solutions in the objective space.
      *
-     * @param t1
-     * @param t2
-     * @return
+     * @param t1 first individual
+     * @param t2 second individual
+     * @return the distance
      */
     protected double distanceBetweenObjectives(T t1, T t2) {
         double distance = 0.0;

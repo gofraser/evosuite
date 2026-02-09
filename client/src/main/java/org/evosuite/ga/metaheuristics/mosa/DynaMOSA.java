@@ -48,14 +48,14 @@ public class DynaMOSA extends AbstractMOSA {
     private static final Logger logger = LoggerFactory.getLogger(DynaMOSA.class);
 
     /**
-     * Manager to determine the test goals to consider at each generation
+     * Manager to determine the test goals to consider at each generation.
      */
     protected MultiCriteriaManager goalsManager = null;
 
     protected CrowdingDistance<TestChromosome> distance = new CrowdingDistance<>();
 
     /**
-     * Constructor based on the abstract class {@link AbstractMOSA}.
+     * Constructor based on the abstract class. {@link AbstractMOSA}.
      *
      * @param factory
      */

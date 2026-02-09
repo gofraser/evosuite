@@ -48,10 +48,10 @@ import java.util.stream.Collectors;
 
 /**
  * Implementation of the LIPS (Linearly Independent Path based Search) described in:
- * <p>
- * [1] S. Scalabrino, G. Grano, D. Di Nucci, R. Oliveto, A. De Lucia. "Search-Based Testing of Procedural
+ *
+ * <p>[1] S. Scalabrino, G. Grano, D. Di Nucci, R. Oliveto, A. De Lucia. "Search-Based Testing of Procedural
  * Programs: Iterative Single-Target or Multi-target Approach?".
- * International Symposium on Search Based Software Engineering (SSBSE 2016)
+ * International Symposium on Search Based Software Engineering (SSBSE 2016).
  *
  * @author Annibale Panichella
  */
@@ -92,9 +92,9 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
     protected TestFitnessFunction currentTarget;
 
     /**
-     * Control Flow Graph
+     * Control Flow Graph.
      */
-    protected BranchesManager CFG;
+    protected BranchesManager cfg;
 
     /**
      * To keep track when the search started for the current target
@@ -137,10 +137,12 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
         // elitism has been shown to positively affect the convergence
         // speed of GAs in various optimisation problems
         population.sort(new SortByFitness<>(this.currentTarget, false));
-        if (population.size() >= 1)
+        if (population.size() >= 1) {
             newGeneration.add(population.get(0).clone());
-        if (population.size() >= 2)
+        }
+        if (population.size() >= 2) {
             newGeneration.add(population.get(1).clone());
+        }
 
         // new_generation.size() < population_size
         while (newGeneration.size() < Properties.POPULATION) {
@@ -193,7 +195,8 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
     public void generateSolution() {
         logger.info("executing generateSolution function");
 
-        CFG = new BranchesManager(fitnessFunctions.stream().map(ff -> (TestFitnessFunction) ff).collect(Collectors.toList()));
+        cfg = new BranchesManager(fitnessFunctions.stream().map(ff -> (TestFitnessFunction) ff)
+                .collect(Collectors.toList()));
 
         // generate the initial test t0
         // and update the worklist
@@ -212,8 +215,9 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
             // if the current target is covered
             // the last branch added to the worklist is removed and used as new target of the search algorithm
             if (this.archive.containsKey(currentTarget)) {
-                if (worklist.size() > 0)
+                if (worklist.size() > 0) {
                     this.currentTarget = worklist.removeLast();
+                }
                 startSearch4Branch = System.currentTimeMillis();
             } else if (Math.abs(System.currentTimeMillis() - startSearch4Branch) >= this.budget4branch) {
                 alreadyAttemptedBranches.add(this.currentTarget);
@@ -283,7 +287,7 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
 
         // keep track of covered goals
         uncoveredBranches.addAll(fitnessFunctions);
-        worklist.addAll(CFG.getGraph().getRootBranches());
+        worklist.addAll(cfg.getGraph().getRootBranches());
 
         // The first step is to randomly generate the first test case t0
         TestChromosome t0 = this.chromosomeFactory.getChromosome();
@@ -304,8 +308,9 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
      * @param c test case (TestChromosome) to execute
      */
     protected void runTest(TestChromosome c) {
-        if (!c.isChanged())
+        if (!c.isChanged()) {
             return;
+        }
 
         // run the test
         TestCase test = c.getTestCase();
@@ -327,8 +332,9 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
 
         for (TestFitnessFunction branch : worklist) {
             double value = branch.getFitness(c);
-            if (value == 0.0)
+            if (value == 0.0) {
                 updateArchive(c, branch);
+            }
         }
         this.worklist.removeAll(this.archive.keySet());
         this.alreadyAttemptedBranches.removeAll(this.archive.keySet());
@@ -346,17 +352,19 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
 
         for (FitnessFunction<TestChromosome> branch : fitnessFunctions) {
             double value = branch.getFitness(c);
-            if (value == 0)
+            if (value == 0) {
                 coveredBranches.add((TestFitnessFunction) branch);
+            }
         }
 
         // all the uncovered branches of decision nodes on the path covered by a test ti
         // are added to the worklist
         for (TestFitnessFunction branch : coveredBranches) {
             updateArchive(c, branch);
-            for (TestFitnessFunction dependent : CFG.getGraph().getStructuralChildren(branch)) {
-                if (this.uncoveredBranches.contains(dependent) && !worklist.contains(dependent))
+            for (TestFitnessFunction dependent : cfg.getGraph().getStructuralChildren(branch)) {
+                if (this.uncoveredBranches.contains(dependent) && !worklist.contains(dependent)) {
                     worklist.addFirst(dependent);
+                }
             }
         }
     }
@@ -386,8 +394,9 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
     @Override
     protected void notifyEvaluation(TestChromosome chromosome) {
         for (SearchListener<TestChromosome> listener : listeners) {
-            if (listener instanceof ProgressMonitor)
+            if (listener instanceof ProgressMonitor) {
                 continue;
+            }
             listener.fitnessEvaluation(chromosome);
         }
     }
@@ -434,8 +443,9 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
             budgetLeft = Properties.GLOBAL_TIMEOUT * 1000 - (System.currentTimeMillis() - startGlobalSearch);
         }
 
-        long n_targets = this.fitnessFunctions.size() - this.archive.size() - this.alreadyAttemptedBranches.size();
-        if (n_targets > 0)
-            this.budget4branch = budgetLeft / n_targets;
+        long nTargets = this.fitnessFunctions.size() - this.archive.size() - this.alreadyAttemptedBranches.size();
+        if (nTargets > 0) {
+            this.budget4branch = budgetLeft / nTargets;
+        }
     }
 }

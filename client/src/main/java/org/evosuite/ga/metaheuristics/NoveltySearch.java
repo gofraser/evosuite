@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -116,19 +116,21 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
                 continue;
             }
 
-            if (!isTooLong(offspring1))
+            if (!isTooLong(offspring1)) {
                 newGeneration.add(offspring1);
-            else
+            } else {
                 newGeneration.add(parent1);
+            }
 
             if (isNextPopulationFull(newGeneration)) {
                 break;
             }
 
-            if (!isTooLong(offspring2))
+            if (!isTooLong(offspring2)) {
                 newGeneration.add(offspring2);
-            else
+            } else {
                 newGeneration.add(parent2);
+            }
         }
 
         population = newGeneration;
@@ -141,8 +143,9 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
     @Override
     public void generateSolution() {
 
-        if (population.isEmpty())
+        if (population.isEmpty()) {
             initializePopulation();
+        }
 
         logger.info("Starting evolution of novelty search algorithm");
 

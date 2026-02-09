@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -48,8 +48,8 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 /**
- * A wrapper class that facilitates the use of genetic algorithms operating on {@code
- * TestChromosome}s in such contexts where {@code TestSuiteChromosome}s are expected.
+ * A wrapper class that facilitates the use of genetic algorithms operating on {@code TestChromosome}s
+ * in such contexts where {@code TestSuiteChromosome}s are expected.
  *
  * @param <A> the type of adaptee genetic algorithm
  */
@@ -76,8 +76,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
 
     /**
      * This method clears all fields of this wrapper class by setting them to {@code null}.
-     * <p>
-     * This class may seem harmless and unsuspecting, but it's really not! It can produce obscure,
+     *
+     * <p>This class may seem harmless and unsuspecting, but it's really not! It can produce obscure,
      * plain stupid and hard to chase down bugs. The intent of this method is to deliberately
      * produce {@code NullPointerException}s should we have forgotten to properly forward some
      * methods to the adaptee algorithm. If a method is invoked that tries to access some of the
@@ -122,12 +122,12 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     public abstract List<TestSuiteChromosome> getBestIndividuals();
 
     @Override
-    final protected void evolve() {
+    protected final void evolve() {
         algorithm.evolve();
     }
 
     @Override
-    final public void initializePopulation() {
+    public final void initializePopulation() {
         algorithm.initializePopulation();
     }
 
@@ -142,7 +142,7 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final protected void notifyMutation(TestSuiteChromosome chromosome)
+    protected final void notifyMutation(TestSuiteChromosome chromosome)
             throws UnsupportedOperationException {
         // In contrast to the adaptee, the adapter does not mutate any chromosomes.
         // Therefore, only the adaptee notifies about mutations
@@ -150,7 +150,7 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final protected void notifyEvaluation(TestSuiteChromosome chromosome)
+    protected final void notifyEvaluation(TestSuiteChromosome chromosome)
             throws UnsupportedOperationException {
         // In contrast to the adaptee, the adapter does not evaluate any chromosomes.
         // Therefore, only the adaptee notifies about evaluations.
@@ -158,62 +158,62 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final protected boolean shouldApplyLocalSearch() {
+    protected final boolean shouldApplyLocalSearch() {
         return algorithm.shouldApplyLocalSearch();
     }
 
     @Override
-    final protected void disableFirstSecondaryCriterion() {
+    protected final void disableFirstSecondaryCriterion() {
         algorithm.disableFirstSecondaryCriterion();
     }
 
     @Override
-    final protected void enableFirstSecondaryCriterion() {
+    protected final void enableFirstSecondaryCriterion() {
         algorithm.enableFirstSecondaryCriterion();
     }
 
     @Override
-    final protected void updateSecondaryCriterion(int starvationCounter) {
+    protected final void updateSecondaryCriterion(int starvationCounter) {
         algorithm.updateSecondaryCriterion(starvationCounter);
     }
 
     @Override
-    final protected void applyLocalSearch() {
+    protected final void applyLocalSearch() {
         algorithm.applyLocalSearch();
     }
 
     @Override
-    final protected void updateProbability(boolean improvement) {
+    protected final void updateProbability(boolean improvement) {
         algorithm.updateProbability(improvement);
     }
 
     @Override
-    final protected void generateInitialPopulation(int populationSize) {
+    protected final void generateInitialPopulation(int populationSize) {
         algorithm.generateInitialPopulation(populationSize);
     }
 
     @Override
-    final protected void starveToLimit(int limit) {
+    protected final void starveToLimit(int limit) {
         algorithm.starveToLimit(limit);
     }
 
     @Override
-    final protected void starveRandomly(int limit) {
+    protected final void starveRandomly(int limit) {
         algorithm.starveRandomly(limit);
     }
 
     @Override
-    final protected void starveByFitness(int limit) {
+    protected final void starveByFitness(int limit) {
         algorithm.starveByFitness(limit);
     }
 
     @Override
-    final protected void generateRandomPopulation(int populationSize) {
+    protected final void generateRandomPopulation(int populationSize) {
         algorithm.generateRandomPopulation(populationSize);
     }
 
     @Override
-    final public void clearPopulation() {
+    public final void clearPopulation() {
         algorithm.clearPopulation();
     }
 
@@ -223,17 +223,17 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final public FitnessFunction<TestSuiteChromosome> getFitnessFunction() {
+    public final FitnessFunction<TestSuiteChromosome> getFitnessFunction() {
         return new TestSuiteFitnessFunctionWrapper(algorithm.getFitnessFunction());
     }
 
     @Override
-    final public int getNumberOfFitnessFunctions() {
+    public final int getNumberOfFitnessFunctions() {
         return algorithm.getNumberOfFitnessFunctions();
     }
 
     @Override
-    final public SelectionFunction<TestSuiteChromosome> getSelectionFunction() {
+    public final SelectionFunction<TestSuiteChromosome> getSelectionFunction() {
         return mapSelectionFunction(algorithm.getSelectionFunction());
     }
 
@@ -246,14 +246,15 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     /**
-     * Converts a selection function from either TestSuite or Test case level to the other
+     * Converts a selection function from either TestSuite or Test case level to the other.
      *
      * @param function The function to be converted
      * @param <T>      ToType of the conversion
      * @param <X>      FromType of the conversion
      * @return The converted selection function.
      */
-    private static <T extends Chromosome<T>, X extends Chromosome<X>> SelectionFunction<T> mapSelectionFunction(SelectionFunction<X> function) {
+    private static <T extends Chromosome<T>, X extends Chromosome<X>> SelectionFunction<T> mapSelectionFunction(
+            SelectionFunction<X> function) {
         if (function instanceof FitnessProportionateSelection) {
             return new FitnessProportionateSelection<>((FitnessProportionateSelection<?>) function);
         } else if (function instanceof TournamentSelection) {
@@ -276,7 +277,7 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final public RankingFunction<TestSuiteChromosome> getRankingFunction() {
+    public final RankingFunction<TestSuiteChromosome> getRankingFunction() {
         return mapRankingFunction(algorithm.getRankingFunction());
     }
 
@@ -297,7 +298,7 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final public void setBloatControl(BloatControlFunction<TestSuiteChromosome> bcf) {
+    public final void setBloatControl(BloatControlFunction<TestSuiteChromosome> bcf) {
         algorithm.setBloatControl(mapBloatControlToTestLevel(bcf));
     }
 
@@ -324,55 +325,55 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final public boolean isTooLong(TestSuiteChromosome chromosome) throws UnsupportedOperationException {
+    public final boolean isTooLong(TestSuiteChromosome chromosome) throws UnsupportedOperationException {
         throw new UnsupportedOperationException("TestSuiteChromosome to TestChromosome conversion for this function not supported");
     }
 
     @Override
-    final protected void calculateFitness() {
+    protected final void calculateFitness() {
         algorithm.calculateFitness();
     }
 
     @Override
-    final protected void calculateFitness(TestSuiteChromosome c)
+    protected final void calculateFitness(TestSuiteChromosome c)
             throws UnsupportedOperationException {
         throw new UnsupportedOperationException("TestSuiteChromosome to TestChromosome conversion for this function not supported");
     }
 
     @Override
-    final protected void calculateFitnessAndSortPopulation() {
+    protected final void calculateFitnessAndSortPopulation() {
         algorithm.calculateFitnessAndSortPopulation();
     }
 
     @Override
-    final public int getPopulationSize() {
+    public final int getPopulationSize() {
         return algorithm.getPopulationSize();
     }
 
     @Override
-    final protected List<TestSuiteChromosome> elitism() {
+    protected final List<TestSuiteChromosome> elitism() {
         return algorithm.elitism().stream().map(TestChromosome::toSuite).collect(toList());
     }
 
     @Override
-    final protected List<TestSuiteChromosome> randomism() {
+    protected final List<TestSuiteChromosome> randomism() {
         return algorithm.randomism().stream().map(TestChromosome::toSuite).collect(Collectors.toList());
     }
 
     @Override
-    final public void updateFitnessFunctionsAndValues() {
+    public final void updateFitnessFunctionsAndValues() {
         algorithm.updateFitnessFunctionsAndValues();
     }
 
     @Override
-    final public void writeIndividuals(List<TestSuiteChromosome> individuals)
+    public final void writeIndividuals(List<TestSuiteChromosome> individuals)
             throws UnsupportedOperationException {
         throw new UnsupportedOperationException("TestSuiteChromosome to TestChromosome conversion for this function not supported");
     }
 
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
-    final public void setChromosomeFactory(ChromosomeFactory<TestSuiteChromosome> factory)
+    public final void setChromosomeFactory(ChromosomeFactory<TestSuiteChromosome> factory)
             throws IllegalArgumentException {
         if (algorithm != null) {
             if (factory instanceof TestSuiteChromosomeFactoryMock) {
@@ -445,7 +446,7 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final public void removeListener(SearchListener<TestSuiteChromosome> listener) {
+    public final void removeListener(SearchListener<TestSuiteChromosome> listener) {
         super.removeListener(listener);
         if (algorithm != null) {
             if (listener instanceof StatisticsListener) {
@@ -453,8 +454,9 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
             } else if (listener instanceof RelativeSuiteLengthBloatControl) {
                 super.removeListener(listener);
             } else if (listener instanceof ResourceController) {
-                if (searchListenerMapping.containsKey(listener))
+                if (searchListenerMapping.containsKey(listener)) {
                     algorithm.removeListener(searchListenerMapping.get(listener));
+                }
             } else if (listener instanceof ProgressMonitor) {
                 super.removeListener(listener);
             } else if (listener instanceof ZeroFitnessStoppingCondition) {
@@ -470,32 +472,32 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final public void notifySearchStarted() { // called by the adaptee
+    public final void notifySearchStarted() { // called by the adaptee
         super.notifySearchStarted();
     }
 
     @Override
-    final public void notifySearchFinished() { // called by the adaptee
+    public final void notifySearchFinished() { // called by the adaptee
         super.notifySearchFinished();
     }
 
     @Override
-    final public void notifyIteration() { // called by the adaptee
+    public final void notifyIteration() { // called by the adaptee
         super.notifyIteration();
     }
 
     @Override
-    final protected void sortPopulation() {
+    protected final void sortPopulation() {
         algorithm.sortPopulation();
     }
 
     @Override
-    final public List<TestSuiteChromosome> getPopulation() {
+    public final List<TestSuiteChromosome> getPopulation() {
         return Collections.singletonList(algorithm.getPopulation().stream().collect(TestChromosome.toTestSuiteCollector));
     }
 
     @Override
-    final public boolean isNextPopulationFull(List<TestSuiteChromosome> nextGeneration)
+    public final boolean isNextPopulationFull(List<TestSuiteChromosome> nextGeneration)
             throws UnsupportedOperationException {
         throw new UnsupportedOperationException("TestSuiteChromosome to TestChromosome conversion for this function not supported");
     }
@@ -514,10 +516,10 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     /**
-     * This function converts
+     * This function converts.
      *
-     * @param limit
-     * @return
+     * @param limit the limit
+     * @return the converted limit
      */
     private static <T extends Chromosome<T>> PopulationLimit<T> mapPopulationLimit(PopulationLimit<?> limit) {
         if (limit instanceof IndividualPopulationLimit) {
@@ -532,7 +534,7 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final public boolean isFinished() {
+    public final boolean isFinished() {
         return algorithm.isFinished();
     }
 
@@ -550,7 +552,7 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final public Set<StoppingCondition<TestSuiteChromosome>> getStoppingConditions() {
+    public final Set<StoppingCondition<TestSuiteChromosome>> getStoppingConditions() {
         return algorithm.getStoppingConditions().stream()
                 .map(TestSuiteAdapter::<TestSuiteChromosome>mapStoppingCondition)
                 .collect(toSet());
@@ -561,10 +563,10 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
      *
      * @param stoppingCondition the stopping condition with "wrong" generic parameters.
      * @param <T>               the desired target chromosome type
-     * @return
+     * @return the converted stopping condition
      */
     private static <T extends Chromosome<T>> StoppingCondition<T>
-    mapStoppingCondition(StoppingCondition<?> stoppingCondition) {
+            mapStoppingCondition(StoppingCondition<?> stoppingCondition) {
         if (stoppingCondition instanceof MaxTimeStoppingCondition) {
             return new MaxTimeStoppingCondition<>((MaxTimeStoppingCondition<?>) stoppingCondition);
         } else if (stoppingCondition instanceof TimeDeltaStoppingCondition) {
@@ -594,7 +596,7 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final public void removeStoppingCondition(StoppingCondition<TestSuiteChromosome> condition) {
+    public final void removeStoppingCondition(StoppingCondition<TestSuiteChromosome> condition) {
         algorithm.removeStoppingCondition(mapStoppingCondition(condition));
     }
 
@@ -604,33 +606,33 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    final public void setStoppingConditionLimit(int value) {
+    public final void setStoppingConditionLimit(int value) {
         algorithm.setStoppingConditionLimit(value);
     }
 
     @Override
-    final protected void updateBestIndividualFromArchive() {
+    protected final void updateBestIndividualFromArchive() {
         algorithm.updateBestIndividualFromArchive();
     }
 
     @Override
-    final protected boolean isBetterOrEqual(TestSuiteChromosome chromosome1,
+    protected final boolean isBetterOrEqual(TestSuiteChromosome chromosome1,
                                             TestSuiteChromosome chromosome2) {
         throw new UnsupportedOperationException("not implemented");
     }
 
     @Override
-    final public void printBudget() {
+    public final void printBudget() {
         algorithm.printBudget();
     }
 
     @Override
-    final public String getBudgetString() {
+    public final String getBudgetString() {
         return algorithm.getBudgetString();
     }
 
     @Override
-    final protected double progress() {
+    protected final double progress() {
         return algorithm.progress();
     }
 
@@ -689,8 +691,8 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
         @Override
         public double getFitness(TestSuiteChromosome individual)
                 throws UnsupportedOperationException {
-            throw new UnsupportedOperationException("cannot apply wrapped TestFitnessFunction to " +
-                    "TestSuiteChromosome");
+            throw new UnsupportedOperationException("cannot apply wrapped TestFitnessFunction to "
+                    + "TestSuiteChromosome");
         }
 
         @Override

@@ -49,8 +49,8 @@ public class SteadyStateGA<T extends Chromosome<T>> extends MonotonicGA<T> {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Perform one iteration of the search
+     *
+     * <p>Perform one iteration of the search
      */
     @Override
     protected void evolve() {

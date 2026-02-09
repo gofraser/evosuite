@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -32,7 +32,7 @@ public final class FeatureVector implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private final static class Entry implements Serializable {
+    private static final class Entry implements Serializable {
 
         private static final long serialVersionUID = 1L;
 

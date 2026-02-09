@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  * <p>
@@ -35,51 +35,51 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
     private static final long serialVersionUID = 1L;
 
     /**
-     * The population size
+     * The population size.
      **/
-    private final int population_size;
+    private final int populationSize;
 
     /**
-     * An array that represents the grid
+     * An array that represents the grid.
      **/
     int[][] neighbour;
 
     /**
-     * Number of chromosomes per one row of a grid
+     * Number of chromosomes per one row of a grid.
      **/
     int columns;
 
     public Neighbourhood(int populationSize) {
 
-        population_size = populationSize;
+        this.populationSize = populationSize;
 
-        neighbour = new int[population_size][0];
+        neighbour = new int[this.populationSize][0];
 
-        columns = (int) Math.sqrt(population_size);
+        columns = (int) Math.sqrt(this.populationSize);
 
         constructNeighbour();
     }
 
     /**
-     * Construct the grid and define positions of neighbours for each individual
+     * Construct the grid and define positions of neighbours for each individual.
      */
     public void constructNeighbour() {
 
-        for (int i = 0; i < population_size; i++) {
+        for (int i = 0; i < populationSize; i++) {
             neighbour[i] = new int[8];
         }
 
-        for (int i = 0; i < population_size; i++) {
+        for (int i = 0; i < populationSize; i++) {
 
             //~~~~ NORTH ~~~~//
             if (i > columns - 1) {
                 neighbour[i][Positions.N.ordinal()] = i - columns;
             } else {
-                int mod = population_size % columns;
+                int mod = populationSize % columns;
                 if (mod != 0) {
-                    int thisPosition = ((i - columns + population_size) % population_size);
+                    int thisPosition = ((i - columns + populationSize) % populationSize);
                     if (i == 0) {
-                        neighbour[i][Positions.N.ordinal()] = population_size - (mod);
+                        neighbour[i][Positions.N.ordinal()] = populationSize - (mod);
                     } else {
                         if (mod > 1) {
                             if (i >= mod) {
@@ -92,13 +92,13 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
                         }
                     }
                 } else {
-                    neighbour[i][Positions.N.ordinal()] = (i - columns + population_size) % population_size;
+                    neighbour[i][Positions.N.ordinal()] = (i - columns + populationSize) % populationSize;
                 }
             }
 
             //~~~~ SOUTH ~~~~//
-            int thisPosition = (i + columns) % population_size;
-            if (population_size % columns != 0 && i + columns >= population_size) {
+            int thisPosition = (i + columns) % populationSize;
+            if (populationSize % columns != 0 && i + columns >= populationSize) {
                 neighbour[i][Positions.S.ordinal()] = i % columns;
             } else {
                 neighbour[i][Positions.S.ordinal()] = thisPosition;
@@ -108,7 +108,7 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
             if ((i + 1) % columns == 0) {
                 neighbour[i][Positions.E.ordinal()] = i - (columns - 1);
             } else {
-                if (population_size % columns != 0 && i == population_size - 1) {
+                if (populationSize % columns != 0 && i == populationSize - 1) {
                     neighbour[i][Positions.E.ordinal()] = (i % columns) + 1;
                 } else {
                     neighbour[i][Positions.E.ordinal()] = i + 1;
@@ -118,7 +118,7 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
             //~~~~ WEST ~~~~//
             if (i % columns == 0) {
                 int westPosition = i + (columns - 1);
-                if (westPosition >= population_size) {
+                if (westPosition >= populationSize) {
                     neighbour[i][Positions.W.ordinal()] = neighbour[i][Positions.E.ordinal()];
                 } else {
                     neighbour[i][Positions.W.ordinal()] = westPosition;
@@ -129,7 +129,7 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
         }
 
         //~~~~ NW, SW, NE, SE ~~~~//
-        for (int i = 0; i < population_size; i++) {
+        for (int i = 0; i < populationSize; i++) {
             neighbour[i][Positions.NW.ordinal()] = neighbour[neighbour[i][Positions.N.ordinal()]][Positions.W.ordinal()];
 
             neighbour[i][Positions.SW.ordinal()] = neighbour[neighbour[i][Positions.S.ordinal()]][Positions.W.ordinal()];
@@ -142,7 +142,7 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
     }
 
     /**
-     * Retrieve neighbours of a chromosome according to the ring topology (i.e. 1D)
+     * Retrieve neighbours of a chromosome according to the ring topology (i.e. 1D).
      *
      * @param collection The current collection of chromosomes
      * @param position   The position of a chromosome which its neighbours will be retrieved
@@ -150,29 +150,29 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
      */
     public List<T> ringTopology(List<T> collection, int position) {
         List<T> chromosomes = new ArrayList<>();
-        int _L;
+        int left;
         if (position - 1 < 0) {
-            _L = collection.size() - 1;
+            left = collection.size() - 1;
         } else {
-            _L = position - 1;
+            left = position - 1;
         }
 
-        int _R;
+        int right;
         if (position + 1 > collection.size() - 1) {
-            _R = 0;
+            right = 0;
         } else {
-            _R = position + 1;
+            right = position + 1;
         }
 
-        chromosomes.add(collection.get(_L));
+        chromosomes.add(collection.get(left));
         chromosomes.add(collection.get(position));
-        chromosomes.add(collection.get(_R));
+        chromosomes.add(collection.get(right));
 
         return chromosomes;
     }
 
     /**
-     * Retrieve neighbours of a chromosome according to the linear five model (i.e. L5)
+     * Retrieve neighbours of a chromosome according to the linear five model (i.e. L5).
      *
      * @param collection The current collection of chromosomes
      * @param position   The position of a chromosome which its neighbours will be retrieved
@@ -180,22 +180,22 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
      */
     public List<T> linearFive(List<T> collection, int position) {
         List<T> chromosomes = new ArrayList<>();
-        int _N = neighbour[position][Positions.N.ordinal()];
-        int _S = neighbour[position][Positions.S.ordinal()];
-        int _E = neighbour[position][Positions.E.ordinal()];
-        int _W = neighbour[position][Positions.W.ordinal()];
+        int north = neighbour[position][Positions.N.ordinal()];
+        int south = neighbour[position][Positions.S.ordinal()];
+        int east = neighbour[position][Positions.E.ordinal()];
+        int west = neighbour[position][Positions.W.ordinal()];
 
-        chromosomes.add(collection.get(_N));
-        chromosomes.add(collection.get(_S));
-        chromosomes.add(collection.get(_E));
-        chromosomes.add(collection.get(_W));
+        chromosomes.add(collection.get(north));
+        chromosomes.add(collection.get(south));
+        chromosomes.add(collection.get(east));
+        chromosomes.add(collection.get(west));
         chromosomes.add(collection.get(position));
 
         return chromosomes;
     }
 
     /**
-     * Retrieve neighbours of a chromosome according to the compact nine model (i.e. C9)
+     * Retrieve neighbours of a chromosome according to the compact nine model (i.e. C9).
      *
      * @param collection The current collection of chromosomes
      * @param position   The position of a chromosome which its neighbours will be retrieved
@@ -203,30 +203,30 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
      */
     public List<T> compactNine(List<T> collection, int position) {
         List<T> chromosomes = new ArrayList<>();
-        int _N = neighbour[position][Positions.N.ordinal()];
-        int _S = neighbour[position][Positions.S.ordinal()];
-        int _E = neighbour[position][Positions.E.ordinal()];
-        int _W = neighbour[position][Positions.W.ordinal()];
-        int _NW = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.W.ordinal()];
-        int _SW = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.W.ordinal()];
-        int _NE = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.E.ordinal()];
-        int _SE = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.E.ordinal()];
+        int north = neighbour[position][Positions.N.ordinal()];
+        int south = neighbour[position][Positions.S.ordinal()];
+        int east = neighbour[position][Positions.E.ordinal()];
+        int west = neighbour[position][Positions.W.ordinal()];
+        int northWest = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.W.ordinal()];
+        int southWest = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.W.ordinal()];
+        int northEast = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.E.ordinal()];
+        int southEast = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.E.ordinal()];
 
-        chromosomes.add(collection.get(_N));
-        chromosomes.add(collection.get(_S));
-        chromosomes.add(collection.get(_E));
-        chromosomes.add(collection.get(_W));
-        chromosomes.add(collection.get(_NW));
-        chromosomes.add(collection.get(_SW));
-        chromosomes.add(collection.get(_NE));
-        chromosomes.add(collection.get(_SE));
+        chromosomes.add(collection.get(north));
+        chromosomes.add(collection.get(south));
+        chromosomes.add(collection.get(east));
+        chromosomes.add(collection.get(west));
+        chromosomes.add(collection.get(northWest));
+        chromosomes.add(collection.get(southWest));
+        chromosomes.add(collection.get(northEast));
+        chromosomes.add(collection.get(southEast));
         chromosomes.add(collection.get(position));
 
         return chromosomes;
     }
 
     /**
-     * Retrieve neighbours of a chromosome according to the linear compact thirteen (i.e. C13)
+     * Retrieve neighbours of a chromosome according to the linear compact thirteen (i.e. C13).
      *
      * @param collection The current collection of chromosomes
      * @param position   The position of a chromosome which its neighbours will be retrieved
@@ -234,56 +234,56 @@ public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T
      */
     public List<T> compactThirteen(List<T> collection, int position) {
         List<T> chromosomes = new ArrayList<>();
-        int _N = neighbour[position][Positions.N.ordinal()];
-        int _S = neighbour[position][Positions.S.ordinal()];
-        int _E = neighbour[position][Positions.E.ordinal()];
-        int _W = neighbour[position][Positions.W.ordinal()];
-        int _NW = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.W.ordinal()];
-        int _SW = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.W.ordinal()];
-        int _NE = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.E.ordinal()];
-        int _SE = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.E.ordinal()];
-        int _NN = neighbour[_N][Positions.N.ordinal()];
-        int _SS = neighbour[_S][Positions.S.ordinal()];
-        int _EE = neighbour[_E][Positions.E.ordinal()];
-        int _WW = neighbour[_W][Positions.W.ordinal()];
+        int north = neighbour[position][Positions.N.ordinal()];
+        int south = neighbour[position][Positions.S.ordinal()];
+        int east = neighbour[position][Positions.E.ordinal()];
+        int west = neighbour[position][Positions.W.ordinal()];
+        int northWest = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.W.ordinal()];
+        int southWest = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.W.ordinal()];
+        int northEast = neighbour[neighbour[position][Positions.N.ordinal()]][Positions.E.ordinal()];
+        int southEast = neighbour[neighbour[position][Positions.S.ordinal()]][Positions.E.ordinal()];
+        int northNorth = neighbour[north][Positions.N.ordinal()];
+        int southSouth = neighbour[south][Positions.S.ordinal()];
+        int eastEast = neighbour[east][Positions.E.ordinal()];
+        int westWest = neighbour[west][Positions.W.ordinal()];
 
-        chromosomes.add(collection.get(_N));
-        chromosomes.add(collection.get(_S));
-        chromosomes.add(collection.get(_E));
-        chromosomes.add(collection.get(_W));
-        chromosomes.add(collection.get(_NW));
-        chromosomes.add(collection.get(_SW));
-        chromosomes.add(collection.get(_NE));
-        chromosomes.add(collection.get(_SE));
-        chromosomes.add(collection.get(_NN));
-        chromosomes.add(collection.get(_SS));
-        chromosomes.add(collection.get(_EE));
-        chromosomes.add(collection.get(_WW));
+        chromosomes.add(collection.get(north));
+        chromosomes.add(collection.get(south));
+        chromosomes.add(collection.get(east));
+        chromosomes.add(collection.get(west));
+        chromosomes.add(collection.get(northWest));
+        chromosomes.add(collection.get(southWest));
+        chromosomes.add(collection.get(northEast));
+        chromosomes.add(collection.get(southEast));
+        chromosomes.add(collection.get(northNorth));
+        chromosomes.add(collection.get(southSouth));
+        chromosomes.add(collection.get(eastEast));
+        chromosomes.add(collection.get(westWest));
         chromosomes.add(collection.get(position));
 
         return chromosomes;
     }
 
     /**
-     * Retrieve neighbours of a chromosome
+     * Retrieve neighbours of a chromosome.
      *
-     * @param current_pop The current population
+     * @param currentPop The current population
      * @param chromosome  The chromosome which its neighbours will be retrieved
      * @return neighbours as a collection
      */
-    public List<T> getNeighbors(List<T> current_pop, int chromosome) {
+    public List<T> getNeighbors(List<T> currentPop, int chromosome) {
 
         switch (Properties.MODEL) {
             case ONE_DIMENSION:
-                return this.ringTopology(current_pop, chromosome);
+                return this.ringTopology(currentPop, chromosome);
             case LINEAR_FIVE:
-                return this.linearFive(current_pop, chromosome);
+                return this.linearFive(currentPop, chromosome);
             case COMPACT_NINE:
-                return this.compactNine(current_pop, chromosome);
+                return this.compactNine(currentPop, chromosome);
             case COMPACT_THIRTEEN:
-                return this.compactThirteen(current_pop, chromosome);
+                return this.compactThirteen(currentPop, chromosome);
             default:
-                return this.linearFive(current_pop, chromosome);
+                return this.linearFive(currentPop, chromosome);
         }
     }
 

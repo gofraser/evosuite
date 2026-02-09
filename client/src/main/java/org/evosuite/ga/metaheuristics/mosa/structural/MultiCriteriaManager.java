@@ -260,9 +260,9 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         CallGraph callGraph = DependencyAnalysis.getCallGraph();
         for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
             for (CallContext context : callGraph.getMethodEntryPoint(branch.getClassName(), branch.getMethod())) {
-                CBranchTestFitness cBranch = new CBranchTestFitness(branch.getBranchGoal(), context);
-                this.dependencies.get(branch).add(cBranch);
-                logger.debug("Added context branch: " + cBranch);
+                CBranchTestFitness cbranch = new CBranchTestFitness(branch.getBranchGoal(), context);
+                this.dependencies.get(branch).add(cbranch);
+                logger.debug("Added context branch: " + cbranch);
             }
         }
     }
@@ -475,11 +475,11 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * @return list of exception goals being covered by t
      */
     public Set<ExceptionCoverageTestFitness> deriveCoveredExceptions(TestChromosome t) {
-        Set<ExceptionCoverageTestFitness> covered_exceptions = new LinkedHashSet<>();
+        Set<ExceptionCoverageTestFitness> coveredExceptions = new LinkedHashSet<>();
         ExecutionResult result = t.getLastExecutionResult();
 
         if (result.calledReflection())
-            return covered_exceptions;
+            return coveredExceptions;
 
         for (Integer i : result.getPositionsWhereExceptionsWereThrown()) {
             if (ExceptionCoverageHelper.shouldSkip(result, i)) {
@@ -503,10 +503,10 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
                  * Add goal to list of fitness functions to solve
                  */
                 ExceptionCoverageTestFitness goal = new ExceptionCoverageTestFitness(Properties.TARGET_CLASS, methodIdentifier, exceptionClass, type);
-                covered_exceptions.add(goal);
+                coveredExceptions.add(goal);
             }
         }
-        return covered_exceptions;
+        return coveredExceptions;
     }
 
     public BranchFitnessGraph getControlDependenciesForBranches() {

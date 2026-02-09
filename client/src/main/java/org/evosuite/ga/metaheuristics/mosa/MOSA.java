@@ -66,7 +66,7 @@ public class MOSA extends AbstractMOSA {
     protected CrowdingDistance<TestChromosome> distance = new CrowdingDistance<>();
 
     /**
-     * Constructor based on the abstract class {@link AbstractMOSA}
+     * Constructor based on the abstract class. {@link AbstractMOSA}
      *
      * @param factory
      */
