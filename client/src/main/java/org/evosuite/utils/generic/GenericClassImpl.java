@@ -628,7 +628,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             }
         }
 
-        logger.debug("Updated type variable map to {}", extendedMap);
+        logger.debug("Updated type variable map to {}", GenericUtils.stableTypeVariableMapToString(extendedMap));
 
         GenericClass<?> instantiation = selectedClass.getGenericInstantiation(extendedMap,
                 recursionLevel + 1);
