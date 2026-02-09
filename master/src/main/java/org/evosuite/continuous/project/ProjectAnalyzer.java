@@ -38,18 +38,13 @@ import java.io.File;
 import java.util.*;
 
 /**
- * <p>
- * This class is used to analyze and gather all the
- * static information of the target project.
- * </p>
+ * <p>This class is used to analyze and gather all the
+ * static information of the target project.</p>
  *
- * <p>
- * To be useful, this analysis does not need to be 100% precise,
- * as we use the generated statistics <i>only</i> for heuristics
- * </p>
+ * <p>To be useful, this analysis does not need to be 100% precise,
+ * as we use the generated statistics <i>only</i> for heuristics</p>
  *
- * <p>
- * Note: this class assumes the classpath is properly set
+ * <p>Note: this class assumes the classpath is properly set.</p>
  *
  * @author arcuri
  */
@@ -58,13 +53,13 @@ public class ProjectAnalyzer {
     private static final Logger logger = LoggerFactory.getLogger(ProjectAnalyzer.class);
 
     /**
-     * the folder/jar where to find the .class files used as CUTs
+     * the folder/jar where to find the .class files used as CUTs.
      */
     private final String target;
 
     /**
      * package prefix to select a subset of classes on classpath/target to define
-     * what to run CTG on
+     * what to run CTG on.
      */
     private final String prefix;
 
@@ -72,16 +67,16 @@ public class ProjectAnalyzer {
 
     /**
      * When specifying a set of CUTs, still check if they do exist (eg scan folder to search for
-     * them), instead of justing using them directly (and get errors later)
+     * them), instead of justing using them directly (and get errors later).
      */
     private final boolean validateCutsToAnalyze;
 
     /**
-     * Main constructor
+     * Main constructor.
      *
-     * @param target
-     * @param prefix
-     * @param cuts
+     * @param target target folder
+     * @param prefix package prefix
+     * @param cuts classes to analyze
      */
     public ProjectAnalyzer(String target, String prefix, String[] cuts) {
         super();
@@ -103,12 +98,11 @@ public class ProjectAnalyzer {
 
     /**
      * Instead of scanning for classes in the given target, directly specify
-     * the class names the project is composed by
+     * the class names the project is composed by.
      *
-     * <p>
-     * Note: this constructor is mainly meant for unit tests
+     * <p>Note: this constructor is mainly meant for unit tests.</p>
      *
-     * @param cuts
+     * @param cuts classes to analyze
      */
     public ProjectAnalyzer(String[] cuts) throws NullPointerException {
         super();
@@ -133,18 +127,24 @@ public class ProjectAnalyzer {
 
         if (target != null) {
             if (!target.contains(File.pathSeparator)) {
-                suts = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(target, prefix, false);
+                suts = ResourceList.getInstance(TestGenerationContext.getInstance()
+                        .getClassLoaderForSUT())
+                        .getAllClasses(target, prefix, false);
             } else {
                 suts = new LinkedHashSet<>();
                 for (String element : target.split(File.pathSeparator)) {
-                    suts.addAll(ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(element, prefix, false));
+                    suts.addAll(ResourceList.getInstance(TestGenerationContext.getInstance()
+                            .getClassLoaderForSUT())
+                            .getAllClasses(element, prefix, false));
                 }
             }
         } else {
             /*
              * if no target specified, just grab everything on SUT classpath
              */
-            suts = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(ClassPathHandler.getInstance().getTargetProjectClasspath(), prefix, false);
+            suts = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getAllClasses(ClassPathHandler.getInstance().getTargetProjectClasspath(),
+                            prefix, false);
         }
 
         List<String> cuts = new LinkedList<>();
@@ -168,7 +168,7 @@ public class ProjectAnalyzer {
             } catch (ClassNotFoundException e) {
                 logger.error("" + e, e);
             } catch (ExceptionInInitializerError | NoClassDefFoundError | UnsatisfiedLinkError e) {
-                /**
+                /*
                  * TODO: for now we skip it, but at a certain point
                  * we should able to handle it, especially if it
                  * is due to static state initialization
@@ -182,9 +182,9 @@ public class ProjectAnalyzer {
     }
 
     /**
-     * Analyze the classes in the given target
+     * Analyze the classes in the given target.
      *
-     * @return
+     * @return project data
      */
     public ProjectStaticData analyze() {
 
@@ -214,7 +214,8 @@ public class ProjectAnalyzer {
                 instrumenting.loadClass(className);
 
                 numberOfBranches = BranchPool.getInstance(instrumenting).getBranchCounter();
-                hasCode = (numberOfBranches > 0) || (BranchPool.getInstance(instrumenting).getBranchlessMethods().size() > 0);
+                hasCode = (numberOfBranches > 0)
+                        || (BranchPool.getInstance(instrumenting).getBranchlessMethods().size() > 0);
 
                 /*
                  * just to avoid possible issues with instrumenting classloader
@@ -223,7 +224,7 @@ public class ProjectAnalyzer {
 
                 //TODO kind
                 //if(theClass.isInterface()){
-                //	kind = ClassKind.INTERFACE;
+                //    kind = ClassKind.INTERFACE;
                 //} else if(theClass.is  Modifier.isAbstract( someClass.getModifiers() );
 
             } catch (Exception e) {
@@ -247,4 +248,3 @@ public class ProjectAnalyzer {
         return data;
     }
 }
-

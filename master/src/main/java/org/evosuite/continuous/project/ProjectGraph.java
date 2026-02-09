@@ -58,8 +58,8 @@ public class ProjectGraph {
     private final InheritanceTree inheritanceTree;
 
     /**
-     * FIXME
-     * Map from TODO (key) to TODO (value)
+     * FIXME.
+     * Map from TODO (key) to TODO (value).
      */
     private final Map<String, Set<String>> castInformation;
 
@@ -67,9 +67,9 @@ public class ProjectGraph {
 
 
     /**
-     * Main constructor
+     * Main constructor.
      *
-     * @param data
+     * @param data project data
      */
     public ProjectGraph(ProjectStaticData data) {
 
@@ -122,9 +122,9 @@ public class ProjectGraph {
         return parameterClasses;
     }
 
-    protected Set<String> recursionToSearchDirectInputs(String aClass, boolean includeSubclasses) {
+    protected Set<String> recursionToSearchDirectInputs(String targetClass, boolean includeSubclasses) {
         if (includeSubclasses) {
-            Set<String> directlyUsed = recursionToSearchDirectInputs(aClass, false); //recursion
+            Set<String> directlyUsed = recursionToSearchDirectInputs(targetClass, false); //recursion
             Set<String> all = new LinkedHashSet<>(directlyUsed);
             for (String name : directlyUsed) {
                 all.addAll(getAllCUTsSubclasses(name));
@@ -132,8 +132,8 @@ public class ProjectGraph {
             return all;
         }
 
-        Set<String> parameterClasses = getParameterClasses(aClass);
-        parameterClasses.addAll(getCastClasses(aClass));
+        Set<String> parameterClasses = getParameterClasses(targetClass);
+        parameterClasses.addAll(getCastClasses(targetClass));
 
         return parameterClasses;
     }
@@ -141,11 +141,11 @@ public class ProjectGraph {
 
     /**
      * Calculate all the CUTs that use the given <code>cut</code> as input in
-     * any of their public methods
+     * any of their public methods.
      *
      * @param cut                 the class under test (CUT)
      * @param includeSuperClasses not only using as input the
-     *                            <code>cut</body>, but also any of its CUT ancestors/interfaces
+     *                            <code>cut</code>, but also any of its CUT ancestors/interfaces
      * @return a set of full qualifying names of CUTs
      * @throws IllegalArgumentException if the input <code>cut</code> is not a CUT
      */
@@ -162,11 +162,11 @@ public class ProjectGraph {
     }
 
 
-    protected Set<String> recursionToSearchWhatUsesItAsInput(String aClass, boolean includeSuperClasses) {
+    protected Set<String> recursionToSearchWhatUsesItAsInput(String targetClass, boolean includeSuperClasses) {
         if (includeSuperClasses) {
-            Set<String> directlyUsed = recursionToSearchWhatUsesItAsInput(aClass, false); //recursion
+            Set<String> directlyUsed = recursionToSearchWhatUsesItAsInput(targetClass, false); //recursion
             Set<String> all = new LinkedHashSet<>(directlyUsed);
-            for (String name : getAllCUTsParents(aClass)) {
+            for (String name : getAllCUTsParents(targetClass)) {
                 all.addAll(recursionToSearchWhatUsesItAsInput(name, false)); //recursion
             }
             return all;
@@ -174,12 +174,12 @@ public class ProjectGraph {
 
         Set<String> classNames = new LinkedHashSet<>();
         for (String className : inheritanceTree.getAllClasses()) {
-            if (className.equals(aClass)) {
+            if (className.equals(targetClass)) {
                 continue;
             }
 
             Set<String> inputClasses = getCUTsDirectlyUsedAsInput(className, true);
-            if (inputClasses.contains(aClass)) {
+            if (inputClasses.contains(targetClass)) {
                 classNames.add(className);
             }
         }
@@ -188,11 +188,11 @@ public class ProjectGraph {
     }
 
     /**
-     * Is the given class name representing an interface in the SUT?
+     * Is the given class name representing an interface in the SUT.
      *
-     * @param className
-     * @return
-     * @throws IllegalArgumentException
+     * @param className class name
+     * @return true if interface
+     * @throws IllegalArgumentException if invalid
      */
     public boolean isInterface(String className) throws IllegalArgumentException {
         checkClass(className);
@@ -201,11 +201,11 @@ public class ProjectGraph {
     }
 
     /**
-     * Is the given class name representing a concrete class in the SUT?
+     * Is the given class name representing a concrete class in the SUT.
      *
-     * @param className
-     * @return
-     * @throws IllegalArgumentException
+     * @param className class name
+     * @return true if concrete
+     * @throws IllegalArgumentException if invalid
      */
     public boolean isConcrete(String className) throws IllegalArgumentException {
         checkClass(className);
@@ -213,11 +213,11 @@ public class ProjectGraph {
     }
 
     /**
-     * Is the given class name representing an abstract class in the SUT?
+     * Is the given class name representing an abstract class in the SUT.
      *
-     * @param className
-     * @return
-     * @throws IllegalArgumentException
+     * @param className class name
+     * @return true if abstract
+     * @throws IllegalArgumentException if invalid
      */
     public boolean isAbstract(String className) throws IllegalArgumentException {
         checkClass(className);
@@ -229,8 +229,8 @@ public class ProjectGraph {
      * Check if the given class does belong to the SUT.
      * This is independent on whether it is a CUT (ie testable) or not.
      *
-     * @param className
-     * @throws IllegalArgumentException
+     * @param className class name
+     * @throws IllegalArgumentException if invalid
      */
     private void checkClass(String className) throws IllegalArgumentException {
         if (!data.containsClass(className)) {
@@ -241,7 +241,7 @@ public class ProjectGraph {
     /**
      * Check if the given class does belong to the SUT and if it is testable (ie a CUT).
      *
-     * @param cut
+     * @param cut class under test
      */
     private void checkCUT(String cut) throws IllegalArgumentException {
         ClassInfo info = data.getClassInfo(cut);
@@ -249,55 +249,56 @@ public class ProjectGraph {
             throw new IllegalArgumentException("Class " + cut + " is not part of the SUT");
         }
         if (!info.isTestable()) {
-            throw new IllegalArgumentException("Class " + cut + " belongs to the SUT, but it is not a CUT (ie testable)");
+            throw new IllegalArgumentException("Class " + cut
+                    + " belongs to the SUT, but it is not a CUT (ie testable)");
         }
     }
 
 
     /**
-     * Return all the child hierarchy of the <code>aClass</code>. Include only classes
+     * Return all the child hierarchy of the <code>targetClass</code>. Include only classes
      * that are CUTs.
-     * This <code>aClass</code> will not be part of the returned set, even if it is a CUT
+     * This <code>targetClass</code> will not be part of the returned set, even if it is a CUT.
      *
-     * @param aClass a class belonging to the SUT, but not necessarily a CUT
+     * @param targetClass a class belonging to the SUT, but not necessarily a CUT
      * @return a set of full qualifying names of CUTs
-     * @throws IllegalArgumentException if the input <code>aClass</code> does not belong to the SUT
+     * @throws IllegalArgumentException if the input <code>targetClass</code> does not belong to the SUT
      */
-    public Set<String> getAllCUTsSubclasses(String aClass) throws IllegalArgumentException {
-        checkClass(aClass);
+    public Set<String> getAllCUTsSubclasses(String targetClass) throws IllegalArgumentException {
+        checkClass(targetClass);
 
         Set<String> set = null;
         try { //FIXME
-            set = inheritanceTree.getSubclasses(aClass);
+            set = inheritanceTree.getSubclasses(targetClass);
         } catch (Exception e) {
             logger.error("Bug in inheritanceTree: " + e);
             return new HashSet<>();
         }
-        set.remove(aClass);
+        set.remove(targetClass);
         removeNonCUT(set);
         return set;
     }
 
     /**
-     * Return all the CUT classes that this <code>aClass</code> extends/implements
+     * Return all the CUT classes that this <code>targetClass</code> extends/implements
      * (ie, parent hierarchy).
-     * This <code>aClass</code> will not be part of the returned set, even if it is a CUT
+     * This <code>targetClass</code> will not be part of the returned set, even if it is a CUT.
      *
-     * @param aClass a class belonging to the SUT, but not necessarily a CUT
+     * @param targetClass a class belonging to the SUT, but not necessarily a CUT
      * @return a set of full qualifying names of CUTs
-     * @throws IllegalArgumentException if the input <code>aClass</code> does not belong to the SUT
+     * @throws IllegalArgumentException if the input <code>targetClass</code> does not belong to the SUT
      */
-    public Set<String> getAllCUTsParents(String aClass) throws IllegalArgumentException {
-        checkClass(aClass);
+    public Set<String> getAllCUTsParents(String targetClass) throws IllegalArgumentException {
+        checkClass(targetClass);
         Set<String> set = null;
 
         try { //FIXME
-            set = inheritanceTree.getSuperclasses(aClass);
+            set = inheritanceTree.getSuperclasses(targetClass);
         } catch (Exception e) {
             logger.error("Bug in inheritanceTree: " + e);
             return new HashSet<>();
         }
-        set.remove(aClass); //it seems inheritanceTree returns 'cut' in the set
+        set.remove(targetClass); //it seems inheritanceTree returns 'cut' in the set
         removeNonCUT(set);
         return set;
     }
@@ -320,20 +321,20 @@ public class ProjectGraph {
     }
 
     /**
-     * For now use the cache provided by dependency analysis
+     * For now use the cache provided by dependency analysis.
      *
-     * @param className
-     * @return
+     * @param className class name
+     * @return class node
      */
     private ClassNode getClassNode(String className) {
         return DependencyAnalysis.getClassNode(className);
     }
 
     /**
-     * Determine the set of classes that are used in casts in a CUT
+     * Determine the set of classes that are used in casts in a CUT.
      *
-     * @param className
-     * @return
+     * @param className class name
+     * @return set of cast classes
      */
     private Set<String> getCastClasses(String className) {
         if (!castInformation.containsKey(className)) {
@@ -372,8 +373,9 @@ public class ProjectGraph {
     private void addParameterClasses(MethodNode methodNode, Set<String> classNames) {
         // TODO: Only including public methods for now. Should this be refined to match
         //       TestClusterGenerator.canUse?
-        if ((methodNode.access & Opcodes.ACC_PUBLIC) != Opcodes.ACC_PUBLIC)
+        if ((methodNode.access & Opcodes.ACC_PUBLIC) != Opcodes.ACC_PUBLIC) {
             return;
+        }
 
         for (Type parameterType : Type.getArgumentTypes(methodNode.desc)) {
             String name = parameterType.getClassName();
@@ -386,8 +388,9 @@ public class ProjectGraph {
     private void addParameterClasses(FieldNode fieldNode, Set<String> classNames) {
         // TODO: Only including public fields for now. Should this be refined to match
         //       TestClusterGenerator.canUse?
-        if ((fieldNode.access & Opcodes.ACC_PUBLIC) != Opcodes.ACC_PUBLIC)
+        if ((fieldNode.access & Opcodes.ACC_PUBLIC) != Opcodes.ACC_PUBLIC) {
             return;
+        }
         String name = Type.getType(fieldNode.desc).getClassName();
         if (inheritanceTree.hasClass(name)) {
             classNames.add(name);
