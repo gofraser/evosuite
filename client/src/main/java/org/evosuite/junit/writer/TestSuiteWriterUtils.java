@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Set of utility functions for generation of JUnit files
+ * Set of utility functions for generation of JUnit files.
  *
  * @author arcuri
  */
@@ -52,14 +52,14 @@ public class TestSuiteWriterUtils {
     public static final String INNER_INNER_BLOCK_SPACE = "        ";
     public static final String INNER_INNER_INNER_BLOCK_SPACE = "          ";
 
-    protected final static Logger logger = LoggerFactory.getLogger(TestSuiteWriterUtils.class);
+    protected static final Logger logger = LoggerFactory.getLogger(TestSuiteWriterUtils.class);
 
 
     /**
      * Check the configuration settings to see if we are doing any instrumentation.
-     * If so, we ll need to use the Java Agent in the generated tests
+     * If so, we ll need to use the Java Agent in the generated tests.
      *
-     * @return
+     * @return true if instrumentation is needed
      */
     public static boolean needToUseAgent() {
         return Properties.REPLACE_CALLS || Properties.VIRTUAL_FS
@@ -146,7 +146,7 @@ public class TestSuiteWriterUtils {
     }
 
     /**
-     * Create subdirectory for package in test directory
+     * Create subdirectory for package in test directory.
      *
      * @param directory a {@link java.lang.String} object.
      * @return a {@link java.lang.String} object.
@@ -161,18 +161,19 @@ public class TestSuiteWriterUtils {
     }
 
     public static UnitTestAdapter getAdapter() {
-        if (Properties.TEST_FORMAT == OutputFormat.JUNIT3)
+        if (Properties.TEST_FORMAT == OutputFormat.JUNIT3) {
             return new JUnit3TestAdapter();
-        else if (Properties.TEST_FORMAT == OutputFormat.JUNIT4)
+        } else if (Properties.TEST_FORMAT == OutputFormat.JUNIT4) {
             return new JUnit4TestAdapter();
-        else if (Properties.TEST_FORMAT == OutputFormat.JUNIT5)
+        } else if (Properties.TEST_FORMAT == OutputFormat.JUNIT5) {
             return new JUnit5TestAdapter();
-        else
+        } else {
             throw new RuntimeException("Unknown output format: " + Properties.TEST_FORMAT);
+        }
     }
 
     /**
-     * Create subdirectory for package in test directory
+     * Create subdirectory for package in test directory.
      *
      * @param directory a {@link java.lang.String} object.
      * @return a {@link java.lang.String} object.

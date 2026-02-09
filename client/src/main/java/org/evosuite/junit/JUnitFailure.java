@@ -24,7 +24,7 @@ import java.util.List;
 
 /**
  * The information regarding a failure from executing a JUnit test case needed
- * by the JUnitAnalyzer
+ * by the JUnitAnalyzer.
  *
  * @author galeotti
  */
@@ -95,38 +95,52 @@ public class JUnitFailure {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         JUnitFailure other = (JUnitFailure) obj;
         if (exceptionClassName == null) {
-            if (other.exceptionClassName != null)
+            if (other.exceptionClassName != null) {
                 return false;
-        } else if (!exceptionClassName.equals(other.exceptionClassName))
+            }
+        } else if (!exceptionClassName.equals(other.exceptionClassName)) {
             return false;
+        }
         if (exceptionStackTrace == null) {
-            if (other.exceptionStackTrace != null)
+            if (other.exceptionStackTrace != null) {
                 return false;
-        } else if (!exceptionStackTrace.equals(other.exceptionStackTrace))
+            }
+        } else if (!exceptionStackTrace.equals(other.exceptionStackTrace)) {
             return false;
-        if (isAssertionError != other.isAssertionError)
+        }
+        if (isAssertionError != other.isAssertionError) {
             return false;
+        }
         if (message == null) {
-            if (other.message != null)
+            if (other.message != null) {
                 return false;
-        } else if (!message.equals(other.message))
+            }
+        } else if (!message.equals(other.message)) {
             return false;
+        }
         if (descriptionMethodName == null) {
-            if (other.descriptionMethodName != null)
+            if (other.descriptionMethodName != null) {
                 return false;
-        } else if (!descriptionMethodName.equals(other.descriptionMethodName))
+            }
+        } else if (!descriptionMethodName.equals(other.descriptionMethodName)) {
             return false;
+        }
         if (trace == null) {
             return other.trace == null;
-        } else return trace.equals(other.trace);
+        } else {
+            return trace.equals(other.trace);
+        }
     }
 
     public boolean isAssertionError() {

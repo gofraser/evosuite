@@ -34,7 +34,11 @@ import org.evosuite.runtime.util.JarPathing;
 import org.evosuite.testcase.TestCase;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
-import org.junit.platform.launcher.*;
+import org.junit.platform.launcher.Launcher;
+import org.junit.platform.launcher.LauncherDiscoveryRequest;
+import org.junit.platform.launcher.TestExecutionListener;
+import org.junit.platform.launcher.TestIdentifier;
+import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.runner.JUnitCore;
@@ -42,13 +46,27 @@ import org.junit.runner.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.tools.*;
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaCompiler;
 import javax.tools.JavaCompiler.CompilationTask;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.platform.engine.discovery.ClassNameFilter.includeClassNamePatterns;
@@ -74,15 +92,16 @@ public abstract class JUnitAnalyzer {
     private static final VersionDependentAnalyzing versionDependentAnalyzer;
 
     static {
-        versionDependentAnalyzer = Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5 ?
-                new JUnit5Analyzing() : new JUnit4Analyzing();
+        versionDependentAnalyzer = Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
+                ? new JUnit5Analyzing()
+                : new JUnit4Analyzing();
     }
 
     /**
      * Try to compile each test separately, and remove the ones that cannot be
-     * compiled
+     * compiled.
      *
-     * @param tests
+     * @param tests list of tests
      */
     public static void removeTestsThatDoNotCompile(List<TestCase> tests) {
 
@@ -136,11 +155,10 @@ public abstract class JUnitAnalyzer {
      * Compile and run all the test cases, and mark as "unstable" all the ones
      * that fail during execution (ie, unstable assertions).
      *
-     * <p>
-     * If a test fail due to an exception not related to a JUnit assertion, then
-     * remove such test from the input list
+     * <p>If a test fail due to an exception not related to a JUnit assertion, then
+     * remove such test from the input list.</p>
      *
-     * @param tests
+     * @param tests list of tests
      * @return the number of unstable tests
      */
     public static int handleTestsThatAreUnstable(List<TestCase> tests) {
@@ -222,7 +240,8 @@ public abstract class JUnitAnalyzer {
 
                 // On the Sheffield cluster, the "well-known fle is not secure" issue is impossible to understand,
                 // so it might be best to ignore it for now.
-                if (testName.equals("initializationError") && failure.getMessage().contains("Failed to attach Java Agent")) {
+                if (testName.equals("initializationError") && failure.getMessage().contains(
+                        "Failed to attach Java Agent")) {
                     logger.warn("Likely error with EvoSuite instrumentation, ignoring failure in test execution");
                     continue failure_loop;
                 }
@@ -294,7 +313,7 @@ public abstract class JUnitAnalyzer {
     /**
      * Check if it is possible to use the Java compiler.
      *
-     * @return
+     * @return true if compiler is available
      */
     public static boolean isJavaCompilerAvailable() {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
@@ -498,21 +517,17 @@ public abstract class JUnitAnalyzer {
     }
 
     /**
-     * <p>
-     * The output of EvoSuite is a set of test cases. For debugging and
+     * <p>The output of EvoSuite is a set of test cases. For debugging and
      * experiment, we usually would not write any JUnit to file. But we still
      * want to see if test cases can compile and execute properly. As EvoSuite
      * is supposed to only capture the current behavior of the SUT, all
-     * generated test cases should pass.
-     * </p>
+     * generated test cases should pass.</p>
      *
-     * <p>
-     * Here we compile to a tmp folder, load and execute the test cases, and
-     * then clean up (ie delete all generated files).
-     * </p>
+     * <p>Here we compile to a tmp folder, load and execute the test cases, and
+     * then clean up (ie delete all generated files).</p>
      *
-     * @param tests
-     * @return
+     * @param tests list of tests
+     * @return true if success
      * @deprecated not used anymore, as check are done in different methods now, and old "assert" was not really valid
      */
     public static boolean verifyCompilationAndExecution(List<TestCase> tests) {
@@ -586,10 +601,10 @@ public abstract class JUnitAnalyzer {
 
     /**
      * Given a list of files representing .java/.class classes, load them (it
-     * assumes the classpath to be correctly set)
+     * assumes the classpath to be correctly set).
      *
-     * @param files
-     * @return
+     * @param files collection of files
+     * @return array of classes
      */
     private static Class<?>[] getClassesFromFiles(Collection<File> files) {
         /*
@@ -623,8 +638,8 @@ public abstract class JUnitAnalyzer {
 
     private static boolean isScaffolding(File file) {
         String name = file.getName();
-        return name.endsWith("_" + Properties.SCAFFOLDING_SUFFIX + JAVA) ||
-                name.endsWith("_" + Properties.SCAFFOLDING_SUFFIX + CLASS);
+        return name.endsWith("_" + Properties.SCAFFOLDING_SUFFIX + JAVA)
+                || name.endsWith("_" + Properties.SCAFFOLDING_SUFFIX + CLASS);
     }
 
     private static Class<?> loadClass(File file) {
@@ -662,7 +677,8 @@ public abstract class JUnitAnalyzer {
         Class<?> testClass = null;
         try {
             logger.info("Loading class " + className);
-            //testClass = ((InstrumentingClassLoader) TestGenerationContext.getInstance().getClassLoaderForSUT()).loadClassFromFile(className,
+            //testClass = ((InstrumentingClassLoader) TestGenerationContext.getInstance()
+            // .getClassLoaderForSUT()).loadClassFromFile(className,
             testClass = loader.loadClassFromFile(className, fileName);
         } catch (ClassNotFoundException e) {
             logger.error("Failed to load test case " + className + " from file "
@@ -674,7 +690,7 @@ public abstract class JUnitAnalyzer {
     /**
      * Class defining what functionality must be defined for different JUNIT versions.
      */
-    private static abstract class VersionDependentAnalyzing {
+    private abstract static class VersionDependentAnalyzing {
         abstract JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses);
     }
 
@@ -709,7 +725,9 @@ public abstract class JUnitAnalyzer {
             try {
                 TestGenerationContext.getInstance().goingToExecuteSUTCode();
                 Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
-                JDKClassResetter.reset(); //be sure we reset it here, otherwise "init" in the test case would take current changed state
+                // be sure we reset it here, otherwise "init" in the test case
+                // would take current changed state
+                JDKClassResetter.reset();
                 result = runner.run(testClasses);
             } finally {
                 Thread.currentThread().setContextClassLoader(currentLoader);
@@ -719,11 +737,13 @@ public abstract class JUnitAnalyzer {
 
             if (wasSandboxOn) {
                 //only activate Sandbox if it was already active before
-                if (!Sandbox.isSecurityManagerInitialized())
+                if (!Sandbox.isSecurityManagerInitialized()) {
                     Sandbox.initializeSecurityManagerForSUT(privileged);
+                }
             } else {
                 if (Sandbox.isSecurityManagerInitialized()) {
-                    logger.warn("EvoSuite problem: tests set up a security manager, but they do not remove it after execution");
+                    logger.warn("EvoSuite problem: tests set up a security manager, "
+                            + "but they do not remove it after execution");
                     Sandbox.resetDefaultSecurityManager();
                 }
             }
@@ -756,21 +776,25 @@ public abstract class JUnitAnalyzer {
             try {
                 TestGenerationContext.getInstance().goingToExecuteSUTCode();
                 Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
-                JDKClassResetter.reset(); //be sure we reset it here, otherwise "init" in the test case would take current changed state
-                LauncherDiscoveryRequest request_ = LauncherDiscoveryRequestBuilder.request()
-                        .selectors(Arrays.stream(testClasses).map(DiscoverySelectors::selectClass).collect(Collectors.toList()))
+                // be sure we reset it here, otherwise "init" in the test case
+                // would take current changed state
+                JDKClassResetter.reset();
+                LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                        .selectors(Arrays.stream(testClasses).map(DiscoverySelectors::selectClass)
+                                .collect(Collectors.toList()))
                         .filters(includeClassNamePatterns(".*Test"))
                         .build();
                 Launcher launcher = LauncherFactory.create();
-                TestPlan testPlan = launcher.discover(request_);
+                TestPlan testPlan = launcher.discover(request);
                 launcher.registerTestExecutionListeners(new TestExecutionListener() {
                     @Override
-                    public void executionFinished(TestIdentifier testIdentifier, TestExecutionResult testExecutionResult) {
+                    public void executionFinished(TestIdentifier testIdentifier,
+                                                  TestExecutionResult testExecutionResult) {
                         result.add(Pair.of(testIdentifier, testExecutionResult));
                     }
                 });
 
-                launcher.execute(request_);
+                launcher.execute(request);
             } finally {
                 Thread.currentThread().setContextClassLoader(currentLoader);
                 TestGenerationContext.getInstance().doneWithExecutingSUTCode();
@@ -779,11 +803,13 @@ public abstract class JUnitAnalyzer {
 
             if (wasSandboxOn) {
                 //only activate Sandbox if it was already active before
-                if (!Sandbox.isSecurityManagerInitialized())
+                if (!Sandbox.isSecurityManagerInitialized()) {
                     Sandbox.initializeSecurityManagerForSUT(privileged);
+                }
             } else {
                 if (Sandbox.isSecurityManagerInitialized()) {
-                    logger.warn("EvoSuite problem: tests set up a security manager, but they do not remove it after execution");
+                    logger.warn("EvoSuite problem: tests set up a security manager, "
+                            + "but they do not remove it after execution");
                     Sandbox.resetDefaultSecurityManager();
                 }
             }

@@ -40,6 +40,7 @@ public class InitializeClasses extends BaseRule {
             } catch (ExceptionInInitializerError ex) {
                 System.err.println("Could not initialize " + className);
             } catch (Throwable t) {
+                // Ignored
             }
         }
         org.evosuite.runtime.agent.InstrumentingAgent.deactivate();

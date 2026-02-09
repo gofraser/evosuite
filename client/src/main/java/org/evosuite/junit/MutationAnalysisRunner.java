@@ -92,9 +92,10 @@ public class MutationAnalysisRunner extends BlockJUnit4ClassRunner {
         Set<Integer> touchedMutants = ExecutionTracer.getExecutionTracer().getTrace().getTouchedMutants();
         logger.info("Touched mutants: " + touchedMutants.size());
         // Now run it for all touched mutants
-        for (Integer mutantID : touchedMutants) {
+        for (Integer mutantId : touchedMutants) {
             // logger.info("Current mutant: "+mutantID);
-            Mutation m = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutant(mutantID);
+            Mutation m = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .getMutant(mutantId);
             if (killedMutants.contains(m)) {
                 // logger.info("Already dead: "+mutantID);
                 continue;
@@ -108,7 +109,7 @@ public class MutationAnalysisRunner extends BlockJUnit4ClassRunner {
 
             // If killed
             if (resultListener.hasFailure != result) {
-                logger.info("Now killed: " + mutantID);
+                logger.info("Now killed: " + mutantId);
                 try {
                     liveMutants.remove(m);
                 } catch (Throwable t) {
@@ -123,7 +124,7 @@ public class MutationAnalysisRunner extends BlockJUnit4ClassRunner {
                 }
 
                 //} else {
-                //	logger.info("Remains live: "+mutantID);
+                //    logger.info("Remains live: "+mutantID);
             }
         }
         notifier.removeListener(resultListener);

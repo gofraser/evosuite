@@ -44,7 +44,7 @@ import java.util.*;
  */
 public class DetermineSUT {
 
-    private final static Logger logger = LoggerFactory.getLogger(DetermineSUT.class);
+    private static final Logger logger = LoggerFactory.getLogger(DetermineSUT.class);
 
     private String targetName = "";
 
@@ -80,7 +80,8 @@ public class DetermineSUT {
             // TODO Auto-generated catch block
             e1.printStackTrace();
         }
-        Set<String> targetClasses = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(targetClassPath, false);
+        Set<String> targetClasses = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getAllClasses(targetClassPath, false);
         Set<String> candidateClasses = new HashSet<>();
         boolean hasJUnit = false;
         try {
@@ -92,14 +93,16 @@ public class DetermineSUT {
             logger.error("Class not found: " + e, e);
             return "";
         } catch (NoJUnitClassException e) {
-
+            // Ignored
         }
 
-        if (!hasJUnit)
+        if (!hasJUnit) {
             throw new NoJUnitClassException();
+        }
 
-        if (candidateClasses.isEmpty())
+        if (candidateClasses.isEmpty()) {
             return "<UNKNOWN>";
+        }
 
         List<String> sortedNames = new ArrayList<>(candidateClasses);
         sortedNames.sort(new TargetClassSorter(fullyQualifiedTargetClass));
@@ -152,9 +155,7 @@ public class DetermineSUT {
     }
 
     /**
-     * <p>
-     * isJavaClass
-     * </p>
+     * isJavaClass.
      *
      * @param classNameWithDots a {@link java.lang.String} object.
      * @return a boolean.
@@ -168,20 +169,25 @@ public class DetermineSUT {
     }
 
     private boolean isValidClass(String name) throws IOException {
-        if (isJavaClass(name))
+        if (isJavaClass(name)) {
             return false;
+        }
 
-        if (name.startsWith("junit"))
+        if (name.startsWith("junit")) {
             return false;
+        }
 
-        if (name.startsWith("org.junit"))
+        if (name.startsWith("org.junit")) {
             return false;
+        }
 
-        if (name.startsWith(targetName))
+        if (name.startsWith(targetName)) {
             return false;
+        }
 
-        if (superClasses.contains(name))
+        if (superClasses.contains(name)) {
             return false;
+        }
 
         ClassNode sutNode = loadClassNode(name);
         return !isJUnitTest(sutNode);
@@ -197,11 +203,13 @@ public class DetermineSUT {
             AbstractInsnNode insn = iterator.next();
             if (insn instanceof MethodInsnNode) {
                 String name = ResourceList.getClassNameFromResourcePath(((MethodInsnNode) insn).owner);
-                if (!targetClasses.contains(name))
+                if (!targetClasses.contains(name)) {
                     continue;
+                }
 
-                if (isValidClass(name))
+                if (isValidClass(name)) {
                     calledClasses.add(name);
+                }
             }
         }
     }
@@ -209,20 +217,23 @@ public class DetermineSUT {
     @SuppressWarnings("unchecked")
     private boolean isJUnitTest(ClassNode cn) throws IOException {
         // We do not consider abstract classes
-        if ((cn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT)
+        if ((cn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT) {
             return false;
+        }
 
-        if (hasJUnitSuperclass(cn))
+        if (hasJUnitSuperclass(cn)) {
             return true;
+        }
 
         List<MethodNode> methods = cn.methods;
         for (MethodNode mn : methods) {
             List<AnnotationNode> annotations = mn.visibleAnnotations;
             if (annotations != null) {
                 for (AnnotationNode an : annotations) {
-                    if (an.desc.equals("Lorg/junit/Test;") ||
-                            an.desc.equals("L" + PackageInfo.getNameWithSlash(EvoSuiteTest.class) + ";"))
+                    if (an.desc.equals("Lorg/junit/Test;") || an.desc.equals(
+                            "L" + PackageInfo.getNameWithSlash(EvoSuiteTest.class) + ";")) {
                         return true;
+                    }
                 }
             }
         }
@@ -242,18 +253,21 @@ public class DetermineSUT {
     }
 
     private boolean hasJUnitSuperclass(ClassNode cn) throws IOException {
-        if (cn.superName.equals("java/lang/Object"))
+        if (cn.superName.equals("java/lang/Object")) {
             return false;
+        }
 
-        if (cn.superName.equals("junit/framework/TestCase"))
+        if (cn.superName.equals("junit/framework/TestCase")) {
             return true;
+        }
 
         ClassNode superClass = loadClassNode(cn.superName);
         return hasJUnitSuperclass(superClass);
     }
 
     private ClassNode loadClassNode(String className) throws IOException {
-        ClassReader reader = new ClassReader(ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(className));
+        ClassReader reader = new ClassReader(ResourceList.getInstance(
+                TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(className));
 
         ClassNode cn = new ClassNode();
         reader.accept(cn, ClassReader.SKIP_FRAMES); // | ClassReader.SKIP_DEBUG);
@@ -261,7 +275,9 @@ public class DetermineSUT {
     }
 
     /**
-     * @param args
+     * Main method.
+     *
+     * @param args command line arguments
      */
     public static void main(String[] args) {
         if (args.length != 2) {

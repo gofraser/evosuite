@@ -26,9 +26,7 @@ import org.evosuite.utils.FileIOUtils;
 import java.io.File;
 
 /**
- * <p>
- * CoverageReportGenerator class
- * </p>
+ * CoverageReportGenerator class.
  *
  * @author José Campos
  */
@@ -41,42 +39,47 @@ public class CoverageReportGenerator {
             StringBuilder test = new StringBuilder();
 
             for (int j = 0; j < c.length - 1; j++) {
-                if (c[j])
+                if (c[j]) {
                     test.append("1 ");
-                else
+                } else {
                     test.append("0 ");
+                }
             }
 
-            if (!test.toString().contains("1")) // if a test case does not contains a "1", means it does not coverage anything
+            // if a test case does not contains a "1", means it does not coverage anything
+            if (!test.toString().contains("1")) {
                 continue;
+            }
 
-            if (c[c.length - 1])
+            if (c[c.length - 1]) {
                 test.append("+\n");
-            else
+            } else {
                 test.append("-\n");
+            }
 
             suite.append(test);
         }
 
-        FileIOUtils.writeFile(suite.toString(), new File(getReportDir().getAbsolutePath() +
-                File.separator + "data" + File.separator +
-                Properties.TARGET_CLASS + File.separator +
-                criterion.toString() + File.separator + Properties.COVERAGE_MATRIX_FILENAME));
+        FileIOUtils.writeFile(suite.toString(), new File(getReportDir().getAbsolutePath()
+                + File.separator + "data" + File.separator
+                + Properties.TARGET_CLASS + File.separator
+                + criterion.toString() + File.separator + Properties.COVERAGE_MATRIX_FILENAME));
     }
 
     /**
      * Return the folder of where reports should be generated.
      * If the folder does not exist, try to create it
      *
-     * @return
+     * @return the report directory
      * @throws RuntimeException if folder does not exist, and we cannot create it
      */
     private static File getReportDir() throws RuntimeException {
         File dir = new File(Properties.REPORT_DIR);
 
         if (!dir.exists()) {
-            if (!dir.mkdirs())
+            if (!dir.mkdirs()) {
                 throw new RuntimeException("Cannot create report dir: " + Properties.REPORT_DIR);
+            }
         }
 
         return dir;
