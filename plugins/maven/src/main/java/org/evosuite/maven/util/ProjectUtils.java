@@ -29,15 +29,17 @@ import java.util.Collection;
 import java.util.List;
 
 /**
+ * Utility class to interact with MavenProject.
+ *
  * @author José Campos
  */
 public class ProjectUtils {
 
     /**
-     * Get compile elements (i.e., classes under /target/classes)
+     * Get compile elements (i.e., classes under /target/classes).
      *
-     * @param project
-     * @return
+     * @param project The maven project.
+     * @return List of compile classpath elements.
      */
     public static List<String> getCompileClasspathElements(MavenProject project) {
         List<String> compileClassPath = new ArrayList<>();
@@ -58,10 +60,10 @@ public class ProjectUtils {
 
     /**
      * Get JUnit elements (i.e., classes under /target/test-classes) and compiled
-     * elements (i.e., classes under /target/classes)
+     * elements (i.e., classes under /target/classes).
      *
-     * @param project
-     * @return
+     * @param project The maven project.
+     * @return List of test classpath elements.
      */
     public static List<String> getTestClasspathElements(MavenProject project) {
         List<String> testClassPath = new ArrayList<>();
@@ -81,10 +83,10 @@ public class ProjectUtils {
     }
 
     /**
-     * Get runtime elements
+     * Get runtime elements.
      *
-     * @param project
-     * @return
+     * @param project The maven project.
+     * @return List of runtime classpath elements.
      */
     public static List<String> getRuntimeClasspathElements(MavenProject project) {
         List<String> runtimeClassPath = new ArrayList<>();
@@ -102,10 +104,10 @@ public class ProjectUtils {
     }
 
     /**
-     * Get project's dependencies
+     * Get project's dependencies.
      *
-     * @param project
-     * @return
+     * @param project The maven project.
+     * @return List of dependency path elements.
      */
     public static List<String> getDependencyPathElements(MavenProject project) {
         List<String> dependencyArtifacts = new ArrayList<>();
@@ -125,10 +127,10 @@ public class ProjectUtils {
 
     /**
      * Convert a list of strings to a single string separated
-     * by File.pathSeparator (i.e., ':')
+     * by File.pathSeparator (i.e., ':').
      *
-     * @param elements
-     * @return
+     * @param elements The elements to join.
+     * @return The classpath string.
      */
     public static String toClasspathString(Collection<String> elements) {
         final StringBuilder str = new StringBuilder();

@@ -44,7 +44,8 @@ import java.util.Set;
  *
  * @author José Campos
  */
-@Mojo(name = "coverage", requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
+@Mojo(name = "coverage", requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST,
+        requiresDependencyCollection = ResolutionScope.TEST)
 public class CoverageMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
@@ -60,7 +61,7 @@ public class CoverageMojo extends AbstractMojo {
     private RepositorySystemSession repoSession;
 
     /**
-     * Coverage criterion. Can define more than one criterion by using a ':' separated list
+     * Coverage criterion. Can define more than one criterion by using a ':' separated list.
      */
     // FIXME would be nice to have the value of Properties.CRITERION but seems to be not possible
     // FIXME OUTPUT:METHOD:METHODNOEXCEPTION relies on Observers, to have coverage of these criteria
@@ -70,10 +71,10 @@ public class CoverageMojo extends AbstractMojo {
     private String criterion;
 
     /**
-     * Maximum seconds allowed
+     * Maximum seconds allowed.
      */
     @Parameter(property = "global_timeout", defaultValue = "120")
-    private int global_timeout;
+    private int globalTimeout;
 
 
     @Parameter(property = "output_variables", defaultValue = "TARGET_CLASS,criterion,Coverage,Total_Goals,Covered_Goals"
@@ -82,7 +83,7 @@ public class CoverageMojo extends AbstractMojo {
             + ",CBranchCoverage,CBranchCoverageBitString"
             + ",WeakMutationScore,WeakMutationCoverageBitString"
             + ",MethodTraceCoverage,MethodTraceCoverageBitString")
-    private String output_variables;
+    private String outputVariables;
 
     /**
      * A colon(:) separated list of JUnit suites to execute. Can be a prefix (i.e., package name),
@@ -126,8 +127,8 @@ public class CoverageMojo extends AbstractMojo {
         }
 
         params.add("-Dcriterion=" + this.criterion);
-        params.add("-Doutput_variables=" + this.output_variables);
-        params.add("-Dglobal_timeout=" + this.global_timeout);
+        params.add("-Doutput_variables=" + this.outputVariables);
+        params.add("-Dglobal_timeout=" + this.globalTimeout);
         // in theory should be safe to execute source-code
         params.add("-Dsandbox=false");
         params.add("-Dvirtual_fs=false");

@@ -35,7 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Obtain info of generated tests so far
+ * Obtain info of generated tests so far.
  */
 @Mojo(name = "info")
 public class InfoMojo extends AbstractMojo {

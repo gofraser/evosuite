@@ -40,29 +40,26 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Note: we cannot call EvoSuite directly on same JVM, like the following:
+ * Note: we cannot call EvoSuite directly on same JVM, like the following.
  *
- * <p>
- * <code>
+ * <p><code>
  * ContinuousTestGeneration ctg = new ContinuousTestGeneration(target,cp,prefix,conf);
  * ctg.execute();
- * </code>
+ * </code></p>
  *
- * <p>
- * Reason is that Maven uses its own classloaders, and setting their classpath
+ * <p>Reason is that Maven uses its own classloaders, and setting their classpath
  * becomes very messy, if possible at all.
- * So, we need to call EvoSuite on separated process
+ * So, we need to call EvoSuite on separated process.</p>
  *
- * <p>
- * TODO: most likely this code should be moved to a library, as other plugins (eg Netbeans)
- * will use it as well
+ * <p>TODO: most likely this code should be moved to a library, as other plugins (eg Netbeans)
+ * will use it as well.</p>
  */
 public class EvoSuiteRunner {
 
     public static final String EVOSUITE_HOME_VARIABLE = "EVOSUITE_HOME";
 
     /**
-     * The maven logger of the plugin
+     * The maven logger of the plugin.
      */
     private final Log logger;
 
@@ -95,10 +92,11 @@ public class EvoSuiteRunner {
     }
 
     /**
-     * This is blocking
+     * This is blocking.
      *
-     * @param params
-     * @return
+     * @param dir    The directory to run in.
+     * @param params Parameters to pass to EvoSuite.
+     * @return True if successful.
      */
     public boolean runEvoSuite(String dir, List<String> params) {
         List<String> cmd = getCommandToRunEvoSuite();
@@ -112,9 +110,9 @@ public class EvoSuiteRunner {
     }
 
     /**
-     * We run the EvoSuite that is provided with the plugin
+     * We run the EvoSuite that is provided with the plugin.
      *
-     * @return
+     * @return The command to run.
      */
     private List<String> getCommandToRunEvoSuite() {
 
@@ -186,7 +184,7 @@ public class EvoSuiteRunner {
 
 
     /**
-     * Check if there is a valid installation of EvoSuite on the current machine
+     * Check if there is a valid installation of EvoSuite on the current machine.
      */
     @Deprecated
     private List<String> getCommandToRunExternalEvoSuite() {
@@ -198,8 +196,8 @@ public class EvoSuiteRunner {
 
         String home = System.getenv(EVOSUITE_HOME_VARIABLE);
         if (home == null || home.isEmpty()) {
-            logger.error("Need to set the environment variable " + EVOSUITE_HOME_VARIABLE +
-                    " pointing to where EvoSuite is installed");
+            logger.error("Need to set the environment variable " + EVOSUITE_HOME_VARIABLE
+                    + " pointing to where EvoSuite is installed");
             return null;
         }
 
