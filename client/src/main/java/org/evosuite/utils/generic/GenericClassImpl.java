@@ -588,7 +588,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             types.add(type);
             Type nextType = typeMap.get(type);
             if (types.contains(nextType)) {
-                logger.warn(type + " points to itself in type mapping");
+                logger.debug(type + " points to itself in type mapping");
                 return true;
             }
             type = nextType;

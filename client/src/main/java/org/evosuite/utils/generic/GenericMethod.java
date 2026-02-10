@@ -162,8 +162,12 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         }
 
         if (exactDeclaringType == null) { // capture(type) is not a subtype of m.getDeclaringClass()
-            logger.info("The method " + m + " is not a member of type " + type
-                    + " - declared in " + m.getDeclaringClass());
+            Class<?> rawType = getRawClass(type);
+            if (isAssignableToDeclaringClass(rawType, m.getDeclaringClass())) {
+                logger.info("The method " + m + " is not a member of type " + type
+                        + " - declared in " + m.getDeclaringClass()
+                        + " [unexpected, rawType=" + rawType + "]");
+            }
             return m.getReturnType();
         }
 
@@ -187,8 +191,12 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         Type exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
                 m.getDeclaringClass());
         if (exactDeclaringType == null) { // capture(type) is not a subtype of m.getDeclaringClass()
-            logger.info("The method " + m + " is not a member of type " + type
-                    + " - declared in " + m.getDeclaringClass());
+            Class<?> rawType = getRawClass(type);
+            if (isAssignableToDeclaringClass(rawType, m.getDeclaringClass())) {
+                logger.info("The method " + m + " is not a member of type " + type
+                        + " - declared in " + m.getDeclaringClass()
+                        + " [unexpected, rawType=" + rawType + "]");
+            }
             return m.getParameterTypes();
         }
 
@@ -248,6 +256,27 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         }
 
         return false;
+    }
+
+    /**
+     * Guard to reduce noise: only log when the owner type should be assignable
+     * to the declaring class, yet generic resolution still failed.
+     */
+    private boolean isAssignableToDeclaringClass(Class<?> rawType, Class<?> declaringClass) {
+        return rawType != null && declaringClass.isAssignableFrom(rawType);
+    }
+
+    private Class<?> getRawClass(Type type) {
+        if (type instanceof Class<?>) {
+            return (Class<?>) type;
+        }
+        if (type instanceof java.lang.reflect.ParameterizedType) {
+            Type raw = ((java.lang.reflect.ParameterizedType) type).getRawType();
+            if (raw instanceof Class<?>) {
+                return (Class<?>) raw;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -495,6 +524,11 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
     @Override
     public Type getGenericGeneratedType() {
         return getExactReturnType(method, owner.getType());
+    }
+
+    @Override
+    protected Type getGenericReturnTypeForInstantiation() {
+        return method.getGenericReturnType();
     }
 
     @Override

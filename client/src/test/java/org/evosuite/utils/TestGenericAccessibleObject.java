@@ -44,8 +44,12 @@ import org.junit.Test;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Gordon Fraser
@@ -166,6 +170,160 @@ public class TestGenericAccessibleObject {
 		Assert.assertFalse(parameters.get(0).hasWildcardTypes());
 		Assert.assertFalse(instantiatedMethod.getGeneratedClass().hasWildcardTypes());
 		*/
+    }
+
+    @Test
+    public void testGenericArrayWithWildcardParameter() throws SecurityException, NoSuchMethodException {
+        Class<?> targetClass = com.examples.with.different.packagename.generic.GenericArrayWithGenericType.class;
+        Method targetMethod = targetClass.getMethod("testMe",
+                new Class<?>[]{List[].class, List.class});
+        GenericMethod genericMethod = new GenericMethod(targetMethod, targetClass);
+        Assert.assertFalse(genericMethod.getOwnerClass().hasTypeVariables());
+
+        List<GenericClass<?>> parameters = genericMethod.getParameterClasses();
+        Assert.assertTrue(parameters.get(0).isArray());
+        Assert.assertTrue(parameters.get(0).getComponentClass().hasWildcardTypes());
+        Assert.assertTrue(parameters.get(1).hasWildcardTypes());
+    }
+
+    @Test
+    public void testGenericArrayWithTypeVariableParameter() throws SecurityException,
+            NoSuchMethodException {
+        Class<?> targetClass = com.examples.with.different.packagename.generic.GenericArrayWithGenericTypeVariable.class;
+        Method targetMethod = targetClass.getMethod("testMe",
+                new Class<?>[]{List[].class, List.class});
+        GenericMethod genericMethod = new GenericMethod(targetMethod, targetClass);
+        Assert.assertTrue(genericMethod.getOwnerClass().hasTypeVariables());
+
+        List<GenericClass<?>> parameters = genericMethod.getParameterClasses();
+        Assert.assertTrue(parameters.get(0).isArray());
+        Assert.assertTrue(parameters.get(0).getComponentClass().hasTypeVariables());
+        Assert.assertTrue(parameters.get(1).hasTypeVariables());
+
+        GenericClass<?> ownerInstantiation = GenericClassFactory.get(
+                new TypeToken<com.examples.with.different.packagename.generic.GenericArrayWithGenericTypeVariable<String>>() {
+                }.getType());
+        GenericMethod instantiatedMethod = genericMethod.copyWithNewOwner(ownerInstantiation);
+        List<GenericClass<?>> instantiatedParameters = instantiatedMethod.getParameterClasses();
+        Assert.assertTrue(instantiatedParameters.get(0).isArray());
+        Assert.assertFalse(instantiatedParameters.get(0).getComponentClass().hasTypeVariables());
+        Assert.assertEquals(String.class,
+                instantiatedParameters.get(0).getComponentClass().getParameterTypes().get(0));
+        Assert.assertEquals(String.class, instantiatedParameters.get(1).getParameterTypes().get(0));
+    }
+
+    @Test
+    public void testGenericParameterWithGenericBoundInstantiation() throws SecurityException,
+            NoSuchMethodException {
+        Class<?> targetClass = com.examples.with.different.packagename.generic.GenericParameterWithGenericBound.class;
+        Method targetMethod = targetClass.getMethod("testMe",
+                new Class<?>[]{List.class, Number.class});
+        GenericMethod genericMethod = new GenericMethod(targetMethod, targetClass);
+        Assert.assertTrue(genericMethod.getOwnerClass().hasTypeVariables());
+
+        List<GenericClass<?>> parameters = genericMethod.getParameterClasses();
+        Assert.assertTrue(parameters.get(0).isTypeVariable());
+        Assert.assertTrue(parameters.get(1).isTypeVariable());
+
+        GenericClass<?> ownerInstantiation = GenericClassFactory.get(
+                new TypeToken<com.examples.with.different.packagename.generic.GenericParameterWithGenericBound<List<String>, Integer>>() {
+                }.getType());
+        GenericMethod instantiatedMethod = genericMethod.copyWithNewOwner(ownerInstantiation);
+        List<GenericClass<?>> instantiatedParameters = instantiatedMethod.getParameterClasses();
+        Assert.assertEquals(List.class, instantiatedParameters.get(0).getRawClass());
+        Assert.assertEquals(String.class, instantiatedParameters.get(0).getParameterTypes().get(0));
+        Assert.assertEquals(Integer.class, instantiatedParameters.get(1).getRawClass());
+    }
+
+    @Test
+    public void testNestedGenericReturnInstantiationFromStaticMethod()
+            throws SecurityException, NoSuchMethodException, ConstructionFailedException {
+        Class<?> targetClass = com.examples.with.different.packagename.generic.GenericCollectionUtil.class;
+        Method targetMethod = targetClass.getMethod("intersection",
+                new Class<?>[]{List.class, List.class});
+        GenericMethod genericMethod = new GenericMethod(targetMethod, targetClass);
+
+        GenericClass<?> generatedType = GenericClassFactory.get(
+                new TypeToken<List<Map<String, Integer>>>() {
+                }.getType());
+
+        GenericMethod instantiatedMethod = genericMethod.getGenericInstantiationFromReturnValue(generatedType);
+        Assert.assertEquals(generatedType, instantiatedMethod.getGeneratedClass());
+        List<GenericClass<?>> parameters = instantiatedMethod.getParameterClasses();
+        Assert.assertEquals(List.class, parameters.get(0).getRawClass());
+        Assert.assertTrue(parameters.get(0).hasWildcardTypes());
+        Assert.assertEquals(List.class, parameters.get(1).getRawClass());
+        Assert.assertTrue(parameters.get(1).hasWildcardTypes());
+    }
+
+    @Test
+    public void testNestedGenericOwnerInstantiation() throws SecurityException,
+            NoSuchMethodException {
+        Class<?> targetClass = com.examples.with.different.packagename.generic.GenericTripleParameter.class;
+        Method targetMethod = targetClass.getMethod("foo",
+                new Class<?>[]{Object.class});
+        GenericMethod genericMethod = new GenericMethod(targetMethod, targetClass);
+
+        GenericClass<?> ownerInstantiation = GenericClassFactory.get(
+                new TypeToken<com.examples.with.different.packagename.generic.GenericTripleParameter<List<String>, Map<Integer, String>, Set<Long>>>() {
+                }.getType());
+        GenericMethod instantiatedMethod = genericMethod.copyWithNewOwner(ownerInstantiation);
+
+        GenericClass<?> generatedClass = instantiatedMethod.getGeneratedClass();
+        Assert.assertEquals(Map.class, generatedClass.getRawClass());
+        List<Type> returnArgs = generatedClass.getParameterTypes();
+        assertParameterizedType(returnArgs.get(0), List.class, String.class);
+        assertParameterizedType(returnArgs.get(1), Map.class, Integer.class, String.class);
+
+        List<GenericClass<?>> parameters = instantiatedMethod.getParameterClasses();
+        Assert.assertEquals(Set.class, parameters.get(0).getRawClass());
+        Assert.assertEquals(Long.class, parameters.get(0).getParameterTypes().get(0));
+    }
+
+    @Test
+    public void testNestedWildcardBoundsInReturnInstantiation()
+            throws SecurityException, NoSuchMethodException, ConstructionFailedException {
+        Class<?> targetClass = com.examples.with.different.packagename.generic.GenericCollectionUtil.class;
+        Method targetMethod = targetClass.getMethod("intersection",
+                new Class<?>[]{List.class, List.class});
+        GenericMethod genericMethod = new GenericMethod(targetMethod, targetClass);
+
+        GenericClass<?> generatedType = GenericClassFactory.get(
+                new TypeToken<List<? extends Map<String, Integer>>>() {
+                }.getType());
+
+        GenericMethod instantiatedMethod = genericMethod.getGenericInstantiationFromReturnValue(generatedType);
+        GenericClass<?> generatedClass = instantiatedMethod.getGeneratedClass();
+        Assert.assertEquals(List.class, generatedClass.getRawClass());
+        Type innerType = generatedClass.getParameterTypes().get(0);
+        GenericClass<?> innerClass = GenericClassFactory.get(innerType);
+        Assert.assertFalse(innerClass.hasWildcardOrTypeVariables());
+    }
+
+    @Test
+    public void testNestedArraysInReturnInstantiation()
+            throws SecurityException, NoSuchMethodException, ConstructionFailedException {
+        Class<?> targetClass = com.examples.with.different.packagename.generic.GenericCollectionUtil.class;
+        Method targetMethod = targetClass.getMethod("intersection",
+                new Class<?>[]{List.class, List.class});
+        GenericMethod genericMethod = new GenericMethod(targetMethod, targetClass);
+
+        GenericClass<?> generatedType = GenericClassFactory.get(
+                new TypeToken<List<Map<String, Integer>>[]>() {
+                }.getType());
+
+        GenericMethod instantiatedMethod = genericMethod.getGenericInstantiationFromReturnValue(generatedType);
+        GenericClass<?> generatedClass = instantiatedMethod.getGeneratedClass();
+        if (generatedClass.isArray()) {
+            GenericClass<?> componentClass = generatedClass.getComponentClass();
+            Assert.assertEquals(List.class, componentClass.getRawClass());
+            GenericClass<?> componentParam = GenericClassFactory.get(componentClass.getParameterTypes().get(0));
+            Assert.assertFalse(componentParam.hasWildcardOrTypeVariables());
+        } else {
+            Assert.assertEquals(List.class, generatedClass.getRawClass());
+            GenericClass<?> paramClass = GenericClassFactory.get(generatedClass.getParameterTypes().get(0));
+            Assert.assertFalse(paramClass.hasWildcardOrTypeVariables());
+        }
     }
 
     @Test
@@ -380,4 +538,16 @@ public class TestGenericAccessibleObject {
         test.removeAssertions();
         System.out.println(test.toCode());
     }
+
+    private static void assertParameterizedType(Type type, Class<?> rawType, Class<?>... arguments) {
+        Assert.assertTrue(type instanceof ParameterizedType);
+        ParameterizedType parameterizedType = (ParameterizedType) type;
+        Assert.assertEquals(rawType, parameterizedType.getRawType());
+        Type[] actualArguments = parameterizedType.getActualTypeArguments();
+        Assert.assertEquals(arguments.length, actualArguments.length);
+        for (int i = 0; i < arguments.length; i++) {
+            Assert.assertEquals(arguments[i], actualArguments[i]);
+        }
+    }
+
 }

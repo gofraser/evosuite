@@ -214,6 +214,15 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
     public abstract Type getGenericGeneratedType();
 
     /**
+     * Return the generic return type used for matching during
+     * {@link #getGenericInstantiationFromReturnValue(GenericClass)}.
+     * Subclasses can override this to preserve method-level type variables.
+     */
+    protected Type getGenericReturnTypeForInstantiation() {
+        return getGenericGeneratedType();
+    }
+
+    /**
      * Instantiate all generic type parameters.
      *
      * @return the generic instantiation
@@ -300,7 +309,7 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         logger.debug("Getting type map of generated type");
         Map<TypeVariable<?>, Type> generatorTypes = generatedType.getTypeVariableMap();
         logger.debug("Got type map of generated type: " + GenericUtils.stableTypeVariableMapToString(generatorTypes));
-        Type genericReturnType = getGenericGeneratedType();
+        Type genericReturnType = getGenericReturnTypeForInstantiation();
 
         logger.debug("Getting generic instantiation for return type " + generatedType
                 + " of method: " + this);
