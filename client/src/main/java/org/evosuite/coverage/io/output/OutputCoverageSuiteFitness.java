@@ -187,7 +187,7 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
                     mapDistances.remove(testFitness);
                     setOfCoveredGoals.add(testFitness); // helper to count the number of covered goals
                     // goal to not be considered by next EA iteration
-                    this.toRemoveMethods.add(testFitness);
+                    this.toRemoveGoals.add(testFitness);
                 }
             }
         }
