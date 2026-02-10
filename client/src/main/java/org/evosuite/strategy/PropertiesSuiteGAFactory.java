@@ -139,7 +139,8 @@ public class PropertiesSuiteGAFactory
                 : super.getPopulationLimit();
     }
 
-    protected GeneticAlgorithm<TestSuiteChromosome> getGeneticAlgorithm(ChromosomeFactory<TestSuiteChromosome> factory) {
+    protected GeneticAlgorithm<TestSuiteChromosome> getGeneticAlgorithm(
+            ChromosomeFactory<TestSuiteChromosome> factory) {
         switch (Properties.ALGORITHM) {
             case ONE_PLUS_ONE_EA:
                 logger.info("Chosen search algorithm: (1+1)EA");

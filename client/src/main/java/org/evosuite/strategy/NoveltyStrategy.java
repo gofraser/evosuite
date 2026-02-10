@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -145,7 +145,8 @@ public class NoveltyStrategy extends TestGenerationStrategy {
             LoggingUtils.getEvoLogger().info("");
         }
 
-        if (!Properties.IS_RUNNING_A_SYSTEM_TEST) { //avoid printing time related info in system tests due to lack of determinism
+        // avoid printing time related info in system tests due to lack of determinism
+        if (!Properties.IS_RUNNING_A_SYSTEM_TEST) {
             LoggingUtils.getEvoLogger().info(
                     "* Search finished after {}s and {} generations, {} statements, best individual has fitness: {}",
                     (endTime - startTime),

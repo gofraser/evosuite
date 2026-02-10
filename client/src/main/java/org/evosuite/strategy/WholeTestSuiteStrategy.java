@@ -89,7 +89,8 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
 
         List<TestFitnessFunction> goals = getGoals(true);
         if (!canGenerateTestsForSUT()) {
-            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}", Properties.TARGET_CLASS);
+            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}",
+                    Properties.TARGET_CLASS);
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
@@ -127,7 +128,8 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
             LoggingUtils.getEvoLogger().info("");
         }
 
-        if (!Properties.IS_RUNNING_A_SYSTEM_TEST) { //avoid printing time related info in system tests due to lack of determinism
+        // avoid printing time related info in system tests due to lack of determinism
+        if (!Properties.IS_RUNNING_A_SYSTEM_TEST) {
             LoggingUtils.getEvoLogger().info(
                     "* Search finished after {}s and {} generations, {} statements, best individual has fitness: {}",
                     (endTime - startTime),

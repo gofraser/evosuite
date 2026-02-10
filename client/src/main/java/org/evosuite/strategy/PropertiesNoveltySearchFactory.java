@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -198,7 +198,7 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
 
         // Some statistics
         //if (Properties.STRATEGY == Strategy.EVOSUITE)
-        //	ga.addListener(SearchStatistics.getInstance());
+        //    ga.addListener(SearchStatistics.getInstance());
         // ga.addListener(new MemoryMonitor());
         // ga.addListener(MutationStatistics.getInstance());
         // ga.addListener(BestChromosomeTracker.getInstance());
