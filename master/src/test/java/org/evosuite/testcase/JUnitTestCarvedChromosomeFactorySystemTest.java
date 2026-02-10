@@ -29,12 +29,20 @@ import org.evosuite.Properties.TestFactory;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcarver.testcase.CarvedTestCase;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.variable.ConstantValue;
+import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
@@ -133,6 +141,39 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         Assert.assertNotNull(carved);
         Assert.assertEquals("", 13, carved.test.size());
+    }
+
+    @Test
+    public void testMultipleJUnitClassesSameTarget() {
+        Properties.SELECTED_JUNIT =
+                com.examples.with.different.packagename.testcarver.ObjectWrapperSetTest.class.getCanonicalName()
+                        + ":" + com.examples.with.different.packagename.testcarver.ObjectWrapperSequenceTest.class.getCanonicalName()
+                        + ":" + com.examples.with.different.packagename.testcarver.ObjectWrapperArrayTest.class.getCanonicalName();
+        Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.ObjectWrapper.class.getCanonicalName();
+
+        Properties.SEED_MUTATIONS = 1;
+        Properties.SEED_CLONE = 1;
+
+        JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+                null);
+        Assert.assertTrue(factory.hasCarvedTestCases());
+        Assert.assertEquals("Expected one carved test per selected JUnit class", 3, factory.getNumCarvedTestCases());
+    }
+
+    @Test
+    public void testSelectedJUnitWhitespace() {
+        Properties.SELECTED_JUNIT =
+                "  " + com.examples.with.different.packagename.testcarver.ObjectWrapperSetTest.class.getCanonicalName()
+                        + "  :  " + com.examples.with.different.packagename.testcarver.ObjectWrapperSequenceTest.class.getCanonicalName() + "  ";
+        Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.ObjectWrapper.class.getCanonicalName();
+
+        Properties.SEED_MUTATIONS = 1;
+        Properties.SEED_CLONE = 1;
+
+        JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+                null);
+        Assert.assertTrue(factory.hasCarvedTestCases());
+        Assert.assertEquals("Expected one carved test per selected JUnit class", 2, factory.getNumCarvedTestCases());
     }
 
     @Test
@@ -411,6 +452,186 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
         for (TestCase test : factory.getCarvedTestCases()) {
             Assert.assertEquals(test.toCode(), 3, test.size());
         }
+    }
+
+    @Test
+    public void testChopCarvedExceptions() {
+        Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.ExceptionThrowingTest.class.getCanonicalName();
+        Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.ExceptionThrowing.class.getCanonicalName();
+
+        Properties.SEED_MUTATIONS = 1;
+        Properties.SEED_CLONE = 1;
+        Properties.CHOP_CARVED_EXCEPTIONS = true;
+
+        JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+                null);
+        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+
+        String code = factory.getChromosome().getTestCase().toCode();
+        Assert.assertTrue(code.contains("step1"));
+        Assert.assertFalse(code.contains("boom"));
+        Assert.assertFalse(code.contains("step2"));
+    }
+
+    @Test
+    public void testNoCarvedTestsWhenTargetUnused() {
+        Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.NoInteractionTest.class.getCanonicalName();
+        Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.NoInteractionTarget.class.getCanonicalName();
+
+        Properties.SEED_MUTATIONS = 1;
+        Properties.SEED_CLONE = 1;
+
+        JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+                null);
+        Assert.assertFalse(factory.hasCarvedTestCases());
+        Assert.assertEquals(0, factory.getNumCarvedTestCases());
+        Assert.assertEquals(0, factory.getCarvedTestSuite().size());
+    }
+
+    @Test
+    public void testArrayCreationIndexingAndParams() {
+        Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.ArrayTargetTest.class.getCanonicalName();
+        Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.ArrayTarget.class.getCanonicalName();
+
+        Properties.SEED_MUTATIONS = 1;
+        Properties.SEED_CLONE = 1;
+
+        JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+                null);
+        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+
+        String code = factory.getChromosome().getTestCase().toCode();
+        Assert.assertTrue(code.contains("new int[2]"));
+        Assert.assertTrue(code.contains("sumFirstTwo"));
+        Assert.assertTrue(code.contains("getAt"));
+        Assert.assertTrue(code.contains("set("));
+    }
+
+    @Test
+    public void testIndirectCallIsCarved() {
+        Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.IndirectCallTest.class.getCanonicalName();
+        Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.IndirectTarget.class.getCanonicalName();
+
+        Properties.SEED_MUTATIONS = 1;
+        Properties.SEED_CLONE = 1;
+
+        JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+                null);
+        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+
+        String code = factory.getChromosome().getTestCase().toCode();
+        Assert.assertTrue(code.contains("ping()"));
+    }
+
+    @Test
+    public void testLoopIsUnrolledInCarvedTest() {
+        Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.LoopTargetTest.class.getCanonicalName();
+        Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.LoopTarget.class.getCanonicalName();
+
+        Properties.SEED_MUTATIONS = 1;
+        Properties.SEED_CLONE = 1;
+
+        JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+                null);
+        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+
+        TestCase testCase = factory.getChromosome().getTestCase();
+        int addCalls = 0;
+        Set<Integer> addArgs = new HashSet<>();
+        for (int i = 0; i < testCase.size(); i++) {
+            Statement statement = testCase.getStatement(i);
+            if (!(statement instanceof MethodStatement)) {
+                continue;
+            }
+            MethodStatement methodStatement = (MethodStatement) statement;
+            if (!"add".equals(methodStatement.getMethod().getName())) {
+                continue;
+            }
+            if (!com.examples.with.different.packagename.testcarver.LoopTarget.class.getName()
+                    .equals(methodStatement.getMethod().getDeclaringClass().getName())) {
+                continue;
+            }
+            addCalls++;
+            if (!methodStatement.getParameterReferences().isEmpty()) {
+                Integer value = extractIntLiteral(testCase, methodStatement.getParameterReferences().get(0));
+                if (value != null) {
+                    addArgs.add(value);
+                }
+            }
+        }
+
+        Assert.assertTrue("Expected at least 3 add calls, got " + addCalls + "\n" + testCase.toCode(),
+                addCalls >= 3);
+        Assert.assertTrue("Expected add arguments to include 0, 1, and 2. Actual: " + addArgs + "\n" + testCase.toCode(),
+                addArgs.containsAll(Arrays.asList(0, 1, 2)));
+    }
+
+    @Test
+    public void testIfConditionCarvesTwoTests() {
+        Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.IfTargetTest.class.getCanonicalName();
+        Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.IfTarget.class.getCanonicalName();
+
+        Properties.SEED_MUTATIONS = 1;
+        Properties.SEED_CLONE = 1;
+
+        JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+                null);
+        Assert.assertEquals(2, factory.getNumCarvedTestCases());
+
+        boolean sawPos = false;
+        boolean sawNeg = false;
+        for (TestCase test : factory.getCarvedTestCases()) {
+            for (int i = 0; i < test.size(); i++) {
+                Statement statement = test.getStatement(i);
+                if (!(statement instanceof MethodStatement)) {
+                    continue;
+                }
+                MethodStatement methodStatement = (MethodStatement) statement;
+                if (!"choose".equals(methodStatement.getMethod().getName())) {
+                    continue;
+                }
+                if (!com.examples.with.different.packagename.testcarver.IfTarget.class.getName()
+                        .equals(methodStatement.getMethod().getDeclaringClass().getName())) {
+                    continue;
+                }
+                if (methodStatement.getParameterReferences().isEmpty()) {
+                    continue;
+                }
+                Integer value = extractIntLiteral(test, methodStatement.getParameterReferences().get(0));
+                if (value == null) {
+                    continue;
+                }
+                if (value >= 0) {
+                    sawPos = true;
+                } else {
+                    sawNeg = true;
+                }
+            }
+        }
+        Assert.assertTrue("Expected to carve a positive path", sawPos);
+        Assert.assertTrue("Expected to carve a negative path", sawNeg);
+    }
+
+    private static Integer extractIntLiteral(TestCase test, VariableReference var) {
+        if (var instanceof ConstantValue) {
+            Object value = ((ConstantValue) var).getValue();
+            if (value instanceof Number) {
+                return ((Number) value).intValue();
+            }
+        }
+
+        int position = var.getStPosition();
+        if (position >= 0 && position < test.size()) {
+            Statement statement = test.getStatement(position);
+            if (statement instanceof PrimitiveStatement) {
+                Object value = ((PrimitiveStatement<?>) statement).getValue();
+                if (value instanceof Number) {
+                    return ((Number) value).intValue();
+                }
+            }
+        }
+
+        return null;
     }
 
     @Test
