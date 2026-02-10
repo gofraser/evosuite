@@ -98,6 +98,7 @@ public class SystemTestBase {
         ClassReInitializer.resetSingleton();
         System.setProperties(currentProperties);
         Properties.getInstance().resetToDefaults();
+        TimeController.resetSingleton();
         ExceptionCoverageFactory.getGoals().clear();
         Archive.getArchiveInstance().reset();
         DependencyAnalysis.clear();
