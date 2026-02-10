@@ -45,8 +45,8 @@ import java.util.Set;
  *
  * @author José Campos
  *
- * <pre>
- * {@literal @}inproceedings{Campos:2013,
+ *     <pre>
+ *     {@literal @}inproceedings{Campos:2013,
  *     author = {Campos, Jos{\'e} and Abreu, Rui and Fraser, Gordon and d'Amorim, Marcelo},
  *     title = {{Entropy-Based Test Generation for Improved Fault Localization}},
  *     booktitle = {Proceedings of the 28th IEEE/ACM International Conference on
@@ -63,8 +63,8 @@ import java.util.Set;
  *     publisher = {ACM},
  *     address = {New York, NY, USA},
  *     keywords = {Fault localization, test case generation},
- * }
- * </pre>
+ *     }
+ *     </pre>
  */
 public class EntBugTestStrategy extends TestGenerationStrategy {
 
@@ -89,7 +89,8 @@ public class EntBugTestStrategy extends TestGenerationStrategy {
         }
 
         // What's the search target
-        RhoCoverageFactory rhoFactory = (RhoCoverageFactory) FitnessFunctions.getFitnessFactory(Properties.Criterion.RHO);
+        RhoCoverageFactory rhoFactory = (RhoCoverageFactory) FitnessFunctions.getFitnessFactory(
+                Properties.Criterion.RHO);
         RhoCoverageTestFitness rhoTestFitnessFunction = new RhoCoverageTestFitness();
         ga.addFitnessFunction(rhoTestFitnessFunction);
 
