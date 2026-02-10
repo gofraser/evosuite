@@ -22,10 +22,14 @@ package org.evosuite.runtime.mock.java.net;
 import org.evosuite.runtime.mock.java.io.MockIOException;
 import org.evosuite.runtime.vnet.RemoteFile;
 import org.evosuite.runtime.vnet.VirtualNetwork;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.*;
+import java.net.HttpURLConnection;
+import java.net.ProtocolException;
+import java.net.URL;
+import java.net.UnknownServiceException;
 import java.security.Permission;
 import java.util.Collections;
 import java.util.List;
@@ -38,11 +42,12 @@ import java.util.Map;
  * <p>
  * Actual implementations are not part of the public API, eg see:
  * http://grepcode.com/file/repository.grepcode.com/java/root/jdk/openjdk/7-b147/sun/net/www/protocol/http/HttpURLConnection.java
+ * </p>
  */
 public class EvoHttpURLConnection extends HttpURLConnection {
 
-    /** valid HTTP methods. Same as in superclass (in which the array is private) */
-    private static final String[] methods = {
+    /** valid HTTP methods. Same as in superclass (in which the array is private). */
+    private static final String[] METHODS = {
             "GET", "POST", "HEAD", "OPTIONS", "PUT", "DELETE", "TRACE"
     };
 
@@ -56,12 +61,12 @@ public class EvoHttpURLConnection extends HttpURLConnection {
 
     @Override
     public void disconnect() {
-        //TODO
+        // TODO
     }
 
     @Override
     public boolean usingProxy() {
-        return false;//TODO
+        return false; // TODO
     }
 
     @Override
@@ -73,7 +78,7 @@ public class EvoHttpURLConnection extends HttpURLConnection {
 
         String resolved = VirtualNetwork.getInstance().dnsResolve(url.getHost());
         if (resolved == null) {
-            //TODO should rather mock java.net.UnknownHostException
+            // TODO should rather mock java.net.UnknownHostException
             throw new MockIOException(url.getHost());
         }
 
@@ -99,8 +104,8 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         connect();
 
         if (stream == null) {
-            //TODO should rather mock FileNotFoundException
-            throw new MockIOException("Could not find: "+url.getHost());
+            // TODO should rather mock FileNotFoundException
+            throw new MockIOException("Could not find: " + url.getHost());
         }
 
         return stream;
@@ -112,6 +117,7 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         throw new UnknownServiceException("protocol doesn't support output");
     }
 
+    @Override
     public String toString() {
         return this.getClass().getName() + ":" + url;
     }
@@ -128,7 +134,7 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         // be placed for security - the request String could be
         // arbitrarily long.
 
-        for (final String m : methods) {
+        for (final String m : METHODS) {
             if (m.equals(method)) {
                 this.method = method;
                 return;
@@ -144,8 +150,8 @@ public class EvoHttpURLConnection extends HttpURLConnection {
     }
 
     @Override
-    public long getHeaderFieldDate(String name, long Default) {
-        return super.getHeaderFieldDate(name,Default);
+    public long getHeaderFieldDate(String name, long defaultValue) {
+        return super.getHeaderFieldDate(name, defaultValue);
     }
 
     @Override
@@ -169,7 +175,7 @@ public class EvoHttpURLConnection extends HttpURLConnection {
     }
 
     @Override
-    public String getHeaderFieldKey (int n) {
+    public String getHeaderFieldKey(int n) {
         return null;
     }
 
@@ -184,7 +190,7 @@ public class EvoHttpURLConnection extends HttpURLConnection {
     }
 
     @Override
-    public void setFixedLengthStreamingMode (int contentLength) {
+    public void setFixedLengthStreamingMode(int contentLength) {
         super.setFixedLengthStreamingMode(contentLength);
     }
 
@@ -194,7 +200,7 @@ public class EvoHttpURLConnection extends HttpURLConnection {
     }
 
     @Override
-    public void setChunkedStreamingMode (int chunklen) {
+    public void setChunkedStreamingMode(int chunklen) {
         super.setChunkedStreamingMode(chunklen);
     }
 
@@ -266,18 +272,18 @@ public class EvoHttpURLConnection extends HttpURLConnection {
     }
 
     @Override
-    public Map<String,List<String>> getHeaderFields() {
-        return Collections.EMPTY_MAP;
+    public Map<String, List<String>> getHeaderFields() {
+        return Collections.emptyMap();
     }
 
     @Override
-    public int getHeaderFieldInt(String name, int Default) {
-        return super.getHeaderFieldInt(name,Default);
+    public int getHeaderFieldInt(String name, int defaultValue) {
+        return super.getHeaderFieldInt(name, defaultValue);
     }
 
     @Override
-    public long getHeaderFieldLong(String name, long Default) {
-        return super.getHeaderFieldLong(name,Default);
+    public long getHeaderFieldLong(String name, long defaultValue) {
+        return super.getHeaderFieldLong(name, defaultValue);
     }
 
     @Override
@@ -320,5 +326,5 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         return super.getAllowUserInteraction();
     }
 
-    //TODO
+    // TODO
 }

@@ -42,6 +42,9 @@ public class EvoClassLoader extends ClassLoader {
     private final Map<String, Class<?>> classes = new HashMap<>();
     private final Set<String> skipInstrumentationForPrefix = new HashSet<>();
 
+    /**
+     * <p>Constructor for EvoClassLoader.</p>
+     */
     public EvoClassLoader() {
         this(new RuntimeInstrumentation());
     }
@@ -60,6 +63,12 @@ public class EvoClassLoader extends ClassLoader {
         this.instrumentation = instrumentation;
     }
 
+    /**
+     * Skip instrumentation for classes with the given prefix.
+     *
+     * @param prefix the prefix of classes to skip instrumentation for.
+     * @throws java.lang.IllegalArgumentException if prefix is null.
+     */
     public void skipInstrumentation(String prefix) throws IllegalArgumentException {
         Inputs.checkNull(prefix);
         skipInstrumentationForPrefix.add(prefix);
@@ -95,6 +104,14 @@ public class EvoClassLoader extends ClassLoader {
 
     }
 
+    /**
+     * Returns the instrumentation instance.
+     *
+     * @return the instrumentation instance.
+     */
+    public RuntimeInstrumentation getInstrumentation() {
+        return instrumentation;
+    }
 
     private Class<?> instrumentClass(String fullyQualifiedTargetClass)
             throws ClassNotFoundException {
@@ -133,7 +150,6 @@ public class EvoClassLoader extends ClassLoader {
         }
     }
 
-
     /**
      * Before a new class is defined, we need to create a package definition for it.
      *
@@ -150,10 +166,6 @@ public class EvoClassLoader extends ClassLoader {
                 logger.info("Defined package (3): " + getPackage(pkgname) + ", " + getPackage(pkgname).hashCode());
             }
         }
-    }
-
-    public RuntimeInstrumentation getInstrumentation() {
-        return instrumentation;
     }
 
 

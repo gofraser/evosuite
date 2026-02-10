@@ -26,7 +26,10 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.TimeZone;
 
-public class MockGregorianCalendar extends GregorianCalendar  implements OverrideMock{
+/**
+ * Mock implementation of java.util.GregorianCalendar.
+ */
+public class MockGregorianCalendar extends GregorianCalendar implements OverrideMock {
 
     private static final long serialVersionUID = 4768096296715665262L;
 
@@ -46,8 +49,8 @@ public class MockGregorianCalendar extends GregorianCalendar  implements Overrid
         super(year, month, dayOfMonth, hourOfDay, minute, second);
     }
 
-    public MockGregorianCalendar(Locale aLocale) {
-        super(aLocale);
+    public MockGregorianCalendar(Locale locale) {
+        super(locale);
         this.setTimeInMillis(org.evosuite.runtime.System.currentTimeMillis());
     }
 
@@ -56,8 +59,8 @@ public class MockGregorianCalendar extends GregorianCalendar  implements Overrid
         this.setTimeInMillis(org.evosuite.runtime.System.currentTimeMillis());
     }
 
-    public MockGregorianCalendar(TimeZone zone, Locale aLocale) {
-        super(zone, aLocale);
+    public MockGregorianCalendar(TimeZone zone, Locale locale) {
+        super(zone, locale);
         this.setTimeInMillis(org.evosuite.runtime.System.currentTimeMillis());
     }
 

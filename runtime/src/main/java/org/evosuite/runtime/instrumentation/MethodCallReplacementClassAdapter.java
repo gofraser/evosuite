@@ -65,6 +65,13 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
         this(cv, className, true);
     }
 
+    /**
+     * <p>Constructor for MethodCallReplacementClassAdapter.</p>
+     *
+     * @param cv            a {@link org.objectweb.asm.ClassVisitor} object.
+     * @param className     a {@link java.lang.String} object.
+     * @param canAddMethods a boolean.
+     */
     public MethodCallReplacementClassAdapter(ClassVisitor cv, String className, boolean canAddMethods) {
         super(Opcodes.ASM9, cv);
         this.className = className;
@@ -92,6 +99,9 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
                 desc);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public FieldVisitor visitField(int access, String name, String desc,
                                    String signature, Object value) {
@@ -111,6 +121,9 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
         return super.visitField(access, name, desc, signature, value);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void visit(int version, int access, String name, String signature,
                       String superName, String[] interfaces) {
@@ -159,6 +172,9 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
 
     private static final Logger logger = LoggerFactory.getLogger(MethodCallReplacementClassAdapter.class);
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void visitEnd() {
         if (canChangeSignature && !definesHashCode && !isInterface && RuntimeSettings.mockJVMNonDeterminism) {

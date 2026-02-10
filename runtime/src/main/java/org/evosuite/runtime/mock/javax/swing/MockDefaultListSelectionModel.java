@@ -37,8 +37,9 @@ public class MockDefaultListSelectionModel extends DefaultListSelectionModel imp
             Field f = DefaultListSelectionModel.class.getField("value");
             f.setAccessible(true);
             Object value = f.get(this);
-            if (value != null)
+            if (value != null) {
                 s += value.toString();
+            }
         } catch (Throwable t) {
            // ignore
         }

@@ -53,12 +53,11 @@ import java.util.List;
 /**
  * Class used to handle all the mock objects. When a new mock is defined, it has
  * to be statically added to the source code of this class.
- * 
- * <p>
- * Recall that a "override" mock M of class X has to extend X (ie 'class M
+ *
+ * <p>Recall that a "override" mock M of class X has to extend X (ie 'class M
  * extends X'), and have the same constructors with same inputs, and same static
  * methods. Note: cannot use override for constructors and static methods.
- * 
+ *
  * @author arcuri
  *
  */
@@ -68,12 +67,11 @@ public class MockList {
 
     /**
      * Return a list of all mock object classes used in EvoSuite. What is
-     * returned depend on which mock types are going to be used in the search
+     * returned depend on which mock types are going to be used in the search.
      *
-     * @return a list of Class objects
+     * @return a list of Class objects.
      */
     public static List<Class<? extends EvoSuiteMock>> getList() {
-
         List<Class<? extends EvoSuiteMock>> list = new ArrayList<>();
 
         if (RuntimeSettings.useVFS) {
@@ -177,21 +175,21 @@ public class MockList {
     }
 
     /**
-     * Check if the given class has been mocked
+     * Check if the given class has been mocked.
      *
-     * @param originalClass
-     * @return
-     * @throws IllegalArgumentException
+     * @param originalClass the name of the class to check.
+     * @return true if the class should be mocked.
+     * @throws java.lang.IllegalArgumentException if the class name is invalid.
      */
     public static boolean shouldBeMocked(String originalClass) throws IllegalArgumentException {
         return getMockClass(originalClass) != null;
     }
 
     /**
-     * Check if the given class is among the mock classes
+     * Check if the given class is among the mock classes.
      *
-     * @param mockClass
-     * @return
+     * @param mockClass the name of the mock class to check.
+     * @return true if it is a mock class.
      */
     public static boolean isAMockClass(String mockClass) {
         if (mockClass == null) {
@@ -208,10 +206,11 @@ public class MockList {
     }
 
     /**
-     * Return the mock class for the given target
+     * Return the mock class for the given target.
      *
-     * @param originalClass
-     * @return {@code null} if the target is not mocked
+     * @param originalClass the name of the class to get the mock for.
+     * @return {@code null} if the target is not mocked.
+     * @throws java.lang.IllegalArgumentException if the class name is invalid.
      */
     public static Class<?> getMockClass(String originalClass) throws IllegalArgumentException {
         if (originalClass == null || originalClass.isEmpty()) {

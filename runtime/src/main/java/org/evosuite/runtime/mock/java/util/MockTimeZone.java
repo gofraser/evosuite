@@ -22,12 +22,12 @@ package org.evosuite.runtime.mock.java.util;
 import java.util.TimeZone;
 
 /**
- * TimeZone is used all over the places in the Java API. So not much of the point to try to mock it,
- * as anyway we just need to handle the default time zone that is machine dependent.
+ * Mock implementation of java.util.TimeZone.
  *
- * Created by arcuri on 12/5/14.
+ * <p>TimeZone is used all over the places in the Java API. So not much of the point to try to mock it,
+ * as anyway we just need to handle the default time zone that is machine dependent.
  */
-public abstract class MockTimeZone extends TimeZone{
+public abstract class MockTimeZone extends TimeZone {
 
     private static final TimeZone cloneGMT = (TimeZone) TimeZone.getTimeZone("GMT").clone();
     private static final long serialVersionUID = 2606461171386129455L;

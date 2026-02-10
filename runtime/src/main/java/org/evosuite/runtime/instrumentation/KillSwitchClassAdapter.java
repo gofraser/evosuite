@@ -31,6 +31,11 @@ import org.objectweb.asm.Opcodes;
  */
 public class KillSwitchClassAdapter extends ClassVisitor {
 
+    /**
+     * <p>Constructor for KillSwitchClassAdapter.</p>
+     *
+     * @param cv a {@link org.objectweb.asm.ClassVisitor} object.
+     */
     public KillSwitchClassAdapter(ClassVisitor cv) {
         super(Opcodes.ASM9, cv);
     }

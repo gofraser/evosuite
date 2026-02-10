@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -38,49 +38,47 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * This is not a mock of FileChannel, as FileChannel is an abstract class.
  * This class is never instantiated directly from the SUTs, but rather from mock classes (eg MockFileInputStream).
- * 
- * 
- * @author arcuri
  *
+ * @author arcuri
  */
-public class EvoFileChannel extends FileChannel{  //FIXME mock FileChannel
+public class EvoFileChannel extends FileChannel { //FIXME mock FileChannel
 
     /**
-     * The read/write position in the channel
+     * The read/write position in the channel.
      */
     private final AtomicInteger position;
 
     /**
-     * The absolute path of the file this channel is for
+     * The absolute path of the file this channel is for.
      */
     private final String path;
 
     /**
-     * Can this channel be used for read operations?
+     * Can this channel be used for read operations?.
      */
     private final boolean isOpenForRead;
 
     /**
-     * Can this channel be used for write operations?
+     * Can this channel be used for write operations?.
      */
     private final boolean isOpenForWrite;
 
     /**
      * Is this channel closed? Most functions throw an exception if the channel is closed.
-     * Once a channel is closed, it cannot be reopened
+     * Once a channel is closed, it cannot be reopened.
      */
     private volatile boolean closed;
 
     private final Object readWriteMonitor = new Object();
 
     /**
-     * Main constructor
+     * Main constructor.
      *
-     * @param sharedPosition   the position in the channel, which should be shared with the stream this channel was generated from
-                                 (i.e., same instance reference)
-     * @param path                full qualifying path the of the target file
-     * @param isOpenForRead
-     * @param isOpenForWrite
+     * @param sharedPosition the position in the channel, which should be shared with the stream
+     *                       this channel was generated from (i.e., same instance reference)
+     * @param path           full qualifying path the of the target file
+     * @param isOpenForRead  can this channel be used for read operations?
+     * @param isOpenForWrite can this channel be used for write operations?
      */
     protected EvoFileChannel(AtomicInteger sharedPosition, String path,
             boolean isOpenForRead, boolean isOpenForWrite) {
@@ -97,25 +95,25 @@ public class EvoFileChannel extends FileChannel{  //FIXME mock FileChannel
 
     @Override
     public int read(ByteBuffer dst) throws IOException {
-        return read(new ByteBuffer[]{dst},0,1,position);
+        return read(new ByteBuffer[]{dst}, 0, 1, position);
     }
 
     @Override
     public int read(ByteBuffer dst, long pos) throws IOException {
 
         if (pos < 0) {
-            throw new MockIllegalArgumentException("Negative position: "+pos);
+            throw new MockIllegalArgumentException("Negative position: " + pos);
         }
 
-        AtomicInteger tmp = new AtomicInteger((int)pos);
+        AtomicInteger tmp = new AtomicInteger((int) pos);
 
-        return read(new ByteBuffer[]{dst},0,1,tmp);
+        return read(new ByteBuffer[]{dst}, 0, 1, tmp);
     }
 
     @Override
     public long read(ByteBuffer[] dsts, int offset, int length)
             throws IOException {
-        return read(dsts,offset,length,position);
+        return read(dsts, offset, length, position);
     }
 
     private int read(ByteBuffer[] dsts, int offset, int length, AtomicInteger posToUpdate)
@@ -129,10 +127,10 @@ public class EvoFileChannel extends FileChannel{  //FIXME mock FileChannel
         int counter = 0;
 
         synchronized (readWriteMonitor) {
-            for (int j=offset; j<length; j++) {
+            for (int j = offset; j < length; j++) {
                 ByteBuffer dst = dsts[j];
                 int r = dst.remaining();
-                for (int i=0; i<r; i++) {
+                for (int i = 0; i < r; i++) {
                     int b = NativeMockedIO.read(path, posToUpdate);
                     if (b < 0) { //end of stream
                         return -1;
@@ -147,7 +145,7 @@ public class EvoFileChannel extends FileChannel{  //FIXME mock FileChannel
                         throw new ClosedByInterruptException();
                     }
 
-                    dst.put((byte)b);
+                    dst.put((byte) b);
                     counter++;
                 }
             }
@@ -160,25 +158,25 @@ public class EvoFileChannel extends FileChannel{  //FIXME mock FileChannel
 
     @Override
     public int write(ByteBuffer src) throws IOException {
-        return write(new ByteBuffer[]{src},0,1,position);
+        return write(new ByteBuffer[]{src}, 0, 1, position);
     }
 
     @Override
     public int write(ByteBuffer src, long pos) throws IOException {
 
         if (pos < 0) {
-            throw new MockIllegalArgumentException("Negative position: "+pos);
+            throw new MockIllegalArgumentException("Negative position: " + pos);
         }
 
-        AtomicInteger tmp = new AtomicInteger((int)pos);
+        AtomicInteger tmp = new AtomicInteger((int) pos);
 
-        return write(new ByteBuffer[]{src},0,1,tmp);
+        return write(new ByteBuffer[]{src}, 0, 1, tmp);
     }
 
     @Override
     public long write(ByteBuffer[] srcs, int offset, int length)
             throws IOException {
-        return write(srcs,offset,length,position);
+        return write(srcs, offset, length, position);
     }
 
     private int write(ByteBuffer[] srcs, int offset, int length, AtomicInteger posToUpdate)
@@ -187,7 +185,7 @@ public class EvoFileChannel extends FileChannel{  //FIXME mock FileChannel
             throw new NonWritableChannelException();
         }
 
-        if ( (offset < 0) || (offset > srcs.length) ||  (length < 0) || (length > srcs.length-offset) ) {
+        if ((offset < 0) || (offset > srcs.length) || (length < 0) || (length > srcs.length - offset)) {
             throw new IndexOutOfBoundsException();
         }
 
@@ -198,10 +196,10 @@ public class EvoFileChannel extends FileChannel{  //FIXME mock FileChannel
         byte[] buffer = new byte[1];
 
         synchronized (readWriteMonitor) {
-            for (int j=offset; j<length; j++) {
+            for (int j = offset; j < length; j++) {
                 ByteBuffer src = srcs[j];
                 int r = src.remaining();
-                for (int i=0; i<r; i++) {
+                for (int i = 0; i < r; i++) {
                     byte b = src.get();
                     buffer[0] = b;
                     NativeMockedIO.writeBytes(path, posToUpdate, buffer, 0, 1);
@@ -261,7 +259,7 @@ public class EvoFileChannel extends FileChannel{  //FIXME mock FileChannel
         throwExceptionIfClosed();
         VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
 
-        position.set((int)newPosition);
+        position.set((int) newPosition);
 
         return this;
     }
@@ -319,7 +317,7 @@ public class EvoFileChannel extends FileChannel{  //FIXME mock FileChannel
         closed = true;
     }
 
-    private void throwExceptionIfClosed() throws ClosedChannelException{
+    private void throwExceptionIfClosed() throws ClosedChannelException {
         if (closed) {
             throw new ClosedChannelException();
         }

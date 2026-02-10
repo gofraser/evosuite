@@ -27,7 +27,8 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 
 /**
- * 
+ * This class provides a way to invoke superclass methods that may be mocked.
+ *
  * @author gordon
  *
  */
@@ -41,27 +42,40 @@ public class InvokeSpecialMock {
      * The difficulty is that reflection does dynamic binding, which means it can only
      * do invokevirtual, not invokespecial. To overcome this, we use this ugly hack.
      */
-    public static Object invokeSpecial(Object receiver, Object[] parameters, String methodName, String descriptor) throws Throwable {
+    /**
+     * Dynamically determine the first superclass that defines the target method and invoke it.
+     *
+     * @param receiver the object to invoke the method on.
+     * @param parameters the parameters for the method call.
+     * @param methodName the name of the method.
+     * @param descriptor the method descriptor.
+     * @return the result of the method invocation.
+     * @throws Throwable if any error occurs during invocation.
+     */
+    public static Object invokeSpecial(Object receiver, Object[] parameters, String methodName, String descriptor)
+            throws Throwable {
 
         // Determine the first superclass that defines the target method
         Class<?> superClass = receiver.getClass().getSuperclass();
         Method targetMethod = null;
         while (targetMethod == null && superClass != null) {
             for (Method method : superClass.getDeclaredMethods()) {
-                if (method.getName().equals(methodName) &&
-                        descriptor.equals(Type.getMethodDescriptor(method))) {
+                if (method.getName().equals(methodName)
+                        && descriptor.equals(Type.getMethodDescriptor(method))) {
                     targetMethod = method;
                     break;
                 }
             }
             superClass = superClass.getSuperclass();
         }
-        if (targetMethod == null)
-            throw new IllegalArgumentException("No such method: "+methodName);
+        if (targetMethod == null) {
+            throw new IllegalArgumentException("No such method: " + methodName);
+        }
 
         // Now create a method handle through reflection, because otherwise
         // we would not have permission to invoke methods on the target class
-        Constructor<MethodHandles.Lookup> methodHandlesLookupConstructor = MethodHandles.Lookup.class.getDeclaredConstructor(Class.class);
+        Constructor<MethodHandles.Lookup> methodHandlesLookupConstructor =
+                MethodHandles.Lookup.class.getDeclaredConstructor(Class.class);
         methodHandlesLookupConstructor.setAccessible(true);
         MethodHandles.Lookup lookup = methodHandlesLookupConstructor.newInstance(targetMethod.getDeclaringClass());
         MethodHandle methodHandle = lookup.findSpecial(targetMethod.getDeclaringClass(),
@@ -75,8 +89,9 @@ public class InvokeSpecialMock {
         // array of parameters.
         Object[] parameterObjects = new Object[parameters.length + 1];
         parameterObjects[0] = receiver;
-        for (int i = 0; i < parameters.length; i++)
-            parameterObjects[i+1] = parameters[i];
+        for (int i = 0; i < parameters.length; i++) {
+            parameterObjects[i + 1] = parameters[i];
+        }
         return methodHandle.invokeWithArguments(parameterObjects);
     }
 }

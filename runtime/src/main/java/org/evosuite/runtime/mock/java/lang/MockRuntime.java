@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -29,7 +29,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.StringTokenizer;
 
-public class MockRuntime implements StaticReplacementMock{
+/**
+ * Custom mock implementation of {@link java.lang.Runtime}.
+ */
+public class MockRuntime implements StaticReplacementMock {
 
     public String getMockedClassName() {
         return java.lang.Runtime.class.getName();
@@ -59,7 +62,7 @@ public class MockRuntime implements StaticReplacementMock{
         throw new SystemExitException();
     }
 
-    public static void addShutdownHook(Runtime runtime,Thread hook) {
+    public static void addShutdownHook(Runtime runtime, Thread hook) {
         /*
          * this is going to be handled specially by ShutdownHookHandler.
          * The mocking is implemented in this special way to handle all cases in which
@@ -91,13 +94,15 @@ public class MockRuntime implements StaticReplacementMock{
 
     public static Process exec(Runtime runtime, String command, String[] envp, File dir) throws IOException {
 
-        if (command.length() == 0)
+        if (command.length() == 0) {
             throw new MockIllegalArgumentException("Empty command");
+        }
 
         StringTokenizer st = new StringTokenizer(command);
         String[] cmdarray = new String[st.countTokens()];
-        for (int i = 0; st.hasMoreTokens(); i++)
+        for (int i = 0; st.hasMoreTokens(); i++) {
             cmdarray[i] = st.nextToken();
+        }
         return exec(runtime, cmdarray, envp, dir);
     }
 
@@ -121,7 +126,7 @@ public class MockRuntime implements StaticReplacementMock{
         throw new MockIOException("Cannot start processes in a unit test");
     }
 
-    public static  void gc(Runtime runtime) {
+    public static void gc(Runtime runtime) {
         //do nothing
     }
 
@@ -140,7 +145,7 @@ public class MockRuntime implements StaticReplacementMock{
 
     public static void load(Runtime runtime, String filename) {
         //load0(Reflection.getCallerClass(), filename);
-        runtime.load(filename);  // we need to load the actuall stuff
+        runtime.load(filename); // we need to load the actuall stuff
     }
 
     public static void loadLibrary(Runtime runtime, String libname) {
@@ -167,15 +172,15 @@ public class MockRuntime implements StaticReplacementMock{
         return 1;
     }
 
-    public static  long freeMemory(Runtime runtime) {
+    public static long freeMemory(Runtime runtime) {
         return 200;
     }
 
-    public static  long totalMemory(Runtime runtime) {
+    public static long totalMemory(Runtime runtime) {
         return 400;
     }
 
-    public static  long maxMemory(Runtime runtime) {
+    public static long maxMemory(Runtime runtime) {
         return 500;
     }
 

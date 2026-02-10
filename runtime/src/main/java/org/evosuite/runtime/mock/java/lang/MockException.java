@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -24,7 +24,10 @@ import org.evosuite.runtime.mock.OverrideMock;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 
-public class MockException extends Exception  implements OverrideMock{
+/**
+ * Custom mock implementation of {@link java.lang.Exception}.
+ */
+public class MockException extends Exception implements OverrideMock {
 
     /*
      * "Exception" class only defines constructors, like all (?) its subclasses.
@@ -40,7 +43,7 @@ public class MockException extends Exception  implements OverrideMock{
     private static final long serialVersionUID = 8001149552489118355L;
 
     /**
-     * Instead of copy&amp;paste functionalities from MockThrowable, use a delegate
+     * Instead of copy&amp;paste functionalities from MockThrowable, use a delegate.
      */
     private volatile MockThrowable delegate;
 
@@ -85,7 +88,7 @@ public class MockException extends Exception  implements OverrideMock{
     protected MockException(String message, Throwable cause,
             boolean enableSuppression,
             boolean writableStackTrace) {
-        super(message,cause,enableSuppression,writableStackTrace);
+        super(message, cause, enableSuppression, writableStackTrace);
         delegate = new MockThrowable(message, cause, enableSuppression, writableStackTrace);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
@@ -150,6 +153,10 @@ public class MockException extends Exception  implements OverrideMock{
         getDelegate().printStackTrace(p);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void printStackTrace(PrintWriter p) {
         if (!MockFramework.isEnabled()) {
             super.printStackTrace(p);
@@ -158,7 +165,7 @@ public class MockException extends Exception  implements OverrideMock{
         getDelegate().printStackTrace(p);
     }
 
-    /**
+    /*
     @Override
     public synchronized Throwable fillInStackTrace() {
         if (!MockFramework.isEnabled()) {

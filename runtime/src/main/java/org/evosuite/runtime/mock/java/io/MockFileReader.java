@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -29,7 +29,10 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
-public class MockFileReader extends FileReader  implements OverrideMock{
+/**
+ * Custom mock implementation of {@link java.io.FileReader}.
+ */
+public class MockFileReader extends FileReader implements OverrideMock {
 
     /**
      * As all the constructors of FileReader instantiate
@@ -47,16 +50,15 @@ public class MockFileReader extends FileReader  implements OverrideMock{
      */
 
     public MockFileReader(String fileName) throws FileNotFoundException {
-            this(fileName != null ?
-                    (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName) ):
-                    null
-                );
+        this(fileName != null
+                ? (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName))
+                : null);
     }
 
     public MockFileReader(File file) throws FileNotFoundException {
-        super(!MockFramework.isEnabled() ?
-                file :
-                VirtualFileSystem.getInstance().getRealTmpFile()); // just to make compiler happy
+        super(!MockFramework.isEnabled()
+                ? file
+                : VirtualFileSystem.getInstance().getRealTmpFile()); // just to make compiler happy
 
         if (!MockFramework.isEnabled()) {
             return;
@@ -87,7 +89,7 @@ public class MockFileReader extends FileReader  implements OverrideMock{
             return super.read();
         }
 
-            return stream.read();
+        return stream.read();
     }
 
     @Override
@@ -112,8 +114,8 @@ public class MockFileReader extends FileReader  implements OverrideMock{
             super.close();
             return;
         }
-    
+
         stream.close();
     }
-        
+
 }

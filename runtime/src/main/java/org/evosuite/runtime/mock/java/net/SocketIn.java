@@ -20,30 +20,31 @@
 package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.vnet.NativeTcp;
+
 import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * Class used to create an InputStream for a virtual socket connection
- * 
+ * Class used to create an InputStream for a virtual socket connection.
+ *
  * @author arcuri
  *
  */
-public class SocketIn extends InputStream{
+public class SocketIn extends InputStream {
 
     /**
-     * The TCP connection this stream is representing
+     * The TCP connection this stream is representing.
      */
     private final NativeTcp tcp;
 
     /**
-     * Is this stream for the local socket of the 2-way connection?
+     * Is this stream for the local socket of the 2-way connection.
      */
     private final boolean isLocal;
 
     private volatile boolean closed;
 
-    public SocketIn(NativeTcp tcp, boolean isLocal) throws IllegalArgumentException{
+    public SocketIn(NativeTcp tcp, boolean isLocal) throws IllegalArgumentException {
         super();
 
         if (tcp == null) {
@@ -74,7 +75,7 @@ public class SocketIn extends InputStream{
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
-        return super.read(b,off,len);
+        return super.read(b, off, len);
     }
 
     @Override
@@ -101,7 +102,8 @@ public class SocketIn extends InputStream{
     }
 
     @Override
-    public synchronized void mark(int readlimit) {}
+    public synchronized void mark(int readlimit) {
+    }
 
     @Override
     public synchronized void reset() throws IOException {
@@ -113,7 +115,7 @@ public class SocketIn extends InputStream{
         return false;
     }
 
-    private void checkClosed() throws IOException{
+    private void checkClosed() throws IOException {
         if (closed) {
             throw new IOException("Closed stream");
         }

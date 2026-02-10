@@ -21,14 +21,15 @@ package org.evosuite.runtime.mock.java.net;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 
 /**
  * Helper class used to call package level methods in java.net
- * 
- * TODO this will be needed for rollbacks
- * 
+ *
+ * <p>TODO this will be needed for rollbacks.
+ *
  * @author arcuri
  *
  */
@@ -37,8 +38,8 @@ public class NetReflectionUtil {
     private static final Logger logger = LoggerFactory.getLogger(NetReflectionUtil.class);
 
     /**
-     * Wrapper for {@code InetAddress.anyLocalAddress()}
-     * @return
+     * Wrapper for {@code InetAddress.anyLocalAddress()}.
+     * @return the any local address
      */
     public static InetAddress anyLocalAddress() {
 
@@ -47,8 +48,8 @@ public class NetReflectionUtil {
             m.setAccessible(true);
             return (InetAddress) m.invoke(null);
         } catch (Exception e) {
-            //should never happen
-            logger.error("Failed to use reflection on InetAddress.anyLocalAddress(): "+e.getMessage(),e);
+            // should never happen
+            logger.error("Failed to use reflection on InetAddress.anyLocalAddress(): " + e.getMessage(), e);
         }
 
         return null;

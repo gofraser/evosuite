@@ -24,9 +24,9 @@ import java.text.DateFormat;
 import java.util.*;
 
 /**
- * Created by arcuri on 1/25/15.
+ * Mock implementation of java.util.Calendar.
  */
-public abstract class MockCalendar extends Calendar implements OverrideMock{
+public abstract class MockCalendar extends Calendar implements OverrideMock {
     private static final long serialVersionUID = 7787669189246845968L;
 
     /*
@@ -40,30 +40,30 @@ public abstract class MockCalendar extends Calendar implements OverrideMock{
         super();
     }
 
-    protected MockCalendar(TimeZone zone, Locale aLocale) {
-        super(zone,aLocale);
+    protected MockCalendar(TimeZone zone, Locale locale) {
+        super(zone, locale);
     }
 
     // ------ static methods ----------
 
     public static Calendar getInstance() {
-        return __createCalendar(TimeZone.getDefault(), Locale.getDefault(Locale.Category.FORMAT));
+        return createCalendar(TimeZone.getDefault(), Locale.getDefault(Locale.Category.FORMAT));
     }
 
     public static Calendar getInstance(TimeZone zone) {
-        return __createCalendar(zone, Locale.getDefault(Locale.Category.FORMAT));
+        return createCalendar(zone, Locale.getDefault(Locale.Category.FORMAT));
     }
 
-    public static Calendar getInstance(Locale aLocale) {
-        return __createCalendar(TimeZone.getDefault(), aLocale);
+    public static Calendar getInstance(Locale locale) {
+        return createCalendar(TimeZone.getDefault(), locale);
     }
 
-    public static Calendar getInstance(TimeZone zone,Locale aLocale) {
-        return __createCalendar(zone, aLocale);
+    public static Calendar getInstance(TimeZone zone, Locale locale) {
+        return createCalendar(zone, locale);
     }
 
-    private static Calendar __createCalendar(TimeZone zone,Locale aLocale) {
-        return new MockGregorianCalendar(zone, aLocale);
+    private static Calendar createCalendar(TimeZone zone, Locale locale) {
+        return new MockGregorianCalendar(zone, locale);
     }
 
     public static synchronized Locale[] getAvailableLocales() {

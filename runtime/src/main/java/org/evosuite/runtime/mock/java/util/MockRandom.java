@@ -22,7 +22,10 @@ package org.evosuite.runtime.mock.java.util;
 import org.evosuite.runtime.mock.OverrideMock;
 import java.util.Random;
 
-public class MockRandom extends Random  implements OverrideMock{
+/**
+ * Mock implementation of java.util.Random.
+ */
+public class MockRandom extends Random implements OverrideMock {
 
     private static final long serialVersionUID = 7095505244285248683L;
 
@@ -35,7 +38,7 @@ public class MockRandom extends Random  implements OverrideMock{
     }
 
     /**
-     * Replacement function for nextInt
+     * Replacement function for nextInt.
      *
      * @return a int.
      */
@@ -44,7 +47,7 @@ public class MockRandom extends Random  implements OverrideMock{
     }
 
     /**
-     * Replacement function for nextInt
+     * Replacement function for nextInt.
      *
      * @param max
      *            a int.
@@ -55,7 +58,7 @@ public class MockRandom extends Random  implements OverrideMock{
     }
 
     /**
-     * Replacement function for nextFloat
+     * Replacement function for nextFloat.
      *
      * @return a float.
      */
@@ -64,15 +67,16 @@ public class MockRandom extends Random  implements OverrideMock{
     }
 
     /**
-     * Replacement function for nextBytes
-     * @param bytes
+     * Replacement function for nextBytes.
+     *
+     * @param bytes the byte array to fill
      */
-     public void nextBytes(byte[] bytes) {
+    public void nextBytes(byte[] bytes) {
         org.evosuite.runtime.Random.nextBytes(bytes);
-     }
+    }
 
     /**
-     * Replacement function for nextDouble
+     * Replacement function for nextDouble.
      *
      * @return a float.
      */
@@ -81,7 +85,7 @@ public class MockRandom extends Random  implements OverrideMock{
     }
 
     /**
-     * Replacement function for nextGaussian
+     * Replacement function for nextGaussian.
      *
      * @return a double.
      */
@@ -90,7 +94,7 @@ public class MockRandom extends Random  implements OverrideMock{
     }
 
     /**
-     * Replacement function for nextBoolean
+     * Replacement function for nextBoolean.
      *
      * @return a boolean.
      */
@@ -99,7 +103,7 @@ public class MockRandom extends Random  implements OverrideMock{
     }
 
     /**
-     * Replacement function for nextLong
+     * Replacement function for nextLong.
      *
      * @return a long.
      */

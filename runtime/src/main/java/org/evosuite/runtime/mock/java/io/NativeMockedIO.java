@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -26,14 +26,12 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * This class is used to mock native methods regarding I/O, and 
- * it also provide support functions used by different I/O mocks
- * 
- * <p>
- * All methods declaring IOException might throw it depending on simulation / test data 
- * 
- * @author arcuri
+ * This class is used to mock native methods regarding I/O, and
+ * it also provide support functions used by different I/O mocks.
  *
+ * <p>All methods declaring IOException might throw it depending on simulation / test data.
+ *
+ * @author arcuri
  */
 public class NativeMockedIO {
 
@@ -45,7 +43,7 @@ public class NativeMockedIO {
         return (VFile) target;
     }
 
-    public static int read(String path, AtomicInteger position) throws IOException{
+    public static int read(String path, AtomicInteger position) throws IOException {
         VFile vf = NativeMockedIO.getFileForReading(path);
         if (vf == null) {
             throw new MockIOException();
@@ -67,7 +65,7 @@ public class NativeMockedIO {
     }
 
     public static void writeBytes(String path, AtomicInteger position, byte[] b, int off, int len)
-            throws IOException{
+            throws IOException {
 
         VFile vf = NativeMockedIO.getFileForWriting(path);
         if (vf == null) {
@@ -76,14 +74,14 @@ public class NativeMockedIO {
 
         VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
 
-        int written = vf.writeBytes(position.get(),b, off, len);
+        int written = vf.writeBytes(position.get(), b, off, len);
         if (written == 0) {
             throw new MockIOException("Error in writing to file");
         }
         position.addAndGet(written);
     }
 
-    public static int size(String path) throws IOException{
+    public static int size(String path) throws IOException {
         VFile vf = NativeMockedIO.getFileForReading(path);
         if (vf == null) {
             throw new MockIOException();
@@ -94,12 +92,13 @@ public class NativeMockedIO {
         return vf.getDataSize();
     }
 
-    public static void setLength(String path, AtomicInteger position, long newLength) throws IOException{
+    public static void setLength(String path, AtomicInteger position, long newLength) throws IOException {
         if (newLength < 0) {
-            throw new MockIOException("Negative position: "+newLength);
+            throw new MockIOException("Negative position: " + newLength);
         }
         if (newLength > Integer.MAX_VALUE) {
-            throw new MockIOException("Virtual file system does not handle files larger than  "+Integer.MAX_VALUE+" bytes");
+            throw new MockIOException("Virtual file system does not handle files larger than "
+                    + Integer.MAX_VALUE + " bytes");
         }
 
         VFile vf = NativeMockedIO.getFileForWriting(path);
@@ -109,10 +108,10 @@ public class NativeMockedIO {
 
         VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
 
-        vf.setLength((int)newLength);
+        vf.setLength((int) newLength);
 
         if (position.get() > newLength) {
-            position.set((int)newLength);
+            position.set((int) newLength);
         }
     }
 }

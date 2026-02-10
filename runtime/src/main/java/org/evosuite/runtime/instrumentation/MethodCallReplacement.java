@@ -84,11 +84,25 @@ public class MethodCallReplacement {
         this.origOpcode = opcode;
     }
 
+    /**
+     * <p>isTarget.</p>
+     *
+     * @param owner a {@link java.lang.String} object.
+     * @param name  a {@link java.lang.String} object.
+     * @param desc  a {@link java.lang.String} object.
+     * @return a boolean.
+     */
     public boolean isTarget(String owner, String name, String desc) {
         return className.equals(owner) && methodName.equals(name)
                 && this.desc.equals(desc);
     }
 
+    /**
+     * <p>insertMethodCall.</p>
+     *
+     * @param mv     a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementMethodAdapter} object.
+     * @param opcode a int.
+     */
     public void insertMethodCall(MethodCallReplacementMethodAdapter mv, int opcode) {
         mv.visitMethodInsn(Opcodes.INVOKESTATIC, MockFramework.class.getCanonicalName().replace('.', '/'),
                 "isEnabled", "()Z", false);
@@ -136,6 +150,11 @@ public class MethodCallReplacement {
         mv.visitLabel(afterOrigCallLabel);
     }
 
+    /**
+     * <p>insertInvokeSpecialForMockedSuperclass.</p>
+     *
+     * @param mv a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementMethodAdapter} object.
+     */
     public void insertInvokeSpecialForMockedSuperclass(MethodCallReplacementMethodAdapter mv) {
         int numArguments = Type.getArgumentTypes(replacementDesc).length;
         mv.push(numArguments);
@@ -164,6 +183,13 @@ public class MethodCallReplacement {
 
     }
 
+    /**
+     * <p>insertConstructorCall.</p>
+     *
+     * @param mv          a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementMethodAdapter} object.
+     * @param replacement a {@link org.evosuite.runtime.instrumentation.MethodCallReplacement} object.
+     * @param isSelf      a boolean.
+     */
     public void insertConstructorCall(MethodCallReplacementMethodAdapter mv,
                                       MethodCallReplacement replacement, boolean isSelf) {
         Label origCallLabel = new Label();
@@ -206,14 +232,29 @@ public class MethodCallReplacement {
         }
     }
 
+    /**
+     * <p>Getter for the field <code>className</code>.</p>
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getClassName() {
         return className;
     }
 
+    /**
+     * <p>Getter for the field <code>methodName</code>.</p>
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getMethodName() {
         return methodName;
     }
 
+    /**
+     * <p>getMethodNameWithDesc.</p>
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getMethodNameWithDesc() {
         return methodName + desc;
     }

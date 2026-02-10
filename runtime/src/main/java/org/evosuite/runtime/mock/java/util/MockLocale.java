@@ -22,9 +22,9 @@ package org.evosuite.runtime.mock.java.util;
 import java.util.Locale;
 
 /**
- * At least for the moment, no need to have a full mock
+ * Mock implementation of java.util.Locale.
  *
- * Created by arcuri on 1/25/15.
+ * <p>At least for the moment, no need to have a full mock.
  */
 public class MockLocale { // extends Locale {
 

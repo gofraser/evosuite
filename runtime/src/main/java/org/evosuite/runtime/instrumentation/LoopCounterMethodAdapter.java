@@ -38,6 +38,13 @@ public class LoopCounterMethodAdapter extends MethodVisitor {
 
     private static final String LOOP_COUNTER = Type.getInternalName(LoopCounter.class);
 
+    /**
+     * <p>Constructor for LoopCounterMethodAdapter.</p>
+     *
+     * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
+     * @param methodName a {@link java.lang.String} object.
+     * @param desc       a {@link java.lang.String} object.
+     */
     public LoopCounterMethodAdapter(MethodVisitor mv, String methodName, String desc) {
         super(Opcodes.ASM9, mv);
     }

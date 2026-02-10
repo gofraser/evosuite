@@ -24,8 +24,18 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.JSRInlinerAdapter;
 
+/**
+ * This class visitor inlines JSR instructions.
+ *
+ * @author Gordon Fraser
+ */
 public class JSRInlinerClassVisitor extends ClassVisitor {
 
+    /**
+     * <p>Constructor for JSRInlinerClassVisitor.</p>
+     *
+     * @param parent a {@link org.objectweb.asm.ClassVisitor} object.
+     */
     public JSRInlinerClassVisitor(ClassVisitor parent) {
         super(Opcodes.ASM9, parent);
     }

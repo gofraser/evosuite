@@ -100,17 +100,18 @@ public class MSecurityManager extends SecurityManager {
         try {
             tmp = InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {
+            logger.debug("Failed to get local host name: {}", e.getMessage());
         }
         LOCALHOST_NAME = tmp;
     }
 
     /**
-     * Needed for the VFS
+     * Needed for the VFS.
      */
     private static final File tmpFile;
 
     /**
-     * Pattern name used by the mock of {@code java.uitl.logging.FileHandler}
+     * Pattern name used by the mock of {@code java.uitl.logging.FileHandler}.
      */
     public static final String FILE_HANDLER_NAME_PATTERN = ".tmp_file_needed_by_mock_of_FileHandler";
 
@@ -144,26 +145,26 @@ public class MSecurityManager extends SecurityManager {
     private final SecurityManager defaultManager;
 
     /**
-     * Is EvoSuite executing a test case?
+     * Whether EvoSuite is executing a test case.
      */
     private volatile boolean executingTestCase;
 
 
     /**
      * Data structure containing all the (EvoSuite) threads that do not need to
-     * go through the same sandbox as the SUT threads
+     * go through the same sandbox as the SUT threads.
      */
     private final Set<Thread> privilegedThreads;
 
     /**
-     * Check whether a privileged thread should use the sandbox as for SUT code
+     * Check whether a privileged thread should use the sandbox as for SUT code.
      */
     private volatile Thread privilegedThreadToIgnore;
 
     /**
      * Name of all the methods in the MasterNodeRemote interface.
      * This is used to allow RMI communications even on non-privileged threads,
-     * but only if coming from EvoSuite (and not from SUT)
+     * but only if coming from EvoSuite (and not from SUT).
      */
     private static Set<String> masterNodeRemoteMethodNames;
 
@@ -173,13 +174,13 @@ public class MSecurityManager extends SecurityManager {
      * It can happen that EvoSuite encounters permissions it does not recognize.
      * This could be due to a bug in EvoSuite, or a custom permission of the SUT.
      * When an unrecognized permission is encountered, we might want to log it.
-     * However, logging each single access might flood the logs
+     * However, logging each single access might flood the logs.
      */
     private final Set<Permission> unrecognizedPermissions;
 
     /**
      * Create a custom security manager for the SUT. The thread that create this
-     * instance is automatically added as "privileged"
+     * instance is automatically added as "privileged".
      */
     public MSecurityManager() {
         privilegedThreads = new CopyOnWriteArraySet<>();
@@ -194,9 +195,9 @@ public class MSecurityManager extends SecurityManager {
 
     /**
      * We need to use reflection to avoid the runtime module to have a dependency
-     * on MasterNodeRemote
+     * on MasterNodeRemote.
      *
-     * @param remoteNode
+     * @param remoteNode the remote node class
      */
     public static void setupMasterNodeRemoteHandling(Class<?> remoteNode) {
         Method[] methods = remoteNode.getMethods();
@@ -207,11 +208,21 @@ public class MSecurityManager extends SecurityManager {
         masterNodeRemoteMethodNames = Collections.unmodifiableSet(names);
     }
 
+    /**
+     * Returns the set of privileged threads.
+     *
+     * @return the set of privileged threads
+     */
     public Set<Thread> getPrivilegedThreads() {
         Set<Thread> set = new LinkedHashSet<>(privilegedThreads);
         return set;
     }
 
+    /**
+     * Set whether the client is running on the current thread.
+     *
+     * @param runningClientOnThread true if the client is running on the current thread
+     */
     public static void setRunningClientOnThread(boolean runningClientOnThread) {
         MSecurityManager.runningClientOnThread = runningClientOnThread;
     }
@@ -220,9 +231,9 @@ public class MSecurityManager extends SecurityManager {
      * This security manager creates one file when its class is loaded.
      * This file will be used for example by the virtual file system.
      * The file has to be created here, because creating new files
-     * is prohibited by the security manager
+     * is prohibited by the security manager.
      *
-     * @return
+     * @return the real temporary file
      */
     public static File getRealTmpFile() {
         return tmpFile;
@@ -230,10 +241,10 @@ public class MSecurityManager extends SecurityManager {
 
     /**
      * Use this method if you are going to execute SUT code from a privileged
-     * thread (ie if you don't want to do it on a new thread)
+     * thread (ie if you don't want to do it on a new thread).
      *
-     * @throws SecurityException
-     * @throws IllegalStateException
+     * @throws SecurityException     if the current thread is not privileged
+     * @throws IllegalStateException if the thread is already executing unsafe code
      */
     public void goingToExecuteUnsafeCodeOnSameThread() throws SecurityException, IllegalStateException {
         if (!privilegedThreads.contains(Thread.currentThread())) {
@@ -247,9 +258,9 @@ public class MSecurityManager extends SecurityManager {
 
     /**
      * Check if running SUT code on current thread would be done
-     * inside the sandbox
+     * inside the sandbox.
      *
-     * @return
+     * @return true if it is safe to execute SUT code
      */
     public boolean isSafeToExecuteSUTCode() {
         Thread current = Thread.currentThread();
@@ -264,10 +275,10 @@ public class MSecurityManager extends SecurityManager {
 
     /**
      * Call after goingToExecuteUnsafeCodeOnSameThread when done with unsafe
-     * code
+     * code.
      *
-     * @throws SecurityException
-     * @throws IllegalStateException
+     * @throws SecurityException     if the current thread is not privileged
+     * @throws IllegalStateException if the thread was not executing unsafe code
      */
     public void doneWithExecutingUnsafeCodeOnSameThread() throws SecurityException,
             IllegalStateException {
@@ -286,7 +297,7 @@ public class MSecurityManager extends SecurityManager {
      * When we start EvoSuite, quite a few other threads could start as well
      * (e.g., "Reference Handler", "Finalizer" and "Signal Dispatcher"). This is
      * a convenience method to grant permissions to all threads before starting
-     * to execute test cases
+     * to execute test cases.
      * </p>
      * <p>
      * WARNING: to use only before any SUT code has been executed. Afterwards,
@@ -313,9 +324,9 @@ public class MSecurityManager extends SecurityManager {
     }
 
     /**
-     * Use this manager as security manager
+     * Use this manager as security manager.
      *
-     * @throws IllegalStateException
+     * @throws IllegalStateException         if an error occurs while setting the security manager
      * @throws UnsupportedOperationException if Security Manager is not supported (Java 24+)
      */
     public void apply() throws IllegalStateException, UnsupportedOperationException {
@@ -333,7 +344,7 @@ public class MSecurityManager extends SecurityManager {
     }
 
     /**
-     * Note: an un-privileged thread would throw a security exception
+     * Note: an un-privileged thread would throw a security exception.
      */
     public void restoreDefaultManager() throws SecurityException {
         try {
@@ -379,7 +390,7 @@ public class MSecurityManager extends SecurityManager {
      * Add a thread to the list of privileged thread. This is useful if EvoSuite
      * needs to spawn new threads that require permissions.
      *
-     * @param t
+     * @param t the thread to add
      * @throws SecurityException if the thread calling this method is not privileged itself
      */
     public synchronized void addPrivilegedThread(Thread t) throws SecurityException {
@@ -388,7 +399,8 @@ public class MSecurityManager extends SecurityManager {
             privilegedThreads.add(t);
         } else {
             String current = Thread.currentThread().getName();
-            String msg = "Unprivileged thread \"" + current + "\" cannot add a privileged thread: failed to add \"" + t.getName() + "\"";
+            String msg = "Unprivileged thread \"" + current + "\" cannot add a privileged thread: "
+                    + "failed to add \"" + t.getName() + "\"";
             msg += "\nCurrent privileged threads are: ";
             for (Thread p : privilegedThreads) {
                 msg += "\n\"" + p.getName() + "\"";
@@ -400,8 +412,9 @@ public class MSecurityManager extends SecurityManager {
     // ------------------------------------------------------------------------------------------
 
     /*
-     * the following two methods are the only ones we need to override from SecurityManager, as all the other call those 2. However, if the
-     * SecurityManager code will change in future JDK releases, we might need to double-check this class
+     * the following two methods are the only ones we need to override from SecurityManager,
+     * as all the other call those 2. However, if the SecurityManager code will change
+     * in future JDK releases, we might need to double-check this class
      */
 
     /**
@@ -415,7 +428,8 @@ public class MSecurityManager extends SecurityManager {
          * Note: this code is copy and paste from "super", with only one difference
          */
         if (context instanceof AccessControlContext) {
-            checkPermission(perm); // this is the difference, i.e. we ignore context //TODO maybe check if privileged, and if so, actually use the
+            checkPermission(perm); // this is the difference, i.e. we ignore context
+            // //TODO maybe check if privileged, and if so, actually use the
             // context?
         } else {
             throw new SecurityException();
@@ -430,13 +444,14 @@ public class MSecurityManager extends SecurityManager {
     public void checkPermission(Permission perm) throws SecurityException {
         // check access
         if (!allowPermission(perm)) {
-            String stack = "\n";
+            StringBuilder stack = new StringBuilder("\n");
             for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
-                stack += e + "\n";
+                stack.append(e).append("\n");
             }
             if (executingTestCase) {
                 /*
-                 * report statistics only during test case execution, although still log them. The reason is to avoid EvoSuite threads which might not
+                 * report statistics only during test case execution, although still log them.
+                 * The reason is to avoid EvoSuite threads which might not
                  * privileged to mess up with the statistics on the SUT
                  */
                 statistics.permissionDenied(perm);
@@ -457,15 +472,18 @@ public class MSecurityManager extends SecurityManager {
 
     private boolean isAWTThread() {
         for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
-            if (e.getClassName().startsWith("java.awt"))
+            if (e.getClassName().startsWith("java.awt")) {
                 return true;
+            }
 
-            if (e.getClassName().startsWith("javax.swing"))
+            if (e.getClassName().startsWith("javax.swing")) {
                 return true;
+            }
 
             // Also treat the logmanager like AWT stuff, it is just as weird
-            if (e.getClassName().startsWith("java.util.logging.LogManager"))
+            if (e.getClassName().startsWith("java.util.logging.LogManager")) {
                 return true;
+            }
         }
         return false;
     }
@@ -490,14 +508,15 @@ public class MSecurityManager extends SecurityManager {
          * We should always allow to check the stack trace,
          * as we use it for debugging (ie when logging)
          */
-        if (perm instanceof RuntimePermission &&
-                "getStackTrace".equals(perm.getName().trim())) {
+        if (perm instanceof RuntimePermission
+                && "getStackTrace".equals(perm.getName().trim())) {
             return true;
         }
 
-        // Required in Java 11. Otherwise MSecurityManager.testCanLoadSwingStuff() fails du to the denied permission.
-        if (perm instanceof RuntimePermission &&
-                "loggerFinder".equals(perm.getName().trim())) {
+        // Required in Java 11. Otherwise MSecurityManager.testCanLoadSwingStuff() fails 
+        // due to the denied permission.
+        if (perm instanceof RuntimePermission
+                && "loggerFinder".equals(perm.getName().trim())) {
             return true;
         }
 
@@ -536,20 +555,21 @@ public class MSecurityManager extends SecurityManager {
 
             return true;
         }
-		 
-		/*
-		 * Note: we had to remove this check, as some EvoSuite-RMI threads would be blocked by it 
-		 * 
-		if (!executingTestCase) {
 
-			 // Here, the thread is not "privileged" (either from SUT or an un-registered by EvoSuite), and we are not executing a test case (if from
-			 // SUT, that means the thread was not stopped properly). So, we deny any permission
+        /*
+         * Note: we had to remove this check, as some EvoSuite-RMI threads would be blocked by it
+         *
+        if (!executingTestCase) {
 
-			logger.debug("Unprivileged thread trying to execute potentially harmfull code outsie SUT code execution. Permission: "
-			        + perm.toString());
-			return false;
-		}
-		 */
+             // Here, the thread is not "privileged" (either from SUT or an un-registered by EvoSuite),
+             // and we are not executing a test case (if from
+             // SUT, that means the thread was not stopped properly). So, we deny any permission
+
+            logger.debug("Unprivileged thread trying to execute potentially harmfull code outside "
+                    + "SUT code execution. Permission: " + perm.toString());
+            return false;
+        }
+         */
 
         /*
          * If we only check threads at the end of test case execution, we would miss
@@ -666,8 +686,8 @@ public class MSecurityManager extends SecurityManager {
         }
 
         /*
-         * as far as JDK 6 is concern, those should be all possible permissions. But just in case, if there is a permission we don't know, we just
-         * deny it
+         * as far as JDK 6 is concern, those should be all possible permissions. But just in case,
+         * if there is a permission we don't know, we just deny it
          */
 
         String canonicalName = perm.getClass().getCanonicalName();
@@ -705,33 +725,34 @@ public class MSecurityManager extends SecurityManager {
      * It is not bullet-proof, but should be fine for now.
      * </p>
      *
-     * @param perm
-     * @return
+     * @param perm the permission to check
+     * @return true if the permission is allowed for EvoSuite RMI
      */
     private boolean checkIfEvoSuiteRMI(Permission perm) {
 
-		/*
-			FIXME: this does not check if it is the SUT that calls RMI.
+        /*
+            FIXME: this does not check if it is the SUT that calls RMI.
 
-			This would be a reason more to actually mock RMI in VNET
-		 */
+            This would be a reason more to actually mock RMI in VNET
+         */
 
-        if (!Thread.currentThread().getName().startsWith("RMI ") && !Thread.currentThread().getName().equals("Statistics sender in client process")) {
+        if (!Thread.currentThread().getName().startsWith("RMI ")
+                && !Thread.currentThread().getName().equals("Statistics sender in client process")) {
             return false;
         }
 
         final String pattern = "sun.rmi.";
-        boolean foundRMI = false;
+        boolean foundRmi = false;
 
         //first check if there is any reference to RMI in the stack trace
         for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
             if (element.toString().startsWith(pattern)) {
-                foundRMI = true;
+                foundRmi = true;
                 break;
             }
         }
 
-        if (!foundRMI) {
+        if (!foundRmi) {
             //found no reference to RMI
             return false;
         }
@@ -762,6 +783,12 @@ public class MSecurityManager extends SecurityManager {
         return true;
     }
 
+    /**
+     * Check if RMI is allowed during tests.
+     *
+     * @param perm the permission to check
+     * @return true if RMI is allowed during tests
+     */
     public boolean checkIfRMIDuringTests(Permission perm) {
 
         /*
@@ -773,8 +800,10 @@ public class MSecurityManager extends SecurityManager {
     }
 
     /*
-     * Note: many of the String constants used below in the various methods come from sun.security.util.SecurityConstants but accessing them directly
-     * can issue some warnings, and might make EvoSuite more difficult to port and use on different OS,installations, or even Java versions
+     * Note: many of the String constants used below in the various methods come from 
+     * sun.security.util.SecurityConstants but accessing them directly
+     * can issue some warnings, and might make EvoSuite more difficult to port and use on different OS,
+     * installations, or even Java versions
      */
 
     protected boolean checkSocketPermission(SocketPermission perm) {
@@ -796,29 +825,33 @@ public class MSecurityManager extends SecurityManager {
 
                 Furthermore there are some issues with statistics handling if this is not enabled
              */
-        return action.contains("resolve") && (name.equals(LOCALHOST_NAME) || name.contains(InetAddress.getLoopbackAddress().toString()));
+        return action.contains("resolve") && (name.equals(LOCALHOST_NAME)
+                || name.contains(InetAddress.getLoopbackAddress().toString()));
     }
 
     protected boolean checkAuthPermission(AuthPermission perm) {
         /*
-         * some of the permissions might be granted, but need to study them in details. but because it is pretty rare, for now we can just forbid it
+         * some of the permissions might be granted, but need to study them in details. 
+         * but because it is pretty rare, for now we can just forbid it
          */
         return false;
     }
 
     protected boolean checkNetPermission(NetPermission perm) {
         /*
-         * "specifyStreamHandler" seems the only tricky one. But because a URL cannot be used to write to file-system (although it can be used for
-         * remote resources), it should be fine
+         * "specifyStreamHandler" seems the only tricky one. But because a URL cannot be used to 
+         * write to file-system (although it can be used for remote resources), it should be fine
          */
         return true;
     }
 
     // -----------------------------------------------------------------------------
     /*
-     * EvoSuite does not use any bean, so allowing the SUT to create/use beans should be fine. However, there is possible issue of beans created by a
-     * test case carrying over the following executions. In theory, this should be handled when we re-set static variables. If not, then here we can
-     * do as following: if any of the bean permissions is called at least once, delete all beans after the test case is executed.
+     * EvoSuite does not use any bean, so allowing the SUT to create/use beans should be fine. 
+     * However, there is possible issue of beans created by a test case carrying over the 
+     * following executions. In theory, this should be handled when we re-set static variables. 
+     * If not, then here we can do as following: if any of the bean permissions is called at 
+     * least once, delete all beans after the test case is executed.
      */
     protected boolean checkMBeanPermission(MBeanPermission perm) {
         return true;
@@ -853,8 +886,8 @@ public class MSecurityManager extends SecurityManager {
 
     protected boolean checkWebServicePermission(WebServicePermission perm) {
         /*
-         * "publishing a web service endpoint" should be fine, but unsure whether it has effects or not on opening UDP/TCP ports. Need more
-         * investigations before allowing it
+         * "publishing a web service endpoint" should be fine, but unsure whether it has 
+         * effects or not on opening UDP/TCP ports. Need more investigations before allowing it
          */
         return false;
     }
@@ -878,14 +911,16 @@ public class MSecurityManager extends SecurityManager {
 
     protected boolean checkSQLPermission(SQLPermission perm) {
         /*
-         * SQL (and database in general) will require specialized techniques in EvoSuite. For now, we just forbid it
+         * SQL (and database in general) will require specialized techniques in EvoSuite. 
+         * For now, we just forbid it
          */
         return false;
     }
 
     protected boolean checkServicePermission(ServicePermission perm) {
         /*
-         * Seems used for some authentication protocols. If service is outside SUT, anyway it will be blocked in other ways (eg Sockets). If in SUT,
+         * Seems used for some authentication protocols. If service is outside SUT, 
+         * anyway it will be blocked in other ways (eg Sockets). If in SUT,
          * then it should be fine to allow it
          */
         return true;
@@ -893,14 +928,16 @@ public class MSecurityManager extends SecurityManager {
 
     protected boolean checkDelegationPermission(DelegationPermission perm) {
         /*
-         * I don't really fully understand it, but in any case it seems pretty rare permission. For now we just forbid it
+         * I don't really fully understand it, but in any case it seems pretty rare permission. 
+         * For now we just forbid it
          */
         return false;
     }
 
     protected boolean checkAudioPermission(AudioPermission perm) {
         /*
-         * If SUT plays some music, then I do not see any major side effect. In worst case, tester can just switch off the speakers during testing.
+         * If SUT plays some music, then I do not see any major side effect. 
+         * In worst case, tester can just switch off the speakers during testing.
          */
         return true;
     }
@@ -915,24 +952,34 @@ public class MSecurityManager extends SecurityManager {
     protected boolean checkUnresolvedPermission(UnresolvedPermission perm) {
         /*
          * From documentation:
-         * -------------------------------------------------------------------------------------------------------------------------- The
-         * java.security.UnresolvedPermission class is used to hold Permissions that were "unresolved" when the Policy was initialized. An unresolved
-         * permission is one whose actual Permission class does not yet exist at the time the Policy is initialized (see below). The policy for a Java
-         * runtime (specifying which permissions are available for code from various principals) is represented by a Policy object. Whenever a Policy
-         * is initialized or refreshed, Permission objects of appropriate classes are created for all permissions allowed by the Policy. Many
-         * permission class types referenced by the policy configuration are ones that exist locally (i.e., ones that can be found on CLASSPATH).
-         * Objects for such permissions can be instantiated during Policy initialization. For example, it is always possible to instantiate a
-         * java.io.FilePermission, since the FilePermission class is found on the CLASSPATH. Other permission classes may not yet exist during Policy
-         * initialization. For example, a referenced permission class may be in a JAR file that will later be loaded. For each such class, an
-         * UnresolvedPermission is instantiated. Thus, an UnresolvedPermission is essentially a "placeholder" containing information about the
-         * permission. Later, when code calls AccessController.checkPermission on a permission of a type that was previously unresolved, but whose
-         * class has since been loaded, previously-unresolved permissions of that type are "resolved". That is, for each such UnresolvedPermission, a
-         * new object of the appropriate class type is instantiated, based on the information in the UnresolvedPermission. This new object replaces
+         * -----------------------------------------------------------------------------------------
+         * The java.security.UnresolvedPermission class is used to hold Permissions that 
+         * were "unresolved" when the Policy was initialized. An unresolved permission is one 
+         * whose actual Permission class does not yet exist at the time the Policy is 
+         * initialized (see below). The policy for a Java runtime (specifying which 
+         * permissions are available for code from various principals) is represented by a 
+         * Policy object. Whenever a Policy is initialized or refreshed, Permission objects 
+         * of appropriate classes are created for all permissions allowed by the Policy. Many
+         * permission class types referenced by the policy configuration are ones that exist 
+         * locally (i.e., ones that can be found on CLASSPATH). Objects for such permissions 
+         * can be instantiated during Policy initialization. For example, it is always 
+         * possible to instantiate a java.io.FilePermission, since the FilePermission class 
+         * is found on the CLASSPATH. Other permission classes may not yet exist during 
+         * Policy initialization. For example, a referenced permission class may be in a JAR 
+         * file that will later be loaded. For each such class, an UnresolvedPermission is 
+         * instantiated. Thus, an UnresolvedPermission is essentially a "placeholder" 
+         * containing information about the permission. Later, when code calls 
+         * AccessController.checkPermission on a permission of a type that was previously 
+         * unresolved, but whose class has since been loaded, previously-unresolved 
+         * permissions of that type are "resolved". That is, for each such 
+         * UnresolvedPermission, a new object of the appropriate class type is instantiated, 
+         * based on the information in the UnresolvedPermission. This new object replaces 
          * the UnresolvedPermission, which is removed.
-         * -------------------------------------------------------------------------------------------------------------------------- In theory it
-         * shouldn't really happen, unless some customized permission classes are used in the SUT. It also poses a problem: we might run a test case
-         * that throws this security exception but, if we run it again, it might not throw it anymore. Just to be sure, for now we deny this
-         * permission
+         * -----------------------------------------------------------------------------------------
+         * In theory it shouldn't really happen, unless some customized permission classes 
+         * are used in the SUT. It also poses a problem: we might run a test case
+         * that throws this security exception but, if we run it again, it might not throw 
+         * it anymore. Just to be sure, for now we deny this permission
          */
         return false;
     }
@@ -948,9 +995,9 @@ public class MSecurityManager extends SecurityManager {
 
         String name = perm.getName();
 
-        if (name.equals("getDomainCombiner") || name.equals("getPolicy")
-                || name.equals("printIdentity") || name.equals("getSignerPrivateKey")
-                || name.startsWith("getProperty.")) {
+        if (name.equals("getDomainCombiner")
+                || name.equals("getPolicy") || name.equals("printIdentity")
+                || name.equals("getSignerPrivateKey") || name.startsWith("getProperty.")) {
             return true;
         }
 
@@ -960,21 +1007,26 @@ public class MSecurityManager extends SecurityManager {
         return name.startsWith("putProviderProperty.");
 
         /*
-         * createAccessControlContext setPolicy createPolicy.{policy type} setProperty.{key} insertProvider.{provider name} removeProvider.{provider
-         * name} setSystemScope setIdentityPublicKey setIdentityInfo addIdentityCertificate removeIdentityCertificate
-         * clearProviderProperties.{provider name} putProviderProperty.{provider name} removeProviderProperty.{provider name} setSignerKeyPair
+         * createAccessControlContext setPolicy createPolicy.{policy type} setProperty.{key} 
+         * insertProvider.{provider name} removeProvider.{provider name} setSystemScope 
+         * setIdentityPublicKey setIdentityInfo addIdentityCertificate removeIdentityCertificate
+         * clearProviderProperties.{provider name} putProviderProperty.{provider name} 
+         * removeProviderProperty.{provider name} setSignerKeyPair
          */
     }
 
     protected boolean checkAWTPermission(AWTPermission perm) {
         /*
-         * For now, we run EvoSuite in headless mode (ie no support for display, mouse, keyboard, etc). Methods that will need those devices will
-         * throw a Headless exception. so, here, we can just grant permissions, as shouldn't really have any effect. When we ll start to test GUI
-         * (without headless), then we ll need to carefully check which permissions to grant (eg "createRobot" seems very dangerous)
+         * For now, we run EvoSuite in headless mode (ie no support for display, mouse, keyboard, 
+         * etc). Methods that will need those devices will throw a Headless exception. so, 
+         * here, we can just grant permissions, as shouldn't really have any effect. When we ll 
+         * start to test GUI (without headless), then we ll need to carefully check which 
+         * permissions to grant (eg "createRobot" seems very dangerous)
          */
         /*
-         * accessClipboard accessEventQueue accessSystemTray createRobot fullScreenExclusive listenToAllAWTEvents readDisplayPixels
-         * replaceKeyboardFocusManager setAppletStub setWindowAlwaysOnTop showWindowWithoutWarningBanner toolkitModality watchMousePointer
+         * accessClipboard accessEventQueue accessSystemTray createRobot fullScreenExclusive 
+         * listenToAllAWTEvents readDisplayPixels replaceKeyboardFocusManager setAppletStub 
+         * setWindowAlwaysOnTop showWindowWithoutWarningBanner toolkitModality watchMousePointer
          */
         return "true".equals(AWT_HEADLESS);
     }
@@ -984,9 +1036,10 @@ public class MSecurityManager extends SecurityManager {
         final String name = perm.getName().trim();
 
         /*
-         * At the moment this is the only way to allow classes under test define and load other classes, but the way it is done seriously damages
-         * security of the program. However, as we check permissions based on thread references, it might be safe. See comments on allowing
-         * reflection.
+         * At the moment this is the only way to allow classes under test define and load 
+         * other classes, but the way it is done seriously damages security of the program. 
+         * However, as we check permissions based on thread references, it might be safe. 
+         * See comments on allowing reflection.
          */
         if (name.equals("getClassLoader") || name.equals("createClassLoader")
                 || name.startsWith("accessClassInPackage")
@@ -1011,23 +1064,27 @@ public class MSecurityManager extends SecurityManager {
         // AWT needs to be treated specially
         //FIXME handling of awt read permission
         if ("true".equals(AWT_HEADLESS) && isAWTThread()) {
-            if (name.equals("shutdownHooks"))
+            if (name.equals("shutdownHooks")) {
                 return true;
-            if (name.equals("modifyThreadGroup"))
+            }
+            if (name.equals("modifyThreadGroup")) {
                 return true;
-            if (name.equals("modifyThread"))
+            }
+            if (name.equals("modifyThread")) {
                 return true;
+            }
         }
 
         /*
-         * Note: this actually should never be called, as the instrumenting class loader should replace System.exit
+         * Note: this actually should never be called, as the instrumenting class loader should 
+         * replace System.exit
          */
         if (name.startsWith("exitVM")) {
             return false;
         }
 
         if (name.equals("shutdownHooks")) {
-            return RuntimeSettings.mockJVMNonDeterminism; // the hooks will be handled by mocking framework
+            return RuntimeSettings.mockJVMNonDeterminism; // hooks will be handled by mocking framework
         }
 
         /*
@@ -1046,7 +1103,8 @@ public class MSecurityManager extends SecurityManager {
         }
 
         /*
-         * As client use logging, and we don't read std/err output from it, then it should be safe to allow it
+         * As client use logging, and we don't read std/err output from it, 
+         * then it should be safe to allow it
          */
         if (name.equals("setIO")) {
             return true;
@@ -1068,7 +1126,8 @@ public class MSecurityManager extends SecurityManager {
         }
 
         /*
-         * it might be considered risky, as it can stop the EvoSuite threads. Worst case, we ll get no data from client, which is better than just
+         * it might be considered risky, as it can stop the EvoSuite threads. 
+         * Worst case, we ll get no data from client, which is better than just
          * skipping testing the SUT by throwing a security exception
          */
         if (name.equals("modifyThread") || name.equals("stopThread")
@@ -1085,7 +1144,8 @@ public class MSecurityManager extends SecurityManager {
 
         // ByteBuddy
         // https://javadoc.io/doc/net.bytebuddy/byte-buddy-dep/latest/net/bytebuddy/utility/dispatcher/JavaDispatcher.html
-        // In the following code, we do not use `equals("net.bytebuddy.createJavaDispatcher")` as the literal string will be shaded by EvoSuite's build
+        // In the following code, we do not use `equals("net.bytebuddy.createJavaDispatcher")` 
+        // as the literal string will be shaded by EvoSuite's build
         if (name.endsWith("bytebuddy.createJavaDispatcher")) {
             return true;
         }
@@ -1108,8 +1168,10 @@ public class MSecurityManager extends SecurityManager {
         if (name.startsWith("loadLibrary.")) {
 
             /*
-             * There might quite a few risks if SUT uses native code developed by user. By default, we deny this permissions, but then we can allow
-             * the loading of some specific libraries. Ultimately, the user should be able to choose if some libraries can be loaded or not
+             * There might quite a few risks if SUT uses native code developed by user. 
+             * By default, we deny this permissions, but then we can allow
+             * the loading of some specific libraries. Ultimately, the user should be 
+             * able to choose if some libraries can be loaded or not
              */
 
             String library = name.substring("loadLibrary.".length());
@@ -1130,15 +1192,17 @@ public class MSecurityManager extends SecurityManager {
         }
 
         /*
-         * Definitely not! furthermore, testing machine might not have a printer anyway... if SUT needs a printer, I guess we should somehow manage to
-         * mock it. But low priority, as I don't think many SUTs do print...
+         * Definitely not! furthermore, testing machine might not have a printer anyway... 
+         * if SUT needs a printer, I guess we should somehow manage to mock it. 
+         * But low priority, as I don't think many SUTs do print...
          */
         if (name.equals("queuePrintJob")) {
             return false;
         }
 
         /*
-         * Why not? only possible issue is if here, in this security manager, we use stack info to check whether or not allow permissions
+         * Why not? only possible issue is if here, in this security manager, we use 
+         * stack info to check whether or not allow permissions
          */
         if (name.equals("getStackTrace")) {
             return true;
@@ -1166,7 +1230,8 @@ public class MSecurityManager extends SecurityManager {
 
 
         /*
-         * this is also useful for checking types in the String constants, and to be warned if they ll change in future JDKs
+         * this is also useful for checking types in the String constants, 
+         * and to be warned if they ll change in future JDKs
          */
         if (!unrecognizedPermissions.contains(perm)) {
             unrecognizedPermissions.add(perm);
@@ -1195,32 +1260,38 @@ public class MSecurityManager extends SecurityManager {
 
     protected boolean checkReflectPermission(ReflectPermission perm) {
         /*
-         * might be some possible side effects but, again, such side-effects would be confined inside the client JVM. One issue though: the SUT can
-         * access to this security manager, and through reflection mess up its internal state, which might lead to allow other security permissions...
+         * might be some possible side effects but, again, such side-effects would be 
+         * confined inside the client JVM. One issue though: the SUT can
+         * access to this security manager, and through reflection mess up its internal 
+         * state, which might lead to allow other security permissions...
          */
         return true;
     }
 
     protected boolean checkLoggingPermission(LoggingPermission perm) {
         /*
-         * we allow it because worst thing it can happen is getting more/less log events from client. we might lose some debugging, but really not a
-         * big deal, because in any case log levels are set in master (ie client events do not change them)
+         * we allow it because worst thing it can happen is getting more/less log events 
+         * from client. we might lose some debugging, but really not a
+         * big deal, because in any case log levels are set in master 
+         * (ie client events do not change them)
          */
         return true;
     }
 
     /**
-     * Check if this is an access of a file needed for FileHandler, or its parent directory check
+     * Check if this is an access of a file needed for FileHandler, or its parent directory check.
      *
-     * @param fp
-     * @return
+     * @param fp the file permission to check
+     * @return true if it is a FileHandler call
      */
     private boolean isFileHandlerCall(FilePermission fp) {
-        if (fp.getName().contains(FILE_HANDLER_NAME_PATTERN))
+        if (fp.getName().contains(FILE_HANDLER_NAME_PATTERN)) {
             return true;
+        }
         if (fp.getActions().equals("write")) {
             for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
-                if (e.getClassName().equals(FileHandler.class.getName()) && e.getMethodName().equals("isParentWritable")) {
+                if (e.getClassName().equals(FileHandler.class.getName())
+                        && e.getMethodName().equals("isParentWritable")) {
                     return true;
                 }
             }
@@ -1238,8 +1309,10 @@ public class MSecurityManager extends SecurityManager {
         }
 
         /*
-         * Reading can be considered "fine", even outside sandbox. Only issue I can think of is on Windows, if a process is trying to delete a file a
-         * EvoSuite client is reading, then that deletion would be forbidden, as client has lock.
+         * Reading can be considered "fine", even outside sandbox. Only issue I can 
+         * think of is on Windows, if a process is trying to delete a file a
+         * EvoSuite client is reading, then that deletion would be forbidden, 
+         * as client has lock.
          */
         if (action.equals("read")) {
             return true;
@@ -1275,8 +1348,8 @@ public class MSecurityManager extends SecurityManager {
             }
         }
 
-        String fontDir = USER_DIR + File.separator + ".java" + File.separator +
-                "fonts" + File.separator + JAVA_VERSION;
+        String fontDir = USER_DIR + File.separator + ".java" + File.separator
+                + "fonts" + File.separator + JAVA_VERSION;
 
         if (action.equals("write")) {
             if (fp.getName().startsWith(fontDir)) {

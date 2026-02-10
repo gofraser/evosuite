@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -35,9 +35,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Threads are very complex to handle.
- * For the moment, we mock only certain aspects: TODO
  *
- * Created by arcuri on 9/23/14.
+ * <p>For the moment, we mock only certain aspects: TODO.
+ *
+ * @author arcuri
  */
 public class MockThread extends Thread implements OverrideMock {
 
@@ -75,7 +76,7 @@ public class MockThread extends Thread implements OverrideMock {
             however, as it does nothing, no point in starting it anyway
          */
 
-        return  match(sut,threadName) || match(sut,targetName);
+        return match(sut, threadName) || match(sut, targetName);
     }
 
     private boolean match(String sut, String other) {
@@ -87,20 +88,20 @@ public class MockThread extends Thread implements OverrideMock {
             return other.equals(sut);
         } else {
             //anonymous or internal class of the SUT
-            return other.startsWith(sut+"$");
+            return other.startsWith(sut + "$");
         }
     }
 
     /**
-     * a copy of the private field in superclass
+     * A copy of the private field in superclass.
      */
     private Runnable target;
 
     // ------ public static fields --------
 
-    public final static int MIN_PRIORITY = 1;
-    public final static int NORM_PRIORITY = 5;
-    public final static int MAX_PRIORITY = 10;
+    public static final int MIN_PRIORITY = 1;
+    public static final int NORM_PRIORITY = 5;
+    public static final int MAX_PRIORITY = 10;
 
     // ------ static  methods  --------
 
@@ -117,7 +118,7 @@ public class MockThread extends Thread implements OverrideMock {
     public static void sleep(long millis) throws InterruptedException {
         //no point in doing any sleep
         //MockThread.yield(); //just in case to change thread //FIXME quite a few side effects
-        Thread.sleep(Math.min(millis,50)); //TODO maybe should be a parameter
+        Thread.sleep(Math.min(millis, 50)); //TODO maybe should be a parameter
     }
 
     @EvoSuiteExclude
@@ -153,10 +154,10 @@ public class MockThread extends Thread implements OverrideMock {
         //get actual running threads, and then replace stack traces
 
         //this will ask for permissions, but we grant it anyway
-        Set<Thread> threads =  Thread.getAllStackTraces().keySet();
+        Set<Thread> threads = Thread.getAllStackTraces().keySet();
         Map<Thread, StackTraceElement[]> m = new HashMap<>(threads.size());
         for (Thread t : threads) {
-            m.put(t,MockThrowable.getDefaultStackTrace());
+            m.put(t, MockThrowable.getDefaultStackTrace());
         }
 
         return m;
@@ -238,7 +239,7 @@ public class MockThread extends Thread implements OverrideMock {
                 to change the one automatically given by the JVM,
                 as it could be non-deterministic
              */
-            setName("MockThread-"+getId());
+            setName("MockThread-" + getId());
         }
     }
 

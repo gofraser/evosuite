@@ -28,13 +28,16 @@ import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class MockTimer extends Timer implements OverrideMock{
+/**
+ * Mock implementation of java.util.Timer.
+ */
+public class MockTimer extends Timer implements OverrideMock {
 
     private static final Set<Timer> instances = new LinkedHashSet<>();
 
     /**
      * As interrupting threads might not work on Timer objects,
-     * explicitly kill all created instances
+     * explicitly kill all created instances.
      */
     public static synchronized void stopAllTimers() {
         for (Timer timer : instances) {

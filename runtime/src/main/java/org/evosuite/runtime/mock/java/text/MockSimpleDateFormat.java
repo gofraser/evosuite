@@ -28,12 +28,18 @@ import java.text.NumberFormat;
 import java.util.Locale;
 
 /**
- * Created by gordon on 22/01/2016.
+ * Mock class for {@link java.text.SimpleDateFormat}.
+ *
+ * <p>This replacement ensures that {@link MockCalendar} and {@link MockDate} are used instead of the default ones.
  */
 public class MockSimpleDateFormat extends java.text.SimpleDateFormat implements OverrideMock {
 
     private static final long serialVersionUID = 8147368433302111653L;
 
+    /**
+     * Constructs a <code>MockSimpleDateFormat</code> using the default pattern and date format symbols
+     * for the default <code>FORMAT</code> locale.
+     */
     public MockSimpleDateFormat() {
         super();
         set2DigitYearStart(new MockDate());
@@ -41,21 +47,37 @@ public class MockSimpleDateFormat extends java.text.SimpleDateFormat implements 
         initializeCalendar(Locale.getDefault(Locale.Category.FORMAT));
     }
 
-    public MockSimpleDateFormat(String pattern)
-    {
+    /**
+     * Constructs a <code>MockSimpleDateFormat</code> using the given pattern and the default date
+     * format symbols for the default <code>FORMAT</code> locale.
+     *
+     * @param pattern the pattern describing the date and time format
+     */
+    public MockSimpleDateFormat(String pattern) {
         this(pattern, Locale.getDefault(Locale.Category.FORMAT));
     }
 
-    public MockSimpleDateFormat(String pattern, Locale locale)
-    {
+    /**
+     * Constructs a <code>MockSimpleDateFormat</code> using the given pattern and the default date
+     * format symbols for the given locale.
+     *
+     * @param pattern the pattern describing the date and time format
+     * @param locale the locale whose date format symbols should be used
+     */
+    public MockSimpleDateFormat(String pattern, Locale locale) {
         super(pattern, locale);
         set2DigitYearStart(new MockDate());
         setNumberFormat(locale);
         initializeCalendar(locale);
     }
 
-    public MockSimpleDateFormat(String pattern, DateFormatSymbols formatSymbols)
-    {
+    /**
+     * Constructs a <code>MockSimpleDateFormat</code> using the given pattern and date format symbols.
+     *
+     * @param pattern the pattern describing the date and time format
+     * @param formatSymbols the date format symbols to be used for formatting
+     */
+    public MockSimpleDateFormat(String pattern, DateFormatSymbols formatSymbols) {
         super(pattern, formatSymbols);
         set2DigitYearStart(new MockDate());
         setNumberFormat(Locale.getDefault(Locale.Category.FORMAT));

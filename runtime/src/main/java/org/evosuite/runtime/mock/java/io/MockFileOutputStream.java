@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -33,10 +33,13 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MockFileOutputStream extends FileOutputStream implements LeakingResource , OverrideMock{
+/**
+ * Custom mock implementation of {@link java.io.FileOutputStream}.
+ */
+public class MockFileOutputStream extends FileOutputStream implements LeakingResource, OverrideMock {
 
     /**
-     * The path to the file
+     * The path to the file.
      */
     private final String path;
 
@@ -48,36 +51,36 @@ public class MockFileOutputStream extends FileOutputStream implements LeakingRes
     private volatile boolean closed = false;
 
     /**
-     * The position to write in the stream next
+     * The position to write in the stream next.
      */
     private final AtomicInteger position = new AtomicInteger(0);
 
     //-------- constructors  ----------------
 
     public MockFileOutputStream(String name) throws FileNotFoundException {
-        this(name != null ?
-                (!MockFramework.isEnabled() ? new File(name) : new MockFile(name) ):
-                    null,
-                    false);
+        this(name != null
+                ? (!MockFramework.isEnabled() ? new File(name) : new MockFile(name))
+                : null,
+                false);
     }
 
     public MockFileOutputStream(String name, boolean append) throws FileNotFoundException {
-        this(name != null ?
-                (!MockFramework.isEnabled() ? new File(name) : new MockFile(name)) :
-                    null,
-                    append);
+        this(name != null
+                ? (!MockFramework.isEnabled() ? new File(name) : new MockFile(name))
+                : null,
+                append);
     }
 
     public MockFileOutputStream(File file) throws FileNotFoundException {
         this(file, false);
     }
 
-    public MockFileOutputStream(File file, boolean append) throws FileNotFoundException{
+    public MockFileOutputStream(File file, boolean append) throws FileNotFoundException {
 
-        super(!MockFramework.isEnabled() ?
-                file :
-                    VirtualFileSystem.getInstance().getRealTmpFile(),
-                    append); //just to make the compiler happy
+        super(!MockFramework.isEnabled()
+                ? file
+                : VirtualFileSystem.getInstance().getRealTmpFile(),
+                append); //just to make the compiler happy
 
         if (!MockFramework.isEnabled()) {
             path = null;
@@ -101,7 +104,7 @@ public class MockFileOutputStream extends FileOutputStream implements LeakingRes
         }
 
         if (!append) {
-            ((VFile)target).eraseData();
+            ((VFile) target).eraseData();
         }
     }
 
@@ -114,7 +117,7 @@ public class MockFileOutputStream extends FileOutputStream implements LeakingRes
     //----------  write methods  --------------
 
     private void writeBytes(byte[] b, int off, int len)
-            throws IOException{
+            throws IOException {
 
         throwExceptionIfClosed();
 
@@ -129,7 +132,7 @@ public class MockFileOutputStream extends FileOutputStream implements LeakingRes
             return;
         }
 
-        write(new byte[]{(byte)b},0,1);
+        write(new byte[]{(byte) b}, 0, 1);
     }
 
     @Override
@@ -197,13 +200,13 @@ public class MockFileOutputStream extends FileOutputStream implements LeakingRes
 
         synchronized (this) {
             if (channel == null) {
-                channel = new EvoFileChannel(position,path,false,true);
+                channel = new EvoFileChannel(position, path, false, true);
             }
             return channel;
         }
     }
 
-    private void throwExceptionIfClosed() throws IOException{
+    private void throwExceptionIfClosed() throws IOException {
         if (closed) {
             throw new MockIOException();
         }

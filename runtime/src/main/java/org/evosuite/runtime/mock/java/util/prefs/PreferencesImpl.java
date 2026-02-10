@@ -25,7 +25,7 @@ import java.util.prefs.AbstractPreferences;
 import java.util.prefs.BackingStoreException;
 
 /**
- * Created by gordon on 26/12/2016.
+ * Implementation of java.util.prefs.AbstractPreferences for mocking.
  */
 public class PreferencesImpl extends AbstractPreferences {
 
@@ -54,9 +54,9 @@ public class PreferencesImpl extends AbstractPreferences {
 
     @Override
     protected AbstractPreferences childSpi(String name) {
-        if (children.containsKey(name))
+        if (children.containsKey(name)) {
             return children.get(name);
-        else {
+        } else {
             PreferencesImpl child = new PreferencesImpl(this, name);
             children.put(name, child);
             return child;

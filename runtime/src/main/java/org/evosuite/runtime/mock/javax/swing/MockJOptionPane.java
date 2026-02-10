@@ -20,8 +20,8 @@
 package org.evosuite.runtime.mock.javax.swing;
 
 import org.evosuite.runtime.mock.OverrideMock;
-import org.evosuite.runtime.util.JOptionPaneInputs.GUIAction;
 import org.evosuite.runtime.util.JOptionPaneInputs;
+import org.evosuite.runtime.util.JOptionPaneInputs.GUIAction;
 import javax.swing.Icon;
 import javax.swing.JOptionPane;
 import java.awt.Component;
@@ -42,8 +42,8 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
      * Replaces method javax.swing.JOptionPane.showMessageDialog(Component
      * parentComponent, Object message);
      *
-     * @param parentComponent
-     * @param message
+     * @param parentComponent the parent component
+     * @param message the message to display
      */
     public static void showMessageDialog(Component parentComponent, Object message) {
         /* do nothing */
@@ -53,10 +53,10 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
      * Replaces method javax.swing.JOptionPane.showMessageDialog(Component
      * parentComponent, Object message, String title, int messageType)
      *
-     * @param parentComponent
-     * @param message
-     * @param title
-     * @param messageType
+     * @param parentComponent the parent component
+     * @param message the message to display
+     * @param title the title of the dialog
+     * @param messageType the type of message
      */
     public static void showMessageDialog(Component parentComponent, Object message, String title, int messageType) {
         /* do nothing */
@@ -67,11 +67,11 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
      * parentComponent, Object message, String title, int messageType, Icon
      * icon)
      *
-     * @param parentComponent
-     * @param message
-     * @param title
-     * @param messageType
-     * @param icon
+     * @param parentComponent the parent component
+     * @param message the message to display
+     * @param title the title of the dialog
+     * @param messageType the type of message
+     * @param icon the icon to display
      */
     public static void showMessageDialog(Component parentComponent, Object message, String title, int messageType,
             Icon icon) {
@@ -82,8 +82,8 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
      * Replaces method JOptionPane.showConfirmDialog(Component parentComponent,
      * Object message)
      *
-     * @param parentComponent
-     * @param message
+     * @param parentComponent the parent component
+     * @param message the message to display
      * @return JOptionPane.YES_OPTION, JOptionPane.NO_OPTION,
      *         JOptionPane.CANCEL_OPTION and JOptionPane.CLOSED_OPTION
      */
@@ -94,19 +94,19 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
     private static int showConfirmDialog(int optionType) {
 
         switch (optionType) {
-        case javax.swing.JOptionPane.DEFAULT_OPTION:
-        case javax.swing.JOptionPane.YES_NO_CANCEL_OPTION: {
-            return getInputYesNoCancelSelection();
-        }
-        case javax.swing.JOptionPane.YES_NO_OPTION: {
-            return getInputYesNoSelection();
-        }
-        case javax.swing.JOptionPane.OK_CANCEL_OPTION: {
-            return getInputOkCancelSelection();
-        }
-        default:
-            throw new IllegalStateException(
-                    "Option number " + optionType + " does not match any known JOptionPane option");
+            case javax.swing.JOptionPane.DEFAULT_OPTION:
+            case javax.swing.JOptionPane.YES_NO_CANCEL_OPTION: {
+                return getInputYesNoCancelSelection();
+            }
+            case javax.swing.JOptionPane.YES_NO_OPTION: {
+                return getInputYesNoSelection();
+            }
+            case javax.swing.JOptionPane.OK_CANCEL_OPTION: {
+                return getInputOkCancelSelection();
+            }
+            default:
+                throw new IllegalStateException(
+                        "Option number " + optionType + " does not match any known JOptionPane option");
         }
 
     }
@@ -264,6 +264,7 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
     }
 
     /**
+     * Get the option selection as an integer.
      *
      * @param optionsIsNull
      *            if the option is null or not

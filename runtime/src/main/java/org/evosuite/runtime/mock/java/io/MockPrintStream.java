@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -28,7 +28,10 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 
-public class MockPrintStream extends PrintStream  implements OverrideMock{
+/**
+ * Custom mock implementation of {@link java.io.PrintStream}.
+ */
+public class MockPrintStream extends PrintStream implements OverrideMock {
 
     /* -- constructors  from PrintStream ----------
      *
@@ -47,36 +50,32 @@ public class MockPrintStream extends PrintStream  implements OverrideMock{
     }
 
     public MockPrintStream(OutputStream out, boolean autoFlush, String encoding)
-            throws UnsupportedEncodingException{
-        super(out,autoFlush,encoding);
+            throws UnsupportedEncodingException {
+        super(out, autoFlush, encoding);
     }
 
     public MockPrintStream(String fileName) throws FileNotFoundException {
-        this(!MockFramework.isEnabled() ?
-                new FileOutputStream(fileName) :
-                    new MockFileOutputStream(fileName));
+        this(!MockFramework.isEnabled()
+                ? new FileOutputStream(fileName) : new MockFileOutputStream(fileName));
     }
 
     public MockPrintStream(String fileName, String csn)
             throws FileNotFoundException, UnsupportedEncodingException {
-        this( (!MockFramework.isEnabled() ?
-                new FileOutputStream(fileName) :
-                    new MockFileOutputStream(fileName))
-                    ,false,csn);
+        this((!MockFramework.isEnabled()
+                ? new FileOutputStream(fileName) : new MockFileOutputStream(fileName)),
+                false, csn);
     }
 
     public MockPrintStream(File file) throws FileNotFoundException {
-        this(!MockFramework.isEnabled() ?
-                new FileOutputStream(file) :
-                    new MockFileOutputStream(file));
+        this(!MockFramework.isEnabled()
+                ? new FileOutputStream(file) : new MockFileOutputStream(file));
     }
 
     public MockPrintStream(File file, String csn)
             throws FileNotFoundException, UnsupportedEncodingException {
         // ensure charset is checked before the file is opened
-        this((!MockFramework.isEnabled() ?
-                new FileOutputStream(file) :
-                    new MockFileOutputStream(file))
-                    ,false,csn);
+        this((!MockFramework.isEnabled()
+                ? new FileOutputStream(file) : new MockFileOutputStream(file)),
+                false, csn);
     }
 }

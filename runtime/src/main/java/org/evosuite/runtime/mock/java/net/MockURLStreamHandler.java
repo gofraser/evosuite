@@ -21,6 +21,7 @@ package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.OverrideMock;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Proxy;
@@ -29,9 +30,9 @@ import java.net.URLConnection;
 import java.net.URLStreamHandler;
 import java.net.UnknownHostException;
 
-public abstract class MockURLStreamHandler extends URLStreamHandler implements OverrideMock{
+public abstract class MockURLStreamHandler extends URLStreamHandler implements OverrideMock {
 
-    protected abstract  URLConnection openConnection(URL u) throws IOException;
+    protected abstract URLConnection openConnection(URL u) throws IOException;
 
     @Override
     protected synchronized InetAddress getHostAddress(URL u) {
@@ -39,8 +40,9 @@ public abstract class MockURLStreamHandler extends URLStreamHandler implements O
             return super.getHostAddress(u);
         }
 
-        if (URLUtil.getHostAddress(u) != null)
+        if (URLUtil.getHostAddress(u) != null) {
             return URLUtil.getHostAddress(u);
+        }
 
         String host = u.getHost();
         if (host == null || host.equals("")) {
@@ -103,15 +105,15 @@ public abstract class MockURLStreamHandler extends URLStreamHandler implements O
 
     @Override
     protected void setURL(URL u, String protocol, String host, int port,
-            String authority, String userInfo, String path,
-            String query, String ref) {
+                          String authority, String userInfo, String path,
+                          String query, String ref) {
 
         super.setURL(u, protocol, host, port, authority, userInfo, path, query, ref);
     }
 
     @Deprecated
     protected void setURL(URL u, String protocol, String host, int port,
-            String file, String ref) {
+                          String file, String ref) {
         super.setURL(u, protocol, host, port, file, ref);
     }
 

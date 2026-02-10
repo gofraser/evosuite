@@ -21,6 +21,7 @@ package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.mock.StaticReplacementMock;
 import org.evosuite.runtime.mock.java.io.MockIOException;
+
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
@@ -34,7 +35,7 @@ import java.net.URLStreamHandlerFactory;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class MockURL implements StaticReplacementMock{
+public class MockURL implements StaticReplacementMock {
 
     @Override
     public String getMockedClassName() {
@@ -82,30 +83,35 @@ public class MockURL implements StaticReplacementMock{
 
     // -----  constructors ------------
 
+    @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(String spec) throws MalformedURLException {
         return URL(null, spec);
     }
 
+    @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(URL context, String spec) throws MalformedURLException {
         return URL(context, spec, null);
     }
 
+    @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(String protocol, String host, String file)
             throws MalformedURLException {
         return URL(protocol, host, -1, file);
     }
 
+    @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(String protocol, String host, int port, String file)
-            throws MalformedURLException{
+            throws MalformedURLException {
         return URL(protocol, host, port, file, null);
     }
 
+    @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(String protocol, String host, int port, String file,
-            URLStreamHandler handler) throws MalformedURLException {
+                          URLStreamHandler handler) throws MalformedURLException {
 
-        URL url = new URL(protocol,host,port,file,handler);
+        URL url = new URL(protocol, host, port, file, handler);
 
-        //we just need to deal with "handler" if it wasn't specified
+        // we just need to deal with "handler" if it wasn't specified
         if (handler == null) {
             /*
              * if no handler is specified, then parent would load one based on
@@ -120,12 +126,13 @@ public class MockURL implements StaticReplacementMock{
         return url;
     }
 
+    @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(URL context, String spec, URLStreamHandler handler)
-            throws MalformedURLException{
+            throws MalformedURLException {
 
-        URL url = new URL(context,spec,handler);
+        URL url = new URL(context, spec, handler);
 
-        //we just need to deal with "handler" if it wasn't specified
+        // we just need to deal with "handler" if it wasn't specified
         if (handler == null) {
             /*
              * if no handler is specified, then parent would load one based on
@@ -137,7 +144,7 @@ public class MockURL implements StaticReplacementMock{
             URLUtil.setHandler(url, handler);
 
             //this is needed, as called on the handler in the constructor we are mocking
-            handleParseUrl(url,spec,handler);
+            handleParseUrl(url, spec, handler);
         }
 
         return url;
@@ -147,9 +154,11 @@ public class MockURL implements StaticReplacementMock{
 
         //code here is based on URL constructor
 
-        int i, limit, c;
+        int i;
+        int limit;
+        int c;
         int start = 0;
-        boolean aRef=false;
+        boolean hasRef = false;
 
         limit = spec.length();
         while ((limit > 0) && (spec.charAt(limit - 1) <= ' ')) {
@@ -164,11 +173,11 @@ public class MockURL implements StaticReplacementMock{
         }
 
         if (start < spec.length() && spec.charAt(start) == '#') {
-            aRef=true;
+            hasRef = true;
         }
 
-        for (i = start; !aRef && (i < limit) &&
-                ((c = spec.charAt(i)) != '/'); i++) {
+        for (i = start; !hasRef && (i < limit)
+                && ((c = spec.charAt(i)) != '/'); i++) {
             if (c == ':') {
 
                 String s = spec.substring(start, i).toLowerCase();
@@ -187,22 +196,24 @@ public class MockURL implements StaticReplacementMock{
         try {
             URLStreamHandlerUtil.parseURL(handler, url, spec, start, limit);
         } catch (InvocationTargetException e) {
-           throw new MalformedURLException(e.getCause().toString());
+            throw new MalformedURLException(e.getCause().toString());
         }
     }
 
     //From URL
     private static boolean isValidProtocol(String protocol) {
         int len = protocol.length();
-        if (len < 1)
+        if (len < 1) {
             return false;
+        }
         char c = protocol.charAt(0);
-        if (!Character.isLetter(c))
+        if (!Character.isLetter(c)) {
             return false;
+        }
         for (int i = 1; i < len; i++) {
             c = protocol.charAt(i);
-            if (!Character.isLetterOrDigit(c) && c != '.' && c != '+' &&
-                    c != '-') {
+            if (!Character.isLetterOrDigit(c) && c != '.' && c != '+'
+                    && c != '-') {
                 return false;
             }
         }
@@ -254,9 +265,10 @@ public class MockURL implements StaticReplacementMock{
     public static boolean equals(URL url, Object obj) {
         // URL equals is blocking and broken:
         // https://stackoverflow.com/questions/3771081/proper-way-to-check-for-url-equality
-        if (!(obj instanceof URL))
+        if (!(obj instanceof URL)) {
             return false;
-        URL u2 = (URL)obj;
+        }
+        URL u2 = (URL) obj;
 
         try {
             return url.toURI().equals(u2.toURI());
@@ -286,7 +298,7 @@ public class MockURL implements StaticReplacementMock{
     }
 
     public static URI toURI(URL url) throws URISyntaxException {
-        return new URI (url.toString());
+        return new URI(url.toString());
     }
 
     public static URLConnection openConnection(URL url) throws java.io.IOException {
@@ -346,7 +358,7 @@ public class MockURL implements StaticReplacementMock{
                 if (EvoURLStreamHandler.isValidProtocol(protocol)) {
                     handler = new EvoURLStreamHandler(protocol);
                 } else {
-                    throw new MalformedURLException("unknown protocol: "+protocol);
+                    throw new MalformedURLException("unknown protocol: " + protocol);
                 }
             }
 

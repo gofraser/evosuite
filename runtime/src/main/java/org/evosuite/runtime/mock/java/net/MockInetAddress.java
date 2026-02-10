@@ -23,6 +23,7 @@ import org.evosuite.runtime.mock.StaticReplacementMock;
 import org.evosuite.runtime.vnet.EvoIPAddressUtil;
 import org.evosuite.runtime.vnet.NetworkInterfaceState;
 import org.evosuite.runtime.vnet.VirtualNetwork;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -32,10 +33,9 @@ import java.util.List;
 
 /**
  * We need to mock this class mainly to handle hostnames resolutions,
- * which usually will be done through DNS and host files 
- * 
+ * which usually will be done through DNS and host files.
  */
-public class MockInetAddress implements StaticReplacementMock{
+public class MockInetAddress implements StaticReplacementMock {
 
     @Override
     public String getMockedClassName() {
@@ -110,17 +110,19 @@ public class MockInetAddress implements StaticReplacementMock{
 
     // ----- public instance methods depending on virtual network -----
 
-    public static boolean isReachable(InetAddress addr, int timeout) throws IOException{
-        return isReachable(addr, null, 0 , timeout);
+    public static boolean isReachable(InetAddress addr, int timeout) throws IOException {
+        return isReachable(addr, null, 0, timeout);
     }
 
     public static boolean isReachable(InetAddress addr, NetworkInterface netif, int ttl,
-            int timeout) throws IOException {
+                                      int timeout) throws IOException {
 
-        if (ttl < 0)
+        if (ttl < 0) {
             throw new IllegalArgumentException("ttl can't be negative");
-        if (timeout < 0)
+        }
+        if (timeout < 0) {
             throw new IllegalArgumentException("timeout can't be negative");
+        }
 
         /*
          * TODO: for now, we are assuming all hosts are reachable
@@ -152,8 +154,8 @@ public class MockInetAddress implements StaticReplacementMock{
             throws UnknownHostException {
 
         if (host != null && host.length() > 0 && host.charAt(0) == '[') {
-            if (host.charAt(host.length()-1) == ']') {
-                host = host.substring(1, host.length() -1);
+            if (host.charAt(host.length() - 1) == ']') {
+                host = host.substring(1, host.length() - 1);
             }
         }
 
@@ -161,16 +163,16 @@ public class MockInetAddress implements StaticReplacementMock{
             return Inet4AddressUtil.createNewInstance(host, addr);
         }
 
-        throw new UnknownHostException("Not IPv4: "+Arrays.toString(addr));
+        throw new UnknownHostException("Not IPv4: " + Arrays.toString(addr));
     }
 
     public static InetAddress getByName(String host)
-            throws UnknownHostException{
+            throws UnknownHostException {
         return getAllByName(host)[0];
     }
 
     public static InetAddress[] getAllByName(String host)
-            throws UnknownHostException{
+            throws UnknownHostException {
 
         //if no specified host, return loopback
         if (host == null || host.length() == 0) {
@@ -194,7 +196,7 @@ public class MockInetAddress implements StaticReplacementMock{
 
         String resolved = VirtualNetwork.getInstance().dnsResolve(host);
         if (resolved == null) {
-            throw new UnknownHostException("Cannot resolve: "+resolved);
+            throw new UnknownHostException("Cannot resolve: " + resolved);
         }
 
         byte[] addr = EvoIPAddressUtil.textToNumericFormatV4(resolved);
@@ -204,7 +206,7 @@ public class MockInetAddress implements StaticReplacementMock{
     }
 
     public static InetAddress getLoopbackAddress() {
-        return     getFirstValid(true);
+        return getFirstValid(true);
     }
 
     public static InetAddress getLocalHost() throws UnknownHostException {

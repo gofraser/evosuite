@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -26,7 +26,10 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 
-public class MockIOException extends IOException  implements OverrideMock{
+/**
+ * Custom mock implementation of {@link java.io.IOException}.
+ */
+public class MockIOException extends IOException implements OverrideMock {
 
     /*
      * "Exception" class only defines constructors, like all (?) its subclasses.
@@ -42,7 +45,7 @@ public class MockIOException extends IOException  implements OverrideMock{
     private static final long serialVersionUID = 8001149552489118355L;
 
     /**
-     * Instead of copy&amp;paste functionalities from MockThrowable, use a delegate
+     * Instead of copy&amp;paste functionalities from MockThrowable, use a delegate.
      */
     private volatile MockThrowable delegate;
 
@@ -144,6 +147,10 @@ public class MockIOException extends IOException  implements OverrideMock{
         getDelegate().printStackTrace(p);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void printStackTrace(PrintWriter p) {
         if (!MockFramework.isEnabled()) {
             super.printStackTrace(p);
@@ -152,7 +159,7 @@ public class MockIOException extends IOException  implements OverrideMock{
         getDelegate().printStackTrace(p);
     }
 
-    /**
+    /*
     @Override
     public synchronized Throwable fillInStackTrace() {
         if (!MockFramework.isEnabled()) {

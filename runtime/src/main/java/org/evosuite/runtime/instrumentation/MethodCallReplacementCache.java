@@ -87,6 +87,11 @@ public class MethodCallReplacementCache {
 
     }
 
+    /**
+     * <p>Getter for the field <code>instance</code>.</p>
+     *
+     * @return a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementCache} object.
+     */
     public static MethodCallReplacementCache getInstance() {
         if (instance == null) {
             instance = new MethodCallReplacementCache();
@@ -94,10 +99,18 @@ public class MethodCallReplacementCache {
         return instance;
     }
 
+    /**
+     * <p>resetSingleton.</p>
+     */
     public static void resetSingleton() {
         instance = null;
     }
 
+    /**
+     * Adds a replacement call.
+     *
+     * @param replacement the replacement call to add.
+     */
     private void addReplacementCall(MethodCallReplacement replacement) {
         if (!replacementCalls.containsKey(replacement.getClassName())) {
             replacementCalls.put(replacement.getClassName(), new HashMap<>());
@@ -105,6 +118,11 @@ public class MethodCallReplacementCache {
         replacementCalls.get(replacement.getClassName()).put(replacement.getMethodNameWithDesc(), replacement);
     }
 
+    /**
+     * Adds a special replacement call.
+     *
+     * @param replacement the replacement call to add.
+     */
     private void addSpecialReplacementCall(MethodCallReplacement replacement) {
         if (!specialReplacementCalls.containsKey(replacement.getClassName())) {
             specialReplacementCalls.put(replacement.getClassName(), new HashMap<>());
@@ -117,6 +135,13 @@ public class MethodCallReplacementCache {
     // virtualReplacementCalls.add(replacement);
     // }
 
+    /**
+     * <p>hasReplacementCall.</p>
+     *
+     * @param className              a {@link java.lang.String} object.
+     * @param methodNameWithDesc a {@link java.lang.String} object.
+     * @return a boolean.
+     */
     public boolean hasReplacementCall(String className, String methodNameWithDesc) {
         if (!replacementCalls.containsKey(className)) {
             return false;
@@ -125,10 +150,24 @@ public class MethodCallReplacementCache {
         return replacementCalls.get(className).containsKey(methodNameWithDesc);
     }
 
+    /**
+     * <p>getReplacementCall.</p>
+     *
+     * @param className              a {@link java.lang.String} object.
+     * @param methodNameWithDesc a {@link java.lang.String} object.
+     * @return a {@link org.evosuite.runtime.instrumentation.MethodCallReplacement} object.
+     */
     public MethodCallReplacement getReplacementCall(String className, String methodNameWithDesc) {
         return replacementCalls.get(className).get(methodNameWithDesc);
     }
 
+    /**
+     * <p>hasSpecialReplacementCall.</p>
+     *
+     * @param className              a {@link java.lang.String} object.
+     * @param methodNameWithDesc a {@link java.lang.String} object.
+     * @return a boolean.
+     */
     public boolean hasSpecialReplacementCall(String className, String methodNameWithDesc) {
         if (!specialReplacementCalls.containsKey(className)) {
             return false;
@@ -137,6 +176,13 @@ public class MethodCallReplacementCache {
         return specialReplacementCalls.get(className).containsKey(methodNameWithDesc);
     }
 
+    /**
+     * <p>getSpecialReplacementCall.</p>
+     *
+     * @param className              a {@link java.lang.String} object.
+     * @param methodNameWithDesc a {@link java.lang.String} object.
+     * @return a {@link org.evosuite.runtime.instrumentation.MethodCallReplacement} object.
+     */
     public MethodCallReplacement getSpecialReplacementCall(String className, String methodNameWithDesc) {
         return specialReplacementCalls.get(className).get(methodNameWithDesc);
     }

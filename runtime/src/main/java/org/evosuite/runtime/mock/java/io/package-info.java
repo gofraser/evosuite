@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -17,24 +17,8 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.evosuite.runtime.mock.java.util.logging;
-
-import org.evosuite.runtime.mock.OverrideMock;
-import java.util.logging.Level;
-import java.util.logging.LogRecord;
 
 /**
- * Mock implementation of java.util.logging.LogRecord.
+ * Provides mock implementations of classes in the {@link java.io} package.
  */
-public class MockLogRecord extends LogRecord implements OverrideMock {
-
-    public MockLogRecord(Level level, String msg) {
-        super(level, msg);
-        setMillis(org.evosuite.runtime.System.currentTimeMillis());
-        setSequenceNumber(0L);
-        setThreadID(0);
-    }
-
-    private static final long serialVersionUID = -1511890873640420434L;
-
-}
+package org.evosuite.runtime.mock.java.io;

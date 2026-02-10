@@ -20,25 +20,26 @@
 package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.vnet.NativeTcp;
+
 import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * Class used to create an OutputStream for a virtual socket connection
- * 
+ * Class used to create an OutputStream for a virtual socket connection.
+ *
  * @author arcuri
  *
  */
 
-public class SocketOut extends OutputStream{
+public class SocketOut extends OutputStream {
 
     /**
-     * The TCP connection this stream is representing
+     * The TCP connection this stream is representing.
      */
     private final NativeTcp tcp;
 
     /**
-     * Is this stream for the local socket of the 2-way connection?
+     * Is this stream for the local socket of the 2-way connection.
      */
     private final boolean isLocal;
 
@@ -52,12 +53,12 @@ public class SocketOut extends OutputStream{
     }
 
     @Override
-    public void write(int b) throws IOException{
+    public void write(int b) throws IOException {
         checkClosed();
         if (isLocal) {
-            tcp.writeToRemote((byte)b);
+            tcp.writeToRemote((byte) b);
         } else {
-            tcp.writeToSUT((byte)b);
+            tcp.writeToSUT((byte) b);
         }
     }
 
@@ -74,7 +75,7 @@ public class SocketOut extends OutputStream{
     @Override
     public void flush() throws IOException {
         checkClosed();
-        //nothing to do
+        // nothing to do
     }
 
     @Override
@@ -82,7 +83,7 @@ public class SocketOut extends OutputStream{
         closed = true;
     }
 
-    private void checkClosed() throws IOException{
+    private void checkClosed() throws IOException {
         if (closed) {
             throw new IOException("Closed stream");
         }

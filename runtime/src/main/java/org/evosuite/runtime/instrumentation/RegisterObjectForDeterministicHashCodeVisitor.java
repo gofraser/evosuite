@@ -25,9 +25,21 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.AdviceAdapter;
 import org.objectweb.asm.commons.Method;
 
+/**
+ * This method visitor is used to register objects for deterministic identity hash code.
+ *
+ * @author Gordon Fraser
+ */
 public class RegisterObjectForDeterministicHashCodeVisitor extends AdviceAdapter {
 
-
+    /**
+     * <p>Constructor for RegisterObjectForDeterministicHashCodeVisitor.</p>
+     *
+     * @param mv     a {@link org.objectweb.asm.MethodVisitor} object.
+     * @param access a int.
+     * @param name   a {@link java.lang.String} object.
+     * @param desc   a {@link java.lang.String} object.
+     */
     protected RegisterObjectForDeterministicHashCodeVisitor(MethodVisitor mv, int access, String name, String desc) {
         super(Opcodes.ASM9, mv, access, name, desc);
     }

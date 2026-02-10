@@ -22,6 +22,7 @@ package org.evosuite.runtime.mock.java.net;
 import org.evosuite.runtime.mock.StaticReplacementMock;
 import org.evosuite.runtime.vnet.NetworkInterfaceState;
 import org.evosuite.runtime.vnet.VirtualNetwork;
+
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -32,7 +33,7 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-public class MockNetworkInterface implements StaticReplacementMock{
+public class MockNetworkInterface implements StaticReplacementMock {
 
     @Override
     public String getMockedClassName() {
@@ -41,27 +42,28 @@ public class MockNetworkInterface implements StaticReplacementMock{
 
     public static Enumeration<InetAddress> getInetAddresses(final NetworkInterface ni) {
 
-        class Enumuerator implements Enumeration<InetAddress> {
-            private int i=0;
-            private List<InetAddress> local_addrs;
+        class Enumerator implements Enumeration<InetAddress> {
+            private int index = 0;
+            private final List<InetAddress> localAddrs;
 
-            Enumuerator() {
-                local_addrs = VirtualNetwork.getInstance().getNetworkInterfaceState(ni.getName()).getLocalAddresses();
+            Enumerator() {
+                localAddrs = VirtualNetwork.getInstance().getNetworkInterfaceState(ni.getName()).getLocalAddresses();
             }
 
             public InetAddress nextElement() {
-                if (i < local_addrs.size()) {
-                    return local_addrs.get(i++);
+                if (index < localAddrs.size()) {
+                    return localAddrs.get(index++);
                 } else {
                     throw new NoSuchElementException();
                 }
             }
 
             public boolean hasMoreElements() {
-                return (i < local_addrs.size());
+                return (index < localAddrs.size());
             }
         }
-        return new Enumuerator();
+
+        return new Enumerator();
     }
 
     public static List<InterfaceAddress> getInterfaceAddresses(NetworkInterface ni) {
@@ -73,15 +75,17 @@ public class MockNetworkInterface implements StaticReplacementMock{
 
     public static Enumeration<NetworkInterface> getSubInterfaces(NetworkInterface ni) {
         // No sub-interface
-        class subIFs implements Enumeration<NetworkInterface> {
+        class SubInterfaces implements Enumeration<NetworkInterface> {
             public NetworkInterface nextElement() {
-                    throw new NoSuchElementException();
+                throw new NoSuchElementException();
             }
+
             public boolean hasMoreElements() {
                 return false;
             }
         }
-        return new subIFs();
+
+        return new SubInterfaces();
     }
 
     public static int getIndex(NetworkInterface ni) {
@@ -132,9 +136,10 @@ public class MockNetworkInterface implements StaticReplacementMock{
     // ---- static in NetworkInterface -------
 
     public static NetworkInterface getByName(String name) throws SocketException {
-        if (name == null)
+        if (name == null) {
             throw new NullPointerException();
-        NetworkInterfaceState state =  VirtualNetwork.getInstance().getNetworkInterfaceState(name);
+        }
+        NetworkInterfaceState state = VirtualNetwork.getInstance().getNetworkInterfaceState(name);
         if (state == null) {
             return null;
         }
@@ -142,8 +147,9 @@ public class MockNetworkInterface implements StaticReplacementMock{
     }
 
     public static NetworkInterface getByIndex(int index) throws SocketException {
-        if (index < 0)
+        if (index < 0) {
             throw new IllegalArgumentException("Interface index can't be negative");
+        }
 
         for (NetworkInterfaceState nis : VirtualNetwork.getInstance().getAllNetworkInterfaceStates()) {
             if (nis.getNetworkInterface().getIndex() == index) {
@@ -158,7 +164,7 @@ public class MockNetworkInterface implements StaticReplacementMock{
             throw new NullPointerException();
         }
         if (!(addr instanceof Inet4Address || addr instanceof Inet6Address)) {
-            throw new IllegalArgumentException ("invalid address type");
+            throw new IllegalArgumentException("invalid address type");
         }
 
         for (NetworkInterfaceState nis : VirtualNetwork.getInstance().getAllNetworkInterfaceStates()) {
@@ -182,18 +188,20 @@ public class MockNetworkInterface implements StaticReplacementMock{
         }
 
         return new Enumeration<NetworkInterface>() {
-            private int i = 0;
+            private int index = 0;
+
             public NetworkInterface nextElement() {
-                if (netifs != null && i < netifs.size()) {
-                    NetworkInterface netif = netifs.get(i).getNetworkInterface();
-                    i++;
+                if (netifs != null && index < netifs.size()) {
+                    NetworkInterface netif = netifs.get(index).getNetworkInterface();
+                    index++;
                     return netif;
                 } else {
                     throw new NoSuchElementException();
                 }
             }
+
             public boolean hasMoreElements() {
-                return (netifs != null && i < netifs.size());
+                return (netifs != null && index < netifs.size());
             }
         };
     }

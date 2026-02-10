@@ -24,7 +24,7 @@ import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 /**
- * Created by gordon on 26/12/2016.
+ * Mock implementation of java.util.prefs.Preferences.
  */
 public class MockPreferences implements StaticReplacementMock {
     @Override
@@ -62,12 +62,14 @@ public class MockPreferences implements StaticReplacementMock {
     }
 
     private static String nodeName(Class c) {
-        if (c.isArray())
+        if (c.isArray()) {
             throw new IllegalArgumentException("Arrays have no associated preferences node.");
+        }
         String className = c.getName();
         int pkgEndIndex = className.lastIndexOf('.');
-        if (pkgEndIndex < 0)
+        if (pkgEndIndex < 0) {
             return "/<unnamed>";
+        }
         String packageName = className.substring(0, pkgEndIndex);
         return "/" + packageName.replace('.', '/');
     }

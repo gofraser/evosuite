@@ -23,45 +23,46 @@ import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.OverrideMock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 
-public class MockInetSocketAddress extends InetSocketAddress implements OverrideMock{
+public class MockInetSocketAddress extends InetSocketAddress implements OverrideMock {
 
     private static final Logger logger = LoggerFactory.getLogger(MockInetSocketAddress.class);
 
     private static final long serialVersionUID = 5076001401234631237L;
 
     public MockInetSocketAddress(int port) {
-        this( MockFramework.isEnabled() ?
-                    MockInetAddress.anyLocalAddress() :
-                    NetReflectionUtil.anyLocalAddress()
-                        , port);
+        this(MockFramework.isEnabled()
+                ? MockInetAddress.anyLocalAddress()
+                : NetReflectionUtil.anyLocalAddress(),
+                port);
     }
 
     public MockInetSocketAddress(InetAddress addr, int port) {
-        super(addr == null ?
-                (MockFramework.isEnabled() ?
-                        MockInetAddress.anyLocalAddress() :
-                        NetReflectionUtil.anyLocalAddress())
+        super(addr == null
+                ? (MockFramework.isEnabled()
+                ? MockInetAddress.anyLocalAddress()
+                : NetReflectionUtil.anyLocalAddress())
                 : addr, port);
     }
 
     public MockInetSocketAddress(String hostname, int port) {
-        super(MockFramework.isEnabled() ?
-                        getResolvedAddressed(hostname).getHostAddress() :
-                    hostname
-                , port);
-        /*
-         * TODO we are not mocking this constructor properly.
-         * We should use reflection to modify the state of
-         * parent's holder variable.
-         * But it would be bit complicated, and not so important,
-         * as case we do not handle should be anyway rare, ie
-         * fail to resolve hostname (see DNS)
-         *
-         *
+        super(MockFramework.isEnabled()
+                ? getResolvedAddressed(hostname).getHostAddress()
+                : hostname,
+                port);
+                /*
+                 * TODO we are not mocking this constructor properly.
+                 * We should use reflection to modify the state of
+                 * parent's holder variable.
+                 * But it would be bit complicated, and not so important,
+                 * as case we do not handle should be anyway rare, ie
+                 * fail to resolve hostname (see DNS)
+                 *
+                 *
         checkHost(hostname);
         InetAddress addr = null;
         String host = null;
@@ -79,7 +80,7 @@ public class MockInetSocketAddress extends InetSocketAddress implements Override
         try {
             return MockInetAddress.getByName(hostname);
         } catch (UnknownHostException e) {
-            logger.warn("EvoSuite limitation: unsupported case of hostname resolution for "+hostname);
+            logger.warn("EvoSuite limitation: unsupported case of hostname resolution for " + hostname);
             return null;
         }
     }
@@ -100,8 +101,9 @@ public class MockInetSocketAddress extends InetSocketAddress implements Override
     }
 
     private static String checkHost(String hostname) {
-        if (hostname == null)
+        if (hostname == null) {
             throw new IllegalArgumentException("hostname can't be null");
+        }
         return hostname;
     }
 

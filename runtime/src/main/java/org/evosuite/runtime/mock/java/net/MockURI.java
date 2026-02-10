@@ -21,11 +21,13 @@ package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.mock.StaticReplacementMock;
 import org.evosuite.runtime.mock.java.lang.MockIllegalArgumentException;
+
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 
+@SuppressWarnings("checkstyle:MethodName")
 public class MockURI implements StaticReplacementMock {
 
     @Override
@@ -33,11 +35,11 @@ public class MockURI implements StaticReplacementMock {
         return URI.class.getName();
     }
 
-    public static final URI aHttpURI = create("http://foo.bar");
+    public static final URI A_HTTP_URI = create("http://foo.bar");
 
-    public static final URI aFileURI= create("file:///tmp/foo.bar");
+    public static final URI A_FILE_URI = create("file:///tmp/foo.bar");
 
-    public static final URI aFTPURI= create("ftp://foo.bar");
+    public static final URI A_FTP_URI = create("ftp://foo.bar");
 
     /**
      * URI is a final class. It seems there is the
@@ -46,8 +48,9 @@ public class MockURI implements StaticReplacementMock {
      * cannot be used :(
      */
     public static URL toURL(URI uri) throws MalformedURLException {
-        if (!uri.isAbsolute())
+        if (!uri.isAbsolute()) {
             throw new MockIllegalArgumentException("URI is not absolute");
+        }
         return MockURL.URL(uri.toString());
     }
 

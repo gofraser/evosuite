@@ -21,8 +21,9 @@ package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.vnet.EndPointInfo;
 import org.evosuite.runtime.vnet.NativeTcp;
-import org.evosuite.runtime.vnet.VirtualNetwork.ConnectionType;
 import org.evosuite.runtime.vnet.VirtualNetwork;
+import org.evosuite.runtime.vnet.VirtualNetwork.ConnectionType;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -43,9 +44,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * SocksSocketImpl -> PlainSocketImpl -> AbstractPlainSocketImpl -> SocketImpl
  */
 
-public class EvoSuiteSocket extends MockSocketImpl{
+public class EvoSuiteSocket extends MockSocketImpl {
 
-    private final Map<Integer,Object> options;
+    private final Map<Integer, Object> options;
 
     private NativeTcp openedConnection;
 
@@ -54,13 +55,13 @@ public class EvoSuiteSocket extends MockSocketImpl{
     private volatile boolean isBound;
 
     /**
-     *  whether this Socket is a stream (TCP) socket or not (UDP).
+     * whether this Socket is a stream (TCP) socket or not (UDP).
      *
-     *  Note: this is is actually deprecated:
-     *  "Socket(InetAddress host, int port, boolean stream)
-     *    Deprecated.
-     *    Use DatagramSocket instead for UDP transport.
-     *  "
+     * <p>Note: this is is actually deprecated:
+     * "Socket(InetAddress host, int port, boolean stream)
+     * Deprecated.
+     * Use DatagramSocket instead for UDP transport.
+     * "</p>
      */
     protected boolean stream;
 
@@ -97,22 +98,22 @@ public class EvoSuiteSocket extends MockSocketImpl{
     }
 
     @Override
-    public void setOption(int optID, Object value) throws SocketException {
+    public void setOption(int optId, Object value) throws SocketException {
         //TODO validation?
         // see AbstractPlainSocketImpl
-        options.put(optID, value);
+        options.put(optId, value);
     }
 
     /**
-     * Return the current value of SO_TIMEOUT
+     * Return the current value of SO_TIMEOUT.
      */
     public int getTimeout() {
         return (int) options.get(SO_TIMEOUT);
     }
 
     @Override
-    public Object getOption(int optID) throws SocketException {
-        return options.get(optID);
+    public Object getOption(int optId) throws SocketException {
+        return options.get(optId);
     }
 
     /**
@@ -124,16 +125,18 @@ public class EvoSuiteSocket extends MockSocketImpl{
         this.stream = stream;
 
         if (!stream) {
-                socketCreate(false);
+            socketCreate(false);
         } else {
             socketCreate(true);
         }
 
-        if (socket != null)
+        if (socket != null) {
             socket.setCreated();
+        }
 
-        if (serverSocket != null)
+        if (serverSocket != null) {
             serverSocket.setCreated();
+        }
 
     }
 
@@ -144,13 +147,13 @@ public class EvoSuiteSocket extends MockSocketImpl{
     @Override
     protected void connect(String host, int port) throws UnknownHostException, IOException {
         //from AbstractPlainSocketImpl
-        connect(new MockInetSocketAddress(MockInetAddress.getByName(host),port), getTimeout());
+        connect(new MockInetSocketAddress(MockInetAddress.getByName(host), port), getTimeout());
     }
 
     @Override
     protected void connect(InetAddress address, int port) throws IOException {
         //from AbstractPlainSocketImpl
-        connect(new MockInetSocketAddress(address,port), getTimeout());
+        connect(new MockInetSocketAddress(address, port), getTimeout());
     }
 
     @Override
@@ -160,19 +163,22 @@ public class EvoSuiteSocket extends MockSocketImpl{
         //from AbstractPlainSocketImpl, and check overridden in SocksSocketImpl (this latter not considered here)
 
         if (!isBound) {
-            InetAddress localHost = MockInetAddress.anyLocalAddress(); //TODO check if it was already bound to a specific interface?
-            bind(localHost,0);
+            // TODO check if it was already bound to a specific interface?
+            InetAddress localHost = MockInetAddress.anyLocalAddress();
+            bind(localHost, 0);
         }
 
         boolean connected = false;
 
         try {
-            if (remoteAddress == null || !(remoteAddress instanceof InetSocketAddress))
+            if (remoteAddress == null || !(remoteAddress instanceof InetSocketAddress)) {
                 throw new IllegalArgumentException("unsupported address type");
+            }
 
             InetSocketAddress addr = (InetSocketAddress) remoteAddress;
-            if (addr.isUnresolved())
+            if (addr.isUnresolved()) {
                 throw new UnknownHostException(addr.getHostName());
+            }
 
             this.port = addr.getPort();
             this.address = addr.getAddress();
@@ -231,7 +237,7 @@ public class EvoSuiteSocket extends MockSocketImpl{
          */
 
         InetAddress localHost = (InetAddress) options.get(SocketOptions.SO_BINDADDR);
-        NativeTcp tcp = VirtualNetwork.getInstance().pullTcpConnection(localHost.getHostAddress(),localport);
+        NativeTcp tcp = VirtualNetwork.getInstance().pullTcpConnection(localHost.getHostAddress(), localport);
 
         if (tcp == null) {
             throw new IOException("Simulated exception on waiting server");
@@ -247,13 +253,13 @@ public class EvoSuiteSocket extends MockSocketImpl{
     @Override
     protected InputStream getInputStream() throws IOException {
         checkIfClosed();
-        return new SocketIn(openedConnection,true);
+        return new SocketIn(openedConnection, true);
     }
 
     @Override
     protected OutputStream getOutputStream() throws IOException {
         checkIfClosed();
-        return new SocketOut(openedConnection,true);
+        return new SocketOut(openedConnection, true);
     }
 
     @Override
@@ -304,7 +310,7 @@ public class EvoSuiteSocket extends MockSocketImpl{
         this.setRemotePort(port);
     }
 
-    protected void checkIfClosed() throws IOException{
+    protected void checkIfClosed() throws IOException {
         if (isClosed) {
             throw new IOException("Connection is closed");
         }

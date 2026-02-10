@@ -20,9 +20,9 @@
 package org.evosuite.runtime.mock.java.util.zip;
 
 /**
- * This class is a copy of the package level class 
- * <code>ZipConstants64</code>
- * 
+ * This class is a copy of the package level class
+ * <code>ZipConstants64</code>.
+ *
  * @author arcuri
  *
  */
@@ -72,9 +72,10 @@ public class EvoZipConstants64 {
      * Language encoding flag EFS
      */
     static final int EFS = 0x800;       // If this bit is set the filename and
-                                        // comment fields for this file must be
-                                        // encoded using UTF-8.
+    // comment fields for this file must be
+    // encoded using UTF-8.
 
-    private EvoZipConstants64() {}
+    private EvoZipConstants64() {
+    }
 
 }

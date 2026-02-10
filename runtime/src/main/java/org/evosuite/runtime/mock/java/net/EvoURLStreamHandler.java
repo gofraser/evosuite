@@ -25,11 +25,11 @@ import java.net.URLConnection;
 import java.util.Arrays;
 import java.util.List;
 
-public class EvoURLStreamHandler extends MockURLStreamHandler{
+public class EvoURLStreamHandler extends MockURLStreamHandler {
 
     private final String protocol;
 
-    public EvoURLStreamHandler(String protocol) throws IllegalArgumentException{
+    public EvoURLStreamHandler(String protocol) throws IllegalArgumentException {
         super();
 
         if (protocol == null || protocol.trim().isEmpty()) {
@@ -46,8 +46,8 @@ public class EvoURLStreamHandler extends MockURLStreamHandler{
 
         protocol = protocol.trim().toLowerCase();
 
-        //these depend on what in the "sun.net.www.protocol" package
-        List<String> list = Arrays.asList("file","ftp","gopher","http","https","jar","mailto","netdoc");
+        // these depend on what in the "sun.net.www.protocol" package
+        List<String> list = Arrays.asList("file", "ftp", "gopher", "http", "https", "jar", "mailto", "netdoc");
 
         return list.contains(protocol);
     }
@@ -56,15 +56,15 @@ public class EvoURLStreamHandler extends MockURLStreamHandler{
     protected URLConnection openConnection(URL u) throws IOException {
 
         if (!u.getProtocol().trim().equalsIgnoreCase(this.protocol)) {
-            //should never happen
-            throw new IOException("Error, protocol mismatch: "+u.getProtocol()+" != "+this.protocol);
+            // should never happen
+            throw new IOException("Error, protocol mismatch: " + u.getProtocol() + " != " + this.protocol);
         }
 
-        if (protocol.equals("http") || protocol.equals("https")) {
+        if ("http".equals(protocol) || "https".equals(protocol)) {
             return new EvoHttpURLConnection(u);
         }
 
-        //TODO
+        // TODO
 
         /*
          * "http/https" need to be treated specially, look at
@@ -78,5 +78,4 @@ public class EvoURLStreamHandler extends MockURLStreamHandler{
 
         return null;
     }
-
 }

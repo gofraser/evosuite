@@ -22,16 +22,22 @@ package org.evosuite.runtime.mock.java.net;
 import org.evosuite.runtime.mock.java.io.MockIOException;
 import org.evosuite.runtime.mock.java.lang.MockNullPointerException;
 import org.evosuite.runtime.vnet.VirtualNetwork;
+
 import java.io.IOException;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocketImpl;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketAddress;
+import java.net.SocketException;
 
 /**
  * Note: UDP is seldom used, and most of the functions here are not called in SF110.
- * Implementing all of them is therefore not the top priority
- * 
- * Created by arcuri on 12/7/14.
+ * Implementing all of them is therefore not the top priority.
+ *
+ * <p>Created by arcuri on 12/7/14.</p>
  */
-public class EvoDatagramSocketImpl extends DatagramSocketImpl{
+public class EvoDatagramSocketImpl extends DatagramSocketImpl {
 
     private String localHost;
 
@@ -71,7 +77,7 @@ public class EvoDatagramSocketImpl extends DatagramSocketImpl{
 
         localPort = lport;
         localHost = laddr.getHostAddress();
-        VirtualNetwork.getInstance().openUdpServer(localHost,localPort);
+        VirtualNetwork.getInstance().openUdpServer(localHost, localPort);
     }
 
     @Override
@@ -84,16 +90,16 @@ public class EvoDatagramSocketImpl extends DatagramSocketImpl{
 
     @Override
     public void receive(DatagramPacket p) throws IOException {
-       DatagramPacket received = VirtualNetwork.getInstance().pullUdpPacket(localHost,localPort);
-       if (received != null) {
-           p.setData(received.getData());
-           p.setAddress(received.getAddress());
-           p.setPort(received.getPort());
-           p.setLength(received.getLength());
-       } else {
-           //no point in simulating a blocking call
-           throw new MockIOException("Simulated IO exception");
-       }
+        DatagramPacket received = VirtualNetwork.getInstance().pullUdpPacket(localHost, localPort);
+        if (received != null) {
+            p.setData(received.getData());
+            p.setAddress(received.getAddress());
+            p.setPort(received.getPort());
+            p.setLength(received.getLength());
+        } else {
+            //no point in simulating a blocking call
+            throw new MockIOException("Simulated IO exception");
+        }
     }
 
     @Override
@@ -156,12 +162,12 @@ public class EvoDatagramSocketImpl extends DatagramSocketImpl{
     }
 
     @Override
-    public void setOption(int optID, Object value) throws SocketException {
+    public void setOption(int optId, Object value) throws SocketException {
         //TODO
     }
 
     @Override
-    public Object getOption(int optID) throws SocketException {
+    public Object getOption(int optId) throws SocketException {
         //TODO
         return null;
     }

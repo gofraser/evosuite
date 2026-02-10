@@ -21,8 +21,11 @@ package org.evosuite.runtime.mock.java.util;
 
 import org.evosuite.runtime.mock.OverrideMock;
 
+/**
+ * Mock implementation of java.util.Date.
+ */
 @SuppressWarnings("deprecation")
-public class MockDate extends java.util.Date  implements OverrideMock{
+public class MockDate extends java.util.Date implements OverrideMock {
 
     private static final long serialVersionUID = 6252798426594925071L;
 
@@ -54,12 +57,13 @@ public class MockDate extends java.util.Date  implements OverrideMock{
         return java.util.Date.parse(s);
     }
 
+    @SuppressWarnings("checkstyle:methodname")
     public static long UTC(int year,
-            int month,
-            int date,
-            int hrs,
-            int min,
-            int sec) {
+                           int month,
+                           int date,
+                           int hrs,
+                           int min,
+                           int sec) {
         return java.util.Date.UTC(year, month, date, hrs, min, sec);
     }
 }

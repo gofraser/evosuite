@@ -21,6 +21,7 @@ package org.evosuite.runtime.mock.java.net;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -29,7 +30,7 @@ import java.net.URL;
 import java.net.URLStreamHandler;
 
 /**
- * Class used to operate on URL state by reflection
+ * Class used to operate on URL state by reflection.
  * @author arcuri
  *
  */
@@ -41,7 +42,7 @@ public class URLUtil {
     private static Field handlerField;
     private static Method setMethod;
 
-    static{
+    static {
         try {
             hostAddressField = URL.class.getDeclaredField("hostAddress");
             hostAddressField.setAccessible(true);
@@ -50,22 +51,22 @@ public class URLUtil {
 
             setMethod = URL.class.getDeclaredMethod("set",
                     String.class, String.class, int.class,
-                    String.class,String.class,String.class,String.class,String.class);
+                    String.class, String.class, String.class, String.class, String.class);
             setMethod.setAccessible(true);
 
         } catch (NoSuchFieldException | SecurityException | NoSuchMethodException e) {
-            logger.error("Reflection error: "+e.getMessage());
+            logger.error("Reflection error: " + e.getMessage());
         }
     }
 
     public static void set(URL url, String protocol, String host, int port,
-            String authority, String userInfo, String path,
-            String query, String ref) {
+                           String authority, String userInfo, String path,
+                           String query, String ref) {
 
         try {
-            setMethod.invoke(url, protocol,host,port,authority,userInfo,path,query,ref);
+            setMethod.invoke(url, protocol, host, port, authority, userInfo, path, query, ref);
         } catch (IllegalAccessException | InvocationTargetException e) {
-            logger.error("Reflection error: "+e.getMessage());
+            logger.error("Reflection error: " + e.getMessage());
         }
     }
 
@@ -73,7 +74,7 @@ public class URLUtil {
         try {
             return (URLStreamHandler) handlerField.get(url);
         } catch (IllegalArgumentException | IllegalAccessException e) {
-            logger.error("Reflection error: "+e.getMessage());
+            logger.error("Reflection error: " + e.getMessage());
             return null;
         }
     }
@@ -82,7 +83,7 @@ public class URLUtil {
         try {
             handlerField.set(url, handler);
         } catch (IllegalArgumentException | IllegalAccessException e) {
-            logger.error("Reflection error: "+e.getMessage());
+            logger.error("Reflection error: " + e.getMessage());
         }
     }
 
@@ -90,15 +91,15 @@ public class URLUtil {
         try {
             hostAddressField.set(url, hostAddress);
         } catch (IllegalArgumentException | IllegalAccessException e) {
-            logger.error("Reflection error: "+e.getMessage());
+            logger.error("Reflection error: " + e.getMessage());
         }
     }
 
     public static InetAddress getHostAddress(URL url) {
         try {
-            return (InetAddress)hostAddressField.get(url);
+            return (InetAddress) hostAddressField.get(url);
         } catch (IllegalArgumentException | IllegalAccessException e) {
-            logger.error("Reflection error: "+e.getMessage());
+            logger.error("Reflection error: " + e.getMessage());
             return null;
         }
     }

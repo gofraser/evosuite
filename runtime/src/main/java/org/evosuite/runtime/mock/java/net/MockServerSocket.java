@@ -21,6 +21,7 @@ package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.OverrideMock;
+
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -35,7 +36,6 @@ import java.net.SocketOptions;
 import java.nio.channels.ServerSocketChannel;
 
 /**
- *
  * Created by arcuri on 6/29/14.
  */
 public class MockServerSocket extends ServerSocket implements OverrideMock {
@@ -43,7 +43,7 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
     private boolean created = false;
     private boolean bound = false;
     private boolean closed = false;
-    private Object closeLock = new Object();
+    private final Object closeLock = new Object();
     private boolean oldImpl = false;
 
     private MockSocketImpl impl;
@@ -51,30 +51,30 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
     //--------- constructors -------------
 
     /**
-     *  Non-visible (package-level) constructor
+     * Non-visible (package-level) constructor
      *
-    MockServerSocket(MockSocketImpl impl) {
-        this.impl = impl;
-        impl.setServerSocket(this);
-    }
+     * <p>MockServerSocket(MockSocketImpl impl) {
+     * this.impl = impl;
+     * impl.setServerSocket(this);
+     * }
      */
 
     public MockServerSocket() throws IOException {
         super();
         /*
          * the super constructor is only calling setImpl, which is implemented with:
-
-              if (factory != null) {
-                    impl = factory.createSocketImpl();
-                    checkOldImpl();
-                } else {
-                    // No need to do a checkOldImpl() here, we know it's an up to date
-                    // SocketImpl!
-                    impl = new SocksSocketImpl();
-                }
-                if (impl != null)
-                    impl.setServerSocket(this);
-
+         *
+         *    if (factory != null) {
+         *          impl = factory.createSocketImpl();
+         *          checkOldImpl();
+         *      } else {
+         *          // No need to do a checkOldImpl() here, we know it's an up to date
+         *          // SocketImpl!
+         *          impl = new SocksSocketImpl();
+         *      }
+         *      if (impl != null)
+         *          impl.setServerSocket(this);
+         *
          * ie, the only side effect is to set the variable "impl"
          */
         setImpl();
@@ -91,11 +91,13 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
     public MockServerSocket(int port, int backlog, InetAddress bindAddr) throws IOException {
         this();
 
-        if (port < 0 || port > 0xFFFF)
+        if (port < 0 || port > 0xFFFF) {
             throw new IllegalArgumentException("Port value out of range: " + port);
+        }
 
-        if (backlog < 1)
+        if (backlog < 1) {
             backlog = 50;
+        }
 
         try {
             if (MockFramework.isEnabled()) {
@@ -112,9 +114,9 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
         } catch (IOException e) {
             close();
             throw e;
-        } catch (NoSuchMethodException | IllegalAccessException e ) {
+        } catch (NoSuchMethodException | IllegalAccessException e) {
             //should never happen
-            throw new RuntimeException("ERROR in EvoSuite: "+e,e);
+            throw new RuntimeException("ERROR in EvoSuite: " + e, e);
         } catch (InvocationTargetException e) {
             throw new RuntimeException(e.getCause());
         }
@@ -133,8 +135,9 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
     }
 
     private MockSocketImpl getImpl() throws SocketException {
-        if (!created)
+        if (!created) {
             createImpl();
+        }
         return impl;
     }
 
@@ -147,8 +150,9 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
     }
 
     private void createImpl() throws SocketException {
-        if (impl == null)
+        if (impl == null) {
             setImpl();
+        }
         try {
             impl.create(true);
             created = true;
@@ -169,30 +173,36 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
     @Override
     public void bind(SocketAddress endpoint, int backlog) throws IOException {
         if (!MockFramework.isEnabled()) {
-            super.bind(endpoint,backlog);
+            super.bind(endpoint, backlog);
             return;
         }
 
-        if (isClosed())
+        if (isClosed()) {
             throw new SocketException("Socket is closed");
-        if (!oldImpl && isBound())
+        }
+        if (!oldImpl && isBound()) {
             throw new SocketException("Already bound");
-        if (endpoint == null)
+        }
+        if (endpoint == null) {
             endpoint = new MockInetSocketAddress(0);
-        if (!(endpoint instanceof InetSocketAddress))
+        }
+        if (!(endpoint instanceof InetSocketAddress)) {
             throw new IllegalArgumentException("Unsupported address type");
+        }
 
         InetSocketAddress epoint = (InetSocketAddress) endpoint;
-        if (epoint.isUnresolved())
+        if (epoint.isUnresolved()) {
             throw new SocketException("Unresolved address");
-        if (backlog < 1)
+        }
+        if (backlog < 1) {
             backlog = 50;
+        }
 
         try {
             getImpl().bind(epoint.getAddress(), epoint.getPort());
             getImpl().listen(backlog);
             bound = true;
-        }  catch (IOException e) {
+        } catch (IOException e) {
             bound = false;
             throw e;
         }
@@ -203,12 +213,13 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.getInetAddress();
         }
-        if (!isBound())
+        if (!isBound()) {
             return null;
+        }
         try {
             InetAddress in = getImpl().getInetAddress();
             return in;
-        }  catch (SocketException e) {
+        } catch (SocketException e) {
             // nothing
             // If we're bound, the impl has been created
             // so we shouldn't get here
@@ -221,8 +232,9 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.getLocalPort();
         }
-        if (!isBound())
+        if (!isBound()) {
             return -1;
+        }
         try {
             return getImpl().getLocalPort();
         } catch (SocketException e) {
@@ -238,8 +250,9 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.getLocalSocketAddress();
         }
-        if (!isBound())
+        if (!isBound()) {
             return null;
+        }
         return new InetSocketAddress(getInetAddress(), getLocalPort());
     }
 
@@ -248,23 +261,25 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.accept();
         }
-        if (isClosed())
+        if (isClosed()) {
             throw new SocketException("Socket is closed");
-        if (!isBound())
+        }
+        if (!isBound()) {
             throw new SocketException("Socket is not bound yet");
+        }
         MockSocket s = new MockSocket((MockSocketImpl) null);
 
-        _implAccept(s);
+        doImplAccept(s);
 
         return s;
     }
 
-    protected void _implAccept(MockSocket s) throws IOException {
+    protected void doImplAccept(MockSocket s) throws IOException {
         MockSocketImpl si = null;
         try {
-            if (s.impl == null)
+            if (s.impl == null) {
                 s.setImpl();
-            else {
+            } else {
                 s.impl.reset();
             }
             si = s.impl;
@@ -272,12 +287,13 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
             //si.address = new InetAddress();
             //si.fd = new FileDescriptor();
 
-            si.setServerSocket(this);// TODO not sure if correct
+            si.setServerSocket(this); // TODO not sure if correct
             getImpl().accept(si);
 
         } catch (IOException e) {
-            if (si != null)
+            if (si != null) {
                 si.reset();
+            }
             s.impl = si;
             throw e;
         }
@@ -328,10 +344,12 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
             return;
         }
         synchronized (closeLock) {
-            if (isClosed())
+            if (isClosed()) {
                 return;
-            if (created)
+            }
+            if (created) {
                 impl.close();
+            }
             closed = true;
         }
     }
@@ -366,8 +384,9 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
             super.setSoTimeout(timeout);
             return;
         }
-        if (isClosed())
+        if (isClosed()) {
             throw new SocketException("Socket is closed");
+        }
         getImpl().setOption(SocketOptions.SO_TIMEOUT, timeout);
     }
 
@@ -376,8 +395,9 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.getSoTimeout();
         }
-        if (isClosed())
+        if (isClosed()) {
             throw new SocketException("Socket is closed");
+        }
         Object o = getImpl().getOption(SocketOptions.SO_TIMEOUT);
         /* extra type safety */
         if (o instanceof Integer) {
@@ -393,8 +413,9 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
             super.setReuseAddress(on);
             return;
         }
-        if (isClosed())
+        if (isClosed()) {
             throw new SocketException("Socket is closed");
+        }
         getImpl().setOption(SocketOptions.SO_REUSEADDR, on);
     }
 
@@ -403,8 +424,9 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.getReuseAddress();
         }
-        if (isClosed())
+        if (isClosed()) {
             throw new SocketException("Socket is closed");
+        }
         return (Boolean) (getImpl().getOption(SocketOptions.SO_REUSEADDR));
     }
 
@@ -413,28 +435,29 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.toString();
         }
-        if (!isBound())
+        if (!isBound()) {
             return "ServerSocket[unbound]";
+        }
 
         InetAddress in = impl.getInetAddress();
 
-        return "ServerSocket[addr=" + in + ",localport=" + impl.getLocalPort()  + "]";
+        return "ServerSocket[addr=" + in + ",localport=" + impl.getLocalPort() + "]";
     }
 
     @Override
-    public synchronized void setReceiveBufferSize (int size) throws SocketException {
+    public synchronized void setReceiveBufferSize(int size) throws SocketException {
         super.setReceiveBufferSize(size);
     }
 
     @Override
-    public synchronized int getReceiveBufferSize() throws SocketException{
+    public synchronized int getReceiveBufferSize() throws SocketException {
         return super.getReceiveBufferSize();
     }
 
     @Override
     public void setPerformancePreferences(int connectionTime,
-            int latency,
-            int bandwidth) {
+                                          int latency,
+                                          int bandwidth) {
         super.setPerformancePreferences(connectionTime, latency, bandwidth);
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -33,39 +33,40 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MockFileInputStream extends FileInputStream implements LeakingResource, OverrideMock{
+/**
+ * Custom mock implementation of {@link java.io.FileInputStream}.
+ */
+public class MockFileInputStream extends FileInputStream implements LeakingResource, OverrideMock {
 
     private FileChannel channel = null;
 
     /**
-     * Is this stream closed?
+     * Whether this stream is closed.
      */
     private volatile boolean closed = false;
 
     /**
-     * The path to the file
+     * The path to the file.
      */
     private final String path;
 
     /**
-     * The position to read in the stream next
+     * The position to read in the stream next.
      */
     private final AtomicInteger position = new AtomicInteger(0);
 
     // ----- constructors -------------
 
     public MockFileInputStream(String name) throws FileNotFoundException {
-        this( name != null ?
-                        (!MockFramework.isEnabled() ? new File(name) : new MockFile(name)) :
-                (File)null
-                );
+        this(name != null
+                ? (!MockFramework.isEnabled() ? new File(name) : new MockFile(name))
+                : (File) null);
     }
 
     public MockFileInputStream(File file) throws FileNotFoundException {
-        super(!MockFramework.isEnabled() ?
-                        file :
-                            VirtualFileSystem.getInstance().getRealTmpFile()  // just to make compiler happy
-                );
+        super(!MockFramework.isEnabled()
+                ? file
+                : VirtualFileSystem.getInstance().getRealTmpFile()); // just to make compiler happy
         if (!MockFramework.isEnabled()) {
             path = null;
             return;
@@ -96,7 +97,7 @@ public class MockFileInputStream extends FileInputStream implements LeakingResou
 
     // ----  read methods  ----------
 
-    public int read() throws IOException{
+    public int read() throws IOException {
 
         if (!MockFramework.isEnabled()) {
             return super.read();
@@ -107,16 +108,16 @@ public class MockFileInputStream extends FileInputStream implements LeakingResou
         return NativeMockedIO.read(path, position);
     }
 
-    private  int readBytes(byte[] b, int off, int len) throws IOException{
+    private int readBytes(byte[] b, int off, int len) throws IOException {
 
         if (!MockFramework.isEnabled()) {
             return super.read(b, off, len);
         }
 
         int counter = 0;
-        for (int i=0; i<len; i++) {
+        for (int i = 0; i < len; i++) {
             int v = read();
-            if (v == -1) {  //EOF
+            if (v == -1) { //EOF
                 if (i == 0) {
                     //no data to read
                     return -1;
@@ -125,7 +126,7 @@ public class MockFileInputStream extends FileInputStream implements LeakingResou
                 }
             }
 
-            b[off+i] = (byte) v;
+            b[off + i] = (byte) v;
             counter++;
         }
 
@@ -133,25 +134,25 @@ public class MockFileInputStream extends FileInputStream implements LeakingResou
     }
 
     @Override
-    public  long skip(long n) throws IOException{
+    public long skip(long n) throws IOException {
 
         if (!MockFramework.isEnabled()) {
             return super.skip(n);
         }
 
-        if (n<0) {
+        if (n < 0) {
             throw new MockIOException();
         }
 
         throwExceptionIfClosed();
 
         VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
-        position.addAndGet((int)n);
+        position.addAndGet((int) n);
         return n;
     }
 
     @Override
-    public int available() throws IOException{
+    public int available() throws IOException {
 
         if (!MockFramework.isEnabled()) {
             return super.available();
@@ -218,13 +219,13 @@ public class MockFileInputStream extends FileInputStream implements LeakingResou
 
         synchronized (this) {
             if (channel == null) {
-                channel = new EvoFileChannel(position,path,true,false);
+                channel = new EvoFileChannel(position, path, true, false);
             }
             return channel;
         }
     }
 
-    private void throwExceptionIfClosed() throws IOException{
+    private void throwExceptionIfClosed() throws IOException {
         if (closed) {
             throw new MockIOException();
         }

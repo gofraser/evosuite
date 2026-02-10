@@ -23,16 +23,29 @@ import org.evosuite.runtime.mock.OverrideMock;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 
+/**
+ * Mock class for {@link java.security.SecureRandom}.
+ *
+ * <p>This replacement ensures that {@link org.evosuite.runtime.Random} is used instead of the
+ * default secure random number generator.
+ */
 public class MockSecureRandom extends SecureRandom implements OverrideMock {
 
     private static final long serialVersionUID = 3423648250373734907L;
 
+    /**
+     * Constructs a {@code MockSecureRandom} with a default seed.
+     */
     public MockSecureRandom() {
         super(new byte[] { 0 });
     }
 
+    /**
+     * Constructs a {@code MockSecureRandom} with the given seed.
+     *
+     * @param seed the seed to use.
+     */
     public MockSecureRandom(long seed) {
-
         super(toBytes(seed));
     }
 
@@ -43,74 +56,74 @@ public class MockSecureRandom extends SecureRandom implements OverrideMock {
     }
 
     /**
-     * Replacement function for nextInt
+     * Replacement function for {@link SecureRandom#nextInt()}.
      *
-     * @return a int.
+     * @return a pseudo-random, uniformly distributed {@code int} value.
      */
     public int nextInt() {
         return org.evosuite.runtime.Random.nextInt();
     }
 
     /**
-     * Replacement function for nextInt
+     * Replacement function for {@link SecureRandom#nextInt(int)}.
      *
-     * @param max
-     *            a int.
-     * @return a int.
+     * @param max the bound on the random number to be returned. Must be positive.
+     * @return a pseudo-random, uniformly distributed {@code int} value between 0 (inclusive) and n (exclusive).
      */
     public int nextInt(int max) {
         return org.evosuite.runtime.Random.nextInt(max);
     }
 
     /**
-     * Replacement function for nextFloat
+     * Replacement function for {@link SecureRandom#nextFloat()}.
      *
-     * @return a float.
+     * @return a pseudo-random, uniformly distributed {@code float} value between 0.0 and 1.0.
      */
     public float nextFloat() {
         return org.evosuite.runtime.Random.nextFloat();
     }
 
     /**
-     * Replacement function for nextBytes
+     * Replacement function for {@link SecureRandom#nextBytes(byte[])}.
      *
-     * @param bytes
+     * @param bytes the array to be filled with random bytes.
      */
     public void nextBytes(byte[] bytes) {
         org.evosuite.runtime.Random.nextBytes(bytes);
     }
 
     /**
-     * Replacement function for nextDouble
+     * Replacement function for {@link SecureRandom#nextDouble()}.
      *
-     * @return a float.
+     * @return a pseudo-random, uniformly distributed {@code double} value between 0.0 and 1.0.
      */
     public double nextDouble() {
         return org.evosuite.runtime.Random.nextDouble();
     }
 
     /**
-     * Replacement function for nextGaussian
+     * Replacement function for {@link SecureRandom#nextGaussian()}.
      *
-     * @return a double.
+     * @return a pseudo-random, Gaussian ("normally") distributed {@code double} value with mean 0.0 and
+     *     standard deviation 1.0.
      */
     public double nextGaussian() {
         return org.evosuite.runtime.Random.nextGaussian();
     }
 
     /**
-     * Replacement function for nextBoolean
+     * Replacement function for {@link SecureRandom#nextBoolean()}.
      *
-     * @return a boolean.
+     * @return a pseudo-random, uniformly distributed {@code boolean} value.
      */
     public boolean nextBoolean() {
         return org.evosuite.runtime.Random.nextBoolean();
     }
 
     /**
-     * Replacement function for nextLong
+     * Replacement function for {@link SecureRandom#nextLong()}.
      *
-     * @return a long.
+     * @return a pseudo-random, uniformly distributed {@code long} value.
      */
     public long nextLong() {
         return org.evosuite.runtime.Random.nextLong();

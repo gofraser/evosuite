@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -32,7 +32,10 @@ import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MockRandomAccessFile extends RandomAccessFile implements LeakingResource,  OverrideMock{
+/**
+ * Custom mock implementation of {@link java.io.RandomAccessFile}.
+ */
+public class MockRandomAccessFile extends RandomAccessFile implements LeakingResource, OverrideMock {
 
     private FileChannel channel = null;
     private final Object closeLock = new Object();
@@ -42,31 +45,31 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
     private volatile boolean closed = false;
 
     /**
-     * The path to the file
+     * The path to the file.
      */
     private final String path;
 
     /**
-     * The position in the file
+     * The position in the file.
      */
     private final AtomicInteger position = new AtomicInteger(0);
 
     // ----------- constructors  ----------------
 
     public MockRandomAccessFile(String name, String mode)
-            throws FileNotFoundException{
-        this(name != null ?
-                (!MockFramework.isEnabled() ?
-                         new File(name) :
-                             new MockFile(name)):
-                null, mode);
+            throws FileNotFoundException {
+        this(name != null
+                ? (!MockFramework.isEnabled()
+                        ? new File(name)
+                        : new MockFile(name))
+                : null, mode);
     }
 
     public MockRandomAccessFile(File file, String mode) throws FileNotFoundException {
 
-        super((!MockFramework.isEnabled() ?
-                file :
-                VirtualFileSystem.getInstance().getRealTmpFile()),mode); //just to make the compiler happy
+        super((!MockFramework.isEnabled()
+                ? file
+                : VirtualFileSystem.getInstance().getRealTmpFile()), mode); //just to make the compiler happy
 
         if (!MockFramework.isEnabled()) {
             path = null;
@@ -77,7 +80,7 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
 
         String name = (file != null ? file.getPath() : null);
 
-        if (mode == null || (!mode.equals("r") && !mode.equals("rw") && !mode.equals("rws") && !mode.equals("rwd")) ) {
+        if (mode == null || (!mode.equals("r") && !mode.equals("rw") && !mode.equals("rws") && !mode.equals("rwd"))) {
             throw new MockIllegalArgumentException("Illegal mode \"" + mode
                     + "\" must be one of "
                     + "\"r\", \"rw\", \"rws\","
@@ -113,13 +116,13 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
         /*
          * it is important to instantiate it here, because getChannel is final
          */
-        channel = new EvoFileChannel(position,path,canRead,canWrite);
+        channel = new EvoFileChannel(position, path, canRead, canWrite);
     }
 
     // ------- mocked native methods ----------
 
     @Override
-    public int read() throws IOException{
+    public int read() throws IOException {
         if (!MockFramework.isEnabled()) {
             return super.read();
         }
@@ -135,16 +138,16 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
     }
 
     @Override
-    public void write(int b) throws IOException{
+    public void write(int b) throws IOException {
         if (!MockFramework.isEnabled()) {
             super.write(b);
             return;
         }
 
-        writeBytes(new byte[]{(byte)b},0,1);
+        writeBytes(new byte[]{(byte) b}, 0, 1);
     }
 
-    private void writeBytes(byte[] b, int off, int len) throws IOException{
+    private void writeBytes(byte[] b, int off, int len) throws IOException {
 
         if (closed || !canWrite) {
             throw new IOException();
@@ -154,7 +157,7 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
     }
 
     @Override
-    public long getFilePointer() throws IOException{
+    public long getFilePointer() throws IOException {
         if (!MockFramework.isEnabled()) {
             return super.getFilePointer();
         }
@@ -163,23 +166,24 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
     }
 
     @Override
-    public void seek(long pos) throws IOException{
+    public void seek(long pos) throws IOException {
         if (!MockFramework.isEnabled()) {
             super.seek(pos);
             return;
         }
 
         if (pos < 0) {
-            throw new MockIOException("Negative position: "+pos);
+            throw new MockIOException("Negative position: " + pos);
         }
         if (pos > Integer.MAX_VALUE) {
-            throw new MockIOException("Virtual file system does not handle files larger than  "+Integer.MAX_VALUE+" bytes");
+            throw new MockIOException("Virtual file system does not handle files larger than "
+                    + Integer.MAX_VALUE + " bytes");
         }
-        position.set((int)pos);
+        position.set((int) pos);
     }
 
     @Override
-    public long length() throws IOException{
+    public long length() throws IOException {
         if (!MockFramework.isEnabled()) {
             return super.length();
         }
@@ -191,7 +195,7 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
     }
 
     @Override
-    public void setLength(long newLength) throws IOException{
+    public void setLength(long newLength) throws IOException {
         if (!MockFramework.isEnabled()) {
             super.setLength(newLength);
             return;
@@ -206,16 +210,16 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
 
     // ---------   override methods ----------------
 
-    private  int readBytes(byte[] b, int off, int len) throws IOException{
+    private int readBytes(byte[] b, int off, int len) throws IOException {
         int counter = 0;
-        for (int i=0; i<len; i++) {
+        for (int i = 0; i < len; i++) {
             int v = read();
             if (v == -1) {
                 //end of stream
                 return -1;
             }
 
-            b[off+i] = (byte) v;
+            b[off + i] = (byte) v;
             counter++;
         }
 
@@ -295,6 +299,6 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
 
     @Override
     public void release() throws Exception {
-            super.close();
+        super.close();
     }
 }

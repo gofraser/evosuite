@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -28,7 +28,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 
-public class MockFileWriter extends FileWriter  implements OverrideMock{
+/**
+ * Custom mock implementation of {@link java.io.FileWriter}.
+ */
+public class MockFileWriter extends FileWriter implements OverrideMock {
 
     /*
      * This class is specular to MockFileReader
@@ -41,32 +44,32 @@ public class MockFileWriter extends FileWriter  implements OverrideMock{
      */
 
     public MockFileWriter(String fileName) throws IOException {
-        this(fileName != null ?
-                (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName)) :
-                    null);
+        this(fileName != null
+                ? (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName))
+                : null);
     }
 
     public MockFileWriter(String fileName, boolean append) throws IOException {
-        this(fileName != null ?
-                (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName)) :
-                    null, append);
+        this(fileName != null
+                ? (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName))
+                : null, append);
     }
 
     public MockFileWriter(File file) throws IOException {
-        this(file,false);
+        this(file, false);
     }
 
     public MockFileWriter(File file, boolean append) throws IOException {
-        super(!MockFramework.isEnabled() ?
-                file :
-                    VirtualFileSystem.getInstance().getRealTmpFile(),
-                    append);
+        super(!MockFramework.isEnabled()
+                ? file
+                : VirtualFileSystem.getInstance().getRealTmpFile(),
+                append);
 
         if (!MockFramework.isEnabled()) {
             return;
         }
 
-        MockFileOutputStream mock = new MockFileOutputStream(file,append);
+        MockFileOutputStream mock = new MockFileOutputStream(file, append);
 
         stream = new OutputStreamWriter(mock);
 

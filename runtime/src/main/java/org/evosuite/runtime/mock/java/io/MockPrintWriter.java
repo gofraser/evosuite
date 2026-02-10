@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -35,7 +35,10 @@ import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.UnsupportedCharsetException;
 
-public class MockPrintWriter extends PrintWriter  implements OverrideMock{
+/**
+ * Custom mock implementation of {@link java.io.PrintWriter}.
+ */
+public class MockPrintWriter extends PrintWriter implements OverrideMock {
 
     /*
      * -- constructors from PrintWriter
@@ -44,13 +47,13 @@ public class MockPrintWriter extends PrintWriter  implements OverrideMock{
      *  MockFileOutputStream in some of these constructors
      */
 
-    public MockPrintWriter (Writer out) {
+    public MockPrintWriter(Writer out) {
         this(out, false);
     }
 
     public MockPrintWriter(Writer out,
             boolean autoFlush) {
-        super(out,autoFlush);
+        super(out, autoFlush);
     }
 
     public MockPrintWriter(OutputStream out) {
@@ -58,15 +61,14 @@ public class MockPrintWriter extends PrintWriter  implements OverrideMock{
     }
 
     public MockPrintWriter(OutputStream out, boolean autoFlush) {
-        super(out,autoFlush);
+        super(out, autoFlush);
     }
 
     public MockPrintWriter(String fileName) throws FileNotFoundException {
         this(new BufferedWriter(new OutputStreamWriter(
-                (!MockFramework.isEnabled() ?
-                        new FileOutputStream(fileName) :
-                            new MockFileOutputStream(fileName))
-                )),
+                (!MockFramework.isEnabled()
+                        ? new FileOutputStream(fileName)
+                        : new MockFileOutputStream(fileName)))),
                 false);
     }
 
@@ -74,28 +76,26 @@ public class MockPrintWriter extends PrintWriter  implements OverrideMock{
     private MockPrintWriter(Charset charset, File file)
             throws FileNotFoundException {
         this(new BufferedWriter(new OutputStreamWriter(
-                (!MockFramework.isEnabled() ?
-                        new FileOutputStream(file) :
-                            new MockFileOutputStream(file))
-                            , charset)),
-                            false);
+                (!MockFramework.isEnabled()
+                        ? new FileOutputStream(file)
+                        : new MockFileOutputStream(file)),
+                charset)),
+                false);
     }
 
     public MockPrintWriter(String fileName, String csn)
-            throws FileNotFoundException, UnsupportedEncodingException{
+            throws FileNotFoundException, UnsupportedEncodingException {
         this(toCharset(csn),
-                (!MockFramework.isEnabled() ?
-                        new File(fileName) :
-                            new MockFile(fileName))
-                );
+                (!MockFramework.isEnabled()
+                        ? new File(fileName)
+                        : new MockFile(fileName)));
     }
 
     public MockPrintWriter(File file) throws FileNotFoundException {
         this(new BufferedWriter(new OutputStreamWriter(
-                (!MockFramework.isEnabled() ?
-                        new FileOutputStream(file) :
-                            new MockFileOutputStream(file))
-                )),
+                (!MockFramework.isEnabled()
+                        ? new FileOutputStream(file)
+                        : new MockFileOutputStream(file)))),
                 false);
     }
 
@@ -109,8 +109,9 @@ public class MockPrintWriter extends PrintWriter  implements OverrideMock{
     private static Charset toCharset(String csn)
             throws UnsupportedEncodingException {
         // Objects.requireNonNull(csn, "charsetName");
-        if (csn == null)
+        if (csn == null) {
             throw new MockNullPointerException("charsetName");
+        }
 
         try {
             return Charset.forName(csn);

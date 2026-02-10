@@ -36,17 +36,18 @@ import java.util.logging.LogRecord;
  * In this mock, all the logging is ignored.
  * In theory, we could redirect all logs to the VFS.
  * We do not do it for the following reasons:
- * 
+ *
  * <ul>
- *         <li> Performance
- *      <li> Anyway we shouldn't have assertions on log status
- *      <li> We do not want the log files to become part of the search
- *           once they get accessed the first time
- * 
+ * <li> Performance</li>
+ * <li> Anyway we shouldn't have assertions on log status</li>
+ * <li> We do not want the log files to become part of the search
+ * once they get accessed the first time</li>
+ * </ul>
+ *
  * @author arcuri
  *
  */
-public class MockFileHandler extends FileHandler  implements OverrideMock{
+public class MockFileHandler extends FileHandler implements OverrideMock {
 
     private static final int offValue = Level.OFF.intValue();
 
@@ -65,24 +66,24 @@ public class MockFileHandler extends FileHandler  implements OverrideMock{
         openFiles();  //private
     }    
     */
-    
+
     //---- constructors -------
 
     public MockFileHandler() throws IOException, SecurityException {
-        super(MSecurityManager.FILE_HANDLER_NAME_PATTERN,true); //we have to create one file
+        super(MSecurityManager.FILE_HANDLER_NAME_PATTERN, true); //we have to create one file
         VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(null);
     }
 
     public MockFileHandler(String pattern) throws IOException, SecurityException {
         this();
-        if (pattern.length() < 1 ) {
+        if (pattern.length() < 1) {
             throw new IllegalArgumentException();
         }
     }
 
     public MockFileHandler(String pattern, boolean append) throws IOException, SecurityException {
         this();
-        if (pattern.length() < 1 ) {
+        if (pattern.length() < 1) {
             throw new IllegalArgumentException();
         }
     }
@@ -120,7 +121,7 @@ public class MockFileHandler extends FileHandler  implements OverrideMock{
     @Override
     public boolean isLoggable(LogRecord record) {
         if (record == null) {
-                return false;
+            return false;
         }
         int levelValue = getLevel().intValue();
         if (record.getLevel().intValue() < levelValue || levelValue == offValue) {
@@ -154,7 +155,7 @@ public class MockFileHandler extends FileHandler  implements OverrideMock{
 
     @Override
     public void setEncoding(String encoding)
-                        throws SecurityException, java.io.UnsupportedEncodingException {
+            throws SecurityException, java.io.UnsupportedEncodingException {
         if (encoding != null) {
             try {
                 if (!java.nio.charset.Charset.isSupported(encoding)) {
@@ -185,7 +186,7 @@ public class MockFileHandler extends FileHandler  implements OverrideMock{
     @Override
     public void setErrorManager(ErrorManager em) {
         if (em == null) {
-           throw new NullPointerException();
+            throw new NullPointerException();
         }
         errorManager = em;
     }

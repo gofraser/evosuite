@@ -22,8 +22,8 @@ package org.evosuite;
 /**
  * Package information should never be hardcoded, as packages can be refactored or shaded.
  * All access should be through reflection or .class variables
- * <p>
- * Created by Andrea Arcuri on 22/10/15.
+ *
+ * <p>Created by Andrea Arcuri on 22/10/15.
  */
 public class PackageInfo {
 
@@ -38,9 +38,9 @@ public class PackageInfo {
     }
 
     /**
-     * The package were third-party libraries are shaded into
+     * The package where third-party libraries are shaded into.
      *
-     * @return
+     * @return the package name of shaded libraries
      */
     public static String getShadedPackageForThirdPartyLibraries() {
         return getEvoSuitePackage() + "." + SHADED;
@@ -52,9 +52,9 @@ public class PackageInfo {
 
 
     /**
-     * The package name of the shaded EvoSutie. Used only for when testing EvoSuite
+     * The package name of the shaded EvoSuite. Used only for when testing EvoSuite.
      *
-     * @return
+     * @return the package name of shaded EvoSuite
      */
     public static String getShadedEvoSuitePackage() {
         String shaded = SHADED + ".";

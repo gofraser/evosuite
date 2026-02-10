@@ -33,6 +33,11 @@ public class RemoveFinalClassAdapter extends ClassVisitor {
 
     public static final Set<String> finalClasses = new LinkedHashSet<>();
 
+    /**
+     * <p>Constructor for RemoveFinalClassAdapter.</p>
+     *
+     * @param cv a {@link org.objectweb.asm.ClassVisitor} object.
+     */
     public RemoveFinalClassAdapter(ClassVisitor cv) {
         super(Opcodes.ASM9, cv);
     }
@@ -70,11 +75,17 @@ public class RemoveFinalClassAdapter extends ClassVisitor {
         super.visitInnerClass(name, outerName, innerName, access & ~Opcodes.ACC_FINAL);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
         return super.visitMethod(access & ~Opcodes.ACC_FINAL, name, desc, signature, exceptions);
     }
 
+    /**
+     * <p>reset.</p>
+     */
     public static void reset() {
         finalClasses.clear();
     }

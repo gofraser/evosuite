@@ -24,10 +24,17 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Created by Andrea Arcuri on 29/03/15.
+ * This class visitor is used to add loop counters to methods.
+ *
+ * @author Andrea Arcuri
  */
 public class LoopCounterClassAdapter extends ClassVisitor {
 
+    /**
+     * <p>Constructor for LoopCounterClassAdapter.</p>
+     *
+     * @param cv a {@link org.objectweb.asm.ClassVisitor} object.
+     */
     public LoopCounterClassAdapter(ClassVisitor cv) {
         super(Opcodes.ASM9, cv);
     }

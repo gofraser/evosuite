@@ -54,25 +54,46 @@ public class RuntimeInstrumentation {
      */
     private static boolean avoidInstrumentingShadedClasses = false;
 
+    /**
+     * <p>Constructor for RuntimeInstrumentation.</p>
+     */
     public RuntimeInstrumentation() {
         retransformingMode = false;
     }
 
+    /**
+     * <p>Setter for the field <code>retransformingMode</code>.</p>
+     *
+     * @param on a boolean.
+     */
     public void setRetransformingMode(boolean on) {
         retransformingMode = on;
     }
 
     /**
      * WARN: This should ONLY be called by SystemTest.
+     *
+     * @param avoidInstrumentingShadedClasses a boolean.
      */
     public static void setAvoidInstrumentingShadedClasses(boolean avoidInstrumentingShadedClasses) {
         RuntimeInstrumentation.avoidInstrumentingShadedClasses = avoidInstrumentingShadedClasses;
     }
 
+    /**
+     * <p>Getter for the field <code>avoidInstrumentingShadedClasses</code>.</p>
+     *
+     * @return a boolean.
+     */
     public static boolean getAvoidInstrumentingShadedClasses() {
         return RuntimeInstrumentation.avoidInstrumentingShadedClasses;
     }
 
+    /**
+     * <p>checkIfCanInstrument.</p>
+     *
+     * @param className a {@link java.lang.String} object.
+     * @return a boolean.
+     */
     public static boolean checkIfCanInstrument(String className) {
         for (String s : ExcludedClasses.getPackagesShouldNotBeInstrumented()) {
             if (className.startsWith(s)) {
@@ -89,6 +110,12 @@ public class RuntimeInstrumentation {
         return !className.contains("__CLR");
     }
 
+    /**
+     * <p>isAlreadyInstrumented.</p>
+     *
+     * @param reader a {@link org.objectweb.asm.ClassReader} object.
+     * @return a boolean.
+     */
     public boolean isAlreadyInstrumented(ClassReader reader) {
         ClassNode classNode = new ClassNode();
 
@@ -102,6 +129,15 @@ public class RuntimeInstrumentation {
         return false;
     }
 
+    /**
+     * <p>transformBytes.</p>
+     *
+     * @param classLoader        a {@link java.lang.ClassLoader} object.
+     * @param className          a {@link java.lang.String} object.
+     * @param reader             a {@link org.objectweb.asm.ClassReader} object.
+     * @param skipInstrumentation a boolean.
+     * @return an array of {@code byte} objects.
+     */
     public byte[] transformBytes(ClassLoader classLoader, String className,
                                  ClassReader reader, boolean skipInstrumentation) {
 

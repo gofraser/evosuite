@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -39,12 +39,10 @@ import java.util.ArrayList;
 
 /**
  * This class is used in the mocking framework to replace File instances.
- * 
- * <p>
- * All files are created in memory, and no access to disk is ever done
- *   
- * @author arcuri
  *
+ * <p>All files are created in memory, and no access to disk is ever done.
+ *
+ * @author arcuri
  */
 public class MockFile extends File implements OverrideMock {
 
@@ -59,12 +57,12 @@ public class MockFile extends File implements OverrideMock {
     }
 
     public MockFile(String parent, String child) {
-        this(combine(parent,child));
+        this(combine(parent, child));
     }
 
     public MockFile(File parent, String child) {
-        this(parent == null ? null : parent.getAbsolutePath()
-                , child);
+        this(parent == null ? null : parent.getAbsolutePath(),
+                child);
     }
 
     public MockFile(URI uri) {
@@ -79,7 +77,7 @@ public class MockFile extends File implements OverrideMock {
             return child;
         }
         if (parent.equals("")) {
-            return VirtualFileSystem.getDefaultParent()+child;
+            return VirtualFileSystem.getDefaultParent() + child;
         }
         return makeAbsolute(parent) + "/" + child;
     }
@@ -135,14 +133,14 @@ public class MockFile extends File implements OverrideMock {
         //FIXME: this is not going to work if tests are executed on different machine
         File[] roots = File.listRoots();
         MockFile[] mocks = new MockFile[roots.length];
-        for (int i=0; i<roots.length; i++) {
+        for (int i = 0; i < roots.length; i++) {
             mocks[i] = new MockFile(roots[i].getAbsolutePath());
         }
         return mocks;
     }
 
     public static File createTempFile(String prefix, String suffix, File directory)
-            throws IOException{
+            throws IOException {
         if (!MockFramework.isEnabled()) {
             return File.createTempFile(prefix, suffix, directory);
         }
@@ -189,7 +187,9 @@ public class MockFile extends File implements OverrideMock {
         }
 
         String p = this.getParent();
-        if (p == null) return null;
+        if (p == null) {
+            return null;
+        }
         return new MockFile(p);
     }
 
@@ -356,7 +356,7 @@ public class MockFile extends File implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.isHidden();
         }
-        
+
         if (getName().startsWith(".")) {
             //this is not necessarily true in Windows
             return true;
@@ -372,7 +372,7 @@ public class MockFile extends File implements OverrideMock {
         }
 
         if (time < 0) {
-                throw new MockIllegalArgumentException("Negative time");
+            throw new MockIllegalArgumentException("Negative time");
         }
 
         FSObject target = VirtualFileSystem.getInstance().findFSObject(getAbsolutePath());
@@ -513,11 +513,13 @@ public class MockFile extends File implements OverrideMock {
             return super.listFiles();
         }
         String[] ss = list();
-        if (ss == null) return null;
+        if (ss == null) {
+            return null;
+        }
         int n = ss.length;
         MockFile[] fs = new MockFile[n];
         for (int i = 0; i < n; i++) {
-            fs[i] = new MockFile(this,ss[i]);
+            fs[i] = new MockFile(this, ss[i]);
         }
         return fs;
     }
@@ -528,12 +530,15 @@ public class MockFile extends File implements OverrideMock {
             return super.listFiles(filter);
         }
         String[] ss = list();
-        if (ss == null) return null;
+        if (ss == null) {
+            return null;
+        }
         ArrayList<File> files = new ArrayList<>();
         for (String s : ss) {
-            File f = new MockFile(this,s);
-            if ((filter == null) || filter.accept(f))
+            File f = new MockFile(this, s);
+            if ((filter == null) || filter.accept(f)) {
                 files.add(f);
+            }
         }
         return files.toArray(new File[files.size()]);
     }

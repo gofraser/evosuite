@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -25,11 +25,14 @@ import org.evosuite.runtime.mock.OverrideMock;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 
-public class MockThrowable extends Throwable  implements OverrideMock {
+/**
+ * Custom mock implementation of {@link java.lang.Throwable}.
+ */
+public class MockThrowable extends Throwable implements OverrideMock {
 
     private static final long serialVersionUID = 4078375023919805371L;
 
-    private StackTraceElement[]  stackTraceElements;
+    private StackTraceElement[] stackTraceElements;
 
     private Class<?> originClass;
 
@@ -58,7 +61,7 @@ public class MockThrowable extends Throwable  implements OverrideMock {
     protected MockThrowable(String message, Throwable cause,
             boolean enableSuppression,
             boolean writableStackTrace) {
-        super(message,cause,enableSuppression,writableStackTrace);
+        super(message, cause, enableSuppression, writableStackTrace);
         init();
     }
 
@@ -84,7 +87,7 @@ public class MockThrowable extends Throwable  implements OverrideMock {
      */
 
     public static StackTraceElement[] getDefaultStackTrace() {
-        StackTraceElement[] v =  new StackTraceElement[3];
+        StackTraceElement[] v = new StackTraceElement[3];
         v[0] = new StackTraceElement("<evosuite>", "<evosuite>", "<evosuite>", -1);
         v[1] = new StackTraceElement("<evosuite>", "<evosuite>", "<evosuite>", -1);
         v[2] = new StackTraceElement("<evosuite>", "<evosuite>", "<evosuite>", -1);
@@ -192,7 +195,7 @@ public class MockThrowable extends Throwable  implements OverrideMock {
         }
     }
 
-    /**
+    /*
     @Override
     public synchronized Throwable fillInStackTrace() {
         if (!MockFramework.isEnabled()) {
@@ -224,7 +227,7 @@ public class MockThrowable extends Throwable  implements OverrideMock {
         StackTraceElement[] defensiveCopy = stackTrace.clone();
         for (int i = 0; i < defensiveCopy.length; i++) {
             if (defensiveCopy[i] == null) {
-                throw new MockNullPointerException("stackTrace[" + i + "]");  //FIXME
+                throw new MockNullPointerException("stackTrace[" + i + "]"); //FIXME
             }
         }
 
