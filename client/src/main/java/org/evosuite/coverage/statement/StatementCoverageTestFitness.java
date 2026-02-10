@@ -40,11 +40,13 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
 
     private static final long serialVersionUID = 5222436175279169394L;
 
-    /**
-     * Target statement.
-     */
+    /** Target class name. */
     private final String className;
+
+    /** Target method name. */
     private final String methodName;
+
+    /** Target instruction ID. */
     private final Integer instructionId;
 
     protected final List<BranchCoverageTestFitness> branchFitnesses = new ArrayList<>();
@@ -52,11 +54,9 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
     protected transient BytecodeInstruction goalInstruction;
 
     /**
-     * <p>
-     * Constructor for StatementCoverageTestFitness.
-     * </p>
+     * Creates a fitness function for a specific bytecode instruction.
      *
-     * @param goalInstruction the {@link org.evosuite.graphs.cfg.BytecodeInstruction} that this fitness function targets.
+     * @param goalInstruction the target {@link BytecodeInstruction}
      */
     public StatementCoverageTestFitness(BytecodeInstruction goalInstruction) {
         Objects.requireNonNull(goalInstruction);
@@ -69,9 +69,7 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * Constructor for StatementCoverageTestFitness.
-     * </p>
+     * Creates a fitness function for a specific statement identified by class, method and instruction ID.
      *
      * @param className     the name of the class containing the target instruction
      * @param methodName    the name of the method containing the target instruction
@@ -203,9 +201,6 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
         return r.toString();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
-     */
     @Override
     public int compareTo(TestFitnessFunction other) {
         if (other == null) {
@@ -258,17 +253,11 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
-     */
     @Override
     public String getTargetClass() {
         return this.className;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
-     */
     @Override
     public String getTargetMethod() {
         return this.methodName;
