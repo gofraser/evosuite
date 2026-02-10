@@ -59,8 +59,8 @@ public class PrepareMojo extends AbstractMojo {
         getLog().info("Analyzing test folder: " + dir.getAbsolutePath());
         //NOTE: this check can fail, likely due to permissions...
         //if(!dir.isDirectory()){
-        //	getLog().error("Target folder for compiled tests is not a folder: "+dir.getAbsolutePath());
-        //	return;
+        //    getLog().error("Target folder for compiled tests is not a folder: " + dir.getAbsolutePath());
+        //    return;
         //}
 
         if (!dir.exists()) {
@@ -72,7 +72,8 @@ public class PrepareMojo extends AbstractMojo {
 
         getLog().info("Found " + list.size() + " EvoSuite scaffolding files");
 
-        File scaffolding = new File(project.getBasedir() + File.separator + InitializingListener.SCAFFOLDING_LIST_FILE_STRING);
+        File scaffolding = new File(project.getBasedir() + File.separator
+                + InitializingListener.SCAFFOLDING_LIST_FILE_STRING);
         try {
             PrintWriter out = new PrintWriter(scaffolding);
             for (String s : list) {

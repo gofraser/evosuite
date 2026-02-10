@@ -43,26 +43,27 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Generate JUnit tests
+ * Generate JUnit tests.
  */
-@Mojo(name = "generate", requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
+@Mojo(name = "generate", requiresDependencyResolution = ResolutionScope.TEST,
+        requiresDependencyCollection = ResolutionScope.TEST)
 @Execute(phase = LifecyclePhase.COMPILE)
 public class GenerateMojo extends AbstractMojo {
 
     /**
-     * Total Memory (in MB) that CTG will use
+     * Total Memory (in MB) that CTG will use.
      */
     @Parameter(property = "memoryInMB", defaultValue = "800")
     private int memoryInMB;
 
     /**
-     * Number of cores CTG will use
+     * Number of cores CTG will use.
      */
     @Parameter(property = "cores", defaultValue = "1")
     private int numberOfCores;
 
     /**
-     * Comma ',' separated list of CUTs to use in CTG. If none specified, then test all classes
+     * Comma ',' separated list of CUTs to use in CTG. If none specified, then test all classes.
      */
     @Parameter(property = "cuts")
     private String cuts;
@@ -70,28 +71,31 @@ public class GenerateMojo extends AbstractMojo {
     /**
      * Absolute path to a file having the list of CUTs specified. This is needed for operating
      * systems like Windows that have constraints on the size of input parameters and so could
-     * not use "cuts" parameter instead if too many CUTs are specified
+     * not use "cuts" parameter instead if too many CUTs are specified.
      */
     @Parameter(property = "cutsFile")
     private String cutsFile;
 
     /**
-     * How many minutes to allocate for each class
+     * How many minutes to allocate for each class.
      */
     @Parameter(property = "timeInMinutesPerClass", defaultValue = "2")
     private int timeInMinutesPerClass;
 
     /**
-     * How many minutes to allocate for each project/module. If this parameter is not set, then the total time will be timeInMinutesPerClass x number_of_classes
+     * How many minutes to allocate for each project/module.
+     * If this parameter is not set, then the total time will be
+     * timeInMinutesPerClass x number_of_classes.
      */
     @Parameter(property = "timeInMinutesPerProject", defaultValue = "0")
     private int timeInMinutesPerProject;
 
     /**
-     * Coverage criterion. Can define more than one criterion by using a ':' separated list
+     * Coverage criterion. Can define more than one criterion by using a ':' separated list.
      */
     // FIXME would be nice to have the value of Properties.CRITERION but seems to be not possible
-    @Parameter(property = "criterion", defaultValue = "LINE:BRANCH:EXCEPTION:WEAKMUTATION:OUTPUT:METHOD:METHODNOEXCEPTION:CBRANCH")
+    @Parameter(property = "criterion",
+            defaultValue = "LINE:BRANCH:EXCEPTION:WEAKMUTATION:OUTPUT:METHOD:METHODNOEXCEPTION:CBRANCH")
     private String criterion;
 
     @Parameter(property = "spawnManagerPort", defaultValue = "")
@@ -101,7 +105,7 @@ public class GenerateMojo extends AbstractMojo {
     private String extraArgs;
 
     /**
-     * Schedule used to run CTG (SIMPLE, BUDGET, SEEDING, BUDGET_AND_SEEDING, HISTORY)
+     * Schedule used to run CTG (SIMPLE, BUDGET, SEEDING, BUDGET_AND_SEEDING, HISTORY).
      */
     @Parameter(property = "schedule", defaultValue = "BUDGET")
     private String schedule;
@@ -159,12 +163,13 @@ public class GenerateMojo extends AbstractMojo {
                     continue;
                 }
 
-                if (!file.getAbsolutePath().startsWith(project.getBuild().getOutputDirectory())) {
-					/*
-						This can happen in multi-module projects when module A has dependency on
-						module B. Then, both A and B source folders will end up on compile classpath,
-						although we are interested only in A
-					 */
+                if (!file.getAbsolutePath().startsWith(
+                        project.getBuild().getOutputDirectory())) {
+                    /*
+                     * This can happen in multi-module projects when module A has dependency on
+                     * module B. Then, both A and B source folders will end up on compile classpath,
+                     * although we are interested only in A.
+                     */
                     continue;
                 }
 
@@ -251,7 +256,8 @@ public class GenerateMojo extends AbstractMojo {
                 throw new MojoFailureException("", e);
             }
 
-            params.add("-Dctg_history_file=" + dir + File.separator + Properties.CTG_DIR + File.separator + "history_file");
+            params.add("-Dctg_history_file=" + dir + File.separator + Properties.CTG_DIR
+                    + File.separator + "history_file");
         }
         params.add("-Dctg_memory=" + memoryInMB);
         params.add("-Dctg_cores=" + numberOfCores);
@@ -270,7 +276,8 @@ public class GenerateMojo extends AbstractMojo {
             params.add("-Dctg_time=" + timeInMinutesPerProject);
             params.add("-Dctg_min_time_per_job=" + timeInMinutesPerClass);
         } else {
-            params.add("-Dctg_time_per_class=" + timeInMinutesPerClass); // there is no time limit, so test all classes X minutes
+            // there is no time limit, so test all classes X minutes
+            params.add("-Dctg_time_per_class=" + timeInMinutesPerClass);
         }
         if (cuts != null) {
             params.add("-Dctg_selected_cuts=" + cuts);

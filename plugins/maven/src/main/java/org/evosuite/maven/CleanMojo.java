@@ -36,7 +36,7 @@ import java.util.List;
 
 
 /**
- * Remove all local files created by EvoSuite so far
+ * Remove all local files created by EvoSuite so far.
  */
 @Mojo(name = "clean")
 public class CleanMojo extends AbstractMojo {
