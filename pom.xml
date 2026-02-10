@@ -529,7 +529,7 @@
                 <version>3.3.1</version>
                 <configuration>
                     <configLocation>${maven.multiModuleProjectDirectory}/checkstyle-evosuite.xml</configLocation>
-                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <inputEncoding>${project.build.sourceEncoding}</inputEncoding>
                     <consoleOutput>true</consoleOutput>
                     <failsOnError>true</failsOnError>
                     <linkXRef>false</linkXRef>
