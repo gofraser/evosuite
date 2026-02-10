@@ -1135,7 +1135,7 @@ public class TestCodeVisitor extends TestVisitor {
             Type declaredParamType = parameterTypes[i];
             Type actualParamType = parameters.get(i).getType();
             String name = getVariableName(parameters.get(i));
-            Class<?> rawParamClass = declaredParamType instanceof WildcardType ? Object.class : GenericTypeReflector.erase(declaredParamType);
+            Class<?> rawParamClass = declaredParamType instanceof WildcardType ? Object.class : safeErasure(declaredParamType);
             if (rawParamClass.isPrimitive() && name.equals("null")) {
                 parameterString += getPrimitiveNullCast(rawParamClass);
             } else if (isGenericMethod && !(declaredParamType instanceof WildcardType)) {
@@ -1155,7 +1155,7 @@ public class TestCodeVisitor extends TestVisitor {
 
                 if (TypeUtils.isArrayType(declaredParamType)
                         && TypeUtils.isArrayType(actualParamType)) {
-                    Class<?> componentClass = GenericTypeReflector.erase(declaredParamType).getComponentType();
+                    Class<?> componentClass = safeErasure(declaredParamType).getComponentType();
                     if (componentClass.equals(Object.class)) {
                         GenericClass<?> genericComponentClass = GenericClassFactory.get(componentClass);
                         if (genericComponentClass.hasWildcardOrTypeVariables()) {
@@ -1201,6 +1201,22 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         return parameterString;
+    }
+
+    private Class<?> safeErasure(Type type) {
+        if (type instanceof CaptureType) {
+            CaptureType captureType = (CaptureType) type;
+            Type[] lowerBounds = captureType.getLowerBounds();
+            if (lowerBounds != null && lowerBounds.length > 0 && lowerBounds[0] != null) {
+                return GenericTypeReflector.erase(lowerBounds[0]);
+            }
+            Type[] upperBounds = captureType.getUpperBounds();
+            if (upperBounds != null && upperBounds.length > 0 && upperBounds[0] != null) {
+                return GenericTypeReflector.erase(upperBounds[0]);
+            }
+            return Object.class;
+        }
+        return GenericTypeReflector.erase(type);
     }
 
 
