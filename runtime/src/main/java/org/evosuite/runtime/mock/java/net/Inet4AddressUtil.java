@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.net.Inet4Address;
 
 /**
@@ -64,6 +65,15 @@ public class Inet4AddressUtil {
         try {
             return Inet4Address.class.newInstance();
         } catch (InstantiationException | IllegalAccessException e) {
+            logger.error("Failed to create instance: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public static Inet4Address createNewInstance(String host, byte[] addr) {
+        try {
+            return constructorStringByteArray.newInstance(host, addr);
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             logger.error("Failed to create instance: " + e.getMessage());
         }
         return null;

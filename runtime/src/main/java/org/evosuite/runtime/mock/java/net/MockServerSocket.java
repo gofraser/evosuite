@@ -298,7 +298,7 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
             throw e;
         }
         s.impl = si;
-        s._postAccept();
+        s.doPostAccept();
     }
 
     /* Cannot override because final
