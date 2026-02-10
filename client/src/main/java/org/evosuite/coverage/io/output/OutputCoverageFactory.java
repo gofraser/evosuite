@@ -39,6 +39,9 @@ import java.util.List;
 import static org.evosuite.coverage.io.IOCoverageConstants.*;
 
 /**
+ * Factory for creating output coverage goals.
+ * Generates coverage goals for method return values based on their types.
+ *
  * @author Jose Miguel Rojas
  */
 public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverageTestFitness> {
@@ -62,14 +65,17 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
         long start = System.currentTimeMillis();
         String targetClass = Properties.TARGET_CLASS;
 
-        for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownClasses()) {
-            if (!(targetClass.equals("") || className.endsWith(targetClass)))
+        for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT()).knownClasses()) {
+            if (!(targetClass.equals("") || className.endsWith(targetClass))) {
                 continue;
+            }
 
             for (Method method : TestClusterUtils.getClass(className).getDeclaredMethods()) {
                 String methodName = method.getName() + Type.getMethodDescriptor(method);
-                if (!TestUsageChecker.canUse(method) || methodName.equals("hashCode()I"))
+                if (!TestUsageChecker.canUse(method) || methodName.equals("hashCode()I")) {
                     continue;
+                }
                 logger.info("Adding goals for method " + className + "." + methodName);
                 Type returnType = Type.getReturnType(method);
 
@@ -119,15 +125,26 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
 
                         Class<?> returnClazz = method.getReturnType();
                         for (Inspector inspector : InspectorManager.getInstance().getInspectors(returnClazz)) {
-                            String insp = inspector.getMethodCall() + Type.getMethodDescriptor(inspector.getMethod());
+                            String insp = inspector.getMethodCall()
+                                    + Type.getMethodDescriptor(inspector.getMethod());
                             Type t = Type.getReturnType(inspector.getMethod());
                             if (t.getSort() == Type.BOOLEAN) {
-                                goals.add(createGoal(className, methodName, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + BOOL_TRUE));
-                                goals.add(createGoal(className, methodName, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + BOOL_FALSE));
+                                goals.add(createGoal(className, methodName, returnType,
+                                        REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":"
+                                                + BOOL_TRUE));
+                                goals.add(createGoal(className, methodName, returnType,
+                                        REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":"
+                                                + BOOL_FALSE));
                             } else if (t.getSort() >= Type.BYTE && t.getSort() <= Type.DOUBLE) {
-                                goals.add(createGoal(className, methodName, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + NUM_NEGATIVE));
-                                goals.add(createGoal(className, methodName, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + NUM_ZERO));
-                                goals.add(createGoal(className, methodName, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + NUM_POSITIVE));
+                                goals.add(createGoal(className, methodName, returnType,
+                                        REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":"
+                                                + NUM_NEGATIVE));
+                                goals.add(createGoal(className, methodName, returnType,
+                                        REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":"
+                                                + NUM_ZERO));
+                                goals.add(createGoal(className, methodName, returnType,
+                                        REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":"
+                                                + NUM_POSITIVE));
                             }
                         }
                         break;
@@ -142,7 +159,8 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
         return goals;
     }
 
-    public static OutputCoverageTestFitness createGoal(String className, String methodName, Type returnType, String suffix) {
+    public static OutputCoverageTestFitness createGoal(String className, String methodName,
+                                                       Type returnType, String suffix) {
         OutputCoverageGoal goal = new OutputCoverageGoal(className, methodName, returnType, suffix);
         logger.info("Created output coverage goal: {}", goal);
         return new OutputCoverageTestFitness(goal);

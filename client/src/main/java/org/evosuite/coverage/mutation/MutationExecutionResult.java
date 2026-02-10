@@ -82,7 +82,7 @@ public class MutationExecutionResult {
     }
 
     /**
-     * <p>hasTimeout</p>
+     * <p>hasTimeout.</p>
      *
      * @return the hasTimeout
      */
@@ -100,7 +100,7 @@ public class MutationExecutionResult {
     }
 
     /**
-     * <p>hasException</p>
+     * <p>hasException.</p>
      *
      * @return the hasException
      */

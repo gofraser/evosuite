@@ -88,9 +88,11 @@ public class StatementCoverageSuiteFitness extends TestSuiteFitnessFunction {
     /**
      * Iterate over all execution results and summarise statistics.
      *
-     * @param results
-     * @param coveredStatements
-     * @return
+     * @param results           a {@link java.util.List} of {@link org.evosuite.testcase.execution.ExecutionResult}
+     *                          objects.
+     * @param coveredStatements a {@link java.util.Set} of {@link org.evosuite.testcase.TestFitnessFunction}
+     *                          objects.
+     * @return a boolean indicating if any test timed out or threw an exception.
      */
     private boolean analyzeTraces(List<ExecutionResult> results, Set<TestFitnessFunction> coveredStatements) {
         boolean hasTimeoutOrTestException = false;
@@ -112,13 +114,14 @@ public class StatementCoverageSuiteFitness extends TestSuiteFitnessFunction {
         return hasTimeoutOrTestException;
     }
 
-    private void evaluateGoals(TestChromosome test, ExecutionResult result, Set<TestFitnessFunction> coveredStatements) {
+    private void evaluateGoals(TestChromosome test, ExecutionResult result,
+            Set<TestFitnessFunction> coveredStatements) {
         for (TestFitnessFunction goal : this.statementGoals) {
             double fit = goal.getFitness(test, result); // archive is updated by the TestFitnessFunction class
 
             if (fit == 0.0) {
                 coveredStatements.add(goal); // helper to count the number of covered goals
-                this.toRemoveStatements.add(goal); // goal to not be considered by the next iteration of the evolutionary algorithm
+                this.toRemoveStatements.add(goal); // goal to not be considered by the next iteration of the EA
             }
         }
     }

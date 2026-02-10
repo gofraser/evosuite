@@ -46,27 +46,27 @@ public class FitnessLogger<T extends Chromosome<T>> implements SearchListener<T>
 
     private static final long serialVersionUID = 1914403470617343821L;
 
-    private final List<Integer> evaluations_history;
-    private final List<Long> statements_history;
-    private final List<Double> fitness_history;
-    private final List<Integer> size_history;
+    private final List<Integer> evaluationsHistory;
+    private final List<Long> statementsHistory;
+    private final List<Double> fitnessHistory;
+    private final List<Integer> sizeHistory;
     private String name;
     private int evaluations;
 
     public FitnessLogger() {
-        evaluations_history = new ArrayList<>();
-        statements_history = new ArrayList<>();
-        fitness_history = new ArrayList<>();
-        size_history = new ArrayList<>();
+        evaluationsHistory = new ArrayList<>();
+        statementsHistory = new ArrayList<>();
+        fitnessHistory = new ArrayList<>();
+        sizeHistory = new ArrayList<>();
         name = null;
         evaluations = 0;
     }
 
     public FitnessLogger(FitnessLogger<?> that) {
-        this.evaluations_history = new ArrayList<>(that.evaluations_history);
-        this.statements_history = new ArrayList<>(that.statements_history);
-        this.fitness_history = new ArrayList<>(that.fitness_history);
-        this.size_history = new ArrayList<>(that.size_history);
+        this.evaluationsHistory = new ArrayList<>(that.evaluationsHistory);
+        this.statementsHistory = new ArrayList<>(that.statementsHistory);
+        this.fitnessHistory = new ArrayList<>(that.fitnessHistory);
+        this.sizeHistory = new ArrayList<>(that.sizeHistory);
         this.name = that.name;
         this.evaluations = that.evaluations;
     }
@@ -81,10 +81,10 @@ public class FitnessLogger<T extends Chromosome<T>> implements SearchListener<T>
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         evaluations = 0;
-        evaluations_history.clear();
-        statements_history.clear();
-        fitness_history.clear();
-        size_history.clear();
+        evaluationsHistory.clear();
+        statementsHistory.clear();
+        fitnessHistory.clear();
+        sizeHistory.clear();
         File dir = new File(Properties.REPORT_DIR + "/goals/");
         dir.mkdirs();
         name = Properties.REPORT_DIR
@@ -104,13 +104,14 @@ public class FitnessLogger<T extends Chromosome<T>> implements SearchListener<T>
      */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
-        if (algorithm.getPopulation().isEmpty())
+        if (algorithm.getPopulation().isEmpty()) {
             return;
+        }
 
-        evaluations_history.add(evaluations);
-        statements_history.add(MaxStatementsStoppingCondition.getNumExecutedStatements());
-        fitness_history.add(algorithm.getBestIndividual().getFitness());
-        size_history.add(algorithm.getBestIndividual().size());
+        evaluationsHistory.add(evaluations);
+        statementsHistory.add(MaxStatementsStoppingCondition.getNumExecutedStatements());
+        fitnessHistory.add(algorithm.getBestIndividual().getFitness());
+        sizeHistory.add(algorithm.getBestIndividual().size());
     }
 
     /* (non-Javadoc)
@@ -122,19 +123,20 @@ public class FitnessLogger<T extends Chromosome<T>> implements SearchListener<T>
      */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
-        if (name == null)
+        if (name == null) {
             return;
+        }
 
         File f = new File(name);
         try {
             BufferedWriter out = new BufferedWriter(new FileWriter(f, true));
             out.write("Iteration,Evaluations,Statements,Fitness,Size\n");
-            for (int i = 0; i < fitness_history.size(); i++) {
+            for (int i = 0; i < fitnessHistory.size(); i++) {
                 out.write(i + ",");
-                out.write(evaluations_history.get(i) + ",");
-                out.write(statements_history.get(i) + ",");
-                out.write(fitness_history.get(i) + ",");
-                out.write(size_history.get(i) + "\n");
+                out.write(evaluationsHistory.get(i) + ",");
+                out.write(statementsHistory.get(i) + ",");
+                out.write(fitnessHistory.get(i) + ",");
+                out.write(sizeHistory.get(i) + "\n");
             }
             out.close();
         } catch (IOException e) {

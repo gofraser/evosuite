@@ -34,6 +34,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ * Execution observer that records method return values during test execution.
+ * These values are used to calculate output coverage goals.
+ *
  * @author Jose Miguel Rojas
  */
 public class OutputObserver extends ExecutionObserver {
@@ -51,7 +54,8 @@ public class OutputObserver extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope)
+     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope)
      */
     @Override
     public void beforeStatement(Statement statement, Scope scope) {
@@ -59,7 +63,8 @@ public class OutputObserver extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#afterStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.testcase.ExecutionObserver#afterStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
     @Override
     public void afterStatement(Statement statement, Scope scope,
@@ -78,7 +83,8 @@ public class OutputObserver extends ExecutionObserver {
                     String methodDesc = methodStmt.getDescriptor();
                     String methodName = methodStmt.getMethodName();
 
-                    outputCoverage.put(statement.getPosition(), OutputCoverageGoal.createGoalsFromObject(className, methodName, methodDesc, returnObject));
+                    outputCoverage.put(statement.getPosition(), OutputCoverageGoal.createGoalsFromObject(className,
+                            methodName, methodDesc, returnObject));
                 }
             } catch (CodeUnderTestException e) {
                 // ignore?

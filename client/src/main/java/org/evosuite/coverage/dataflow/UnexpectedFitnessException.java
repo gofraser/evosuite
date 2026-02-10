@@ -19,8 +19,12 @@
  */
 package org.evosuite.coverage.dataflow;
 
+/**
+ * Exception thrown when an unexpected fitness value is encountered.
+ *
+ * @author Andre Mis
+ */
 public class UnexpectedFitnessException extends Exception {
-
 
     private static final long serialVersionUID = -2211094409507844711L;
 

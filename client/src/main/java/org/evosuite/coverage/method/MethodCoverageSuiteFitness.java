@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * Fitness function for a whole test suite for all methods, including exceptional behaviour
+ * Fitness function for a whole test suite for all methods, including exceptional behaviour.
  *
  * @author Gordon Fraser, Jose Miguel Rojas
  */
@@ -43,7 +43,7 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     private static final long serialVersionUID = 3359321076367091582L;
 
-    private final static Logger logger = LoggerFactory.getLogger(MethodCoverageSuiteFitness.class);
+    private static final Logger logger = LoggerFactory.getLogger(MethodCoverageSuiteFitness.class);
 
     // Each test gets a set of distinct covered goals, these are mapped by branch id
     protected final Map<String, TestFitnessFunction> methodCoverageMap = new LinkedHashMap<>();
@@ -68,30 +68,32 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * Initialize the set of known coverage goals
+     * Initialize the set of known coverage goals.
      */
     protected void determineCoverageGoals() {
         List<MethodCoverageTestFitness> goals = new MethodCoverageFactory().getCoverageGoals();
         for (MethodCoverageTestFitness goal : goals) {
             methodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
     }
 
     /**
      * If there is an exception in a super-constructor, then the corresponding
-     * constructor might not be included in the execution trace
+     * constructor might not be included in the execution trace.
      *
-     * @param test
-     * @param result
-     * @param calledMethods
+     * @param test          the test chromosome
+     * @param result        the execution result
+     * @param calledMethods the set of called methods
      */
     protected void handleConstructorExceptions(TestChromosome test, ExecutionResult result, Set<String> calledMethods) {
 
         if (result.hasTimeout() || result.hasTestException()
-                || result.noThrownExceptions())
+                || result.noThrownExceptions()) {
             return;
+        }
 
         Integer exceptionPosition = result.getFirstPositionOfThrownException();
         Statement statement = result.test.getStatement(exceptionPosition);
@@ -118,11 +120,11 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * Iterate over all execution results and summarize statistics
+     * Iterate over all execution results and summarize statistics.
      *
-     * @param results
-     * @param calledMethods
-     * @return
+     * @param results       the list of execution results
+     * @param calledMethods the set of called methods
+     * @return true if there was a timeout or test exception
      */
     protected boolean analyzeTraces(List<ExecutionResult> results, Set<String> calledMethods) {
         boolean hasTimeoutOrTestException = false;
@@ -145,7 +147,7 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
                 if (fit == 0.0) {
                     calledMethods.add(methodName); // helper to count the number of covered goals
-                    this.toRemoveMethods.add(methodName); // goal to not be considered by the next iteration of the evolutionary algorithm
+                    this.toRemoveMethods.add(methodName); // goal to not be considered by next EA iteration
                 }
             }
 
@@ -157,8 +159,8 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Execute all tests and count covered branches
+     *
+     * <p>Execute all tests and count covered branches.
      */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
@@ -178,10 +180,11 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         printStatusMessages(suite, totalMethods - missingMethods, fitness);
 
-        if (totalMethods > 0)
+        if (totalMethods > 0) {
             suite.setCoverage(this, (double) coveredMethods / (double) totalMethods);
-        else
+        } else {
             suite.setCoverage(this, 1.0);
+        }
 
         suite.setNumOfCoveredGoals(this, coveredMethods);
 
@@ -204,10 +207,11 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * Some useful debug information
+     * Some useful debug information.
      *
-     * @param coveredMethods
-     * @param fitness
+     * @param suite          the test suite chromosome
+     * @param coveredMethods the number of covered methods
+     * @param fitness        the fitness value
      */
     protected void printStatusMessages(TestSuiteChromosome suite,
                                        int coveredMethods, double fitness) {
@@ -240,7 +244,8 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
             if (f != null) {
                 this.removedMethods.add(method);
             } else {
-                throw new IllegalStateException("Goal to remove not found: " + method + ", candidates: " + methodCoverageMap.keySet());
+                throw new IllegalStateException("Goal to remove not found: " + method + ", "
+                        + "candidates: " + methodCoverageMap.keySet());
             }
         }
 

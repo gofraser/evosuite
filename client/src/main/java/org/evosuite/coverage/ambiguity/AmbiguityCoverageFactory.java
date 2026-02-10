@@ -38,6 +38,8 @@ import java.util.Map;
 import static java.util.Comparator.comparingInt;
 
 /**
+ * Factory for ambiguity coverage fitness functions.
+ *
  * @author José Campos
  */
 public class AmbiguityCoverageFactory extends
@@ -54,10 +56,10 @@ public class AmbiguityCoverageFactory extends
     private static List<StringBuilder> transposedMatrix = new ArrayList<>();
 
 
-    private static double max_ambiguity_score = Double.MAX_VALUE;
+    private static double maxAmbiguityScore = Double.MAX_VALUE;
 
     /**
-     * Read the coverage of a test suite from a file
+     * Read the coverage of a test suite from a file.
      */
     protected static void loadCoverage() {
 
@@ -68,24 +70,27 @@ public class AmbiguityCoverageFactory extends
         BufferedReader br = null;
 
         try {
-            String sCurrentLine;
+            String currentLine;
             br = new BufferedReader(new FileReader(Properties.COVERAGE_MATRIX_FILENAME));
 
             List<StringBuilder> matrix = new ArrayList<>();
-            while ((sCurrentLine = br.readLine()) != null) {
-                sCurrentLine = sCurrentLine.replace(" ", "");
+            while ((currentLine = br.readLine()) != null) {
+                currentLine = currentLine.replace(" ", "");
                 // we do not want to consider test result
-                sCurrentLine = sCurrentLine.substring(0, sCurrentLine.length() - 1);
-                matrix.add(new StringBuilder(sCurrentLine));
+                currentLine = currentLine.substring(0, currentLine.length() - 1);
+                matrix.add(new StringBuilder(currentLine));
             }
 
             transposedMatrix = tranposeMatrix(matrix);
-            //double ag = AmbiguityCoverageFactory.getDefaultAmbiguity(transposedMatrix) * 1.0 / ((double) goals.size());
-            double ag = TestFitnessFunction.normalize(AmbiguityCoverageFactory.getDefaultAmbiguity(transposedMatrix));
+            // double ag = AmbiguityCoverageFactory.getDefaultAmbiguity(transposedMatrix) 
+            // * 1.0 / ((double) goals.size());
+            double ag = TestFitnessFunction.normalize(
+                    AmbiguityCoverageFactory.getDefaultAmbiguity(transposedMatrix));
             logger.info("AmbiguityScore of an existing test suite: " + ag);
 
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.AmbiguityScore_T0, ag);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Size_T0, matrix.size());
+            ClientServices.getInstance().getClientNode()
+                    .trackOutputVariable(RuntimeVariable.Size_T0, matrix.size());
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
@@ -106,7 +111,9 @@ public class AmbiguityCoverageFactory extends
     }
 
     /**
-     * @return
+     * Returns the coverage goals.
+     *
+     * @return a list of {@link LineCoverageTestFitness} objects.
      */
     public static List<LineCoverageTestFitness> getGoals() {
 
@@ -117,7 +124,7 @@ public class AmbiguityCoverageFactory extends
         goals = RhoAux.getLineGoals();
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
-        max_ambiguity_score = (1.0) // goals.size() / goals.size()
+        maxAmbiguityScore = (1.0) // goals.size() / goals.size()
                 * ((((double) goals.size()) - 1.0) / 2.0);
 
         if (Properties.USE_EXISTING_COVERAGE) {
@@ -134,65 +141,77 @@ public class AmbiguityCoverageFactory extends
     }
 
     /**
-     * @return
+     * Returns the transposed matrix.
+     *
+     * @return a list of {@link StringBuilder} objects.
      */
     public static List<StringBuilder> getTransposedMatrix() {
         return transposedMatrix;
     }
 
     /**
-     * @param matrix
-     * @return
+     * Transposes the given matrix.
+     *
+     * @param matrix the matrix to be transposed.
+     * @return the transposed matrix.
      */
     private static List<StringBuilder> tranposeMatrix(List<StringBuilder> matrix) {
 
-        int number_of_components = matrix.get(0).length();
-        List<StringBuilder> new_matrix = new ArrayList<>();
+        int numberOfComponents = matrix.get(0).length();
+        List<StringBuilder> newMatrix = new ArrayList<>();
 
-        for (int c_i = 0; c_i < number_of_components; c_i++) {
+        for (int componentIndex = 0; componentIndex < numberOfComponents; componentIndex++) {
             StringBuilder str = new StringBuilder();
-            for (StringBuilder t_i : matrix) {
-                str.append(t_i.charAt(c_i));
+            for (StringBuilder testCase : matrix) {
+                str.append(testCase.charAt(componentIndex));
             }
 
-            new_matrix.add(str);
+            newMatrix.add(str);
         }
 
-        return new_matrix;
+        return newMatrix;
     }
 
     /**
-     * @return
+     * Returns the maximum ambiguity score.
+     *
+     * @return the maximum ambiguity score.
      */
     public static double getMaxAmbiguityScore() {
-        return max_ambiguity_score;
+        return maxAmbiguityScore;
     }
 
     /**
-     * @param matrix transposed matrix
-     * @return
+     * Returns the default ambiguity score for the given transposed matrix.
+     *
+     * @param matrix the transposed matrix.
+     * @return the default ambiguity score.
      */
     protected static double getDefaultAmbiguity(List<StringBuilder> matrix) {
 
-        int number_of_components = matrix.size();
+        int numberOfComponents = matrix.size();
         Map<String, Integer> groups = new HashMap<>();
 
         for (StringBuilder s : matrix) {
             if (!groups.containsKey(s.toString())) {
-                groups.put(s.toString(), 1); // in the beginning they are ambiguity, so they belong to the same group '1'
+                // in the beginning they are ambiguity, so they belong to the same group '1'
+                groups.put(s.toString(), 1);
             } else {
                 groups.put(s.toString(), groups.get(s.toString()) + 1);
             }
         }
 
-        return getAmbiguity(number_of_components, groups);
+        return getAmbiguity(numberOfComponents, groups);
     }
 
     /**
-     * @param matrix transposed matrix
-     * @return
+     * Returns the ambiguity score for the given number of components and groups.
+     *
+     * @param numberOfComponents the number of components.
+     * @param groups             the groups of components.
+     * @return the ambiguity score.
      */
-    public static double getAmbiguity(int number_of_components, Map<String, Integer> groups) {
+    public static double getAmbiguity(int numberOfComponents, Map<String, Integer> groups) {
 
         double fit = 0.0;
         for (String s : groups.keySet()) {
@@ -201,7 +220,8 @@ public class AmbiguityCoverageFactory extends
                 continue;
             }
 
-            fit += (cardinality / ((double) number_of_components)) * ((cardinality - 1.0) / 2.0);
+            fit += (cardinality / ((double) numberOfComponents))
+                    * ((cardinality - 1.0) / 2.0);
         }
 
         return fit;

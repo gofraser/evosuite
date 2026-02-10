@@ -35,6 +35,9 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
+ * Execution observer that records method input parameter values during test execution.
+ * These values are used to calculate input coverage goals.
+ *
  * @author Jose Miguel Rojas
  */
 public class InputObserver extends ExecutionObserver {
@@ -52,7 +55,8 @@ public class InputObserver extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope)
+     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope)
      */
     @Override
     public void beforeStatement(Statement statement, Scope scope) {
@@ -60,7 +64,8 @@ public class InputObserver extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#afterStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.testcase.ExecutionObserver#afterStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
     @Override
     public void afterStatement(Statement statement, Scope scope,
@@ -90,7 +95,8 @@ public class InputObserver extends ExecutionObserver {
             String methodDesc = parameterisedStatement.getDescriptor();
             String methodName = parameterisedStatement.getMethodName();
 
-            inputCoverage.put(statement.getPosition(), InputCoverageGoal.createCoveredGoalsFromParameters(className, methodName, methodDesc, argObjects));
+            inputCoverage.put(statement.getPosition(), InputCoverageGoal.createCoveredGoalsFromParameters(className,
+                    methodName, methodDesc, argObjects));
             // argumentsValues.put((EntityWithParametersStatement) statement, argObjects);
         }
     }

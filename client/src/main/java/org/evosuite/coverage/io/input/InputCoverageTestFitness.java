@@ -34,6 +34,9 @@ import java.util.Set;
 import static org.evosuite.coverage.io.IOCoverageConstants.*;
 
 /**
+ * Fitness function for evaluating individual test coverage of method input parameters.
+ * Calculates a distance-based fitness value for each input coverage goal.
+ *
  * @author Jose Miguel Rojas
  */
 public class InputCoverageTestFitness extends TestFitnessFunction {
@@ -41,12 +44,12 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
     private static final long serialVersionUID = 6630097528288524492L;
 
     /**
-     * Target goal
+     * Target goal.
      */
     private final InputCoverageGoal goal;
 
     /**
-     * Constructor - fitness is specific to a method
+     * Constructor - fitness is specific to a method.
      *
      * @param goal the coverage goal
      */
@@ -70,7 +73,7 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getClassName
+     * getClassName.
      * </p>
      *
      * @return a {@link String} object.
@@ -81,7 +84,7 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getMethod
+     * getMethod.
      * </p>
      *
      * @return a {@link String} object.
@@ -92,10 +95,10 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getValue
+     * getType.
      * </p>
      *
-     * @return a {@link String} object.
+     * @return a {@link org.objectweb.asm.Type} object.
      */
     public Type getType() {
         return goal.getType();
@@ -103,7 +106,7 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getValue
+     * getValueDescriptor.
      * </p>
      *
      * @return a {@link String} object.
@@ -115,7 +118,7 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
     /**
      * {@inheritDoc}
      * <p/>
-     * Calculate fitness
+     * Calculate fitness.
      *
      * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
      * @param result     a {@link ExecutionResult} object.
@@ -203,6 +206,8 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
                         return distanceToZero;
                     case NUM_POSITIVE:
                         return distanceToPositive;
+                    default:
+                        break;
                 }
 
                 break;
@@ -243,6 +248,8 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
                         return distanceToDigit;
                     case CHAR_OTHER:
                         return distanceToOther;
+                    default:
+                        break;
                 }
 
                 break;
@@ -271,8 +278,8 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public int hashCode() {
-        int iConst = 13;
-        return 51 * iConst + goal.hashCode();
+        int hashConst = 13;
+        return 51 * hashConst + goal.hashCode();
     }
 
     /**
@@ -280,12 +287,15 @@ public class InputCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         InputCoverageTestFitness other = (InputCoverageTestFitness) obj;
         return this.goal.equals(other.goal);
     }

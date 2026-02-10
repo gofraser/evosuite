@@ -66,8 +66,8 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
      * precondition is that all TestChromomes have been executed such that they
      * have an ExecutionResult.
      *
-     * @param individual
-     * @return
+     * @param individual the test suite chromosome to prioritize
+     * @return an ordered list of test cases
      */
     private List<TestChromosome> prioritizeTests(TestSuiteChromosome individual) {
         List<TestChromosome> executionOrder = new ArrayList<>(individual.getTestChromosomes());
@@ -133,8 +133,9 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
             // Using private reflection can lead to false positives
             // that represent unrealistic behaviour. Thus, we only
             // use reflection for basic criteria, not for mutation
-            if (result.calledReflection())
+            if (result.calledReflection()) {
                 continue;
+            }
 
             ExecutionTrace trace = result.getTrace();
             touchedMutants.addAll(trace.getTouchedMutants());
@@ -147,8 +148,8 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
             }
 
             for (final Entry<Integer, MutationTestFitness> entry : this.mutantMap.entrySet()) {
-                int mutantID = entry.getKey();
-                if (newKilled.contains(mutantID)) {
+                int mutantId = entry.getKey();
+                if (newKilled.contains(mutantId)) {
                     continue;
                 }
                 MutationTestFitness goal = entry.getValue();
@@ -161,30 +162,35 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
                 mutantsChecked++;
 
                 double mutantInfectionDistance = 3.0;
-                boolean hasBeenTouched = touchedMutantsDistances.containsKey(mutantID);
+                boolean hasBeenTouched = touchedMutantsDistances.containsKey(mutantId);
 
                 if (hasBeenTouched) {
                     // Infection happened, so we need to check propagation
-                    if (touchedMutantsDistances.get(mutantID) == 0.0) {
+                    if (touchedMutantsDistances.get(mutantId) == 0.0) {
                         logger.debug("Executing test against mutant " + goal.getMutation());
 
-                        mutantInfectionDistance = goal.getFitness(test, result); // archive is updated by the TestFitnessFunction class
+                        // archive is updated by the TestFitnessFunction class
+                        mutantInfectionDistance = goal.getFitness(test, result);
                     } else {
                         // We can skip calling the test fitness function since we already know
                         // fitness is 1.0 (for propagation) + infection distance
-                        mutantInfectionDistance = 1.0 + normalize(touchedMutantsDistances.get(mutantID));
+                        mutantInfectionDistance = 1.0
+                                + normalize(touchedMutantsDistances.get(mutantId));
                     }
                 } else {
-                    mutantInfectionDistance = goal.getFitness(test, result); // archive is updated by the TestFitnessFunction class
+                    // archive is updated by the TestFitnessFunction class
+                    mutantInfectionDistance = goal.getFitness(test, result);
                 }
 
                 if (mutantInfectionDistance == 0.0) {
                     numKilled++;
-                    newKilled.add(mutantID);
+                    newKilled.add(mutantId);
                     result.test.addCoveredGoal(goal); // update list of covered goals
-                    this.toRemoveMutants.add(mutantID); // goal to not be considered by the next iteration of the evolutionary algorithm
+                    // goal to not be considered by next EA iteration
+                    this.toRemoveMutants.add(mutantId);
                 } else {
-                    minMutantFitness.put(goal.getMutation(), Math.min(mutantInfectionDistance, minMutantFitness.get(goal.getMutation())));
+                    minMutantFitness.put(goal.getMutation(),
+                            Math.min(mutantInfectionDistance, minMutantFitness.get(goal.getMutation())));
                 }
             }
         }
@@ -194,7 +200,8 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
             fitness += fit;
         }
 
-        logger.debug("Mutants killed: {}, Checked: {}, Goals: {})", numKilled, mutantsChecked, this.numMutants);
+        logger.debug("Mutants killed: {}, Checked: {}, Goals: {})", numKilled, mutantsChecked,
+                this.numMutants);
 
         updateIndividual(suite, fitness);
 

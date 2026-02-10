@@ -20,6 +20,9 @@
 package org.evosuite.coverage.io;
 
 /**
+ * Constants used for describing input/output coverage goals.
+ * These descriptors categorize values by type and value range.
+ *
  * @author Jose Miguel Rojas
  */
 public class IOCoverageConstants {

@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Created by gordon on 03/04/2016.
+ * Factory for try-catch coverage goals.
  */
 public class TryCatchCoverageFactory extends AbstractFitnessFactory<TryCatchCoverageTestFitness> {
 
@@ -53,18 +53,20 @@ public class TryCatchCoverageFactory extends AbstractFitnessFactory<TryCatchCove
         List<TryCatchCoverageTestFitness> goals = new ArrayList<>();
 
         // logger.info("Getting branches");
-        for (String className : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownClasses()) {
+        for (String className : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .knownClasses()) {
             final MethodNameMatcher matcher = new MethodNameMatcher();
 
             // Branches
-            for (String methodName : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownMethods(className)) {
+            for (String methodName : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .knownMethods(className)) {
                 if (!matcher.methodMatches(methodName)) {
                     logger.info("Method " + methodName + " does not match criteria. ");
                     continue;
                 }
 
-                for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).retrieveBranchesInMethod(className,
-                        methodName)) {
+                for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                        .retrieveBranchesInMethod(className, methodName)) {
                     if (b.isInstrumented()) {
                         goals.add(new TryCatchCoverageTestFitness(new BranchCoverageGoal(b,
                                 true, b.getClassName(), b.getMethodName())));

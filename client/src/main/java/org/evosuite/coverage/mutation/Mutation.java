@@ -167,7 +167,7 @@ public class Mutation implements Comparable<Mutation> {
 
     /**
      * <p>
-     * getControlDependencies
+     * getControlDependencies.
      * </p>
      *
      * @return a {@link java.util.Set} object.
@@ -183,7 +183,7 @@ public class Mutation implements Comparable<Mutation> {
 
     /**
      * <p>
-     * getOriginalNode
+     * getOriginalNode.
      * </p>
      *
      * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
@@ -205,7 +205,7 @@ public class Mutation implements Comparable<Mutation> {
 
     /**
      * <p>
-     * getInfectionDistance
+     * getInfectionDistance.
      * </p>
      *
      * @return a {@link org.objectweb.asm.tree.InsnList} object.
@@ -216,7 +216,7 @@ public class Mutation implements Comparable<Mutation> {
 
     /**
      * <p>
-     * getDefaultInfectionDistance
+     * getDefaultInfectionDistance.
      * </p>
      *
      * @return a {@link org.objectweb.asm.tree.InsnList} object.
@@ -268,30 +268,41 @@ public class Mutation implements Comparable<Mutation> {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         Mutation other = (Mutation) obj;
         if (className == null) {
-            if (other.className != null)
+            if (other.className != null) {
                 return false;
-        } else if (!className.equals(other.className))
+            }
+        } else if (!className.equals(other.className)) {
             return false;
-        if (id != other.id)
+        }
+        if (id != other.id) {
             return false;
-        if (lineNo != other.lineNo)
+        }
+        if (lineNo != other.lineNo) {
             return false;
+        }
         if (methodName == null) {
-            if (other.methodName != null)
+            if (other.methodName != null) {
                 return false;
-        } else if (!methodName.equals(other.methodName))
+            }
+        } else if (!methodName.equals(other.methodName)) {
             return false;
+        }
         if (mutationName == null) {
             return other.mutationName == null;
-        } else return mutationName.equals(other.mutationName);
+        } else {
+            return mutationName.equals(other.mutationName);
+        }
     }
 
     /* (non-Javadoc)

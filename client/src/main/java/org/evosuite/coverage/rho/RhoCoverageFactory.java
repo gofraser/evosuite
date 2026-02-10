@@ -34,6 +34,8 @@ import java.util.List;
 import static java.util.Comparator.comparingInt;
 
 /**
+ * Factory for creating coverage goals for Rho coverage.
+ *
  * @author José Campos
  */
 public class RhoCoverageFactory extends
@@ -47,7 +49,7 @@ public class RhoCoverageFactory extends
     private static List<LineCoverageTestFitness> goals = new ArrayList<>();
 
     /**
-     * Variables to calculate Rho value
+     * Variables to calculate Rho value.
      */
     private static int numberOfOnes = 0;
     private static int numberOfTestCases = 0;
@@ -59,7 +61,7 @@ public class RhoCoverageFactory extends
     private static final List<List<Integer>> matrix = new ArrayList<>();
 
     /**
-     * Read the coverage of a test suite from a file
+     * Read the coverage of a test suite from a file.
      */
     protected static synchronized void loadCoverage() {
 
@@ -69,10 +71,10 @@ public class RhoCoverageFactory extends
         }
 
         try (BufferedReader br = new BufferedReader(new FileReader(coverageFile))) {
-            String sCurrentLine;
+            String currentLine;
 
-            while ((sCurrentLine = br.readLine()) != null) {
-                String[] split = sCurrentLine.split(" ");
+            while ((currentLine = br.readLine()) != null) {
+                String[] split = currentLine.split(" ");
 
                 List<Integer> test = new ArrayList<>();
                 for (int i = 0; i < split.length - 1; i++) { // - 1, because we do not want to consider test result
@@ -95,8 +97,10 @@ public class RhoCoverageFactory extends
 
             logger.debug("RhoScore of an existing test suite: " + rawRho);
 
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.RhoScore_T0, rawRho);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Size_T0, numberOfTestCases);
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.RhoScore_T0,
+                    rawRho);
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Size_T0,
+                    numberOfTestCases);
 
             rho = RhoAux.calculateRho(numberOfOnes, numberOfTestCases, goals.size());
             logger.debug("(RhoScore - 0.5) of an existing test suite: " + rho);
@@ -114,7 +118,9 @@ public class RhoCoverageFactory extends
     }
 
     /**
-     * @return list of coverage goals
+     * Get the list of coverage goals.
+     *
+     * @return list of coverage goals.
      */
     public static synchronized List<LineCoverageTestFitness> getGoals() {
 
@@ -132,14 +138,17 @@ public class RhoCoverageFactory extends
             loadCoverage();
         } else {
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.RhoScore_T0, 1.0);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Size_T0, numberOfTestCases);
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Size_T0,
+                    numberOfTestCases);
         }
 
         return goals;
     }
 
     /**
-     * @return number of goals
+     * Get the number of goals.
+     *
+     * @return number of goals.
      */
     public static synchronized int getNumberGoals() {
         if (goals.isEmpty()) {
@@ -149,14 +158,18 @@ public class RhoCoverageFactory extends
     }
 
     /**
-     * @return number of ones (total coverage units hit)
+     * Get the number of ones.
+     *
+     * @return number of ones (total coverage units hit).
      */
     public static synchronized int getNumberOfOnes() {
         return numberOfOnes;
     }
 
     /**
-     * @return number of test cases
+     * Get the number of test cases.
+     *
+     * @return number of test cases.
      */
     public static synchronized int getNumberOfTestCases() {
         // This assertion might fail if called during modification, but method is synchronized
@@ -169,28 +182,36 @@ public class RhoCoverageFactory extends
     }
 
     /**
-     * @return current rho value
+     * Get the current rho value.
+     *
+     * @return current rho value.
      */
     public static synchronized double getRho() {
         return rho;
     }
 
     /**
-     * @return the coverage matrix
+     * Get the coverage matrix.
+     *
+     * @return the coverage matrix.
      */
     public static synchronized List<List<Integer>> getMatrix() {
         return matrix;
     }
 
     /**
-     * @param newTest covered lines by the new test
-     * @return true if the coverage pattern already exists
+     * Check if a coverage pattern already exists.
+     *
+     * @param newTest covered lines by the new test.
+     * @return true if the coverage pattern already exists.
      */
     public static synchronized boolean exists(List<Integer> newTest) {
         return matrix.contains(newTest);
     }
 
-    // only for testing
+    /**
+     * Reset the factory state.
+     */
     protected static synchronized void reset() {
         goals.clear();
         numberOfOnes = 0;

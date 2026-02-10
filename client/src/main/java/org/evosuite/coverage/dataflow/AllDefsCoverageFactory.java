@@ -27,9 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * <p>
- * AllDefsCoverageFactory class.
- * </p>
+ * Factory class for creating AllDefsCoverage goals.
  *
  * @author Andre Mis
  */

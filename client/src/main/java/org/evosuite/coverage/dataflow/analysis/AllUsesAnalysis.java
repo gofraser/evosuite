@@ -37,7 +37,7 @@ import java.util.*;
  */
 public class AllUsesAnalysis {
 
-    private final static int UPPER_PAIR_SEARCH_INVOCATION_BOUND = 2000000;
+    private static final int UPPER_PAIR_SEARCH_INVOCATION_BOUND = 2000000;
     private boolean warnedAboutAbortion = false;
     private final ClassControlFlowGraph ccfg;
 
@@ -50,14 +50,14 @@ public class AllUsesAnalysis {
     // from their methods entry
     private Map<String, Set<BytecodeInstruction>> determinedFreeUses = new HashMap<>();
 
-    private Set<CCFGMethodEntryNode> analyzedMethods = new HashSet<>();
+    private final Set<CCFGMethodEntryNode> analyzedMethods = new HashSet<>();
 
     // debug profiling
     private long timeSpentMingling = 0L;
 
 
     /**
-     * Given the ClassCallGraph of a class this constructor will build up the
+     * Given the ClassControlFlowGraph of a class this constructor will build up the
      * corresponding CCFG using the RCFGs from the GraphPool.
      *
      * @param ccfg a {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph} object.
@@ -69,11 +69,12 @@ public class AllUsesAnalysis {
     // Definition-Use Pair computation
 
     /**
-     * Makes a run of determineInterMethodPairs() for each public method. If you
-     * reach a use for which you have no def yet, remember that also remember
+     * Makes a run of determineInterMethodPairs() for each public method.
+     *
+     * <p>If you reach a use for which you have no def yet, remember that also remember
      * activeDefs after each run then create intra-class pairs from these uses
      * and defs and during each single run we detect intra and inter method
-     * pairs
+     * pairs.
      *
      * @return a {@link java.util.Set} object.
      */
@@ -87,9 +88,10 @@ public class AllUsesAnalysis {
             if (analyzedMethods.contains(publicMethodEntry)) {
                 continue;
             }
-            if (publicMethodEntry.getEntryInstruction() == null)
+            if (publicMethodEntry.getEntryInstruction() == null) {
                 throw new IllegalStateException(
                         "expect each CCFGMethodEntryNode to have its entryInstruction set");
+            }
 
             r.addAll(determineIntraInterMethodPairs(publicMethodEntry));
         }
@@ -102,13 +104,17 @@ public class AllUsesAnalysis {
 
     /**
      * Checks if there are methods in the CCG that dont call any other methods
-     * except for maybe itself. For these we can predetermine free uses and
+     * except for maybe itself.
+     *
+     * <p>For these we can predetermine free uses and
      * activeDefs prior to looking for inter_method_pairs. After that we can
      * even repeat this process for methods we now have determined free uses and
      * activeDefs! that way you can save a lot of computation. Map activeDefs
      * and freeUses according to the variable so you can easily determine which
      * defs will be active and which uses are free once you encounter a
-     * methodCall to that method without looking at its part of the CCFG
+     * methodCall to that method without looking at its part of the CCFG.
+     *
+     * @return a set of coverage goals.
      */
     private Set<DefUseCoverageTestFitness> preAnalyzeMethods() {
 
@@ -125,25 +131,29 @@ public class AllUsesAnalysis {
         while (!toAnalyze.isEmpty()) {
             ClassCallNode currentMethod = toAnalyze.poll();
             CCFGMethodEntryNode analyzeableEntry = ccfg.getMethodEntryNodeForClassCallNode(currentMethod);
-            if (analyzedMethods.contains(analyzeableEntry))
+            if (analyzedMethods.contains(analyzeableEntry)) {
                 continue;
+            }
 
             r.addAll(determineIntraInterMethodPairs(analyzeableEntry));
 
             // check if we can pre-analyze further methods now
             Set<ClassCallNode> parents = ccfg.getCcg().getParents(currentMethod);
             for (ClassCallNode parent : parents) {
-                if (toAnalyze.contains(parent))
+                if (toAnalyze.contains(parent)) {
                     continue; // will be analyzed anyway
+                }
                 if (analyzedMethods
-                        .contains(ccfg.getMethodEntryNodeForClassCallNode(parent)))
+                        .contains(ccfg.getMethodEntryNodeForClassCallNode(parent))) {
                     continue; // was already analyzed
+                }
 
                 Set<ClassCallNode> parentsChildren = ccfg.getCcg().getChildren(parent);
                 boolean canAnalyzeNow = true;
                 for (ClassCallNode parentsChild : parentsChildren) {
-                    if (parentsChild == null)
+                    if (parentsChild == null) {
                         continue;
+                    }
                     if (!parentsChild.equals(parent)
                             && !(toAnalyze.contains(parentsChild) || analyzedMethods
                             .contains(ccfg.getMethodEntryNodeForClassCallNode(parentsChild)))) {
@@ -163,21 +173,26 @@ public class AllUsesAnalysis {
 
     /**
      * Every CCGNode that has no children except for maybe itself can be
-     * initially pre-analyzed
+     * initially pre-analyzed.
+     *
+     * @return a set of pre-analyzable nodes.
      */
     private Set<ClassCallNode> getInitialPreAnalyzeableMethods() {
         Set<ClassCallNode> preAnalyzeable = new HashSet<>();
         for (ClassCallNode ccgNode : ccfg.getCcg().vertexSet()) {
             boolean add = true;
             for (ClassCallNode child : ccfg.getCcg().getChildren(ccgNode)) {
-                if (child == null)
+                if (child == null) {
                     continue;
-                if (!child.equals(ccgNode))
+                }
+                if (!child.equals(ccgNode)) {
                     add = false;
+                }
             }
 
-            if (add)
+            if (add) {
                 preAnalyzeable.add(ccgNode);
+            }
         }
 
         return preAnalyzeable;
@@ -192,8 +207,9 @@ public class AllUsesAnalysis {
             if (!ccfg.isPublicMethod(method)) {
                 continue;
             }
-            for (BytecodeInstruction freeUse : determinedFreeUses.get(method))
+            for (BytecodeInstruction freeUse : determinedFreeUses.get(method)) {
                 r.addAll(createIntraClassPairsForFreeUse(freeUse));
+            }
         }
 
         return r;
@@ -217,8 +233,9 @@ public class AllUsesAnalysis {
 
                 BytecodeInstruction activeDef = activeDefs.get(freeUse
                         .getVariableName());
-                if (activeDef == null)
+                if (activeDef == null) {
                     continue;
+                }
                 addNewGoalToFoundPairs(null, activeDef, freeUse,
                         DefUsePairType.INTRA_CLASS, r);
             }
@@ -279,23 +296,25 @@ public class AllUsesAnalysis {
         handleHandledNodesSet(node, handled);
 
         invocationCount++;
-        if (checkInvocationBound(invocationCount, callStack))
+        if (checkInvocationBound(invocationCount, callStack)) {
             return invocationCount;
+        }
 
-        if (node instanceof CCFGFieldClassCallNode)
+        if (node instanceof CCFGFieldClassCallNode) {
             handleFieldCallNode(investigatedMethod, node, callStack,
                     activeDefs, freeUses, foundPairs);
-        else if (node instanceof CCFGCodeNode)
+        } else if (node instanceof CCFGCodeNode) {
             handleCodeNode(investigatedMethod, node, callStack, activeDefs,
                     freeUses, foundPairs);
-        else if (node instanceof CCFGMethodCallNode)
+        } else if (node instanceof CCFGMethodCallNode) {
             handled = handleMethodCallNode(node, callStack, handled);
-        else if (node instanceof CCFGMethodReturnNode)
+        } else if (node instanceof CCFGMethodReturnNode) {
             handleMethodReturnNode(node, callStack);
-        else if (node instanceof CCFGFrameNode)
+        } else if (node instanceof CCFGFrameNode) {
             handleFrameNode();
-        else if (node instanceof CCFGMethodExitNode)
+        } else if (node instanceof CCFGMethodExitNode) {
             handleMethodExitNode(node, investigatedMethod, activeDefs, freeUses);
+        }
 
         node = determineNextRelevantNode(node, handled);
 
@@ -304,17 +323,19 @@ public class AllUsesAnalysis {
         boolean skipChildren = shouldSkipChildren(node, handledBackEdges,
                 children, handleLoops);
 
-        if (!skipChildren)
+        if (!skipChildren) {
             for (CCFGNode child : children) {
                 if (!shouldProcessChild(node, child, handled, handledBackEdges,
-                        handleLoops))
+                        handleLoops)) {
                     continue;
+                }
 
                 Deque<MethodCall> nextCallStack = callStack;
 
                 if (child instanceof CCFGMethodReturnNode) {
-                    if (handleReturnNodeChild(child, callStack))
+                    if (handleReturnNodeChild(child, callStack)) {
                         continue;
+                    }
                 } else if (child instanceof CCFGFrameNode) {
                     handleFrameNodeChild(child);
                     continue;
@@ -334,7 +355,7 @@ public class AllUsesAnalysis {
                     }
                 }
 
-                if (children.size() > 1)
+                if (children.size() > 1) {
                     invocationCount = determineIntraInterMethodPairs(
                             investigatedMethod, child, new HashSet<>(
                                     handled), new HashSet<>(
@@ -343,23 +364,33 @@ public class AllUsesAnalysis {
                             new HashSet<>(freeUses),
                             foundPairs, copyCallStack(nextCallStack),
                             invocationCount, handleLoops);
-                else
+                } else {
                     invocationCount = determineIntraInterMethodPairs(
                             investigatedMethod, child, handled,
                             handledBackEdges, activeDefs, freeUses, foundPairs,
                             nextCallStack, invocationCount, handleLoops);
+                }
             }
+        }
         return invocationCount;
     }
 
     /**
      * If the child is a CCFGMethodCallNode check if we previously determined
      * reachable DUs in there and if so handle that call separately in order to
-     * minimize computation. make sure to update activeDefs and freeUses
-     * accordingly. after that just proceed with the child of that
-     * CCFGMethodCallNode
+     * minimize computation.
      *
-     * @param investigatedMethod
+     * <p>Make sure to update activeDefs and freeUses
+     * accordingly. after that just proceed with the child of that
+     * CCFGMethodCallNode.
+     *
+     * @param callNode the method call node.
+     * @param activeDefs set of active definitions.
+     * @param freeUses set of free uses.
+     * @param foundPairs set of found def-use pairs.
+     * @param callStack the current call stack.
+     * @param investigatedMethod the method being investigated.
+     * @return set of active definitions after the call.
      */
     private Set<Map<String, VariableDefinition>> handleMethodCallNodeChild(
             CCFGMethodCallNode callNode,
@@ -384,9 +415,13 @@ public class AllUsesAnalysis {
     /**
      * If the given Set of handled nodes already contains the given node, an
      * IllegalStateException is thrown, because that should not happen.
-     * Otherwise the given node is added to the given Set.
-     * <p>
-     * Well ... funny method name i know
+     *
+     * <p>Otherwise the given node is added to the given Set.
+     *
+     * <p>Well ... funny method name i know.
+     *
+     * @param node the node to handle.
+     * @param handled set of already handled nodes.
      */
     private void handleHandledNodesSet(CCFGNode node, Set<CCFGNode> handled) {
         if (handled.contains(node)) {
@@ -396,7 +431,7 @@ public class AllUsesAnalysis {
             LoggingUtils.getEvoLogger().info("We are in a recursive call. Skipping the node");
             //Actually, this can happen in case of recursion
             //throw new IllegalStateException(
-            //		"visiting already handled node "+node+", should not happen")
+            //      "visiting already handled node "+node+", should not happen")
         }
         handled.add(node);
     }
@@ -405,9 +440,14 @@ public class AllUsesAnalysis {
      * Pushes a MethodCall according to the given MethodCallNode onto the
      * callStack and filters Set of handled nodes to no longer contain nodes of
      * the called method except the method call itself.
-     * <p>
-     * Filtering the handled Set is due to the fact, that we will have to visit
-     * some nodes more than once in case of a recursive method call for example
+     *
+     * <p>Filtering the handled Set is due to the fact, that we will have to visit
+     * some nodes more than once in case of a recursive method call for example.
+     *
+     * @param node the method call node.
+     * @param callStack the current call stack.
+     * @param handled set of already handled nodes.
+     * @return the filtered set of handled nodes.
      */
     private Set<CCFGNode> handleMethodCallNode(CCFGNode node,
                                                Deque<MethodCall> callStack, Set<CCFGNode> handled) {
@@ -424,19 +464,25 @@ public class AllUsesAnalysis {
      * throw an IllegalStateException. We also do this if the top of the
      * callStack is from a method different to the one from our
      * CCFGMethodReturnNode.
-     * <p>
-     * Otherwise we pop the top of our callStack.
+     *
+     * <p>Otherwise we pop the top of our callStack.
+     *
+     * @param node the return node.
+     * @param callStack the current call stack.
      */
     private void handleMethodReturnNode(CCFGNode node,
                                         Deque<MethodCall> callStack) {
-        if (callStack.peek().isInitialMethodCall())
+        if (callStack.peek().isInitialMethodCall()) {
             throw new IllegalStateException(
                     "found method return but had no more method calls on stack");
+        }
 
         CCFGMethodReturnNode retrn = (CCFGMethodReturnNode) node;
-        if (!callStack.peek().isMethodCallFor(retrn.getCallInstruction()))
+        if (!callStack.peek().isMethodCallFor(retrn.getCallInstruction())) {
             throw new IllegalStateException(
-                    "visiting MethodReturnNode even though lastly visited MethodCallNode was from a different method");
+                    "visiting MethodReturnNode even though lastly visited MethodCallNode "
+                            + "was from a different method");
+        }
 
         callStack.pop();
     }
@@ -448,9 +494,12 @@ public class AllUsesAnalysis {
 
     /**
      * If this is the methodExit of our investigated public method we remember
-     * our current activeDefs for intra-class pairs
+     * our current activeDefs for intra-class pairs.
      *
-     * @param freeUses
+     * @param node the exit node.
+     * @param investigatedMethod the method being investigated.
+     * @param activeDefs set of active definitions.
+     * @param freeUses set of free uses.
      */
     private void handleMethodExitNode(CCFGNode node,
                                       CCFGMethodEntryNode investigatedMethod,
@@ -496,12 +545,14 @@ public class AllUsesAnalysis {
 
         checkCallStackSanity(callStack, code);
 
-        if (code.isUse())
+        if (code.isUse()) {
             handleUseInstruction(investigatedMethod, code, callStack,
                     activeDefs, freeUses, foundPairs);
+        }
 
-        if (code.isDefinition())
+        if (code.isDefinition()) {
             handleDefInstruction(code, callStack, activeDefs);
+        }
     }
 
     private void handleDefInstruction(BytecodeInstruction code,
@@ -534,16 +585,17 @@ public class AllUsesAnalysis {
                 boolean isIntraPair = activeDef.getMethodCall().equals(
                         callStack.peek());
                 DefUseCoverageTestFitness.DefUsePairType type;
-                if (isIntraPair)
+                if (isIntraPair) {
                     type = DefUseCoverageTestFitness.DefUsePairType.INTRA_METHOD;
-                else {
+                } else {
                     type = DefUseCoverageTestFitness.DefUsePairType.INTER_METHOD;
                 }
 
                 if (!activeDef.getDefinition().isLocalDU()
-                        || type.equals(DefUsePairType.INTRA_METHOD))
+                        || type.equals(DefUsePairType.INTRA_METHOD)) {
                     addNewGoalToFoundPairs(investigatedMethod, activeDef, code,
                             type, foundPairs);
+                }
             } else {
                 // if we encounter a use here but have no activeDef yet we know
                 // the
@@ -557,24 +609,34 @@ public class AllUsesAnalysis {
 
     /**
      * When we go back to previously visited nodes we do not have to visit nodes
-     * after our current node again. If we follow backEdges we do that so we
+     * after our current node again.
+     *
+     * <p>If we follow backEdges we do that so we
      * find all intra-method pairs within loops, so we go through loops twice so
      * to speak. however the possible activeDefs are already determined after
      * the first walk through the loop. so after we make our two runs through
-     * the loop we don't have to walk through everything after the loop again
+     * the loop we don't have to walk through everything after the loop again.
+     *
+     * @param node the current node.
+     * @param handledBackEdges set of handled back edges.
+     * @param children set of children nodes.
+     * @param handleLoops whether to handle loops.
+     * @return true if children should be skipped.
      */
     private boolean shouldSkipChildren(CCFGNode node,
                                        Set<CCFGEdge> handledBackEdges, Set<CCFGNode> children,
                                        boolean handleLoops) {
-        if (node == null || children == null)
+        if (node == null || children == null) {
             return true;
+        }
         boolean skipChildren = false;
         if (handleLoops) {
             for (CCFGNode child : children) {
                 CCFGEdge currentEdge = ccfg.getEdge(node, child);
                 if (handledBackEdges.contains(currentEdge)) {
                     skipChildren = true;
-                    // System.out.println("Skipping nodes. Found already handled backEdge between "+node.toString()+" and "+child.toString());
+                    // System.out.println("Skipping nodes. Found already handled backEdge between "
+                    // + node.toString() + " and " + child.toString());
                     break;
                 }
             }
@@ -588,9 +650,10 @@ public class AllUsesAnalysis {
 
         if (handleLoops) {
             CCFGEdge currentEdge = ccfg.getEdge(node, child);
-            if (handledBackEdges.contains(currentEdge))
+            if (handledBackEdges.contains(currentEdge)) {
                 throw new IllegalStateException(
                         "should have been detected earlier");
+            }
             if (handled.contains(child)) {
                 // whenever we encounter an edge back to a previously handled
                 // node we need to clear handled set once, otherwise we are
@@ -609,7 +672,11 @@ public class AllUsesAnalysis {
     /**
      * While a node has exactly 1 further child which is a CCFGCodeNode and not
      * a DefUse-instruction that child does not need to be processed explicitly
-     * and can be skipped
+     * and can be skipped.
+     *
+     * @param node the current node.
+     * @param handled set of already handled nodes.
+     * @return the next relevant node.
      */
     private CCFGNode determineNextRelevantNode(CCFGNode node,
                                                Set<CCFGNode> handled) {
@@ -628,8 +695,9 @@ public class AllUsesAnalysis {
             Set<Map<String, VariableDefinition>> activeDefs) {
 
         HashSet<Map<String, VariableDefinition>> r = new HashSet<>();
-        for (Map<String, VariableDefinition> activeDef : activeDefs)
+        for (Map<String, VariableDefinition> activeDef : activeDefs) {
             r.add(new HashMap<>(activeDef));
+        }
         return r;
     }
 
@@ -687,7 +755,7 @@ public class AllUsesAnalysis {
                 // mingle both activeDefMaps from prior to the call and when
                 // returning from call to a new one that will be true after the
                 // call
-                Map<String, VariableDefinition> activeDefMapAfterCurrentCall = new HashMap<>();
+                Map<String, VariableDefinition> currentActiveDefMapAfterCall = new HashMap<>();
                 for (String variable : relevantVariables) {
                     BytecodeInstruction activeDefAfterCall = activeDefMapInCallee
                             .get(variable);
@@ -695,14 +763,15 @@ public class AllUsesAnalysis {
                             .get(variable);
 
                     if (activeDefAfterCall == null) {
-                        if (activeDefPriorToCall == null)
+                        if (activeDefPriorToCall == null) {
                             throw new IllegalStateException(
                                     "expect activeDefMaps not to map to null values");
+                        }
 
                         // variable was not overwritten in called
                         // method, so the activeDef prior to the call stays
                         // active
-                        activeDefMapAfterCurrentCall.put(variable,
+                        currentActiveDefMapAfterCall.put(variable,
                                 activeDefPriorToCall);
                     } else {
                         // variable was overwritten in call, so we will make a
@@ -710,7 +779,7 @@ public class AllUsesAnalysis {
                         // newly created map
                         VariableDefinition overwritingDefinition = new VariableDefinition(
                                 activeDefAfterCall, call);
-                        activeDefMapAfterCurrentCall.put(variable,
+                        currentActiveDefMapAfterCall.put(variable,
                                 overwritingDefinition);
                     }
                 }
@@ -718,7 +787,7 @@ public class AllUsesAnalysis {
                 // System.out.println("mingled map:");
                 // printVDDefMap(activeDefMapAfterCurrentCall);
 
-                activeDefMapsAfterCurrentCall.add(activeDefMapAfterCurrentCall);
+                activeDefMapsAfterCurrentCall.add(currentActiveDefMapAfterCall);
             }
         }
 
@@ -732,10 +801,11 @@ public class AllUsesAnalysis {
     private boolean alreadyAnalyzedMethod(String method) {
 
         if (determinedFreeUses.get(method) != null) {
-            if (determinedActiveDefs.get(method) == null)
+            if (determinedActiveDefs.get(method) == null) {
                 throw new IllegalStateException(
                         "found already determined freeUse but no activeDefs for method "
                                 + method);
+            }
             return true;
         }
         return false;
@@ -744,6 +814,9 @@ public class AllUsesAnalysis {
     /**
      * Creates a new MethodCall object for the given MethodCallNode and pushes
      * it onto the given callStack.
+     *
+     * @param callStack the call stack.
+     * @param callNode the call node.
      */
     private void updateCallStackForCallNode(Deque<MethodCall> callStack,
                                             CCFGMethodCallNode callNode) {
@@ -753,7 +826,10 @@ public class AllUsesAnalysis {
     }
 
     /**
-     * Pushes the given MethodCall object onto the given callStack
+     * Pushes the given MethodCall object onto the given callStack.
+     *
+     * @param callStack the call stack.
+     * @param call pride the method call.
      */
     private void updateCallStackForCall(Deque<MethodCall> callStack,
                                         MethodCall call) {
@@ -777,8 +853,9 @@ public class AllUsesAnalysis {
         checkUseSanity(freeUse);
 
         if (type.equals(DefUsePairType.INTER_METHOD)
-                && !ccfg.isPublicMethod(investigatedMethod))
+                && !ccfg.isPublicMethod(investigatedMethod)) {
             return;
+        }
 
         DefUseCoverageTestFitness goal = DefUseCoverageFactory.createGoal(
                 activeDef, freeUse, type);
@@ -790,26 +867,29 @@ public class AllUsesAnalysis {
     private boolean handleReturnNodeChild(CCFGNode child,
                                           Deque<MethodCall> callStack) {
 
-        if (callStack.peek().isInitialMethodCall())
+        if (callStack.peek().isInitialMethodCall()) {
             return true;
+        }
         CCFGMethodReturnNode retrn = (CCFGMethodReturnNode) child;
         return !callStack.peek().isMethodCallFor(retrn.getCallInstruction());
     }
 
     private void handleFrameNodeChild(CCFGNode child) {
         CCFGFrameNode frameNode = (CCFGFrameNode) child;
-        if (!frameNode.getType().equals(FrameNodeType.RETURN))
+        if (!frameNode.getType().equals(FrameNodeType.RETURN)) {
             throw new IllegalStateException(
                     "found CCFGFrameNode that was not of type RETURN. should not be possible "
                             + frameNode);
+        }
     }
 
     private void rememberActiveDefs(String method,
                                     Set<Map<String, VariableDefinition>> activeDefMaps) {
 
-        if (determinedActiveDefs.get(method) == null)
+        if (determinedActiveDefs.get(method) == null) {
             determinedActiveDefs.put(method,
                     new HashSet<>());
+        }
 
         Set<Map<String, BytecodeInstruction>> defMaps = toRememberableBytecodeInstructionMap(activeDefMaps);
 
@@ -820,8 +900,9 @@ public class AllUsesAnalysis {
 
     private void rememberFreeUses(String method,
                                   Set<BytecodeInstruction> freeUses) {
-        if (determinedFreeUses.get(method) == null)
+        if (determinedFreeUses.get(method) == null) {
             determinedFreeUses.put(method, new HashSet<>());
+        }
         determinedFreeUses.get(method).addAll(freeUses);
     }
 
@@ -832,26 +913,29 @@ public class AllUsesAnalysis {
     private Set<CCFGNode> filterHandledMapForMethodCallNode(
             CCFGMethodCallNode callNode, Set<CCFGNode> handled) {
         Set<CCFGNode> r = new HashSet<>();
-        for (CCFGNode node : handled)
+        for (CCFGNode node : handled) {
             if (!nodeBelongsToMethod(node, callNode.getCalledMethod())
-                    || (node instanceof CCFGMethodCallNode))
+                    || (node instanceof CCFGMethodCallNode)) {
                 r.add(node);
+            }
+        }
 
         r.add(callNode);
         return r;
     }
 
     private boolean nodeBelongsToMethod(CCFGNode node, String method) {
-        if (node instanceof CCFGCodeNode)
+        if (node instanceof CCFGCodeNode) {
             return ((CCFGCodeNode) node).getMethod().equals(method);
-        else if (node instanceof CCFGMethodCallNode)
+        } else if (node instanceof CCFGMethodCallNode) {
             return ((CCFGMethodCallNode) node).getMethod().equals(method);
-        else if (node instanceof CCFGMethodReturnNode)
+        } else if (node instanceof CCFGMethodReturnNode) {
             return ((CCFGMethodReturnNode) node).getMethod().equals(method);
-        else if (node instanceof CCFGMethodEntryNode)
+        } else if (node instanceof CCFGMethodEntryNode) {
             return ((CCFGMethodEntryNode) node).getMethod().equals(method);
-        else if (node instanceof CCFGMethodExitNode)
+        } else if (node instanceof CCFGMethodExitNode) {
             return ((CCFGMethodExitNode) node).getMethod().equals(method);
+        }
         // frame nodes belong to no method
         return false;
     }
@@ -859,7 +943,6 @@ public class AllUsesAnalysis {
     private void freeMemory() {
         determinedActiveDefs = null;
         determinedFreeUses = null;
-        analyzedMethods = null;
     }
 
 
@@ -867,7 +950,11 @@ public class AllUsesAnalysis {
 
     /**
      * Returns true iff the given invocationCount has exceeded the upper limit
-     * defined by UPPER_PAIR_SEARCH_INVOCATION_BOUND
+     * defined by UPPER_PAIR_SEARCH_INVOCATION_BOUND.
+     *
+     * @param invocationCount the current invocation count.
+     * @param callStack the current call stack.
+     * @return true if the limit has been exceeded.
      */
     private boolean checkInvocationBound(int invocationCount,
                                          Deque<MethodCall> callStack) {
@@ -893,7 +980,10 @@ public class AllUsesAnalysis {
 
     /**
      * If the method on top of the callStack differs from the method of the
-     * given BytecodeInstruction this methods throws an IllegalStateException
+     * given BytecodeInstruction this methods throws an IllegalStateException.
+     *
+     * @param callStack the current call stack.
+     * @param code the current instruction.
      */
     private void checkCallStackSanity(Deque<MethodCall> callStack,
                                       BytecodeInstruction code) {
@@ -916,32 +1006,38 @@ public class AllUsesAnalysis {
     private void checkFreeUseSanity(BytecodeInstruction freeUse) {
         checkUseSanity(freeUse);
 
-        if (!freeUse.isFieldUse())
+        if (!freeUse.isFieldUse()) {
             throw new IllegalStateException(
                     "expect all freeUses to be Use instructions for field variable");
+        }
     }
 
     private void checkUseSanity(BytecodeInstruction freeUse) {
-        if (freeUse == null)
+        if (freeUse == null) {
             throw new IllegalStateException(
                     "null values not allowed in freeUses map");
-        else if (!freeUse.isUse())
+        } else if (!freeUse.isUse()) {
             throw new IllegalStateException(
                     "expect all freeUses to be Use instructions");
+        }
     }
 
     private void checkDefinitionSanity(BytecodeInstruction activeDef) {
-        if (activeDef == null)
+        if (activeDef == null) {
             throw new IllegalStateException(
                     "null values not allowed in activeDef map");
-        else if (!activeDef.isDefinition())
+        } else if (!activeDef.isDefinition()) {
             throw new IllegalStateException(
                     "expect all activeDefs to be Definition instructions");
+        }
     }
 
     /**
      * Copies the given Maps to VariableDefinitions to correpsonding Maps to
      * BytecodeInstructions and filters out local variables.
+     *
+     * @param activeDefMaps set of active definition maps.
+     * @return set of rememberable maps.
      */
     private Set<Map<String, BytecodeInstruction>> toRememberableBytecodeInstructionMap(
             Set<Map<String, VariableDefinition>> activeDefMaps) {
@@ -952,8 +1048,9 @@ public class AllUsesAnalysis {
             Map<String, BytecodeInstruction> instructionMap = new HashMap<>();
             for (String var : activeDefMap.keySet()) {
                 VariableDefinition activeDef = activeDefMap.get(var);
-                if (activeDef.getDefinition().isLocalDU())
+                if (activeDef.getDefinition().isLocalDU()) {
                     continue;
+                }
                 instructionMap.put(var, activeDef.getDefinition());
             }
             r.add(instructionMap);

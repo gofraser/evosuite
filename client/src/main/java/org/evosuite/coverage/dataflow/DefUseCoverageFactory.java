@@ -39,9 +39,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * <p>
- * DefUseCoverageFactory class.
- * </p>
+ * Factory class for creating DefUseCoverage goals.
  *
  * @author Andre Mis
  */
@@ -62,15 +60,14 @@ public class DefUseCoverageFactory extends
     private static final Map<DefUseCoverageTestFitness.DefUsePairType, Integer> goalCounts = new HashMap<>();
 
     /**
-     * <p>
-     * getDUGoals
-     * </p>
+     * Returns the list of all Definition-Use goals.
      *
      * @return a {@link java.util.List} object.
      */
     public static List<DefUseCoverageTestFitness> getDUGoals() {
-        if (!called)
+        if (!called) {
             computeGoals();
+        }
 
         return duGoals;
     }
@@ -87,21 +84,22 @@ public class DefUseCoverageFactory extends
      */
     @Override
     public List<DefUseCoverageTestFitness> getCoverageGoals() {
-        if (!called)
+        if (!called) {
             computeGoals();
+        }
 
         return goals;
     }
 
     /**
      * Determines all goals that need to get covered in order to fulfill
-     * DefUseCoverage
-     * <p>
-     * Those are the following: - for each parameterUse this method creates a
+     * DefUseCoverage.
+     *
+     * <p>Those are the following: - for each parameterUse this method creates a
      * goal trying to cover i - for each duPair with a definition clear path
      * inside the methods of the CUT a goal is created - for each definition in
      * the CUT with a clear path to an exit of its method and each use with a
-     * clear path from its methods entry a goal is created
+     * clear path from its methods entry a goal is created.
      */
     public static void computeGoals() {
 
@@ -110,7 +108,8 @@ public class DefUseCoverageFactory extends
         long start = System.currentTimeMillis();
         LoggingUtils.getEvoLogger().info("starting DefUse-Coverage goal generation");
         duGoals = new ArrayList<>();
-        if (!GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).canMakeCCFGForClass(Properties.TARGET_CLASS)) {
+        if (!GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .canMakeCCFGForClass(Properties.TARGET_CLASS)) {
             goals = new ArrayList<>();
             logger.info("Have no CFGs, is this an interface?");
             return;
@@ -154,8 +153,8 @@ public class DefUseCoverageFactory extends
      * Determines for all method calls on fields of the CUT whether the call is
      * to a pure or impure method. For these calls Uses and Definitions are
      * created respectively.
-     * <p>
-     * Since purity analysis is used here and requires all classes along the
+     *
+     * <p>Since purity analysis is used here and requires all classes along the
      * call tree to be completely analyzed this part of the CUT analysis can not
      * be done in the CFGMethodAdapter like the rest of it.
      */
@@ -166,18 +165,22 @@ public class DefUseCoverageFactory extends
                 + fieldMethodCalls.size());
 
         for (BytecodeInstruction fieldMethodCall : fieldMethodCalls) {
-            if (GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).canMakeCCFGForClass(fieldMethodCall.getCalledMethodsClass())) {
-                ClassControlFlowGraph ccfg = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getCCFG(fieldMethodCall.getCalledMethodsClass());
+            if (GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                    .canMakeCCFGForClass(fieldMethodCall.getCalledMethodsClass())) {
+                ClassControlFlowGraph ccfg = GraphPool.getInstance(TestGenerationContext.getInstance()
+                        .getClassLoaderForSUT()).getCCFG(fieldMethodCall.getCalledMethodsClass());
                 if (ccfg.isPure(fieldMethodCall.getCalledMethod())) {
-                    if (!DefUsePool.addAsUse(fieldMethodCall))
+                    if (!DefUsePool.addAsUse(fieldMethodCall)) {
                         throw new IllegalStateException(
                                 "unable to register field method call as a use "
                                         + fieldMethodCall);
+                    }
                 } else {
-                    if (!DefUsePool.addAsDefinition(fieldMethodCall))
+                    if (!DefUsePool.addAsDefinition(fieldMethodCall)) {
                         throw new IllegalStateException(
                                 "unable to register field method call as a definition "
                                         + fieldMethodCall);
+                    }
                 }
             } else {
                 String toAnalyze = fieldMethodCall.getCalledMethodsClass() + "."
@@ -185,7 +188,8 @@ public class DefUseCoverageFactory extends
 
                 if (toAnalyze != null && toAnalyze.startsWith("java.")) {
 
-                    Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(fieldMethodCall.getMethodCallDescriptor());
+                    Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(
+                            fieldMethodCall.getMethodCallDescriptor());
                     String newParams = "";
                     if (parameters.length != 0) {
                         for (Type i : parameters) {
@@ -199,28 +203,32 @@ public class DefUseCoverageFactory extends
                     //System.out.println(toAnalyze);
 
                     if (JdkPureMethodsList.instance.checkPurity(toAnalyze)) {
-                        if (!DefUsePool.addAsUse(fieldMethodCall))
+                        if (!DefUsePool.addAsUse(fieldMethodCall)) {
                             throw new IllegalStateException(
                                     "unable to register field method call as a use "
                                             + fieldMethodCall);
+                        }
                     } else {
-                        if (!DefUsePool.addAsDefinition(fieldMethodCall))
+                        if (!DefUsePool.addAsDefinition(fieldMethodCall)) {
                             throw new IllegalStateException(
                                     "unable to register field method call as a definition "
                                             + fieldMethodCall);
+                        }
                     }
                 } else {
-                    if (!DefUsePool.addAsUse(fieldMethodCall))
+                    if (!DefUsePool.addAsUse(fieldMethodCall)) {
                         throw new IllegalStateException(
                                 "unable to register field method call as a use "
                                         + fieldMethodCall);
+                    }
                 }
             }
         }
     }
 
     private static Set<DefUseCoverageTestFitness> getCCFGPairs() {
-        ClassControlFlowGraph ccfg = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getCCFG(Properties.TARGET_CLASS);
+        ClassControlFlowGraph ccfg = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getCCFG(Properties.TARGET_CLASS);
         AllUsesAnalysis aua = new AllUsesAnalysis(ccfg);
         Set<DefUseCoverageTestFitness> r = aua.determineDefUsePairs();
 
@@ -243,9 +251,9 @@ public class DefUseCoverageFactory extends
 
         DefUseCoverageTestFitness goal = new DefUseCoverageTestFitness(def, use, type);
 
-        if (registerGoal(goal))
+        if (registerGoal(goal)) {
             return goal;
-        else {
+        } else {
             // System.out.println("Discarding goal: "+goal.toString());
             return null;
         }
@@ -254,7 +262,7 @@ public class DefUseCoverageFactory extends
     /**
      * Convenience method that retrieves the Definition and Use object for the
      * given BytecodeInstructions from the DefUsePool and calls
-     * createGoal(Definition,Use)
+     * createGoal(Definition,Use).
      *
      * @param def  a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @param use  a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -262,35 +270,40 @@ public class DefUseCoverageFactory extends
      *             {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness.DefUsePairType}
      *             object.
      * @return a
-     * {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness}
-     * object.
+     *         {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness}
+     *         object.
      */
     public static DefUseCoverageTestFitness createGoal(BytecodeInstruction def,
-                                                       BytecodeInstruction use, DefUseCoverageTestFitness.DefUsePairType type) {
-        if (def == null)
+                                                       BytecodeInstruction use,
+                                                       DefUseCoverageTestFitness.DefUsePairType type) {
+        if (def == null) {
             throw new IllegalArgumentException("null given as def");
-        if (use == null)
+        }
+        if (use == null) {
             throw new IllegalArgumentException("null given as use");
+        }
 
         Definition definition = DefUsePool.getDefinitionByInstruction(def);
         Use usee = DefUsePool.getUseByInstruction(use);
-        if (definition == null || usee == null) // can happen in (very, very)
-            // weird cases, ignoring that
-            // for now
+        if (definition == null || usee == null) {
+            // can happen in (very, very) weird cases, ignoring that for now
             return null;
+        }
 
         return createGoal(definition, usee, type);
     }
 
     private static boolean registerGoal(DefUseCoverageTestFitness goal) {
-        if (!goalMap.containsKey(goal.getGoalDefinition()))
+        if (!goalMap.containsKey(goal.getGoalDefinition())) {
             goalMap.put(goal.getGoalDefinition(),
                     new HashMap<>());
-        if (goalMap.get(goal.getGoalDefinition()).containsKey(goal.getGoalUse()) /* && goal.isInterMethodPair() */)
+        }
+        if (goalMap.get(goal.getGoalDefinition()).containsKey(goal.getGoalUse()) /* && goal.isInterMethodPair() */) {
             // when intra-goal DUs also have free paths to method start and end
             // it can be declared both an intra-goal and an inter-goal. in this
             // case we declare the goal to be intra
             return false;
+        }
 
         goalMap.get(goal.getGoalDefinition()).put(goal.getGoalUse(), goal);
         countGoal(goal);
@@ -298,23 +311,22 @@ public class DefUseCoverageFactory extends
     }
 
     private static void countGoal(DefUseCoverageTestFitness goal) {
-        if (goalCounts.get(goal.getType()) == null)
+        if (goalCounts.get(goal.getType()) == null) {
             goalCounts.put(goal.getType(), 0);
+        }
         goalCounts.put(goal.getType(), goalCounts.get(goal.getType()) + 1);
 
-        //		LoggingUtils.getEvoLogger().info(goal.toString());
+        //      LoggingUtils.getEvoLogger().info(goal.toString());
     }
 
     /**
-     * <p>
-     * retrieveGoal
-     * </p>
+     * retrieveGoal.
      *
      * @param defId a int.
      * @param useId a int.
      * @return a
-     * {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness}
-     * object.
+     *         {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness}
+     *         object.
      */
     public static DefUseCoverageTestFitness retrieveGoal(int defId, int useId) {
 
@@ -325,28 +337,28 @@ public class DefUseCoverageFactory extends
     }
 
     /**
-     * <p>
-     * retrieveGoal
-     * </p>
+     * retrieveGoal.
      *
      * @param def a {@link org.evosuite.coverage.dataflow.Definition} object.
      * @param use a {@link org.evosuite.coverage.dataflow.Use} object.
      * @return a
-     * {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness}
-     * object.
+     *         {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness}
+     *         object.
      */
     public static DefUseCoverageTestFitness retrieveGoal(Definition def, Use use) {
-        if (!goalMap.containsKey(def))
+        if (!goalMap.containsKey(def)) {
             return null;
-        if (!goalMap.get(def).containsKey(use))
+        }
+        if (!goalMap.get(def).containsKey(use)) {
             return null;
+        }
 
         return goalMap.get(def).get(use);
     }
 
     /**
      * For each parameterUse in the CUT this method creates a
-     * DefUseCoverageTestFitness that tries to cover that use
+     * DefUseCoverageTestFitness that tries to cover that use.
      *
      * @return a {@link java.util.Set} object.
      */
@@ -359,93 +371,87 @@ public class DefUseCoverageFactory extends
             countGoal(goal);
         }
         // paramGoalsCount = r.size();
-        //		LoggingUtils.getEvoLogger().debug("# Parameter-Uses: " + r.size());
+        //      LoggingUtils.getEvoLogger().debug("# Parameter-Uses: " + r.size());
         return r;
     }
 
     /**
-     * <p>
-     * getRegsiteredDefinitions
-     * </p>
+     * getRegisteredDefinitions.
      *
      * @return a {@link java.util.Set} object.
      */
     public static Set<Definition> getRegisteredDefinitions() {
-        if (!called)
+        if (!called) {
             computeGoals();
+        }
         return new HashSet<>(goalMap.keySet());
     }
 
     /**
-     * <p>
-     * getRegisteredGoalsForDefinition
-     * </p>
+     * getRegisteredGoalsForDefinition.
      *
      * @param def a {@link org.evosuite.coverage.dataflow.Definition} object.
      * @return a {@link java.util.Map} object.
      */
     public static Map<Use, DefUseCoverageTestFitness> getRegisteredGoalsForDefinition(
             Definition def) {
-        if (!called)
+        if (!called) {
             computeGoals();
+        }
         return goalMap.get(def);
     }
 
     // Getter
 
     /**
-     * <p>
-     * getParamGoalsCount
-     * </p>
+     * getParamGoalsCount.
      *
      * @return a int.
      */
     public static int getParamGoalsCount() {
         Integer r = goalCounts.get(DefUsePairType.PARAMETER);
-        if (r == null)
+        if (r == null) {
             return 0;
+        }
         return r;
     }
 
     /**
-     * <p>
-     * getIntraMethodGoalsCount
-     * </p>
+     * getIntraMethodGoalsCount.
      *
      * @return a int.
      */
     public static int getIntraMethodGoalsCount() {
         Integer r = goalCounts.get(DefUsePairType.INTRA_METHOD);
-        if (r == null)
+        if (r == null) {
             return 0;
+        }
         return r;
     }
 
     /**
-     * <p>
-     * getInterMethodGoalsCount
-     * </p>
+     * getInterMethodGoalsCount.
      *
      * @return a int.
      */
     public static int getInterMethodGoalsCount() {
         Integer r = goalCounts.get(DefUsePairType.INTER_METHOD);
-        if (r == null)
+        if (r == null) {
             return 0;
+        }
         return r;
     }
 
     /**
-     * <p>
-     * getIntraClassGoalsCount
-     * </p>
+     * getIntraClassGoalsCount.
      *
      * @return a int.
      */
     public static int getIntraClassGoalsCount() {
         Integer r = goalCounts.get(DefUsePairType.INTRA_CLASS);
-        if (r == null)
+        if (r == null) {
             return 0;
+        }
         return r;
     }
 
@@ -461,8 +467,9 @@ public class DefUseCoverageFactory extends
 
     public static boolean detectAliasingGoals(List<ExecutionResult> results) {
 
-        if (!Properties.DEFUSE_ALIASES)
+        if (!Properties.DEFUSE_ALIASES) {
             return false;
+        }
 
         Set<DefUseCoverageTestFitness> aliasingGoals = new HashSet<>();
 
@@ -481,8 +488,10 @@ public class DefUseCoverageFactory extends
 
     private static Set<DefUseCoverageTestFitness> detectAliasingGoals(
             ExecutionResult result) {
-        Map<String, HashMap<Integer, HashMap<Integer, Object>>> passedDefsObject = result.getTrace().getDefinitionDataObjects();
-        Map<String, HashMap<Integer, HashMap<Integer, Object>>> passedUsesObject = result.getTrace().getUseDataObjects();
+        Map<String, HashMap<Integer, HashMap<Integer, Object>>> passedDefsObject = result.getTrace()
+                .getDefinitionDataObjects();
+        Map<String, HashMap<Integer, HashMap<Integer, Object>>> passedUsesObject = result.getTrace()
+                .getUseDataObjects();
 
         Map<String, HashMap<Integer, HashMap<Integer, Integer>>> passedDefs = result.getTrace().getDefinitionData();
         Map<String, HashMap<Integer, HashMap<Integer, Integer>>> passedUses = result.getTrace().getUseData();
@@ -494,12 +503,14 @@ public class DefUseCoverageFactory extends
             for (Integer objectId : usesByObject.keySet()) {
 
                 for (String otherGoalVariable : passedDefsObject.keySet()) {
-                    if (goalVariable.equals(otherGoalVariable))
+                    if (goalVariable.equals(otherGoalVariable)) {
                         continue;
+                    }
 
                     Map<Integer, HashMap<Integer, Object>> defsByObject = passedDefsObject.get(otherGoalVariable);
-                    if (!defsByObject.containsKey(objectId))
+                    if (!defsByObject.containsKey(objectId)) {
                         continue;
+                    }
 
                     for (Object o1 : usesByObject.get(objectId).values()) {
                         for (Object o2 : defsByObject.get(objectId).values()) {
@@ -510,7 +521,8 @@ public class DefUseCoverageFactory extends
                                 List<Integer> duCounterTrace = new ArrayList<>(
                                         currentDefMap.keySet());
                                 duCounterTrace.addAll(currentUseMap.keySet());
-                                //				System.out.println(duCounterTrace.size()); oO for ncs.Bessj these can be up to 50k entries big
+                                // System.out.println(duCounterTrace.size());
+                                // oO for ncs.Bessj these can be up to 50k entries big
                                 Collections.sort(duCounterTrace);
                                 int traceLength = duCounterTrace.size();
                                 Integer[] sortedDefDUTrace = duCounterTrace.toArray(new Integer[traceLength]);
@@ -523,8 +535,8 @@ public class DefUseCoverageFactory extends
                                         activeDef = currentDefMap.get(currentDUCounter);
                                     } else if (activeDef != -1) {
                                         int currentUse = currentUseMap.get(currentDUCounter);
-                                        DefUseCoverageTestFitness currentGoal = DefUseCoverageFactory.retrieveGoal(activeDef,
-                                                currentUse);
+                                        DefUseCoverageTestFitness currentGoal = DefUseCoverageFactory.retrieveGoal(
+                                                activeDef, currentUse);
                                         if (currentGoal == null) {
                                             logger.info("New alias found: Variable defined as "
                                                     + otherGoalVariable
@@ -536,18 +548,22 @@ public class DefUseCoverageFactory extends
                                             for (DefUseCoverageTestFitness defUse : duGoals) {
                                                 // Find all other defs of the variable in the use
                                                 if (defUse.getGoalUse().equals(use)) {
-                                                    Map<Use, DefUseCoverageTestFitness> defUseMap = getRegisteredGoalsForDefinition(defUse.getGoalDefinition());
+                                                    Map<Use, DefUseCoverageTestFitness> defUseMap =
+                                                            getRegisteredGoalsForDefinition(
+                                                                    defUse.getGoalDefinition());
                                                     for (Use otherUse : defUseMap.keySet()) {
-                                                        //   For each defuse pair, add new defuse pair with alternative def
-                                                        DefUseCoverageTestFitness goal = DefUseCoverageFactory.createGoal(def,
-                                                                otherUse,
-                                                                defUseMap.get(otherUse).getType());
-                                                        if (goal != null) {
+                                                        // For each defuse pair, add new defuse
+                                                        // pair with alternative def
+                                                        DefUseCoverageTestFitness newGoal =
+                                                                DefUseCoverageFactory.createGoal(
+                                                                        def, otherUse,
+                                                                        defUseMap.get(otherUse).getType());
+                                                        if (newGoal != null) {
                                                             logger.info("Created new defuse pair: "
-                                                                    + goal
+                                                                    + newGoal
                                                                     + " of type "
-                                                                    + goal.getType());
-                                                            aliasingGoals.add(goal);
+                                                                    + newGoal.getType());
+                                                            aliasingGoals.add(newGoal);
                                                         }
                                                     }
                                                 }

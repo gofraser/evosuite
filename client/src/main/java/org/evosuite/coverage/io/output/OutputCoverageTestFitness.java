@@ -36,6 +36,9 @@ import java.util.Set;
 import static org.evosuite.coverage.io.IOCoverageConstants.*;
 
 /**
+ * Fitness function for evaluating individual test coverage of method return values.
+ * Calculates a distance-based fitness value for each output coverage goal.
+ *
  * @author Jose Miguel Rojas
  */
 public class OutputCoverageTestFitness extends TestFitnessFunction {
@@ -45,12 +48,12 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
     protected static final Logger logger = LoggerFactory.getLogger(OutputCoverageTestFitness.class);
 
     /**
-     * Target goal
+     * Target goal.
      */
     private final OutputCoverageGoal goal;
 
     /**
-     * Constructor - fitness is specific to a method
+     * Constructor - fitness is specific to a method.
      *
      * @param goal the coverage goal
      */
@@ -74,7 +77,7 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getClassName
+     * getClassName.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -85,7 +88,7 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getMethod
+     * getMethod.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -96,7 +99,7 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getValue
+     * getType.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -107,7 +110,7 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getValueDescriptor
+     * getValueDescriptor.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -119,7 +122,7 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
     /**
      * {@inheritDoc}
      * <p/>
-     * Calculate fitness
+     * Calculate fitness.
      *
      * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
      * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -207,6 +210,8 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
                         return distanceToZero;
                     case NUM_POSITIVE:
                         return distanceToPositive;
+                    default:
+                        break;
                 }
 
                 break;
@@ -249,6 +254,8 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
                         return distanceToDigit;
                     case CHAR_OTHER:
                         return distanceToOther;
+                    default:
+                        break;
                 }
                 break;
             default:
@@ -274,8 +281,8 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public int hashCode() {
-        int iConst = 13;
-        return 51 * iConst + goal.hashCode();
+        int hashConst = 13;
+        return 51 * hashConst + goal.hashCode();
     }
 
     /**
@@ -283,12 +290,15 @@ public class OutputCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         OutputCoverageTestFitness other = (OutputCoverageTestFitness) obj;
         return this.goal.equals(other.goal);
     }

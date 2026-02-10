@@ -38,10 +38,10 @@ import static java.util.stream.Collectors.toCollection;
 public class FitnessFunctionsUtils {
 
     /**
-     * Convert criterion names to test suite fitness functions
+     * Convert criterion names to test suite fitness functions.
      *
-     * @param criterion
-     * @return
+     * @param criterion an array of {@link org.evosuite.Properties.Criterion} objects
+     * @return a {@link java.util.List} object
      */
     public static List<TestSuiteFitnessFunction> getFitnessFunctions(Properties.Criterion[] criterion) {
         List<TestSuiteFitnessFunction> ffs = new ArrayList<>();
@@ -51,22 +51,25 @@ public class FitnessFunctionsUtils {
             // If this is compositional fitness, we need to make sure
             // that all functions are consistently minimization or
             // maximization functions
-            if (Properties.ALGORITHM != Properties.Algorithm.NSGAII && Properties.ALGORITHM != Properties.Algorithm.SPEA2) {
+            if (Properties.ALGORITHM != Properties.Algorithm.NSGAII
+                    && Properties.ALGORITHM != Properties.Algorithm.SPEA2) {
                 for (TestSuiteFitnessFunction oldFunction : ffs) {
                     if (oldFunction.isMaximizationFunction() != newFunction.isMaximizationFunction()) {
                         StringBuilder sb = new StringBuilder();
                         sb.append("* Invalid combination of fitness functions: ");
                         sb.append(oldFunction);
-                        if (oldFunction.isMaximizationFunction())
+                        if (oldFunction.isMaximizationFunction()) {
                             sb.append(" is a maximization function ");
-                        else
+                        } else {
                             sb.append(" is a minimization function ");
+                        }
                         sb.append(" but ");
                         sb.append(newFunction);
-                        if (newFunction.isMaximizationFunction())
+                        if (newFunction.isMaximizationFunction()) {
                             sb.append(" is a maximization function ");
-                        else
+                        } else {
                             sb.append(" is a minimization function ");
+                        }
                         LoggingUtils.getEvoLogger().info(sb.toString());
                         throw new RuntimeException("Invalid combination of fitness functions");
                     }
@@ -80,12 +83,13 @@ public class FitnessFunctionsUtils {
     }
 
     /**
-     * Convert criterion names to factories for test case fitness functions
+     * Convert criterion names to factories for test case fitness functions.
      *
-     * @param criterion
-     * @return
+     * @param criterion an array of {@link org.evosuite.Properties.Criterion} objects
+     * @return a {@link java.util.List} object
      */
-    public static List<TestFitnessFactory<? extends TestFitnessFunction>> getFitnessFactories(Properties.Criterion[] criterion) {
+    public static List<TestFitnessFactory<? extends TestFitnessFunction>> getFitnessFactories(
+            Properties.Criterion[] criterion) {
         return Arrays.stream(criterion)
                 .map(FitnessFunctions::getFitnessFactory)
                 .collect(toCollection(ArrayList::new));
@@ -94,11 +98,12 @@ public class FitnessFunctionsUtils {
     /**
      * Returns current Fitness functions based on which criterion was passed.
      *
-     * @param criterion
-     * @param verbose
-     * @return
+     * @param criterion an array of {@link org.evosuite.Properties.Criterion} objects
+     * @param verbose   a boolean
+     * @return a {@link java.util.List} object
      */
-    public static List<TestFitnessFunction> getFitnessFunctionsGoals(Properties.Criterion[] criterion, boolean verbose) {
+    public static List<TestFitnessFunction> getFitnessFunctionsGoals(Properties.Criterion[] criterion,
+                                                                     boolean verbose) {
         List<TestFitnessFactory<? extends TestFitnessFunction>> goalFactories = getFitnessFactories(criterion);
         List<TestFitnessFunction> goals = new ArrayList<>();
 
@@ -107,10 +112,12 @@ public class FitnessFunctionsUtils {
             goals.addAll(factory.getCoverageGoals());
 
             if (verbose) {
-                LoggingUtils.getEvoLogger().info("* Total number of test goals: {}", factory.getCoverageGoals().size());
+                LoggingUtils.getEvoLogger().info("* Total number of test goals: {}",
+                        factory.getCoverageGoals().size());
                 if (Properties.PRINT_GOALS) {
-                    for (TestFitnessFunction goal : factory.getCoverageGoals())
+                    for (TestFitnessFunction goal : factory.getCoverageGoals()) {
                         LoggingUtils.getEvoLogger().info("{}", goal);
+                    }
                 }
             }
         } else {
@@ -123,11 +130,13 @@ public class FitnessFunctionsUtils {
 
                 if (verbose) {
                     LoggingUtils.getEvoLogger()
-                            .info("  - {} {}", goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
+                            .info("  - {} {}", goalFactory.getClass().getSimpleName()
+                                            .replace("CoverageFactory", ""),
                                     goalFactory.getCoverageGoals().size());
                     if (Properties.PRINT_GOALS) {
-                        for (TestFitnessFunction goal : goalFactory.getCoverageGoals())
+                        for (TestFitnessFunction goal : goalFactory.getCoverageGoals()) {
                             LoggingUtils.getEvoLogger().info("{}", goal);
+                        }
                     }
                 }
             }

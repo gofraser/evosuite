@@ -33,7 +33,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Fitness function for a single test on a single method (including calls that throw exceptions)
+ * Fitness function for a single test on a single method (including calls that throw exceptions).
  *
  * @author Gordon Fraser, Jose Miguel Rojas
  */
@@ -42,7 +42,7 @@ public class MethodCoverageTestFitness extends AbstractMethodTestFitness {
     private static final long serialVersionUID = 3624503060256855484L;
 
     /**
-     * Constructor - fitness is specific to a method
+     * Constructor - fitness is specific to a method.
      *
      * @param className  the class name
      * @param methodName the method name
@@ -53,8 +53,8 @@ public class MethodCoverageTestFitness extends AbstractMethodTestFitness {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Calculate fitness
+     *
+     * <p>Calculate fitness.
      *
      * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
      * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.

@@ -58,7 +58,7 @@ public class LineCoverageSuiteFitness extends AbstractLineCoverageSuiteFitness {
 
     /**
      * Add guidance to the fitness function by including branch distances on
-     * all control dependencies
+     * all control dependencies.
      */
     private void updateControlDependencies() {
         branchesToCoverTrue.clear();
@@ -78,7 +78,8 @@ public class LineCoverageSuiteFitness extends AbstractLineCoverageSuiteFitness {
             targetClasses.add(ff.getTargetClass());
         }
         for (String className : targetClasses) {
-            List<BytecodeInstruction> instructions = BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getInstructionsIn(className);
+            List<BytecodeInstruction> instructions = BytecodeInstructionPool.getInstance(
+                    TestGenerationContext.getInstance().getClassLoaderForSUT()).getInstructionsIn(className);
 
             if (instructions == null) {
                 logger.info("No instructions known for class {} (is it an enum?)", className);

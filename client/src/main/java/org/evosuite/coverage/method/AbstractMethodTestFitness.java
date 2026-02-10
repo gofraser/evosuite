@@ -33,7 +33,7 @@ public abstract class AbstractMethodTestFitness extends TestFitnessFunction {
     private static final long serialVersionUID = -5635347264626300451L;
 
     /**
-     * Target method
+     * Target method.
      */
     protected final String className;
     protected final String methodName;
@@ -45,7 +45,7 @@ public abstract class AbstractMethodTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getClassName
+     * getClassName.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -56,7 +56,7 @@ public abstract class AbstractMethodTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getMethod
+     * getMethod.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -78,8 +78,8 @@ public abstract class AbstractMethodTestFitness extends TestFitnessFunction {
      */
     @Override
     public int hashCode() {
-        int iConst = 13;
-        return 51 * iConst + className.hashCode() * iConst + methodName.hashCode();
+        int iconst = 13;
+        return 51 * iconst + className.hashCode() * iconst + methodName.hashCode();
     }
 
     /**
@@ -87,16 +87,21 @@ public abstract class AbstractMethodTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         AbstractMethodTestFitness other = (AbstractMethodTestFitness) obj;
         if (!className.equals(other.className)) {
             return false;
-        } else return methodName.equals(other.methodName);
+        } else {
+            return methodName.equals(other.methodName);
+        }
     }
 
     /* (non-Javadoc)
@@ -106,10 +111,11 @@ public abstract class AbstractMethodTestFitness extends TestFitnessFunction {
     public int compareTo(TestFitnessFunction other) {
         if (this.getClass().equals(other.getClass())) {
             AbstractMethodTestFitness otherMethodFitness = (AbstractMethodTestFitness) other;
-            if (className.equals(otherMethodFitness.getClassName()))
+            if (className.equals(otherMethodFitness.getClassName())) {
                 return methodName.compareTo(otherMethodFitness.getMethod());
-            else
+            } else {
                 return className.compareTo(otherMethodFitness.getClassName());
+            }
         }
         return compareClassName(other);
     }

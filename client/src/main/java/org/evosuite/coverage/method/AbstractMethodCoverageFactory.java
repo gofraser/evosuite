@@ -38,7 +38,8 @@ import java.util.List;
  *
  * @param <T> the type of fitness function
  */
-public abstract class AbstractMethodCoverageFactory<T extends AbstractMethodTestFitness> extends AbstractFitnessFactory<T> {
+public abstract class AbstractMethodCoverageFactory<T extends AbstractMethodTestFitness>
+        extends AbstractFitnessFactory<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractMethodCoverageFactory.class);
     protected final MethodNameMatcher matcher = new MethodNameMatcher();

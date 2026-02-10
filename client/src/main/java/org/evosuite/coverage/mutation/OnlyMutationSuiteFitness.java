@@ -67,7 +67,7 @@ public class OnlyMutationSuiteFitness extends MutationSuiteFitness {
         List<ExecutionResult> results = runTestSuite(individual);
 
         double fitness = 0.0;
-        Map<Integer, Double> mutant_distance = new LinkedHashMap<>();
+        Map<Integer, Double> mutantDistance = new LinkedHashMap<>();
         Set<Integer> touchedMutants = new LinkedHashSet<>();
 
         for (ExecutionResult result : results) {
@@ -92,17 +92,17 @@ public class OnlyMutationSuiteFitness extends MutationSuiteFitness {
             test.setChanged(false);
 
             for (final Entry<Integer, MutationTestFitness> entry : this.mutantMap.entrySet()) {
-                int mutantID = entry.getKey();
+                int mutantId = entry.getKey();
                 TestFitnessFunction goal = entry.getValue();
 
                 double fit = 0.0;
-                if (touchedMutantsDistances.containsKey(mutantID)) {
-                    fit = touchedMutantsDistances.get(mutantID);
+                if (touchedMutantsDistances.containsKey(mutantId)) {
+                    fit = touchedMutantsDistances.get(mutantId);
 
-                    if (!mutant_distance.containsKey(mutantID)) {
-                        mutant_distance.put(mutantID, fit);
+                    if (!mutantDistance.containsKey(mutantId)) {
+                        mutantDistance.put(mutantId, fit);
                     } else {
-                        mutant_distance.put(mutantID, Math.min(mutant_distance.get(mutantID), fit));
+                        mutantDistance.put(mutantId, Math.min(mutantDistance.get(mutantId), fit));
                     }
                 } else {
                     fit = goal.getFitness(test, result); // archive is updated by the TestFitnessFunction class
@@ -110,7 +110,7 @@ public class OnlyMutationSuiteFitness extends MutationSuiteFitness {
 
                 if (fit == 0.0) {
                     test.getTestCase().addCoveredGoal(goal); // update list of covered goals
-                    this.toRemoveMutants.add(mutantID); // goal to not be considered by the next iteration of the evolutionary algorithm
+                    this.toRemoveMutants.add(mutantId); // goal to not be considered by next EA iteration
                 }
 
                 if (Properties.TEST_ARCHIVE) {
@@ -120,10 +120,11 @@ public class OnlyMutationSuiteFitness extends MutationSuiteFitness {
         }
 
         // Second objective: touch all mutants?
-        fitness += MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter() - touchedMutants.size();
+        fitness += MutationPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT()).getMutantCounter() - touchedMutants.size();
         int covered = this.removedMutants.size();
 
-        for (Double distance : mutant_distance.values()) {
+        for (Double distance : mutantDistance.values()) {
             if (distance < 0) {
                 logger.warn("Distance is " + distance + " / " + Integer.MAX_VALUE + " / "
                         + Integer.MIN_VALUE);
@@ -131,8 +132,9 @@ public class OnlyMutationSuiteFitness extends MutationSuiteFitness {
             }
 
             fitness += normalize(distance);
-            if (distance == 0.0)
+            if (distance == 0.0) {
                 covered++;
+            }
         }
 
         updateIndividual(individual, fitness);

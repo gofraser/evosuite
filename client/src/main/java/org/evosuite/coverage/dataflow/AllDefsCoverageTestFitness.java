@@ -29,9 +29,9 @@ import java.util.Map;
 
 /**
  * Evaluate fitness of a single test case with respect to one Definition-Use
- * pair
- * <p>
- * For more information look at the comment from method getDistance()
+ * pair.
+ *
+ * <p>For more information look at the comment from method getDistance().
  *
  * @author Andre Mis
  */
@@ -39,7 +39,7 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
 
     private static final long serialVersionUID = 1L;
     /**
-     * Constant <code>singleFitnessTime=0l</code>
+     * Constant <code>singleFitnessTime=0l</code>.
      */
     public static long singleFitnessTime = 0L;
 
@@ -48,9 +48,7 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     private final Map<Use, DefUseCoverageTestFitness> uses;
 
     /**
-     * <p>
      * Constructor for AllDefsCoverageTestFitness.
-     * </p>
      *
      * @param def  a {@link org.evosuite.coverage.dataflow.Definition} object.
      * @param uses a {@link java.util.Map} object.
@@ -58,7 +56,8 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     public AllDefsCoverageTestFitness(Definition def,
                                       Map<Use, DefUseCoverageTestFitness> uses) {
         this.targetDef = def;
-        this.goalDefinitionFitness = new StatementCoverageTestFitness(def.getClassName(), def.getMethodName(), def.getInstructionId());
+        this.goalDefinitionFitness = new StatementCoverageTestFitness(def.getClassName(),
+                def.getMethodName(), def.getInstructionId());
         this.uses = uses;
     }
 
@@ -76,8 +75,9 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         }
         Properties.TEST_ARCHIVE = archive;
 
-        if (defFitness > 0)
+        if (defFitness > 0) {
             return 1 + normalize(defFitness);
+        }
 
         // TODO: filter all objects
         // TODO: compute minimum over all use-fitnesses
@@ -87,10 +87,12 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         double min = Double.MAX_VALUE;
         for (Use use : uses.keySet()) {
             double useFitness = uses.get(use).getFitness(individual, result);
-            if (useFitness == 0)
+            if (useFitness == 0) {
                 return 0;
-            if (useFitness < min)
+            }
+            if (useFitness < min) {
                 min = useFitness;
+            }
         }
 
         return min;
@@ -112,19 +114,26 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         AllDefsCoverageTestFitness other = (AllDefsCoverageTestFitness) obj;
         if (targetDef == null) {
             return other.targetDef == null;
-        } else return targetDef.equals(other.targetDef);
+        } else {
+            return targetDef.equals(other.targetDef);
+        }
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
      */
     @Override
@@ -144,7 +153,9 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         return "AllDef-Goal " + targetDef.toString();
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
      */
     @Override
@@ -152,7 +163,9 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         return targetDef.getClassName();
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
      */
     @Override

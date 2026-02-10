@@ -27,6 +27,8 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import java.util.*;
 
 /**
+ * Fitness function for a test suite using Rho coverage.
+ *
  * @author José Campos
  */
 public class RhoCoverageSuiteFitness extends TestSuiteFitnessFunction {
@@ -61,14 +63,14 @@ public class RhoCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
             if (Properties.STRATEGY == Properties.Strategy.ENTBUG) {
                 // order set
-                List<Integer> lCoveredLines = new ArrayList<>(coveredLines);
-                Collections.sort(lCoveredLines);
-                Set<Integer> coveredLinesOrdered = new LinkedHashSet<>(lCoveredLines);
+                List<Integer> coveredLinesList = new ArrayList<>(coveredLines);
+                Collections.sort(coveredLinesList);
+                Set<Integer> coveredLinesOrdered = new LinkedHashSet<>(coveredLinesList);
 
                 // there is coverage, and it is new (not in local matrix), and not in original matrix
                 if (!coveredLinesOrdered.isEmpty()
                         && tmpCoverageMatrix.add(coveredLinesOrdered)
-                        && !RhoCoverageFactory.exists(lCoveredLines)) {
+                        && !RhoCoverageFactory.exists(coveredLinesList)) {
                     numberOfOnes += coveredLinesOrdered.size();
                     numberOfTestCases++;
                 }

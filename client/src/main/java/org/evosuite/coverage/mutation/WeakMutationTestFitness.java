@@ -46,12 +46,11 @@ public class WeakMutationTestFitness extends MutationTestFitness {
         super(mutation);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.coverage.mutation.MutationTestFitness#getFitness(org.evosuite.testcase.TestChromosome, org.evosuite.testcase.ExecutionResult)
-     */
-
     /**
      * {@inheritDoc}
+     *
+     * @see org.evosuite.coverage.mutation.MutationTestFitness#getFitness(org.evosuite.testcase.TestChromosome,
+     * org.evosuite.testcase.ExecutionResult)
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
@@ -60,10 +59,11 @@ public class WeakMutationTestFitness extends MutationTestFitness {
         double executionDistance = diameter;
 
         // Get control flow distance
-        if (!result.getTrace().wasMutationTouched(mutation.getId()))
+        if (!result.getTrace().wasMutationTouched(mutation.getId())) {
             executionDistance = getExecutionDistance(result);
-        else
+        } else {
             executionDistance = 0.0;
+        }
 
         double infectionDistance = 1.0;
 

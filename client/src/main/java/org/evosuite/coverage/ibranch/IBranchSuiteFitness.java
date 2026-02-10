@@ -56,12 +56,29 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
 
     private final Set<IBranchTestFitness> toRemoveBranchesT = new LinkedHashSet<>();
     private final Set<IBranchTestFitness> toRemoveBranchesF = new LinkedHashSet<>();
+    /**
+     * Set of root branches that should be removed from the goals.
+     */
     private final Set<IBranchTestFitness> toRemoveRootBranches = new LinkedHashSet<>();
 
+    /**
+     * Set of true branches that have been covered and removed.
+     */
     private final Set<IBranchTestFitness> removedBranchesT = new LinkedHashSet<>();
+
+    /**
+     * Set of false branches that have been covered and removed.
+     */
     private final Set<IBranchTestFitness> removedBranchesF = new LinkedHashSet<>();
+
+    /**
+     * Set of root branches that have been covered and removed.
+     */
     private final Set<IBranchTestFitness> removedRootBranches = new LinkedHashSet<>();
 
+    /**
+     * Constructor for IBranchSuiteFitness.
+     */
     public IBranchSuiteFitness() {
         goalsMap = new LinkedHashMap<>();
         methodsMap = new LinkedHashMap<>();
@@ -103,8 +120,9 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
                     break;
                 }
             }
-            if (flag)
+            if (flag) {
                 goalsInTarget++;
+            }
         }
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.IBranchInitialGoals, totalGoals);
@@ -118,24 +136,34 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
 
     private IBranchTestFitness getContextGoal(String classAndMethodName, CallContext context) {
         if (methodsMap.get(classAndMethodName) == null
-                || methodsMap.get(classAndMethodName).get(context) == null)
+                || methodsMap.get(classAndMethodName).get(context) == null) {
             return null;
+        }
         return methodsMap.get(classAndMethodName).get(context);
     }
 
     private IBranchTestFitness getContextGoal(Integer branchId, CallContext context, boolean value) {
-        if (goalsMap.get(branchId) == null)
+        if (goalsMap.get(branchId) == null) {
             return null;
-        if (goalsMap.get(branchId).get(context) == null)
+        }
+        if (goalsMap.get(branchId).get(context) == null) {
             return null;
-        for (IBranchTestFitness iBranchTestFitness : goalsMap.get(branchId).get(context)) {
-            if (iBranchTestFitness.getValue() == value) {
-                return iBranchTestFitness;
+        }
+        for (IBranchTestFitness goal : goalsMap.get(branchId).get(context)) {
+            if (goal.getValue() == value) {
+                return goal;
             }
         }
         return null;
     }
 
+    /**
+     * Calculates the fitness of a test suite.
+     *
+     * @param suite            the test suite chromosome
+     * @param updateChromosome whether to update the chromosome with covered goals
+     * @return the fitness value
+     */
     public double getFitness(TestSuiteChromosome suite, boolean updateChromosome) {
         double fitness = 0.0;
         List<ExecutionResult> results = runTestSuite(suite);
@@ -156,22 +184,26 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
                 testChromosome.setChanged(false);
             }
 
-            updateBranchDistances(result.getTrace().getTrueDistancesContext(), true, distanceMap, testChromosome, updateChromosome);
-            updateBranchDistances(result.getTrace().getFalseDistancesContext(), false, distanceMap, testChromosome, updateChromosome);
+            updateBranchDistances(result.getTrace().getTrueDistancesContext(), true,
+                    distanceMap, testChromosome, updateChromosome);
+            updateBranchDistances(result.getTrace().getFalseDistancesContext(), false,
+                    distanceMap, testChromosome, updateChromosome);
 
             for (Entry<String, Map<CallContext, Integer>> entry : result.getTrace()
                     .getMethodContextCount().entrySet()) {
                 for (Entry<CallContext, Integer> value : entry.getValue().entrySet()) {
                     IBranchTestFitness goal = getContextGoal(entry.getKey(), value.getKey());
-                    if (goal == null || removedRootBranches.contains(goal))
+                    if (goal == null || removedRootBranches.contains(goal)) {
                         continue;
+                    }
                     int count = value.getValue();
                     if (callCount.get(goal) == null || callCount.get(goal) < count) {
                         callCount.put(goal, count);
                     }
                     if (count > 0) {
-                        if (updateChromosome && testChromosome != null)
+                        if (updateChromosome && testChromosome != null) {
                             testChromosome.getTestCase().addCoveredGoal(goal);
+                        }
                         toRemoveRootBranches.add(goal);
                     }
                 }
@@ -181,8 +213,9 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
         int numCoveredGoals = 0;
         for (IBranchTestFitness goal : branchGoals) {
             Double distance = distanceMap.get(goal);
-            if (distance == null)
+            if (distance == null) {
                 distance = 1.0;
+            }
 
             if (goal.getBranch() == null) {
                 Integer count = callCount.get(goal);
@@ -227,8 +260,9 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
                 CallContext context = contextEntry.getKey();
                 IBranchTestFitness goal = getContextGoal(branchId, context, value);
 
-                if (goal == null || removedSet.contains(goal))
+                if (goal == null || removedSet.contains(goal)) {
                     continue;
+                }
 
                 double distance = normalize(contextEntry.getValue());
                 if (distanceMap.get(goal) == null || distanceMap.get(goal) > distance) {
@@ -236,8 +270,9 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
                 }
 
                 if (Double.compare(distance, 0.0) == 0) {
-                    if (updateChromosome && testChromosome != null)
+                    if (updateChromosome && testChromosome != null) {
                         testChromosome.getTestCase().addCoveredGoal(goal);
+                    }
                     toRemoveSet.add(goal);
                 }
 
@@ -248,17 +283,17 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
         }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.ga.FitnessFunction#getFitness(org.evosuite.ga.Chromosome)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
         return getFitness(suite, true);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean updateCoveredGoals() {
         if (!Properties.TEST_ARCHIVE) {

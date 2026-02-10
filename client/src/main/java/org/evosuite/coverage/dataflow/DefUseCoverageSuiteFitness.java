@@ -34,12 +34,12 @@ import java.util.Map.Entry;
 import static java.util.stream.Collectors.toCollection;
 
 /**
- * Evaluate fitness of a test suite with respect to all of its def-use pairs
- * <p>
- * First simple and naive idea: Just take each DUGoal, calculate the minimal
+ * Evaluate fitness of a test suite with respect to all of its def-use pairs.
+ *
+ * <p>First simple and naive idea: Just take each DUGoal, calculate the minimal
  * fitness over all results in the suite once a goal is covered don't check for
  * it again in the end sum up all those fitness and that is s the resulting
- * suite-fitness
+ * suite-fitness.
  *
  * @author Andre Mis
  */
@@ -49,18 +49,18 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
     List<DefUseCoverageTestFitness> goals = DefUseCoverageFactory.getDUGoals();
 
     /**
-     * Constant <code>totalGoals</code>
+     * Constant <code>totalGoals</code>.
      */
     public Map<DefUsePairType, Integer> totalGoals = initTotalGoals();
     /**
-     * Constant <code>mostCoveredGoals</code>
+     * Constant <code>mostCoveredGoals</code>.
      */
-    public final static Map<DefUsePairType, Integer> mostCoveredGoals = new HashMap<>();
+    public static final Map<DefUsePairType, Integer> mostCoveredGoals = new HashMap<>();
 
     public Map<DefUsePairType, Integer> coveredGoals = new HashMap<>();
 
     // TODO: Need readObject?
-    private transient final Map<Definition, Integer> maxDefinitionCount = new HashMap<>();
+    private final transient Map<Definition, Integer> maxDefinitionCount = new HashMap<>();
 
     private final Map<String, Integer> maxMethodCount = new HashMap<>();
 
@@ -94,9 +94,9 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
             }
         }
         // Why should this be a warning??
-        //		for (Definition def : maxDefinitionCount.keySet()) {
-        //			logger.warn("Known definition: " + def + ", " + maxDefinitionCount.get(def));
-        //		}
+        //      for (Definition def : maxDefinitionCount.keySet()) {
+        //          logger.warn("Known definition: " + def + ", " + maxDefinitionCount.get(def));
+        //      }
     }
 
     // Not working yet
@@ -142,8 +142,9 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
                     logger.warn("Could not find def " + entry.getKey());
                     continue;
                 }
-                if (!passedDefinitions.containsKey(def))
+                if (!passedDefinitions.containsKey(def)) {
                     passedDefinitions.put(def, new HashSet<>());
+                }
 
                 if (!passedDefinitionCount.containsKey(def)) {
                     //logger.warn("Weird, definition is not known: " + def);
@@ -156,34 +157,34 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
             }
 
             for (Entry<String, Integer> entry : result.getTrace().getMethodExecutionCount().entrySet()) {
-                if (executedMethodsCount.containsKey(entry.getKey()))
+                if (executedMethodsCount.containsKey(entry.getKey())) {
                     executedMethodsCount.put(entry.getKey(),
                             executedMethodsCount.get(entry.getKey())
                                     + entry.getValue());
+                }
                 if (!executedMethods.containsKey(entry.getKey())) {
                     executedMethods.put(entry.getKey(), new HashSet<>());
                 }
                 executedMethods.get(entry.getKey()).add(test);
             }
-			/*
-			for (Integer id : result.getTrace().getPassedDefIDs()) {
-				Definition def = DefUsePool.getDefinitionByDefId(id);
-				if (!passedDefinitions.containsKey(def))
-					passedDefinitions.put(def, new HashSet<TestChromosome>());
+            /*
+            for (Integer id : result.getTrace().getPassedDefIDs()) {
+                Definition def = DefUsePool.getDefinitionByDefId(id);
+                if (!passedDefinitions.containsKey(def))
+                    passedDefinitions.put(def, new HashSet<TestChromosome>());
 
-				passedDefinitions.get(def).add(test);
-				passedDefinitionCount.put(def, passedDefinitionCount.get(def) + 1);
-			}
-			*/
+                passedDefinitions.get(def).add(test);
+                passedDefinitionCount.put(def, passedDefinitionCount.get(def) + 1);
+            }
+            */
         }
 
         // 1. Need to reach each definition
         double fitness = branchFitness.getFitness(suite);
         // logger.info("Branch fitness: " + fitness);
 
-        // 3. For all covered defs, calculate minimal use distance
-        //Set<DefUseCoverageTestFitness> coveredGoalsSet = DefUseExecutionTraceAnalyzer.getCoveredGoals(results);
-        Set<DefUseCoverageTestFitness> coveredGoalsSet = new HashSet<>();//DefUseExecutionTraceAnalyzer.getCoveredGoals(results);
+        // Set<DefUseCoverageTestFitness> coveredGoalsSet = DefUseExecutionTraceAnalyzer.getCoveredGoals(results);
+        Set<DefUseCoverageTestFitness> coveredGoalsSet = new HashSet<>();
 
         initCoverageMaps();
         Set<Definition> notFullyCoveredDefs = new HashSet<>();
@@ -215,7 +216,7 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
                         + goal);
 
             }
-            //			for (TestChromosome test : passedDefinitions.get(goal.getGoalDefinition())) {
+            //          for (TestChromosome test : passedDefinitions.get(goal.getGoalDefinition())) {
             for (TestChromosome test : coveringTests) {
                 // for (TestChromosome test : suite.getTestChromosomes()) {
 
@@ -225,8 +226,9 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 //double resultFitness = goal.getFitness(test, result);
                 double resultFitness = calculator.calculateDUFitness();
 
-                if (resultFitness < goalFitness)
+                if (resultFitness < goalFitness) {
                     goalFitness = resultFitness;
+                }
                 if (goalFitness == 0.0) {
                     result.test.addCoveredGoal(goal);
                     coveredGoalsSet.add(goal);
@@ -234,10 +236,11 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 }
             }
             if (goalFitness > 0.0) {
-                if (goal.isParameterGoal())
+                if (goal.isParameterGoal()) {
                     notFullyCoveredDefs.add(goal.getGoalDefinition());
-                else
+                } else {
                     methodIsNotFullyCovered = true;
+                }
             }
 
             fitness += goalFitness;
@@ -271,15 +274,18 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         int coveredGoalCount = countCoveredGoals();
         int totalGoalCount = countTotalGoals();
-        if (fitness == 0.0 && coveredGoalCount < totalGoalCount)
+        if (fitness == 0.0 && coveredGoalCount < totalGoalCount) {
             throw new IllegalStateException("Fitness 0 implies 100% coverage "
                     + coveredGoalCount + " / " + totalGoals + " (covered / total)");
+        }
 
         return fitness;
 
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see org.evosuite.ga.FitnessFunction#getFitness(org.evosuite.ga.Chromosome)
      */
     @Override
@@ -290,26 +296,21 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
         Properties.TEST_ARCHIVE = false;
 
         double fit = 0.0;
-        if (Properties.ENABLE_ALTERNATIVE_SUITE_FITNESS)
+        if (Properties.ENABLE_ALTERNATIVE_SUITE_FITNESS) {
             fit = getFitnessAlternative(suite);
-        else
+        } else {
             fit = getFitnessOld(suite);
+        }
 
         Properties.TEST_ARCHIVE = archive;
 
         return fit;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.ga.FitnessFunction#getFitness(org.
-     * evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
+     *
+     * @see org.evosuite.ga.FitnessFunction#getFitness(org.evosuite.ga.Chromosome)
      */
     //@Override
     public double getFitnessOld(TestSuiteChromosome suite) {
@@ -342,8 +343,9 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 TestChromosome tc = new TestChromosome();
                 tc.setTestCase(result.test);
                 double resultFitness = goal.getFitness(tc, result);
-                if (resultFitness < goalFitness)
+                if (resultFitness < goalFitness) {
                     goalFitness = resultFitness;
+                }
                 if (goalFitness == 0.0) {
                     result.test.addCoveredGoal(goal);
                     coveredGoalsSet.add(goal);
@@ -360,9 +362,10 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         int coveredGoalCount = countCoveredGoals();
         int totalGoalCount = countTotalGoals();
-        if (fitness == 0.0 && coveredGoalCount < totalGoalCount)
+        if (fitness == 0.0 && coveredGoalCount < totalGoalCount) {
             throw new IllegalStateException("Fitness 0 implies 100% coverage "
                     + coveredGoalCount + " / " + totalGoals + " (covered / total)");
+        }
 
         return fitness;
     }
@@ -371,8 +374,9 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
         Map<DefUsePairType, Integer> r = new HashMap<>();
 
         // init map
-        for (DefUsePairType type : DefUseCoverageTestFitness.DefUsePairType.values())
+        for (DefUsePairType type : DefUseCoverageTestFitness.DefUsePairType.values()) {
             r.put(type, 0);
+        }
 
         int num = 0;
         // count total goals according to type
@@ -397,9 +401,7 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * <p>
-     * countMostCoveredGoals
-     * </p>
+     * countMostCoveredGoals.
      *
      * @return a int.
      */
@@ -414,8 +416,9 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
     private static int countGoalsIn(Map<DefUsePairType, Integer> goalMap) {
         int r = 0;
         for (DefUsePairType type : DefUseCoverageTestFitness.DefUsePairType.values()) {
-            if (goalMap.get(type) != null)
+            if (goalMap.get(type) != null) {
                 r += goalMap.get(type);
+            }
         }
         return r;
     }
@@ -435,10 +438,11 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     private void setSuiteCoverage(TestSuiteChromosome suite) {
 
-        if (goals.size() > 0)
+        if (goals.size() > 0) {
             suite.setCoverage(this, countCoveredGoals() / (double) goals.size());
-        else
+        } else {
             suite.setCoverage(this, 1.0);
+        }
     }
 
     private void setMostCovered() {
@@ -446,19 +450,18 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
         for (DefUsePairType type : DefUseCoverageTestFitness.DefUsePairType.values()) {
             if (mostCoveredGoals.get(type) < coveredGoals.get(type)) {
                 mostCoveredGoals.put(type, coveredGoals.get(type));
-                if (mostCoveredGoals.get(type) > totalGoals.get(type))
+                if (mostCoveredGoals.get(type) > totalGoals.get(type)) {
                     throw new IllegalStateException(
                             "Can't cover more goals than there exist of type " + type
                                     + " " + mostCoveredGoals.get(type) + " / "
                                     + totalGoals.get(type) + " (mostCovered / total)");
+                }
             }
         }
     }
 
     /**
-     * <p>
-     * printCoverage
-     * </p>
+     * printCoverage.
      */
     public static void printCoverage() {
 
@@ -489,7 +492,7 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
      *
      * @param type the type of pairs. See
      *             DefUseCoverageTestFitness.DefUsePairType
-     * @return
+     * @return an ArrayList of the matching pairs.
      */
     private static ArrayList<DefUseCoverageTestFitness> getPairsOfType(DefUsePairType type) {
         return DefUseCoverageFactory.getDUGoals().stream()

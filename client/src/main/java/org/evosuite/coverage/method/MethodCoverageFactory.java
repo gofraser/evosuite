@@ -43,7 +43,7 @@ public class MethodCoverageFactory extends AbstractMethodCoverageFactory<MethodC
      * @param className a {@link String} object.
      * @param method    a {@link String} object.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static MethodCoverageTestFitness createMethodTestFitness(
             String className, String method) {
@@ -58,12 +58,13 @@ public class MethodCoverageFactory extends AbstractMethodCoverageFactory<MethodC
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static MethodCoverageTestFitness createMethodTestFitness(
             BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         return createMethodTestFitness(instruction.getClassName(),
                 instruction.getMethodName());

@@ -28,6 +28,8 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import java.util.*;
 
 /**
+ * Test suite fitness function for ambiguity coverage.
+ *
  * @author José Campos
  */
 public class AmbiguityCoverageSuiteFitness extends TestSuiteFitnessFunction {
@@ -59,14 +61,14 @@ public class AmbiguityCoverageSuiteFitness extends TestSuiteFitnessFunction {
         }
 
         Map<String, Integer> groups = new HashMap<>();
-        int g_i = 0;
+        int goalIndex = 0;
 
         for (Integer goal : this.goals) {
             StringBuffer str = null;
 
-            if (transposedMatrix.size() > g_i) {
-                str = new StringBuffer(transposedMatrix.get(g_i).length() + coveredLines.size());
-                str.append(transposedMatrix.get(g_i));
+            if (transposedMatrix.size() > goalIndex) {
+                str = new StringBuffer(transposedMatrix.get(goalIndex).length() + coveredLines.size());
+                str.append(transposedMatrix.get(goalIndex));
             } else {
                 str = new StringBuffer(coveredLines.size());
             }
@@ -76,16 +78,19 @@ public class AmbiguityCoverageSuiteFitness extends TestSuiteFitnessFunction {
             }
 
             if (!groups.containsKey(str.toString())) {
-                groups.put(str.toString(), 1); // in the beginning they are ambiguity, so they belong to the same group '1'
+                // in the beginning they are ambiguity, so they belong to the same group '1'
+                groups.put(str.toString(), 1);
             } else {
                 groups.put(str.toString(), groups.get(str.toString()) + 1);
             }
 
-            g_i++;
+            goalIndex++;
         }
 
-        //double fitness = AmbiguityCoverageFactory.getAmbiguity(this.goals.size(), groups) * 1.0 / AmbiguityCoverageFactory.getMaxAmbiguityScore();
-        double fitness = TestFitnessFunction.normalize(AmbiguityCoverageFactory.getAmbiguity(this.goals.size(), groups));
+        //double fitness = AmbiguityCoverageFactory.getAmbiguity(this.goals.size(), groups) * 1.0 
+        // / AmbiguityCoverageFactory.getMaxAmbiguityScore();
+        double fitness = TestFitnessFunction.normalize(
+                AmbiguityCoverageFactory.getAmbiguity(this.goals.size(), groups));
         updateIndividual(suite, fitness);
 
         return fitness;

@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Fitness function for a whole test suite for all methods considering only normal behaviour (no exceptions)
+ * Fitness function for a whole test suite for all methods considering only normal behaviour (no exceptions).
  *
  * @author Gordon Fraser, Jose Miguel Rojas
  */
@@ -39,18 +39,19 @@ public class MethodNoExceptionCoverageSuiteFitness extends MethodCoverageSuiteFi
 
     private static final long serialVersionUID = -704561530935529634L;
 
-    private final static Logger logger = LoggerFactory.getLogger(MethodNoExceptionCoverageSuiteFitness.class);
+    private static final Logger logger = LoggerFactory.getLogger(MethodNoExceptionCoverageSuiteFitness.class);
 
     /**
-     * Initialize the set of known coverage goals
+     * Initialize the set of known coverage goals.
      */
     @Override
     protected void determineCoverageGoals() {
         List<MethodNoExceptionCoverageTestFitness> goals = new MethodNoExceptionCoverageFactory().getCoverageGoals();
         for (MethodNoExceptionCoverageTestFitness goal : goals) {
             methodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
     }
 
@@ -60,10 +61,11 @@ public class MethodNoExceptionCoverageSuiteFitness extends MethodCoverageSuiteFi
     }
 
     /**
-     * Some useful debug information
+     * Some useful debug information.
      *
-     * @param coveredMethods
-     * @param fitness
+     * @param suite          the test suite chromosome
+     * @param coveredMethods the number of covered methods
+     * @param fitness        the fitness value
      */
     @Override
     protected void printStatusMessages(TestSuiteChromosome suite,

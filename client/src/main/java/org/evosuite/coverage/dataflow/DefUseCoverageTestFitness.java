@@ -41,9 +41,9 @@ import java.util.Set;
 
 /**
  * Evaluate fitness of a single test case with respect to one Definition-Use
- * pair
- * <p>
- * For more information look at the comment from method getDistance()
+ * pair.
+ *
+ * <p>For more information look at the comment from method getDistance().
  *
  * @author Andre Mis
  */
@@ -56,13 +56,13 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Constant <code>singleFitnessTime=0l</code>
+     * Constant <code>singleFitnessTime=0l</code>.
      */
     public static long singleFitnessTime = 0L;
 
     // debugging flags
-    private final static boolean DEBUG = Properties.DEFUSE_DEBUG_MODE;
-    private final static boolean PRINT_DEBUG = false;
+    private static final boolean DEBUG = Properties.DEFUSE_DEBUG_MODE;
+    private static final boolean PRINT_DEBUG = false;
 
     // the Definition-Use pair
     private String goalVariable;
@@ -81,7 +81,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     // constructors
 
     /**
-     * Creates a Definition-Use-Coverage goal for the given Definition and Use
+     * Creates a Definition-Use-Coverage goal for the given Definition and Use.
      *
      * @param def  a {@link org.evosuite.coverage.dataflow.Definition} object.
      * @param use  a {@link org.evosuite.coverage.dataflow.Use} object.
@@ -97,36 +97,40 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * Used for Parameter-Uses
-     * <p>
-     * Creates a goal that tries to cover the given Use
+     * Used for Parameter-Uses.
+     *
+     * <p>Creates a goal that tries to cover the given Use.
      *
      * @param use a {@link org.evosuite.coverage.dataflow.Use} object.
      */
     public DefUseCoverageTestFitness(Use use) {
-        if (!use.isParameterUse())
+        if (!use.isParameterUse()) {
             throw new IllegalArgumentException(
                     "this constructor is only for Parameter-Uses");
+        }
 
         initParameterUse(use);
     }
 
     private void initRegularDefUse(Definition def, Use use, DefUsePairType type) {
         //if (!def.getVariableName().equals(use.getVariableName()))
-        //	throw new IllegalArgumentException(
-        //	        "expect def and use to be for the same variable: \n" + def.toString()
-        //	                + "\n" + use.toString());
-        if (def.isLocalDU() && !type.equals(DefUsePairType.INTRA_METHOD))
+        //  throw new IllegalArgumentException(
+        //          "expect def and use to be for the same variable: \n" + def.toString()
+        //                  + "\n" + use.toString());
+        if (def.isLocalDU() && !type.equals(DefUsePairType.INTRA_METHOD)) {
             throw new IllegalArgumentException(
                     "local variables can only be part of INTRA-METHOD pairs: \ntype:"
                             + type + "\ndef:" + def + "\nuse:"
                             + use.toString());
+        }
 
         this.goalDefinition = def;
         this.goalUse = use;
         this.goalVariable = def.getVariableName();
-        this.goalDefinitionFitness = new StatementCoverageTestFitness(goalDefinition.getClassName(), goalDefinition.getMethodName(), goalDefinition.getInstructionId());
-        this.goalUseFitness = new StatementCoverageTestFitness(goalUse.getClassName(), goalUse.getMethodName(), goalUse.getInstructionId());
+        this.goalDefinitionFitness = new StatementCoverageTestFitness(goalDefinition.getClassName(),
+                goalDefinition.getMethodName(), goalDefinition.getInstructionId());
+        this.goalUseFitness = new StatementCoverageTestFitness(goalUse.getClassName(),
+                goalUse.getMethodName(), goalUse.getInstructionId());
 
         this.type = type;
     }
@@ -136,18 +140,19 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         goalDefinition = null;
         goalDefinitionFitness = null;
         goalUse = use;
-        goalUseFitness = new StatementCoverageTestFitness(goalUse.getClassName(), goalUse.getMethodName(), goalUse.getInstructionId());
+        goalUseFitness = new StatementCoverageTestFitness(goalUse.getClassName(),
+                goalUse.getMethodName(), goalUse.getInstructionId());
 
         this.type = DefUsePairType.PARAMETER;
     }
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Calculates the DefUseCoverage test fitness for this goal
-     * <p>
-     * Look at DefUseCoverageCalculations.calculateDUFitness() for more
-     * information
+     *
+     * <p>Calculates the DefUseCoverage test fitness for this goal.
+     *
+     * <p>Look at DefUseFitnessCalculator.calculateDUFitness() for more
+     * information.
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
@@ -167,8 +172,9 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
         Properties.TEST_ARCHIVE = archive;
 
-        if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) && fitness == 0.0)
+        if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) && fitness == 0.0) {
             setCovered(individual, result.getTrace(), -1); // TODO objectId wrong
+        }
 
         postFitnessDebugInfo(individual, result, fitness);
 
@@ -180,10 +186,10 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * Used by DefUseCoverageSuiteFitness
-     * <p>
-     * Simply call getFitness(TestChromosome,ExecutionResult) with a dummy
-     * TestChromosome The chromosome is used only for updateIndividual()
+     * Used by DefUseCoverageSuiteFitness.
+     *
+     * <p>Simply call getFitness(TestChromosome,ExecutionResult) with a dummy
+     * TestChromosome. The chromosome is used only for updateIndividual()
      * anyways.
      *
      * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -200,30 +206,31 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * Returns the definitions to the goalVaraible coming after the
-     * goalDefinition and before the goalUse in their respective methods
+     * goalDefinition and before the goalUse in their respective methods.
      *
      * @return a {@link java.util.Set} object.
      */
     public Set<BytecodeInstruction> getPotentialOverwritingDefinitions() {
         Set<BytecodeInstruction> instructionsInBetween = getInstructionsInBetweenDU();
-        if (goalDefinition != null)
+        if (goalDefinition != null) {
             return DefUseExecutionTraceAnalyzer.getOverwritingDefinitionsIn(goalDefinition,
                     instructionsInBetween);
-        else
+        } else {
             return DefUseExecutionTraceAnalyzer.getDefinitionsIn(goalVariable,
                     instructionsInBetween);
+        }
     }
 
     /**
      * Return a set containing all CFGVertices that occur in the complete CFG
      * after the goalDefinition and before the goalUse.
-     * <p>
-     * It's pretty much the union of getInstructionsAfterGoalDefinition() and
+     *
+     * <p>It's pretty much the union of getInstructionsAfterGoalDefinition() and
      * getInstructionsBeforeGoalUse(), except if the DU is in one method and the
      * goalDefinition comes before the goalUse, then the intersection of the two
      * sets is returned.
-     * <p>
-     * If the goalDefinition is a Parameter-Definition only the CFGVertices
+     *
+     * <p>If the goalDefinition is a Parameter-Definition only the CFGVertices
      * before the goalUse are considered.
      *
      * @return a {@link java.util.Set} object.
@@ -247,49 +254,47 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     /**
      * Returns a set containing all CFGVertices in the goal definition method
      * that come after the definition.
-     * <p>
-     * Look at ControlFlowGraph.getLaterInstructionInMethod() for details
+     *
+     * <p>Look at ControlFlowGraph.getLaterInstructionInMethod() for details.
      *
      * @return a {@link java.util.Set} object.
      */
     public Set<BytecodeInstruction> getInstructionsAfterGoalDefinition() {
-        RawControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getRawCFG(goalDefinition.getClassName(),
-                goalDefinition.getMethodName());
+        RawControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getRawCFG(goalDefinition.getClassName(), goalDefinition.getMethodName());
         BytecodeInstruction defVertex = cfg.getInstruction(goalDefinition.getInstructionId());
         Set<BytecodeInstruction> r = cfg.getLaterInstructionsInMethod(defVertex);
-        //		for (BytecodeInstruction v : r) {
-        //			v.setMethodName(goalDefinition.getMethodName());
-        //			v.setClassName(goalDefinition.getClassName());
-        //		}
+        //      for (BytecodeInstruction v : r) {
+        //          v.setMethodName(goalDefinition.getMethodName());
+        //          v.setClassName(goalDefinition.getClassName());
+        //      }
         return r;
     }
 
     /**
      * Returns a set containing all CFGVertices in the goal use method that come
      * before the goal use.
-     * <p>
-     * Look at ControlFlowGraph.getPreviousInstructionInMethod() for details
+     *
+     * <p>Look at ControlFlowGraph.getPreviousInstructionInMethod() for details.
      *
      * @return a {@link java.util.Set} object.
      */
     public Set<BytecodeInstruction> getInstructionsBeforeGoalUse() {
-        RawControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getRawCFG(goalUse.getClassName(),
-                goalUse.getMethodName());
+        RawControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getRawCFG(goalUse.getClassName(), goalUse.getMethodName());
         BytecodeInstruction useVertex = cfg.getInstruction(goalUse.getInstructionId());
         Set<BytecodeInstruction> r = cfg.getPreviousInstructionsInMethod(useVertex);
-        //		for (BytecodeInstruction v : r) {
-        //			v.setMethodName(goalUse.getMethodName());
-        //			v.setClassName(goalUse.getClassName());
-        //		}
+        //      for (BytecodeInstruction v : r) {
+        //          v.setMethodName(goalUse.getMethodName());
+        //          v.setClassName(goalUse.getClassName());
+        //      }
         return r;
     }
 
     // debugging methods
 
     /**
-     * <p>
-     * setCovered
-     * </p>
+     * setCovered.
      *
      * @param individual a {@link org.evosuite.ga.Chromosome} object.
      * @param trace      a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
@@ -304,9 +309,11 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         this.coveringObjectId = objectId;
         updateIndividual(individual, 0);
 
-        if (DEBUG)
-            if (!DefUseFitnessCalculator.traceCoversGoal(this, individual, trace))
+        if (DEBUG) {
+            if (!DefUseFitnessCalculator.traceCoversGoal(this, individual, trace)) {
                 throw new IllegalStateException("calculation flawed. goal wasn't covered");
+            }
+        }
     }
 
     private void preFitnessDebugInfo(ExecutionResult result, boolean respectPrintFlag) {
@@ -327,20 +334,19 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
                     System.out.println("==============================================================");
                 }
                 if (DefUseFitnessCalculator.traceCoversGoal(this, individual,
-                        result.getTrace()))
+                        result.getTrace())) {
                     throw new IllegalStateException(
                             "calculation flawed. goal was covered but fitness was "
                                     + fitness);
+                }
             }
         }
     }
 
-    // 	---			Getter 		---
+    //  ---         Getter      ---
 
     /**
-     * <p>
      * Getter for the field <code>goalVariable</code>.
-     * </p>
      *
      * @return a {@link java.lang.String} object.
      */
@@ -349,9 +355,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
      * Getter for the field <code>coveringObjectId</code>.
-     * </p>
      *
      * @return a int.
      */
@@ -360,9 +364,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
      * Getter for the field <code>goalDefinition</code>.
-     * </p>
      *
      * @return a {@link org.evosuite.coverage.dataflow.Definition} object.
      */
@@ -371,9 +373,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
      * Getter for the field <code>goalUse</code>.
-     * </p>
      *
      * @return a {@link org.evosuite.coverage.dataflow.Use} object.
      */
@@ -382,9 +382,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
      * Getter for the field <code>goalUseFitness</code>.
-     * </p>
      *
      * @return a {@link org.evosuite.testcase.TestFitnessFunction} object.
      */
@@ -393,9 +391,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
      * Getter for the field <code>goalDefinitionFitness</code>.
-     * </p>
      *
      * @return a {@link org.evosuite.testcase.TestFitnessFunction} object.
      */
@@ -404,9 +400,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * isInterMethodPair
-     * </p>
+     * isInterMethodPair.
      *
      * @return a boolean.
      */
@@ -415,9 +409,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
-     * isIntraClassPair
-     * </p>
+     * isIntraClassPair.
      *
      * @return a boolean.
      */
@@ -426,22 +418,18 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * <p>
      * Getter for the field <code>type</code>.
-     * </p>
      *
      * @return a
-     * {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness.DefUsePairType}
-     * object.
+     *         {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness.DefUsePairType}
+     *         object.
      */
     public DefUsePairType getType() {
         return type;
     }
 
     /**
-     * <p>
-     * isParameterGoal
-     * </p>
+     * isParameterGoal.
      *
      * @return a boolean.
      */
@@ -449,7 +437,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         return goalDefinition == null;
     }
 
-    // ---		Inherited from Object 			---
+    // ---      Inherited from Object           ---
 
     /**
      * {@inheritDoc}
@@ -460,11 +448,12 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         r.append(type.toString());
         r.append("-Definition-Use-Pair");
         r.append("\n\t");
-        if (isParameterGoal())
+        if (isParameterGoal()) {
             r.append("Parameter-Definition ").append(goalUse.getLocalVariableSlot())
                     .append(" for method ").append(goalUse.getMethodName());
-        else
+        } else {
             r.append(goalDefinition.toString());
+        }
         r.append("\n\t");
         r.append(goalUse.toString());
         return r.toString();
@@ -490,23 +479,31 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         DefUseCoverageTestFitness other = (DefUseCoverageTestFitness) obj;
-        if (!Objects.equals(goalDefinition, other.goalDefinition))
+        if (!Objects.equals(goalDefinition, other.goalDefinition)) {
             return false;
-        if (!Objects.equals(goalUse, other.goalUse))
+        }
+        if (!Objects.equals(goalUse, other.goalUse)) {
             return false;
-        if (!Objects.equals(goalVariable, other.goalVariable))
+        }
+        if (!Objects.equals(goalVariable, other.goalVariable)) {
             return false;
+        }
         return type == other.type;
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
      */
     @Override
@@ -521,7 +518,9 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
             }
             if (this.goalDefinition != null) {
                 int defCompare = goalDefinition.compareTo(otherFitness.goalDefinition);
-                if (defCompare != 0) return defCompare;
+                if (defCompare != 0) {
+                    return defCompare;
+                }
             }
             return goalUse.compareTo(otherFitness.goalUse);
         }
@@ -529,6 +528,8 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
+     * Returns true if this goal is covered.
+     *
      * @return the covered
      */
     public boolean isCovered() {
@@ -536,13 +537,17 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
+     * Sets whether this goal is covered.
+     *
      * @param covered the covered to set
      */
     public void setCovered(boolean covered) {
         this.covered = covered;
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
      */
     @Override
@@ -550,7 +555,9 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         return goalUse.getClassName();
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
      */
     @Override
@@ -569,8 +576,9 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         // In this case, we can't fully reconstruct the object, so we leave
         // the transient fields (goalUse, goalDefinition) as null.
         // This is a known limitation of the client-master architecture.
-        if (use == null)
+        if (use == null) {
             return;
+        }
 
         if (type == DefUsePairType.PARAMETER) {
             initParameterUse(use);
@@ -584,17 +592,18 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     /**
-     * Serialize, but need to abstract classloader away
+     * Serialize, but need to abstract classloader away.
      *
-     * @param oos
-     * @throws IOException
+     * @param oos the output stream
+     * @throws IOException the IO exception
      */
     private void writeObject(ObjectOutputStream oos) throws IOException {
         oos.writeObject(type);
         oos.writeObject(goalUse.useId);
-        if (goalDefinition != null)
+        if (goalDefinition != null) {
             oos.writeObject(goalDefinition.defId);
-        else
+        } else {
             oos.writeObject(0);
+        }
     }
 }

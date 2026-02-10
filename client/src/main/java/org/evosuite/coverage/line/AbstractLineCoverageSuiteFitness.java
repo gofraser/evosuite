@@ -36,8 +36,9 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
         List<LineCoverageTestFitness> goals = new LineCoverageFactory().getCoverageGoals();
         for (LineCoverageTestFitness goal : goals) {
             lineGoals.put(goal.getLine(), goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
         this.numLines = lineGoals.size();
         logger.info("Total line coverage goals: " + this.numLines);
@@ -49,10 +50,10 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
             return false;
         }
 
-        for (Integer goalID : this.toRemoveLines) {
-            TestFitnessFunction ff = this.lineGoals.remove(goalID);
+        for (Integer goalId : this.toRemoveLines) {
+            TestFitnessFunction ff = this.lineGoals.remove(goalId);
             if (ff != null) {
-                this.removedLines.add(goalID);
+                this.removedLines.add(goalId);
             } else {
                 throw new IllegalStateException("goal to remove not found");
             }
@@ -67,11 +68,11 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
     }
 
     /**
-     * Iterate over all execution results and summarize statistics
+     * Iterate over all execution results and summarize statistics.
      *
-     * @param results
-     * @param coveredLines
-     * @return
+     * @param results      a {@link java.util.List} of {@link org.evosuite.testcase.execution.ExecutionResult} objects.
+     * @param coveredLines a {@link java.util.Set} of {@link java.lang.Integer} objects.
+     * @return a boolean indicating if any test timed out or threw an exception.
      */
     protected boolean analyzeTraces(List<ExecutionResult> results, Set<Integer> coveredLines) {
         boolean hasTimeoutOrTestException = false;
@@ -87,14 +88,14 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
             test.setLastExecutionResult(result);
             test.setChanged(false);
 
-            for (Integer goalID : this.lineGoals.keySet()) {
-                TestFitnessFunction goal = this.lineGoals.get(goalID);
+            for (Integer goalId : this.lineGoals.keySet()) {
+                TestFitnessFunction goal = this.lineGoals.get(goalId);
 
                 double fit = goal.getFitness(test, result); // archive is updated by the TestFitnessFunction class
 
                 if (fit == 0.0) {
-                    coveredLines.add(goalID); // helper to count the number of covered goals
-                    this.toRemoveLines.add(goalID); // goal to not be considered by the next iteration of the evolutionary algorithm
+                    coveredLines.add(goalId); // helper to count the number of covered goals
+                    this.toRemoveLines.add(goalId); // goal to not be considered by the next iteration of the EA
                 }
             }
         }
@@ -104,6 +105,7 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
 
     /**
      * Hook to provide additional fitness guidance (e.g., control dependencies).
+     *
      * @param results the execution results
      * @return the additional fitness value (default 0.0)
      */
@@ -113,8 +115,8 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Execute all tests and count covered lines
+     *
+     * <p>Execute all tests and count covered lines.
      */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
@@ -136,15 +138,17 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
         int totalLines = this.numLines;
         int numCoveredLines = coveredLines.size() + this.removedLines.size();
 
-        logger.debug("Covered " + numCoveredLines + " out of " + totalLines + " lines, " + removedLines.size() + " in archive");
+        logger.debug("Covered " + numCoveredLines + " out of " + totalLines + " lines, " + removedLines.size()
+                + " in archive");
         fitness += normalize(totalLines - numCoveredLines);
 
         printStatusMessages(suite, numCoveredLines, fitness);
 
-        if (totalLines > 0)
+        if (totalLines > 0) {
             suite.setCoverage(this, (double) numCoveredLines / (double) totalLines);
-        else
+        } else {
             suite.setCoverage(this, 1.0);
+        }
 
         suite.setNumOfCoveredGoals(this, numCoveredLines);
         suite.setNumOfNotCoveredGoals(this, totalLines - numCoveredLines);
@@ -167,13 +171,14 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
     }
 
     /**
-     * Some useful debug information
+     * Some useful debug information.
      *
-     * @param coveredLines
-     * @param fitness
+     * @param suite        the {@link org.evosuite.testsuite.TestSuiteChromosome} being evaluated.
+     * @param coveredLines number of lines covered by the suite.
+     * @param fitness      the fitness value of the suite.
      */
     protected void printStatusMessages(TestSuiteChromosome suite,
-                                     int coveredLines, double fitness) {
+            int coveredLines, double fitness) {
         if (coveredLines > maxCoveredLines) {
             maxCoveredLines = coveredLines;
             logger.info("(Lines) Best individual covers " + coveredLines + "/"

@@ -26,8 +26,8 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
 /**
  * Represents a single invocation of a method during the Inter-Method pair
  * search.
- * <p>
- * This class is used to keep track of the current call stack during the
+ *
+ * <p>This class is used to keep track of the current call stack during the
  * search and to differentiate different method calls to the same method.
  *
  * @author Andre Mis
@@ -48,8 +48,9 @@ public class MethodCall {
     }
 
     public boolean isMethodCallFor(BytecodeInstruction callInstruction) {
-        if (methodCall == null)
+        if (methodCall == null) {
             return callInstruction == null;
+        }
         return methodCall.getCallInstruction().equals(callInstruction);
     }
 
@@ -65,24 +66,31 @@ public class MethodCall {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         MethodCall other = (MethodCall) obj;
-        if (invocationNumber != other.invocationNumber)
+        if (invocationNumber != other.invocationNumber) {
             return false;
+        }
         if (methodCall == null) {
             return other.methodCall == null;
-        } else return methodCall.equals(other.methodCall);
+        } else {
+            return methodCall.equals(other.methodCall);
+        }
     }
 
     @Override
     public String toString() {
-        if (methodCall == null)
+        if (methodCall == null) {
             return "initCall for " + calledMethod + " " + invocationNumber;
+        }
         return methodCall.getCalledMethod() + " " + invocationNumber;
     }
 

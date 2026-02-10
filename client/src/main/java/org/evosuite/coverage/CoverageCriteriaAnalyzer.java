@@ -41,6 +41,8 @@ import java.text.NumberFormat;
 import java.util.*;
 
 /**
+ * Analyzer for coverage criteria.
+ *
  * @author Gordon Fraser
  */
 public class CoverageCriteriaAnalyzer {
@@ -218,7 +220,8 @@ public class CoverageCriteriaAnalyzer {
         analyzeCoverage(testSuite, criterion, true);
     }
 
-    private static void analyzeCoverage(TestSuiteChromosome testSuite, Properties.Criterion criterion, boolean recalculate) {
+    private static void analyzeCoverage(TestSuiteChromosome testSuite, Properties.Criterion criterion,
+                                        boolean recalculate) {
 
         TestSuiteChromosome testSuiteCopy = testSuite.clone();
 
@@ -254,14 +257,16 @@ public class CoverageCriteriaAnalyzer {
             } else {
                 logger.debug("Goal {} is not covered", goal);
                 buffer.append("0");
-                if (Properties.PRINT_MISSED_GOALS)
+                if (Properties.PRINT_MISSED_GOALS) {
                     LoggingUtils.getEvoLogger().info(" - Missed goal {}", goal);
+                }
             }
         }
 
         coverageBitString.put(criterion.name(), buffer);
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.CoverageBitString,
-                coverageBitString.isEmpty() ? "0" : coverageBitString.values().toString().replace("[", "").replace("]", "").replace(", ", ""));
+                coverageBitString.isEmpty() ? "0" : coverageBitString.values().toString()
+                        .replace("[", "").replace("]", "").replace(", ", ""));
 
         RuntimeVariable bitStringVariable = getBitStringVariable(criterion);
         if (bitStringVariable != null) {

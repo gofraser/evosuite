@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Coverage factory for observed exceptions
+ * Coverage factory for observed exceptions.
  *
  * @author Gordon Fraser, Jose Miguel Rojas
  */
@@ -41,7 +41,7 @@ public class ExceptionCoverageFactory extends AbstractFitnessFactory<TestFitness
     }
 
     /**
-     * Clear all coverage goals
+     * Clear all coverage goals.
      */
     public static void clear() {
         goals.clear();

@@ -54,27 +54,24 @@ public class RhoCoverageTestFitness extends TestFitnessFunction {
 
         if (Properties.STRATEGY == Properties.Strategy.ENTBUG) {
             // order set
-            List<Integer> lCoveredLines = new ArrayList<>(coveredLines);
-            Collections.sort(lCoveredLines);
-            Set<Integer> coveredLinesOrdered = new LinkedHashSet<>(lCoveredLines);
+            List<Integer> coveredLinesList = new ArrayList<>(coveredLines);
+            Collections.sort(coveredLinesList);
+            Set<Integer> coveredLinesOrdered = new LinkedHashSet<>(coveredLinesList);
 
             // no coverage
             if (coveredLinesOrdered.isEmpty()) {
                 updateIndividual(individual, 1.0);
                 return 1.0;
-            }
-            // already exists locally
-            else if (!tmpCoverageMatrix.add(coveredLinesOrdered)) {
+            } else if (!tmpCoverageMatrix.add(coveredLinesOrdered)) {
+                // already exists locally
                 updateIndividual(individual, 1.0);
                 return 1.0;
-            }
-            // already exists on the original test suite
-            else if (RhoCoverageFactory.exists(lCoveredLines)) {
+            } else if (RhoCoverageFactory.exists(coveredLinesList)) {
+                // already exists on the original test suite
                 updateIndividual(individual, 1.0);
                 return 1.0;
-            }
-            // good
-            else {
+            } else {
+                // good
                 numberOfOnes += coveredLinesOrdered.size();
                 numberOfTestCases++;
             }
@@ -94,7 +91,6 @@ public class RhoCoverageTestFitness extends TestFitnessFunction {
         return compareClassName(other);
     }
 
-
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -108,20 +104,26 @@ public class RhoCoverageTestFitness extends TestFitnessFunction {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         RhoCoverageTestFitness other = (RhoCoverageTestFitness) obj;
         if (coverageMatrixGeneratedSoFar == null) {
-            if (other.coverageMatrixGeneratedSoFar != null)
+            if (other.coverageMatrixGeneratedSoFar != null) {
                 return false;
-        } else if (!coverageMatrixGeneratedSoFar.equals(other.coverageMatrixGeneratedSoFar))
+            }
+        } else if (!coverageMatrixGeneratedSoFar.equals(other.coverageMatrixGeneratedSoFar)) {
             return false;
-        if (previousNumberOfOnes != other.previousNumberOfOnes)
+        }
+        if (previousNumberOfOnes != other.previousNumberOfOnes) {
             return false;
+        }
         return previousNumberOfTestCases == other.previousNumberOfTestCases;
     }
 

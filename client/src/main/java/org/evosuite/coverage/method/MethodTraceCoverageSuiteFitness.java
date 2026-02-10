@@ -38,26 +38,28 @@ public class MethodTraceCoverageSuiteFitness extends MethodCoverageSuiteFitness 
 
     private static final long serialVersionUID = 4958063899628649732L;
 
-    private final static Logger logger = LoggerFactory.getLogger(MethodTraceCoverageSuiteFitness.class);
+    private static final Logger logger = LoggerFactory.getLogger(MethodTraceCoverageSuiteFitness.class);
 
     /**
-     * Initialize the set of known coverage goals
+     * Initialize the set of known coverage goals.
      */
     @Override
     protected void determineCoverageGoals() {
         List<MethodTraceCoverageTestFitness> goals = new MethodTraceCoverageFactory().getCoverageGoals();
         for (MethodTraceCoverageTestFitness goal : goals) {
             methodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
     }
 
     /**
-     * Some useful debug information
+     * Some useful debug information.
      *
-     * @param coveredMethods
-     * @param fitness
+     * @param suite          the test suite chromosome
+     * @param coveredMethods the number of covered methods
+     * @param fitness        the fitness value
      */
     @Override
     protected void printStatusMessages(TestSuiteChromosome suite, int coveredMethods, double fitness) {

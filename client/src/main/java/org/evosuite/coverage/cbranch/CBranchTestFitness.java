@@ -33,6 +33,8 @@ import java.util.Map.Entry;
 import java.util.Objects;
 
 /**
+ * Fitness function for context-dependent branch coverage.
+ *
  * @author Gordon Fraser, mattia
  */
 public class CBranchTestFitness extends TestFitnessFunction {
@@ -100,7 +102,8 @@ public class CBranchTestFitness extends TestFitnessFunction {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome, org.evosuite.testcase.ExecutionResult)
+     * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome,
+     * org.evosuite.testcase.ExecutionResult)
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
@@ -195,15 +198,18 @@ public class CBranchTestFitness extends TestFitnessFunction {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CBranchTestFitness other = (CBranchTestFitness) obj;
-        return Objects.equals(branchGoal, other.branchGoal) &&
-               Objects.equals(context, other.context);
+        return Objects.equals(branchGoal, other.branchGoal)
+                && Objects.equals(context, other.context);
     }
 
 }

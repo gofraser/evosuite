@@ -19,7 +19,6 @@
  */
 package org.evosuite.coverage;
 
-import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.coverage.ambiguity.AmbiguityCoverageFactory;
 import org.evosuite.coverage.ambiguity.AmbiguityCoverageSuiteFitness;
@@ -61,7 +60,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * factory class for fitness functions
+ * factory class for fitness functions.
  *
  * @author mattia
  */
@@ -205,7 +204,7 @@ public class FitnessFunctions {
 
     /**
      * <p>
-     * getFitnessFunction
+     * getFitnessFunction.
      * </p>
      *
      * @param criterion a {@link org.evosuite.Properties.Criterion} object.
@@ -216,13 +215,14 @@ public class FitnessFunctions {
         if (entry != null) {
             return entry.suiteFitnessSupplier.get();
         }
-        logger.warn("No TestSuiteFitnessFunction defined for {}; using default one (BranchCoverageSuiteFitness)", criterion);
+        logger.warn("No TestSuiteFitnessFunction defined for {}; using default one "
+                + "(BranchCoverageSuiteFitness)", criterion);
         return new BranchCoverageSuiteFitness();
     }
 
     /**
      * <p>
-     * getFitnessFactory
+     * getFitnessFactory.
      * </p>
      *
      * @param crit a {@link org.evosuite.Properties.Criterion} object.

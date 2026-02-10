@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
+ * Factory for context-dependent branch coverage goals.
+ *
  * @author Gordon Fraser, mattia
  */
 public class CBranchFitnessFactory extends AbstractFitnessFactory<CBranchTestFitness> {

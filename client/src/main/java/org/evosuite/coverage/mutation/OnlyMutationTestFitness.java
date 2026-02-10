@@ -25,6 +25,8 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 
 /**
+ * Fitness function for "only mutation" coverage (i.e., touching the mutant).
+ *
  * @author gordon
  */
 public class OnlyMutationTestFitness extends MutationTestFitness {

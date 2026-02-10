@@ -43,8 +43,8 @@ public class IBranchFitnessFactory extends AbstractFitnessFactory<IBranchTestFit
 
     private static final Logger logger = LoggerFactory.getLogger(IBranchFitnessFactory.class);
 
-    /* (non-Javadoc)
-     * @see org.evosuite.coverage.TestFitnessFactory#getCoverageGoals()
+    /**
+     * {@inheritDoc}
      */
     @Override
     public List<IBranchTestFitness> getCoverageGoals() {
@@ -56,14 +56,15 @@ public class IBranchFitnessFactory extends AbstractFitnessFactory<IBranchTestFit
 
         CallGraph callGraph = DependencyAnalysis.getCallGraph();
 
-
         // try to find all occurrences of this branch in the call tree
         for (BranchCoverageTestFitness branchGoal : branchGoals) {
             logger.debug("Adding context branches for {}", branchGoal);
             for (CallContext context : callGraph.getAllContextsFromTargetClass(branchGoal.getClassName(),
                     branchGoal.getMethod())) {
                 //if is not possible to reach this branch from the target class, continue.
-                if (context.isEmpty()) continue;
+                if (context.isEmpty()) {
+                    continue;
+                }
                 goals.add(new IBranchTestFitness(branchGoal.getBranchGoal(), context));
             }
         }

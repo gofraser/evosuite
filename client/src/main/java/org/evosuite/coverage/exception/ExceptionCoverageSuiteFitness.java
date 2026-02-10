@@ -66,7 +66,8 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         List<ExecutionResult> results = runTestSuite(suite);
 
-        calculateExceptionInfo(results, implicitTypesOfExceptions, explicitTypesOfExceptions, declaredTypesOfExceptions, this);
+        calculateExceptionInfo(results, implicitTypesOfExceptions, explicitTypesOfExceptions,
+                declaredTypesOfExceptions, this);
 
         if (Properties.TEST_ARCHIVE) {
             // If we are using the archive, then fitness is by definition 0
@@ -77,24 +78,26 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
             return 0.0;
         }
 
-        int nExc = getNumExceptions(implicitTypesOfExceptions) + getNumExceptions(explicitTypesOfExceptions) +
-                getNumExceptions(declaredTypesOfExceptions);
+        int numExceptions = getNumExceptions(implicitTypesOfExceptions)
+                + getNumExceptions(explicitTypesOfExceptions)
+                + getNumExceptions(declaredTypesOfExceptions);
 
-        if (nExc > maxExceptionsCovered) {
-            logger.info("(Exceptions) Best individual covers " + nExc + " exceptions");
-            maxExceptionsCovered = nExc;
+        if (numExceptions > maxExceptionsCovered) {
+            logger.info("(Exceptions) Best individual covers " + numExceptions + " exceptions");
+            maxExceptionsCovered = numExceptions;
         }
 
         // We cannot set a coverage here, as it does not make any sense
         // suite.setCoverage(this, 1.0);
 
-        double exceptionFitness = 1d / (1d + nExc);
+        double exceptionFitness = 1d / (1d + numExceptions);
 
         suite.setFitness(this, exceptionFitness);
-        if (maxExceptionsCovered > 0)
-            suite.setCoverage(this, nExc / maxExceptionsCovered);
-        else
+        if (maxExceptionsCovered > 0) {
+            suite.setCoverage(this, (double) numExceptions / maxExceptionsCovered);
+        } else {
             suite.setCoverage(this, 1.0);
+        }
 
         return exceptionFitness;
     }
@@ -104,22 +107,25 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
      * Given the list of results, fill the 3 given (empty) maps with exception information.
      * Also, add exception coverage goals to mapping in {@link ExceptionCoverageFactory}
      *
-     * @param results
-     * @param implicitTypesOfExceptions
-     * @param explicitTypesOfExceptions
-     * @param declaredTypesOfExceptions
-     * @throws IllegalArgumentException
+     * @param results                   a {@link java.util.List} object.
+     * @param implicitTypesOfExceptions a {@link java.util.Map} object.
+     * @param explicitTypesOfExceptions a {@link java.util.Map} object.
+     * @param declaredTypesOfExceptions a {@link java.util.Map} object.
+     * @param contextFitness            a {@link org.evosuite.coverage.exception.ExceptionCoverageSuiteFitness} object.
+     * @throws IllegalArgumentException if any of the input maps are null or not empty.
      */
     public static void calculateExceptionInfo(List<ExecutionResult> results,
-                                              Map<String, Set<Class<?>>> implicitTypesOfExceptions, Map<String, Set<Class<?>>> explicitTypesOfExceptions,
-                                              Map<String, Set<Class<?>>> declaredTypesOfExceptions, ExceptionCoverageSuiteFitness contextFitness)
+                                              Map<String, Set<Class<?>>> implicitTypesOfExceptions,
+                                              Map<String, Set<Class<?>>> explicitTypesOfExceptions,
+                                              Map<String, Set<Class<?>>> declaredTypesOfExceptions,
+                                              ExceptionCoverageSuiteFitness contextFitness)
             throws IllegalArgumentException {
 
         MethodNameMatcher matcher = new MethodNameMatcher();
 
-        if (results == null || implicitTypesOfExceptions == null || explicitTypesOfExceptions == null ||
-                !implicitTypesOfExceptions.isEmpty() || !explicitTypesOfExceptions.isEmpty() ||
-                declaredTypesOfExceptions == null || !declaredTypesOfExceptions.isEmpty()) {
+        if (results == null || implicitTypesOfExceptions == null || explicitTypesOfExceptions == null
+                || !implicitTypesOfExceptions.isEmpty() || !explicitTypesOfExceptions.isEmpty()
+                || declaredTypesOfExceptions == null || !declaredTypesOfExceptions.isEmpty()) {
             throw new IllegalArgumentException();
         }
 
@@ -129,7 +135,8 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
             // Using private reflection can lead to false positives
             // that represent unrealistic behaviour. Thus, we only
             // use reflection for basic criteria, not for exception
-            if (result.hasTimeout() || result.hasTestException() || result.noThrownExceptions() || result.calledReflection()) {
+            if (result.hasTimeout() || result.hasTestException() || result.noThrownExceptions()
+                    || result.calledReflection()) {
                 continue;
             }
 
@@ -150,7 +157,8 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
                     logger.info("Method {} does not match criteria. ", methodIdentifier);
                     continue;
                 }
-                boolean sutException = ExceptionCoverageHelper.isSutException(result, i); // was the exception originated by a direct call on the SUT?
+                boolean sutException = ExceptionCoverageHelper.isSutException(result, i);
+                // was the exception originated by a direct call on the SUT?
 
                 /*
                  * We only consider exceptions that were thrown by calling directly the SUT (not the other
@@ -202,7 +210,8 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
         /*
          * Add goal to ExceptionCoverageFactory
          */
-        ExceptionCoverageTestFitness goal = new ExceptionCoverageTestFitness(Properties.TARGET_CLASS, methodIdentifier, exceptionClass, type);
+        ExceptionCoverageTestFitness goal = new ExceptionCoverageTestFitness(Properties.TARGET_CLASS,
+                methodIdentifier, exceptionClass, type);
         String key = goal.getKey();
         if (!ExceptionCoverageFactory.getGoals().containsKey(key)) {
             ExceptionCoverageFactory.getGoals().put(key, goal);

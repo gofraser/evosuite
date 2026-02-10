@@ -29,6 +29,11 @@ import org.evosuite.testsuite.AbstractFitnessFactory;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Factory for creating statement coverage fitness functions.
+ *
+ * @author Gordon Fraser
+ */
 public class StatementCoverageFactory extends
         AbstractFitnessFactory<StatementCoverageTestFitness> {
 
@@ -43,21 +48,26 @@ public class StatementCoverageFactory extends
         List<StatementCoverageTestFitness> goals = new ArrayList<>();
 
         final MethodNameMatcher matcher = new MethodNameMatcher();
-        BytecodeInstructionPool pool = BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
+        BytecodeInstructionPool pool = BytecodeInstructionPool.getInstance(
+                TestGenerationContext.getInstance().getClassLoaderForSUT());
 
         for (String className : pool.knownClasses()) {
 
-            if (!(targetClass.equals("") || className.endsWith(targetClass)))
+            if (!(targetClass.equals("") || className.endsWith(targetClass))) {
                 continue;
+            }
 
             for (String methodName : pool.knownMethods(className)) {
 
-                if (!matcher.methodMatches(methodName))
+                if (!matcher.methodMatches(methodName)) {
                     continue;
+                }
 
                 for (BytecodeInstruction ins : pool.getInstructionsIn(className, methodName)) {
-                    if (isUsable(ins))
-                        goals.add(new StatementCoverageTestFitness(ins.getClassName(), ins.getMethodName(), ins.getInstructionId()));
+                    if (isUsable(ins)) {
+                        goals.add(new StatementCoverageTestFitness(ins.getClassName(), ins.getMethodName(),
+                                ins.getInstructionId()));
+                    }
                 }
             }
         }
@@ -67,6 +77,12 @@ public class StatementCoverageFactory extends
         return goals;
     }
 
+    /**
+     * Determine if a bytecode instruction is usable for statement coverage.
+     *
+     * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
+     * @return true if the instruction is neither a label nor a line number.
+     */
     private static boolean isUsable(BytecodeInstruction ins) {
 
         return !ins.isLabel() && !ins.isLineNumber();

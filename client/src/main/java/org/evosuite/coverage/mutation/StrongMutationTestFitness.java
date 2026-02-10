@@ -48,14 +48,15 @@ public class StrongMutationTestFitness extends MutationTestFitness {
     private static final long serialVersionUID = -262199037689935052L;
 
     /**
-     * Constant <code>observerClasses</code>
+     * Constant <code>observerClasses</code>.
      */
     protected static Class<?>[] observerClasses = {PrimitiveTraceEntry.class,
             ComparisonTraceEntry.class, InspectorTraceEntry.class,
-            PrimitiveFieldTraceEntry.class, NullTraceEntry.class, ArrayTraceEntry.class, ArrayLengthTraceEntry.class};
+            PrimitiveFieldTraceEntry.class, NullTraceEntry.class, ArrayTraceEntry.class,
+            ArrayLengthTraceEntry.class};
 
     /**
-     * Constant <code>observers</code>
+     * Constant <code>observers</code>.
      */
     protected static AssertionTraceObserver<?>[] observers = {
             new PrimitiveTraceObserver(), new ComparisonTraceObserver(),
@@ -93,17 +94,20 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         ExecutionResult result = new ExecutionResult(test, mutant);
 
         try {
-            if (mutant != null)
+            if (mutant != null) {
                 logger.debug("Executing test for mutant " + mutant.getId() + ": \n"
                         + test.toCode());
-            else
+            } else {
                 logger.debug("Executing test without mutant");
+            }
 
-            if (mutant != null)
+            if (mutant != null) {
                 MutationObserver.activateMutation(mutant);
+            }
             result = TestCaseExecutor.getInstance().execute(test);
-            if (mutant != null)
+            if (mutant != null) {
                 MutationObserver.deactivateMutation(mutant);
+            }
 
             int num = test.size();
             if (!result.noThrownExceptions()) {
@@ -157,10 +161,11 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         Set<String> differ = new HashSet<>();
 
         for (Entry<String, Map<String, Map<Integer, Integer>>> entry : orig.entrySet()) {
-            if (!handled.containsKey(entry.getKey()))
+            if (!handled.containsKey(entry.getKey())) {
                 handled.put(entry.getKey(), new HashSet<>());
+            }
 
-            for (Entry<String, Map<Integer, Integer>> method_entry : entry.getValue().entrySet()) {
+            for (Entry<String, Map<Integer, Integer>> methodEntry : entry.getValue().entrySet()) {
                 if (!mutant.containsKey(entry.getKey())) {
                     // Class was not executed on mutant, so add method
                     logger.debug("Found class difference: " + entry.getKey());
@@ -168,37 +173,40 @@ public class StrongMutationTestFitness extends MutationTestFitness {
                 } else {
                     // Class was also executed on mutant
 
-                    if (!mutant.get(entry.getKey()).containsKey(method_entry.getKey())) {
+                    if (!mutant.get(entry.getKey()).containsKey(methodEntry.getKey())) {
                         // Method was not executed on mutant, so add method
-                        logger.debug("Found method difference: " + method_entry.getKey());
-                        differ.add(entry.getKey() + "." + method_entry.getKey());
+                        logger.debug("Found method difference: " + methodEntry.getKey());
+                        differ.add(entry.getKey() + "." + methodEntry.getKey());
                     } else {
                         // Method was executed on mutant
-                        for (Entry<Integer, Integer> line_entry : method_entry.getValue().entrySet()) {
-                            if (!mutant.get(entry.getKey()).get(method_entry.getKey()).containsKey(line_entry.getKey())) {
+                        for (Entry<Integer, Integer> lineEntry : methodEntry.getValue().entrySet()) {
+                            if (!mutant.get(entry.getKey()).get(methodEntry.getKey())
+                                    .containsKey(lineEntry.getKey())) {
                                 // Line was not executed on mutant, so add
                                 logger.debug("Found line difference: "
-                                        + line_entry.getKey() + ": "
-                                        + line_entry.getValue());
-                                differ.add(entry.getKey() + "." + method_entry.getKey()
-                                        + ":" + line_entry.getKey());
+                                        + lineEntry.getKey() + ": "
+                                        + lineEntry.getValue());
+                                differ.add(entry.getKey() + "." + methodEntry.getKey()
+                                        + ":" + lineEntry.getKey());
                             } else {
-                                if (!mutant.get(entry.getKey()).get(method_entry.getKey()).get(line_entry.getKey()).equals(line_entry.getValue())) {
+                                if (!mutant.get(entry.getKey()).get(methodEntry.getKey())
+                                        .get(lineEntry.getKey()).equals(lineEntry.getValue())) {
                                     // Line coverage differs, so add
                                     differ.add(entry.getKey() + "."
-                                            + method_entry.getKey() + ":"
-                                            + line_entry.getKey());
+                                            + methodEntry.getKey() + ":"
+                                            + lineEntry.getKey());
                                     logger.debug("Found line difference: "
-                                            + line_entry.getKey() + ": "
-                                            + line_entry.getValue());
+                                            + lineEntry.getKey() + ": "
+                                            + lineEntry.getValue());
                                 }
                             }
                         }
-                        if (!method_entry.getValue().equals(mutant.get(entry.getKey()).get(method_entry.getKey()))) {
-                            differ.add(entry.getKey() + "." + method_entry.getKey());
+                        if (!methodEntry.getValue().equals(mutant.get(entry.getKey())
+                                .get(methodEntry.getKey()))) {
+                            differ.add(entry.getKey() + "." + methodEntry.getKey());
 
                             logger.debug("Found other difference: " + entry.getKey());
-                            // logger.info("Coverage difference on : "+entry.getKey()+":"+method_entry.getKey());
+                            // logger.info("Coverage difference on : "+entry.getKey()+":"+methodEntry.getKey());
                         }
                     }
                 }
@@ -209,10 +217,10 @@ public class StrongMutationTestFitness extends MutationTestFitness {
     }
 
     /**
-     * Compare two coverage maps
+     * Compare two coverage maps.
      *
-     * @param orig
-     * @param mutant
+     * @param orig   the original coverage map
+     * @param mutant the mutant coverage map
      * @return unique number of methods with coverage difference
      */
     private int getCoverageDifference(
@@ -223,43 +231,43 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         return differ.size();
     }
 
-    private double getSumDistance(ExecutionTrace orig_trace, ExecutionTrace mutant_trace) {
+    private double getSumDistance(ExecutionTrace origTrace, ExecutionTrace mutantTrace) {
 
         // TODO: Also sum up differences in branch distances as part of impact!
 
-        // double sum = getCoverageDifference(getCoverage(orig_trace),
-        // getCoverage(mutant_trace));
+        // double sum = getCoverageDifference(getCoverage(origTrace),
+        // getCoverage(mutantTrace));
         logger.debug("Calculating coverage impact");
-        double coverage_impact = getCoverageDifference(orig_trace.getCoverageData(),
-                mutant_trace.getCoverageData());
-        logger.debug("Coverage impact: " + coverage_impact);
+        double coverageImpact = getCoverageDifference(origTrace.getCoverageData(),
+                mutantTrace.getCoverageData());
+        logger.debug("Coverage impact: " + coverageImpact);
         logger.debug("Calculating data impact");
-        double data_impact = getCoverageDifference(orig_trace.getReturnData(),
-                mutant_trace.getReturnData());
-        logger.debug("Data impact: " + data_impact);
+        double dataImpact = getCoverageDifference(origTrace.getReturnData(),
+                mutantTrace.getReturnData());
+        logger.debug("Data impact: " + dataImpact);
 
-        double branch_impact = 0.0;
-        for (Integer predicate : orig_trace.getCoveredPredicates()) {
-            if (mutant_trace.hasTrueDistance(predicate)) {
-                branch_impact += normalize(Math.abs(orig_trace.getTrueDistance(predicate)
-                        - mutant_trace.getTrueDistance(predicate)));
+        double branchImpact = 0.0;
+        for (Integer predicate : origTrace.getCoveredPredicates()) {
+            if (mutantTrace.hasTrueDistance(predicate)) {
+                branchImpact += normalize(Math.abs(origTrace.getTrueDistance(predicate)
+                        - mutantTrace.getTrueDistance(predicate)));
             } else {
-                branch_impact += 1.0;
+                branchImpact += 1.0;
             }
-            if (mutant_trace.hasFalseDistance(predicate)) {
-                branch_impact += normalize(Math.abs(orig_trace.getFalseDistance(predicate)
-                        - mutant_trace.getFalseDistance(predicate)));
+            if (mutantTrace.hasFalseDistance(predicate)) {
+                branchImpact += normalize(Math.abs(origTrace.getFalseDistance(predicate)
+                        - mutantTrace.getFalseDistance(predicate)));
             } else {
-                branch_impact += 1.0;
+                branchImpact += 1.0;
             }
         }
-        logger.debug("Branch impact: " + branch_impact);
+        logger.debug("Branch impact: " + branchImpact);
 
-        return normalize(coverage_impact) + normalize(data_impact) + branch_impact;
+        return normalize(coverageImpact) + normalize(dataImpact) + branchImpact;
     }
 
     private int getNumAssertions(ExecutionResult origResult,
-                                 ExecutionResult mutant_result) {
+                                 ExecutionResult mutantResult) {
         int num = 0;
         if (origResult.test.size() == 0) {
             logger.debug("Orig test is empty?");
@@ -267,14 +275,15 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         }
 
         for (Class<?> observerClass : observerClasses) {
-            OutputTrace<?> trace = mutant_result.getTrace(observerClass);
+            OutputTrace<?> trace = mutantResult.getTrace(observerClass);
             OutputTrace<?> orig = origResult.getTrace(observerClass);
 
             if (orig == null) {
-                String msg = "No trace for " + observerClass + ". Traces: ";
-                for (OutputTrace<?> t : origResult.getTraces())
-                    msg += " " + t.toString();
-                logger.error(msg);
+                StringBuilder msg = new StringBuilder("No trace for " + observerClass + ". Traces: ");
+                for (OutputTrace<?> t : origResult.getTraces()) {
+                    msg.append(" ").append(t.toString());
+                }
+                logger.error(msg.toString());
             } else {
                 num += orig.numDiffer(trace);
             }
@@ -296,12 +305,11 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome, org.evosuite.testcase.ExecutionResult)
-     */
-
     /**
      * {@inheritDoc}
+     *
+     * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome,
+     * org.evosuite.testcase.ExecutionResult)
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
@@ -321,10 +329,11 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         double executionDistance = diameter;
 
         // Get control flow distance
-        if (!result.getTrace().getTouchedMutants().contains(mutation.getId()))
+        if (!result.getTrace().getTouchedMutants().contains(mutation.getId())) {
             executionDistance = normalize(getExecutionDistance(result));
-        else
+        } else {
             executionDistance = 0.0;
+        }
 
         double infectionDistance = 1.0;
 
@@ -340,9 +349,8 @@ public class StrongMutationTestFitness extends MutationTestFitness {
             // Don't re-execute on the mutant if we believe the mutant causes timeouts
             if (MutationTimeoutStoppingCondition.isDisabled(mutation) && infectionDistance <= 0) {
                 impactDistance = 0.0;
-            }
-            // If infected check if it is also killed
-            else if (infectionDistance <= 0) {
+            } else if (infectionDistance <= 0) {
+                // If infected check if it is also killed
 
                 // If the trace was generated without observers, we need to re-execute
                 ensureExecutionResultHasTraces(individual, result);
@@ -384,13 +392,14 @@ public class StrongMutationTestFitness extends MutationTestFitness {
             }
         }
 
-        if (!exceptionCase)
+        if (!exceptionCase) {
             fitness = impactDistance + infectionDistance + executionDistance;
+        }
         logger.debug("Individual fitness: " + impactDistance + " + " + infectionDistance
                 + " + " + executionDistance + " = " + fitness);
         //if (fitness == 0.0) {
-        //	assert (getNumAssertions(individual.getLastExecutionResult(),
-        //	                         individual.getLastExecutionResult(mutation)) > 0);
+        //    assert (getNumAssertions(individual.getLastExecutionResult(),
+        //                             individual.getLastExecutionResult(mutation)) > 0);
         //}
 
         updateIndividual(individual, fitness);

@@ -53,6 +53,8 @@ import java.util.Map.Entry;
 import static java.util.Comparator.comparingInt;
 
 /**
+ * Printer for class statistics.
+ *
  * @author Gordon Fraser
  */
 public class ClassStatisticsPrinter {
@@ -61,7 +63,7 @@ public class ClassStatisticsPrinter {
 
     /**
      * Identify all JUnit tests starting with the given name prefix, instrument
-     * and run tests
+     * and run tests.
      */
     public static void printClassStatistics() {
         ExecutionTracer.disable();
@@ -86,8 +88,9 @@ public class ClassStatisticsPrinter {
             int staticMethods = 0;
             int staticFields = 0;
             for (Method method : targetClass.getDeclaredMethods()) {
-                if (method.getName().equals(ClassResetter.STATIC_RESET))
+                if (method.getName().equals(ClassResetter.STATIC_RESET)) {
                     continue;
+                }
                 if (Modifier.isPublic(method.getModifiers())) {
                     publicMethods++;
                 } else {
@@ -131,23 +134,34 @@ public class ClassStatisticsPrinter {
             TestGenerationContext.getInstance().doneWithExecutingSUTCode();
         }
 
-        LoggingUtils.getEvoLogger().info("* Subclasses: " + (TestCluster.getInheritanceTree().getSubclasses(Properties.TARGET_CLASS).size() - 1));
-        LoggingUtils.getEvoLogger().info("* Superclasses/interfaces: " + (TestCluster.getInheritanceTree().getSuperclasses(Properties.TARGET_CLASS).size() - 1));
+        LoggingUtils.getEvoLogger().info("* Subclasses: "
+                + (TestCluster.getInheritanceTree().getSubclasses(Properties.TARGET_CLASS).size() - 1));
+        LoggingUtils.getEvoLogger().info("* Superclasses/interfaces: "
+                + (TestCluster.getInheritanceTree().getSuperclasses(Properties.TARGET_CLASS).size() - 1));
         LoggingUtils.getEvoLogger().info("* Lines of code: " + LinePool.getNumLines());
-        LoggingUtils.getEvoLogger().info("* Methods without branches: " + BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumBranchlessMethods());
-        LoggingUtils.getEvoLogger().info("* Total branch predicates: " + BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchCounter());
+        LoggingUtils.getEvoLogger().info("* Methods without branches: "
+                + BranchPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT()).getNumBranchlessMethods());
+        LoggingUtils.getEvoLogger().info("* Total branch predicates: "
+                + BranchPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT()).getBranchCounter());
 
 
         double complexity = 0.0;
         int maxComplexity = 0;
-        for (Entry<String, RawControlFlowGraph> entry : GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getRawCFGs(Properties.TARGET_CLASS).entrySet()) {
+        for (Entry<String, RawControlFlowGraph> entry : GraphPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT()).getRawCFGs(Properties.TARGET_CLASS).entrySet()) {
             int c = entry.getValue().getCyclomaticComplexity();
-            if (c > maxComplexity)
+            if (c > maxComplexity) {
                 maxComplexity = c;
+            }
             complexity += c;
-            // LoggingUtils.getEvoLogger().info("* Complexity of method "+entry.getKey()+": "+entry.getValue().getCyclomaticComplexity());
+            // LoggingUtils.getEvoLogger().info("* Complexity of method "+entry.getKey()+": "
+            // +entry.getValue().getCyclomaticComplexity());
         }
-        LoggingUtils.getEvoLogger().info("* Average cyclomatic complexity: " + (complexity / CFGMethodAdapter.getNumMethods(TestGenerationContext.getInstance().getClassLoaderForSUT())));
+        LoggingUtils.getEvoLogger().info("* Average cyclomatic complexity: "
+                + (complexity / CFGMethodAdapter.getNumMethods(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT())));
         LoggingUtils.getEvoLogger().info("* Maximum cyclomatic complexity: " + maxComplexity);
 
         StringBuilder allGoals = new StringBuilder();
@@ -159,7 +173,8 @@ public class ClassStatisticsPrinter {
         String lineSeparator = System.lineSeparator();
         for (TestFitnessFactory<? extends TestFitnessFunction> factory : factories) {
             List<? extends TestFitnessFunction> goals = factory.getCoverageGoals();
-            LoggingUtils.getEvoLogger().info("* Criterion " + Properties.CRITERION[numCriterion++] + ": " + goals.size());
+            LoggingUtils.getEvoLogger().info("* Criterion " + Properties.CRITERION[numCriterion++] + ": "
+                    + goals.size());
             if (Properties.PRINT_GOALS) {
                 if (factory instanceof LineCoverageFactory) {
                     goals.sort(comparingInt(l -> ((LineCoverageTestFitness) l).getLine()));

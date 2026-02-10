@@ -36,31 +36,29 @@ public class TryCatchCoverageSuiteFitness extends BranchCoverageSuiteFitness {
     private static final long serialVersionUID = -8849382855802052405L;
 
     /**
-     * Make sure we only include artificial branches
+     * Make sure we only include artificial branches.
      */
     protected void determineCoverageGoals(boolean updateArchive) {
         List<TryCatchCoverageTestFitness> goals = new TryCatchCoverageFactory().getCoverageGoals();
         for (TryCatchCoverageTestFitness goal : goals) {
 
-            if (updateArchive && Properties.TEST_ARCHIVE)
+            if (updateArchive && Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
 
             branchesId.add(goal.getBranch().getActualBranchId());
-            if (goal.getBranchExpressionValue())
+            if (goal.getBranchExpressionValue()) {
                 branchCoverageTrueMap.put(goal.getBranch().getActualBranchId(), goal);
-            else
+            } else {
                 branchCoverageFalseMap.put(goal.getBranch().getActualBranchId(), goal);
+            }
         }
     }
 
     @Override
-    protected void handleBranchlessMethods(TestChromosome test, ExecutionResult result, Map<String, Integer> callCount) {
+    protected void handleBranchlessMethods(TestChromosome test, ExecutionResult result,
+                                           Map<String, Integer> callCount) {
         // no-op
     }
-
-//    @Override
-//    protected void handleTrueDistances(TestChromosome test, ExecutionResult result, Map<Integer, Double> falseDistance) {
-//        // We only aim to cover false branches
-//    }
 
 }

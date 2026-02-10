@@ -41,27 +41,59 @@ public class IBranchTestFitness extends TestFitnessFunction {
 
     private static final long serialVersionUID = -1399396770125054561L;
 
+    /**
+     * The branch coverage goal this fitness function is associated with.
+     */
     private final BranchCoverageGoal branchGoal;
 
+    /**
+     * The call context for which this fitness is evaluated.
+     */
     private final CallContext context;
 
+    /**
+     * Constructor for IBranchTestFitness.
+     *
+     * @param branch  the branch coverage goal
+     * @param context the call context
+     */
     public IBranchTestFitness(BranchCoverageGoal branch, CallContext context) {
         this.branchGoal = branch;
         this.context = context;
     }
 
+    /**
+     * Returns the branch associated with this fitness function.
+     *
+     * @return the branch
+     */
     public Branch getBranch() {
         return branchGoal.getBranch();
     }
 
+    /**
+     * Returns the boolean value of the branch goal.
+     *
+     * @return true if the goal is the true branch, false otherwise
+     */
     public boolean getValue() {
         return branchGoal.getValue();
     }
 
+    /**
+     * Returns the call context associated with this fitness function.
+     *
+     * @return the call context
+     */
     public CallContext getContext() {
         return context;
     }
 
+    /**
+     * Returns the branch coverage goal associated with this fitness function.
+     *
+     * @return the branch coverage goal
+     */
     public BranchCoverageGoal getBranchGoal() {
         return branchGoal;
     }
@@ -97,8 +129,11 @@ public class IBranchTestFitness extends TestFitnessFunction {
         return Double.MAX_VALUE;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome, org.evosuite.testcase.ExecutionResult)
+    /**
+     * {@inheritDoc}
+     *
+     * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome,
+     * org.evosuite.testcase.ExecutionResult)
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
@@ -125,8 +160,9 @@ public class IBranchTestFitness extends TestFitnessFunction {
         return fitness;
     }
 
-
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
      */
     @Override
@@ -152,7 +188,9 @@ public class IBranchTestFitness extends TestFitnessFunction {
         return compareClassName(other);
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
      */
     @Override
@@ -160,7 +198,9 @@ public class IBranchTestFitness extends TestFitnessFunction {
         return branchGoal.getClassName();
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
      */
     @Override
@@ -173,9 +213,8 @@ public class IBranchTestFitness extends TestFitnessFunction {
         return "Branch " + branchGoal + " in context: " + context.toString();
     }
 
-
-    /* (non-Javadoc)
-     * @see java.lang.Object#hashCode()
+    /**
+     * {@inheritDoc}
      */
     @Override
     public int hashCode() {
@@ -186,26 +225,33 @@ public class IBranchTestFitness extends TestFitnessFunction {
         return result;
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#equals(java.lang.Object)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         IBranchTestFitness other = (IBranchTestFitness) obj;
         if (branchGoal == null) {
-            if (other.branchGoal != null)
+            if (other.branchGoal != null) {
                 return false;
-        } else if (!branchGoal.equals(other.branchGoal))
+            }
+        } else if (!branchGoal.equals(other.branchGoal)) {
             return false;
+        }
         if (context == null) {
             return other.context == null;
-        } else return context.equals(other.context);
+        } else {
+            return context.equals(other.context);
+        }
     }
 
 }

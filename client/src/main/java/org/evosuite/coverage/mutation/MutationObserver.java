@@ -21,38 +21,39 @@
 package org.evosuite.coverage.mutation;
 
 /**
- * <p>MutationObserver class.</p>
+ * This class observes mutation coverage during test execution.
  *
  * @author Gordon Fraser
  */
 public class MutationObserver {
 
     /**
-     * Constant <code>activeMutation=-1</code>
+     * Constant <code>activeMutation=-1</code>.
      */
     public static int activeMutation = -1;
 
     /**
-     * <p>mutationTouched</p>
+     * <p>mutationTouched.</p>
      *
-     * @param mutationID a int.
+     * @param mutationId a int.
      */
-    public static void mutationTouched(int mutationID) {
+    public static void mutationTouched(int mutationId) {
 
     }
 
     /**
-     * <p>activateMutation</p>
+     * <p>activateMutation.</p>
      *
      * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public static void activateMutation(Mutation mutation) {
-        if (mutation != null)
+        if (mutation != null) {
             activeMutation = mutation.getId();
+        }
     }
 
     /**
-     * <p>activateMutation</p>
+     * <p>activateMutation.</p>
      *
      * @param id a int.
      */
@@ -61,14 +62,14 @@ public class MutationObserver {
     }
 
     /**
-     * <p>deactivateMutation</p>
+     * <p>deactivateMutation.</p>
      */
     public static void deactivateMutation() {
         activeMutation = -1;
     }
 
     /**
-     * <p>deactivateMutation</p>
+     * <p>deactivateMutation.</p>
      *
      * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
      */

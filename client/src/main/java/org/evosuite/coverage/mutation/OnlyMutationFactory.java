@@ -36,12 +36,14 @@ public class OnlyMutationFactory extends MutationFactory {
 
         this.goals = new ArrayList<>();
 
-        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutants()) {
+        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT()).getMutants()) {
             //if (MutationTimeoutStoppingCondition.isDisabled(m))
-            //	continue;
+            //    continue;
             this.goals.add(new OnlyMutationTestFitness(m));
         }
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Mutants, this.goals.size());
+        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Mutants,
+                this.goals.size());
 
         return this.goals;
     }

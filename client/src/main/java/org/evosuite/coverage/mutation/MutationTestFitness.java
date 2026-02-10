@@ -52,6 +52,14 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
 
     protected int mutantId;
 
+    protected String mutationClassName;
+
+    protected String mutationMethodName;
+
+    protected String mutationName;
+
+    protected int mutationLineNo;
+
     protected final Set<BranchCoverageGoal> controlDependencies = new HashSet<>();
 
     protected final int diameter;
@@ -66,8 +74,13 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
     public MutationTestFitness(Mutation mutation) {
         this.mutation = mutation;
         this.mutantId = mutation.getId();
+        this.mutationClassName = mutation.getClassName();
+        this.mutationMethodName = mutation.getMethodName();
+        this.mutationName = mutation.getMutationName();
+        this.mutationLineNo = mutation.getLineNumber();
         controlDependencies.addAll(mutation.getControlDependencies());
-        ActualControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getActualCFG(mutation.getClassName(),
+        ActualControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT()).getActualCFG(mutation.getClassName(),
                 mutation.getMethodName());
         diameter = cfg.getDiameter();
     }
@@ -93,7 +106,7 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * runTest
+     * runTest.
      * </p>
      *
      * @param test   a {@link org.evosuite.testcase.TestCase} object.
@@ -105,17 +118,20 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         ExecutionResult result = new ExecutionResult(test, mutant);
 
         try {
-            if (mutant != null)
+            if (mutant != null) {
                 logger.debug("Executing test for mutant " + mutant.getId() + ": \n"
                         + test.toCode());
-            else
+            } else {
                 logger.debug("Executing test witout mutant");
+            }
 
-            if (mutant != null)
+            if (mutant != null) {
                 MutationObserver.activateMutation(mutant);
+            }
             result = TestCaseExecutor.getInstance().execute(test);
-            if (mutant != null)
+            if (mutant != null) {
                 MutationObserver.deactivateMutation(mutant);
+            }
 
             int num = test.size();
             if (!result.noThrownExceptions()) {
@@ -134,7 +150,7 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
 
     /**
      * <p>
-     * getExecutionDistance
+     * getExecutionDistance.
      * </p>
      *
      * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -142,12 +158,14 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
      */
     protected double getExecutionDistance(ExecutionResult result) {
         double fitness = 0.0;
-        if (!result.getTrace().wasMutationTouched(mutation.getId()))
+        if (!result.getTrace().wasMutationTouched(mutation.getId())) {
             fitness += diameter;
+        }
 
         // Get control flow distance
         if (controlDependencies.isEmpty()) {
-            // If mutant was not executed, this can be either because of an exception, or because the method was not executed
+            // If mutant was not executed, this can be either because of an exception, 
+            // or because the method was not executed
 
             String key = mutation.getClassName() + "." + mutation.getMethodName();
             if (result.getTrace().getCoveredMethods().contains(key)) {
@@ -161,11 +179,12 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
             for (BranchCoverageGoal dependency : controlDependencies) {
                 logger.debug("Checking dependency...");
                 ControlFlowDistance distance = dependency.getDistance(result);
-                if (cfgDistance == null)
+                if (cfgDistance == null) {
                     cfgDistance = distance;
-                else {
-                    if (distance.compareTo(cfgDistance) < 0)
+                } else {
+                    if (distance.compareTo(cfgDistance) < 0) {
                         cfgDistance = distance;
+                    }
                 }
             }
             if (cfgDistance != null) {
@@ -180,7 +199,7 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
     /**
      * Common logic to calculate infection distance.
      *
-     * @param result The execution result.
+     * @param result            The execution result.
      * @param executionDistance The calculated execution distance.
      * @return The infection distance.
      */
@@ -188,7 +207,7 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         double infectionDistance = 1.0;
         if (executionDistance <= 0 && !result.calledReflection()) {
             if (executionDistance < 0) {
-                 // Sould not happen based on current logic, but safety check
+                // Sould not happen based on current logic, but safety check
                 executionDistance = 0.0;
             }
             // Add infection distance
@@ -197,8 +216,8 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
 
             double dist = result.getTrace().getMutationDistance(mutation.getId());
             if (dist < 0) {
-                 // Should not happen
-                 dist = 0.0;
+                // Should not happen
+                dist = 0.0;
             }
             infectionDistance = normalize(dist);
             logger.debug("Infection distance for mutation = " + infectionDistance);
@@ -207,7 +226,8 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome, org.evosuite.testcase.ExecutionResult)
+     * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome, 
+     * org.evosuite.testcase.ExecutionResult)
      */
 
     /**
@@ -225,7 +245,15 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
      */
     @Override
     public String toString() {
-        return mutation.toString();
+        if (mutation != null) {
+            return mutation.toString();
+        }
+        if (mutationClassName != null && mutationMethodName != null) {
+            String name = (mutationName == null) ? "mutation" : mutationName;
+            return name + " (" + mutantId + "): " + mutationClassName + "." 
+                    + mutationMethodName + ", line " + mutationLineNo;
+        }
+        return "mutation (" + mutantId + ")";
     }
 
     /* (non-Javadoc)
@@ -234,7 +262,11 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
     @Override
     public int compareTo(TestFitnessFunction other) {
         if (other instanceof MutationTestFitness) {
-            return mutation.compareTo(((MutationTestFitness) other).getMutation());
+            MutationTestFitness otherMutation = (MutationTestFitness) other;
+            if (mutation != null && otherMutation.getMutation() != null) {
+                return mutation.compareTo(otherMutation.getMutation());
+            }
+            return Integer.compare(mutantId, otherMutation.mutantId);
         }
         return compareClassName(other);
     }
@@ -252,20 +284,26 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         MutationTestFitness other = (MutationTestFitness) obj;
         if (controlDependencies == null) {
-            if (other.controlDependencies != null)
+            if (other.controlDependencies != null) {
                 return false;
-        } else if (!controlDependencies.equals(other.controlDependencies))
+            }
+        } else if (!controlDependencies.equals(other.controlDependencies)) {
             return false;
-        if (diameter != other.diameter)
+        }
+        if (diameter != other.diameter) {
             return false;
+        }
         return mutantId == other.mutantId;
     }
 
@@ -274,7 +312,10 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
      */
     @Override
     public String getTargetClass() {
-        return mutation.getClassName();
+        if (mutation != null) {
+            return mutation.getClassName();
+        }
+        return mutationClassName;
     }
 
     /* (non-Javadoc)
@@ -282,7 +323,10 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
      */
     @Override
     public String getTargetMethod() {
-        return mutation.getMethodName();
+        if (mutation != null) {
+            return mutation.getMethodName();
+        }
+        return mutationMethodName;
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException {
@@ -295,7 +339,23 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         ois.defaultReadObject();
 
         mutantId = ois.readInt();
-        this.mutation = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutant(mutantId);
-        assert (this.mutation != null) : "mutation id not found " + mutantId;
+        this.mutation = MutationPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT()).getMutant(mutantId);
+        if (this.mutation == null) {
+            logger.warn("mutation id not found {} while deserializing; leaving mutation null", mutantId);
+        } else {
+            if (mutationClassName == null) {
+                mutationClassName = mutation.getClassName();
+            }
+            if (mutationMethodName == null) {
+                mutationMethodName = mutation.getMethodName();
+            }
+            if (mutationName == null) {
+                mutationName = mutation.getMutationName();
+            }
+            if (mutationLineNo == 0) {
+                mutationLineNo = mutation.getLineNumber();
+            }
+        }
     }
 }

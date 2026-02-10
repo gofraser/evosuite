@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Abstract superclass for all Definitions and Uses
+ * Abstract superclass for all Definitions and Uses.
  *
  * @author Andre Mis
  */
@@ -33,7 +33,7 @@ public class DefUse extends BytecodeInstruction {
 
     private static final long serialVersionUID = -2643584238269671760L;
 
-    private final static Logger logger = LoggerFactory.getLogger(DefUse.class);
+    private static final Logger logger = LoggerFactory.getLogger(DefUse.class);
 
     protected int defuseId;
     protected int defId;
@@ -51,48 +51,51 @@ public class DefUse extends BytecodeInstruction {
     protected String varName;
 
     /**
-     * <p>
      * Constructor for DefUse.
-     * </p>
      *
-     * @param wrap           a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @param defuseId       a int.
-     * @param defId          a int.
-     * @param useId          a int.
-     * @param isParameterUse a boolean.
+     * @param wrap a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     protected DefUse(BytecodeInstruction wrap) {
         super(wrap);
-        if (!DefUsePool.isKnown(wrap))
+        if (!DefUsePool.isKnown(wrap)) {
             throw new IllegalArgumentException(
                     "only instructions known by the DefUsePool are accepted");
+        }
 
         this.defuseId = DefUsePool.getRegisteredDefUseId(wrap);
-        if (defuseId < 0)
+        if (defuseId < 0) {
             throw new IllegalArgumentException("expect defUseId to be positive");
+        }
 
         this.defId = DefUsePool.getRegisteredDefId(wrap);
         this.useId = DefUsePool.getRegisteredUseId(wrap);
-        if (defId < 0 && useId < 0)
+        if (defId < 0 && useId < 0) {
             throw new IllegalArgumentException("expect either defId or useId to be set");
+        }
 
         this.isParameterUse = DefUsePool.isKnownAsParameterUse(wrap);
         this.isFieldMethodCall = DefUsePool.isKnownAsFieldMethodCall(wrap);
         if (this.isFieldMethodCall) {
-            if (DefUsePool.isKnownAsDefinition(wrap))
+            if (DefUsePool.isKnownAsDefinition(wrap)) {
                 isFieldMethodCallDefinition = true;
-            if (DefUsePool.isKnownAsUse(wrap))
+            }
+            if (DefUsePool.isKnownAsUse(wrap)) {
                 isFieldMethodCallUse = true;
-            if (!(isFieldMethodCallDefinition || isFieldMethodCallUse))
+            }
+            if (!(isFieldMethodCallDefinition || isFieldMethodCallUse)) {
                 throw new IllegalStateException(
                         "field method calls only accepted once they got categorized");
+            }
         }
 
         this.isInStaticMethod = getRawCFG().isStaticMethod();
         this.varName = super.getVariableName();
-        if (this.varName == null)
+        if (this.varName == null) {
             throw new IllegalStateException(
-                    "expect defUses to have non-null variable name. Instruction: " + wrap + "," + wrap.getASMNode().getPrevious() + ", method: " + wrap.getClassName() + "." + wrap.getMethodName());
+                    "expect defUses to have non-null variable name. Instruction: " + wrap + ","
+                            + wrap.getASMNode().getPrevious() + ", method: " + wrap.getClassName() + "."
+                            + wrap.getMethodName());
+        }
 
     }
 
@@ -108,21 +111,22 @@ public class DefUse extends BytecodeInstruction {
 
     /**
      * Determines whether the given BytecodeInstruction constitutes a Definition
-     * that can potentially become an active Definition for this DefUse
-     * <p>
-     * in the sense that if control flow passes through the instruction of the
+     * that can potentially become an active Definition for this DefUse.
+     *
+     * <p>in the sense that if control flow passes through the instruction of the
      * given Definition that Definition becomes active for this DefUse's
      * variable
-     * <p>
-     * This is the case if the given Definition defines the same variable as
+     *
+     * <p>This is the case if the given Definition defines the same variable as
      * this DefUse So a Definition canBecomeActive for itself
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a boolean.
      */
     public boolean canBecomeActiveDefinition(BytecodeInstruction instruction) {
-        if (!instruction.isDefinition())
+        if (!instruction.isDefinition()) {
             return false;
+        }
 
         // Definition otherDef = DefUseFactory.makeDefinition(instruction);
         return sharesVariableWith(instruction);
@@ -130,7 +134,7 @@ public class DefUse extends BytecodeInstruction {
 
     /**
      * Determines whether the given DefUse reads or writes the same variable as
-     * this DefUse
+     * this DefUse.
      *
      * @param du a {@link org.evosuite.coverage.dataflow.DefUse} object.
      * @return a boolean.
@@ -140,37 +144,38 @@ public class DefUse extends BytecodeInstruction {
     }
 
     /**
-     * <p>
-     * sharesVariableWith
-     * </p>
+     * sharesVariableWith.
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a boolean.
      */
     public boolean sharesVariableWith(BytecodeInstruction instruction) {
-        if (!instruction.isDefUse())
+        if (!instruction.isDefUse()) {
             return false;
+        }
 
         return varName.equals(instruction.getVariableName());
     }
 
     /**
-     * <p>
-     * getDUVariableType
-     * </p>
+     * getDUVariableType.
      *
      * @return a {@link java.lang.String} object.
      */
     public String getDUVariableType() {
         // TODO remember that in a flag
-        if (isMethodCallOfField())
+        if (isMethodCallOfField()) {
             return "FieldMethodCall";
-        if (isFieldDU())
+        }
+        if (isFieldDU()) {
             return "Field";
-        if (isParameterUse())
+        }
+        if (isParameterUse()) {
             return "Parameter";
-        if (isLocalDU())
+        }
+        if (isLocalDU()) {
             return "Local";
+        }
 
         logger.warn("unexpected state");
         return "UNKNOWN";
@@ -187,9 +192,7 @@ public class DefUse extends BytecodeInstruction {
     // getter
 
     /**
-     * <p>
-     * getDefUseId
-     * </p>
+     * getDefUseId.
      *
      * @return a int.
      */
@@ -198,9 +201,7 @@ public class DefUse extends BytecodeInstruction {
     }
 
     /**
-     * <p>
      * Getter for the field <code>useId</code>.
-     * </p>
      *
      * @return a int.
      */
@@ -209,9 +210,7 @@ public class DefUse extends BytecodeInstruction {
     }
 
     /**
-     * <p>
      * Getter for the field <code>defId</code>.
-     * </p>
      *
      * @return a int.
      */
@@ -220,9 +219,7 @@ public class DefUse extends BytecodeInstruction {
     }
 
     /**
-     * <p>
-     * isParameterUse
-     * </p>
+     * isParameterUse.
      *
      * @return a boolean.
      */
@@ -238,21 +235,25 @@ public class DefUse extends BytecodeInstruction {
     @Override
     public String toString() {
         StringBuilder r = new StringBuilder();
-        if (isDefinition())
+        if (isDefinition()) {
             r.append("Definition ").append(getDefId());
-        if (isUse())
+        }
+        if (isUse()) {
             r.append("Use ").append(getUseId());
+        }
         r.append(" for ");
-        if (isStaticDefUse())
+        if (isStaticDefUse()) {
             r.append("static ");
+        }
         r.append(getDUVariableType());
         r.append("-Variable \"").append(getVariableName()).append("\"");
         r.append(" in ").append(getMethodName()).append(".").append(getInstructionId());
-        if (isRootBranchDependent())
+        if (isRootBranchDependent()) {
             r.append(" root-Branch");
-        else
+        } else {
             r.append(" Branch ").append(getControlDependentBranchId())
                     .append(getControlDependentBranchExpressionValue() ? "t" : "f");
+        }
         r.append(" Line ").append(getLineNumber());
         return r.toString();
     }
@@ -260,8 +261,8 @@ public class DefUse extends BytecodeInstruction {
     /**
      * Determines whether this is the special ALOAD that pushes 'this' onto the
      * stack
-     * <p>
-     * In non static methods the variable slot 0 holds the reference to "this".
+     *
+     * <p>In non static methods the variable slot 0 holds the reference to "this".
      * Loading this reference is not seen as a Use for defuse purposes. This
      * method checks if this is the case
      *
@@ -269,13 +270,16 @@ public class DefUse extends BytecodeInstruction {
      */
     @Override
     public boolean loadsReferenceToThis() {
-        if (isInStaticMethod)
+        if (isInStaticMethod) {
             return false;
+        }
 
         return asmNode.getOpcode() == Opcodes.ALOAD && getLocalVariableSlot() == 0;
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see java.lang.Object#hashCode()
      */
     @Override
@@ -293,32 +297,44 @@ public class DefUse extends BytecodeInstruction {
         return result;
     }
 
-    /* (non-Javadoc)
+    /**
+     * {@inheritDoc}
+     *
      * @see java.lang.Object#equals(java.lang.Object)
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (!super.equals(obj))
+        }
+        if (!super.equals(obj)) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         DefUse other = (DefUse) obj;
-        if (defId != other.defId)
+        if (defId != other.defId) {
             return false;
-        if (defuseId != other.defuseId)
+        }
+        if (defuseId != other.defuseId) {
             return false;
-        if (isFieldMethodCall != other.isFieldMethodCall)
+        }
+        if (isFieldMethodCall != other.isFieldMethodCall) {
             return false;
-        if (isFieldMethodCallDefinition != other.isFieldMethodCallDefinition)
+        }
+        if (isFieldMethodCallDefinition != other.isFieldMethodCallDefinition) {
             return false;
-        if (isFieldMethodCallUse != other.isFieldMethodCallUse)
+        }
+        if (isFieldMethodCallUse != other.isFieldMethodCallUse) {
             return false;
-        if (isParameterUse != other.isParameterUse)
+        }
+        if (isParameterUse != other.isParameterUse) {
             return false;
-        if (useId != other.useId)
+        }
+        if (useId != other.useId) {
             return false;
+        }
         return java.util.Objects.equals(varName, other.varName);
     }
 

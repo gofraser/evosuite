@@ -32,6 +32,9 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import java.util.*;
 
 /**
+ * Fitness function for evaluating test suite coverage of method return values.
+ * Computes fitness based on how well the test suite covers various output value categories.
+ *
  * @author Jose Miguel Rojas
  */
 public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
@@ -70,21 +73,22 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * Initialize the set of known coverage goals
+     * Initialize the set of known coverage goals.
      */
     private void determineCoverageGoals() {
         List<OutputCoverageTestFitness> goals = new OutputCoverageFactory().getCoverageGoals();
         for (OutputCoverageTestFitness goal : goals) {
             outputCoverageGoals.add(goal);
-            if (Properties.TEST_ARCHIVE)
+            if (Properties.TEST_ARCHIVE) {
                 Archive.getArchiveInstance().addTarget(goal);
+            }
         }
     }
 
     /**
      * {@inheritDoc}
      * <p/>
-     * Execute all tests and count covered output goals
+     * Execute all tests and count covered output goals.
      */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
@@ -105,15 +109,17 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
         if (hasTimeoutOrTestException) {
             logger.info("Test suite has timed out, setting fitness to max value " + totalGoals);
             fitness = totalGoals;
-        } else
+        } else {
             fitness = computeDistance(results, setOfCoveredGoals);
+        }
 
         int coveredGoals = setOfCoveredGoals.size() + removedGoals.size();
 
-        if (totalGoals > 0)
+        if (totalGoals > 0) {
             suite.setCoverage(this, (double) coveredGoals / (double) totalGoals);
-        else
+        } else {
             suite.setCoverage(this, 1.0);
+        }
 
         suite.setNumOfCoveredGoals(this, coveredGoals);
 
@@ -172,14 +178,16 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
                     continue;
                 }
 
-                double distance = testFitness.getFitness(test, result); // archive is updated by the TestFitnessFunction class
+                // archive is updated by the TestFitnessFunction class
+                double distance = testFitness.getFitness(test, result);
 
                 mapDistances.put(testFitness, Math.min(distance, mapDistances.get(testFitness)));
 
                 if (distance == 0.0) {
                     mapDistances.remove(testFitness);
                     setOfCoveredGoals.add(testFitness); // helper to count the number of covered goals
-                    this.toRemoveGoals.add(testFitness); // goal to not be considered by the next iteration of the evolutionary algorithm
+                    // goal to not be considered by next EA iteration
+                    this.toRemoveMethods.add(testFitness);
                 }
             }
         }
@@ -190,10 +198,11 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
     }
 
     /**
-     * Some useful debug information
+     * Prints useful debug information about coverage status.
      *
-     * @param coveredGoals
-     * @param fitness
+     * @param suite        the test suite being evaluated
+     * @param coveredGoals the number of covered goals
+     * @param fitness      the current fitness value
      */
     private void printStatusMessages(TestSuiteChromosome suite,
                                      int coveredGoals, double fitness) {

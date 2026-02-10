@@ -57,7 +57,7 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
 
     /**
      * Can be used to create an arbitrary {@code OutputCoverageGoal} trying to cover the
-     * method such that it returns a given {@code value}
+     * method such that it returns a given {@code value}.
      * <p/>
      * <p/>
      * If the method returns a boolean, this goal will try to cover the method with either {@code true} or {@code false}
@@ -71,16 +71,27 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
      *
      * @param className       a {@link java.lang.String} object.
      * @param methodName      a {@link java.lang.String} object.
-     * @param type            a {@link java.lang.String} object.
+     * @param type            a {@link Type} object.
      * @param valueDescriptor a value descriptor.
      */
     public OutputCoverageGoal(String className, String methodName, Type type, String valueDescriptor) {
         this(className, methodName, type, valueDescriptor, null);
     }
 
-    public OutputCoverageGoal(String className, String methodName, Type type, String valueDescriptor, Number numericValue) {
-        if (className == null || methodName == null)
+    /**
+     * Creates an output coverage goal.
+     *
+     * @param className       a {@link java.lang.String} object.
+     * @param methodName      a {@link java.lang.String} object.
+     * @param type            a {@link org.objectweb.asm.Type} object.
+     * @param valueDescriptor a value descriptor.
+     * @param numericValue    a {@link java.lang.Number} object.
+     */
+    public OutputCoverageGoal(String className, String methodName, Type type, String valueDescriptor,
+                              Number numericValue) {
+        if (className == null || methodName == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         this.className = className;
         this.methodName = methodName;
@@ -90,33 +101,46 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
     }
 
     /**
-     * @return the className
+     * Gets the class name.
+     *
+     * @return the className.
      */
     public String getClassName() {
         return className;
     }
 
     /**
-     * @return the methodName
+     * Gets the method name.
+     *
+     * @return the methodName.
      */
     public String getMethodName() {
         return methodName;
     }
 
     /**
-     * @return the type
+     * Gets the return type.
+     *
+     * @return the type.
      */
     public Type getType() {
         return Type.getType(type);
     }
 
     /**
-     * @return the value
+     * Gets the value descriptor.
+     *
+     * @return the value descriptor.
      */
     public String getValueDescriptor() {
         return valueDescriptor;
     }
 
+    /**
+     * Gets the numeric value.
+     *
+     * @return the numeric value.
+     */
     public Number getNumericValue() {
         return numericValue;
     }
@@ -126,7 +150,7 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
     /**
      * {@inheritDoc}
      * <p/>
-     * Readable representation
+     * Readable representation.
      */
     @Override
     public String toString() {
@@ -146,23 +170,29 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
 
         OutputCoverageGoal other = (OutputCoverageGoal) obj;
 
-        if (!Objects.equals(this.className, other.className))
+        if (!Objects.equals(this.className, other.className)) {
             return false;
+        }
 
-        if (!Objects.equals(this.methodName, other.methodName))
+        if (!Objects.equals(this.methodName, other.methodName)) {
             return false;
+        }
 
-        if (!Objects.equals(this.type, other.type))
+        if (!Objects.equals(this.type, other.type)) {
             return false;
+        }
 
         return Objects.equals(this.valueDescriptor, other.valueDescriptor);
     }
@@ -175,38 +205,70 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
      * @return true if class name and method name match
      */
     public boolean isSameArgument(OutputCoverageGoal other) {
-        if (this == other) return true;
-        if (other == null) return false;
-        if (!Objects.equals(this.className, other.className)) return false;
-        if (!Objects.equals(this.methodName, other.methodName)) return false;
+        if (this == other) {
+            return true;
+        }
+        if (other == null) {
+            return false;
+        }
+        if (!Objects.equals(this.className, other.className)) {
+            return false;
+        }
+        if (!Objects.equals(this.methodName, other.methodName)) {
+            return false;
+        }
         return true;
     }
 
     @Override
     public int compareTo(OutputCoverageGoal o) {
         int diff = className.compareTo(o.className);
-        if (diff != 0) return diff;
+        if (diff != 0) {
+            return diff;
+        }
 
         diff = methodName.compareTo(o.methodName);
-        if (diff != 0) return diff;
+        if (diff != 0) {
+            return diff;
+        }
 
         diff = type.compareTo(o.type);
-        if (diff != 0) return diff;
+        if (diff != 0) {
+            return diff;
+        }
 
-        if (valueDescriptor == null && o.valueDescriptor == null) return 0;
-        if (valueDescriptor == null) return -1;
-        if (o.valueDescriptor == null) return 1;
+        if (valueDescriptor == null && o.valueDescriptor == null) {
+            return 0;
+        }
+        if (valueDescriptor == null) {
+            return -1;
+        }
+        if (o.valueDescriptor == null) {
+            return 1;
+        }
         return valueDescriptor.compareTo(o.valueDescriptor);
     }
 
-    public static Set<OutputCoverageGoal> createGoalsFromObject(String className, String methodName, String methodDesc, Object returnValue) {
+    /**
+     * Creates a set of coverage goals from an object.
+     *
+     * @param className   the class name
+     * @param methodName  the method name
+     * @param methodDesc  the method descriptor
+     * @param returnValue the return value
+     * @return a set of output coverage goals
+     */
+    public static Set<OutputCoverageGoal> createGoalsFromObject(String className, String methodName,
+                                                                String methodDesc, Object returnValue) {
 
         Set<OutputCoverageGoal> goals = new LinkedHashSet<>();
 
-        if (!DependencyAnalysis.isTargetClassName(className))
+        if (!DependencyAnalysis.isTargetClassName(className)) {
             return goals;
-        if (methodName.equals("hashCode"))
+        }
+        if (methodName.equals("hashCode")) {
             return goals;
+        }
 
         String methodNameWithDesc = methodName + methodDesc;
         Type returnType = Type.getReturnType(methodDesc);
@@ -225,12 +287,16 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
             case Type.CHAR:
                 char c = (char) returnValue;
                 Number numberValue = (int) c;
-                if (Character.isAlphabetic(c))
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_ALPHA, numberValue));
-                else if (Character.isDigit(c))
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_DIGIT, numberValue));
-                else
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_OTHER, numberValue));
+                if (Character.isAlphabetic(c)) {
+                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_ALPHA,
+                            numberValue));
+                } else if (Character.isDigit(c)) {
+                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_DIGIT,
+                            numberValue));
+                } else {
+                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_OTHER,
+                            numberValue));
+                }
                 break;
             case Type.BYTE:
             case Type.SHORT:
@@ -242,21 +308,22 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
                 if (isJavaNumber(returnValue)) {
                     double value = ((Number) returnValue).doubleValue();
                     String numDesc = (value < 0) ? NUM_NEGATIVE : (value == 0) ? NUM_ZERO : NUM_POSITIVE;
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, numDesc, (Number) returnValue));
+                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, numDesc,
+                            (Number) returnValue));
                 }
                 break;
             case Type.ARRAY:
-                if (returnValue == null)
+                if (returnValue == null) {
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NULL));
-                else {
+                } else {
                     String arrDesc = (Array.getLength(returnValue) == 0) ? ARRAY_EMPTY : ARRAY_NONEMPTY;
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, arrDesc));
                 }
                 break;
             case Type.OBJECT:
-                if (returnValue == null)
+                if (returnValue == null) {
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NULL));
-                else {
+                } else {
                     goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NONNULL));
                     if (returnType.getClassName().equals("java.lang.String")) {
                         String valDesc = ((String) returnValue).isEmpty() ? STRING_EMPTY : STRING_NONEMPTY;
@@ -264,16 +331,19 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
                         break;
                     }
                     for (Inspector inspector : InspectorManager.getInstance().getInspectors(returnValue.getClass())) {
-                        String insp = inspector.getMethodCall() + Type.getMethodDescriptor(inspector.getMethod());
+                        String insp = inspector.getMethodCall()
+                                + Type.getMethodDescriptor(inspector.getMethod());
                         try {
                             Object val = inspector.getValue(returnValue);
                             if (val instanceof Boolean) {
                                 String valDesc = ((boolean) val) ? BOOL_TRUE : BOOL_FALSE;
-                                goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + valDesc));
+                                goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType,
+                                        REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + valDesc));
                             } else if (isJavaNumber(val)) {
                                 double dv = ((Number) val).doubleValue();
                                 String valDesc = (dv < 0) ? NUM_NEGATIVE : (dv == 0) ? NUM_ZERO : NUM_POSITIVE;
-                                goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + valDesc));
+                                goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType,
+                                        REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + valDesc));
                             }
                         } catch (InvocationTargetException e) {
                             // Exceptions in inspectors can happen
@@ -297,8 +367,8 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
      * on those would lead to many problems, like for example security and
      * loop counter checks.
      *
-     * @param val
-     * @return
+     * @param val the object to check
+     * @return true if it is a standard Java number
      */
     private static boolean isJavaNumber(Object val) {
         return val instanceof Number && val.getClass().getName().startsWith("java.");

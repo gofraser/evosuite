@@ -38,13 +38,13 @@ import java.util.List;
 public abstract class TestCoverageGoal {
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
-    private final static Logger logger = LoggerFactory.getLogger(TestCoverageGoal.class);
+    private static final Logger logger = LoggerFactory.getLogger(TestCoverageGoal.class);
 
 
     /**
-     * Return true if this coverage goal is covered by the given test
+     * Return true if this coverage goal is covered by the given test.
      *
      * @param test a {@link org.evosuite.testcase.TestChromosome} object.
      * @return a boolean.
@@ -52,22 +52,23 @@ public abstract class TestCoverageGoal {
     public abstract boolean isCovered(TestChromosome test);
 
     /**
-     * Determine if there is an existing test case covering this goal
+     * Determine if there is an existing test case covering this goal.
      *
      * @param tests a {@link java.util.List} object.
      * @return a boolean.
      */
     public boolean isCovered(List<TestChromosome> tests) {
         for (TestChromosome test : tests) {
-            if (isCovered(test))
+            if (isCovered(test)) {
                 return true;
+            }
         }
         return false;
     }
 
     /**
      * <p>
-     * hasTimeout
+     * hasTimeout.
      * </p>
      *
      * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
@@ -91,15 +92,16 @@ public abstract class TestCoverageGoal {
     }
 
     /**
-     * Execute a test case
+     * Execute a test case.
      *
      * @param test The test case to execute
      * @return Result of the execution
      */
     protected ExecutionResult runTest(TestChromosome test) {
 
-        if (!test.isChanged() && test.getLastExecutionResult() != null)
+        if (!test.isChanged() && test.getLastExecutionResult() != null) {
             return test.getLastExecutionResult();
+        }
 
         try {
             return TestCaseExecutor.getInstance().execute(test.getTestCase());

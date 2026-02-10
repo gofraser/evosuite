@@ -38,6 +38,9 @@ import java.util.*;
 import static org.evosuite.coverage.io.IOCoverageConstants.*;
 
 /**
+ * Factory for creating input coverage goals.
+ * Generates coverage goals for method parameters based on their types.
+ *
  * @author Jose Miguel Rojas
  */
 public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTestFitness> {
@@ -61,14 +64,17 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
         long start = System.currentTimeMillis();
         String targetClass = Properties.TARGET_CLASS;
 
-        for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownClasses()) {
-            if (!(targetClass.equals("") || className.endsWith(targetClass)))
+        for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT()).knownClasses()) {
+            if (!(targetClass.equals("") || className.endsWith(targetClass))) {
                 continue;
+            }
 
             for (Method method : TestClusterUtils.getClass(className).getDeclaredMethods()) {
                 String methodName = method.getName() + Type.getMethodDescriptor(method);
-                if (!TestUsageChecker.canUse(method))
+                if (!TestUsageChecker.canUse(method)) {
                     continue;
+                }
                 logger.info("Adding input goals for method " + className + "." + methodName);
 
                 Type[] argumentTypes = Type.getArgumentTypes(method);
@@ -131,15 +137,26 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
                                 goals.add(createGoal(className, methodName, i, argType, REF_NONNULL));
                                 Class<?> paramClazz = argumentClasses[i];
                                 for (Inspector inspector : InspectorManager.getInstance().getInspectors(paramClazz)) {
-                                    String insp = inspector.getMethodCall() + Type.getMethodDescriptor(inspector.getMethod());
+                                    String insp = inspector.getMethodCall()
+                                            + Type.getMethodDescriptor(inspector.getMethod());
                                     Type t = Type.getReturnType(inspector.getMethod());
                                     if (t.getSort() == Type.BOOLEAN) {
-                                        goals.add(createGoal(className, methodName, i, argType, REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":" + BOOL_TRUE));
-                                        goals.add(createGoal(className, methodName, i, argType, REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":" + BOOL_FALSE));
+                                        goals.add(createGoal(className, methodName, i, argType,
+                                                REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":"
+                                                        + BOOL_TRUE));
+                                        goals.add(createGoal(className, methodName, i, argType,
+                                                REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":"
+                                                        + BOOL_FALSE));
                                     } else if (t.getSort() >= Type.BYTE && t.getSort() <= Type.DOUBLE) {
-                                        goals.add(createGoal(className, methodName, i, argType, REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":" + NUM_NEGATIVE));
-                                        goals.add(createGoal(className, methodName, i, argType, REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":" + NUM_ZERO));
-                                        goals.add(createGoal(className, methodName, i, argType, REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":" + NUM_POSITIVE));
+                                        goals.add(createGoal(className, methodName, i, argType,
+                                                REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":"
+                                                        + NUM_NEGATIVE));
+                                        goals.add(createGoal(className, methodName, i, argType,
+                                                REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":"
+                                                        + NUM_ZERO));
+                                        goals.add(createGoal(className, methodName, i, argType,
+                                                REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":"
+                                                        + NUM_POSITIVE));
                                     }
                                 }
                             }
@@ -154,7 +171,9 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
         return goals;
     }
 
-    public static InputCoverageTestFitness createGoal(String className, String methodName, int argIndex, Type argType, String descriptor) {
-        return new InputCoverageTestFitness(new InputCoverageGoal(className, methodName, argIndex, argType, descriptor));
+    public static InputCoverageTestFitness createGoal(String className, String methodName, int argIndex,
+                                                      Type argType, String descriptor) {
+        return new InputCoverageTestFitness(new InputCoverageGoal(className, methodName, argIndex, argType,
+                descriptor));
     }
 }

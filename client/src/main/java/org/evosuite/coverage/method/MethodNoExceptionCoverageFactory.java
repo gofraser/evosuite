@@ -28,7 +28,8 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
  *
  * @author Gordon Fraser, Andre Mis, Jose Miguel Rojas
  */
-public class MethodNoExceptionCoverageFactory extends AbstractMethodCoverageFactory<MethodNoExceptionCoverageTestFitness> {
+public class MethodNoExceptionCoverageFactory
+        extends AbstractMethodCoverageFactory<MethodNoExceptionCoverageTestFitness> {
 
     @Override
     protected MethodNoExceptionCoverageTestFitness createGoal(String className, String methodName) {
@@ -43,7 +44,7 @@ public class MethodNoExceptionCoverageFactory extends AbstractMethodCoverageFact
      * @param className a {@link String} object.
      * @param method    a {@link String} object.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static MethodNoExceptionCoverageTestFitness createMethodTestFitness(
             String className, String method) {
@@ -58,12 +59,13 @@ public class MethodNoExceptionCoverageFactory extends AbstractMethodCoverageFact
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static MethodNoExceptionCoverageTestFitness createMethodTestFitness(
             BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         return createMethodTestFitness(instruction.getClassName(),
                 instruction.getMethodName());

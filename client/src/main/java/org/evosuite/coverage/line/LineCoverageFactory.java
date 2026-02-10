@@ -51,7 +51,8 @@ public class LineCoverageFactory extends
             return false;
         }
         try {
-            Class<?> targetClass = Class.forName(className, false, TestGenerationContext.getInstance().getClassLoaderForSUT());
+            Class<?> targetClass = Class.forName(className, false,
+                    TestGenerationContext.getInstance().getClassLoaderForSUT());
             if (!targetClass.isEnum()) {
                 logger.debug("Class {} is not an enum", className);
                 return false;
@@ -81,8 +82,9 @@ public class LineCoverageFactory extends
 
         for (String className : LinePool.getKnownClasses()) {
             // Only lines in CUT
-            if (!isCUT(className))
+            if (!isCUT(className)) {
                 continue;
+            }
 
             for (String methodName : LinePool.getKnownMethodsFor(className)) {
                 if (isEnumDefaultConstructor(className, methodName)) {
@@ -103,7 +105,6 @@ public class LineCoverageFactory extends
         return goals;
     }
 
-
     /**
      * Create a fitness function for line coverage aimed at covering the given line
      * in the given class and method.
@@ -111,8 +112,7 @@ public class LineCoverageFactory extends
      * @param className a {@link java.lang.String} object.
      * @param method    a {@link java.lang.String} object.
      * @param line      a {@link java.lang.Integer} object.
-     * @return a {@link org.evosuite.coverage.line.LineCoverageTestFitness}
-     * object.
+     * @return a {@link org.evosuite.coverage.line.LineCoverageTestFitness} object.
      */
     public static LineCoverageTestFitness createLineTestFitness(
             String className, String method, Integer line) {
@@ -129,13 +129,13 @@ public class LineCoverageFactory extends
      * the respective class, method, and line of the given BytecodeInstruction.
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.line.LineCoverageTestFitness}
-     * object.
+     * @return a {@link org.evosuite.coverage.line.LineCoverageTestFitness} object.
      */
     public static LineCoverageTestFitness createLineTestFitness(
             BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         return createLineTestFitness(instruction.getClassName(),
                 instruction.getMethodName(), instruction.getLineNumber());

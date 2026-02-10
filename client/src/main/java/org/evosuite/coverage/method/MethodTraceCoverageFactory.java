@@ -25,8 +25,8 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
  * <p>
  * MethodTraceCoverageFactory class.
  * </p>
- * <p>
- * Measures coverage of methods by analysing execution traces,
+ *
+ * <p>Measures coverage of methods by analysing execution traces,
  * that is, the method can be covered by indirect calls, not
  * necessarily be an statement in a test case.
  *
@@ -47,7 +47,7 @@ public class MethodTraceCoverageFactory extends AbstractMethodCoverageFactory<Me
      * @param className a {@link java.lang.String} object.
      * @param method    a {@link java.lang.String} object.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static MethodTraceCoverageTestFitness createMethodTestFitness(
             String className, String method) {
@@ -62,12 +62,13 @@ public class MethodTraceCoverageFactory extends AbstractMethodCoverageFactory<Me
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     * object.
+     *     object.
      */
     public static MethodTraceCoverageTestFitness createMethodTestFitness(
             BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         return createMethodTestFitness(instruction.getClassName(),
                 instruction.getMethodName());
