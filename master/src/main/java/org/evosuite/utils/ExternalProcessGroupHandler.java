@@ -716,7 +716,7 @@ public class ExternalProcessGroupHandler {
                     finished = true;
                 } else if (clientState == null || !clientState.equals(ClientState.FINISHED)) {
                     try {
-                        finished = entry.getValue().waitUntilFinished(remaining);
+                        finished = waitUntilFinishedWithTimeout(entry.getValue(), remaining, entry.getKey());
                     } catch (ConnectException e) {
                         logger.warn("Failed to connect to client. Client with id " + entry.getKey()
                                 + " is already finished.");
@@ -777,4 +777,38 @@ public class ExternalProcessGroupHandler {
          */
     }
 
+    private boolean waitUntilFinishedWithTimeout(ClientNodeRemote client, long timeoutMs, String clientId)
+            throws RemoteException {
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "ClientWait-" + clientId);
+            t.setDaemon(true);
+            return t;
+        });
+        try {
+            java.util.concurrent.Future<Boolean> result = executor.submit(() -> client.waitUntilFinished(timeoutMs));
+            return result.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.TimeoutException e) {
+            logger.error("Timeout while waiting for client " + clientId + " to finish.");
+            return false;
+        } catch (java.util.concurrent.ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof ConnectException) {
+                throw (ConnectException) cause;
+            }
+            if (cause instanceof RemoteException) {
+                throw (RemoteException) cause;
+            }
+            if (cause instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            logger.warn("Failed to wait for client " + clientId + " to finish.", e);
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } finally {
+            executor.shutdownNow();
+        }
+    }
 }
