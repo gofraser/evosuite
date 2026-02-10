@@ -31,23 +31,29 @@ import java.util.function.Consumer;
  */
 
 /**
- * Entry-point
- * <p>
- * The instrumentation inserted into user code is hard-coded to call static
+ * Entry-point.
+ *
+ * <p>The instrumentation inserted into user code is hard-coded to call static
  * methods of this class. Here we just multiplex these incoming calls to a list
  * of registered listeners.
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
+@SuppressWarnings({
+    "checkstyle:MethodName",
+    "checkstyle:AbbreviationAsWordInName",
+    "checkstyle:MemberName",
+    "checkstyle:ParameterName"
+})
 public final class VM {
 
     /**
-     * Single VM instance
+     * Single VM instance.
      */
     private static VM vm = new VM();
 
     /**
-     * Is this a recursive callback?
+     * Is this a recursive callback.
      *
      * <pre>
      * VM.meth()   // true
@@ -123,8 +129,8 @@ public final class VM {
     /**
      * Notifies the VMs that the concolic execution has finished.
      * Useful for closing any necessary connections and static states (if any).
-     * <p>
-     * TODO (ilebrero): Eventually all VMs can be reused instead of just creating new ones.
+     *
+     * <p>TODO (ilebrero): Eventually all VMs can be reused instead of just creating new ones.
      */
     public void cleanUpListeners() {
         for (IVM listener : this.listeners) {
@@ -158,13 +164,15 @@ public final class VM {
     }
 
     public static void NEW(String typeName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.NEW(typeName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -174,7 +182,7 @@ public final class VM {
     private boolean stopped = false;
 
     protected static void handleException(Throwable t) {
-        /**
+        /*
          * Listeners are not supposed to throw exceptions to the VM except the
          * StopVMException.
          */
@@ -219,13 +227,15 @@ public final class VM {
 
     public static void CALLER_STACK_PARAM(int value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALLER_STACK_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -234,13 +244,15 @@ public final class VM {
 
     public static void CALLER_STACK_PARAM(boolean value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALLER_STACK_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -249,13 +261,15 @@ public final class VM {
 
     public static void CALLER_STACK_PARAM(byte value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALLER_STACK_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -264,13 +278,15 @@ public final class VM {
 
     public static void CALLER_STACK_PARAM(char value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALLER_STACK_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -279,13 +295,15 @@ public final class VM {
 
     public static void CALLER_STACK_PARAM(short value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALLER_STACK_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -294,13 +312,15 @@ public final class VM {
 
     public static void CALLER_STACK_PARAM(long value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALLER_STACK_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -309,13 +329,15 @@ public final class VM {
 
     public static void CALLER_STACK_PARAM(float value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALLER_STACK_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -324,13 +346,15 @@ public final class VM {
 
     public static void CALLER_STACK_PARAM(double value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALLER_STACK_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -339,13 +363,15 @@ public final class VM {
 
     public static void CALLER_STACK_PARAM(Object value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALLER_STACK_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -356,13 +382,15 @@ public final class VM {
      * Line number in the Java source code.
      */
     public static void SRC_LINE_NUMBER(int lineNr) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.SRC_LINE_NUMBER(lineNr);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -370,17 +398,19 @@ public final class VM {
     }
 
     /**
-     * New method frame, before first instruction
+     * New method frame, before first instruction.
      */
     public static void METHOD_BEGIN(int access, String className,
                                     String methName, String methDesc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN(access, className, methName, methDesc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -388,18 +418,20 @@ public final class VM {
     }
 
     /**
-     * Max values of a method
+     * Max values of a method.
      */
     public static void METHOD_MAXS(String className, String methName,
                                    String methDesc, int maxStack, int maxLocals) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_MAXS(className, methName, methDesc, maxStack,
                         maxLocals);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -412,13 +444,15 @@ public final class VM {
      */
     public static void METHOD_BEGIN_PARAM(int value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -427,13 +461,15 @@ public final class VM {
 
     public static void METHOD_BEGIN_PARAM(boolean value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -442,13 +478,15 @@ public final class VM {
 
     public static void METHOD_BEGIN_PARAM(byte value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -457,13 +495,15 @@ public final class VM {
 
     public static void METHOD_BEGIN_PARAM(char value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -472,13 +512,15 @@ public final class VM {
 
     public static void METHOD_BEGIN_PARAM(short value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -487,13 +529,15 @@ public final class VM {
 
     public static void METHOD_BEGIN_PARAM(long value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -502,13 +546,15 @@ public final class VM {
 
     public static void METHOD_BEGIN_PARAM(float value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -517,13 +563,15 @@ public final class VM {
 
     public static void METHOD_BEGIN_PARAM(double value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -532,13 +580,15 @@ public final class VM {
 
     public static void METHOD_BEGIN_PARAM(Object value, int nr,
                                           int calleeLocalsIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN_PARAM(nr, calleeLocalsIndex, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -546,13 +596,15 @@ public final class VM {
     }
 
     public static void METHOD_BEGIN_RECEIVER(Object value) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.METHOD_BEGIN_RECEIVER(value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -560,13 +612,15 @@ public final class VM {
     }
 
     public static void CALL_RESULT(String owner, String name, String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALL_RESULT(owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -575,13 +629,15 @@ public final class VM {
 
     public static void CALL_RESULT(boolean res, String owner, String name,
                                    String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALL_RESULT(res, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -590,13 +646,15 @@ public final class VM {
 
     public static void CALL_RESULT(int res, String owner, String name,
                                    String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALL_RESULT(res, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -605,13 +663,15 @@ public final class VM {
 
     public static void CALL_RESULT(long res, String owner, String name,
                                    String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALL_RESULT(res, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -620,13 +680,15 @@ public final class VM {
 
     public static void CALL_RESULT(double res, String owner, String name,
                                    String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALL_RESULT(res, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -635,13 +697,15 @@ public final class VM {
 
     public static void CALL_RESULT(float res, String owner, String name,
                                    String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALL_RESULT(res, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -650,13 +714,15 @@ public final class VM {
 
     public static void CALL_RESULT(Object res, String owner, String name,
                                    String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALL_RESULT(res, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -664,16 +730,18 @@ public final class VM {
     }
 
     /**
-     * New basic block that is not the start of an exception handler
+     * New basic block that is not the start of an exception handler.
      */
     public static void BB_BEGIN() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.BB_BEGIN();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -681,17 +749,19 @@ public final class VM {
     }
 
     /**
-     * New basic block that is the start of an exception handler
+     * New basic block that is the start of an exception handler.
      */
     public static void HANDLER_BEGIN(int access, String className,
                                      String methName, String methDesc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.HANDLER_BEGIN(access, className, methName, methDesc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -703,13 +773,15 @@ public final class VM {
      */
 
     public static void NOP() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.NOP();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -717,13 +789,15 @@ public final class VM {
     }
 
     public static void ACONST_NULL() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ACONST_NULL();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -735,13 +809,15 @@ public final class VM {
      * doc6. html#iconst_i
      */
     public static void ICONST_M1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ICONST_M1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -753,13 +829,15 @@ public final class VM {
      * doc6. html#iconst_i
      */
     public static void ICONST_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ICONST_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -771,13 +849,15 @@ public final class VM {
      * doc6. html#iconst_i
      */
     public static void ICONST_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ICONST_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -789,13 +869,15 @@ public final class VM {
      * doc6. html#iconst_i
      */
     public static void ICONST_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ICONST_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -807,13 +889,15 @@ public final class VM {
      * doc6. html#iconst_i
      */
     public static void ICONST_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ICONST_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -825,13 +909,15 @@ public final class VM {
      * doc6. html#iconst_i
      */
     public static void ICONST_4() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ICONST_4();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -843,13 +929,15 @@ public final class VM {
      * doc6. html#iconst_i
      */
     public static void ICONST_5() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ICONST_5();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -857,13 +945,15 @@ public final class VM {
     }
 
     public static void LCONST_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LCONST_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -871,13 +961,15 @@ public final class VM {
     }
 
     public static void LCONST_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LCONST_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -885,13 +977,15 @@ public final class VM {
     }
 
     public static void FCONST_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FCONST_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -899,13 +993,15 @@ public final class VM {
     }
 
     public static void FCONST_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FCONST_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -913,13 +1009,15 @@ public final class VM {
     }
 
     public static void FCONST_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FCONST_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -927,13 +1025,15 @@ public final class VM {
     }
 
     public static void DCONST_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DCONST_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -941,13 +1041,15 @@ public final class VM {
     }
 
     public static void DCONST_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DCONST_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -955,13 +1057,15 @@ public final class VM {
     }
 
     public static void BIPUSH(int value) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.BIPUSH(value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -969,13 +1073,15 @@ public final class VM {
     }
 
     public static void SIPUSH(int value) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.SIPUSH(value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -987,13 +1093,15 @@ public final class VM {
      * doc8. html#ldc
      */
     public static void LDC(String x) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LDC(x);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1005,13 +1113,15 @@ public final class VM {
      * doc8. html#ldc
      */
     public static void LDC(Class<?> x) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LDC(x);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1023,13 +1133,15 @@ public final class VM {
      * doc8. html#ldc
      */
     public static void LDC(int x) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LDC(x);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1041,13 +1153,15 @@ public final class VM {
      * doc8. html#ldc
      */
     public static void LDC(float x) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LDC(x);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1055,16 +1169,18 @@ public final class VM {
     }
 
     /**
-     * Handled by LDC
+     * Handled by LDC.
      */
     public static void LDC_W() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LDC_W();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1076,13 +1192,15 @@ public final class VM {
      * doc8. html#ldc2_w
      */
     public static void LDC2_W(long x) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LDC2_W(x);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1094,13 +1212,15 @@ public final class VM {
      * doc8. html#ldc2_w
      */
     public static void LDC2_W(double x) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LDC2_W(x);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1112,13 +1232,15 @@ public final class VM {
      * doc6. html#iload
      */
     public static void ILOAD(int i) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ILOAD(i);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1126,13 +1248,15 @@ public final class VM {
     }
 
     public static void LLOAD(int i) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LLOAD(i);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1140,13 +1264,15 @@ public final class VM {
     }
 
     public static void FLOAD(int i) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FLOAD(i);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1154,13 +1280,15 @@ public final class VM {
     }
 
     public static void DLOAD(int i) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DLOAD(i);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1168,13 +1296,15 @@ public final class VM {
     }
 
     public static void ALOAD(int i) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ALOAD(i);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1186,13 +1316,15 @@ public final class VM {
      * doc6. html#iload_n
      */
     public static void ILOAD_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ILOAD_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1200,13 +1332,15 @@ public final class VM {
     }
 
     public static void ILOAD_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ILOAD_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1214,13 +1348,15 @@ public final class VM {
     }
 
     public static void ILOAD_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ILOAD_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1228,13 +1364,15 @@ public final class VM {
     }
 
     public static void ILOAD_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ILOAD_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1246,13 +1384,15 @@ public final class VM {
      * doc8. html#lload_n
      */
     public static void LLOAD_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LLOAD_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1260,13 +1400,15 @@ public final class VM {
     }
 
     public static void LLOAD_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LLOAD_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1274,13 +1416,15 @@ public final class VM {
     }
 
     public static void LLOAD_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LLOAD_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1288,13 +1432,15 @@ public final class VM {
     }
 
     public static void LLOAD_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LLOAD_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1306,13 +1452,15 @@ public final class VM {
      * doc4. html#fload_n
      */
     public static void FLOAD_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FLOAD_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1320,13 +1468,15 @@ public final class VM {
     }
 
     public static void FLOAD_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FLOAD_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1334,13 +1484,15 @@ public final class VM {
     }
 
     public static void FLOAD_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FLOAD_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1348,13 +1500,15 @@ public final class VM {
     }
 
     public static void FLOAD_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FLOAD_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1366,13 +1520,15 @@ public final class VM {
      * doc3. html#dload_n
      */
     public static void DLOAD_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DLOAD_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1380,13 +1536,15 @@ public final class VM {
     }
 
     public static void DLOAD_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DLOAD_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1394,13 +1552,15 @@ public final class VM {
     }
 
     public static void DLOAD_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DLOAD_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1408,13 +1568,15 @@ public final class VM {
     }
 
     public static void DLOAD_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DLOAD_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1426,13 +1588,15 @@ public final class VM {
      * . html#aload_n
      */
     public static void ALOAD_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ALOAD_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1440,13 +1604,15 @@ public final class VM {
     }
 
     public static void ALOAD_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ALOAD_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1454,13 +1620,15 @@ public final class VM {
     }
 
     public static void ALOAD_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ALOAD_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1468,13 +1636,15 @@ public final class VM {
     }
 
     public static void ALOAD_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ALOAD_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1482,13 +1652,15 @@ public final class VM {
     }
 
     public static void IALOAD(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IALOAD(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1496,13 +1668,15 @@ public final class VM {
     }
 
     public static void LALOAD(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LALOAD(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1510,13 +1684,15 @@ public final class VM {
     }
 
     public static void FALOAD(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FALOAD(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1524,13 +1700,15 @@ public final class VM {
     }
 
     public static void DALOAD(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DALOAD(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1538,13 +1716,15 @@ public final class VM {
     }
 
     public static void AALOAD(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.AALOAD(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1552,13 +1732,15 @@ public final class VM {
     }
 
     public static void BALOAD(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.BALOAD(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1566,13 +1748,15 @@ public final class VM {
     }
 
     public static void CALOAD(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CALOAD(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1580,13 +1764,15 @@ public final class VM {
     }
 
     public static void SALOAD(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.SALOAD(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1598,13 +1784,15 @@ public final class VM {
      * doc6. html#istore
      */
     public static void ISTORE(int i) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ISTORE(i);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1612,13 +1800,15 @@ public final class VM {
     }
 
     public static void LSTORE(int i) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LSTORE(i);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1626,13 +1816,15 @@ public final class VM {
     }
 
     public static void FSTORE(int i) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FSTORE(i);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1640,13 +1832,15 @@ public final class VM {
     }
 
     public static void DSTORE(int i) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DSTORE(i);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1654,13 +1848,15 @@ public final class VM {
     }
 
     public static void ASTORE(int i) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ASTORE(i);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1672,13 +1868,15 @@ public final class VM {
      * doc6. html#istore_n
      */
     public static void ISTORE_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ISTORE_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1686,13 +1884,15 @@ public final class VM {
     }
 
     public static void ISTORE_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ISTORE_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1700,13 +1900,15 @@ public final class VM {
     }
 
     public static void ISTORE_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ISTORE_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1714,13 +1916,15 @@ public final class VM {
     }
 
     public static void ISTORE_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ISTORE_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1732,13 +1936,15 @@ public final class VM {
      * doc8. html#lstore_n
      */
     public static void LSTORE_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LSTORE_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1746,13 +1952,15 @@ public final class VM {
     }
 
     public static void LSTORE_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LSTORE_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1760,13 +1968,15 @@ public final class VM {
     }
 
     public static void LSTORE_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LSTORE_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1774,13 +1984,15 @@ public final class VM {
     }
 
     public static void LSTORE_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LSTORE_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1792,13 +2004,15 @@ public final class VM {
      * doc4. html#fstore_n
      */
     public static void FSTORE_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FSTORE_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1806,13 +2020,15 @@ public final class VM {
     }
 
     public static void FSTORE_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FSTORE_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1820,13 +2036,15 @@ public final class VM {
     }
 
     public static void FSTORE_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FSTORE_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1834,13 +2052,15 @@ public final class VM {
     }
 
     public static void FSTORE_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FSTORE_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1852,13 +2072,15 @@ public final class VM {
      * doc3. html#dstore_n
      */
     public static void DSTORE_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DSTORE_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1866,13 +2088,15 @@ public final class VM {
     }
 
     public static void DSTORE_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DSTORE_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1880,13 +2104,15 @@ public final class VM {
     }
 
     public static void DSTORE_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DSTORE_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1894,13 +2120,15 @@ public final class VM {
     }
 
     public static void DSTORE_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DSTORE_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1912,13 +2140,15 @@ public final class VM {
      * . html#aSTORE_n
      */
     public static void ASTORE_0() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ASTORE_0();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1926,13 +2156,15 @@ public final class VM {
     }
 
     public static void ASTORE_1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ASTORE_1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1940,13 +2172,15 @@ public final class VM {
     }
 
     public static void ASTORE_2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ASTORE_2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1954,13 +2188,15 @@ public final class VM {
     }
 
     public static void ASTORE_3() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ASTORE_3();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1968,13 +2204,15 @@ public final class VM {
     }
 
     public static void IASTORE(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IASTORE(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1982,13 +2220,15 @@ public final class VM {
     }
 
     public static void LASTORE(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LASTORE(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -1996,13 +2236,15 @@ public final class VM {
     }
 
     public static void FASTORE(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FASTORE(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2010,13 +2252,15 @@ public final class VM {
     }
 
     public static void DASTORE(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DASTORE(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2029,13 +2273,15 @@ public final class VM {
             Object value,
             String className,
             String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.AASTORE(receiver, index, value, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2043,13 +2289,15 @@ public final class VM {
     }
 
     public static void BASTORE(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.BASTORE(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2057,13 +2305,15 @@ public final class VM {
     }
 
     public static void CASTORE(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CASTORE(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2071,13 +2321,15 @@ public final class VM {
     }
 
     public static void SASTORE(Object receiver, int index, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.SASTORE(receiver, index, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2085,13 +2337,15 @@ public final class VM {
     }
 
     public static void POP() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.POP();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2099,13 +2353,15 @@ public final class VM {
     }
 
     public static void POP2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.POP2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2113,13 +2369,15 @@ public final class VM {
     }
 
     public static void DUP() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DUP();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2127,13 +2385,15 @@ public final class VM {
     }
 
     public static void DUP_X1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DUP_X1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2141,13 +2401,15 @@ public final class VM {
     }
 
     public static void DUP_X2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DUP_X2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2155,13 +2417,15 @@ public final class VM {
     }
 
     public static void DUP2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DUP2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2169,13 +2433,15 @@ public final class VM {
     }
 
     public static void DUP2_X1() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DUP2_X1();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2183,13 +2449,15 @@ public final class VM {
     }
 
     public static void DUP2_X2() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DUP2_X2();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2197,13 +2465,15 @@ public final class VM {
     }
 
     public static void SWAP() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.SWAP();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2215,13 +2485,15 @@ public final class VM {
      * doc6. html#iadd
      */
     public static void IADD() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IADD();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2229,13 +2501,15 @@ public final class VM {
     }
 
     public static void LADD() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LADD();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2243,13 +2517,15 @@ public final class VM {
     }
 
     public static void FADD() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FADD();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2257,13 +2533,15 @@ public final class VM {
     }
 
     public static void DADD() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DADD();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2271,13 +2549,15 @@ public final class VM {
     }
 
     public static void ISUB() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ISUB();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2285,13 +2565,15 @@ public final class VM {
     }
 
     public static void LSUB() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LSUB();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2299,13 +2581,15 @@ public final class VM {
     }
 
     public static void FSUB() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FSUB();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2313,13 +2597,15 @@ public final class VM {
     }
 
     public static void DSUB() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DSUB();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2331,13 +2617,15 @@ public final class VM {
      * doc6. html#imul
      */
     public static void IMUL() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IMUL();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2345,13 +2633,15 @@ public final class VM {
     }
 
     public static void LMUL() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LMUL();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2359,13 +2649,15 @@ public final class VM {
     }
 
     public static void FMUL() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FMUL();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2373,13 +2665,15 @@ public final class VM {
     }
 
     public static void DMUL() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DMUL();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2387,13 +2681,15 @@ public final class VM {
     }
 
     public static void IDIV(int rhs) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IDIV(rhs);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2401,13 +2697,15 @@ public final class VM {
     }
 
     public static void LDIV(long rhs) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LDIV(rhs);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2415,13 +2713,15 @@ public final class VM {
     }
 
     public static void FDIV(float rhs) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FDIV(rhs);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2429,13 +2729,15 @@ public final class VM {
     }
 
     public static void DDIV(double rhs) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DDIV(rhs);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2443,13 +2745,15 @@ public final class VM {
     }
 
     public static void IREM(int rhs) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IREM(rhs);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2457,13 +2761,15 @@ public final class VM {
     }
 
     public static void LREM(long rhs) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LREM(rhs);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2471,13 +2777,15 @@ public final class VM {
     }
 
     public static void FREM(float rhs) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FREM(rhs);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2485,13 +2793,15 @@ public final class VM {
     }
 
     public static void DREM(double rhs) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DREM(rhs);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2499,13 +2809,15 @@ public final class VM {
     }
 
     public static void INEG() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.INEG();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2513,13 +2825,15 @@ public final class VM {
     }
 
     public static void LNEG() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LNEG();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2527,13 +2841,15 @@ public final class VM {
     }
 
     public static void FNEG() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FNEG();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2541,13 +2857,15 @@ public final class VM {
     }
 
     public static void DNEG() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DNEG();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2555,13 +2873,15 @@ public final class VM {
     }
 
     public static void ISHL() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ISHL();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2569,13 +2889,15 @@ public final class VM {
     }
 
     public static void LSHL() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LSHL();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2583,13 +2905,15 @@ public final class VM {
     }
 
     public static void ISHR() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ISHR();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2597,13 +2921,15 @@ public final class VM {
     }
 
     public static void LSHR() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LSHR();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2611,13 +2937,15 @@ public final class VM {
     }
 
     public static void IUSHR() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IUSHR();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2625,13 +2953,15 @@ public final class VM {
     }
 
     public static void LUSHR() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LUSHR();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2639,13 +2969,15 @@ public final class VM {
     }
 
     public static void IAND() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IAND();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2653,13 +2985,15 @@ public final class VM {
     }
 
     public static void LAND() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LAND();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2667,13 +3001,15 @@ public final class VM {
     }
 
     public static void IOR() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IOR();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2681,13 +3017,15 @@ public final class VM {
     }
 
     public static void LOR() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LOR();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2695,13 +3033,15 @@ public final class VM {
     }
 
     public static void IXOR() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IXOR();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2709,13 +3049,15 @@ public final class VM {
     }
 
     public static void LXOR() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LXOR();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2723,13 +3065,15 @@ public final class VM {
     }
 
     public static void IINC(int i, int value) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IINC(i, value);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2737,13 +3081,15 @@ public final class VM {
     }
 
     public static void I2L() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.I2L();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2751,13 +3097,15 @@ public final class VM {
     }
 
     public static void I2F() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.I2F();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2765,13 +3113,15 @@ public final class VM {
     }
 
     public static void I2D() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.I2D();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2779,13 +3129,15 @@ public final class VM {
     }
 
     public static void L2I() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.L2I();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2793,13 +3145,15 @@ public final class VM {
     }
 
     public static void L2F() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.L2F();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2807,13 +3161,15 @@ public final class VM {
     }
 
     public static void L2D() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.L2D();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2821,13 +3177,15 @@ public final class VM {
     }
 
     public static void F2I() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.F2I();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2835,13 +3193,15 @@ public final class VM {
     }
 
     public static void F2L() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.F2L();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2849,13 +3209,15 @@ public final class VM {
     }
 
     public static void F2D() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.F2D();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2863,13 +3225,15 @@ public final class VM {
     }
 
     public static void D2I() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.D2I();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2877,13 +3241,15 @@ public final class VM {
     }
 
     public static void D2L() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.D2L();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2891,13 +3257,15 @@ public final class VM {
     }
 
     public static void D2F() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.D2F();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2905,13 +3273,15 @@ public final class VM {
     }
 
     public static void I2B() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.I2B();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2919,13 +3289,15 @@ public final class VM {
     }
 
     public static void I2C() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.I2C();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2933,13 +3305,15 @@ public final class VM {
     }
 
     public static void I2S() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.I2S();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2947,13 +3321,15 @@ public final class VM {
     }
 
     public static void LCMP() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LCMP();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2961,13 +3337,15 @@ public final class VM {
     }
 
     public static void FCMPL() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FCMPL();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2975,13 +3353,15 @@ public final class VM {
     }
 
     public static void FCMPG() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FCMPG();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -2989,13 +3369,15 @@ public final class VM {
     }
 
     public static void DCMPL() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DCMPL();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3003,13 +3385,15 @@ public final class VM {
     }
 
     public static void DCMPG() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DCMPG();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3018,13 +3402,15 @@ public final class VM {
 
     public static void IFEQ(int param, String className, String methName,
                             int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IFEQ(className, methName, branchIndex, param);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3033,13 +3419,15 @@ public final class VM {
 
     public static void IFNE(int param, String className, String methName,
                             int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IFNE(className, methName, branchIndex, param);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3048,13 +3436,15 @@ public final class VM {
 
     public static void IFLT(int param, String className, String methName,
                             int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IFLT(className, methName, branchIndex, param);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3063,13 +3453,15 @@ public final class VM {
 
     public static void IFGE(int param, String className, String methName,
                             int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IFGE(className, methName, branchIndex, param);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3078,13 +3470,15 @@ public final class VM {
 
     public static void IFGT(int param, String className, String methName,
                             int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IFGT(className, methName, branchIndex, param);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3093,13 +3487,15 @@ public final class VM {
 
     public static void IFLE(int param, String className, String methName,
                             int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IFLE(className, methName, branchIndex, param);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3108,14 +3504,16 @@ public final class VM {
 
     public static void IF_ICMPEQ(int left, int right, String className,
                                  String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IF_ICMPEQ(className, methName, branchIndex, left,
                         right);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3124,14 +3522,16 @@ public final class VM {
 
     public static void IF_ICMPNE(int left, int right, String className,
                                  String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IF_ICMPNE(className, methName, branchIndex, left,
                         right);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3140,14 +3540,16 @@ public final class VM {
 
     public static void IF_ICMPLT(int left, int right, String className,
                                  String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IF_ICMPLT(className, methName, branchIndex, left,
                         right);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3156,14 +3558,16 @@ public final class VM {
 
     public static void IF_ICMPGE(int left, int right, String className,
                                  String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IF_ICMPGE(className, methName, branchIndex, left,
                         right);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3172,14 +3576,16 @@ public final class VM {
 
     public static void IF_ICMPGT(int left, int right, String className,
                                  String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IF_ICMPGT(className, methName, branchIndex, left,
                         right);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3188,14 +3594,16 @@ public final class VM {
 
     public static void IF_ICMPLE(int left, int right, String className,
                                  String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IF_ICMPLE(className, methName, branchIndex, left,
                         right);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3204,14 +3612,16 @@ public final class VM {
 
     public static void IF_ACMPEQ(Object left, Object right, String className,
                                  String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IF_ACMPEQ(className, methName, branchIndex, left,
                         right);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3220,14 +3630,16 @@ public final class VM {
 
     public static void IF_ACMPNE(Object left, Object right, String className,
                                  String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IF_ACMPNE(className, methName, branchIndex, left,
                         right);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3235,13 +3647,15 @@ public final class VM {
     }
 
     public static void GOTO() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.GOTO();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3249,13 +3663,15 @@ public final class VM {
     }
 
     public static void JSR() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.JSR();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3263,13 +3679,15 @@ public final class VM {
     }
 
     public static void RET() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.RET();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3278,14 +3696,16 @@ public final class VM {
 
     public static void TABLESWITCH(int target, int min, int max,
                                    String className, String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.TABLESWITCH(className, methName, branchIndex, target,
                         min, max);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3294,14 +3714,16 @@ public final class VM {
 
     public static void LOOKUPSWITCH(int target, int[] goals, String className,
                                     String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LOOKUPSWITCH(className, methName, branchIndex, target,
                         goals);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3309,13 +3731,15 @@ public final class VM {
     }
 
     public static void IRETURN() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IRETURN();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3323,13 +3747,15 @@ public final class VM {
     }
 
     public static void LRETURN() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.LRETURN();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3337,13 +3763,15 @@ public final class VM {
     }
 
     public static void FRETURN() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.FRETURN();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3351,13 +3779,15 @@ public final class VM {
     }
 
     public static void DRETURN() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.DRETURN();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3365,13 +3795,15 @@ public final class VM {
     }
 
     public static void ARETURN() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ARETURN();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3379,13 +3811,15 @@ public final class VM {
     }
 
     public static void RETURN() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.RETURN();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3393,13 +3827,15 @@ public final class VM {
     }
 
     public static void GETSTATIC(String owner, String name, String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.GETSTATIC(owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3407,13 +3843,15 @@ public final class VM {
     }
 
     public static void PUTSTATIC(String owner, String name, String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.PUTSTATIC(owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3422,13 +3860,15 @@ public final class VM {
 
     public static void GETFIELD(Object receiver, String owner, String name,
                                 String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.GETFIELD(receiver, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3437,13 +3877,15 @@ public final class VM {
 
     public static void PUTFIELD(Object receiver, String owner, String name,
                                 String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.PUTFIELD(receiver, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3451,13 +3893,15 @@ public final class VM {
     }
 
     public static void INVOKESTATIC(String owner, String name, String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.INVOKESTATIC(owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3465,13 +3909,15 @@ public final class VM {
     }
 
     public static void INVOKESPECIAL(String owner, String name, String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.INVOKESPECIAL(owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3480,13 +3926,15 @@ public final class VM {
 
     public static void INVOKEVIRTUAL(Object receiver, String owner,
                                      String name, String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.INVOKEVIRTUAL(receiver, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3495,13 +3943,15 @@ public final class VM {
 
     public static void INVOKESPECIAL(Object receiver, String owner,
                                      String name, String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.INVOKESPECIAL(receiver, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3510,13 +3960,15 @@ public final class VM {
 
     public static void INVOKEINTERFACE(Object receiver, String owner,
                                        String name, String desc) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.INVOKEINTERFACE(receiver, owner, name, desc);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3524,26 +3976,28 @@ public final class VM {
     }
 
     /**
-     * Lambdas, closures and method references
+     * Lambdas, closures and method references.
      *
-     * @param instance
-     * @param ownerClass
+     * @param instance the instance
+     * @param ownerClass the owner class
      */
     public static void INVOKEDYNAMIC(Object instance, String ownerClass) {
-        if (!ignoreCallback)
+        if (!ignoreCallback) {
             interpret((IVM ivm) -> ivm.INVOKEDYNAMIC(instance, ownerClass));
+        }
     }
 
     /**
-     * String concatenation
+     * String concatenation.
      *
-     * @param concatenationResult
-     * @param stringOwnerClass
-     * @param stringRecipe
+     * @param concatenationResult the result
+     * @param stringOwnerClass the owner class
+     * @param stringRecipe the recipe
      */
     public static void INVOKEDYNAMIC(String concatenationResult, String stringOwnerClass, String stringRecipe) {
-        if (!ignoreCallback)
+        if (!ignoreCallback) {
             interpret((IVM ivm) -> ivm.INVOKEDYNAMIC(concatenationResult, stringOwnerClass, stringRecipe));
+        }
     }
 
     protected static Class<?> getArrayComponentType(int componentTypeInt) {
@@ -3571,16 +4025,18 @@ public final class VM {
     }
 
     public static void NEWARRAY(int length, int componentTypeInt, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.NEWARRAY(length,
                         getArrayComponentType(componentTypeInt),
                         className,
                         methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3588,13 +4044,15 @@ public final class VM {
     }
 
     public static void ANEWARRAY(int length, String componentTypeName, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ANEWARRAY(length, componentTypeName, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3602,13 +4060,15 @@ public final class VM {
     }
 
     public static void ARRAYLENGTH(Object reference) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ARRAYLENGTH(reference);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3616,13 +4076,15 @@ public final class VM {
     }
 
     public static void ATHROW(Object throwable) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.ATHROW((Throwable) throwable);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3630,13 +4092,15 @@ public final class VM {
     }
 
     public static void CHECKCAST(Object reference, String typeName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.CHECKCAST(reference, typeName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3644,13 +4108,15 @@ public final class VM {
     }
 
     public static void INSTANCEOF(Object reference, String typeName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.INSTANCEOF(reference, typeName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3658,13 +4124,15 @@ public final class VM {
     }
 
     public static void MONITORENTER() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.MONITORENTER();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3672,13 +4140,15 @@ public final class VM {
     }
 
     public static void MONITOREXIT() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.MONITOREXIT();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3686,13 +4156,15 @@ public final class VM {
     }
 
     public static void WIDE() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.WIDE();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3700,13 +4172,15 @@ public final class VM {
     }
 
     public static void MULTIANEWARRAY(String arrayTypeDesc, int nrDimensions, String className, String methodName) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.MULTIANEWARRAY(arrayTypeDesc, nrDimensions, className, methodName);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3715,13 +4189,15 @@ public final class VM {
 
     public static void IFNULL(Object param, String className, String methName,
                               int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IFNULL(className, methName, branchIndex, param);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3730,13 +4206,15 @@ public final class VM {
 
     public static void IFNONNULL(Object param, String className,
                                  String methName, int branchIndex) {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.IFNONNULL(className, methName, branchIndex, param);
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3744,13 +4222,15 @@ public final class VM {
     }
 
     public static void GOTO_W() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.GOTO_W();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3758,13 +4238,15 @@ public final class VM {
     }
 
     public static void JSR_W() {
-        if (ignoreCallback)
+        if (ignoreCallback) {
             return;
+        }
         ignoreCallback = true;
         vm.countCallback();
         try {
-            for (IVM listener : vm.listeners)
+            for (IVM listener : vm.listeners) {
                 listener.JSR_W();
+            }
         } catch (Throwable t) {
             handleException(t);
         }
@@ -3782,17 +4264,19 @@ public final class VM {
     /**
      * External callbacks.
      * Comes directly from instrumented user program.
-     * <p>
-     * TODO: Refactor all calls to use this function in the same way as INVOKEDYNAMIC
      *
-     * @param lambda
+     * <p>TODO: Refactor all calls to use this function in the same way as INVOKEDYNAMIC
+     *
+     * @param lambda the callback to interpret
      */
     private static void interpret(Consumer<IVM> lambda) {
         disableCallBacks();
         vm.countCallback();
 
         try {
-            for (IVM ivm : vm.listeners) lambda.accept(ivm);
+            for (IVM ivm : vm.listeners) {
+                lambda.accept(ivm);
+            }
         } catch (Throwable t) {
             t.printStackTrace();
         } finally {
