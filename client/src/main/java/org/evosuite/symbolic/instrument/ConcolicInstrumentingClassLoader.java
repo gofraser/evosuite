@@ -49,6 +49,11 @@ public class ConcolicInstrumentingClassLoader extends ClassLoader {
     private final ConcolicBytecodeInstrumentation instrumentation;
     private final Map<String, Class<?>> classes = new HashMap<>();
 
+    /**
+     * Constructor.
+     *
+     * @param instrumentation a {@link org.evosuite.symbolic.instrument.ConcolicBytecodeInstrumentation} object.
+     */
     public ConcolicInstrumentingClassLoader(ConcolicBytecodeInstrumentation instrumentation) {
         super(ConcolicInstrumentingClassLoader.class.getClassLoader());
 
@@ -118,9 +123,9 @@ public class ConcolicInstrumentingClassLoader extends ClassLoader {
 
     private InputStream findTargetResource(String name) throws FileNotFoundException {
         Collection<String> resources = ResourceList.findResourceInClassPath(name);
-        if (resources.isEmpty())
+        if (resources.isEmpty()) {
             throw new FileNotFoundException(name);
-        else {
+        } else {
             String fileName = resources.iterator().next();
             return new FileInputStream(fileName);
         }
@@ -130,7 +135,8 @@ public class ConcolicInstrumentingClassLoader extends ClassLoader {
     /**
      * Loads class named className, without initializing it.
      *
-     * @param className either as p/q/MyClass or as p.q.MyClass
+     * @param className either as p/q/MyClass or as p.q.MyClass.
+     * @return a {@link java.lang.Class} object.
      */
     public Class<?> getClassForName(String className) {
         notNull(className);
@@ -147,12 +153,13 @@ public class ConcolicInstrumentingClassLoader extends ClassLoader {
 
 
     /**
-     * Loads class whose type is aType, without initializing it.
+     * Loads class whose type is type, without initializing it.
      *
-     * @param aType
+     * @param type a {@link org.objectweb.asm.Type} object.
+     * @return a {@link java.lang.Class} object.
      */
-    public Class<?> getClassForType(Type aType) {
-        switch (aType.getSort()) {
+    public Class<?> getClassForType(Type type) {
+        switch (type.getSort()) {
             case Type.BOOLEAN:
                 return Boolean.TYPE;
             case Type.BYTE:
@@ -172,16 +179,16 @@ public class ConcolicInstrumentingClassLoader extends ClassLoader {
             case Type.VOID:
                 return Void.TYPE;
             case Type.ARRAY: {
-                Class<?> elementClass = this.getClassForType(aType.getElementType());
-                int dimensions = aType.getDimensions();
+                Class<?> elementClass = this.getClassForType(type.getElementType());
+                int dimensions = type.getDimensions();
                 int[] lenghts = new int[dimensions];
-                Class<?> array_class = Array.newInstance(elementClass, lenghts)
+                Class<?> arrayClass = Array.newInstance(elementClass, lenghts)
                         .getClass();
-                return array_class;
+                return arrayClass;
 
             }
             default:
-                return this.getClassForName(aType.getInternalName());
+                return this.getClassForName(type.getInternalName());
 
         }
     }

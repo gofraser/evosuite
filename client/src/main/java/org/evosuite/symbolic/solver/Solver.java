@@ -35,7 +35,7 @@ import java.lang.reflect.Array;
 import java.util.*;
 
 /**
- * Interface for SMT solvers
+ * Interface for SMT solvers.
  *
  * @author Gordon Fraser
  */
@@ -44,15 +44,29 @@ public abstract class Solver {
     private final boolean addMissingVariables;
     private final SolverCache solverCache;
 
+    /**
+     * Constructs a solver.
+     *
+     * @param addMissingVariables whether to add missing variables
+     */
     public Solver(boolean addMissingVariables) {
         this(addMissingVariables, SolverCache.getInstance());
     }
 
+    /**
+     * Constructs a solver with default settings.
+     */
     public Solver() {
         //TODO: Replace the getInstance methods with a dependency injection framework later on (e.g guice).
         this(false, SolverCache.getInstance());
     }
 
+    /**
+     * Constructs a solver with the provided settings and cache.
+     *
+     * @param addMissingVariables whether to add missing variables
+     * @param solverCache         the solver cache to use
+     */
     public Solver(boolean addMissingVariables, SolverCache solverCache) {
         this.addMissingVariables = addMissingVariables;
         this.solverCache = solverCache;
@@ -61,15 +75,19 @@ public abstract class Solver {
     static Logger logger = LoggerFactory.getLogger(Solver.class);
 
     /**
+     * Solves a collection of constraints.
+     *
      * @param constraints a constraint system to be solved
      * @return a non-null result that is SAT or UNSAT
      * @throws SolverTimeoutException    a timeout occurred while executing the solver
      * @throws IOException               an IOException occurred while executing the solver
      * @throws SolverParseException      the solver's result could not be parsed into a valid SolverResult
-     * @throws SolverEmptyQueryException the solver
+     * @throws SolverEmptyQueryException the solver query was empty
      * @throws SolverErrorException      the solver reported an error after its execution
      */
-    public SolverResult solve(Collection<Constraint<?>> constraints) throws SolverTimeoutException, SolverParseException, SolverEmptyQueryException, SolverErrorException, IOException {
+    public SolverResult solve(Collection<Constraint<?>> constraints)
+            throws SolverTimeoutException, SolverParseException, SolverEmptyQueryException,
+            SolverErrorException, IOException {
         if (solverCache.hasCachedResult(constraints)) {
             return solverCache.getCachedResult();
         }
@@ -89,16 +107,19 @@ public abstract class Solver {
     }
 
     /**
-     * @param constraints
-     * @return
-     * @throws SolverTimeoutException
-     * @throws IOException
-     * @throws SolverParseException
-     * @throws SolverEmptyQueryException
-     * @throws SolverErrorException
+     * Executes the actual solver implementation.
+     *
+     * @param constraints the collection of constraints
+     * @return the solver result
+     * @throws SolverTimeoutException    if a timeout occurs
+     * @throws IOException               if an I/O error occurs
+     * @throws SolverParseException      if the result cannot be parsed
+     * @throws SolverEmptyQueryException if the query is empty
+     * @throws SolverErrorException      if the solver reports an error
      */
-    public abstract SolverResult executeSolver(Collection<Constraint<?>> constraints) throws SolverTimeoutException,
-            IOException, SolverParseException, SolverEmptyQueryException, SolverErrorException;
+    public abstract SolverResult executeSolver(Collection<Constraint<?>> constraints)
+            throws SolverTimeoutException, IOException, SolverParseException,
+            SolverEmptyQueryException, SolverErrorException;
 
     protected boolean addMissingVariables() {
         return addMissingVariables;
@@ -107,18 +128,18 @@ public abstract class Solver {
     /**
      * Returns a mapping from variables to their current concrete values.
      *
-     * @param variables
+     * @param variables the set of variables
      * @return a mapping from variables to their current concrete values.
      */
     protected static Map<String, Object> getConcreteValues(Set<Variable<?>> variables) {
 
-        Map<String, Object> concrete_values = new HashMap<>();
+        Map<String, Object> concreteValues = new HashMap<>();
         for (Variable<?> v : variables) {
-            String var_name = v.getName();
-            Object concrete_value = v.getConcreteValue();
-            concrete_values.put(var_name, concrete_value);
+            String varName = v.getName();
+            Object concreteValue = v.getConcreteValue();
+            concreteValues.put(varName, concreteValue);
         }
-        return concrete_values;
+        return concreteValues;
     }
 
     /**
@@ -137,22 +158,21 @@ public abstract class Solver {
     }
 
     /**
-     * Restore all concrete values of the variables using the concrete_values
-     * mapping.
+     * Restore all concrete values of the variables using the concreteValues mapping.
      *
-     * @param variables
-     * @param concrete_values
+     * @param variables      the set of variables
+     * @param concreteValues the mapping of variable names to concrete values
      */
-    protected static void setConcreteValues(Set<Variable<?>> variables, Map<String, Object> concrete_values) {
+    protected static void setConcreteValues(Set<Variable<?>> variables, Map<String, Object> concreteValues) {
         for (Variable<?> v : variables) {
 
-            String var_name = v.getName();
+            String varName = v.getName();
 
-            if (!concrete_values.containsKey(var_name)) {
+            if (!concreteValues.containsKey(varName)) {
                 continue;
             }
 
-            Object concreteValue = concrete_values.get(var_name);
+            Object concreteValue = concreteValues.get(varName);
 
             if (v instanceof StringVariable) {
                 StringVariable sv = (StringVariable) v;
@@ -173,16 +193,21 @@ public abstract class Solver {
                                 arr.getConcreteValue(),
                                 concreteValue));
             } else if (v instanceof ClassReferenceVariable) {
-				ClassReferenceVariable rv = (ClassReferenceVariable) v;
-				rv.initializeReference(concreteValue);
-			}
-
-			else {
+                ClassReferenceVariable rv = (ClassReferenceVariable) v;
+                rv.initializeReference(concreteValue);
+            } else {
                 logger.warn("unknow variable type " + v.getClass().getName());
             }
         }
     }
 
+    /**
+     * Checks if the constraints are SAT using the provided solver result.
+     *
+     * @param constraints the collection of constraints
+     * @param satResult   the solver result
+     * @return true if the constraints are SAT, false otherwise
+     */
     protected static boolean checkSAT(Collection<Constraint<?>> constraints, SolverResult satResult) {
 
         if (satResult == null) {
@@ -223,10 +248,11 @@ public abstract class Solver {
      * Returns a new array with the longest length.
      * <p>
      * TODO: Rework this in the future, the way we talk about lengths is probably not the best.
+     * </p>
      *
-     * @param originalArray
-     * @param newArray
-     * @return
+     * @param originalArray the original array
+     * @param newArray      the new array
+     * @return the resized array
      */
     private static Object getResizedArray(Object originalArray, Object newArray) {
         int originalLength = Array.getLength(originalArray);

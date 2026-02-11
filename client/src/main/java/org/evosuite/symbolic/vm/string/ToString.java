@@ -25,30 +25,43 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for String.toString.
+ *
+ * @author galeotti
+ */
 public final class ToString extends SymbolicFunction {
 
     private static final String TO_STRING = "toString";
 
+    /**
+     * Constructs a ToString.
+     *
+     * @param env the symbolic environment
+     */
     public ToString(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING, TO_STRING, Types.TO_STR_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
 
         // object receiver
-        ReferenceConstant symb_str = this.getSymbReceiver();
-        String conc_str = (String) this.getConcReceiver();
+        ReferenceConstant symbStr = this.getSymbReceiver();
+        String concStr = (String) this.getConcReceiver();
 
         // return value
-        String conc_ret_val = (String) this.getConcRetVal();
-        ReferenceConstant symb_ret_val = (ReferenceConstant) this.getSymbRetVal();
+        String concRetVal = (String) this.getConcRetVal();
+        ReferenceConstant symbRetVal = (ReferenceConstant) this.getSymbRetVal();
 
-        StringValue string_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_str, symb_str, conc_str);
+        StringValue stringExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concStr, symbStr, concStr);
 
         env.heap.putField(Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                conc_ret_val, symb_ret_val, string_expr);
+                concRetVal, symbRetVal, stringExpr);
 
         return this.getSymbRetVal();
     }

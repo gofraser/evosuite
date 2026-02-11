@@ -34,51 +34,64 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 import java.util.ArrayList;
 import java.util.Collections;
 
+/**
+ * Symbolic function implementation for StringBuffer.setLength.
+ *
+ * @author galeotti
+ */
 public final class StringBuffer_SetLength extends SymbolicFunction {
 
     private static final String SET_LENGTH = "setLength";
 
+    /**
+     * Constructs a StringBuffer_SetLength.
+     *
+     * @param env the symbolic environment
+     */
     public StringBuffer_SetLength(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING_BUFFER, SET_LENGTH,
                 Types.INT_TO_VOID_DESCRIPTOR);
     }
 
-    private String pre_conc_value = null;
+    private String preConcValue = null;
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
-        ReferenceConstant symb_str_buffer = this.getSymbReceiver();
-        StringBuffer conc_str_buffer = (StringBuffer) this.getConcReceiver();
+        ReferenceConstant symbStrBuffer = this.getSymbReceiver();
+        StringBuffer concStrBuffer = (StringBuffer) this.getConcReceiver();
 
         IntegerValue newSymbLength = this.getSymbIntegerArgument(0);
         int newConcLength = this.getConcIntArgument(0);
 
         // retrieve symbolic value from heap
-        String conc_value = conc_str_buffer.toString();
-        StringValue symb_value = env.heap.getField(
+        String concValue = concStrBuffer.toString();
+        StringValue symbValue = env.heap.getField(
                 Types.JAVA_LANG_STRING_BUFFER,
-                SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                symb_str_buffer, pre_conc_value);
+                SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+                symbStrBuffer, preConcValue);
 
-        if (symb_value.containsSymbolicVariable()
+        if (symbValue.containsSymbolicVariable()
                 || newSymbLength.containsSymbolicVariable()) {
 
-            StringValue new_symb_value = null;
+            StringValue newSymbValue = null;
             if (!newSymbLength.containsSymbolicVariable() && newConcLength == 0) {
                 // StringBuffer contents equals to "" string
-                new_symb_value = new StringConstant("");
+                newSymbValue = new StringConstant("");
             } else {
                 // StringBuffer contents equ
-                new_symb_value = new StringMultipleExpression(symb_value,
+                newSymbValue = new StringMultipleExpression(symbValue,
                         Operator.SUBSTRING, new IntegerConstant(0),
                         new ArrayList<>(Collections
                                 .singletonList(newSymbLength)),
-                        conc_value);
+                        concValue);
             }
 
             env.heap.putField(Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, new_symb_value);
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+                    symbStrBuffer, newSymbValue);
 
         }
 
@@ -86,13 +99,16 @@ public final class StringBuffer_SetLength extends SymbolicFunction {
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public IntegerConstraint beforeExecuteFunction() {
-        StringBuffer conc_str_buffer = (StringBuffer) this.getConcReceiver();
-        if (conc_str_buffer != null) {
-            pre_conc_value = conc_str_buffer.toString();
+        StringBuffer concStrBuffer = (StringBuffer) this.getConcReceiver();
+        if (concStrBuffer != null) {
+            preConcValue = concStrBuffer.toString();
         } else {
-            pre_conc_value = null;
+            preConcValue = null;
         }
         return null;
     }

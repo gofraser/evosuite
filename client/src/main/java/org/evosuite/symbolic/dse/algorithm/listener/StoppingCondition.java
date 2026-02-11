@@ -30,7 +30,7 @@ import java.security.InvalidParameterException;
 public interface StoppingCondition extends SearchListener {
 
     /**
-     * How much of the budget have we used up
+     * How much of the budget have we used up.
      *
      * @return a long.
      */
@@ -38,30 +38,32 @@ public interface StoppingCondition extends SearchListener {
 
     /**
      * Get upper limit of resources.
-     * Please note that it must be bounded in [0, 100] in relation to the condition values.
-     * <p>
-     * Mainly used for toString()
      *
-     * @return limit
+     * <p>Please note that it must be bounded in [0, 100] in relation to the condition values.
+     *
+     * <p>Mainly used for toString().
+     *
+     * @return limit.
      */
     long getLimit();
 
     /**
-     * <p>isFinished</p>
+     * Check if the search is finished.
      *
-     * @return a boolean.
+     * @return true if finished.
      */
     boolean isFinished();
 
     /**
-     * Reset everything
+     * Reset everything.
      */
     void reset();
 
     /**
-     * Set new upper limit of resources
+     * Set new upper limit of resources.
      *
      * @param limit a long.
+     * @throws java.security.InvalidParameterException if limit is invalid.
      */
     void setLimit(long limit) throws InvalidParameterException;
 }

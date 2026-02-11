@@ -100,9 +100,7 @@ public final class StringMultipleComparison extends AbstractExpression<Long> imp
     }
 
     /**
-     * <p>
-     * getOther
-     * </p>
+     * Returns the other expressions.
      *
      * @return the other
      */

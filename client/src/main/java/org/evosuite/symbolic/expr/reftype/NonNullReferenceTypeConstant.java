@@ -28,6 +28,8 @@ import org.objectweb.asm.Type;
  */
 public abstract class NonNullReferenceTypeConstant extends ReferenceTypeConstant {
 
+    private static final long serialVersionUID = -1234567890123456789L;
+
     public NonNullReferenceTypeConstant(Type concreteClass, int referenceTypeId) {
         super(concreteClass, referenceTypeId);
     }

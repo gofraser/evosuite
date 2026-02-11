@@ -51,7 +51,7 @@ public final class StringBinaryComparison extends AbstractExpression<Long> imple
      *
      * @param left   a {@link org.evosuite.symbolic.expr.Expression} object.
      * @param op     a {@link org.evosuite.symbolic.expr.Operator} object.
-     * @param right2 a {@link org.evosuite.symbolic.expr.Expression} object.
+     * @param right a {@link org.evosuite.symbolic.expr.Expression} object.
      * @param con    a {@link java.lang.Long} object.
      */
     public StringBinaryComparison(Expression<String> left, Operator op,
@@ -95,9 +95,7 @@ public final class StringBinaryComparison extends AbstractExpression<Long> imple
     }
 
     /**
-     * <p>
-     * getRightOperand
-     * </p>
+     * Returns the right operand of the comparison.
      *
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
@@ -106,9 +104,7 @@ public final class StringBinaryComparison extends AbstractExpression<Long> imple
     }
 
     /**
-     * <p>
-     * getLeftOperand
-     * </p>
+     * Returns the left operand of the comparison.
      *
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
@@ -125,9 +121,7 @@ public final class StringBinaryComparison extends AbstractExpression<Long> imple
     }
 
     /**
-     * <p>
-     * getOperator
-     * </p>
+     * Returns the comparison operator.
      *
      * @return a {@link org.evosuite.symbolic.expr.Operator} object.
      */

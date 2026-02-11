@@ -34,6 +34,14 @@ import org.objectweb.asm.Type;
  */
 public abstract class SymbolicFunction {
 
+    /**
+     * Builds a new SymbolicFunction.
+     *
+     * @param env the symbolic environment
+     * @param owner the owner class
+     * @param name the method name
+     * @param desc the method descriptor
+     */
     public SymbolicFunction(SymbolicEnvironment env, String owner,
                             String name, String desc) {
         super();
@@ -41,8 +49,8 @@ public abstract class SymbolicFunction {
         this.owner = owner;
         this.name = name;
         this.desc = desc;
-        this.symb_args = new Object[Type.getArgumentTypes(desc).length];
-        this.conc_args = new Object[Type.getArgumentTypes(desc).length];
+        this.symbArgs = new Object[Type.getArgumentTypes(desc).length];
+        this.concArgs = new Object[Type.getArgumentTypes(desc).length];
     }
 
     /* non-assignable references */
@@ -50,112 +58,108 @@ public abstract class SymbolicFunction {
     private final String owner;
     private final String name;
     private final String desc;
-    private final Object[] symb_args;
-    private final Object[] conc_args;
+    private final Object[] symbArgs;
+    private final Object[] concArgs;
 
     /* assignable references */
-    private Object conc_receiver;
-    private ReferenceExpression symb_receiver;
+    private Object concReceiver;
+    private ReferenceExpression symbReceiver;
 
-    private Object conc_ret_val;
-    private Object symb_ret_val;
+    private Object concRetVal;
+    private Object symbRetVal;
 
-    final public String getOwner() {
+    public final String getOwner() {
         return owner;
     }
 
-    final public String getName() {
+    public final String getName() {
         return name;
     }
 
-    void setReceiver(Object conc_receiver, ReferenceExpression symb_receiver) {
-        this.conc_receiver = conc_receiver;
-        this.symb_receiver = symb_receiver;
+    void setReceiver(Object concReceiver, ReferenceExpression symbReceiver) {
+        this.concReceiver = concReceiver;
+        this.symbReceiver = symbReceiver;
     }
 
     // IntegerExpression parameters
-    void setParam(int i, int conc_arg, IntegerValue symb_arg) {
-        this.conc_args[i] = conc_arg;
-        this.symb_args[i] = symb_arg;
+    void setParam(int i, int concArg, IntegerValue symbArg) {
+        this.concArgs[i] = concArg;
+        this.symbArgs[i] = symbArg;
     }
 
-    void setParam(int i, char conc_arg, IntegerValue symb_arg) {
-        this.conc_args[i] = conc_arg;
-        this.symb_args[i] = symb_arg;
+    void setParam(int i, char concArg, IntegerValue symbArg) {
+        this.concArgs[i] = concArg;
+        this.symbArgs[i] = symbArg;
     }
 
-    void setParam(int i, byte conc_arg, IntegerValue symb_arg) {
-        this.conc_args[i] = conc_arg;
-        this.symb_args[i] = symb_arg;
+    void setParam(int i, byte concArg, IntegerValue symbArg) {
+        this.concArgs[i] = concArg;
+        this.symbArgs[i] = symbArg;
     }
 
-    void setParam(int i, short conc_arg, IntegerValue symb_arg) {
-        this.conc_args[i] = conc_arg;
-        this.symb_args[i] = symb_arg;
+    void setParam(int i, short concArg, IntegerValue symbArg) {
+        this.concArgs[i] = concArg;
+        this.symbArgs[i] = symbArg;
     }
 
-    void setParam(int i, boolean conc_arg, IntegerValue symb_arg) {
-        this.conc_args[i] = conc_arg;
-        this.symb_args[i] = symb_arg;
+    void setParam(int i, boolean concArg, IntegerValue symbArg) {
+        this.concArgs[i] = concArg;
+        this.symbArgs[i] = symbArg;
     }
 
-    void setParam(int i, long conc_arg, IntegerValue symb_arg) {
-        this.conc_args[i] = conc_arg;
-        this.symb_args[i] = symb_arg;
+    void setParam(int i, long concArg, IntegerValue symbArg) {
+        this.concArgs[i] = concArg;
+        this.symbArgs[i] = symbArg;
     }
 
     // RealExpression params
 
-    void setParam(int i, float conc_arg, RealValue symb_arg) {
-        this.conc_args[i] = conc_arg;
-        this.symb_args[i] = symb_arg;
+    void setParam(int i, float concArg, RealValue symbArg) {
+        this.concArgs[i] = concArg;
+        this.symbArgs[i] = symbArg;
     }
 
-    void setParam(int i, double conc_arg, RealValue symb_arg) {
-        this.conc_args[i] = conc_arg;
-        this.symb_args[i] = symb_arg;
+    void setParam(int i, double concArg, RealValue symbArg) {
+        this.concArgs[i] = concArg;
+        this.symbArgs[i] = symbArg;
     }
 
     // Reference params
 
-    void setParam(int i, Object conc_arg, ReferenceExpression symb_arg) {
-        this.conc_args[i] = conc_arg;
-        this.symb_args[i] = symb_arg;
+    void setParam(int i, Object concArg, ReferenceExpression symbArg) {
+        this.concArgs[i] = concArg;
+        this.symbArgs[i] = symbArg;
     }
 
-    void setReturnValue(int conc_ret_val, IntegerValue symb_ret_val) {
-        this.conc_ret_val = conc_ret_val;
-        this.symb_ret_val = symb_ret_val;
+    void setReturnValue(int concRetVal, IntegerValue symbRetVal) {
+        this.concRetVal = concRetVal;
+        this.symbRetVal = symbRetVal;
     }
 
-    void setReturnValue(boolean conc_ret_val, IntegerValue symb_ret_val) {
-        this.conc_ret_val = conc_ret_val;
-        this.symb_ret_val = symb_ret_val;
+    void setReturnValue(boolean concRetVal, IntegerValue symbRetVal) {
+        this.concRetVal = concRetVal;
+        this.symbRetVal = symbRetVal;
     }
 
-    void setReturnValue(long conc_ret_val, IntegerValue symb_ret_val) {
-        this.conc_ret_val = conc_ret_val;
-        this.symb_ret_val = symb_ret_val;
+    void setReturnValue(long concRetVal, IntegerValue symbRetVal) {
+        this.concRetVal = concRetVal;
+        this.symbRetVal = symbRetVal;
     }
 
-    void setReturnValue(float conc_ret_val, RealValue symb_ret_val) {
-        this.conc_ret_val = conc_ret_val;
-        this.symb_ret_val = symb_ret_val;
+    void setReturnValue(float concRetVal, RealValue symbRetVal) {
+        this.concRetVal = concRetVal;
+        this.symbRetVal = symbRetVal;
     }
 
-    void setReturnValue(double conc_ret_val, RealValue symb_ret_val) {
-        this.conc_ret_val = conc_ret_val;
-        this.symb_ret_val = symb_ret_val;
+    void setReturnValue(double concRetVal, RealValue symbRetVal) {
+        this.concRetVal = concRetVal;
+        this.symbRetVal = symbRetVal;
     }
 
-    void setReturnValue(Object conc_ret_val, ReferenceExpression symb_ret_val) {
-        this.conc_ret_val = conc_ret_val;
-        this.symb_ret_val = symb_ret_val;
+    void setReturnValue(Object concRetVal, ReferenceExpression symbRetVal) {
+        this.concRetVal = concRetVal;
+        this.symbRetVal = symbRetVal;
     }
-
-    /**
-     * Helper methos
-     */
 
     /**
      * For non-static method invocations (not constructors) returns the symbolic
@@ -163,8 +167,8 @@ public abstract class SymbolicFunction {
      *
      * @return a NonNullReference with the symbolic object receiver.
      */
-    final protected ReferenceConstant getSymbReceiver() {
-        return (ReferenceConstant) symb_receiver;
+    protected final ReferenceConstant getSymbReceiver() {
+        return (ReferenceConstant) symbReceiver;
     }
 
     /**
@@ -173,8 +177,8 @@ public abstract class SymbolicFunction {
      *
      * @return a Object reference (non-null) with the concrete method receiver.
      */
-    final protected Object getConcReceiver() {
-        return this.conc_receiver;
+    protected final Object getConcReceiver() {
+        return this.concReceiver;
     }
 
     /**
@@ -184,8 +188,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a concrete Object reference to the concrete parameter.
      */
-    final protected int getConcIntArgument(int i) {
-        Integer int0 = (Integer) this.conc_args[i];
+    protected final int getConcIntArgument(int i) {
+        Integer int0 = (Integer) this.concArgs[i];
         return int0;
     }
 
@@ -195,8 +199,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a concrete short value.
      */
-    final protected short getConcShortArgument(int i) {
-        Short short0 = (Short) this.conc_args[i];
+    protected final short getConcShortArgument(int i) {
+        Short short0 = (Short) this.concArgs[i];
         return short0;
     }
 
@@ -206,8 +210,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a concrete char value.
      */
-    final protected char getConcCharArgument(int i) {
-        Character char0 = (Character) this.conc_args[i];
+    protected final char getConcCharArgument(int i) {
+        Character char0 = (Character) this.concArgs[i];
         return char0;
     }
 
@@ -218,8 +222,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a concrete double value.
      */
-    final protected double getConcDoubleArgument(int i) {
-        Double double0 = (Double) this.conc_args[i];
+    protected final double getConcDoubleArgument(int i) {
+        Double double0 = (Double) this.concArgs[i];
         return double0;
     }
 
@@ -229,8 +233,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a concrete float value.
      */
-    final protected float getConcFloatArgument(int i) {
-        Float float0 = (Float) this.conc_args[i];
+    protected final float getConcFloatArgument(int i) {
+        Float float0 = (Float) this.concArgs[i];
         return float0;
     }
 
@@ -241,8 +245,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a concrete boolean value.
      */
-    final protected boolean getConcBooleanArgument(int i) {
-        Boolean boolean0 = (Boolean) this.conc_args[i];
+    protected final boolean getConcBooleanArgument(int i) {
+        Boolean boolean0 = (Boolean) this.concArgs[i];
         return boolean0;
     }
 
@@ -252,8 +256,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a concrete byte value.
      */
-    final protected byte getConcByteArgument(int i) {
-        Byte byte0 = (Byte) this.conc_args[i];
+    protected final byte getConcByteArgument(int i) {
+        Byte byte0 = (Byte) this.concArgs[i];
         return byte0;
     }
 
@@ -263,8 +267,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a concrete long value.
      */
-    final protected long getConcLongArgument(int i) {
-        Long long0 = (Long) this.conc_args[i];
+    protected final long getConcLongArgument(int i) {
+        Long long0 = (Long) this.concArgs[i];
         return long0;
     }
 
@@ -275,8 +279,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a concrete object reference.
      */
-    final protected Object getConcArgument(int i) {
-        Object arg = this.conc_args[i];
+    protected final Object getConcArgument(int i) {
+        Object arg = this.concArgs[i];
         return arg;
     }
 
@@ -287,8 +291,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a symbolic integer value.
      */
-    final protected IntegerValue getSymbIntegerArgument(int i) {
-        IntegerValue intExpr = (IntegerValue) this.symb_args[i];
+    protected final IntegerValue getSymbIntegerArgument(int i) {
+        IntegerValue intExpr = (IntegerValue) this.symbArgs[i];
         return intExpr;
     }
 
@@ -299,8 +303,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a symbolic real value.
      */
-    final protected RealValue getSymbRealArgument(int i) {
-        RealValue realExpr = (RealValue) this.symb_args[i];
+    protected final RealValue getSymbRealArgument(int i) {
+        RealValue realExpr = (RealValue) this.symbArgs[i];
         return realExpr;
     }
 
@@ -311,8 +315,8 @@ public abstract class SymbolicFunction {
      * @param i the parameter index.
      * @return a symbolic reference.
      */
-    final protected ReferenceExpression getSymbArgument(int i) {
-        ReferenceExpression ref = (ReferenceExpression) this.symb_args[i];
+    protected final ReferenceExpression getSymbArgument(int i) {
+        ReferenceExpression ref = (ReferenceExpression) this.symbArgs[i];
         return ref;
     }
 
@@ -322,8 +326,8 @@ public abstract class SymbolicFunction {
      *
      * @return a symbolic reference of the return value.
      */
-    final protected ReferenceExpression getSymbRetVal() {
-        return (ReferenceExpression) this.symb_ret_val;
+    protected final ReferenceExpression getSymbRetVal() {
+        return (ReferenceExpression) this.symbRetVal;
     }
 
     /**
@@ -332,8 +336,8 @@ public abstract class SymbolicFunction {
      *
      * @return a symbolic integer value of the return value.
      */
-    final protected IntegerValue getSymbIntegerRetVal() {
-        IntegerValue intExpr = (IntegerValue) this.symb_ret_val;
+    protected final IntegerValue getSymbIntegerRetVal() {
+        IntegerValue intExpr = (IntegerValue) this.symbRetVal;
         return intExpr;
     }
 
@@ -343,8 +347,8 @@ public abstract class SymbolicFunction {
      *
      * @return a symbolic real return value.
      */
-    final protected RealValue getSymbRealRetVal() {
-        RealValue realExpr = (RealValue) this.symb_ret_val;
+    protected final RealValue getSymbRealRetVal() {
+        RealValue realExpr = (RealValue) this.symbRetVal;
         return realExpr;
     }
 
@@ -355,125 +359,126 @@ public abstract class SymbolicFunction {
      * <code>getSymbRetVal</code>, <code>getSymbRealRetVal</code> and
      * <code>getSymbIntegerRetVal</code> methods.
      *
-     * @return object!=null && object instanceof Reference or object instanceof
-     * IntegerExpression or object instanceof RealExpression
+     * @return object!=null &amp;&amp; object instanceof Reference or object instanceof
+     *         IntegerExpression or object instanceof RealExpression
      */
     public abstract Object executeFunction();
 
     /**
      * Returns the concrete return value of the concrete method execution. The
-     * concrete return value should be an integer value
+     * concrete return value should be an integer value.
      *
      * @return an integer value with the concrete method execution.
      */
-    final protected int getConcIntRetVal() {
-        Integer int0 = (Integer) this.conc_ret_val;
+    protected final int getConcIntRetVal() {
+        Integer int0 = (Integer) this.concRetVal;
         return int0;
     }
 
     /**
      * Returns the concrete return value of the concrete method execution. The
-     * concrete return value should be a short value
+     * concrete return value should be a short value.
      *
      * @return a short value with the concrete method execution.
      */
-    final protected short getConcShortRetVal() {
-        Integer integer0 = (Integer) this.conc_ret_val;
+    protected final short getConcShortRetVal() {
+        Integer integer0 = (Integer) this.concRetVal;
         return integer0.shortValue();
     }
 
     /**
      * Returns the concrete return value of the concrete method execution. The
-     * concrete return value should be a char value
+     * concrete return value should be a char value.
      *
      * @return a char value with the concrete method execution.
      */
-    final protected char getConcCharRetVal() {
-        Integer char0 = (Integer) this.conc_ret_val;
+    protected final char getConcCharRetVal() {
+        Integer char0 = (Integer) this.concRetVal;
         return (char) char0.intValue();
     }
 
     /**
      * Returns the concrete return value of the concrete method execution. The
-     * concrete return value should be a double value
+     * concrete return value should be a double value.
      *
      * @return a double value with the concrete method execution.
      */
-    final protected double getConcDoubleRetVal() {
-        Double double0 = (Double) this.conc_ret_val;
+    protected final double getConcDoubleRetVal() {
+        Double double0 = (Double) this.concRetVal;
         return double0;
     }
 
     /**
      * Returns the concrete return value of the concrete method execution. The
-     * concrete return value should be a float value
+     * concrete return value should be a float value.
      *
      * @return a float value with the concrete method execution.
      */
-    final protected float getConcFloatRetVal() {
-        Float float0 = (Float) this.conc_ret_val;
+    protected final float getConcFloatRetVal() {
+        Float float0 = (Float) this.concRetVal;
         return float0;
     }
 
     /**
      * Returns the concrete return value of the concrete method execution. The
-     * concrete return value should be a boolean value
+     * concrete return value should be a boolean value.
      *
      * @return a boolean value with the concrete method execution.
      */
-    final protected boolean getConcBooleanRetVal() {
-        Boolean boolean0 = (Boolean) this.conc_ret_val;
+    protected final boolean getConcBooleanRetVal() {
+        Boolean boolean0 = (Boolean) this.concRetVal;
         return boolean0;
     }
 
     /**
      * Returns the concrete return value of the concrete method execution. The
-     * concrete return value should be a byte value
+     * concrete return value should be a byte value.
      *
      * @return a byte value with the concrete method execution.
      */
-    final protected byte getConcByteRetVal() {
-        Integer integer0 = (Integer) this.conc_ret_val;
+    protected final byte getConcByteRetVal() {
+        Integer integer0 = (Integer) this.concRetVal;
         return integer0.byteValue();
     }
 
     /**
      * Returns the concrete return value of the concrete method execution. The
-     * concrete return value should be a long value
+     * concrete return value should be a long value.
      *
      * @return a long value with the concrete method execution.
      */
-    final protected long getConcLongRetVal() {
-        Long long0 = (Long) this.conc_ret_val;
+    protected final long getConcLongRetVal() {
+        Long long0 = (Long) this.concRetVal;
         return long0;
     }
 
     /**
      * Returns the concrete return value of the concrete method execution. The
-     * concrete return value should be an Object reference
+     * concrete return value should be an Object reference.
      *
      * @return an Object reference with the concrete method execution.
      */
-    final protected Object getConcRetVal() {
-        Object arg = this.conc_ret_val;
+    protected final Object getConcRetVal() {
+        Object arg = this.concRetVal;
         return arg;
     }
 
-    final public String getDesc() {
+    public final String getDesc() {
         return desc;
     }
 
     /**
      * This callback-method is invoked by the VM before the actual execution of
      * the method.
-     * <p>
-     * This is the very last chance of saving concrete values before the
-     * execution of the concrete method.
-     * <p>
-     * This could return an IntegerConstraint (such as String.isInteger)
+     *
+     * <p>This is the very last chance of saving concrete values before the
+     * execution of the concrete method.</p>
+     *
+     * <p>This could return an IntegerConstraint (such as String.isInteger)</p>
+     *
+     * @return an IntegerConstraint if applicable, null otherwise
      */
     public IntegerConstraint beforeExecuteFunction() {
         return null;
     }
-
 }

@@ -47,8 +47,6 @@ public final class StringVariable extends AbstractExpression<String>
      *
      * @param name     a {@link java.lang.String} object.
      * @param concVal  a {@link java.lang.String} object.
-     * @param minValue a {@link java.lang.String} object.
-     * @param maxValue a {@link java.lang.String} object.
      */
     public StringVariable(String name, String concVal) {
         super(concVal, 1, true);
@@ -57,9 +55,7 @@ public final class StringVariable extends AbstractExpression<String>
     }
 
     /**
-     * <p>
-     * setConcreteValue
-     * </p>
+     * Sets the concrete value of this variable.
      *
      * @param concValue the concValue to set
      */
@@ -80,9 +76,7 @@ public final class StringVariable extends AbstractExpression<String>
     }
 
     /**
-     * <p>
-     * Setter for the field <code>maxValue</code>.
-     * </p>
+     * Sets the maximum value of this variable.
      *
      * @param maxValue the maxValue to set
      */

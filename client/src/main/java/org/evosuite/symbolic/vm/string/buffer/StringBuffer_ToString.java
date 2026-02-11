@@ -25,35 +25,48 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for StringBuffer.toString.
+ *
+ * @author galeotti
+ */
 public final class StringBuffer_ToString extends SymbolicFunction {
 
     private static final String TO_STRING = "toString";
 
+    /**
+     * Constructs a StringBuffer_ToString.
+     *
+     * @param env the symbolic environment
+     */
     public StringBuffer_ToString(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING_BUFFER, TO_STRING,
                 Types.TO_STR_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
-        ReferenceConstant symb_str_buffer = this.getSymbReceiver();
-        StringBuffer conc_str_buffer = (StringBuffer) this.getConcReceiver();
+        ReferenceConstant symbStrBuffer = this.getSymbReceiver();
+        StringBuffer concStrBuffer = (StringBuffer) this.getConcReceiver();
 
         // retrieve symbolic value from heap
-        String conc_value = conc_str_buffer.toString();
-        StringValue symb_value = env.heap.getField(
+        String concValue = concStrBuffer.toString();
+        StringValue symbValue = env.heap.getField(
                 Types.JAVA_LANG_STRING_BUFFER,
-                SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                symb_str_buffer, conc_value);
+                SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+                symbStrBuffer, concValue);
 
-        String conc_ret_val = (String) this.getConcRetVal();
-        ReferenceConstant symb_ret_val = (ReferenceConstant) this.getSymbRetVal();
+        String concRetVal = (String) this.getConcRetVal();
+        ReferenceConstant symbRetVal = (ReferenceConstant) this.getSymbRetVal();
 
         env.heap.putField(Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                conc_ret_val, symb_ret_val, symb_value);
+                concRetVal, symbRetVal, symbValue);
 
         // return symbolic value
-        return symb_ret_val;
+        return symbRetVal;
     }
 
 }

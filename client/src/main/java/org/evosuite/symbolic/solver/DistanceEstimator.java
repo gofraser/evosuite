@@ -30,9 +30,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Collection;
 
 /**
- * <p>
- * Abstract DistanceEstimator class.
- * </p>
+ * Estimator for the distance of a collection of constraints.
  *
  * @author krusev
  */
@@ -48,9 +46,7 @@ public abstract class DistanceEstimator {
     }
 
     /**
-     * <p>
-     * getDistance
-     * </p>
+     * Returns the normalized distance for a collection of constraints.
      *
      * @param constraints a {@link java.util.Collection} object.
      * @return normalized distance in [0,1]
@@ -63,34 +59,34 @@ public abstract class DistanceEstimator {
             for (Constraint<?> c : constraints) {
 
                 if (c instanceof StringConstraint) {
-                    StringConstraint string_constraint = (StringConstraint) c;
+                    StringConstraint stringConstraint = (StringConstraint) c;
 
                     try {
-                        double strD = (double) string_constraint.accept(
+                        double strD = (double) stringConstraint.accept(
                                 distanceCalculator, null);
                         result += normalize(strD);
-                        log.debug("S: " + string_constraint + " strDist "
+                        log.debug("S: " + stringConstraint + " strDist "
                                 + strD);
                     } catch (Throwable t) {
-                        log.debug("S: " + string_constraint + " strDist " + t);
+                        log.debug("S: " + stringConstraint + " strDist " + t);
                         result += 1.0;
                     }
 
                 } else if (c instanceof IntegerConstraint) {
 
-                    IntegerConstraint integer_constraint = (IntegerConstraint) c;
-                    long intD = (long) integer_constraint.accept(
+                    IntegerConstraint integerConstraint = (IntegerConstraint) c;
+                    long intD = (long) integerConstraint.accept(
                             distanceCalculator, null);
                     result += normalize(intD);
-                    log.debug("C: " + integer_constraint + " intDist " + intD);
+                    log.debug("C: " + integerConstraint + " intDist " + intD);
 
                 } else if (c instanceof RealConstraint) {
-                    RealConstraint real_constraint = (RealConstraint) c;
-                    double realD = (double) real_constraint.accept(
+                    RealConstraint realConstraint = (RealConstraint) c;
+                    double realD = (double) realConstraint.accept(
                             distanceCalculator, null);
 
                     result += normalize(realD);
-                    log.debug("C: " + real_constraint + " realDist " + realD);
+                    log.debug("C: " + realConstraint + " realDist " + realD);
 
                 } else {
                     throw new IllegalArgumentException(

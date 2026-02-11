@@ -17,11 +17,21 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.evosuite.symbolic.dse.algorithm.strategies.implementations.CachingStrategies;
+package org.evosuite.symbolic.dse.algorithm.strategies.implementations.keepsearching;
+
+import org.evosuite.symbolic.dse.DSETestCase;
+import org.evosuite.symbolic.dse.algorithm.strategies.KeepSearchingCriteriaStrategy;
+
+import java.util.Queue;
 
 /**
- * Enum for checking which case of skipping solving we are in.
+ * Strategy for keep searching in case there's still test cases left to explore.
  *
- * @author Ignacio Lebrero
+ * @author ignacio lebrero
  */
-public enum CacheQueryStatus {HIT_UNSAT, HIT_SAT, MISS}
+public class TestCasesPendingStrategy implements KeepSearchingCriteriaStrategy {
+    @Override
+    public boolean shouldKeepSearching(Queue<DSETestCase> generatedTests) {
+        return generatedTests.size() > 0;
+    }
+}

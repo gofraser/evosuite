@@ -54,6 +54,8 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
+ * Symbolic virtual machine for functions.
+ *
  * @author galeotti
  */
 public final class SymbolicFunctionVM extends AbstractVM {
@@ -91,6 +93,12 @@ public final class SymbolicFunctionVM extends AbstractVM {
     private final SymbolicEnvironment env;
     private final PathConditionCollector pc;
 
+    /**
+     * Builds a new SymbolicFunctionVM.
+     *
+     * @param env the symbolic environment
+     * @param pc the path condition collector
+     */
     public SymbolicFunctionVM(SymbolicEnvironment env, PathConditionCollector pc) {
         this.env = env;
         this.pc = pc;
@@ -98,7 +106,7 @@ public final class SymbolicFunctionVM extends AbstractVM {
     }
 
     /**
-     * Fills the symbolic functions table
+     * Fills the symbolic functions table.
      */
     private void fillFunctionsTable() {
         fillLong();
@@ -138,12 +146,12 @@ public final class SymbolicFunctionVM extends AbstractVM {
     }
 
     @Override
-    public void INVOKEVIRTUAL(Object conc_receiver, String owner, String name,
+    public void INVOKEVIRTUAL(Object concReceiver, String owner, String name,
                               String desc) {
         functionUnderExecution = getFunction(owner, name, desc);
         if (functionUnderExecution != null) {
-            ReferenceExpression symb_receiver = getReceiverFromStack();
-            functionUnderExecution.setReceiver(conc_receiver, symb_receiver);
+            ReferenceExpression symbReceiver = getReceiverFromStack();
+            functionUnderExecution.setReceiver(concReceiver, symbReceiver);
             if (Type.getArgumentTypes(desc).length == 0) {
                 callBeforeExecution(functionUnderExecution);
             }
@@ -198,7 +206,7 @@ public final class SymbolicFunctionVM extends AbstractVM {
     }
 
     @Override
-    public void CALL_RESULT(int conc_ret_val, String owner, String name,
+    public void CALL_RESULT(int concRetVal, String owner, String name,
                             String desc) {
 
         if (functionUnderExecution != null) {
@@ -211,18 +219,18 @@ public final class SymbolicFunctionVM extends AbstractVM {
         }
 
         if (functionUnderExecution != null) {
-            IntegerValue symb_ret_val = this.env.topFrame().operandStack
+            IntegerValue symbRetVal = this.env.topFrame().operandStack
                     .peekBv32();
-            functionUnderExecution.setReturnValue(conc_ret_val, symb_ret_val);
-            IntegerValue new_symb_ret_val = (IntegerValue) functionUnderExecution
+            functionUnderExecution.setReturnValue(concRetVal, symbRetVal);
+            IntegerValue newSymbRetVal = (IntegerValue) functionUnderExecution
                     .executeFunction();
-            this.replaceTopBv32(new_symb_ret_val);
+            this.replaceTopBv32(newSymbRetVal);
         }
         functionUnderExecution = null;
     }
 
     @Override
-    public void CALL_RESULT(Object conc_ret_val, String owner, String name,
+    public void CALL_RESULT(Object concRetVal, String owner, String name,
                             String desc) {
 
         if (functionUnderExecution != null) {
@@ -235,11 +243,11 @@ public final class SymbolicFunctionVM extends AbstractVM {
         }
 
         if (functionUnderExecution != null) {
-            ReferenceExpression symb_ret_val = this.env.topFrame().operandStack.peekRef();
-            functionUnderExecution.setReturnValue(conc_ret_val, symb_ret_val);
-            ReferenceExpression new_symb_ret_val = (ReferenceExpression) functionUnderExecution
+            ReferenceExpression symbRetVal = this.env.topFrame().operandStack.peekRef();
+            functionUnderExecution.setReturnValue(concRetVal, symbRetVal);
+            ReferenceExpression newSymbRetVal = (ReferenceExpression) functionUnderExecution
                     .executeFunction();
-            this.replaceTopRef(new_symb_ret_val);
+            this.replaceTopRef(newSymbRetVal);
         }
         functionUnderExecution = null;
     }
@@ -267,7 +275,7 @@ public final class SymbolicFunctionVM extends AbstractVM {
     }
 
     @Override
-    public void CALL_RESULT(boolean conc_ret_val, String owner, String name,
+    public void CALL_RESULT(boolean concRetVal, String owner, String name,
                             String desc) {
         if (functionUnderExecution != null) {
             if (!functionUnderExecution.getOwner().equals(owner)
@@ -280,18 +288,18 @@ public final class SymbolicFunctionVM extends AbstractVM {
 
         if (functionUnderExecution != null) {
 
-            IntegerValue symb_ret_val = this.env.topFrame().operandStack
+            IntegerValue symbRetVal = this.env.topFrame().operandStack
                     .peekBv32();
-            functionUnderExecution.setReturnValue(conc_ret_val, symb_ret_val);
-            IntegerValue new_symb_ret_val = (IntegerValue) functionUnderExecution
+            functionUnderExecution.setReturnValue(concRetVal, symbRetVal);
+            IntegerValue newSymbRetVal = (IntegerValue) functionUnderExecution
                     .executeFunction();
-            this.replaceTopBv32(new_symb_ret_val);
+            this.replaceTopBv32(newSymbRetVal);
         }
         functionUnderExecution = null;
     }
 
     @Override
-    public void CALL_RESULT(long conc_ret_val, String owner, String name,
+    public void CALL_RESULT(long concRetVal, String owner, String name,
                             String desc) {
 
         if (functionUnderExecution != null) {
@@ -304,18 +312,18 @@ public final class SymbolicFunctionVM extends AbstractVM {
         }
 
         if (functionUnderExecution != null) {
-            IntegerValue symb_ret_val = this.env.topFrame().operandStack
+            IntegerValue symbRetVal = this.env.topFrame().operandStack
                     .peekBv64();
-            functionUnderExecution.setReturnValue(conc_ret_val, symb_ret_val);
-            IntegerValue new_symb_ret_val = (IntegerValue) functionUnderExecution
+            functionUnderExecution.setReturnValue(concRetVal, symbRetVal);
+            IntegerValue newSymbRetVal = (IntegerValue) functionUnderExecution
                     .executeFunction();
-            this.replaceTopBv64(new_symb_ret_val);
+            this.replaceTopBv64(newSymbRetVal);
         }
         functionUnderExecution = null;
     }
 
     @Override
-    public void CALL_RESULT(double conc_ret_val, String owner, String name,
+    public void CALL_RESULT(double concRetVal, String owner, String name,
                             String desc) {
 
         if (functionUnderExecution != null) {
@@ -328,18 +336,18 @@ public final class SymbolicFunctionVM extends AbstractVM {
         }
 
         if (functionUnderExecution != null) {
-            RealValue symb_ret_val = this.env.topFrame().operandStack
+            RealValue symbRetVal = this.env.topFrame().operandStack
                     .peekFp64();
-            functionUnderExecution.setReturnValue(conc_ret_val, symb_ret_val);
-            RealValue new_symb_ret_val = (RealValue) functionUnderExecution
+            functionUnderExecution.setReturnValue(concRetVal, symbRetVal);
+            RealValue newSymbRetVal = (RealValue) functionUnderExecution
                     .executeFunction();
-            this.replaceTopFp64(new_symb_ret_val);
+            this.replaceTopFp64(newSymbRetVal);
         }
         functionUnderExecution = null;
     }
 
     @Override
-    public void CALL_RESULT(float conc_ret_val, String owner, String name,
+    public void CALL_RESULT(float concRetVal, String owner, String name,
                             String desc) {
 
         if (functionUnderExecution != null) {
@@ -352,12 +360,12 @@ public final class SymbolicFunctionVM extends AbstractVM {
         }
 
         if (functionUnderExecution != null) {
-            RealValue symb_ret_val = this.env.topFrame().operandStack
+            RealValue symbRetVal = this.env.topFrame().operandStack
                     .peekFp32();
-            functionUnderExecution.setReturnValue(conc_ret_val, symb_ret_val);
-            RealValue new_symb_ret_val = (RealValue) functionUnderExecution
+            functionUnderExecution.setReturnValue(concRetVal, symbRetVal);
+            RealValue newSymbRetVal = (RealValue) functionUnderExecution
                     .executeFunction();
-            this.replaceTopFp32(new_symb_ret_val);
+            this.replaceTopFp32(newSymbRetVal);
         }
         functionUnderExecution = null;
     }
@@ -366,15 +374,20 @@ public final class SymbolicFunctionVM extends AbstractVM {
     public void INVOKESPECIAL(String owner, String name, String desc) {
         functionUnderExecution = getFunction(owner, name, desc);
         if (functionUnderExecution != null) {
-            ReferenceExpression symb_receiver = getReceiverFromStack();
+            ReferenceExpression symbReceiver = getReceiverFromStack();
             functionUnderExecution.setReceiver(
-                    null /* receiver not yet ready */, symb_receiver);
+                    null /* receiver not yet ready */, symbReceiver);
             if (Type.getArgumentTypes(desc).length == 0) {
                 callBeforeExecution(functionUnderExecution);
             }
         }
     }
 
+    /**
+     * Helper for creating a new symbolic integer expression from an existing one.
+     *
+     * @param myFunctionUnderExecution the symbolic function under execution
+     */
     private void callBeforeExecution(SymbolicFunction myFunctionUnderExecution) {
         IntegerConstraint constraint = myFunctionUnderExecution
                 .beforeExecuteFunction();
@@ -384,12 +397,12 @@ public final class SymbolicFunctionVM extends AbstractVM {
     }
 
     @Override
-    public void INVOKESPECIAL(Object conc_receiver, String owner, String name,
+    public void INVOKESPECIAL(Object concReceiver, String owner, String name,
                               String desc) {
         functionUnderExecution = getFunction(owner, name, desc);
         if (functionUnderExecution != null) {
-            ReferenceExpression symb_receiver = getReceiverFromStack();
-            functionUnderExecution.setReceiver(conc_receiver, symb_receiver);
+            ReferenceExpression symbReceiver = getReceiverFromStack();
+            functionUnderExecution.setReceiver(concReceiver, symbReceiver);
             if (Type.getArgumentTypes(desc).length == 0) {
                 callBeforeExecution(functionUnderExecution);
             }
@@ -400,12 +413,12 @@ public final class SymbolicFunctionVM extends AbstractVM {
     private SymbolicFunction functionUnderExecution;
 
     @Override
-    public void INVOKEINTERFACE(Object conc_receiver, String owner,
+    public void INVOKEINTERFACE(Object concReceiver, String owner,
                                 String name, String desc) {
         functionUnderExecution = getFunction(owner, name, desc);
         if (functionUnderExecution != null) {
-            ReferenceExpression symb_receiver = getReceiverFromStack();
-            functionUnderExecution.setReceiver(conc_receiver, symb_receiver);
+            ReferenceExpression symbReceiver = getReceiverFromStack();
+            functionUnderExecution.setReceiver(concReceiver, symbReceiver);
             if (Type.getArgumentTypes(functionUnderExecution.getDesc()).length == 0) {
                 callBeforeExecution(functionUnderExecution);
             }
@@ -414,10 +427,10 @@ public final class SymbolicFunctionVM extends AbstractVM {
     }
 
     @Override
-    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, int conc_arg) {
+    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, int concArg) {
         if (functionUnderExecution != null) {
-            IntegerValue symb_arg = getIntegerExprFromStack(nr);
-            functionUnderExecution.setParam(nr, conc_arg, symb_arg);
+            IntegerValue symbArg = getIntegerExprFromStack(nr);
+            functionUnderExecution.setParam(nr, concArg, symbArg);
             beforeExecuteFunction(nr);
 
         }
@@ -425,77 +438,66 @@ public final class SymbolicFunctionVM extends AbstractVM {
 
     @Override
     public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex,
-                                   boolean conc_arg) {
+                                   boolean concArg) {
         if (functionUnderExecution != null) {
-            IntegerValue symb_arg = getIntegerExprFromStack(nr);
-            functionUnderExecution.setParam(nr, conc_arg, symb_arg);
+            IntegerValue symbArg = getIntegerExprFromStack(nr);
+            functionUnderExecution.setParam(nr, concArg, symbArg);
             beforeExecuteFunction(nr);
         }
     }
 
     private void beforeExecuteFunction(int nr) {
-//		String desc = functionUnderExecution.getDesc();
+        // String desc = functionUnderExecution.getDesc();
         if (nr == 0) {
             callBeforeExecution(functionUnderExecution);
         }
     }
 
     @Override
-    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, short conc_arg) {
+    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, short concArg) {
         if (functionUnderExecution != null) {
-            IntegerValue symb_arg = getIntegerExprFromStack(nr);
-            functionUnderExecution.setParam(nr, conc_arg, symb_arg);
+            IntegerValue symbArg = getIntegerExprFromStack(nr);
+            functionUnderExecution.setParam(nr, concArg, symbArg);
             beforeExecuteFunction(nr);
 
         }
     }
 
     @Override
-    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, byte conc_arg) {
+    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, byte concArg) {
         if (functionUnderExecution != null) {
-            IntegerValue symb_arg = getIntegerExprFromStack(nr);
-            functionUnderExecution.setParam(nr, conc_arg, symb_arg);
+            IntegerValue symbArg = getIntegerExprFromStack(nr);
+            functionUnderExecution.setParam(nr, concArg, symbArg);
             beforeExecuteFunction(nr);
 
         }
     }
 
     @Override
-    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, char conc_arg) {
+    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, char concArg) {
         if (functionUnderExecution != null) {
-            IntegerValue symb_arg = getIntegerExprFromStack(nr);
-            functionUnderExecution.setParam(nr, conc_arg, symb_arg);
+            IntegerValue symbArg = getIntegerExprFromStack(nr);
+            functionUnderExecution.setParam(nr, concArg, symbArg);
             beforeExecuteFunction(nr);
 
         }
     }
 
     @Override
-    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, long conc_arg) {
+    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, long concArg) {
         if (functionUnderExecution != null) {
-            IntegerValue symb_arg = getIntegerExprFromStack(nr);
-            functionUnderExecution.setParam(nr, conc_arg, symb_arg);
+            IntegerValue symbArg = getIntegerExprFromStack(nr);
+            functionUnderExecution.setParam(nr, concArg, symbArg);
             beforeExecuteFunction(nr);
 
         }
     }
 
     @Override
-    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, float conc_arg) {
+    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, float concArg) {
         if (functionUnderExecution != null) {
-            RealValue symb_arg = getRealExprFromStack(nr);
-            functionUnderExecution.setParam(nr, conc_arg, symb_arg);
-            beforeExecuteFunction(nr);
-
-        }
-    }
-
-    @Override
-    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex,
-                                   double conc_arg) {
-        if (functionUnderExecution != null) {
-            RealValue symb_arg = getRealExprFromStack(nr);
-            functionUnderExecution.setParam(nr, conc_arg, symb_arg);
+            RealValue symbArg = getRealExprFromStack(nr);
+            functionUnderExecution.setParam(nr, concArg, symbArg);
             beforeExecuteFunction(nr);
 
         }
@@ -503,10 +505,21 @@ public final class SymbolicFunctionVM extends AbstractVM {
 
     @Override
     public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex,
-                                   Object conc_arg) {
+                                   double concArg) {
         if (functionUnderExecution != null) {
-            ReferenceExpression symb_arg = getReferenceFromStack(nr);
-            functionUnderExecution.setParam(nr, conc_arg, symb_arg);
+            RealValue symbArg = getRealExprFromStack(nr);
+            functionUnderExecution.setParam(nr, concArg, symbArg);
+            beforeExecuteFunction(nr);
+
+        }
+    }
+
+    @Override
+    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex,
+                                   Object concArg) {
+        if (functionUnderExecution != null) {
+            ReferenceExpression symbArg = getReferenceFromStack(nr);
+            functionUnderExecution.setParam(nr, concArg, symbArg);
             beforeExecuteFunction(nr);
 
         }
@@ -533,9 +546,8 @@ public final class SymbolicFunctionVM extends AbstractVM {
     }
 
     /**
-     * Function Table Fills
+     * Creation section.
      */
-
     private void fillBigInteger() {
         // java.math.BigInteger
         addFunctionToTable(new BigInteger_Ctor(env));

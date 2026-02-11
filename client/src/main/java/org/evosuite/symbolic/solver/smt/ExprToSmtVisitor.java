@@ -154,53 +154,53 @@ public class ExprToSmtVisitor implements ExpressionVisitor<SmtExpr, Void> {
                 return SmtExprBuilder.mkMod(left, right);
             }
             case IOR: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bvor = SmtExprBuilder.mkBVOR(bv_left, bv_right);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvor = SmtExprBuilder.mkBVOR(bvLeft, bvRight);
                 return SmtExprBuilder.mkBV2Int(bvor);
             }
             case IAND: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bv_and = SmtExprBuilder.mkBVAND(bv_left, bv_right);
-                return SmtExprBuilder.mkBV2Int(bv_and);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvAnd = SmtExprBuilder.mkBVAND(bvLeft, bvRight);
+                return SmtExprBuilder.mkBV2Int(bvAnd);
             }
             case IXOR: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bv_xor = SmtExprBuilder.mkBVXOR(bv_left, bv_right);
-                return SmtExprBuilder.mkBV2Int(bv_xor);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvXor = SmtExprBuilder.mkBVXOR(bvLeft, bvRight);
+                return SmtExprBuilder.mkBV2Int(bvXor);
             }
 
             case SHL: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bv_shl = SmtExprBuilder.mkBVSHL(bv_left, bv_right);
-                return SmtExprBuilder.mkBV2Int(bv_shl);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvShl = SmtExprBuilder.mkBVSHL(bvLeft, bvRight);
+                return SmtExprBuilder.mkBV2Int(bvShl);
             }
 
             case SHR: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bv_shr = SmtExprBuilder.mkBVASHR(bv_left, bv_right);
-                return SmtExprBuilder.mkBV2Int(bv_shr);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvShr = SmtExprBuilder.mkBVASHR(bvLeft, bvRight);
+                return SmtExprBuilder.mkBV2Int(bvShr);
             }
             case USHR: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bv_shr = SmtExprBuilder.mkBVLSHR(bv_left, bv_right);
-                return SmtExprBuilder.mkBV2Int(bv_shr);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvShr = SmtExprBuilder.mkBVLSHR(bvLeft, bvRight);
+                return SmtExprBuilder.mkBV2Int(bvShr);
             }
 
             case MAX: {
-                SmtExpr left_gt_right = SmtExprBuilder.mkGt(left, right);
-                return SmtExprBuilder.mkITE(left_gt_right, left, right);
+                SmtExpr leftGtRight = SmtExprBuilder.mkGt(left, right);
+                return SmtExprBuilder.mkITE(leftGtRight, left, right);
 
             }
 
             case MIN: {
-                SmtExpr left_gt_right = SmtExprBuilder.mkLt(left, right);
-                return SmtExprBuilder.mkITE(left_gt_right, left, right);
+                SmtExpr leftGtRight = SmtExprBuilder.mkLt(left, right);
+                return SmtExprBuilder.mkITE(leftGtRight, left, right);
 
             }
 
@@ -244,10 +244,10 @@ public class ExprToSmtVisitor implements ExpressionVisitor<SmtExpr, Void> {
             }
             case ABS:
                 SmtExpr zero = SmtExprBuilder.mkIntConstant(0);
-                SmtExpr gte_than_zero = SmtExprBuilder.mkGe(operand, zero);
-                SmtExpr minus_expr = SmtExprBuilder.mkNeg(operand);
+                SmtExpr gteThanZero = SmtExprBuilder.mkGe(operand, zero);
+                SmtExpr minusExpr = SmtExprBuilder.mkNeg(operand);
 
-                return SmtExprBuilder.mkITE(gte_than_zero, operand, minus_expr);
+                return SmtExprBuilder.mkITE(gteThanZero, operand, minusExpr);
             default:
                 throw new UnsupportedOperationException("Not implemented yet!" + operator);
         }
@@ -349,14 +349,14 @@ public class ExprToSmtVisitor implements ExpressionVisitor<SmtExpr, Void> {
                 return SmtExprBuilder.mkAdd(left, right);
             }
             case MAX: {
-                SmtExpr left_gt_right = SmtExprBuilder.mkGt(left, right);
-                return SmtExprBuilder.mkITE(left_gt_right, left, right);
+                SmtExpr leftGtRight = SmtExprBuilder.mkGt(left, right);
+                return SmtExprBuilder.mkITE(leftGtRight, left, right);
 
             }
 
             case MIN: {
-                SmtExpr left_gt_right = SmtExprBuilder.mkLt(left, right);
-                return SmtExprBuilder.mkITE(left_gt_right, left, right);
+                SmtExpr leftGtRight = SmtExprBuilder.mkLt(left, right);
+                return SmtExprBuilder.mkITE(leftGtRight, left, right);
             }
             case ATAN2:
             case COPYSIGN:
@@ -406,10 +406,10 @@ public class ExprToSmtVisitor implements ExpressionVisitor<SmtExpr, Void> {
     protected SmtExpr postVisit(RealUnaryExpression source, SmtExpr operand, Operator operator) {
         switch (operator) {
             case ABS: {
-                SmtExpr zero_rational = SmtExprBuilder.ZERO_REAL;
-                SmtExpr gte_than_zero = SmtExprBuilder.mkGe(operand, zero_rational);
-                SmtExpr minus_expr = SmtExprBuilder.mkNeg(operand);
-                return SmtExprBuilder.mkITE(gte_than_zero, operand, minus_expr);
+                SmtExpr zeroRational = SmtExprBuilder.ZERO_REAL;
+                SmtExpr gteThanZero = SmtExprBuilder.mkGe(operand, zeroRational);
+                SmtExpr minusExpr = SmtExprBuilder.mkNeg(operand);
+                return SmtExprBuilder.mkITE(gteThanZero, operand, minusExpr);
             }
             // trigonometric
             case ACOS:
@@ -1093,40 +1093,40 @@ public class ExprToSmtVisitor implements ExpressionVisitor<SmtExpr, Void> {
     }
 
     @Override
-	public SmtExpr visit(NullReferenceConstant r, Void arg) {
-		return SmtExprBuilder.mkIntConstant(SymbolicHeap.NULL_INSTANCE_ID);
-	}
+    public SmtExpr visit(NullReferenceConstant r, Void arg) {
+        return SmtExprBuilder.mkIntConstant(SymbolicHeap.NULL_INSTANCE_ID);
+    }
 
-	@Override
-	public SmtExpr visit(ClassReferenceConstant r, Void args) {
-		return SmtExprBuilder.mkIntConstant(r.getInstanceId());
-	}
+    @Override
+    public SmtExpr visit(ClassReferenceConstant r, Void args) {
+        return SmtExprBuilder.mkIntConstant(r.getInstanceId());
+    }
 
-	@Override
-	public final SmtExpr visit(ClassReferenceVariable r, Void arg) {
-		String varName = r.getName();
-		return SmtExprBuilder.mkIntVariable(varName);
-	}
+    @Override
+    public final SmtExpr visit(ClassReferenceVariable r, Void arg) {
+        String varName = r.getName();
+        return SmtExprBuilder.mkIntVariable(varName);
+    }
 
-	@Override
-	public SmtExpr visit(NullTypeConstant r, Void arg) {
-		return SmtExprBuilder.mkIntConstant(r.getReferenceTypeId());
-	}
+    @Override
+    public SmtExpr visit(NullTypeConstant r, Void arg) {
+        return SmtExprBuilder.mkIntConstant(r.getReferenceTypeId());
+    }
 
-	@Override
-	public SmtExpr visit(LambdaSyntheticTypeConstant r, Void arg) {
-		return null;
-	}
+    @Override
+    public SmtExpr visit(LambdaSyntheticTypeConstant r, Void arg) {
+        return null;
+    }
 
-	@Override
-	public SmtExpr visit(ClassTypeConstant r, Void arg) {
-		return null;
-	}
+    @Override
+    public SmtExpr visit(ClassTypeConstant r, Void arg) {
+        return null;
+    }
 
-	@Override
-	public SmtExpr visit(ArrayTypeConstant r, Void arg) {
-		return null;
-	}
+    @Override
+    public SmtExpr visit(ArrayTypeConstant r, Void arg) {
+        return null;
+    }
 
     protected SmtExpr postVisit(StringToIntegerCast source, SmtExpr operand) {
         return SmtExprBuilder.mkStrToInt(operand);

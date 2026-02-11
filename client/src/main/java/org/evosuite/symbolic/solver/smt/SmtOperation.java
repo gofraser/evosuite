@@ -87,7 +87,7 @@ public final class SmtOperation extends SmtExpr {
         LENGTH("Length"),
 
         /**
-         * Arrays
+         * Arrays.
          */
         SELECT("select"),
         STORE("store");
@@ -111,10 +111,10 @@ public final class SmtOperation extends SmtExpr {
     private final boolean hasSymbolicValues;
 
     /**
-     * Unary operation
+     * Unary operation.
      *
-     * @param op
-     * @param arg
+     * @param op a {@link org.evosuite.symbolic.solver.smt.SmtOperation.Operator} object.
+     * @param arg an array of {@link org.evosuite.symbolic.solver.smt.SmtExpr} objects.
      */
     public SmtOperation(Operator op, SmtExpr... arg) {
         this.operator = op;
@@ -146,15 +146,19 @@ public final class SmtOperation extends SmtExpr {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         SmtOperation other = (SmtOperation) obj;
-        if (!Arrays.equals(arguments, other.arguments))
+        if (!Arrays.equals(arguments, other.arguments)) {
             return false;
+        }
         return operator == other.operator;
     }
 

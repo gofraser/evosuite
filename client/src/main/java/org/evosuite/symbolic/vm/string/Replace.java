@@ -32,26 +32,48 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 import java.util.ArrayList;
 import java.util.Collections;
 
+/**
+ * Symbolic function implementation for String.replace.
+ *
+ * @author galeotti
+ */
 public abstract class Replace extends SymbolicFunction {
 
     private static final String REPLACE = "replace";
 
+    /**
+     * Constructs a Replace.
+     *
+     * @param env  the symbolic environment
+     * @param desc the method descriptor
+     */
     public Replace(SymbolicEnvironment env, String desc) {
         super(env, Types.JAVA_LANG_STRING, REPLACE, desc);
     }
 
+    /**
+     * Symbolic function implementation for String.replace(char, char).
+     */
     public static final class Replace_C extends Replace {
 
+        /**
+         * Constructs a Replace_C.
+         *
+         * @param env the symbolic environment
+         */
         public Replace_C(SymbolicEnvironment env) {
             super(env, Types.CHAR_CHAR_TO_STR_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
             // string receiver
-            ReferenceConstant symb_receiver = this.getSymbReceiver();
-            String conc_receiver = (String) this.getConcReceiver();
+            ReferenceConstant symbReceiver = this.getSymbReceiver();
+            String concReceiver = (String) this.getConcReceiver();
 
             // old char
             IntegerValue oldCharExpr = this.getSymbIntegerArgument(0);
@@ -60,26 +82,26 @@ public abstract class Replace extends SymbolicFunction {
             IntegerValue newCharExpr = this.getSymbIntegerArgument(1);
 
             // return value
-            ReferenceExpression symb_ret_val = this.getSymbRetVal();
-            String conc_ret_val = (String) this.getConcRetVal();
+            ReferenceExpression symbRetVal = this.getSymbRetVal();
+            String concRetVal = (String) this.getConcRetVal();
 
             StringValue stringReceiverExpr = env.heap.getField(
                     Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                    conc_receiver, symb_receiver, conc_receiver);
+                    concReceiver, symbReceiver, concReceiver);
 
-            if (symb_ret_val instanceof ReferenceConstant) {
+            if (symbRetVal instanceof ReferenceConstant) {
 
-                ReferenceConstant non_null_symb_ret_val = (ReferenceConstant) symb_ret_val;
+                ReferenceConstant nonNullSymbRetVal = (ReferenceConstant) symbRetVal;
 
-                StringMultipleExpression symb_value = new StringMultipleExpression(
+                StringMultipleExpression symbValue = new StringMultipleExpression(
                         stringReceiverExpr, Operator.REPLACEC, oldCharExpr,
                         new ArrayList<>(Collections
                                 .singletonList(newCharExpr)),
-                        conc_ret_val);
+                        concRetVal);
 
                 env.heap.putField(Types.JAVA_LANG_STRING,
-                        SymbolicHeap.$STRING_VALUE, conc_ret_val,
-                        non_null_symb_ret_val, symb_value);
+                        SymbolicHeap.$STRING_VALUE, concRetVal,
+                        nonNullSymbRetVal, symbValue);
 
             }
 
@@ -87,74 +109,85 @@ public abstract class Replace extends SymbolicFunction {
         }
     }
 
+    /**
+     * Symbolic function implementation for String.replace(CharSequence, CharSequence).
+     */
     public static final class Replace_CS extends Replace {
 
+        /**
+         * Constructs a Replace_CS.
+         *
+         * @param env the symbolic environment
+         */
         public Replace_CS(SymbolicEnvironment env) {
             super(env, Types.CHARSEQ_CHARSEQ_TO_STR_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
             // string receiver
-            ReferenceConstant symb_receiver = this.getSymbReceiver();
-            String conc_receiver = (String) this.getConcReceiver();
+            ReferenceConstant symbReceiver = this.getSymbReceiver();
+            String concReceiver = (String) this.getConcReceiver();
 
             // old string
-            ReferenceExpression symb_old_str = this.getSymbArgument(0);
-            CharSequence conc_old_char_seq = (CharSequence) this
+            ReferenceExpression symbOldStr = this.getSymbArgument(0);
+            CharSequence concOldCharSequence = (CharSequence) this
                     .getConcArgument(0);
 
             // new string
-            ReferenceExpression symb_new_str = this.getSymbArgument(1);
-            CharSequence conc_new_char_seq = (CharSequence) this
+            ReferenceExpression symbNewStr = this.getSymbArgument(1);
+            CharSequence concNewCharSequence = (CharSequence) this
                     .getConcArgument(1);
 
             // return value
-            ReferenceExpression symb_ret_val = this.getSymbRetVal();
-            String conc_ret_val = (String) this.getConcRetVal();
+            ReferenceExpression symbRetVal = this.getSymbRetVal();
+            String concRetVal = (String) this.getConcRetVal();
 
             StringValue stringReceiverExpr = env.heap.getField(
                     Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                    conc_receiver, symb_receiver, conc_receiver);
+                    concReceiver, symbReceiver, concReceiver);
 
-            if (symb_old_str instanceof ReferenceConstant
-                    && symb_new_str instanceof ReferenceConstant
-                    && symb_ret_val instanceof ReferenceConstant) {
+            if (symbOldStr instanceof ReferenceConstant
+                    && symbNewStr instanceof ReferenceConstant
+                    && symbRetVal instanceof ReferenceConstant) {
 
-                ReferenceConstant non_null_symb_old_str = (ReferenceConstant) symb_old_str;
-                ReferenceConstant non_null_symb_new_str = (ReferenceConstant) symb_new_str;
-                ReferenceConstant non_null_symb_ret_val = (ReferenceConstant) symb_ret_val;
+                ReferenceConstant nonNullSymbOldStr = (ReferenceConstant) symbOldStr;
+                ReferenceConstant nonNullSymbNewStr = (ReferenceConstant) symbNewStr;
+                ReferenceConstant nonNullSymbRetVal = (ReferenceConstant) symbRetVal;
 
-                if (conc_old_char_seq instanceof String
-                        && conc_new_char_seq instanceof String) {
+                if (concOldCharSequence instanceof String
+                        && concNewCharSequence instanceof String) {
 
-                    String conc_old_str = (String) conc_old_char_seq;
+                    String concOldStr = (String) concOldCharSequence;
 
                     StringValue oldStringExpr = env.heap.getField(
                             Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                            conc_old_str, non_null_symb_old_str, conc_old_str);
+                            concOldStr, nonNullSymbOldStr, concOldStr);
 
-                    String conc_new_str = (String) conc_new_char_seq;
+                    String concNewStr = (String) concNewCharSequence;
 
                     StringValue newStringExpr = env.heap.getField(
                             Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                            conc_new_str, non_null_symb_new_str, conc_new_str);
+                            concNewStr, nonNullSymbNewStr, concNewStr);
 
-                    StringMultipleExpression symb_value = new StringMultipleExpression(
+                    StringMultipleExpression symbValue = new StringMultipleExpression(
                             stringReceiverExpr, Operator.REPLACECS,
                             oldStringExpr, new ArrayList<>(
                             Collections.singletonList(newStringExpr)),
-                            conc_ret_val);
+                            concRetVal);
 
                     env.heap.putField(Types.JAVA_LANG_STRING,
-                            SymbolicHeap.$STRING_VALUE, conc_ret_val,
-                            non_null_symb_ret_val, symb_value);
+                            SymbolicHeap.$STRING_VALUE, concRetVal,
+                            nonNullSymbRetVal, symbValue);
 
                 }
             }
 
-            return symb_ret_val;
+            return symbRetVal;
         }
     }
 

@@ -22,6 +22,8 @@ package org.evosuite.symbolic.vm;
 import org.evosuite.symbolic.expr.ref.ReferenceExpression;
 
 /**
+ * Represents a reference operand in the symbolic virtual machine.
+ *
  * @author galeotti
  */
 public class ReferenceOperand implements SingleWordOperand {

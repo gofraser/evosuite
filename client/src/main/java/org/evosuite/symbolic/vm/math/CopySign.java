@@ -54,7 +54,8 @@ public abstract class CopySign {
 
     }
 
-    public final static class CopySign_D extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class CopySign_D extends SymbolicFunction {
 
         private static final String COPY_SIGN = "copySign";
 

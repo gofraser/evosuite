@@ -38,13 +38,13 @@ public class DSETestCase implements Comparable<DSETestCase>, Cloneable {
 
     /**
      * A priority score based on any sort of metric.
-     * <p>
-     * e.g.: Godefroid P., Levin Y. M. & Molnar D. (2008) Automated White Box Fuzz Testing, pg. 5.
+     *
+     * <p>e.g.: Godefroid P., Levin Y. M. &amp; Molnar D. (2008) Automated White Box Fuzz Testing, pg. 5.
      */
     private final double score;
 
     /**
-     * Test case
+     * Test case.
      */
     private final TestCase testCase;
 
@@ -54,24 +54,50 @@ public class DSETestCase implements Comparable<DSETestCase>, Cloneable {
      */
     private final GenerationalSearchPathCondition originalPathCondition;
 
+    /**
+     * Constructor.
+     *
+     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
+     * @param originalPathCondition a {@link GenerationalSearchPathCondition} object.
+     * @param score a double.
+     */
     public DSETestCase(TestCase testCase, GenerationalSearchPathCondition originalPathCondition, double score) {
         this.score = score;
         this.testCase = testCase;
         this.originalPathCondition = originalPathCondition;
     }
 
+    /**
+     * Returns the score.
+     *
+     * @return a double.
+     */
     public double getScore() {
         return score;
     }
 
+    /**
+     * Returns the test case.
+     *
+     * @return a {@link org.evosuite.testcase.TestCase} object.
+     */
     public TestCase getTestCase() {
         return testCase;
     }
 
+    /**
+     * Returns the original path condition.
+     *
+     * @return a {@link org.evosuite.symbolic.dse.algorithm.GenerationalSearchPathCondition} object.
+     */
     public GenerationalSearchPathCondition getOriginalPathCondition() {
         return originalPathCondition;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public DSETestCase clone() {
         return new DSETestCase(
                 testCase.clone(),
@@ -93,12 +119,16 @@ public class DSETestCase implements Comparable<DSETestCase>, Cloneable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         DSETestCase testCase1 = (DSETestCase) o;
-        return Double.compare(testCase1.score, score) == 0 &&
-                Objects.equals(testCase, testCase1.testCase) &&
-                Objects.equals(originalPathCondition, testCase1.originalPathCondition);
+        return Double.compare(testCase1.score, score) == 0
+                && Objects.equals(testCase, testCase1.testCase)
+                && Objects.equals(originalPathCondition, testCase1.originalPathCondition);
     }
 
     @Override

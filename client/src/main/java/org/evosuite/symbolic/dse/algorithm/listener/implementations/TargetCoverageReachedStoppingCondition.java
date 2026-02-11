@@ -38,18 +38,18 @@ public class TargetCoverageReachedStoppingCondition extends StoppingConditionImp
     public static final String ERROR_LIMIT_PARAMETER_MUST_BE_IN_BOUNDS = "ERROR | limit parameter must be in bounds ";
 
     /**
-     * Bound values for setLimit input
+     * Bound values for setLimit input.
      */
     private static final long MINIMUM_LIMIT_INPUT_VALUE = 0;
     private static final long MAXIMUM_LIMIT_INPUT_VALUE = 100;
 
     /**
-     * Keep track of highest coverage seen so far
+     * Keep track of highest coverage seen so far.
      */
     private int lastCoverage = Chromosome.MIN_REACHABLE_COVERAGE;
 
     /**
-     * Keep track of the target coverage
+     * Keep track of the target coverage.
      */
     private int targetCoverage = Properties.DSE_TARGET_COVERAGE;
 
@@ -76,11 +76,12 @@ public class TargetCoverageReachedStoppingCondition extends StoppingConditionImp
 
     /**
      * Sets the limit of the coverage.
-     * <p>
-     * IMPORTANT: As the values are normalized (between 0 and 1) and the limit
+     *
+     * <p>IMPORTANT: As the values are normalized (between 0 and 1) and the limit
      * will arrive as a long value. we have to normalize it.
      *
      * @param limit a long.
+     * @throws java.security.InvalidParameterException if limit is invalid.
      */
     @Override
     public void setLimit(long limit) throws InvalidParameterException {
@@ -102,11 +103,11 @@ public class TargetCoverageReachedStoppingCondition extends StoppingConditionImp
     }
 
     /**
-     * Workaround: as coverage on the testSuite is represented as a double between [0.0, 1.0] and stopping conditions use
-     * longs, we normalize the value for internal use.
+     * Workaround: as coverage on the testSuite is represented as a double between [0.0, 1.0] and stopping conditions
+     * use longs, we normalize the value for internal use.
      *
-     * @param coverage
-     * @return
+     * @param coverage the coverage value.
+     * @return the normalized coverage.
      */
     private int normalizeCoverage(double coverage) {
         return (int) (coverage * Chromosome.MAX_REACHABLE_COVERAGE);
@@ -115,8 +116,8 @@ public class TargetCoverageReachedStoppingCondition extends StoppingConditionImp
     /**
      * Input validation for coverage.
      *
-     * @param limit
-     * @return
+     * @param limit the limit to validate.
+     * @return true if input is valid.
      */
     private boolean isInputValid(long limit) {
         return limit < MINIMUM_LIMIT_INPUT_VALUE

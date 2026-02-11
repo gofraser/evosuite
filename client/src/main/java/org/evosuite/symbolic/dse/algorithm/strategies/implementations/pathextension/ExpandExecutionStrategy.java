@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.evosuite.symbolic.dse.algorithm.strategies.implementations.PathExtensionStrategies;
+package org.evosuite.symbolic.dse.algorithm.strategies.implementations.pathextension;
 
 import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.PathCondition;
@@ -42,10 +42,12 @@ public class ExpandExecutionStrategy implements PathExtensionStrategy {
     Logger logger = LoggerFactory.getLogger(ExpandExecutionStrategy.class);
 
     @Override
-    public List<GenerationalSearchPathCondition> generateChildren(GenerationalSearchPathCondition currentPathConditionChild) {
+    public List<GenerationalSearchPathCondition> generateChildren(
+            GenerationalSearchPathCondition currentPathConditionChild) {
         List<GenerationalSearchPathCondition> generatedChildren = new ArrayList<>();
         List<BranchCondition> accumulatedBranchConditions = new ArrayList<>();
-        List<BranchCondition> currentPathConditionBranchConditions = currentPathConditionChild.getPathCondition().getBranchConditions();
+        List<BranchCondition> currentPathConditionBranchConditions =
+                currentPathConditionChild.getPathCondition().getBranchConditions();
 
         int currentPathConditionIndexGeneratedFrom = currentPathConditionChild.getGeneratedFromIndex();
         logger.debug(DEBUG_MSG_GENERATING_CHILDREN_FOR_GENERATION, currentPathConditionIndexGeneratedFrom);
@@ -56,7 +58,8 @@ public class ExpandExecutionStrategy implements PathExtensionStrategy {
         }
 
         // Important!! We start from the index the test was generated from to avoid re-create already checked paths
-        for (int indexBound = currentPathConditionIndexGeneratedFrom; indexBound < currentPathConditionBranchConditions.size(); indexBound++) {
+        for (int indexBound = currentPathConditionIndexGeneratedFrom;
+                indexBound < currentPathConditionBranchConditions.size(); indexBound++) {
             logger.debug(DEBUG_MSG_NEGATING_INDEX_OF_PATH_CONDITION, indexBound);
             BranchCondition currentBranchCondition = currentPathConditionBranchConditions.get(indexBound);
 

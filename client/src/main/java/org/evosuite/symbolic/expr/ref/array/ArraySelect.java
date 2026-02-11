@@ -40,11 +40,15 @@ public final class ArraySelect {
         private final RealValue symbolicSelectedValue;
 
         /**
-         * @param arrayExpr
-         * @param indexExpr
-         * @param selectedValueExpr
+         * Constructs a {@link RealArraySelect} with the given array, index and selected value expressions.
+         *
+         * @param arrayExpr the symbolic array expression
+         * @param indexExpr the symbolic index expression
+         * @param selectedValueExpr the symbolic selected value expression
          */
-        public RealArraySelect(ArrayValue.RealArrayValue arrayExpr, IntegerValue indexExpr, RealValue selectedValueExpr) {
+        public RealArraySelect(ArrayValue.RealArrayValue arrayExpr,
+                               IntegerValue indexExpr,
+                               RealValue selectedValueExpr) {
             super(
                     selectedValueExpr.getConcreteValue(),
                     1 + arrayExpr.getSize() + indexExpr.getSize() + selectedValueExpr.getSize(),
@@ -106,11 +110,15 @@ public final class ArraySelect {
         private final IntegerValue symbolicSelectedValue;
 
         /**
-         * @param arrayExpr
-         * @param indexExpr
-         * @param symbolicSelectedValue
+         * Constructs an {@link IntegerArraySelect} with the given array, index and selected value expressions.
+         *
+         * @param arrayExpr the symbolic array expression
+         * @param indexExpr the symbolic index expression
+         * @param symbolicSelectedValue the symbolic selected value expression
          */
-        public IntegerArraySelect(ArrayValue.IntegerArrayValue arrayExpr, IntegerValue indexExpr, IntegerValue symbolicSelectedValue) {
+        public IntegerArraySelect(ArrayValue.IntegerArrayValue arrayExpr,
+                                  IntegerValue indexExpr,
+                                  IntegerValue symbolicSelectedValue) {
             super(
                     symbolicSelectedValue.getConcreteValue(),
                     1 + arrayExpr.getSize() + indexExpr.getSize(),
@@ -170,11 +178,15 @@ public final class ArraySelect {
         private final StringValue symbolicSelectedValue;
 
         /**
-         * @param arrayExpr
-         * @param indexExpr
-         * @param selectedValueExpr
+         * Constructs a {@link StringArraySelect} with the given array, index and selected value expressions.
+         *
+         * @param arrayExpr the symbolic array expression
+         * @param indexExpr the symbolic index expression
+         * @param selectedValueExpr the symbolic selected value expression
          */
-        public StringArraySelect(ArrayValue.StringArrayValue arrayExpr, IntegerValue indexExpr, StringValue selectedValueExpr) {
+        public StringArraySelect(ArrayValue.StringArrayValue arrayExpr,
+                                 IntegerValue indexExpr,
+                                 StringValue selectedValueExpr) {
             super(
                     selectedValueExpr.getConcreteValue(),
                     1 + arrayExpr.getSize() + indexExpr.getSize() + selectedValueExpr.getSize(),

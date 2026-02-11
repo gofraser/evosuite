@@ -67,14 +67,21 @@ import org.evosuite.symbolic.expr.token.StringNextTokenExpr;
 
 import java.util.ArrayList;
 
+/**
+ * A visitor that checks if an expression is non-linear.
+ */
 final class NonLinearExpressionVisitor implements ExpressionVisitor<Boolean, Void> {
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(IntegerBinaryExpression n, Void arg) {
         Boolean left = n.getLeftOperand().accept(this, null);
         Boolean right = n.getRightOperand().accept(this, null);
-        if (left || right)
+        if (left || right) {
             return true;
+        }
 
         switch (n.getOperator()) {
             case MUL:
@@ -90,82 +97,112 @@ final class NonLinearExpressionVisitor implements ExpressionVisitor<Boolean, Voi
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(IntegerComparison n, Void arg) {
-        Boolean left_ret_val = n.getLeftOperant().accept(this, null);
-        if (left_ret_val) {
+        Boolean leftRetVal = n.getLeftOperant().accept(this, null);
+        if (leftRetVal) {
             return true;
         }
-        Boolean right_ret_val = n.getRightOperant().accept(this, null);
-        return right_ret_val;
+        Boolean rightRetVal = n.getRightOperant().accept(this, null);
+        return rightRetVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(IntegerConstant n, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(IntegerUnaryExpression n, Void arg) {
-        Boolean ret_val = n.getOperand().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getOperand().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(IntegerVariable n, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(RealComparison n, Void arg) {
-        Boolean left_ret_val = n.getLeftOperant().accept(this, null);
-        if (left_ret_val) {
+        Boolean leftRetVal = n.getLeftOperant().accept(this, null);
+        if (leftRetVal) {
             return true;
         }
-        Boolean right_ret_val = n.getRightOperant().accept(this, null);
-        return right_ret_val;
+        Boolean rightRetVal = n.getRightOperant().accept(this, null);
+        return rightRetVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(RealToIntegerCast n, Void arg) {
-        Boolean ret_val = n.getArgument().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getArgument().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(RealUnaryToIntegerExpression n, Void arg) {
-        Boolean ret_val = n.getOperand().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getOperand().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringBinaryComparison n, Void arg) {
-        Boolean left_ret_val = n.getLeftOperand().accept(this, null);
-        if (left_ret_val) {
+        Boolean leftRetVal = n.getLeftOperand().accept(this, null);
+        if (leftRetVal) {
             return true;
         }
-        Boolean right_ret_val = n.getRightOperand().accept(this, null);
-        return right_ret_val;
+        Boolean rightRetVal = n.getRightOperand().accept(this, null);
+        return rightRetVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringBinaryToIntegerExpression n, Void arg) {
-        Boolean left_ret_val = n.getLeftOperand().accept(this, null);
-        if (left_ret_val) {
+        Boolean leftRetVal = n.getLeftOperand().accept(this, null);
+        if (leftRetVal) {
             return true;
         }
-        Boolean right_ret_val = n.getRightOperand().accept(this, null);
-        return right_ret_val;
+        Boolean rightRetVal = n.getRightOperand().accept(this, null);
+        return rightRetVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringMultipleComparison n, Void arg) {
-        Boolean left_ret_val = n.getLeftOperand().accept(this, null);
-        if (left_ret_val) {
+        Boolean leftRetVal = n.getLeftOperand().accept(this, null);
+        if (leftRetVal) {
             return true;
         }
-        Boolean right_ret_val = n.getRightOperand().accept(this, null);
-        if (right_ret_val) {
+        Boolean rightRetVal = n.getRightOperand().accept(this, null);
+        if (rightRetVal) {
             return true;
         }
 
@@ -180,14 +217,17 @@ final class NonLinearExpressionVisitor implements ExpressionVisitor<Boolean, Voi
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringMultipleToIntegerExpression n, Void arg) {
-        Boolean left_ret_val = n.getLeftOperand().accept(this, null);
-        if (left_ret_val) {
+        Boolean leftRetVal = n.getLeftOperand().accept(this, null);
+        if (leftRetVal) {
             return true;
         }
-        Boolean right_ret_val = n.getRightOperand().accept(this, null);
-        if (right_ret_val) {
+        Boolean rightRetVal = n.getRightOperand().accept(this, null);
+        if (rightRetVal) {
             return true;
         }
 
@@ -202,33 +242,45 @@ final class NonLinearExpressionVisitor implements ExpressionVisitor<Boolean, Voi
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringToIntegerCast n, Void arg) {
-        Boolean ret_val = n.getArgument().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getArgument().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringUnaryToIntegerExpression n, Void arg) {
-        Boolean ret_val = n.getOperand().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getOperand().accept(this, null);
+        return retVal;
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(IntegerToRealCast n, Void arg) {
-        Boolean ret_val = n.getArgument().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getArgument().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(RealBinaryExpression n, Void arg) {
-        Boolean left_ret_val = n.getLeftOperand().accept(this, null);
-        if (left_ret_val) {
+        Boolean leftRetVal = n.getLeftOperand().accept(this, null);
+        if (leftRetVal) {
             return true;
         }
-        Boolean right_ret_val = n.getRightOperand().accept(this, null);
-        if (right_ret_val) {
+        Boolean rightRetVal = n.getRightOperand().accept(this, null);
+        if (rightRetVal) {
             return true;
         }
 
@@ -245,57 +297,81 @@ final class NonLinearExpressionVisitor implements ExpressionVisitor<Boolean, Voi
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(RealConstant n, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(RealUnaryExpression n, Void arg) {
-        Boolean ret_val = n.getOperand().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getOperand().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(RealVariable n, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(IntegerToStringCast n, Void arg) {
-        Boolean ret_val = n.getArgument().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getArgument().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(RealToStringCast n, Void arg) {
-        Boolean ret_val = n.getArgument().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getArgument().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringBinaryExpression n, Void arg) {
-        Boolean left_ret_val = n.getLeftOperand().accept(this, null);
-        if (left_ret_val) {
+        Boolean leftRetVal = n.getLeftOperand().accept(this, null);
+        if (leftRetVal) {
             return true;
         }
-        Boolean right_ret_val = n.getRightOperand().accept(this, null);
-        return right_ret_val;
+        Boolean rightRetVal = n.getRightOperand().accept(this, null);
+        return rightRetVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringConstant n, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringMultipleExpression n, Void arg) {
-        Boolean left_ret_val = n.getLeftOperand().accept(this, null);
-        if (left_ret_val) {
+        Boolean leftRetVal = n.getLeftOperand().accept(this, null);
+        if (leftRetVal) {
             return true;
         }
-        Boolean right_ret_val = n.getRightOperand().accept(this, null);
-        if (right_ret_val) {
+        Boolean rightRetVal = n.getRightOperand().accept(this, null);
+        if (rightRetVal) {
             return true;
         }
 
@@ -310,193 +386,312 @@ final class NonLinearExpressionVisitor implements ExpressionVisitor<Boolean, Voi
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringUnaryExpression n, Void arg) {
-        Boolean ret_val = n.getOperand().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getOperand().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringVariable n, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(HasMoreTokensExpr n, Void arg) {
-        Boolean ret_val = n.getTokenizerExpr().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getTokenizerExpr().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(NewTokenizerExpr n, Void arg) {
-        Boolean string_ret_val = n.getString().accept(this, null);
-        if (string_ret_val) {
+        Boolean stringRetVal = n.getString().accept(this, null);
+        if (stringRetVal) {
             return true;
         }
-        Boolean delimVal_ret_val = n.getDelimiter().accept(this, null);
-        return delimVal_ret_val;
+        Boolean delimValRetVal = n.getDelimiter().accept(this, null);
+        return delimValRetVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(NextTokenizerExpr n, Void arg) {
-        Boolean ret_val = n.getTokenizerExpr().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getTokenizerExpr().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringNextTokenExpr n, Void arg) {
-        Boolean ret_val = n.getTokenizerExpr().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getTokenizerExpr().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(StringReaderExpr n, Void arg) {
-        Boolean ret_val = n.getString().accept(this, null);
-        return ret_val;
+        Boolean retVal = n.getString().accept(this, null);
+        return retVal;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArraySelect.IntegerArraySelect r, Void arg) {
         Boolean array = r.getSymbolicArray().accept(this, null);
-        if (array) return true;
+        if (array) {
+            return true;
+        }
 
         Boolean index = r.getSymbolicIndex().accept(this, null);
-        if (index) return true;
+        if (index) {
+            return true;
+        }
 
         Boolean value = r.getSymbolicSelectedValue().accept(this, null);
         return value;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArraySelect.RealArraySelect r, Void arg) {
         Boolean array = r.getSymbolicArray().accept(this, null);
-        if (array) return true;
+        if (array) {
+            return true;
+        }
 
         Boolean index = r.getSymbolicIndex().accept(this, null);
-        if (index) return true;
+        if (index) {
+            return true;
+        }
 
         Boolean value = r.getSymbolicSelectedValue().accept(this, null);
         return value;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArraySelect.StringArraySelect r, Void arg) {
         Boolean array = r.getSymbolicArray().accept(this, null);
-        if (array) return true;
+        if (array) {
+            return true;
+        }
 
         Boolean index = r.getSymbolicIndex().accept(this, null);
-        if (index) return true;
+        if (index) {
+            return true;
+        }
 
         Boolean value = r.getSymbolicSelectedValue().accept(this, null);
         return value;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayStore.RealArrayStore r, Void arg) {
         Boolean array = r.getSymbolicArray().accept(this, null);
-        if (array) return true;
+        if (array) {
+            return true;
+        }
 
         Boolean index = r.getSymbolicIndex().accept(this, null);
-        if (index) return true;
+        if (index) {
+            return true;
+        }
 
         Boolean value = r.getSymbolicValue().accept(this, null);
         return value;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayStore.StringArrayStore r, Void arg) {
         Boolean array = r.getSymbolicArray().accept(this, null);
-        if (array) return true;
+        if (array) {
+            return true;
+        }
 
         Boolean index = r.getSymbolicIndex().accept(this, null);
-        if (index) return true;
+        if (index) {
+            return true;
+        }
 
         Boolean value = r.getSymbolicValue().accept(this, null);
         return value;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayStore.IntegerArrayStore r, Void arg) {
         Boolean array = r.getSymbolicArray().accept(this, null);
-        if (array) return true;
+        if (array) {
+            return true;
+        }
 
         Boolean index = r.getSymbolicIndex().accept(this, null);
-        if (index) return true;
+        if (index) {
+            return true;
+        }
 
         Boolean value = r.getSymbolicValue().accept(this, null);
         return value;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayConstant.IntegerArrayConstant r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayConstant.RealArrayConstant r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayConstant.StringArrayConstant r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayConstant.ReferenceArrayConstant r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayVariable.IntegerArrayVariable r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayVariable.RealArrayVariable r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayVariable.StringArrayVariable r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ArrayVariable.ReferenceArrayVariable r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(LambdaSyntheticTypeConstant r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(NullTypeConstant r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Boolean visit(ClassTypeConstant r, Void arg) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-	public Boolean visit(ArrayTypeConstant r, Void arg) { return false; }
+    public Boolean visit(ArrayTypeConstant r, Void arg) {
+        return false;
+    }
 
-	@Override
-	public Boolean visit(ClassReferenceVariable r, Void arg) { return false; }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Boolean visit(ClassReferenceVariable r, Void arg) {
+        return false;
+    }
 
-	@Override
-	public Boolean visit(NullReferenceConstant r, Void arg) { return false; }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Boolean visit(NullReferenceConstant r, Void arg) {
+        return false;
+    }
 
-	@Override
-	public Boolean visit(ClassReferenceConstant r, Void args) { return false; }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Boolean visit(ClassReferenceConstant r, Void args) {
+        return false;
+    }
 
-	@Override
-	public Boolean visit(GetFieldExpression r, Void arg) {
-		Boolean ret_val = r.getReceiverExpr().accept(this, null);
-		return  ret_val;
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Boolean visit(GetFieldExpression r, Void arg) {
+        Boolean retVal = r.getReceiverExpr().accept(this, null);
+        return retVal;
+    }
 }

@@ -27,6 +27,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
+/**
+ * Abstract base class for SMT solvers.
+ */
 public abstract class SmtSolver extends Solver {
 
     public SmtSolver(boolean addMissingVariables) {
@@ -38,30 +41,33 @@ public abstract class SmtSolver extends Solver {
     }
 
     /**
-     * @param solverCmd
-     * @param smtQueryStr
-     * @param hardTimeout
-     * @return
-     * @throws IOException
-     * @throws SolverTimeoutException
-     * @throws SolverErrorException
+     * Launches a new solving process.
+     *
+     * @param solverCmd   the solver command
+     * @param smtQueryStr the SMT query string
+     * @param hardTimeout the hard timeout in milliseconds
+     * @param stdout      the output stream for the solver's output
+     * @throws IOException            if an I/O error occurs
+     * @throws SolverTimeoutException if the solver times out
+     * @throws SolverErrorException   if the solver reports an error
      */
-    protected static void launchNewSolvingProcess(String solverCmd, String smtQueryStr, int hardTimeout, OutputStream stdout)
+    protected static void launchNewSolvingProcess(String solverCmd, String smtQueryStr, int hardTimeout,
+                                                  OutputStream stdout)
             throws IOException, SolverTimeoutException, SolverErrorException {
 
         ByteArrayInputStream input = new ByteArrayInputStream(smtQueryStr.getBytes());
 
         ProcessLauncher launcher = new ProcessLauncher(stdout, input);
 
-        long solver_start_time_millis = System.currentTimeMillis();
+        long solverStartTimeMillis = System.currentTimeMillis();
         try {
-            int exit_code = launcher.launchNewProcess(solverCmd, hardTimeout);
+            int exitCode = launcher.launchNewProcess(solverCmd, hardTimeout);
 
-            if (exit_code == 0) {
+            if (exitCode == 0) {
                 logger.debug("Solver execution finished normally");
                 return;
             } else {
-                String errMsg = String.format("Solver execution finished abnormally with exit code {}", exit_code);
+                String errMsg = String.format("Solver execution finished abnormally with exit code {}", exitCode);
                 logger.debug(errMsg);
                 throw new SolverErrorException(errMsg);
             }
@@ -74,9 +80,9 @@ public abstract class SmtSolver extends Solver {
             throw new SolverTimeoutException();
 
         } finally {
-            long solver_end_time_millis = System.currentTimeMillis();
-            long solver_duration_secs = (solver_end_time_millis - solver_start_time_millis) / 1000;
-            logger.debug("Solver execution time was {}s", solver_duration_secs);
+            long solverEndTimeMillis = System.currentTimeMillis();
+            long solverDurationSecs = (solverEndTimeMillis - solverStartTimeMillis) / 1000;
+            logger.debug("Solver execution time was {}s", solverDurationSecs);
         }
 
     }

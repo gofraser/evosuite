@@ -37,8 +37,8 @@ import java.util.Set;
 
 final class StringAVM extends VariableAVM {
 
-    public StringAVM(StringVariable strVar, Collection<Constraint<?>> cnstr, long start_time, long timeout) {
-        super(cnstr, start_time, timeout);
+    public StringAVM(StringVariable strVar, Collection<Constraint<?>> cnstr, long startTime, long timeout) {
+        super(cnstr, startTime, timeout);
         this.strVar = strVar;
     }
 
@@ -51,12 +51,11 @@ final class StringAVM extends VariableAVM {
     private final StringVariable strVar;
 
     /**
-     * <p>
-     * strLocalSearch
-     * </p>
+     * Applies AVM to the string variable.
      *
      * @return a boolean.
      */
+    @Override
     public boolean applyAVM() throws SolverTimeoutException {
 
         ExpressionEvaluator exprExecutor = new ExpressionEvaluator();
@@ -202,11 +201,11 @@ final class StringAVM extends VariableAVM {
     }
 
     /**
-     * Apply AVM to an individual character within a string
+     * Apply AVM to an individual character within a string.
      *
-     * @param position
-     * @param varsToChange
-     * @return
+     * @param position a int.
+     * @return a boolean.
+     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
     private boolean doCharacterAVM(int position) throws SolverTimeoutException {
         checkpointVar(DistanceEstimator.getDistance(cnstr));
@@ -237,8 +236,9 @@ final class StringAVM extends VariableAVM {
             if (distImpr(newDist)) {
                 checkpointVar(newDist);
 
-                if (newDist == 0.0)
+                if (newDist == 0.0) {
                     return true;
+                }
                 done = false;
                 hasImproved = true;
                 iterateCharacterAVM(position, 2);
@@ -253,8 +253,9 @@ final class StringAVM extends VariableAVM {
                 if (distImpr(newDist)) {
                     checkpointVar(newDist);
 
-                    if (newDist == 0.0)
+                    if (newDist == 0.0) {
                         return true;
+                    }
 
                     done = false;
                     hasImproved = true;
@@ -296,10 +297,11 @@ final class StringAVM extends VariableAVM {
                         }
                     }
 
-                    if (done)
+                    if (done) {
                         log.debug("Search finished " + position + ": " + newString + ": " + newDist);
-                    else
+                    } else {
                         log.debug("Going for another iteration at position " + position);
+                    }
 
                 }
             }
@@ -308,11 +310,11 @@ final class StringAVM extends VariableAVM {
     }
 
     /**
-     * Apply AVM to all characters in a string
+     * Apply AVM to all characters in a string.
      *
-     * @param oldString
-     * @param varsToChange
-     * @return
+     * @param oldString a {@link java.lang.String} object.
+     * @return a boolean.
+     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
     private boolean doStringAVM(String oldString) throws SolverTimeoutException {
 
@@ -324,8 +326,9 @@ final class StringAVM extends VariableAVM {
             }
 
             log.info("Current character: " + i);
-            if (doCharacterAVM(i))
+            if (doCharacterAVM(i)) {
                 improvement = true;
+            }
         }
         return improvement;
     }
@@ -353,8 +356,9 @@ final class StringAVM extends VariableAVM {
             }
 
             checkpointVar(newDist);
-            if (newDist == 0.0)
+            if (newDist == 0.0) {
                 return true;
+            }
 
             oldString = newString;
             improvement = true;
@@ -380,9 +384,9 @@ final class StringAVM extends VariableAVM {
     /**
      * This method avoids overflow when computing the next char.
      *
-     * @param oldChar
-     * @param delta
-     * @return
+     * @param oldChar a char.
+     * @param delta a int.
+     * @return a char.
      */
     private char nextChar(char oldChar, int delta) {
         char nextChar = (char) (oldChar + delta);

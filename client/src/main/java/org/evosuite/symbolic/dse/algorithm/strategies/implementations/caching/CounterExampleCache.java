@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.evosuite.symbolic.dse.algorithm.strategies.implementations.CachingStrategies;
+package org.evosuite.symbolic.dse.algorithm.strategies.implementations.caching;
 
 import org.evosuite.symbolic.PathConditionUtils;
 import org.evosuite.symbolic.dse.DSEStatistics;
@@ -34,11 +34,17 @@ import java.util.Set;
  * Resembles checks (a) and (b) of a counter-example cache strategy.
  * (b) Is performed only if exactly the same constraint set is found.
  *     TODO: Implement the solution for supersets.
- * <p>
- * Counter-example cache strategy: Maps sets of constraints to counter-examples and performs three optimizations:
- * (a)  When a subset of a constraint set has no solution, then neither does the original set. i.e. as the query x>10 ∧ x<5 has no solution, neither does the original query x>10 ∧ x<5 ∧ y=0
- * (b)  When a superset of a constraint set has a solution, that solution also satisfies the original set.  i.e. x=14 is the solution for the query x>0 ∧ x<5, thus it satisfies either x>0 or x<5 individually
- * (c)  When a subset of a constraint set has a solution, it is likely that this is also a solution for the original set
+ *
+ * <p>Counter-example cache strategy: Maps sets of constraints to counter-examples and performs three
+ * optimizations:
+ * (a)  When a subset of a constraint set has no solution, then neither does the original set.
+ *      i.e. as the query x&gt;10 ∧ x&lt;5 has no solution, neither does the original query
+ *      x&gt;10 ∧ x&lt;5 ∧ y=0
+ * (b)  When a superset of a constraint set has a solution, that solution also satisfies the
+ *      original set.  i.e. x=14 is the solution for the query x&gt;0 ∧ x&lt;5, thus it satisfies
+ *      either x&gt;0 or x&lt;5 individually
+ * (c)  When a subset of a constraint set has a solution, it is likely that this is also a
+ *      solution for the original set
  *
  * @author Ignacio Lebrero
  */
@@ -69,7 +75,8 @@ public class CounterExampleCache implements CachingStrategy {
 
         // Cache hit of a sub set solution
         if (PathConditionUtils.isConstraintSetSupraSetOf(query, queryCache.keySet())) {
-            Set<Constraint<?>> subSetSolution = PathConditionUtils.getConstraintSetSupraSetOf(query, queryCache.keySet());
+            Set<Constraint<?>> subSetSolution =
+                    PathConditionUtils.getConstraintSetSupraSetOf(query, queryCache.keySet());
             SolverResult cachedResult = queryCache.get(subSetSolution);
 
             // Case (a) for sub sets: the query is a supra set of a sat solution. Heuristics can be implemented here
@@ -88,7 +95,8 @@ public class CounterExampleCache implements CachingStrategy {
 
         // Cache hit of a supra set solution
         if (PathConditionUtils.isConstraintSetSubSetOf(query, queryCache.keySet())) {
-            Set<Constraint<?>> supraSetSolution = PathConditionUtils.getConstraintSetSubSetOf(query, queryCache.keySet());
+            Set<Constraint<?>> supraSetSolution =
+                    PathConditionUtils.getConstraintSetSubSetOf(query, queryCache.keySet());
             SolverResult cachedResult = queryCache.get(supraSetSolution);
 
             // Case (c) of Counter-example cache: Heuristics can be implemented here
@@ -99,7 +107,8 @@ public class CounterExampleCache implements CachingStrategy {
                 // Case (b) for for supra sets: The query is sat as there was a bigger query that was SAT
             } else if (cachedResult.isSAT()) {
                 // TODO: Implement me!
-                // We cannot use all the solution model from the superset as it may differ with other elements of this path.
+                // We cannot use all the solution model from the superset
+                // as it may differ with other elements of this path.
                 // Implementation idea: reuse only the necessary elements of the model.
                 return new CacheQueryResult(CacheQueryStatus.MISS);
             }

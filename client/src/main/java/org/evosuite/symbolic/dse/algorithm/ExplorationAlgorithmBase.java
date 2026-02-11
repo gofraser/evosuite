@@ -35,53 +35,57 @@ import java.lang.reflect.Method;
 import java.util.*;
 
 /**
- * Abstract superclass of DSE exploration algorithms
+ * Abstract superclass of DSE exploration algorithms.
  *
  * @author Ignacio Lebrero
  */
 public abstract class ExplorationAlgorithmBase implements Serializable {
 
     /**
-     * Logger Messages
+     * Logger Messages.
      */
     public static final String PATH_DIVERGENCE_FOUND_WARNING_MESSAGE = "Warning | Path condition diverged";
     public static final String SETTING_STOPPING_CONDITION_DEBUG_MESSAGE = "Setting stopping condition";
     public static final String ADDING_NEW_STOPPING_CONDITION_DEBUG_MESSAGE = "Adding new stopping condition";
     public static final String FITNESS_AFTER_ADDING_NEW_TEST_DEBUG_MESSAGE = "Fitness after adding new test: {}";
     public static final String FITNESS_BEFORE_ADDING_NEW_TEST__DEBUG_MESSAGE = "Fitness before adding new test: {}";
-    public static final String NEW_TEST_GENERATED_IMPROVES_FITNESS_INFO_MESSAGE = "New test generated improves fitness";
-    public static final String NEW_TEST_GENERATED_DIDNT_IMPROVES_FITNESS_INFO_MESSAGE = "New test generated doesn't improves fitness";
-    public static final String CALCULATING_FITNESS_FOR_CURRENT_TEST_SUITE_DEBUG_MESSAGE = "Calculating fitness for current test suite";
-    public static final String ABOUT_TO_ADD_A_NEW_TEST_CASE_TO_THE_TEST_SUITE_DEBUG_MESSAGE = "About to add a new testCase to the test suite";
+    public static final String NEW_TEST_GENERATED_IMPROVES_FITNESS_INFO_MESSAGE =
+            "New test generated improves fitness";
+    public static final String NEW_TEST_GENERATED_DIDNT_IMPROVES_FITNESS_INFO_MESSAGE =
+            "New test generated doesn't improves fitness";
+    public static final String CALCULATING_FITNESS_FOR_CURRENT_TEST_SUITE_DEBUG_MESSAGE =
+            "Calculating fitness for current test suite";
+    public static final String ABOUT_TO_ADD_A_NEW_TEST_CASE_TO_THE_TEST_SUITE_DEBUG_MESSAGE =
+            "About to add a new testCase to the test suite";
 
     // TODO: this values can be moved to a general ExplorationAlgorithmConfig object later on
     public static final long NORMALIZE_VALUE_LIMIT = 100;
     public static final boolean SHOW_PROGRESS_DEFAULT_VALUE = false;
 
     /**
-     * Path Divergence config
+     * Path Divergence config.
      */
     public static final int PATH_DIVERGED_BASED_TEST_CASE_PENALTY_SCORE = 0;
 
     /**
-     * Test suite
+     * Test suite.
      */
     protected final TestSuiteChromosome testSuite = new TestSuiteChromosome();
 
     /**
-     * Fitness Functions for calculating coverage
+     * Fitness Functions for calculating coverage.
      */
     protected List<TestSuiteFitnessFunction> fitnessFunctions = new ArrayList();
 
     /**
-     * List of conditions on which to end the search
+     * List of conditions on which to end the search.
      */
-    protected transient Set<StoppingCondition> stoppingConditions = new HashSet();
+    protected transient Set<StoppingCondition> stoppingConditions = new HashSet<>();
 
     /**
-     * DSE statistics
+     * DSE statistics.
      */
-    protected transient final DSEStatistics statisticsLogger;
+    protected final transient DSEStatistics statisticsLogger;
 
     protected final boolean showProgress;
 
@@ -100,44 +104,45 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     public abstract TestSuiteChromosome explore();
 
     /**
-     * Add new fitness function
+     * Add new fitness function.
      *
-     * @param function
+     * @param function the fitness function to add
      */
     public void addFitnessFunction(TestSuiteFitnessFunction function) {
         fitnessFunctions.add(function);
     }
 
     /**
-     * Add new fitness functions
+     * Add new fitness functions.
      *
-     * @param functions
+     * @param functions the list of fitness functions to add
      */
     public void addFitnessFunctions(List<TestSuiteFitnessFunction> functions) {
-        for (TestSuiteFitnessFunction function : functions)
+        for (TestSuiteFitnessFunction function : functions) {
             this.addFitnessFunction(function);
+        }
     }
 
     /**
-     * Get currently used fitness function
+     * Get currently used fitness function.
      *
-     * @return
+     * @return the first fitness function
      */
     public TestSuiteFitnessFunction getFitnessFunction() {
         return fitnessFunctions.get(0);
     }
 
     /**
-     * Get all used fitness function
+     * Get all used fitness functions.
      *
-     * @return
+     * @return the list of fitness functions
      */
     public List<TestSuiteFitnessFunction> getFitnessFunctions() {
         return fitnessFunctions;
     }
 
     /**
-     * Calculates current test suite fitness
+     * Calculates current test suite fitness.
      */
     public void calculateFitness() {
         logger.debug(CALCULATING_FITNESS_FOR_CURRENT_TEST_SUITE_DEBUG_MESSAGE);
@@ -148,16 +153,16 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     }
 
     /**
-     * Calculates current test suite fitness
+     * Calculates current test suite fitness.
+     *
+     * @return the fitness of the test suite
      */
     public double getFitness() {
         return testSuite.getFitness();
     }
 
     /**
-     * <p>
-     * addStoppingCondition
-     * </p>
+     * Adds a stopping condition.
      *
      * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
      *                  object.
@@ -185,9 +190,7 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     // TODO: Override equals method in StoppingCondition
 
     /**
-     * <p>
-     * setStoppingCondition
-     * </p>
+     * Sets a stopping condition.
      *
      * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
      *                  object.
@@ -199,9 +202,7 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     }
 
     /**
-     * <p>
-     * removeStoppingCondition
-     * </p>
+     * Removes a stopping condition.
      *
      * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
      *                  object.
@@ -216,9 +217,7 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     }
 
     /**
-     * <p>
-     * resetStoppingConditions
-     * </p>
+     * Resets stopping conditions.
      */
     public void resetStoppingConditions() {
         for (StoppingCondition c : stoppingConditions) {
@@ -227,14 +226,15 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     }
 
     /**
-     * Determine whether any of the stopping conditions hold
+     * Determine whether any of the stopping conditions hold.
      *
      * @return a boolean.
      */
     public boolean isFinished() {
         for (StoppingCondition c : stoppingConditions) {
-            if (c.isFinished())
+            if (c.isFinished()) {
                 return true;
+            }
         }
         return false;
     }
@@ -249,7 +249,7 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     }
 
     /**
-     * Notify all search listeners of iteration
+     * Notify all search listeners of iteration.
      */
     protected void notifyIteration() {
         for (StoppingCondition stoppingCondition : stoppingConditions) {
@@ -258,7 +258,7 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     }
 
     /**
-     * Notify all search listeners of search start
+     * Notify all search listeners of search start.
      */
     protected void notifyGenerationStarted() {
         for (StoppingCondition stoppingCondition : stoppingConditions) {
@@ -267,7 +267,7 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     }
 
     /**
-     * Notify all stopping conditions of search end
+     * Notify all stopping conditions of search end.
      */
     protected void notifyGenerationFinished() {
         for (StoppingCondition stoppingCondition : stoppingConditions) {
@@ -298,13 +298,17 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     /**
      * Checks whether the current executed path condition diverged from the original one.
      * TODO:
-     * 			1) Maybe we can give some info about the PathCondition that diverged later on
-     * 			2) Move this to PathConditionUtils
+     *          1) Maybe we can give some info about the PathCondition that diverged later on
+     *          2) Move this to PathConditionUtils
      *
-     * @param currentPathCondition
+     * @param currentPathCondition the current path condition
+     * @param expectedPathCondition the expected path condition
+     * @return true if the path condition has diverged
      */
-    protected boolean checkPathConditionDivergence(PathCondition currentPathCondition, PathCondition expectedPathCondition) {
-        boolean hasPathConditionDiverged = PathConditionUtils.hasPathConditionDiverged(expectedPathCondition, currentPathCondition);
+    protected boolean checkPathConditionDivergence(PathCondition currentPathCondition,
+                                                   PathCondition expectedPathCondition) {
+        boolean hasPathConditionDiverged = PathConditionUtils.hasPathConditionDiverged(expectedPathCondition,
+                currentPathCondition);
 
         if (hasPathConditionDiverged) {
             logger.debug(PATH_DIVERGENCE_FOUND_WARNING_MESSAGE);
@@ -317,8 +321,8 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     /**
      * Returns the incremental coverage of adding a test case to the current test suite.
      *
-     * @param newTestCase
-     * @return
+     * @param newTestCase the new test case
+     * @return the incremental coverage
      */
     protected double getTestCaseAdditionIncrementalCoverage(TestCase newTestCase) {
         double oldCoverage;
@@ -346,7 +350,7 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     /**
      * Prints old/new fitness values and adds the new test case.
      *
-     * @param dseTestCase
+     * @param dseTestCase the DSE test case
      */
     protected void addNewTestCaseToTestSuite(DSETestCase dseTestCase) {
         logger.debug(ABOUT_TO_ADD_A_NEW_TEST_CASE_TO_THE_TEST_SUITE_DEBUG_MESSAGE);
@@ -361,14 +365,14 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
     /**
      * Symbolic algorithm general schema.
      *
-     * @param method
+     * @param method the method to explore
      */
     protected abstract void explore(Method method);
 
     /**
      * Logs new coverage data.
      *
-     * @param coverageDiff
+     * @param coverageDiff the difference in coverage
      */
     private void logNewTestCoverageData(double coverageDiff) {
         if (coverageDiff > 0) {
@@ -384,9 +388,9 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
      * Each stopping condition can have diferent limits, thus we normalize the values to just get the
      * correspondent "percentage" related to the limit it had.
      *
-     * @param currentValue
-     * @param limit
-     * @return
+     * @param currentValue the current value
+     * @param limit the limit
+     * @return the normalized value
      */
     private double getNormalizedValue(long currentValue, long limit) {
         return (double) (currentValue * NORMALIZE_VALUE_LIMIT) / (double) limit;

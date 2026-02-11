@@ -47,6 +47,12 @@ public final class FileDumpInstructionLogger extends AbstractInstructionLogger {
     private BufferedWriter writer;
     private PrintWriter pw;
 
+    /**
+     * Builds a new FileDumpInstructionLogger.
+     *
+     * @param directory the directory where to store the log
+     * @param filename the filename of the log
+     */
     public FileDumpInstructionLogger(String directory, String filename) {
         createDirectoryIfDoesntExistst(directory);
 
@@ -90,8 +96,15 @@ public final class FileDumpInstructionLogger extends AbstractInstructionLogger {
         }
     }
 
+    /**
+     * Creates the directory if it doesn't exist.
+     *
+     * @param directory the directory to create
+     */
     private void createDirectoryIfDoesntExistst(String directory) {
         File file = new File(directory);
-        if (!file.exists()) file.mkdirs();
+        if (!file.exists()) {
+            file.mkdirs();
+        }
     }
 }

@@ -47,10 +47,10 @@ public abstract class ReferenceVariable extends ReferenceExpression implements V
      * instance id, the name of the variable and the concrete object reference.
      * The resulting variable is initialized.
      *
-     * @param objectType
-     * @param instanceId
-     * @param name
-     * @param concreteValue
+     * @param objectType the type of the reference
+     * @param instanceId the unique id of the reference
+     * @param name the name of the variable
+     * @param concreteValue the concrete object reference
      */
     public ReferenceVariable(Type objectType, int instanceId, String name, Object concreteValue) {
         super(objectType, instanceId, 1, true);
@@ -59,9 +59,9 @@ public abstract class ReferenceVariable extends ReferenceExpression implements V
     }
 
     /**
-     * Returns a the set {this}
+     * Returns a the set {this}.
      *
-     * @return
+     * @return a singleton set containing this variable
      */
     @Override
     public Set<Variable<?>> getVariables() {
@@ -69,9 +69,9 @@ public abstract class ReferenceVariable extends ReferenceExpression implements V
     }
 
     /**
-     * Returns the name of the variable
+     * Returns the name of the variable.
      *
-     * @return
+     * @return the variable name
      */
     @Override
     public String getName() {
@@ -79,9 +79,9 @@ public abstract class ReferenceVariable extends ReferenceExpression implements V
     }
 
     /**
-     * Returns the concrete object
+     * Returns the concrete object.
      *
-     * @return
+     * @return the minimum value (the concrete object)
      */
     @Override
     public Object getMinValue() {
@@ -89,9 +89,9 @@ public abstract class ReferenceVariable extends ReferenceExpression implements V
     }
 
     /**
-     * Returns the concrete object
+     * Returns the concrete object.
      *
-     * @return
+     * @return the maximum value (the concrete object)
      */
     @Override
     public Object getMaxValue() {

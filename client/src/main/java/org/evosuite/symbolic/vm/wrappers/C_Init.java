@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Character constructor.
+ *
+ * @author galeotti
+ */
 public final class C_Init extends SymbolicFunction {
 
     public C_Init(SymbolicEnvironment env) {
@@ -33,11 +38,11 @@ public final class C_Init extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        ReferenceConstant symb_character = this.getSymbReceiver();
+        ReferenceConstant symbCharacter = this.getSymbReceiver();
         IntegerValue bv32 = this.getSymbIntegerArgument(0);
 
         env.heap.putField(Types.JAVA_LANG_CHARACTER, SymbolicHeap.$CHAR_VALUE,
-                null/* conc_character */, symb_character, bv32);
+                null/* concCharacter */, symbCharacter, bv32);
 
         // return void
         return null;

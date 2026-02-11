@@ -24,7 +24,7 @@ import org.evosuite.dse.MainConfig;
 import java.lang.reflect.Member;
 
 /**
- * Frame for a <clinit>() invocation
+ * Frame for a &lt;clinit&gt;() invocation.
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
@@ -33,7 +33,9 @@ final class StaticInitializerFrame extends Frame {
     private final String className;
 
     /**
-     * Constructor
+     * Constructor.
+     *
+     * @param className the name of the class
      */
     StaticInitializerFrame(String className) {
         super(MainConfig.get().MAX_LOCALS_DEFAULT);

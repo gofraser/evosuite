@@ -30,6 +30,11 @@ public class NullType implements Type {
 
     private static NullType instance;
 
+    /**
+     * Returns the singleton instance of {@link NullType}.
+     *
+     * @return the singleton instance
+     */
     public static NullType getInstance() {
         if (instance == null) {
             instance = new NullType();
@@ -38,5 +43,6 @@ public class NullType implements Type {
         return instance;
     }
 
-    private NullType() {}
+    private NullType() {
+    }
 }

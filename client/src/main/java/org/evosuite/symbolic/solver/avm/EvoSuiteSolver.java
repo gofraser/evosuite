@@ -66,8 +66,8 @@ public final class EvoSuiteSolver extends Solver {
             for (Variable<?> v : variables) {
                 long currentTimeMillis = System.currentTimeMillis();
 
-                long elapsed_solving_time = currentTimeMillis - startTimeMillis;
-                if (elapsed_solving_time > timeout) {
+                long elapsedSolvingTime = currentTimeMillis - startTimeMillis;
+                if (elapsedSolvingTime > timeout) {
                     throw new SolverTimeoutException();
                 }
 
@@ -107,15 +107,13 @@ public final class EvoSuiteSolver extends Solver {
         // distance = DistanceEstimator.getDistance(constraints);
         if (distance <= 0) {
             log.debug("Distance is " + distance + ", found solution");
-            Map<String, Object> new_model = getConcreteValues(variables);
+            Map<String, Object> newModel = getConcreteValues(variables);
             setConcreteValues(variables, initialValues);
-            SolverResult satResult = SolverResult.newSAT(new_model);
-            return satResult;
+            return SolverResult.newSAT(newModel);
         } else {
             setConcreteValues(variables, initialValues);
             log.debug("Returning unknown, search was not successful");
-            SolverResult unknownResult = SolverResult.newUnknown();
-            return unknownResult;
+            return SolverResult.newUnknown();
         }
 
     }
@@ -125,14 +123,15 @@ public final class EvoSuiteSolver extends Solver {
         Set<Long> longConstants = new HashSet<>();
         Set<Double> realConstants = new HashSet<>();
         for (Object o : constants) {
-            if (o instanceof String)
+            if (o instanceof String) {
                 stringConstants.add((String) o);
-            else if (o instanceof Double)
+            } else if (o instanceof Double) {
                 realConstants.add((Double) o);
-            else if (o instanceof Long)
+            } else if (o instanceof Long) {
                 longConstants.add((Long) o);
-            else
+            } else {
                 log.warn("Unexpected constant type: " + o);
+            }
         }
 
         for (Variable<?> v : variables) {

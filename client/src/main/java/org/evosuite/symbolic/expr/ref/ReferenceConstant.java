@@ -19,7 +19,6 @@
  */
 package org.evosuite.symbolic.expr.ref;
 
-import org.evosuite.symbolic.expr.ExpressionVisitor;
 import org.evosuite.symbolic.expr.Variable;
 import org.objectweb.asm.Type;
 
@@ -29,9 +28,9 @@ import java.util.Set;
 /**
  * This class represents a reference that is not symbolic (e.g. a new Object()
  * somewhere during the execution of the code). After the NEW operation, the
- * concrete reference cannot be accessed until the <init> method finishes.
+ * concrete reference cannot be accessed until the {@code <init>} method finishes.
  * Therefore, we have to initialize the <code>ReferenceConstant</code> after the
- * <init> method ends.
+ * {@code <init>} method ends.
  *
  * @author galeotti
  */

@@ -32,8 +32,8 @@ import java.util.Collection;
 
 final class RealAVM extends VariableAVM {
 
-    public RealAVM(RealVariable realVar, Collection<Constraint<?>> cnstr, long start_time, long timeout) {
-        super(cnstr, start_time, timeout);
+    public RealAVM(RealVariable realVar, Collection<Constraint<?>> cnstr, long startTime, long timeout) {
+        super(cnstr, startTime, timeout);
         this.realVar = realVar;
     }
 
@@ -45,14 +45,21 @@ final class RealAVM extends VariableAVM {
 
     private final RealVariable realVar;
 
+    /**
+     * Applies AVM to the real variable.
+     *
+     * @return a boolean.
+     */
+    @Override
     public boolean applyAVM() throws SolverTimeoutException {
         boolean improvement = false;
 
         improvement = doRealSearch(1.0, 2.0);
 
         if (checkpointedDistance > 0) {
-            if (afterCommaSearch(realVar, cnstr))
+            if (afterCommaSearch(realVar, cnstr)) {
                 improvement = true;
+            }
         }
 
         if (improvement) {
@@ -127,7 +134,7 @@ final class RealAVM extends VariableAVM {
      * the bounds of the variable the new value is set to the the appropriate
      * bound.
      *
-     * @param increment
+     * @param i a double.
      */
     private void incrementVar(double i) {
         double oldVal = realVar.getConcreteValue();
@@ -150,10 +157,10 @@ final class RealAVM extends VariableAVM {
 
     /**
      * Returns if the new distance is smaller than the checkpointing old
-     * distance
+     * distance.
      *
-     * @param newDistance
-     * @return
+     * @param newDistance a double.
+     * @return a boolean.
      */
     private boolean distImpr(double newDistance) {
         return newDistance < checkpointedDistance;
@@ -168,13 +175,15 @@ final class RealAVM extends VariableAVM {
     }
 
     /**
-     * Try to optimize the digits after the comma
+     * Try to optimize the digits after the comma.
      *
-     * @param realVar
-     * @param cnstr
-     * @return
+     * @param realVar a {@link org.evosuite.symbolic.expr.fp.RealVariable} object.
+     * @param cnstr a {@link java.util.Collection} object.
+     * @return a boolean.
+     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
-    private boolean afterCommaSearch(RealVariable realVar, Collection<Constraint<?>> cnstr) throws SolverTimeoutException {
+    private boolean afterCommaSearch(RealVariable realVar, Collection<Constraint<?>> cnstr)
+            throws SolverTimeoutException {
         boolean improvement = false;
 
         // Assume that floats have 7 digits after comma and double 15. This is
@@ -186,8 +195,9 @@ final class RealAVM extends VariableAVM {
             log.debug("Current precision: " + precision);
             final double delta = Math.pow(10.0, -precision);
             final double factor = 2;
-            if (doRealSearch(delta, factor))
+            if (doRealSearch(delta, factor)) {
                 improvement = true;
+            }
             if (this.checkpointedDistance <= 0) {
                 break;
             }
@@ -199,8 +209,8 @@ final class RealAVM extends VariableAVM {
     /**
      * Cut off digits after comma.
      *
-     * @param precision
-     * @param isFloat
+     * @param precision a int.
+     * @param isFloat a boolean.
      */
     private void chopOffPrecision(int precision, boolean isFloat) {
 
@@ -228,10 +238,11 @@ final class RealAVM extends VariableAVM {
     }
 
     /**
-     * Apply AVM on variable
+     * Apply AVM on variable.
      *
-     * @param delta
-     * @param factor
+     * @param delta a double.
+     * @param factor a double.
+     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
     private void iterateVar(double delta, double factor) throws SolverTimeoutException {
 

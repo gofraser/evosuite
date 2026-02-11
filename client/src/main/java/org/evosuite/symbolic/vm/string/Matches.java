@@ -29,39 +29,52 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for String.matches.
+ *
+ * @author galeotti
+ */
 public final class Matches extends SymbolicFunction {
 
     private static final String MATCHES = "matches";
 
+    /**
+     * Constructs a Matches.
+     *
+     * @param env the symbolic environment
+     */
     public Matches(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING, MATCHES,
                 Types.STR_TO_BOOL_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
 
         // receiver
-        ReferenceConstant symb_receiver = this.getSymbReceiver();
-        String conc_receiver = (String) this.getConcReceiver();
+        ReferenceConstant symbReceiver = this.getSymbReceiver();
+        String concReceiver = (String) this.getConcReceiver();
 
         // argument
-        String conc_argument = (String) this.getConcArgument(0);
+        String concArgument = (String) this.getConcArgument(0);
 
-        StringValue right_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_receiver, symb_receiver,
-                conc_receiver);
+        StringValue rightExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concReceiver, symbReceiver,
+                concReceiver);
 
         // return val
         boolean res = this.getConcBooleanRetVal();
 
-        if (right_expr.containsSymbolicVariable()) {
-            StringConstant left_expr = ExpressionFactory
-                    .buildNewStringConstant(conc_argument);
+        if (rightExpr.containsSymbolicVariable()) {
+            StringConstant leftExpr = ExpressionFactory
+                    .buildNewStringConstant(concArgument);
             int conV = res ? 1 : 0;
 
-            StringBinaryComparison strBExpr = new StringBinaryComparison(left_expr,
-                    Operator.PATTERNMATCHES, right_expr, (long) conV);
+            StringBinaryComparison strBExpr = new StringBinaryComparison(leftExpr,
+                    Operator.PATTERNMATCHES, rightExpr, (long) conV);
 
             return strBExpr;
         }

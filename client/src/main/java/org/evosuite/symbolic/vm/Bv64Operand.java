@@ -22,6 +22,8 @@ package org.evosuite.symbolic.vm;
 import org.evosuite.symbolic.expr.bv.IntegerValue;
 
 /**
+ * Represents a 64-bit bitvector operand in the symbolic virtual machine.
+ *
  * @author galeotti
  */
 public final class Bv64Operand implements DoubleWordOperand, IntegerOperand {

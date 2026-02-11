@@ -34,7 +34,7 @@ import java.util.List;
 public interface ConcolicExecutor {
 
     /**
-     * Retrieve the path condition for a given test case
+     * Retrieve the path condition for a given test case.
      *
      * @param test a {@link org.evosuite.testcase.TestChromosome} object.
      * @return a {@link java.util.List} object.
@@ -42,7 +42,7 @@ public interface ConcolicExecutor {
     List<BranchCondition> getSymbolicPath(TestChromosome test);
 
     /**
-     * Retrieve the path condition for a given test case
+     * Retrieve the path condition for a given test case.
      *
      * @param defaultTestCase a {@link org.evosuite.testcase.DefaultTestCase} object.
      * @return a {@link PathCondition} object.

@@ -20,10 +20,10 @@
 package org.evosuite.symbolic.expr.ref;
 
 /**
- * Utils related to reference variables
+ * Utils related to reference variables.
  *
- * TODO: Currently there's a similar idea in {@link org.evosuite.testcase.variable.ArraySymbolicLengthName},
- *       it would be a good idea to unify them.
+ * <p>TODO: Currently there's a similar idea in {@link org.evosuite.testcase.variable.ArraySymbolicLengthName},
+ * it would be a good idea to unify them.
  *
  * @author Ignacio Lebrero
  */
@@ -35,17 +35,17 @@ public abstract class ReferenceVariableUtil {
 
     /**
      * Builds the variable name that refers to a reference variable.
-     * It should be of the form "reference_<Variable_name>".
+     * It should be of the form "reference_{@code <Variable_name>}".
      *
-     * @param name
-     * @return
+     * @param name the name of the variable
+     * @return the name of the reference variable
      */
     public static String getReferenceVariableName(String name) {
         StringBuilder builder = new StringBuilder();
 
         builder.append(REFERENCE_VARIABLE_RESERVED_PREFIX_NAME)
-               .append(SEPARATOR)
-               .append(name);
+                .append(SEPARATOR)
+                .append(name);
 
         return builder.toString();
     }
@@ -53,17 +53,21 @@ public abstract class ReferenceVariableUtil {
     /**
      * Checks whether the variable name refers to a reference variable.
      *
-     * This should:
-     *     - Not be null.
-     *     - Be separated by an underscore.
-     *     - Have at least two elements (variable names could potentially have more underscores.
-     *     - the name should be preceded by the reference variable prefix.
+     * <p>This should:
+     * <ul>
+     *     <li>Not be null.</li>
+     *     <li>Be separated by an underscore.</li>
+     *     <li>Have at least two elements (variable names could potentially have more underscores.</li>
+     *     <li>the name should be preceded by the reference variable prefix.</li>
+     * </ul>
      *
-     * @param variableName
-     * @return
+     * @param variableName the variable name to check
+     * @return true if it is a reference variable name, false otherwise
      */
     public static boolean isReferenceVariableName(String variableName) {
-        if (variableName == null) return false;
+        if (variableName == null) {
+            return false;
+        }
 
         String[] splitName = variableName.split(SEPARATOR_REGEX);
 

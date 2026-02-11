@@ -28,6 +28,8 @@ import org.evosuite.symbolic.expr.ref.ReferenceConstant;
 import org.evosuite.symbolic.expr.ref.ReferenceExpression;
 
 /**
+ * Symbolic virtual machine for local variables and constants.
+ *
  * @author galeotti
  */
 public final class LocalsVM extends AbstractVM {
@@ -128,12 +130,13 @@ public final class LocalsVM extends AbstractVM {
     /**
      * Bytecode instruction stream: ... ,0x10, byte, ...
      *
-     * <p>
-     * Push the byte value that immediately follows this bytecode instruction
-     * (0x10) in the bytecode stream. The byte value is sign-extended to an int.
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc1.html#bipush
+     * <p>Push the byte value that immediately follows this bytecode instruction
+     * (0x10) in the bytecode stream. The byte value is sign-extended to an int.</p>
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc1.html#bipush</p>
+     *
+     * @param value the byte value
      */
     @Override
     public void BIPUSH(int value) {
@@ -145,13 +148,14 @@ public final class LocalsVM extends AbstractVM {
     /**
      * Bytecode instruction stream: ... ,0x11, byte1, byte2, ...
      *
-     * <p>
-     * Push the short value that immediately follows this bytecode instruction
+     * <p>Push the short value that immediately follows this bytecode instruction
      * (0x11) in the bytecode stream. The short value is sign-extended to an
-     * int.
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc13.html#sipush
+     * int.</p>
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc13.html#sipush</p>
+     *
+     * @param value the short value
      */
     @Override
     public void SIPUSH(int value) {
@@ -162,12 +166,13 @@ public final class LocalsVM extends AbstractVM {
     /**
      * Bytecode instruction stream: ... ,0x12, index, ...
      *
-     * <p>
-     * Push corresponding symbolic constant from constant pool (at index) onto
-     * the operand stack.
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc8.html#ldc
+     * <p>Push corresponding symbolic constant from constant pool (at index) onto
+     * the operand stack.</p>
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8.html#ldc</p>
+     *
+     * @param x the constant pool index
      */
     @Override
     public void LDC(int x) {
@@ -189,18 +194,16 @@ public final class LocalsVM extends AbstractVM {
     }
 
     /**
-     * Class literal described in Java Spec 3rd ed, Section 15.8.2
-     * <p>
-     * ".class" Java expression, such as for example in:
-     * I.class.isAssignableFrom(..)
+     * Class literal described in Java Spec 3rd ed, Section 15.8.2.
      *
-     * <p>
-     * Represent reference to Class object with symbolic function application:
-     * ClassRef(Type)
+     * <p>".class" Java expression, such as for example in:
+     * I.class.isAssignableFrom(..)</p>
      *
-     * @see http
-     * ://java.sun.com/docs/books/jls/third_edition/html/expressions.html
-     * #15.8.2
+     * <p>Represent reference to Class object with symbolic function application:
+     * ClassRef(Type)</p>
+     *
+     * @param x the class literal
+     * @see <a href="http://java.sun.com/docs/books/jls/third_edition/html/expressions.html#15.8.2">Java Spec</a>
      */
     @Override
     public void LDC(Class<?> x) {
@@ -226,10 +229,14 @@ public final class LocalsVM extends AbstractVM {
     }
 
     /**
-     * ... ==> ..., value
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#iload
+     * Load an int value from a local variable.
+     *
+     * <p>... ==&gt; ..., value</p>
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#iload</p>
+     *
+     * @param i the local variable index
      */
     @Override
     public void ILOAD(int i) {
@@ -266,10 +273,14 @@ public final class LocalsVM extends AbstractVM {
     }
 
     /**
-     * ..., value ==> ...
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#istore
+     * Store an int value into a local variable.
+     *
+     * <p>..., value ==&gt; ...</p>
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#istore</p>
+     *
+     * @param i the local variable index
      */
     @Override
     public void ISTORE(int i) {

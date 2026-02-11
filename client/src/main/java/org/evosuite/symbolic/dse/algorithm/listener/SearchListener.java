@@ -30,28 +30,28 @@ import org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithmBase;
 public interface SearchListener {
 
     /**
-     * Called when a new search is started
+     * Called when a new search is started.
      *
      * @param algorithm a {@link ExplorationAlgorithmBase} object.
      */
     void generationStarted(ExplorationAlgorithmBase algorithm);
 
     /**
-     * Called after each iteration of the search
+     * Called after each iteration of the search.
      *
      * @param algorithm a {@link ExplorationAlgorithmBase} object.
      */
     void iteration(ExplorationAlgorithmBase algorithm);
 
     /**
-     * Called after the last iteration
+     * Called after the last iteration.
      *
      * @param algorithm a {@link ExplorationAlgorithmBase} object.
      */
     void generationFinished(ExplorationAlgorithmBase algorithm);
 
     /**
-     * Called after every single fitness evaluation
+     * Called after every single fitness evaluation.
      *
      * @param individual a {@link org.evosuite.ga.Chromosome} object.
      */

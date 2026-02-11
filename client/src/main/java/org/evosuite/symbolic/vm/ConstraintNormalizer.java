@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Transforms an IntegerConstraint into its corresponding StringConstriant,
- * RealConstraint or IntegerConstraint
+ * RealConstraint or IntegerConstraint.
  *
  * @author galeotti
  */
@@ -47,7 +47,7 @@ public final class ConstraintNormalizer {
      * RealConstraint or IntegerConstraint.
      *
      * @param c a constraint to be normalized
-     * @return
+     * @return the normalized constraint
      */
     public static Constraint<?> normalize(IntegerConstraint c) {
 
@@ -71,25 +71,25 @@ public final class ConstraintNormalizer {
     private static Constraint<?> createStringConstraint(IntegerConstraint c) {
 
         if (c.getLeftOperand() instanceof StringComparison) {
-            StringComparison string_comparison = (StringComparison) c
+            StringComparison stringComparison = (StringComparison) c
                     .getLeftOperand();
             @SuppressWarnings("unchecked")
-            Expression<Long> number_expr = (Expression<Long>) c
+            Expression<Long> numberExpr = (Expression<Long>) c
                     .getRightOperand();
             IntegerConstant constant = new IntegerConstant(
-                    number_expr.getConcreteValue());
-            return new StringConstraint(string_comparison, c.getComparator(),
+                    numberExpr.getConcreteValue());
+            return new StringConstraint(stringComparison, c.getComparator(),
                     constant);
         } else {
             assert c.getRightOperand() instanceof StringComparison;
-            StringComparison string_comparison = (StringComparison) c
+            StringComparison stringComparison = (StringComparison) c
                     .getRightOperand();
             @SuppressWarnings("unchecked")
-            Expression<Long> number_expr = (Expression<Long>) c
+            Expression<Long> numberExpr = (Expression<Long>) c
                     .getLeftOperand();
             IntegerConstant constant = new IntegerConstant(
-                    number_expr.getConcreteValue());
-            return new StringConstraint(string_comparison, c.getComparator(),
+                    numberExpr.getConcreteValue());
+            return new StringConstraint(stringComparison, c.getComparator(),
                     constant);
         }
     }
@@ -103,9 +103,9 @@ public final class ConstraintNormalizer {
                     .intValue();
             Comparator op = c.getComparator();
 
-            Expression<Double> cmp_left = cmp.getLeftOperant();
-            Expression<Double> cmp_right = cmp.getRightOperant();
-            return createRealConstraint(cmp_left, op, cmp_right, value);
+            Expression<Double> cmpLeft = cmp.getLeftOperant();
+            Expression<Double> cmpRight = cmp.getRightOperant();
+            return createRealConstraint(cmpLeft, op, cmpRight, value);
 
         } else {
 
@@ -113,45 +113,45 @@ public final class ConstraintNormalizer {
             RealComparison cmp = (RealComparison) c.getRightOperand();
 
             Comparator op = c.getComparator();
-            Comparator swap_op = op.swap();
+            Comparator swapOp = op.swap();
             int value = ((Number) c.getLeftOperand().getConcreteValue())
                     .intValue();
-            int swap_value = -value;
-            Expression<Double> cmp_left = cmp.getLeftOperant();
-            Expression<Double> cmp_right = cmp.getRightOperant();
+            int swapValue = -value;
+            Expression<Double> cmpLeft = cmp.getLeftOperant();
+            Expression<Double> cmpRight = cmp.getRightOperant();
 
-            return createRealConstraint(cmp_left, swap_op, cmp_right,
-                    swap_value);
+            return createRealConstraint(cmpLeft, swapOp, cmpRight,
+                    swapValue);
 
         }
 
     }
 
     private static RealConstraint createRealConstraint(
-            Expression<Double> cmp_left, Comparator op,
-            Expression<Double> cmp_right, int value) {
+            Expression<Double> cmpLeft, Comparator op,
+            Expression<Double> cmpRight, int value) {
         switch (op) {
             case EQ:
                 if (value < 0) {
-                    return (new RealConstraint(cmp_left, Comparator.LT, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.LT, cmpRight));
                 } else if (value == 0) {
-                    return (new RealConstraint(cmp_left, Comparator.EQ, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.EQ, cmpRight));
                 } else {
-                    return (new RealConstraint(cmp_left, Comparator.GT, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.GT, cmpRight));
                 }
             case NE:
                 if (value < 0) {
-                    return (new RealConstraint(cmp_left, Comparator.GE, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.GE, cmpRight));
                 } else if (value == 0) {
-                    return (new RealConstraint(cmp_left, Comparator.NE, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.NE, cmpRight));
                 } else {
-                    return (new RealConstraint(cmp_left, Comparator.LE, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.LE, cmpRight));
                 }
             case LE:
                 if (value < 0) {
-                    return (new RealConstraint(cmp_left, Comparator.LT, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.LT, cmpRight));
                 } else if (value == 0) {
-                    return (new RealConstraint(cmp_left, Comparator.LE, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.LE, cmpRight));
                 } else {
                     throw new RuntimeException("Unexpected Constraint");
                 }
@@ -159,23 +159,23 @@ public final class ConstraintNormalizer {
                 if (value < 0) {
                     throw new RuntimeException("Unexpected Constraint");
                 } else if (value == 0) {
-                    return (new RealConstraint(cmp_left, Comparator.LT, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.LT, cmpRight));
                 } else {
-                    return (new RealConstraint(cmp_left, Comparator.LE, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.LE, cmpRight));
                 }
             case GE:
                 if (value < 0) {
                     throw new RuntimeException("Unexpected Constraint");
                 } else if (value == 0) {
-                    return (new RealConstraint(cmp_left, Comparator.GE, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.GE, cmpRight));
                 } else {
-                    return (new RealConstraint(cmp_left, Comparator.GT, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.GT, cmpRight));
                 }
             case GT:
                 if (value < 0) {
-                    return (new RealConstraint(cmp_left, Comparator.GE, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.GE, cmpRight));
                 } else if (value == 0) {
-                    return (new RealConstraint(cmp_left, Comparator.GT, cmp_right));
+                    return (new RealConstraint(cmpLeft, Comparator.GT, cmpRight));
                 } else {
                     throw new RuntimeException("Unexpected Constraint");
                 }
@@ -191,9 +191,9 @@ public final class ConstraintNormalizer {
             int value = ((Number) c.getRightOperand().getConcreteValue())
                     .intValue();
             Comparator op = c.getComparator();
-            Expression<Long> cmp_left = cmp.getLeftOperant();
-            Expression<Long> cmp_right = cmp.getRightOperant();
-            return createIntegerConstraint(cmp_left, op, cmp_right, value);
+            Expression<Long> cmpLeft = cmp.getLeftOperant();
+            Expression<Long> cmpRight = cmp.getRightOperant();
+            return createIntegerConstraint(cmpLeft, op, cmpRight, value);
 
         } else {
             assert (c.getRightOperand() instanceof IntegerComparison);
@@ -202,49 +202,49 @@ public final class ConstraintNormalizer {
             int value = ((Number) c.getLeftOperand().getConcreteValue())
                     .intValue();
             Comparator op = c.getComparator();
-            Expression<Long> cmp_left = cmp.getLeftOperant();
-            Expression<Long> cmp_right = cmp.getRightOperant();
-            Comparator swap_op = op.swap();
-            int swap_value = -value;
-            return createIntegerConstraint(cmp_left, swap_op, cmp_right,
-                    swap_value);
+            Expression<Long> cmpLeft = cmp.getLeftOperant();
+            Expression<Long> cmpRight = cmp.getRightOperant();
+            Comparator swapOp = op.swap();
+            int swapValue = -value;
+            return createIntegerConstraint(cmpLeft, swapOp, cmpRight,
+                    swapValue);
 
         }
     }
 
     private static IntegerConstraint createIntegerConstraint(
-            Expression<Long> cmp_left, Comparator op,
-            Expression<Long> cmp_right, int value) {
+            Expression<Long> cmpLeft, Comparator op,
+            Expression<Long> cmpRight, int value) {
         switch (op) {
             case EQ:
                 if (value < 0) {
-                    return (new IntegerConstraint(cmp_left, Comparator.LT,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.LT,
+                            cmpRight));
                 } else if (value == 0) {
-                    return (new IntegerConstraint(cmp_left, Comparator.EQ,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.EQ,
+                            cmpRight));
                 } else {
-                    return (new IntegerConstraint(cmp_left, Comparator.GT,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.GT,
+                            cmpRight));
                 }
             case NE:
                 if (value < 0) {
-                    return (new IntegerConstraint(cmp_left, Comparator.GE,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.GE,
+                            cmpRight));
                 } else if (value == 0) {
-                    return (new IntegerConstraint(cmp_left, Comparator.NE,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.NE,
+                            cmpRight));
                 } else {
-                    return (new IntegerConstraint(cmp_left, Comparator.LE,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.LE,
+                            cmpRight));
                 }
             case LE:
                 if (value < 0) {
-                    return (new IntegerConstraint(cmp_left, Comparator.LT,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.LT,
+                            cmpRight));
                 } else if (value == 0) {
-                    return (new IntegerConstraint(cmp_left, Comparator.LE,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.LE,
+                            cmpRight));
                 } else {
                     throw new RuntimeException("Unexpected Constraint");
                 }
@@ -252,29 +252,29 @@ public final class ConstraintNormalizer {
                 if (value < 0) {
                     throw new RuntimeException("Unexpected Constraint");
                 } else if (value == 0) {
-                    return (new IntegerConstraint(cmp_left, Comparator.LT,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.LT,
+                            cmpRight));
                 } else {
-                    return (new IntegerConstraint(cmp_left, Comparator.LE,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.LE,
+                            cmpRight));
                 }
             case GE:
                 if (value < 0) {
                     throw new RuntimeException("Unexpected Constraint");
                 } else if (value == 0) {
-                    return (new IntegerConstraint(cmp_left, Comparator.GE,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.GE,
+                            cmpRight));
                 } else {
-                    return (new IntegerConstraint(cmp_left, Comparator.GT,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.GT,
+                            cmpRight));
                 }
             case GT:
                 if (value < 0) {
-                    return (new IntegerConstraint(cmp_left, Comparator.GE,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.GE,
+                            cmpRight));
                 } else if (value == 0) {
-                    return (new IntegerConstraint(cmp_left, Comparator.GT,
-                            cmp_right));
+                    return (new IntegerConstraint(cmpLeft, Comparator.GT,
+                            cmpRight));
                 } else {
                     throw new RuntimeException("Unexpected Constraint");
                 }

@@ -43,8 +43,10 @@ public abstract class Frame {
     private boolean weInvokedSynteticLambdaCodeThatInvokesNonInstrCode = false;
 
     /**
+     * Returns whether the last method invoked is instrumented.
+     *
      * @return the last method invoked is instrumented, because it is neither
-     * native nor defined by an uninstrumented JDK class, etc.
+     *     native nor defined by an uninstrumented JDK class, etc.
      */
     boolean weInvokedInstrumentedCode() {
         return weInvokedInstrumentedCode;
@@ -53,10 +55,11 @@ public abstract class Frame {
     /**
      * The next call is to an instrumented method. The called method is neither
      * native, nor defined by an uninstrumented JDK class, etc.
-     * <p>
-     * <p>
-     * Usage: This method has to be called just before any
-     * method/constructor/clinit call.
+     *
+     * <p>Usage: This method has to be called just before any
+     * method/constructor/clinit call.</p>
+     *
+     * @param b whether the next call is to instrumented code
      */
     public void invokeInstrumentedCode(boolean b) {
         weInvokedInstrumentedCode = b;
@@ -64,11 +67,18 @@ public abstract class Frame {
 
     /**
      * The next call is to a lambda's synthetic method which calls non-instrumented code.
+     *
+     * @return whether the next call is to a lambda's synthetic method which calls non-instrumented code
      */
     boolean weInvokedSyntheticLambdaCodeThatInvokesNonInstrCode() {
         return weInvokedSynteticLambdaCodeThatInvokesNonInstrCode;
     }
 
+    /**
+     * Set whether the next call is to a lambda's synthetic method which calls non-instrumented code.
+     *
+     * @param b whether the next call is to a lambda's synthetic method which calls non-instrumented code
+     */
     public void invokeLambdaSyntheticCodeThatInvokesNonInstrCode(boolean b) {
         weInvokedSynteticLambdaCodeThatInvokesNonInstrCode = b;
     }
@@ -80,17 +90,19 @@ public abstract class Frame {
     boolean invokeNeedsThis;
 
     /**
-     * Operand stack
+     * Operand stack.
      */
     public final OperandStack operandStack = new OperandStack();
 
     /**
-     * List of local variables
+     * List of local variables.
      */
     final LocalsTable localsTable;
 
     /**
-     * Constructor
+     * Constructor.
+     *
+     * @param maxLocals maximum number of local variables
      */
     protected Frame(int maxLocals) {
         localsTable = new LocalsTable(maxLocals);
@@ -99,37 +111,48 @@ public abstract class Frame {
     public abstract Member getMember();
 
     /**
-     * Without the "this" receiver instance parameter
+     * Without the "this" receiver instance parameter.
+     *
+     * @return number of formal parameters
      */
     public abstract int getNrFormalParameters();
 
+    /**
+     * Total number of formal parameters.
+     *
+     * @return total number of formal parameters
+     */
     public abstract int getNrFormalParametersTotal();
 
     /**
      * Dispose operands we passed to called method.
-     * <p>
-     * //@param nrFormalParameters without "this" receiver instance parameter
      *
      * @param nrFormalParameters with "this" receiver instance parameter
      */
     private void disposeOperands(int nrFormalParameters) {
-        for (int i = 0; i < nrFormalParameters; i++)
+        for (int i = 0; i < nrFormalParameters; i++) {
             operandStack.popOperand();
+        }
     }
 
     /**
      * We invoked some other method or constructor. Now we want to discard the
      * parameters we used for this call from our operand stack.
+     *
+     * @param methDesc the method descriptor
      */
     void disposeMethInvokeArgs(String methDesc) {
         disposeOperands(Type.getArgumentTypes(methDesc).length);
-        if (invokeNeedsThis)
+        if (invokeNeedsThis) {
             operandStack.popOperand();
+        }
     }
 
     /**
      * Dispose the parameters we needed to invoke frame (of instrumented
      * method).
+     *
+     * @param frame the frame to dispose arguments from
      */
     void disposeMethInvokeArgs(Frame frame) {
         disposeOperands(frame.getNrFormalParametersTotal());

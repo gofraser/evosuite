@@ -27,19 +27,39 @@ public final class SmtFunctionDeclaration {
 
     private final SmtSort[] functionSorts;
 
+    /**
+     * Constructor.
+     *
+     * @param funcName a {@link java.lang.String} object.
+     * @param funcSorts an array of {@link org.evosuite.symbolic.solver.SmtSort} objects.
+     */
     public SmtFunctionDeclaration(String funcName, SmtSort... funcSorts) {
         this.functionName = funcName;
         this.functionSorts = funcSorts;
     }
 
+    /**
+     * Returns the function name.
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getFunctionName() {
         return functionName;
     }
 
+    /**
+     * Returns the function sorts.
+     *
+     * @return an array of {@link org.evosuite.symbolic.solver.SmtSort} objects.
+     */
     public SmtSort[] getFunctionSorts() {
         return functionSorts;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public String toString() {
         SmtQueryPrinter printer = new SmtQueryPrinter();
         String str = printer.print(this);

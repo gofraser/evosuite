@@ -19,8 +19,8 @@
  */
 package org.evosuite.symbolic.expr.reftype;
 
-import org.objectweb.asm.Type;
 import org.evosuite.symbolic.expr.AbstractExpression;
+import org.objectweb.asm.Type;
 
 /**
  * This is the super class of all symbolic reference types (classes).
@@ -32,7 +32,7 @@ public abstract class ReferenceTypeExpression extends AbstractExpression<Type> i
     private static final long serialVersionUID = 4684495307141703121L;
 
     /**
-     * referenceTypeId does not change during the lifetime of the reference
+     * referenceTypeId does not change during the lifetime of the reference.
      */
     private final int referenceTypeId;
 
@@ -41,7 +41,16 @@ public abstract class ReferenceTypeExpression extends AbstractExpression<Type> i
      */
     private int concIdentityHashCode;
 
-    public ReferenceTypeExpression(Type concreteClass, int size, boolean containsSymbolicVariable, int referenceTypeId) {
+    /**
+     * Constructs a {@link ReferenceTypeExpression} with the given type, size, symbolic flag and id.
+     *
+     * @param concreteClass the concrete type
+     * @param size the expression size
+     * @param containsSymbolicVariable whether it contains symbolic variables
+     * @param referenceTypeId the unique id of the reference type
+     */
+    public ReferenceTypeExpression(Type concreteClass, int size, boolean containsSymbolicVariable,
+                                   int referenceTypeId) {
         super(concreteClass, size, containsSymbolicVariable);
 
         this.referenceTypeId = referenceTypeId;

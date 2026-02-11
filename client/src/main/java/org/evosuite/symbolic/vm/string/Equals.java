@@ -28,43 +28,56 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for String.equals.
+ *
+ * @author galeotti
+ */
 public final class Equals extends SymbolicFunction {
 
     private static final String EQUALS = "equals";
 
+    /**
+     * Constructs an Equals.
+     *
+     * @param env the symbolic environment
+     */
     public Equals(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING, EQUALS,
                 Types.OBJECT_TO_BOOL_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
 
-        String conc_left = (String) this.getConcReceiver();
-        ReferenceConstant symb_left = this.getSymbReceiver();
+        String concLeft = (String) this.getConcReceiver();
+        ReferenceConstant symbLeft = this.getSymbReceiver();
 
-        Object conc_right = this.getConcArgument(0);
-        ReferenceExpression symb_right = this.getSymbArgument(0);
+        Object concRight = this.getConcArgument(0);
+        ReferenceExpression symbRight = this.getSymbArgument(0);
 
         boolean res = this.getConcBooleanRetVal();
 
-        StringValue left_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_left, symb_left, conc_left);
+        StringValue leftExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concLeft, symbLeft, concLeft);
 
-        if (symb_right instanceof ReferenceConstant
-                && conc_right instanceof String) {
-            ReferenceConstant non_null_symb_right = (ReferenceConstant) symb_right;
-            String conc_right_str = (String) conc_right;
+        if (symbRight instanceof ReferenceConstant
+                && concRight instanceof String) {
+            ReferenceConstant nonNullSymbRight = (ReferenceConstant) symbRight;
+            String concRightStr = (String) concRight;
 
-            StringValue right_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_right_str,
-                    non_null_symb_right, conc_right_str);
+            StringValue rightExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                    SymbolicHeap.$STRING_VALUE, concRightStr,
+                    nonNullSymbRight, concRightStr);
 
-            if (left_expr.containsSymbolicVariable()
-                    || right_expr.containsSymbolicVariable()) {
+            if (leftExpr.containsSymbolicVariable()
+                    || rightExpr.containsSymbolicVariable()) {
                 int conV = res ? 1 : 0;
-                StringBinaryComparison strBExpr = new StringBinaryComparison(left_expr,
-                        Operator.EQUALS, right_expr, (long) conV);
+                StringBinaryComparison strBExpr = new StringBinaryComparison(leftExpr,
+                        Operator.EQUALS, rightExpr, (long) conV);
                 return strBExpr;
             }
 

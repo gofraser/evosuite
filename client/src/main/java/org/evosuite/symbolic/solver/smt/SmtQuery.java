@@ -96,10 +96,20 @@ public final class SmtQuery {
         return this.options.keySet();
     }
 
+    /**
+     * Returns the option value.
+     *
+     * @param optionName a {@link java.lang.String} object.
+     * @return a {@link java.lang.String} object.
+     */
     public String getOptionValue(String optionName) {
         return this.options.get(optionName);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public String toString() {
         SmtQueryPrinter printer = new SmtQueryPrinter();
         String str = printer.print(this);

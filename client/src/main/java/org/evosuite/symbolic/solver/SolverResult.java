@@ -23,6 +23,11 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Represents the result of a solver query.
+ *
+ * @author galeotti
+ */
 public class SolverResult implements Serializable {
 
 
@@ -41,46 +46,93 @@ public class SolverResult implements Serializable {
         this.model = model;
     }
 
+    /**
+     * Creates a new UNSAT result.
+     *
+     * @return a new SolverResult representing UNSAT
+     */
     public static SolverResult newUNSAT() {
         return new SolverResult(SolverResultType.UNSAT, null);
     }
 
+    /**
+     * Creates a new UNKNOWN result.
+     *
+     * @return a new SolverResult representing UNKNOWN
+     */
     public static SolverResult newUnknown() {
         return new SolverResult(SolverResultType.UNKNOWN, null);
     }
 
+    /**
+     * Creates a new SAT result with the provided variable values.
+     *
+     * @param values a map of variable names to their values
+     * @return a new SolverResult representing SAT
+     */
     public static SolverResult newSAT(Map<String, Object> values) {
         return new SolverResult(SolverResultType.SAT, values);
     }
 
+    /**
+     * Checks if the result is SAT.
+     *
+     * @return true if the result is SAT, false otherwise
+     */
     public boolean isSAT() {
         return resultType.equals(SolverResultType.SAT);
     }
 
-    public boolean containsVariable(String var_name) {
+    /**
+     * Checks if the model contains a value for the specified variable.
+     *
+     * @param varName the name of the variable
+     * @return true if the model contains the variable, false otherwise
+     */
+    public boolean containsVariable(String varName) {
         if (!resultType.equals(SolverResultType.SAT)) {
             throw new IllegalStateException("This method should not be called with a non-SAT result");
         }
-        return model.containsKey(var_name);
+        return model.containsKey(varName);
     }
 
-    public Object getValue(String var_name) {
+    /**
+     * Returns the value for the specified variable from the model.
+     *
+     * @param varName the name of the variable
+     * @return the value of the variable, or null if not present
+     */
+    public Object getValue(String varName) {
         if (!resultType.equals(SolverResultType.SAT)) {
             throw new IllegalStateException("This method should not be called with a non-SAT result");
         }
-        return model.get(var_name);
+        return model.get(varName);
     }
 
+    /**
+     * Returns the model (variable assignments) as a map.
+     *
+     * @return a map of variable names to their values
+     */
     public Map<String, Object> getModel() {
         HashMap<String, Object> newModel = model == null ? new HashMap<>() : new HashMap<>(model);
         return newModel;
     }
 
+    /**
+     * Checks if the result is UNSAT.
+     *
+     * @return true if the result is UNSAT, false otherwise
+     */
     public boolean isUNSAT() {
         return resultType.equals(SolverResultType.UNSAT);
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public String toString() {
         StringBuffer buff = new StringBuffer();
         buff.append(resultType + "\n");
@@ -94,6 +146,11 @@ public class SolverResult implements Serializable {
         return buff.toString();
     }
 
+    /**
+     * Checks if the result is UNKNOWN.
+     *
+     * @return true if the result is UNKNOWN, false otherwise
+     */
     public boolean isUnknown() {
         return resultType.equals(SolverResultType.UNKNOWN);
     }

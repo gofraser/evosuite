@@ -30,6 +30,11 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 import java.lang.reflect.Array;
 import java.math.BigInteger;
 
+/**
+ * Symbolic function for BigInteger.divideAndRemainder.
+ *
+ * @author galeotti
+ */
 public final class BigInteger_DivideAndRemainder extends SymbolicFunction {
 
     private static final String DIVIDE_AND_REMAINDER = "divideAndRemainder";
@@ -43,67 +48,67 @@ public final class BigInteger_DivideAndRemainder extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        BigInteger conc_left_big_integer = (BigInteger) this.getConcReceiver();
-        ReferenceConstant symb_left_big_integer = this.getSymbReceiver();
+        BigInteger concLeftBigInteger = (BigInteger) this.getConcReceiver();
+        ReferenceConstant symbLeftBigInteger = this.getSymbReceiver();
 
-        BigInteger conc_right_big_integer = (BigInteger) this
+        BigInteger concRightBigInteger = (BigInteger) this
                 .getConcArgument(0);
-        ReferenceConstant symb_right_big_integer = (ReferenceConstant) this
+        ReferenceConstant symbRightBigInteger = (ReferenceConstant) this
                 .getSymbArgument(0);
 
         Object res = this.getConcRetVal();
-        ReferenceExpression symb_res = this.getSymbRetVal();
+        ReferenceExpression symbRes = this.getSymbRetVal();
 
-        if (res != null && conc_left_big_integer != null
-                && conc_right_big_integer != null) {
+        if (res != null && concLeftBigInteger != null
+                && concRightBigInteger != null) {
 
-            IntegerValue left_big_integer_expr = this.env.heap.getField(
+            IntegerValue leftBigIntegerExpr = this.env.heap.getField(
                     Types.JAVA_MATH_BIG_INTEGER,
-                    SymbolicHeap.$BIG_INTEGER_CONTENTS, conc_left_big_integer,
-                    symb_left_big_integer, conc_left_big_integer.longValue());
+                    SymbolicHeap.$BIG_INTEGER_CONTENTS, concLeftBigInteger,
+                    symbLeftBigInteger, concLeftBigInteger.longValue());
 
-            IntegerValue right_big_integer_expr = this.env.heap.getField(
+            IntegerValue rightBigIntegerExpr = this.env.heap.getField(
                     Types.JAVA_MATH_BIG_INTEGER,
-                    SymbolicHeap.$BIG_INTEGER_CONTENTS, conc_right_big_integer,
-                    symb_right_big_integer, conc_right_big_integer.longValue());
+                    SymbolicHeap.$BIG_INTEGER_CONTENTS, concRightBigInteger,
+                    symbRightBigInteger, concRightBigInteger.longValue());
 
-            if (left_big_integer_expr.containsSymbolicVariable()
-                    || right_big_integer_expr.containsSymbolicVariable()) {
+            if (leftBigIntegerExpr.containsSymbolicVariable()
+                    || rightBigIntegerExpr.containsSymbolicVariable()) {
 
                 // quotient
-                BigInteger conc_quotient = (BigInteger) Array.get(res,
+                BigInteger concQuotient = (BigInteger) Array.get(res,
                         QUOTIENT_ARRAY_INDEX);
 
-                ReferenceConstant symb_quotient = (ReferenceConstant) this.env.heap
-                        .getReference(conc_quotient);
+                ReferenceConstant symbQuotient = (ReferenceConstant) this.env.heap
+                        .getReference(concQuotient);
 
-                IntegerValue symb_div_value = ExpressionFactory.div(
-                        left_big_integer_expr, right_big_integer_expr,
-                        conc_quotient.longValue());
+                IntegerValue symbDivValue = ExpressionFactory.div(
+                        leftBigIntegerExpr, rightBigIntegerExpr,
+                        concQuotient.longValue());
 
                 this.env.heap.putField(Types.JAVA_MATH_BIG_INTEGER,
-                        SymbolicHeap.$BIG_INTEGER_CONTENTS, conc_quotient,
-                        symb_quotient, symb_div_value);
+                        SymbolicHeap.$BIG_INTEGER_CONTENTS, concQuotient,
+                        symbQuotient, symbDivValue);
 
                 // remainder
-                BigInteger conc_remainder = (BigInteger) Array.get(res,
+                BigInteger concRemainder = (BigInteger) Array.get(res,
                         REMAINDER_ARRAY_INDEX);
 
-                ReferenceConstant symb_remainder = (ReferenceConstant) this.env.heap
-                        .getReference(conc_remainder);
+                ReferenceConstant symbRemainder = (ReferenceConstant) this.env.heap
+                        .getReference(concRemainder);
 
-                IntegerValue symb_rem_value = ExpressionFactory.rem(
-                        left_big_integer_expr, right_big_integer_expr,
-                        conc_remainder.longValue());
+                IntegerValue symbRemValue = ExpressionFactory.rem(
+                        leftBigIntegerExpr, rightBigIntegerExpr,
+                        concRemainder.longValue());
 
                 this.env.heap.putField(Types.JAVA_MATH_BIG_INTEGER,
-                        SymbolicHeap.$BIG_INTEGER_CONTENTS, conc_remainder,
-                        symb_remainder, symb_rem_value);
+                        SymbolicHeap.$BIG_INTEGER_CONTENTS, concRemainder,
+                        symbRemainder, symbRemValue);
 
             }
         }
 
-        return symb_res;
+        return symbRes;
     }
 
 }

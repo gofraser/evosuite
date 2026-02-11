@@ -20,23 +20,35 @@
 package org.evosuite.symbolic.vm.heap;
 
 /**
- * Representation of an object field key
+ * Representation of an object field key.
  */
 public final class FieldKey {
 
     private final String owner;
     private final String name;
 
+    /**
+     * Constructs a FieldKey.
+     *
+     * @param owner the owner of the field
+     * @param name  the name of the field
+     */
     public FieldKey(String owner, String name) {
         this.owner = owner;
         this.name = name;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int hashCode() {
         return this.owner.hashCode() + this.name.hashCode();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean equals(Object o) {
         if (o != null && o.getClass().equals(FieldKey.class)) {
@@ -47,6 +59,9 @@ public final class FieldKey {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String toString() {
         return this.owner + "/" + this.name;

@@ -19,6 +19,9 @@
  */
 package org.evosuite.symbolic.solver;
 
+/**
+ * Exception thrown when the solver reports an error.
+ */
 public final class SolverErrorException extends Exception {
 
 

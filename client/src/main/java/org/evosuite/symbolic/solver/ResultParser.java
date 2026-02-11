@@ -21,6 +21,9 @@ package org.evosuite.symbolic.solver;
 
 import java.math.BigDecimal;
 
+/**
+ * Base class for solver result parsers.
+ */
 public abstract class ResultParser {
 
     private static final int BIG_DECIMAL_SCALE = 100;

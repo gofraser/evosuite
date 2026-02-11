@@ -33,9 +33,10 @@ import org.evosuite.symbolic.dse.algorithm.listener.implementations.ZeroFitnessS
 public class StoppingConditionFactory {
 
     /**
-     * Convert property to actual stopping condition
+     * Convert property to actual stopping condition.
      *
-     * @return
+     * @param stoppingCondition the criterion to use.
+     * @return the stopping condition instance.
      */
     public static StoppingCondition getStoppingCondition(Properties.DSEStoppingConditionCriterion stoppingCondition) {
         switch (stoppingCondition) {

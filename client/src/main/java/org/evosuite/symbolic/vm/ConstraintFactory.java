@@ -26,6 +26,8 @@ import org.evosuite.symbolic.expr.constraint.ReferenceConstraint;
 import org.evosuite.symbolic.expr.ref.ReferenceExpression;
 
 /**
+ * Factory for creating symbolic constraints.
+ *
  * @author galeotti
  */
 public abstract class ConstraintFactory {
@@ -60,11 +62,11 @@ public abstract class ConstraintFactory {
 
     public static ReferenceConstraint eq(ReferenceExpression left,
                                          ReferenceExpression right) {
-		return new ReferenceConstraint(left, Comparator.EQ, right);
-	}
+        return new ReferenceConstraint(left, Comparator.EQ, right);
+    }
 
-	public static ReferenceConstraint neq(ReferenceExpression left,
-										 ReferenceExpression right) {
-		return new ReferenceConstraint(left, Comparator.NE, right);
-	}
+    public static ReferenceConstraint neq(ReferenceExpression left,
+                                          ReferenceExpression right) {
+        return new ReferenceConstraint(left, Comparator.NE, right);
+    }
 }

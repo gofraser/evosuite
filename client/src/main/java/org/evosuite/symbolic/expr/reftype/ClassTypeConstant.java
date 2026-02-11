@@ -19,8 +19,8 @@
  */
 package org.evosuite.symbolic.expr.reftype;
 
-import org.objectweb.asm.Type;
 import org.evosuite.symbolic.expr.ExpressionVisitor;
+import org.objectweb.asm.Type;
 
 /**
  * Represents a class type.
@@ -28,6 +28,8 @@ import org.evosuite.symbolic.expr.ExpressionVisitor;
  * @author Ignacio Lebrero
  */
 public final class ClassTypeConstant extends NonNullReferenceTypeConstant {
+
+    private static final long serialVersionUID = -1234567890123456789L;
 
     public ClassTypeConstant(Type concreteValue, int referenceTypeId) {
         super(concreteValue, referenceTypeId);

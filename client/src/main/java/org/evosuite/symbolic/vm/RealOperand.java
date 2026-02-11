@@ -22,6 +22,8 @@ package org.evosuite.symbolic.vm;
 import org.evosuite.symbolic.expr.fp.RealValue;
 
 /**
+ * Represents a real (floating point) operand in the symbolic virtual machine.
+ *
  * @author galeotti
  */
 public interface RealOperand extends Operand {

@@ -31,12 +31,18 @@ public final class NextTokenizerExpr extends TokenizerExpr {
 
     private final TokenizerExpr tokenizerExpr;
 
+    /**
+     * Constructs a {@link NextTokenizerExpr} with the given tokenizer expression.
+     *
+     * @param expr the tokenizer expression
+     */
     public NextTokenizerExpr(TokenizerExpr expr) {
         super(1 + expr.getSize(), expr.containsSymbolicVariable());
         tokenizerExpr = expr;
 
-        if (getSize() > Properties.DSE_CONSTRAINT_LENGTH)
+        if (getSize() > Properties.DSE_CONSTRAINT_LENGTH) {
             throw new ConstraintTooLongException(getSize());
+        }
     }
 
 
@@ -49,17 +55,20 @@ public final class NextTokenizerExpr extends TokenizerExpr {
 
     @Override
     public boolean equals(Object obj) {
-        if (obj == null)
+        if (obj == null) {
             return false;
+        }
 
-        if (obj == this)
+        if (obj == this) {
             return true;
+        }
 
         if (obj instanceof NextTokenizerExpr) {
             NextTokenizerExpr that = (NextTokenizerExpr) obj;
             return this.tokenizerExpr.equals(that.tokenizerExpr);
-        } else
+        } else {
             return false;
+        }
     }
 
     @Override

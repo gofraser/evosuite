@@ -84,9 +84,7 @@ public final class RealComparison extends AbstractExpression<Long> implements
     }
 
     /**
-     * <p>
-     * getRightOperant
-     * </p>
+     * Returns the right operand of the comparison.
      *
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
@@ -95,9 +93,7 @@ public final class RealComparison extends AbstractExpression<Long> implements
     }
 
     /**
-     * <p>
-     * getLeftOperant
-     * </p>
+     * Returns the left operand of the comparison.
      *
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */

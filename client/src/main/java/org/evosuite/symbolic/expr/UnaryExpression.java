@@ -23,19 +23,14 @@ package org.evosuite.symbolic.expr;
 public interface UnaryExpression<T extends Object> {
 
     /**
-     * <p>
-     * getOperand
-     * </p>
+     * Returns the operand of the unary expression.
      *
-     * @param <T> a T object.
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     Expression<T> getOperand();
 
     /**
-     * <p>
-     * getOperator
-     * </p>
+     * Returns the operator of the unary expression.
      *
      * @return a {@link org.evosuite.symbolic.expr.Operator} object.
      */

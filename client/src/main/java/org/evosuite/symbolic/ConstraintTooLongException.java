@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic;
 
@@ -26,13 +26,13 @@ public class ConstraintTooLongException extends StopVMException {
 
     private static final long serialVersionUID = 4788691891779076515L;
 
-    private final int constraint_size;
+    private final int constraintSize;
 
-    public ConstraintTooLongException(int constraint_size) {
-        this.constraint_size = constraint_size;
+    public ConstraintTooLongException(int constraintSize) {
+        this.constraintSize = constraintSize;
     }
 
     public int getConstraintSize() {
-        return this.constraint_size;
+        return this.constraintSize;
     }
 }

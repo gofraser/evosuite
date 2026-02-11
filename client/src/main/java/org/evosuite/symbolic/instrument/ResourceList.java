@@ -20,10 +20,6 @@
 
 package org.evosuite.symbolic.instrument;
 
-/**
- * @author fraser
- */
-
 import org.evosuite.dse.MainConfig;
 
 import java.io.File;
@@ -32,13 +28,19 @@ import java.util.Collection;
 
 
 /**
- * list resources available from the classpath @ *
+ * List resources available from the classpath.
  *
  * @author Gordon Fraser
  */
 public class ResourceList {
 
 
+    /**
+     * Finds a resource in the classpath.
+     *
+     * @param fileName a {@link java.lang.String} object.
+     * @return a {@link java.util.Collection} object.
+     */
     public static Collection<String> findResourceInClassPath(String fileName) {
         final ArrayList<String> retval = new ArrayList<>();
         final String[] classPathElements = MainConfig.get().CLASS_PATH.split(":");

@@ -212,29 +212,35 @@ public final class SmtExprPrinter implements SmtExprVisitor<String, Void> {
         }
     }
 
+    /**
+     * Encodes a string for SMT.
+     *
+     * @param str a {@link java.lang.String} object.
+     * @return a {@link java.lang.String} object.
+     */
     public static String encodeString(String str) {
         char[] charArray = str.toCharArray();
-        String ret_val = "";
+        String retVal = "";
         for (char c : charArray) {
             if (Character.isISOControl(c)) {
                 if (Integer.toHexString(c).length() == 1) {
                     // padding
-                    ret_val += "_x0" + Integer.toHexString(c);
+                    retVal += "_x0" + Integer.toHexString(c);
                 } else {
-                    ret_val += "_x" + Integer.toHexString(c);
+                    retVal += "_x" + Integer.toHexString(c);
                 }
             } else {
-                ret_val += c;
+                retVal += c;
             }
         }
-        return ret_val;
+        return retVal;
     }
 
     /**
      * Returns the SMT string representation of a double value.
      *
-     * @param doubleVal
-     * @return a {@link java.lang.String} Object
+     * @param doubleVal a double.
+     * @return a {@link java.lang.String} object.
      */
     private String buildRealValueString(double doubleVal) {
         if (doubleVal < 0) {
@@ -247,10 +253,10 @@ public final class SmtExprPrinter implements SmtExprVisitor<String, Void> {
     }
 
     /**
-     * Returns the SMT string representation of a double value.
+     * Returns the SMT string representation of a long value.
      *
-     * @param longValue
-     * @return a {@link java.lang.String} Object
+     * @param longValue a long.
+     * @return a {@link java.lang.String} object.
      */
     private String buildIntegerString(long longValue) {
         if (longValue == Long.MIN_VALUE) {
@@ -266,8 +272,8 @@ public final class SmtExprPrinter implements SmtExprVisitor<String, Void> {
     /**
      * Returns the SMT string representation of an double value.
      *
-     * @param element
-     * @return a {@link java.lang.String} Object
+     * @param element a {@link java.lang.Object} object.
+     * @return a {@link java.lang.String} object.
      */
     private String buildIntegerArrayValue(Object element) {
         long value = (long) TypeUtil.unboxIntegerPrimitiveValue(element);
@@ -277,8 +283,8 @@ public final class SmtExprPrinter implements SmtExprVisitor<String, Void> {
     /**
      * Returns the SMT string representation of a double value.
      *
-     * @param element
-     * @return a {@link java.lang.String} Object
+     * @param element a {@link java.lang.Object} object.
+     * @return a {@link java.lang.String} object.
      */
     private String buildRealArrayValue(Object element) {
         double value = (double) TypeUtil.unboxRealPrimitiveValue(element);

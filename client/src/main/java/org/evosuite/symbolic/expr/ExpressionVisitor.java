@@ -127,7 +127,7 @@ public interface ExpressionVisitor<K, V> {
 
     K visit(StringNextTokenExpr n, V arg);
 
-    /********************** Arrays *********************/
+    /* ******************** Arrays *********************/
 
     K visit(ArrayStore.IntegerArrayStore r, V arg);
 
@@ -157,7 +157,7 @@ public interface ExpressionVisitor<K, V> {
 
     K visit(ArrayVariable.ReferenceArrayVariable r, V arg);
 
-    /********************** Reference Types *********************/
+    /* ******************** Reference Types *********************/
 
     K visit(LambdaSyntheticTypeConstant r, V arg);
 
@@ -167,7 +167,7 @@ public interface ExpressionVisitor<K, V> {
 
     K visit(ArrayTypeConstant r, V arg);
 
-    /********************** References *********************/
+    /* ******************** References *********************/
 
     K visit(ClassReferenceVariable r, V arg);
 

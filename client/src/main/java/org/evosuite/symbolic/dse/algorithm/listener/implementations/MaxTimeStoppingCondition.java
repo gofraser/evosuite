@@ -32,7 +32,7 @@ public class MaxTimeStoppingCondition extends StoppingConditionImpl {
     private static final long serialVersionUID = 5262082660819074690L;
 
     /**
-     * Maximum number of seconds
+     * Maximum number of seconds.
      */
     private long maxSeconds = Properties.SEARCH_BUDGET;
 

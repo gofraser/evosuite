@@ -40,21 +40,35 @@ public class SymbolicArrayImpl implements SymbolicArray {
     protected Type contentType;
     protected Map<Integer, Expression<?>> contents;
 
+    /**
+     * Constructs a SymbolicArrayImpl.
+     *
+     * @param contentType the type of the array content
+     */
     public SymbolicArrayImpl(Type contentType) {
-        this.contents = new HashMap();
+        this.contents = new HashMap<>();
         this.contentType = contentType;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Type getContentType() {
         return contentType;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Expression get(Integer index) {
         return contents.get(index);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void set(Integer index, Expression expression) {
         matchType(expression);

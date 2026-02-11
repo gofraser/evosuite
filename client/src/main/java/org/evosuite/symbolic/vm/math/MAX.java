@@ -31,7 +31,8 @@ public abstract class MAX {
 
     private static final String MAX = "max";
 
-    public final static class MAX_D extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class MAX_D extends SymbolicFunction {
 
         public MAX_D(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, MAX, Types.DD2D_DESCRIPTOR);
@@ -54,7 +55,8 @@ public abstract class MAX {
         }
     }
 
-    public final static class MAX_F extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class MAX_F extends SymbolicFunction {
 
         public MAX_F(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, MAX, Types.FF2F_DESCRIPTOR);
@@ -79,7 +81,8 @@ public abstract class MAX {
 
     }
 
-    public final static class MAX_I extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class MAX_I extends SymbolicFunction {
 
         public MAX_I(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, MAX, Types.II2I_DESCRIPTOR);

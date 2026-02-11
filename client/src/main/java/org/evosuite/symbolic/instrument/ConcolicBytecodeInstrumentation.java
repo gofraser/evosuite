@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic.instrument;
 
@@ -42,7 +42,11 @@ public class ConcolicBytecodeInstrumentation {
     //private static Logger logger = LoggerFactory.getLogger(DscBytecodeInstrumentation.class);
 
     /**
-     * Applies DscClassAdapter to the className in the argument
+     * Applies DscClassAdapter to the className in the argument.
+     *
+     * @param className a {@link java.lang.String} object.
+     * @param reader a {@link org.objectweb.asm.ClassReader} object.
+     * @return an array of {@link byte} objects.
      */
     public byte[] transformBytes(String className, ClassReader reader) {
         int readFlags = ClassReader.SKIP_FRAMES;

@@ -64,10 +64,16 @@ public final class VM {
     private static boolean ignoreCallback = false;
 
 
+    /**
+     * Disables the callbacks to the registered listeners.
+     */
     public static void disableCallBacks() {
         ignoreCallback = true;
     }
 
+    /**
+     * Enables the callbacks to the registered listeners.
+     */
     public static void enableCallBacks() {
         ignoreCallback = false;
     }
@@ -90,11 +96,19 @@ public final class VM {
         vm.nrCallbacksMethodExploration = 0;
     }
 
+    /**
+     * Increments the callback counters.
+     */
     protected void countCallback() {
         nrCallbacksPath += 1;
         nrCallbacksMethodExploration += 1;
     }
 
+    /**
+     * Returns whether the virtual machine execution has been stopped.
+     *
+     * @return true if stopped, false otherwise
+     */
     public boolean isStopped() {
         return stopped;
     }
@@ -163,6 +177,11 @@ public final class VM {
         zeroPathCallbacks();
     }
 
+    /**
+     * Records a NEW operation.
+     *
+     * @param typeName the name of the type being created
+     */
     public static void NEW(String typeName) {
         if (ignoreCallback) {
             return;
@@ -181,6 +200,11 @@ public final class VM {
 
     private boolean stopped = false;
 
+    /**
+     * Handles exceptions occurring during listener execution.
+     *
+     * @param t the throwable to handle
+     */
     protected static void handleException(Throwable t) {
         /*
          * Listeners are not supposed to throw exceptions to the VM except the
@@ -225,6 +249,13 @@ public final class VM {
      * External callbacks -- comes directly from instrumented user program
      */
 
+    /**
+     * Records an integer parameter from the caller's stack.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void CALLER_STACK_PARAM(int value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -242,6 +273,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a boolean parameter from the caller's stack.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void CALLER_STACK_PARAM(boolean value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -259,6 +297,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a byte parameter from the caller's stack.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void CALLER_STACK_PARAM(byte value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -276,6 +321,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a char parameter from the caller's stack.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void CALLER_STACK_PARAM(char value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -293,6 +345,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a short parameter from the caller's stack.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void CALLER_STACK_PARAM(short value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -310,6 +369,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long parameter from the caller's stack.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void CALLER_STACK_PARAM(long value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -327,6 +393,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a float parameter from the caller's stack.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void CALLER_STACK_PARAM(float value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -344,6 +417,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a double parameter from the caller's stack.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void CALLER_STACK_PARAM(double value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -361,6 +441,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an object parameter from the caller's stack.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void CALLER_STACK_PARAM(Object value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -380,6 +467,8 @@ public final class VM {
 
     /**
      * Line number in the Java source code.
+     *
+     * @param lineNr the line number
      */
     public static void SRC_LINE_NUMBER(int lineNr) {
         if (ignoreCallback) {
@@ -399,6 +488,11 @@ public final class VM {
 
     /**
      * New method frame, before first instruction.
+     *
+     * @param access the access flags
+     * @param className the class name
+     * @param methName the method name
+     * @param methDesc the method descriptor
      */
     public static void METHOD_BEGIN(int access, String className,
                                     String methName, String methDesc) {
@@ -419,6 +513,12 @@ public final class VM {
 
     /**
      * Max values of a method.
+     *
+     * @param className the class name
+     * @param methName the method name
+     * @param methDesc the method descriptor
+     * @param maxStack the maximum stack size
+     * @param maxLocals the maximum number of local variables
      */
     public static void METHOD_MAXS(String className, String methName,
                                    String methDesc, int maxStack, int maxLocals) {
@@ -441,6 +541,10 @@ public final class VM {
     /**
      * Pass concrete values that the caller passed into a method call, before
      * first instruction of called method is executed.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
      */
     public static void METHOD_BEGIN_PARAM(int value, int nr,
                                           int calleeLocalsIndex) {
@@ -459,6 +563,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a boolean parameter at the beginning of a method.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void METHOD_BEGIN_PARAM(boolean value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -476,6 +587,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a byte parameter at the beginning of a method.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void METHOD_BEGIN_PARAM(byte value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -493,6 +611,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a char parameter at the beginning of a method.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void METHOD_BEGIN_PARAM(char value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -510,6 +635,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a short parameter at the beginning of a method.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void METHOD_BEGIN_PARAM(short value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -527,6 +659,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long parameter at the beginning of a method.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void METHOD_BEGIN_PARAM(long value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -544,6 +683,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a float parameter at the beginning of a method.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void METHOD_BEGIN_PARAM(float value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -561,6 +707,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a double parameter at the beginning of a method.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void METHOD_BEGIN_PARAM(double value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -578,6 +731,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an object parameter at the beginning of a method.
+     *
+     * @param value the parameter value
+     * @param nr the parameter number
+     * @param calleeLocalsIndex the index in the callee's locals table
+     */
     public static void METHOD_BEGIN_PARAM(Object value, int nr,
                                           int calleeLocalsIndex) {
         if (ignoreCallback) {
@@ -595,6 +755,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records the receiver object at the beginning of a method.
+     *
+     * @param value the receiver object
+     */
     public static void METHOD_BEGIN_RECEIVER(Object value) {
         if (ignoreCallback) {
             return;
@@ -611,6 +776,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records the result of a method call.
+     *
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void CALL_RESULT(String owner, String name, String desc) {
         if (ignoreCallback) {
             return;
@@ -627,6 +799,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a boolean result of a method call.
+     *
+     * @param res the result value
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void CALL_RESULT(boolean res, String owner, String name,
                                    String desc) {
         if (ignoreCallback) {
@@ -644,6 +824,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer result of a method call.
+     *
+     * @param res the result value
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void CALL_RESULT(int res, String owner, String name,
                                    String desc) {
         if (ignoreCallback) {
@@ -661,6 +849,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long result of a method call.
+     *
+     * @param res the result value
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void CALL_RESULT(long res, String owner, String name,
                                    String desc) {
         if (ignoreCallback) {
@@ -678,6 +874,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a double result of a method call.
+     *
+     * @param res the result value
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void CALL_RESULT(double res, String owner, String name,
                                    String desc) {
         if (ignoreCallback) {
@@ -695,6 +899,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a float result of a method call.
+     *
+     * @param res the result value
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void CALL_RESULT(float res, String owner, String name,
                                    String desc) {
         if (ignoreCallback) {
@@ -712,6 +924,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an object result of a method call.
+     *
+     * @param res the result value
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void CALL_RESULT(Object res, String owner, String name,
                                    String desc) {
         if (ignoreCallback) {
@@ -772,6 +992,9 @@ public final class VM {
      * Interpreter for the 200-odd JVM bytecode instructions
      */
 
+    /**
+     * Records a NOP operation.
+     */
     public static void NOP() {
         if (ignoreCallback) {
             return;
@@ -788,6 +1011,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an ACONST_NULL operation.
+     */
     public static void ACONST_NULL() {
         if (ignoreCallback) {
             return;
@@ -944,6 +1170,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an LCONST_0 operation.
+     */
     public static void LCONST_0() {
         if (ignoreCallback) {
             return;
@@ -960,6 +1189,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an LCONST_1 operation.
+     */
     public static void LCONST_1() {
         if (ignoreCallback) {
             return;
@@ -976,6 +1208,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an FCONST_0 operation.
+     */
     public static void FCONST_0() {
         if (ignoreCallback) {
             return;
@@ -992,6 +1227,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an FCONST_1 operation.
+     */
     public static void FCONST_1() {
         if (ignoreCallback) {
             return;
@@ -1008,6 +1246,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an FCONST_2 operation.
+     */
     public static void FCONST_2() {
         if (ignoreCallback) {
             return;
@@ -1024,6 +1265,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DCONST_0 operation.
+     */
     public static void DCONST_0() {
         if (ignoreCallback) {
             return;
@@ -1040,6 +1284,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DCONST_1 operation.
+     */
     public static void DCONST_1() {
         if (ignoreCallback) {
             return;
@@ -1056,6 +1303,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a BIPUSH operation.
+     *
+     * @param value the value to push
+     */
     public static void BIPUSH(int value) {
         if (ignoreCallback) {
             return;
@@ -1072,6 +1324,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an SIPUSH operation.
+     *
+     * @param value the value to push
+     */
     public static void SIPUSH(int value) {
         if (ignoreCallback) {
             return;
@@ -1247,6 +1504,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an LLOAD operation.
+     *
+     * @param i the index of the local variable
+     */
     public static void LLOAD(int i) {
         if (ignoreCallback) {
             return;
@@ -1263,6 +1525,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an FLOAD operation.
+     *
+     * @param i the index of the local variable
+     */
     public static void FLOAD(int i) {
         if (ignoreCallback) {
             return;
@@ -1279,6 +1546,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DLOAD operation.
+     *
+     * @param i the index of the local variable
+     */
     public static void DLOAD(int i) {
         if (ignoreCallback) {
             return;
@@ -1295,6 +1567,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an ALOAD operation.
+     *
+     * @param i the index of the local variable
+     */
     public static void ALOAD(int i) {
         if (ignoreCallback) {
             return;
@@ -1331,6 +1608,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6. html#iload_n
+     */
     public static void ILOAD_1() {
         if (ignoreCallback) {
             return;
@@ -1347,6 +1628,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6. html#iload_n
+     */
     public static void ILOAD_2() {
         if (ignoreCallback) {
             return;
@@ -1363,6 +1648,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6. html#iload_n
+     */
     public static void ILOAD_3() {
         if (ignoreCallback) {
             return;
@@ -1399,6 +1688,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8. html#lload_n
+     */
     public static void LLOAD_1() {
         if (ignoreCallback) {
             return;
@@ -1415,6 +1708,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8. html#lload_n
+     */
     public static void LLOAD_2() {
         if (ignoreCallback) {
             return;
@@ -1431,6 +1728,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8. html#lload_n
+     */
     public static void LLOAD_3() {
         if (ignoreCallback) {
             return;
@@ -1467,6 +1768,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc4. html#fload_n
+     */
     public static void FLOAD_1() {
         if (ignoreCallback) {
             return;
@@ -1483,6 +1788,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc4. html#fload_n
+     */
     public static void FLOAD_2() {
         if (ignoreCallback) {
             return;
@@ -1499,6 +1808,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc4. html#fload_n
+     */
     public static void FLOAD_3() {
         if (ignoreCallback) {
             return;
@@ -1535,6 +1848,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3. html#dload_n
+     */
     public static void DLOAD_1() {
         if (ignoreCallback) {
             return;
@@ -1551,6 +1868,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3. html#dload_n
+     */
     public static void DLOAD_2() {
         if (ignoreCallback) {
             return;
@@ -1567,6 +1888,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3. html#dload_n
+     */
     public static void DLOAD_3() {
         if (ignoreCallback) {
             return;
@@ -1603,6 +1928,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc
+     * . html#aload_n
+     */
     public static void ALOAD_1() {
         if (ignoreCallback) {
             return;
@@ -1619,6 +1948,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc
+     * . html#aload_n
+     */
     public static void ALOAD_2() {
         if (ignoreCallback) {
             return;
@@ -1635,6 +1968,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc
+     * . html#aload_n
+     */
     public static void ALOAD_3() {
         if (ignoreCallback) {
             return;
@@ -1651,6 +1988,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IALOAD operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void IALOAD(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -1667,6 +2012,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an LALOAD operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void LALOAD(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -1683,6 +2036,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an FALOAD operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void FALOAD(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -1699,6 +2060,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DALOAD operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void DALOAD(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -1715,6 +2084,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an AALOAD operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void AALOAD(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -1731,6 +2108,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a BALOAD operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void BALOAD(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -1747,6 +2132,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a CALOAD operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void CALOAD(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -1763,6 +2156,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a SALOAD operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void SALOAD(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -1799,6 +2200,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an LSTORE operation.
+     *
+     * @param i the index of the local variable
+     */
     public static void LSTORE(int i) {
         if (ignoreCallback) {
             return;
@@ -1815,6 +2221,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an FSTORE operation.
+     *
+     * @param i the index of the local variable
+     */
     public static void FSTORE(int i) {
         if (ignoreCallback) {
             return;
@@ -1831,6 +2242,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DSTORE operation.
+     *
+     * @param i the index of the local variable
+     */
     public static void DSTORE(int i) {
         if (ignoreCallback) {
             return;
@@ -1847,6 +2263,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an ASTORE operation.
+     *
+     * @param i the index of the local variable
+     */
     public static void ASTORE(int i) {
         if (ignoreCallback) {
             return;
@@ -1883,6 +2304,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6. html#istore_n
+     */
     public static void ISTORE_1() {
         if (ignoreCallback) {
             return;
@@ -1899,6 +2324,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6. html#istore_n
+     */
     public static void ISTORE_2() {
         if (ignoreCallback) {
             return;
@@ -1915,6 +2344,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6. html#istore_n
+     */
     public static void ISTORE_3() {
         if (ignoreCallback) {
             return;
@@ -1951,6 +2384,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8. html#lstore_n
+     */
     public static void LSTORE_1() {
         if (ignoreCallback) {
             return;
@@ -1967,6 +2404,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8. html#lstore_n
+     */
     public static void LSTORE_2() {
         if (ignoreCallback) {
             return;
@@ -1983,6 +2424,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8. html#lstore_n
+     */
     public static void LSTORE_3() {
         if (ignoreCallback) {
             return;
@@ -2019,6 +2464,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc4. html#fstore_n
+     */
     public static void FSTORE_1() {
         if (ignoreCallback) {
             return;
@@ -2035,6 +2484,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc4. html#fstore_n
+     */
     public static void FSTORE_2() {
         if (ignoreCallback) {
             return;
@@ -2051,6 +2504,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc4. html#fstore_n
+     */
     public static void FSTORE_3() {
         if (ignoreCallback) {
             return;
@@ -2087,6 +2544,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3. html#dstore_n
+     */
     public static void DSTORE_1() {
         if (ignoreCallback) {
             return;
@@ -2103,6 +2564,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3. html#dstore_n
+     */
     public static void DSTORE_2() {
         if (ignoreCallback) {
             return;
@@ -2119,6 +2584,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3. html#dstore_n
+     */
     public static void DSTORE_3() {
         if (ignoreCallback) {
             return;
@@ -2137,7 +2606,7 @@ public final class VM {
 
     /**
      * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc
-     * . html#aSTORE_n
+     * . html#astore_n
      */
     public static void ASTORE_0() {
         if (ignoreCallback) {
@@ -2155,6 +2624,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc
+     * . html#astore_n
+     */
     public static void ASTORE_1() {
         if (ignoreCallback) {
             return;
@@ -2171,6 +2644,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc
+     * . html#astore_n
+     */
     public static void ASTORE_2() {
         if (ignoreCallback) {
             return;
@@ -2187,6 +2664,10 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc
+     * . html#astore_n
+     */
     public static void ASTORE_3() {
         if (ignoreCallback) {
             return;
@@ -2203,6 +2684,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer array store operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void IASTORE(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -2219,6 +2708,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long array store operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void LASTORE(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -2235,6 +2732,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a float array store operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void FASTORE(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -2251,6 +2756,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a double array store operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void DASTORE(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -2267,6 +2780,15 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an object array store operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param value the value to be stored
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void AASTORE(
             Object receiver,
             int index,
@@ -2288,6 +2810,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a byte array store operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void BASTORE(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -2304,6 +2834,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a char array store operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void CASTORE(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -2320,6 +2858,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a short array store operation.
+     *
+     * @param receiver the array object
+     * @param index the index in the array
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void SASTORE(Object receiver, int index, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -2336,6 +2882,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a POP operation.
+     */
     public static void POP() {
         if (ignoreCallback) {
             return;
@@ -2352,6 +2901,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a POP2 operation.
+     */
     public static void POP2() {
         if (ignoreCallback) {
             return;
@@ -2368,6 +2920,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DUP operation.
+     */
     public static void DUP() {
         if (ignoreCallback) {
             return;
@@ -2384,6 +2939,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DUP_X1 operation.
+     */
     public static void DUP_X1() {
         if (ignoreCallback) {
             return;
@@ -2400,6 +2958,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DUP_X2 operation.
+     */
     public static void DUP_X2() {
         if (ignoreCallback) {
             return;
@@ -2416,6 +2977,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DUP2 operation.
+     */
     public static void DUP2() {
         if (ignoreCallback) {
             return;
@@ -2432,6 +2996,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DUP2_X1 operation.
+     */
     public static void DUP2_X1() {
         if (ignoreCallback) {
             return;
@@ -2448,6 +3015,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DUP2_X2 operation.
+     */
     public static void DUP2_X2() {
         if (ignoreCallback) {
             return;
@@ -2464,6 +3034,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a SWAP operation.
+     */
     public static void SWAP() {
         if (ignoreCallback) {
             return;
@@ -2500,6 +3073,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long ADD operation.
+     */
     public static void LADD() {
         if (ignoreCallback) {
             return;
@@ -2516,6 +3092,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a float ADD operation.
+     */
     public static void FADD() {
         if (ignoreCallback) {
             return;
@@ -2532,6 +3111,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a double ADD operation.
+     */
     public static void DADD() {
         if (ignoreCallback) {
             return;
@@ -2548,6 +3130,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer SUB operation.
+     */
     public static void ISUB() {
         if (ignoreCallback) {
             return;
@@ -2564,6 +3149,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long SUB operation.
+     */
     public static void LSUB() {
         if (ignoreCallback) {
             return;
@@ -2580,6 +3168,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a float SUB operation.
+     */
     public static void FSUB() {
         if (ignoreCallback) {
             return;
@@ -2596,6 +3187,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a double SUB operation.
+     */
     public static void DSUB() {
         if (ignoreCallback) {
             return;
@@ -2632,6 +3226,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long MUL operation.
+     */
     public static void LMUL() {
         if (ignoreCallback) {
             return;
@@ -2648,6 +3245,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a float MUL operation.
+     */
     public static void FMUL() {
         if (ignoreCallback) {
             return;
@@ -2664,6 +3264,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a double MUL operation.
+     */
     public static void DMUL() {
         if (ignoreCallback) {
             return;
@@ -2680,6 +3283,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer DIV operation.
+     *
+     * @param rhs the right hand side value
+     */
     public static void IDIV(int rhs) {
         if (ignoreCallback) {
             return;
@@ -2696,6 +3304,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long DIV operation.
+     *
+     * @param rhs the right hand side value
+     */
     public static void LDIV(long rhs) {
         if (ignoreCallback) {
             return;
@@ -2712,6 +3325,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a float DIV operation.
+     *
+     * @param rhs the right hand side value
+     */
     public static void FDIV(float rhs) {
         if (ignoreCallback) {
             return;
@@ -2728,6 +3346,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a double DIV operation.
+     *
+     * @param rhs the right hand side value
+     */
     public static void DDIV(double rhs) {
         if (ignoreCallback) {
             return;
@@ -2744,6 +3367,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer REM operation.
+     *
+     * @param rhs the right hand side value
+     */
     public static void IREM(int rhs) {
         if (ignoreCallback) {
             return;
@@ -2760,6 +3388,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long REM operation.
+     *
+     * @param rhs the right hand side value
+     */
     public static void LREM(long rhs) {
         if (ignoreCallback) {
             return;
@@ -2776,6 +3409,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a float REM operation.
+     *
+     * @param rhs the right hand side value
+     */
     public static void FREM(float rhs) {
         if (ignoreCallback) {
             return;
@@ -2792,6 +3430,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a double REM operation.
+     *
+     * @param rhs the right hand side value
+     */
     public static void DREM(double rhs) {
         if (ignoreCallback) {
             return;
@@ -2808,6 +3451,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer NEG operation.
+     */
     public static void INEG() {
         if (ignoreCallback) {
             return;
@@ -2824,6 +3470,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long NEG operation.
+     */
     public static void LNEG() {
         if (ignoreCallback) {
             return;
@@ -2840,6 +3489,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a float NEG operation.
+     */
     public static void FNEG() {
         if (ignoreCallback) {
             return;
@@ -2856,6 +3508,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a double NEG operation.
+     */
     public static void DNEG() {
         if (ignoreCallback) {
             return;
@@ -2872,6 +3527,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer SHL operation.
+     */
     public static void ISHL() {
         if (ignoreCallback) {
             return;
@@ -2888,6 +3546,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long SHL operation.
+     */
     public static void LSHL() {
         if (ignoreCallback) {
             return;
@@ -2904,6 +3565,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer SHR operation.
+     */
     public static void ISHR() {
         if (ignoreCallback) {
             return;
@@ -2920,6 +3584,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long SHR operation.
+     */
     public static void LSHR() {
         if (ignoreCallback) {
             return;
@@ -2936,6 +3603,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer USHR operation.
+     */
     public static void IUSHR() {
         if (ignoreCallback) {
             return;
@@ -2952,6 +3622,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long USHR operation.
+     */
     public static void LUSHR() {
         if (ignoreCallback) {
             return;
@@ -2968,6 +3641,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer AND operation.
+     */
     public static void IAND() {
         if (ignoreCallback) {
             return;
@@ -2984,6 +3660,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long AND operation.
+     */
     public static void LAND() {
         if (ignoreCallback) {
             return;
@@ -3000,6 +3679,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer OR operation.
+     */
     public static void IOR() {
         if (ignoreCallback) {
             return;
@@ -3016,6 +3698,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long OR operation.
+     */
     public static void LOR() {
         if (ignoreCallback) {
             return;
@@ -3032,6 +3717,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an integer XOR operation.
+     */
     public static void IXOR() {
         if (ignoreCallback) {
             return;
@@ -3048,6 +3736,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a long XOR operation.
+     */
     public static void LXOR() {
         if (ignoreCallback) {
             return;
@@ -3064,6 +3755,12 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IINC operation.
+     *
+     * @param i the index of the local variable
+     * @param value the increment value
+     */
     public static void IINC(int i, int value) {
         if (ignoreCallback) {
             return;
@@ -3080,6 +3777,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an I2L conversion operation.
+     */
     public static void I2L() {
         if (ignoreCallback) {
             return;
@@ -3096,6 +3796,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an I2F conversion operation.
+     */
     public static void I2F() {
         if (ignoreCallback) {
             return;
@@ -3112,6 +3815,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an I2D conversion operation.
+     */
     public static void I2D() {
         if (ignoreCallback) {
             return;
@@ -3128,6 +3834,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an L2I conversion operation.
+     */
     public static void L2I() {
         if (ignoreCallback) {
             return;
@@ -3144,6 +3853,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an L2F conversion operation.
+     */
     public static void L2F() {
         if (ignoreCallback) {
             return;
@@ -3160,6 +3872,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an L2D conversion operation.
+     */
     public static void L2D() {
         if (ignoreCallback) {
             return;
@@ -3176,6 +3891,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an F2I conversion operation.
+     */
     public static void F2I() {
         if (ignoreCallback) {
             return;
@@ -3192,6 +3910,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an F2L conversion operation.
+     */
     public static void F2L() {
         if (ignoreCallback) {
             return;
@@ -3208,6 +3929,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an F2D conversion operation.
+     */
     public static void F2D() {
         if (ignoreCallback) {
             return;
@@ -3224,6 +3948,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a D2I conversion operation.
+     */
     public static void D2I() {
         if (ignoreCallback) {
             return;
@@ -3240,6 +3967,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a D2L conversion operation.
+     */
     public static void D2L() {
         if (ignoreCallback) {
             return;
@@ -3256,6 +3986,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a D2F conversion operation.
+     */
     public static void D2F() {
         if (ignoreCallback) {
             return;
@@ -3272,6 +4005,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an I2B conversion operation.
+     */
     public static void I2B() {
         if (ignoreCallback) {
             return;
@@ -3288,6 +4024,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an I2C conversion operation.
+     */
     public static void I2C() {
         if (ignoreCallback) {
             return;
@@ -3304,6 +4043,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an I2S conversion operation.
+     */
     public static void I2S() {
         if (ignoreCallback) {
             return;
@@ -3320,6 +4062,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an LCMP comparison operation.
+     */
     public static void LCMP() {
         if (ignoreCallback) {
             return;
@@ -3336,6 +4081,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an FCMPL comparison operation.
+     */
     public static void FCMPL() {
         if (ignoreCallback) {
             return;
@@ -3352,6 +4100,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an FCMPG comparison operation.
+     */
     public static void FCMPG() {
         if (ignoreCallback) {
             return;
@@ -3368,6 +4119,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DCMPL comparison operation.
+     */
     public static void DCMPL() {
         if (ignoreCallback) {
             return;
@@ -3384,6 +4138,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DCMPG comparison operation.
+     */
     public static void DCMPG() {
         if (ignoreCallback) {
             return;
@@ -3400,6 +4157,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IFEQ jump operation.
+     *
+     * @param param the value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IFEQ(int param, String className, String methName,
                             int branchIndex) {
         if (ignoreCallback) {
@@ -3417,6 +4182,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IFNE jump operation.
+     *
+     * @param param the value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IFNE(int param, String className, String methName,
                             int branchIndex) {
         if (ignoreCallback) {
@@ -3434,6 +4207,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IFLT jump operation.
+     *
+     * @param param the value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IFLT(int param, String className, String methName,
                             int branchIndex) {
         if (ignoreCallback) {
@@ -3451,6 +4232,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IFGE jump operation.
+     *
+     * @param param the value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IFGE(int param, String className, String methName,
                             int branchIndex) {
         if (ignoreCallback) {
@@ -3468,6 +4257,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IFGT jump operation.
+     *
+     * @param param the value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IFGT(int param, String className, String methName,
                             int branchIndex) {
         if (ignoreCallback) {
@@ -3485,6 +4282,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IFLE jump operation.
+     *
+     * @param param the value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IFLE(int param, String className, String methName,
                             int branchIndex) {
         if (ignoreCallback) {
@@ -3502,6 +4307,15 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IF_ICMPEQ jump operation.
+     *
+     * @param left the left value to compare
+     * @param right the right value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IF_ICMPEQ(int left, int right, String className,
                                  String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -3520,6 +4334,15 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IF_ICMPNE jump operation.
+     *
+     * @param left the left value to compare
+     * @param right the right value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IF_ICMPNE(int left, int right, String className,
                                  String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -3538,6 +4361,15 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IF_ICMPLT jump operation.
+     *
+     * @param left the left value to compare
+     * @param right the right value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IF_ICMPLT(int left, int right, String className,
                                  String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -3556,6 +4388,15 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IF_ICMPGE jump operation.
+     *
+     * @param left the left value to compare
+     * @param right the right value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IF_ICMPGE(int left, int right, String className,
                                  String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -3574,6 +4415,15 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IF_ICMPGT jump operation.
+     *
+     * @param left the left value to compare
+     * @param right the right value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IF_ICMPGT(int left, int right, String className,
                                  String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -3592,6 +4442,15 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IF_ICMPLE jump operation.
+     *
+     * @param left the left value to compare
+     * @param right the right value to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IF_ICMPLE(int left, int right, String className,
                                  String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -3610,6 +4469,15 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IF_ACMPEQ jump operation.
+     *
+     * @param left the left object to compare
+     * @param right the right object to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IF_ACMPEQ(Object left, Object right, String className,
                                  String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -3628,6 +4496,15 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IF_ACMPNE jump operation.
+     *
+     * @param left the left object to compare
+     * @param right the right object to compare
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IF_ACMPNE(Object left, Object right, String className,
                                  String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -3646,6 +4523,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a GOTO operation.
+     */
     public static void GOTO() {
         if (ignoreCallback) {
             return;
@@ -3662,6 +4542,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a JSR operation.
+     */
     public static void JSR() {
         if (ignoreCallback) {
             return;
@@ -3678,6 +4561,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a RET operation.
+     */
     public static void RET() {
         if (ignoreCallback) {
             return;
@@ -3694,6 +4580,16 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a TABLESWITCH operation.
+     *
+     * @param target the target branch index
+     * @param min the minimum value
+     * @param max the maximum value
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void TABLESWITCH(int target, int min, int max,
                                    String className, String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -3712,6 +4608,15 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a LOOKUPSWITCH operation.
+     *
+     * @param target the target branch index
+     * @param goals the goals for the lookup switch
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void LOOKUPSWITCH(int target, int[] goals, String className,
                                     String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -3730,6 +4635,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IRETURN operation.
+     */
     public static void IRETURN() {
         if (ignoreCallback) {
             return;
@@ -3746,6 +4654,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an LRETURN operation.
+     */
     public static void LRETURN() {
         if (ignoreCallback) {
             return;
@@ -3762,6 +4673,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an FRETURN operation.
+     */
     public static void FRETURN() {
         if (ignoreCallback) {
             return;
@@ -3778,6 +4692,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a DRETURN operation.
+     */
     public static void DRETURN() {
         if (ignoreCallback) {
             return;
@@ -3794,6 +4711,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an ARETURN operation.
+     */
     public static void ARETURN() {
         if (ignoreCallback) {
             return;
@@ -3810,6 +4730,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a RETURN operation.
+     */
     public static void RETURN() {
         if (ignoreCallback) {
             return;
@@ -3826,6 +4749,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a GETSTATIC operation.
+     *
+     * @param owner the owner class of the field
+     * @param name the name of the field
+     * @param desc the descriptor of the field
+     */
     public static void GETSTATIC(String owner, String name, String desc) {
         if (ignoreCallback) {
             return;
@@ -3842,6 +4772,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a PUTSTATIC operation.
+     *
+     * @param owner the owner class of the field
+     * @param name the name of the field
+     * @param desc the descriptor of the field
+     */
     public static void PUTSTATIC(String owner, String name, String desc) {
         if (ignoreCallback) {
             return;
@@ -3858,6 +4795,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a GETFIELD operation.
+     *
+     * @param receiver the receiver object
+     * @param owner the owner class of the field
+     * @param name the name of the field
+     * @param desc the descriptor of the field
+     */
     public static void GETFIELD(Object receiver, String owner, String name,
                                 String desc) {
         if (ignoreCallback) {
@@ -3875,6 +4820,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a PUTFIELD operation.
+     *
+     * @param receiver the receiver object
+     * @param owner the owner class of the field
+     * @param name the name of the field
+     * @param desc the descriptor of the field
+     */
     public static void PUTFIELD(Object receiver, String owner, String name,
                                 String desc) {
         if (ignoreCallback) {
@@ -3892,6 +4845,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an INVOKESTATIC operation.
+     *
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void INVOKESTATIC(String owner, String name, String desc) {
         if (ignoreCallback) {
             return;
@@ -3908,6 +4868,13 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an INVOKESPECIAL operation.
+     *
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void INVOKESPECIAL(String owner, String name, String desc) {
         if (ignoreCallback) {
             return;
@@ -3924,6 +4891,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an INVOKEVIRTUAL operation.
+     *
+     * @param receiver the receiver object
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void INVOKEVIRTUAL(Object receiver, String owner,
                                      String name, String desc) {
         if (ignoreCallback) {
@@ -3941,6 +4916,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an INVOKESPECIAL operation with a receiver.
+     *
+     * @param receiver the receiver object
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void INVOKESPECIAL(Object receiver, String owner,
                                      String name, String desc) {
         if (ignoreCallback) {
@@ -3958,6 +4941,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an INVOKEINTERFACE operation.
+     *
+     * @param receiver the receiver object
+     * @param owner the owner class of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
+     */
     public static void INVOKEINTERFACE(Object receiver, String owner,
                                        String name, String desc) {
         if (ignoreCallback) {
@@ -4024,6 +5015,14 @@ public final class VM {
         }
     }
 
+    /**
+     * Records a NEWARRAY operation.
+     *
+     * @param length the length of the array
+     * @param componentTypeInt the integer representation of the component type
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void NEWARRAY(int length, int componentTypeInt, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -4043,6 +5042,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an ANEWARRAY operation.
+     *
+     * @param length the length of the array
+     * @param componentTypeName the type name of the components
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void ANEWARRAY(int length, String componentTypeName, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -4059,6 +5066,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an ARRAYLENGTH operation.
+     *
+     * @param reference the array reference
+     */
     public static void ARRAYLENGTH(Object reference) {
         if (ignoreCallback) {
             return;
@@ -4075,6 +5087,11 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an ATHROW operation.
+     *
+     * @param throwable the throwable object
+     */
     public static void ATHROW(Object throwable) {
         if (ignoreCallback) {
             return;
@@ -4091,6 +5108,12 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a CHECKCAST operation.
+     *
+     * @param reference the object reference
+     * @param typeName the type name to check against
+     */
     public static void CHECKCAST(Object reference, String typeName) {
         if (ignoreCallback) {
             return;
@@ -4107,6 +5130,12 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an INSTANCEOF operation.
+     *
+     * @param reference the object reference
+     * @param typeName the type name to check against
+     */
     public static void INSTANCEOF(Object reference, String typeName) {
         if (ignoreCallback) {
             return;
@@ -4123,6 +5152,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a MONITORENTER operation.
+     */
     public static void MONITORENTER() {
         if (ignoreCallback) {
             return;
@@ -4139,6 +5171,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a MONITOREXIT operation.
+     */
     public static void MONITOREXIT() {
         if (ignoreCallback) {
             return;
@@ -4155,6 +5190,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a WIDE operation.
+     */
     public static void WIDE() {
         if (ignoreCallback) {
             return;
@@ -4171,6 +5209,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a MULTIANEWARRAY operation.
+     *
+     * @param arrayTypeDesc the descriptor of the array type
+     * @param nrDimensions the number of dimensions
+     * @param className the class name where the operation occurs
+     * @param methodName the method name where the operation occurs
+     */
     public static void MULTIANEWARRAY(String arrayTypeDesc, int nrDimensions, String className, String methodName) {
         if (ignoreCallback) {
             return;
@@ -4187,6 +5233,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IFNULL jump operation.
+     *
+     * @param param the object to check
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IFNULL(Object param, String className, String methName,
                               int branchIndex) {
         if (ignoreCallback) {
@@ -4204,6 +5258,14 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records an IFNONNULL jump operation.
+     *
+     * @param param the object to check
+     * @param className the class name where the operation occurs
+     * @param methName the method name where the operation occurs
+     * @param branchIndex the index of the branch
+     */
     public static void IFNONNULL(Object param, String className,
                                  String methName, int branchIndex) {
         if (ignoreCallback) {
@@ -4221,6 +5283,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a GOTO_W operation.
+     */
     public static void GOTO_W() {
         if (ignoreCallback) {
             return;
@@ -4237,6 +5302,9 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Records a JSR_W operation.
+     */
     public static void JSR_W() {
         if (ignoreCallback) {
             return;
@@ -4253,10 +5321,18 @@ public final class VM {
         ignoreCallback = false;
     }
 
+    /**
+     * Returns the singleton VM instance.
+     *
+     * @return the VM instance
+     */
     public static VM getInstance() {
         return vm;
     }
 
+    /**
+     * Resets the singleton VM instance.
+     */
     public static void clearInstance() {
         vm = new VM();
     }

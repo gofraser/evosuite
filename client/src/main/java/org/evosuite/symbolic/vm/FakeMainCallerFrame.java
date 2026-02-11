@@ -34,7 +34,10 @@ public final class FakeMainCallerFrame extends Frame {
     private final Method method;
 
     /**
-     * Constructor
+     * Constructor.
+     *
+     * @param method the method
+     * @param maxLocals maximum number of local variables
      */
     FakeMainCallerFrame(Method method, int maxLocals) {
         super(maxLocals);

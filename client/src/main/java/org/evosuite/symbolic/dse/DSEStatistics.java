@@ -48,13 +48,13 @@ public class DSEStatistics {
     static Logger logger = LoggerFactory.getLogger(DSEStatistics.class);
 
     /**
-     * Messages Constants
+     * Messages Constants.
      **/
     public static final String NO_QUERY_CACHE_CALLS_WERE_MADE = "No query cache calls were made";
 
     /**
      * Tracking of runtime variables used in DSE,
-     * please add them here when adding a new one so they are saved in the backend
+     * please add them here when adding a new one so they are saved in the backend.
      **/
     public static List<String> dseRuntimeVariables = Arrays.asList(
             // Solver
@@ -85,6 +85,11 @@ public class DSEStatistics {
 
     private static DSEStatistics instance = null;
 
+    /**
+     * Returns the singleton instance of the statistics.
+     *
+     * @return a {@link org.evosuite.symbolic.dse.DSEStatistics} object.
+     */
     public static DSEStatistics getInstance() {
         if (instance == null) {
             instance = new DSEStatistics();
@@ -101,7 +106,7 @@ public class DSEStatistics {
     }
 
     /**
-     * This class cannot be built directly
+     * This class cannot be built directly.
      */
     private DSEStatistics() {
 
@@ -142,12 +147,15 @@ public class DSEStatistics {
     private final List<Boolean> changes = new LinkedList<>();
     private final ConstraintTypeCounter constraintTypeCounter = new ConstraintTypeCounter();
 
+    /**
+     * Reports a new UNSAT instance.
+     */
     public void reportNewUNSAT() {
         nrOfUNSATs++;
     }
 
     /**
-     * Invoke this method when a SAT instance was found by a Constraint Solver
+     * Invoke this method when a SAT instance was found by a Constraint Solver.
      */
     public void reportNewSAT() {
         nrOfSATs++;
@@ -162,7 +170,7 @@ public class DSEStatistics {
     }
 
     /**
-     * Invoke this method when no instance was found by a Constraint Solver
+     * Invoke this method when no instance was found by a Constraint Solver.
      */
     private long getUNSAT() {
         return nrOfUNSATs;
@@ -170,9 +178,9 @@ public class DSEStatistics {
 
     /**
      * Returns the number of SAT instances found. This instance may lead to a
-     * new Test Case or not
+     * new Test Case or not.
      *
-     * @return
+     * @return the number of SAT instances.
      */
     private long getSAT() {
         return nrOfSATs;
@@ -182,7 +190,7 @@ public class DSEStatistics {
      * Returns the total number of SAT instances that did not lead to a fitness
      * improvement.
      *
-     * @return
+     * @return the number of unuseful tests.
      */
     private long getUnusefulTests() {
         return nrOfSolutionWithNoImprovement;
@@ -199,7 +207,7 @@ public class DSEStatistics {
     /**
      * Returns the total number of new tests found by DSE added to a test suite.
      *
-     * @return
+     * @return the number of useful tests.
      */
     private long getUsefulTests() {
         return nrOfNewTestFound;
@@ -220,6 +228,9 @@ public class DSEStatistics {
     }
 
 
+    /**
+     * Entry point for logging statistics.
+     */
     public void logStatistics() {
 
         logger.info("");
@@ -264,7 +275,8 @@ public class DSEStatistics {
         logger.info("* Solver Query Cache:");
         logger.info(String.format("  - Query Cache size: %s", querycacheSize));
         logger.info(String.format("  - Query Cache calls: %s", queryCacheCalls));
-        logger.info(String.format("  - Query Cache hitRare: %s", getQueryCacheHitRate(queryCacheHits, queryCacheCalls)));
+        logger.info(String.format("  - Query Cache hitRare: %s",
+                getQueryCacheHitRate(queryCacheHits, queryCacheCalls)));
     }
 
     private void logPathsExploredStatistics() {
@@ -305,8 +317,8 @@ public class DSEStatistics {
 
             NumberFormat percentFormat = NumberFormat.getPercentInstance();
             percentFormat.setMaximumFractionDigits(1);
-            String hit_rate_str = percentFormat.format(SolverCache.getInstance().getHitRate());
-            logger.info(String.format("  - Cache hit rate: %s", hit_rate_str));
+            String hitRateStr = percentFormat.format(SolverCache.getInstance().getHitRate());
+            logger.info(String.format("  - Cache hit rate: %s", hitRateStr));
         }
     }
 
@@ -321,52 +333,52 @@ public class DSEStatistics {
     }
 
     private void logSolverStatistics() {
-        long total_constraint_solvings = getSAT()
+        long totalConstraintSolvings = getSAT()
                 + getUNSAT() + getTimeouts();
 
-        String SAT_ratio_str = "Nan";
-        String UNSAT_ratio_str = "Nan";
-        String useful_tests_ratio_str = "Nan";
-        String unuseful_tests_ratio_str = "Nan";
-        String timeout_ratio_str = "Nan";
+        String satRatioStr = "Nan";
+        String unsatRatioStr = "Nan";
+        String usefulTestsRatioStr = "Nan";
+        String unusefulTestsRatioStr = "Nan";
+        String timeoutRatioStr = "Nan";
 
-        if (total_constraint_solvings > 0) {
-            double SAT_ratio = (double) getSAT()
-                    / (double) total_constraint_solvings;
-            double UNSAT_ratio = (double) getUNSAT()
-                    / (double) total_constraint_solvings;
-            double useful_tests_ratio = (double) getUsefulTests()
-                    / (double) total_constraint_solvings;
-            double unuseful_tests_ratio = (double) getUnusefulTests()
-                    / (double) total_constraint_solvings;
-            double timeout_ratio = (double) getTimeouts()
-                    / (double) total_constraint_solvings;
+        if (totalConstraintSolvings > 0) {
+            double satRatio = (double) getSAT()
+                    / (double) totalConstraintSolvings;
+            double unsatRatio = (double) getUNSAT()
+                    / (double) totalConstraintSolvings;
+            double usefulTestsRatio = (double) getUsefulTests()
+                    / (double) totalConstraintSolvings;
+            double unusefulTestsRatio = (double) getUnusefulTests()
+                    / (double) totalConstraintSolvings;
+            double timeoutRatio = (double) getTimeouts()
+                    / (double) totalConstraintSolvings;
 
             NumberFormat percentFormat = NumberFormat.getPercentInstance();
             percentFormat.setMaximumFractionDigits(1);
 
-            SAT_ratio_str = percentFormat.format(SAT_ratio);
-            UNSAT_ratio_str = percentFormat.format(UNSAT_ratio);
-            useful_tests_ratio_str = percentFormat.format(useful_tests_ratio);
-            unuseful_tests_ratio_str = percentFormat
-                    .format(unuseful_tests_ratio);
-            timeout_ratio_str = percentFormat.format(timeout_ratio);
+            satRatioStr = percentFormat.format(satRatio);
+            unsatRatioStr = percentFormat.format(unsatRatio);
+            usefulTestsRatioStr = percentFormat.format(usefulTestsRatio);
+            unusefulTestsRatioStr = percentFormat
+                    .format(unusefulTestsRatio);
+            timeoutRatioStr = percentFormat.format(timeoutRatio);
         }
 
         logger.info("* Solving statistics");
         logger.info(String.format("  - SAT: %s (%s)", getSAT(),
-                SAT_ratio_str));
+                satRatioStr));
         logger.info(String.format("  - Useful Tests: %s (%s)",
-                getUsefulTests(), useful_tests_ratio_str));
+                getUsefulTests(), usefulTestsRatioStr));
         logger.info(String.format("  - Unuseful Tests:  %s (%s)",
-                getUnusefulTests(), unuseful_tests_ratio_str));
+                getUnusefulTests(), unusefulTestsRatioStr));
         logger.info(String.format("  - UNSAT: %s (%s)",
-                getUNSAT(), UNSAT_ratio_str));
+                getUNSAT(), unsatRatioStr));
         logger.info(String.format("  - Timeouts: %s (%s)",
-                timeout_ratio_str, getTimeouts()));
+                timeoutRatioStr, getTimeouts()));
 
         logger.info(String.format("  - # Constraint solvings: %s (%s+%s)",
-                total_constraint_solvings, getSAT(),
+                totalConstraintSolvings, getSAT(),
                 getUNSAT()));
 
     }
@@ -383,15 +395,16 @@ public class DSEStatistics {
         int integerStringOnly = constraintTypeCounter.getIntegerAndStringConstraints();
         int realStringOnly = constraintTypeCounter.getRealAndStringConstraints();
         int integerReferenceOnly = constraintTypeCounter.getIntegerAndReferenceConstraints();
-		int realReferenceOnly = constraintTypeCounter.getRealAndReferenceConstraints();
-		int stringReferenceOnly = constraintTypeCounter.getStringAndReferenceConstraints();
+        int realReferenceOnly = constraintTypeCounter.getRealAndReferenceConstraints();
+        int stringReferenceOnly = constraintTypeCounter.getStringAndReferenceConstraints();
 
         int integerRealStringConstraints = constraintTypeCounter.getIntegerRealAndStringConstraints();
         int integerRealReferenceOnly = constraintTypeCounter.getIntegerRealAndReferenceConstraints();
-		int integerStringReferenceOnly = constraintTypeCounter.getIntegerStringAndReferenceConstraints();
-		int realStringReferenceOnly = constraintTypeCounter.getRealStringAndReferenceConstraints();
+        int integerStringReferenceOnly = constraintTypeCounter.getIntegerStringAndReferenceConstraints();
+        int realStringReferenceOnly = constraintTypeCounter.getRealStringAndReferenceConstraints();
 
-		int integerRealStringReferenceConstraints = constraintTypeCounter.getIntegerRealStringAndReferenceConstraints();
+        int integerRealStringReferenceConstraints =
+                constraintTypeCounter.getIntegerRealStringAndReferenceConstraints();
 
         if (total == 0) {
             logger.info(String.format("  - no constraints {}", avgConstraintSize));
@@ -401,31 +414,31 @@ public class DSEStatistics {
             String line3 = String.format("  - Number of string only constraints : %s", stringOnly, total);
             String line4 = String.format("  - Number of reference only constraints : %s", referenceOnly, total);
 
-			String line5 = String.format("  - Number of integer+real constraints : %s / %s ", integerRealOnly,
-					total);
-			String line6 = String.format("  - Number of integer+string constraints : %s / %s ", integerStringOnly,
-					total);
-			String line7 = String.format("  - Number of real+string constraints : %s / %s ", realStringOnly,
-					total);
-			String line8 = String.format("  - Number of integer+reference constraints : %s / %s ", integerReferenceOnly,
-					total);
-			String line9 = String.format("  - Number of real+reference constraints : %s / %s ", realReferenceOnly,
-					total);
-			String line10 = String.format("  - Number of string+reference constraints : %s / %s ", stringReferenceOnly,
-					total);
+            String line5 = String.format("  - Number of integer+real constraints : %s / %s ", integerRealOnly,
+                    total);
+            String line6 = String.format("  - Number of integer+string constraints : %s / %s ", integerStringOnly,
+                    total);
+            String line7 = String.format("  - Number of real+string constraints : %s / %s ", realStringOnly,
+                    total);
+            String line8 = String.format("  - Number of integer+reference constraints : %s / %s ", integerReferenceOnly,
+                    total);
+            String line9 = String.format("  - Number of real+reference constraints : %s / %s ", realReferenceOnly,
+                    total);
+            String line10 = String.format("  - Number of string+reference constraints : %s / %s ", stringReferenceOnly,
+                    total);
 
 
-			String line11 = String.format("  - Number of integer+real+string constraints : %s / %s ",
-					integerRealStringConstraints, total);
-			String line12 = String.format("  - Number of integer+real+reference constraints : %s / %s ",
-					integerRealReferenceOnly, total);
-			String line13 = String.format("  - Number of integer+string+reference constraints : %s / %s ",
-					integerStringReferenceOnly, total);
-			String line14 = String.format("  - Number of real+string+reference constraints : %s / %s ",
-					realStringReferenceOnly, total);
+            String line11 = String.format("  - Number of integer+real+string constraints : %s / %s ",
+                    integerRealStringConstraints, total);
+            String line12 = String.format("  - Number of integer+real+reference constraints : %s / %s ",
+                    integerRealReferenceOnly, total);
+            String line13 = String.format("  - Number of integer+string+reference constraints : %s / %s ",
+                    integerStringReferenceOnly, total);
+            String line14 = String.format("  - Number of real+string+reference constraints : %s / %s ",
+                    realStringReferenceOnly, total);
 
-			String line15 = String.format("  - Number of integer+real+string+reference constraints : %s / %s ",
-					integerRealStringReferenceConstraints, total);
+            String line15 = String.format("  - Number of integer+real+string+reference constraints : %s / %s ",
+                    integerRealStringReferenceConstraints, total);
 
             logger.info(line1);
             logger.info(line2);
@@ -435,13 +448,13 @@ public class DSEStatistics {
             logger.info(line6);
             logger.info(line7);
             logger.info(line8);
-			logger.info(line9);
-			logger.info(line10);
-			logger.info(line11);
-			logger.info(line12);
-			logger.info(line13);
-			logger.info(line14);
-			logger.info(line15);
+            logger.info(line9);
+            logger.info(line10);
+            logger.info(line11);
+            logger.info(line12);
+            logger.info(line13);
+            logger.info(line14);
+            logger.info(line15);
         }
     }
 
@@ -469,6 +482,11 @@ public class DSEStatistics {
         return pathDivergencesCounter;
     }
 
+    /**
+     * Reports a new set of constraints.
+     *
+     * @param constraints a {@link java.util.Collection} object.
+     */
     public void reportNewConstraints(Collection<Constraint<?>> constraints) {
 
         if (pathConditionCount == 0) {
@@ -477,10 +495,10 @@ public class DSEStatistics {
             avgPathConditionLength = constraints.size();
         } else {
             // update average size
-            double new_avg_size = avgPathConditionLength
+            double newAvgSize = avgPathConditionLength
                     + ((((double) constraints.size() - avgPathConditionLength))
                     / ((double) pathConditionCount + 1));
-            avgPathConditionLength = new_avg_size;
+            avgPathConditionLength = newAvgSize;
 
             // update max length
             if (constraints.size() > maxPathConditionLength) {
@@ -502,9 +520,9 @@ public class DSEStatistics {
                 avgConstraintSize = c.getSize();
             } else {
                 // update average size
-                double new_avg_size = avgConstraintSize
+                double newAvgSize = avgConstraintSize
                         + ((((double) c.getSize() - avgConstraintSize)) / ((double) constraintCount + 1));
-                avgConstraintSize = new_avg_size;
+                avgConstraintSize = newAvgSize;
 
                 // update max size
                 if (c.getSize() > maxConstraintSize) {
@@ -538,7 +556,7 @@ public class DSEStatistics {
             } else if (constraint instanceof RealConstraint) {
                 hasRealConstraint = true;
             } else if (constraint instanceof ReferenceConstraint) {
-				hasReferenceConstraint = true;
+                hasReferenceConstraint = true;
             } else {
                 throw new IllegalArgumentException(
                         "The constraint type " + constraint.getClass().getCanonicalName() + " is not considered!");
@@ -554,28 +572,28 @@ public class DSEStatistics {
     }
 
     /**
-     * Reports a new solving time (use of a constraint solver)
+     * Reports a new solving time (use of a constraint solver).
      *
-     * @param solvingTimeMillis
+     * @param solvingTimeMillis the solving time in milliseconds.
      */
     public void reportNewSolvingTime(long solvingTimeMillis) {
         totalSolvingTimeMillis += solvingTimeMillis;
     }
 
     /**
-     * Reports a new test execution time (use of testCaseExecutor)
+     * Reports a new test execution time (use of testCaseExecutor).
      *
-     * @param testExecutionTimeMillis
+     * @param testExecutionTimeMillis the test execution time in milliseconds.
      */
     public void reportNewTestExecutionTime(long testExecutionTimeMillis) {
         totalTestExecutionTime += testExecutionTimeMillis;
     }
 
     /**
-     * Reports total test execution time (use of testCaseExecutor)
-     * TestCaseExecutor is already incrementally saving execution time
+     * Reports total test execution time (use of testCaseExecutor).
+     * TestCaseExecutor is already incrementally saving execution time.
      *
-     * @param testExecutionTimeMillis
+     * @param testExecutionTimeMillis the total test execution time in milliseconds.
      */
     public void reportTotalTestExecutionTime(long testExecutionTimeMillis) {
         totalTestExecutionTime = testExecutionTimeMillis;
@@ -583,14 +601,19 @@ public class DSEStatistics {
 
     /**
      * Reports a new concolic execution time (use of instrumentation and path
-     * constraint collection)
+     * constraint collection).
      *
-     * @param concolicExecutionTimeMillis
+     * @param concolicExecutionTimeMillis the concolic execution time in milliseconds.
      */
     public void reportNewConcolicExecutionTime(long concolicExecutionTimeMillis) {
         totalConcolicExecutionTimeMillis += concolicExecutionTimeMillis;
     }
 
+    /**
+     * Reports a constraint that was too long to be solved.
+     *
+     * @param size a int.
+     */
     public void reportConstraintTooLong(int size) {
         constraintTooLongCounter++;
     }
@@ -612,7 +635,7 @@ public class DSEStatistics {
     }
 
     /**
-     * Solver Query Cache related reports
+     * Solver Query Cache related reports.
      */
     public void reportNewQueryCacheHit() {
         queryCacheHits++;
@@ -627,7 +650,7 @@ public class DSEStatistics {
     }
 
     /**
-     * Entry point for statistics tracking on output variables
+     * Entry point for statistics tracking on output variables.
      */
     public void trackStatistics() {
         trackConstraintTypes();
@@ -652,17 +675,18 @@ public class DSEStatistics {
         int integerStringOnly = constraintTypeCounter.getIntegerAndStringConstraints();
         int realStringOnly = constraintTypeCounter.getRealAndStringConstraints();
         int integerReferenceOnly = constraintTypeCounter.getIntegerAndReferenceConstraints();
-		int realReferenceConstraints = constraintTypeCounter.getRealAndReferenceConstraints();
-		int stringReferenceConstraints = constraintTypeCounter.getStringAndReferenceConstraints();
+        int realReferenceConstraints = constraintTypeCounter.getRealAndReferenceConstraints();
+        int stringReferenceConstraints = constraintTypeCounter.getStringAndReferenceConstraints();
 
         int integerRealStringConstraints = constraintTypeCounter.getIntegerRealAndStringConstraints();
         int integerRealReferenceConstraints = constraintTypeCounter.getIntegerRealAndReferenceConstraints();
-		int integerStringReferenceConstraints = constraintTypeCounter.getIntegerStringAndReferenceConstraints();
-		int realStringReferenceConstraints = constraintTypeCounter.getRealStringAndReferenceConstraints();
+        int integerStringReferenceConstraints = constraintTypeCounter.getIntegerStringAndReferenceConstraints();
+        int realStringReferenceConstraints = constraintTypeCounter.getRealStringAndReferenceConstraints();
 
-		int integerRealStringReferenceConstraints = constraintTypeCounter.getIntegerRealStringAndReferenceConstraints();
+        int integerRealStringReferenceConstraints =
+                constraintTypeCounter.getIntegerRealStringAndReferenceConstraints();
 
-        /** Specific tracking */
+        /* Specific tracking */
         trackOutputVariable(RuntimeVariable.IntegerOnlyConstraints, integerOnly);
         trackOutputVariable(RuntimeVariable.RealOnlyConstraints, realOnly);
         trackOutputVariable(RuntimeVariable.StringOnlyConstraints, stringOnly);
@@ -672,12 +696,13 @@ public class DSEStatistics {
         trackOutputVariable(RuntimeVariable.RealAndStringConstraints, realStringOnly);
         trackOutputVariable(RuntimeVariable.IntegerRealAndStringConstraints, integerRealStringConstraints);
         trackOutputVariable(RuntimeVariable.IntegerAndReferenceConstraints, integerReferenceOnly);
-		trackOutputVariable(RuntimeVariable.RealAndReferenceConstraints, realReferenceConstraints);
-		trackOutputVariable(RuntimeVariable.StringAndReferenceConstraints, stringReferenceConstraints);
-		trackOutputVariable(RuntimeVariable.IntegerRealAndReferenceConstraints, integerRealReferenceConstraints);
-		trackOutputVariable(RuntimeVariable.IntegerStringAndReferenceConstraints, integerStringReferenceConstraints);
-		trackOutputVariable(RuntimeVariable.RealStringAndReferenceConstraints, realStringReferenceConstraints);
-		trackOutputVariable(RuntimeVariable.IntegerRealStringAndReferenceConstraints, integerRealStringReferenceConstraints);
+        trackOutputVariable(RuntimeVariable.RealAndReferenceConstraints, realReferenceConstraints);
+        trackOutputVariable(RuntimeVariable.StringAndReferenceConstraints, stringReferenceConstraints);
+        trackOutputVariable(RuntimeVariable.IntegerRealAndReferenceConstraints, integerRealReferenceConstraints);
+        trackOutputVariable(RuntimeVariable.IntegerStringAndReferenceConstraints, integerStringReferenceConstraints);
+        trackOutputVariable(RuntimeVariable.RealStringAndReferenceConstraints, realStringReferenceConstraints);
+        trackOutputVariable(RuntimeVariable.IntegerRealStringAndReferenceConstraints,
+                integerRealStringReferenceConstraints);
         trackOutputVariable(RuntimeVariable.TotalNumberOfConstraints, total);
     }
 
@@ -694,12 +719,12 @@ public class DSEStatistics {
      * Sets the path exploration related output variables to be saved.
      */
     private void trackExplorationStatistics() {
-        /** Path conditions data */
+        /* Path conditions data */
         trackOutputVariable(RuntimeVariable.MaxPathConditionLength, maxPathConditionLength);
         trackOutputVariable(RuntimeVariable.MinPathConditionLength, minPathConditionLength);
         trackOutputVariable(RuntimeVariable.AvgPathConditionLength, avgPathConditionLength);
 
-        /** Path exploration specific data */
+        /* Path exploration specific data */
         trackOutputVariable(RuntimeVariable.NumberOfPathsExplored, pathsExploredCounter);
         trackOutputVariable(RuntimeVariable.NumberOfPathsDiverged, pathDivergencesCounter);
     }
@@ -736,11 +761,11 @@ public class DSEStatistics {
 
     /**
      * Calculates the cache hit rate.
-     * If theres no calls to the cache, we simply return 0.
+     * If there's no calls to the cache, we simply return 0.
      *
-     * @param cacheHits
-     * @param cacheCalls
-     * @return
+     * @param cacheHits the number of cache hits.
+     * @param cacheCalls the number of cache calls.
+     * @return the cache hit rate.
      */
     private double getQueryCacheHitRate(long cacheHits, long cacheCalls) {
         if (cacheCalls == 0) {

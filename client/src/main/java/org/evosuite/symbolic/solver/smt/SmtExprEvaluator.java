@@ -116,11 +116,11 @@ public final class SmtExprEvaluator implements SmtExprVisitor<Object, Void> {
         }
 
         // Ilebrero: Makes sense to add this check for references? any generic object is going to be here
-        //		if (!(value.getClass().getComponentType().getName().equals(Object.class.getName()))) {
-        //			throw new ClassCastException("The component class of the array " + varName
-        //					+ " should be Double but found type is "
-        //					+ value.getClass().getComponentType().getName());
-        //		}
+        // if (!(value.getClass().getComponentType().getName().equals(Object.class.getName()))) {
+        //     throw new ClassCastException("The component class of the array " + varName
+        //             + " should be Double but found type is "
+        //             + value.getClass().getComponentType().getName());
+        // }
 
         return value;
     }
@@ -604,8 +604,7 @@ public final class SmtExprEvaluator implements SmtExprVisitor<Object, Void> {
                 String str = (String) s;
                 String targetStr = (String) target;
                 String replacementStr = (String) replacement;
-                String ret_val = str.replace(targetStr, replacementStr);
-                return ret_val;
+                return str.replace(targetStr, replacementStr);
             }
             case STR_PREFIXOF: {
                 // this is a string binary operation
@@ -632,10 +631,11 @@ public final class SmtExprEvaluator implements SmtExprVisitor<Object, Void> {
                 Object thenObj = retValues.get(1);
                 Object elseObj = retValues.get(2);
                 Boolean condBoolean = (Boolean) cond;
-                if (condBoolean)
+                if (condBoolean) {
                     return thenObj;
-                else
+                } else {
                     return elseObj;
+                }
             }
 
             case BV2INT: {

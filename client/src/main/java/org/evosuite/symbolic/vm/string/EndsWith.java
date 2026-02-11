@@ -27,38 +27,51 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for String.endsWith.
+ *
+ * @author galeotti
+ */
 public final class EndsWith extends SymbolicFunction {
 
     private static final String ENDS_WITH = "endsWith";
 
+    /**
+     * Constructs an EndsWith.
+     *
+     * @param env the symbolic environment
+     */
     public EndsWith(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING, ENDS_WITH,
                 Types.STR_TO_BOOL_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
 
-        String conc_left = (String) this.getConcReceiver();
-        ReferenceConstant symb_left = this.getSymbReceiver();
+        String concLeft = (String) this.getConcReceiver();
+        ReferenceConstant symbLeft = this.getSymbReceiver();
 
-        StringValue left_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_left, symb_left, conc_left);
+        StringValue leftExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concLeft, symbLeft, concLeft);
 
-        String conc_right = (String) this.getConcArgument(0);
-        ReferenceConstant symb_right = (ReferenceConstant) this
+        String concRight = (String) this.getConcArgument(0);
+        ReferenceConstant symbRight = (ReferenceConstant) this
                 .getSymbArgument(0);
 
-        StringValue right_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_right, symb_right, conc_right);
+        StringValue rightExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concRight, symbRight, concRight);
 
         boolean res = this.getConcBooleanRetVal();
 
-        if (left_expr.containsSymbolicVariable()
-                || right_expr.containsSymbolicVariable()) {
+        if (leftExpr.containsSymbolicVariable()
+                || rightExpr.containsSymbolicVariable()) {
             int conV = res ? 1 : 0;
-            StringBinaryComparison strBExpr = new StringBinaryComparison(left_expr,
-                    Operator.ENDSWITH, right_expr, (long) conV);
+            StringBinaryComparison strBExpr = new StringBinaryComparison(leftExpr,
+                    Operator.ENDSWITH, rightExpr, (long) conV);
             return strBExpr;
         } else {
             return this.getSymbIntegerRetVal();

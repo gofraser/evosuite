@@ -15,14 +15,14 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic;
 
 import static org.evosuite.dse.MainConfig.LAMBDA_CLASS_NAME_FRAGMENT;
 
 /**
- * Utils for lambda related elements
+ * Utils for lambda related elements.
  *
  * @author Ignacio Lebrero
  */
@@ -31,8 +31,8 @@ public class LambdaUtils {
     /**
      * Checks if the current class is a magic lambda instance.
      *
-     * @param claz
-     * @return
+     * @param claz a {@link java.lang.Class} object.
+     * @return a boolean.
      */
     public static boolean isLambda(Class<?> claz) {
         return claz.isSynthetic() && claz.getSimpleName().contains(LAMBDA_CLASS_NAME_FRAGMENT);

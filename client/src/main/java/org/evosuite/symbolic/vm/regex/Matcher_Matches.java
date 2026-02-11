@@ -31,6 +31,11 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
 import java.util.regex.Matcher;
 
+/**
+ * Symbolic function for Matcher.matches.
+ *
+ * @author galeotti
+ */
 public final class Matcher_Matches extends SymbolicFunction {
 
     private static final String MATCHES = "matches";
@@ -41,22 +46,22 @@ public final class Matcher_Matches extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        Matcher conc_matcher = (Matcher) this.getConcReceiver();
-        ReferenceConstant symb_matcher = this
+        Matcher concMatcher = (Matcher) this.getConcReceiver();
+        ReferenceConstant symbMatcher = this
                 .getSymbReceiver();
         boolean res = this.getConcBooleanRetVal();
 
-        String conc_regex = conc_matcher.pattern().pattern();
-        StringValue symb_input = (StringValue) env.heap.getField(
+        String concRegex = concMatcher.pattern().pattern();
+        StringValue symbInput = (StringValue) env.heap.getField(
                 Types.JAVA_UTIL_REGEX_MATCHER, SymbolicHeap.$MATCHER_INPUT,
-                conc_matcher, symb_matcher);
+                concMatcher, symbMatcher);
 
-        if (symb_input != null && symb_input.containsSymbolicVariable()) {
-            int concrete_value = res ? 1 : 0;
-            StringConstant symb_regex = ExpressionFactory
-                    .buildNewStringConstant(conc_regex);
-            StringBinaryComparison strComp = new StringBinaryComparison(symb_regex,
-                    Operator.PATTERNMATCHES, symb_input, (long) concrete_value);
+        if (symbInput != null && symbInput.containsSymbolicVariable()) {
+            int concreteValue = res ? 1 : 0;
+            StringConstant symbRegex = ExpressionFactory
+                    .buildNewStringConstant(concRegex);
+            StringBinaryComparison strComp = new StringBinaryComparison(symbRegex,
+                    Operator.PATTERNMATCHES, symbInput, (long) concreteValue);
 
             return strComp;
         } else {

@@ -29,7 +29,7 @@ import java.util.ListIterator;
  */
 
 /**
- * Linked list of Strings
+ * Linked list of Strings.
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
@@ -39,25 +39,32 @@ public class LinkedStringList extends LinkedList<String> {
     private static final long serialVersionUID = 5757225099467215983L;
 
     /**
-     * Constructor
+     * Constructor.
+     *
+     * @param args the strings to add to the list.
      */
     public LinkedStringList(String... args) {
-        for (String arg : args)
+        for (String arg : args) {
             add(arg.trim());  // remove outer white-spaces
+        }
     }
 
     /**
-     * Constructor
-     * <p>
-     * Parse arg as comma separated string list. For example:
-     * "a, b b, c" --> {"a", "b b", "c"}
+     * Constructor.
+     *
+     * <p>Parse arg as comma separated string list. For example:
+     * "a, b b, c" --&gt; {"a", "b b", "c"}
+     *
+     * @param arg the comma separated string to parse.
      */
     public LinkedStringList(String arg) {
         this(arg.split(","));
     }
 
     /**
-     * Comma separated list, e.g.: foo,bar bar,baz
+     * Comma separated list, e.g.: foo,bar bar,baz.
+     *
+     * @return the comma separated string representation.
      */
     @Override
     public String toString() {
@@ -65,8 +72,9 @@ public class LinkedStringList extends LinkedList<String> {
         ListIterator<String> it = listIterator();
         while (it.hasNext()) {
             sb.append(it.next());
-            if (it.hasNext())
+            if (it.hasNext()) {
                 sb.append(", ");
+            }
         }
         return sb.toString();
     }

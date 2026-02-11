@@ -31,6 +31,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Integer.parseInt.
+ *
+ * @author galeotti
+ */
 public final class I_ParseInt extends SymbolicFunction {
 
     private static final String PARSE_INT = "parseInt";
@@ -43,44 +48,44 @@ public final class I_ParseInt extends SymbolicFunction {
     @Override
     public Object executeFunction() {
 
-        ReferenceConstant symb_string_ref = (ReferenceConstant) this
+        ReferenceConstant symbStringRef = (ReferenceConstant) this
                 .getSymbArgument(0);
-        String conc_string = (String) this.getConcArgument(0);
+        String concString = (String) this.getConcArgument(0);
 
-        int conc_integer = this.getConcIntRetVal();
+        int concInteger = this.getConcIntRetVal();
 
-        StringValue symb_string_value = env.heap.getField(
+        StringValue symbStringValue = env.heap.getField(
                 org.evosuite.symbolic.vm.regex.Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_string, symb_string_ref,
-                conc_string);
+                SymbolicHeap.$STRING_VALUE, concString, symbStringRef,
+                concString);
 
-        long longValue = conc_integer;
+        long longValue = concInteger;
 
-        StringToIntegerCast parse_int_value = new StringToIntegerCast(
-                symb_string_value, longValue);
+        StringToIntegerCast parseIntValue = new StringToIntegerCast(
+                symbStringValue, longValue);
 
-        return parse_int_value;
+        return parseIntValue;
     }
 
     @Override
     public IntegerConstraint beforeExecuteFunction() {
-        String conc_string = (String) this.getConcArgument(0);
+        String concString = (String) this.getConcArgument(0);
 
         try {
-            Integer.parseInt(conc_string);
+            Integer.parseInt(concString);
             return null;
         } catch (NumberFormatException ex) {
 
-            ReferenceConstant symb_string_ref = (ReferenceConstant) this
+            ReferenceConstant symbStringRef = (ReferenceConstant) this
                     .getSymbArgument(0);
-            StringValue symb_string_value = env.heap.getField(
+            StringValue symbStringValue = env.heap.getField(
                     org.evosuite.symbolic.vm.regex.Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_string, symb_string_ref,
-                    conc_string);
+                    SymbolicHeap.$STRING_VALUE, concString, symbStringRef,
+                    concString);
 
             long conV = 0;
             StringUnaryToIntegerExpression isIntegerExpression = new StringUnaryToIntegerExpression(
-                    symb_string_value, Operator.IS_INTEGER, conV);
+                    symbStringValue, Operator.IS_INTEGER, conV);
 
             IntegerConstraint integerConstraint = new IntegerConstraint(
                     isIntegerExpression, Comparator.EQ, new IntegerConstant(0));

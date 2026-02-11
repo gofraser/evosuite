@@ -23,14 +23,28 @@ public final class SmtFunctionDefinition {
 
     private final String functionDefinition;
 
+    /**
+     * Constructor.
+     *
+     * @param functionDefinition a {@link java.lang.String} object.
+     */
     public SmtFunctionDefinition(String functionDefinition) {
         this.functionDefinition = functionDefinition;
     }
 
+    /**
+     * Returns the function definition.
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getFunctionDefinition() {
         return functionDefinition;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public String toString() {
         SmtQueryPrinter printer = new SmtQueryPrinter();
         String str = printer.print(this);

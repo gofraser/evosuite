@@ -29,12 +29,14 @@ import org.objectweb.asm.Type;
  */
 public final class ClassReferenceConstant extends NonNullReferenceConstant {
 
+    private static final long serialVersionUID = -1234567890123456789L;
+
     public ClassReferenceConstant(Type objectType, int instanceId) {
         super(objectType, instanceId);
     }
 
     @Override
-	public <K, V> K accept(ExpressionVisitor<K, V> v, V arg) {
-		return v.visit(this, arg);
-	}
+    public <K, V> K accept(ExpressionVisitor<K, V> v, V arg) {
+        return v.visit(this, arg);
+    }
 }

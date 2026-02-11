@@ -25,24 +25,31 @@ import org.evosuite.symbolic.dse.algorithm.explorationalgorithms.DFSExplorationA
 import org.evosuite.symbolic.dse.algorithm.explorationalgorithms.SAGEExplorationAlgorithm;
 
 /**
- * Factory of DSE Algorithms
+ * Factory of DSE Algorithms.
  *
  * @author Ignacio Lebrero
  */
 public class DSEAlgorithmFactory {
     public static final String DSE_ALGORITHM_TYPE_NOT_PROVIDED = "A DSE algorithm type must be provided";
-    public static final String DSE_EXPLORATION_ALGORITHM_NOT_YET_IMPLEMENTED = "DSE exploration algorithm not yet implemented: ";
+    public static final String DSE_EXPLORATION_ALGORITHM_NOT_YET_IMPLEMENTED =
+            "DSE exploration algorithm not yet implemented: ";
 
     /**
-     * Statistics object for when creating a customized algorithm
+     * Statistics object for when creating a customized algorithm.
      */
     private final DSEStatistics dseStatistics = DSEStatistics.getInstance();
 
     /**
-     * Should log the algorithm progress throughout it's execution
+     * Should log the algorithm progress throughout its execution.
      */
     private final boolean showProgress = Properties.SHOW_PROGRESS;
 
+    /**
+     * Returns a DSE algorithm instance based on the provided type.
+     *
+     * @param dseAlgorithmType a {@link org.evosuite.symbolic.dse.algorithm.DSEAlgorithms} object.
+     * @return a {@link org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithm} object.
+     */
     public ExplorationAlgorithm getDSEAlgorithm(DSEAlgorithms dseAlgorithmType) {
         if (dseAlgorithmType == null) {
             throw new IllegalArgumentException(DSE_ALGORITHM_TYPE_NOT_PROVIDED);
@@ -54,7 +61,8 @@ public class DSEAlgorithmFactory {
             case DFS:
                 return new DFSExplorationAlgorithm(dseStatistics, showProgress);
             default:
-                throw new IllegalStateException(DSE_EXPLORATION_ALGORITHM_NOT_YET_IMPLEMENTED + dseAlgorithmType.name());
+                throw new IllegalStateException(
+                        DSE_EXPLORATION_ALGORITHM_NOT_YET_IMPLEMENTED + dseAlgorithmType.name());
         }
     }
 }

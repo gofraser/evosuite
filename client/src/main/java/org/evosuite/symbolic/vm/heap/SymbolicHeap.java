@@ -46,12 +46,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
+ * Symbolic heap representation.
+ *
  * @author galeotti
  */
 public final class SymbolicHeap {
 
     /**
-     * Field Value Constants
+     * Field Value Constants.
      **/
     public static final String $INT_VALUE = "$intValue";
     public static final String $BYTE_VALUE = "$byteValue";
@@ -69,31 +71,37 @@ public final class SymbolicHeap {
     public static final String $STRING_BUFFER_CONTENTS = "$stringBuffer_contents";
     public static final String $STRING_BUILDER_CONTENTS = "$stringBuilder_contents";
 
-    /** Reference Constants */
-	public static final int NULL_INSTANCE_ID = 0;
+    /**
+     * Reference Constants.
+     */
+    public static final int NULL_INSTANCE_ID = 0;
 
-	/** Reference Type Constants */
-	public static final int NULL_TYPE_ID = 0;
-	public static final int OBJECT_TYPE_ID = 1;
+    /**
+     * Reference Type Constants.
+     */
+    public static final int NULL_TYPE_ID = 0;
+    public static final int OBJECT_TYPE_ID = 1;
 
     protected static final Logger logger = LoggerFactory.getLogger(SymbolicHeap.class);
 
     /**
-     * Counter for instances
-     *
-	 * Note: 0 is reserved for the null constant.
-	 */
-	private int newInstanceCount = 1;
-
-	/**
-	 * Counter for reference types found during execution
-	 *
-	 * Note: 0 is reserved for the null constant and 1 for Object
-	 */
-	private int newReferenceTypeCount = 2;
+     * Counter for instances.
+     * <p>
+     * Note: 0 is reserved for the null constant.
+     * </p>
+     */
+    private int newInstanceCount = 1;
 
     /**
-     * Array's memory model
+     * Counter for reference types found during execution.
+     * <p>
+     * Note: 0 is reserved for the null constant and 1 for Object.
+     * </p>
+     */
+    private int newReferenceTypeCount = 2;
+
+    /**
+     * Array's memory model.
      */
     private final ArraysSection symbolicArrays;
 
@@ -113,18 +121,18 @@ public final class SymbolicHeap {
 
     /**
      * Stores a mapping between NonNullReferences and their symbolic values. The
-     * Expression<?> contains at least one symbolic variable.
+     * Expression contains at least one symbolic variable.
      */
-    private final Map<FieldKey, Map<ReferenceExpression, Expression<?>>> symb_fields = new HashMap<>();
+    private final Map<FieldKey, Map<ReferenceExpression, Expression<?>>> symbFields = new HashMap<>();
 
     /**
      * Mapping between for symbolic values stored in static fields. The
-     * Expression<?> contains at least one symbolic variable.
+     * Expression contains at least one symbolic variable.
      */
-    private final Map<FieldKey, Expression<?>> symb_static_fields = new HashMap<>();
+    private final Map<FieldKey, Expression<?>> symbStaticFields = new HashMap<>();
 
     /**
-     * Constructor
+     * Constructor.
      */
     public SymbolicHeap() {
         this.symbolicArrays = SymbolicHeapArraySectionFactory
@@ -137,13 +145,15 @@ public final class SymbolicHeap {
      * ANEW, NEWARRAY, etc).
      * <p>
      * It is the only way of creating uninitialized non-null references.
+     * </p>
      *
-     * @param objectType
-     * @return
+     * @param objectType the type of the object
+     * @return a new ClassReferenceConstant
      */
     public ClassReferenceConstant buildNewClassReferenceConstant(Type objectType) {
-        if (objectType.getClassName() == null)
+        if (objectType.getClassName() == null) {
             throw new IllegalArgumentException();
+        }
 
         final int newInstanceId = newInstanceCount++;
         return new ClassReferenceConstant(objectType, newInstanceId);
@@ -154,192 +164,227 @@ public final class SymbolicHeap {
      * Updates an instance field. The symbolic expression is stored iif it is
      * not a constant expression (i.e. it has at least one variable).
      *
-     * @param className
-     * @param fieldName
-     * @param conc_receiver The concrete Object receiver instance
-     * @param symb_receiver A symbolic NonNullReference instance
-     * @param symb_value    The Expression to be stored. Null value means the previous
-     *                      symbolic expression has to be erased.
+     * @param className    the name of the class
+     * @param fieldName    the name of the field
+     * @param concReceiver the concrete Object receiver instance
+     * @param symbReceiver a symbolic NonNullReference instance
+     * @param symbValue    the Expression to be stored. Null value means the previous
+     *                     symbolic expression has to be erased.
      */
-    public void putField(String className, String fieldName, Object conc_receiver, ReferenceExpression symb_receiver,
-                         Expression<?> symb_value) {
+    public void putField(String className, String fieldName, Object concReceiver, ReferenceExpression symbReceiver,
+                         Expression<?> symbValue) {
 
-        Map<ReferenceExpression, Expression<?>> symb_field = getOrCreateSymbolicField(className, fieldName);
+        Map<ReferenceExpression, Expression<?>> symbField = getOrCreateSymbolicField(className, fieldName);
 
         // NOTE (ilebrero): We need to store elements even if they are constant due to probable usage later on of their
-        //					reference (i.e. if the reference is bounded to an object like a closure.)
-        //		if (symb_value == null || !symb_value.containsSymbolicVariable()) {
-        if (symb_value == null) {
-            symb_field.remove(symb_receiver);
+        //                    reference (i.e. if the reference is bounded to an object like a closure.)
+        //        if (symbValue == null || !symbValue.containsSymbolicVariable()) {
+        if (symbValue == null) {
+            symbField.remove(symbReceiver);
         } else {
-            symb_field.put(symb_receiver, symb_value);
+            symbField.put(symbReceiver, symbValue);
         }
     }
 
     /**
-     * Special updating case scenario for Reference expresion values
+     * Special updating case scenario for Reference expression values.
      *
-     * @param className
-     * @param fieldName
-     * @param conc_receiver The concrete Object receiver instance
-     * @param symb_receiver A symbolic NonNullReference instance
-     * @param symb_value    The Expression to be stored. Null value means the previous
-     *                      symbolic expression has to be erased.
+     * @param className    the name of the class
+     * @param fieldName    the name of the field
+     * @param concReceiver the concrete Object receiver instance
+     * @param symbReceiver a symbolic NonNullReference instance
+     * @param symbValue    the Expression to be stored. Null value means the previous
+     *                     symbolic expression has to be erased.
      */
-    public void putField(String className, String fieldName, Object conc_receiver, ReferenceExpression symb_receiver,
-                         ReferenceExpression symb_value) {
+    public void putField(String className, String fieldName, Object concReceiver, ReferenceExpression symbReceiver,
+                         ReferenceExpression symbValue) {
 
-        Map<ReferenceExpression, Expression<?>> symb_field = getOrCreateSymbolicField(className, fieldName);
+        Map<ReferenceExpression, Expression<?>> symbField = getOrCreateSymbolicField(className, fieldName);
 
         // NOTE (ilebrero): We need to store elements even if they are constant due to probable usage later on of their
-        //					reference (i.e. if the reference is bounded to an object like a closure.)
-        //		if (symb_value == null || !symb_value.containsSymbolicVariable()) {
-        if (symb_value == null) {
-            symb_field.remove(symb_receiver);
+        //                    reference (i.e. if the reference is bounded to an object like a closure.)
+        //        if (symbValue == null || !symbValue.containsSymbolicVariable()) {
+        if (symbValue == null) {
+            symbField.remove(symbReceiver);
         } else {
-            symb_field.put(symb_receiver, symb_value);
+            symbField.put(symbReceiver, symbValue);
         }
     }
 
     private Map<ReferenceExpression, Expression<?>> getOrCreateSymbolicField(String owner, String name) {
         FieldKey k = new FieldKey(owner, name);
-        Map<ReferenceExpression, Expression<?>> symb_field = symb_fields.get(k);
-        if (symb_field == null) {
-            symb_field = new HashMap<>();
-            symb_fields.put(k, symb_field);
+        Map<ReferenceExpression, Expression<?>> symbField = symbFields.get(k);
+        if (symbField == null) {
+            symbField = new HashMap<>();
+            symbFields.put(k, symbField);
         }
 
-        return symb_field;
+        return symbField;
     }
 
     /**
-     * Returns a stored symbolic expression for an int field or created one
+     * Returns a stored symbolic expression for an int field or created one.
      *
-     * @param owner
-     * @param name
-     * @param conc_receiver
-     * @param symb_receiver
-     * @param conc_value
-     * @return
+     * @param owner        the owner of the field
+     * @param name         the name of the field
+     * @param concReceiver the concrete receiver
+     * @param symbReceiver the symbolic receiver
+     * @param concValue    the concrete value
+     * @return the symbolic integer value
      */
-    public IntegerValue getField(String owner, String name, Object conc_receiver, ReferenceExpression symb_receiver,
-                                 long conc_value) {
+    public IntegerValue getField(String owner, String name, Object concReceiver, ReferenceExpression symbReceiver,
+                                 long concValue) {
 
-        Map<ReferenceExpression, Expression<?>> symb_field = getOrCreateSymbolicField(owner, name);
-        IntegerValue symb_value = (IntegerValue) symb_field.get(symb_receiver);
-        if (symb_value == null || symb_value.getConcreteValue() != conc_value) {
-            symb_value = ExpressionFactory.buildNewIntegerConstant(conc_value);
-            symb_field.remove(symb_receiver);
+        Map<ReferenceExpression, Expression<?>> symbField = getOrCreateSymbolicField(owner, name);
+        IntegerValue symbValue = (IntegerValue) symbField.get(symbReceiver);
+        if (symbValue == null || symbValue.getConcreteValue() != concValue) {
+            symbValue = ExpressionFactory.buildNewIntegerConstant(concValue);
+            symbField.remove(symbReceiver);
         }
 
-        return symb_value;
+        return symbValue;
     }
 
     /**
-     * @param className
-     * @param fieldName
-     * @param conc_receiver
-     * @param symb_receiver
-     * @param conc_value
-     * @return
-     */
-    public RealValue getField(String className, String fieldName, Object conc_receiver,
-                              ReferenceExpression symb_receiver, double conc_value) {
-
-        Map<ReferenceExpression, Expression<?>> symb_field = getOrCreateSymbolicField(className, fieldName);
-        RealValue symb_value = (RealValue) symb_field.get(symb_receiver);
-        if (symb_value == null || symb_value.getConcreteValue() != conc_value) {
-            symb_value = ExpressionFactory.buildNewRealConstant(conc_value);
-            symb_field.remove(symb_receiver);
-        }
-
-        return symb_value;
-    }
-
-    /**
-     * @param className
-     * @param fieldName
-     * @param conc_receiver
-     * @param symb_receiver
-     * @param conc_value
-     * @return
-     */
-    public StringValue getField(String className, String fieldName, Object conc_receiver,
-                                ReferenceExpression symb_receiver, String conc_value) {
-
-        Map<ReferenceExpression, Expression<?>> symb_field = getOrCreateSymbolicField(className, fieldName);
-        StringValue symb_value = (StringValue) symb_field.get(symb_receiver);
-        if (symb_value == null || !symb_value.getConcreteValue().equals(conc_value)) {
-            symb_value = ExpressionFactory.buildNewStringConstant(conc_value);
-            symb_field.remove(symb_receiver);
-        }
-
-        return symb_value;
-    }
-
-    /**
-     * No default concrete value means the return value could be false!
+     * Returns a stored symbolic expression for a real field or created one.
      *
-     * @param className
-     * @param fieldName
-     * @param conc_receiver
-     * @param symb_receiver
-     * @return
+     * @param className    the name of the class
+     * @param fieldName    the name of the field
+     * @param concReceiver the concrete receiver
+     * @param symbReceiver the symbolic receiver
+     * @param concValue    the concrete value
+     * @return the symbolic real value
      */
-    public Expression<?> getField(String className, String fieldName, Object conc_receiver,
-                                  ReferenceExpression symb_receiver) {
+    public RealValue getField(String className, String fieldName, Object concReceiver,
+                              ReferenceExpression symbReceiver, double concValue) {
 
-        Map<ReferenceExpression, Expression<?>> symb_field = getOrCreateSymbolicField(className, fieldName);
-        Expression<?> symb_value = symb_field.get(symb_receiver);
-        return symb_value;
+        Map<ReferenceExpression, Expression<?>> symbField = getOrCreateSymbolicField(className, fieldName);
+        RealValue symbValue = (RealValue) symbField.get(symbReceiver);
+        if (symbValue == null || symbValue.getConcreteValue() != concValue) {
+            symbValue = ExpressionFactory.buildNewRealConstant(concValue);
+            symbField.remove(symbReceiver);
+        }
+
+        return symbValue;
     }
 
-    public void putStaticField(String owner, String name, Expression<?> symb_value) {
+    /**
+     * Returns a stored symbolic expression for a string field or created one.
+     *
+     * @param className    the name of the class
+     * @param fieldName    the name of the field
+     * @param concReceiver the concrete receiver
+     * @param symbReceiver the symbolic receiver
+     * @param concValue    the concrete value
+     * @return the symbolic string value
+     */
+    public StringValue getField(String className, String fieldName, Object concReceiver,
+                                ReferenceExpression symbReceiver, String concValue) {
+
+        Map<ReferenceExpression, Expression<?>> symbField = getOrCreateSymbolicField(className, fieldName);
+        StringValue symbValue = (StringValue) symbField.get(symbReceiver);
+        if (symbValue == null || !symbValue.getConcreteValue().equals(concValue)) {
+            symbValue = ExpressionFactory.buildNewStringConstant(concValue);
+            symbField.remove(symbReceiver);
+        }
+
+        return symbValue;
+    }
+
+    /**
+     * No default concrete value means the return value could be false!.
+     *
+     * @param className    the name of the class
+     * @param fieldName    the name of the field
+     * @param concReceiver the concrete receiver
+     * @param symbReceiver the symbolic receiver
+     * @return the symbolic expression
+     */
+    public Expression<?> getField(String className, String fieldName, Object concReceiver,
+                                  ReferenceExpression symbReceiver) {
+
+        Map<ReferenceExpression, Expression<?>> symbField = getOrCreateSymbolicField(className, fieldName);
+        Expression<?> symbValue = symbField.get(symbReceiver);
+        return symbValue;
+    }
+
+    /**
+     * Updates a static field.
+     *
+     * @param owner     the owner of the field
+     * @param name      the name of the field
+     * @param symbValue the symbolic value
+     */
+    public void putStaticField(String owner, String name, Expression<?> symbValue) {
 
         FieldKey k = new FieldKey(owner, name);
-        if (symb_value == null || !symb_value.containsSymbolicVariable()) {
-            symb_static_fields.remove(k);
+        if (symbValue == null || !symbValue.containsSymbolicVariable()) {
+            symbStaticFields.remove(k);
         } else {
-            symb_static_fields.put(k, symb_value);
+            symbStaticFields.put(k, symbValue);
         }
 
     }
 
-    public IntegerValue getStaticField(String owner, String name, long conc_value) {
+    /**
+     * Returns a stored symbolic expression for a static int field or created one.
+     *
+     * @param owner     the owner of the field
+     * @param name      the name of the field
+     * @param concValue the concrete value
+     * @return the symbolic integer value
+     */
+    public IntegerValue getStaticField(String owner, String name, long concValue) {
 
         FieldKey k = new FieldKey(owner, name);
-        IntegerValue symb_value = (IntegerValue) symb_static_fields.get(k);
-        if (symb_value == null || symb_value.getConcreteValue() != conc_value) {
-            symb_value = ExpressionFactory.buildNewIntegerConstant(conc_value);
-            symb_static_fields.remove(k);
+        IntegerValue symbValue = (IntegerValue) symbStaticFields.get(k);
+        if (symbValue == null || symbValue.getConcreteValue() != concValue) {
+            symbValue = ExpressionFactory.buildNewIntegerConstant(concValue);
+            symbStaticFields.remove(k);
         }
 
-        return symb_value;
+        return symbValue;
 
     }
 
-    public RealValue getStaticField(String owner, String name, double conc_value) {
+    /**
+     * Returns a stored symbolic expression for a static real field or created one.
+     *
+     * @param owner     the owner of the field
+     * @param name      the name of the field
+     * @param concValue the concrete value
+     * @return the symbolic real value
+     */
+    public RealValue getStaticField(String owner, String name, double concValue) {
 
         FieldKey k = new FieldKey(owner, name);
-        RealValue symb_value = (RealValue) symb_static_fields.get(k);
-        if (symb_value == null || symb_value.getConcreteValue() != conc_value) {
-            symb_value = ExpressionFactory.buildNewRealConstant(conc_value);
-            symb_static_fields.remove(k);
+        RealValue symbValue = (RealValue) symbStaticFields.get(k);
+        if (symbValue == null || symbValue.getConcreteValue() != concValue) {
+            symbValue = ExpressionFactory.buildNewRealConstant(concValue);
+            symbStaticFields.remove(k);
         }
 
-        return symb_value;
+        return symbValue;
     }
 
-    public StringValue getStaticField(String owner, String name, String conc_value) {
+    /**
+     * Returns a stored symbolic expression for a static string field or created one.
+     *
+     * @param owner     the owner of the field
+     * @param name      the name of the field
+     * @param concValue the concrete value
+     * @return the symbolic string value
+     */
+    public StringValue getStaticField(String owner, String name, String concValue) {
 
         FieldKey k = new FieldKey(owner, name);
-        StringValue symb_value = (StringValue) symb_static_fields.get(k);
-        if (symb_value == null || !symb_value.getConcreteValue().equals(conc_value)) {
-            symb_value = ExpressionFactory.buildNewStringConstant(conc_value);
-            symb_static_fields.remove(k);
+        StringValue symbValue = (StringValue) symbStaticFields.get(k);
+        if (symbValue == null || !symbValue.getConcreteValue().equals(concValue)) {
+            symbValue = ExpressionFactory.buildNewStringConstant(concValue);
+            symbStaticFields.remove(k);
         }
 
-        return symb_value;
+        return symbValue;
     }
 
     /**
@@ -347,47 +392,47 @@ public final class SymbolicHeap {
      * null. Otherwise, it looks in the list of non-null symbolic references for
      * a symbolic reference with the concrete value. If it is found, that
      * symbolic reference is returned, otherwise a new reference constant is
-     * created (and added ot the list of non-null symbolic references)
+     * created (and added ot the list of non-null symbolic references).
      *
-     * @param conc_ref
-     * @return
+     * @param concRef the concrete reference
+     * @return the symbolic reference expression
      */
-    public ReferenceExpression getReference(Object conc_ref) {
-        if (conc_ref == null) {
+    public ReferenceExpression getReference(Object concRef) {
+        if (concRef == null) {
             // null reference
             return ExpressionFactory.NULL_REFERENCE;
         } else {
-            int identityHashCode = System.identityHashCode(conc_ref);
+            int identityHashCode = System.identityHashCode(concRef);
             if (nonNullRefs.containsKey(identityHashCode)) {
                 // already known object
-                ReferenceExpression symb_ref = nonNullRefs.get(identityHashCode);
-                return symb_ref;
+                ReferenceExpression symbRef = nonNullRefs.get(identityHashCode);
+                return symbRef;
             } else {
                 // unknown object
-                final Type type = Type.getType(conc_ref.getClass());
-                ReferenceConstant ref_constant;
-                if (conc_ref.getClass().isArray()) {
-                    ref_constant = buildNewArrayReferenceConstant(type);
+                final Type type = Type.getType(concRef.getClass());
+                ReferenceConstant refConstant;
+                if (concRef.getClass().isArray()) {
+                    refConstant = buildNewArrayReferenceConstant(type);
                 } else {
-                    ref_constant = buildNewClassReferenceConstant(type);
+                    refConstant = buildNewClassReferenceConstant(type);
                 }
 
-                initializeReference(conc_ref, ref_constant);
-                nonNullRefs.put(identityHashCode, ref_constant);
-                return ref_constant;
+                initializeReference(concRef, refConstant);
+                nonNullRefs.put(identityHashCode, refConstant);
+                return refConstant;
             }
         }
     }
 
     /**
-     * Builds a new reference variable using a var_name and a concrete object
+     * Builds a new reference variable using a varName and a concrete object.
      * The concrete object can be null.
      *
-     * @param concreteObject
-     * @param var_name
-     * @return
+     * @param concreteObject the concrete object
+     * @param varName        the variable name
+     * @return a new ClassReferenceVariable
      */
-    public ClassReferenceVariable buildNewClassReferenceVariable(Object concreteObject, String var_name) {
+    public ClassReferenceVariable buildNewClassReferenceVariable(Object concreteObject, String varName) {
         final Type referenceType;
         if (concreteObject == null) {
             referenceType = Type.getType(Object.class);
@@ -395,17 +440,23 @@ public final class SymbolicHeap {
             referenceType = Type.getType(concreteObject.getClass());
         }
         final int newInstanceId = newInstanceCount++;
-        final ClassReferenceVariable r = new ClassReferenceVariable(referenceType, newInstanceId, var_name, concreteObject);
+        final ClassReferenceVariable r = new ClassReferenceVariable(referenceType, newInstanceId,
+                varName, concreteObject);
         return r;
     }
 
     /**
-     * Initializes a reference using a concrete object
+     * Initializes a reference using a concrete object.
      *
-     * @param concreteReference
-     * @param symbolicReference
+     * @param concreteReference the concrete reference
+     * @param symbolicReference the symbolic reference
      */
     public void initializeReference(Object concreteReference, ReferenceExpression symbolicReference) {
+        if (symbolicReference == null) {
+            // Defensive: recover if a null symbolic reference is passed.
+            getReference(concreteReference);
+            return;
+        }
         if (concreteReference != null) {
             if (!symbolicReference.isInitialized()) {
                 symbolicReference.initializeReference(concreteReference);
@@ -423,19 +474,22 @@ public final class SymbolicHeap {
         }
     }
 
-    /******* Arrays Implementation *******/
+    /* ======= Arrays Implementation ======= */
 
     /**
-     * This constructor is for references created in array related instrumented code (NEWARRAY, ANEWARRAY, MULTINEWARRAY).
+     * This constructor is for references created in array related instrumented code (NEWARRAY, ANEWARRAY,
+     * MULTINEWARRAY).
      * <p>
      * It is the only way of creating uninitialized non-null arrays.
+     * </p>
      *
-     * @param arrayType
-     * @return
+     * @param arrayType the type of the array
+     * @return a new ArrayConstant
      */
     public ArrayConstant buildNewArrayReferenceConstant(Type arrayType) {
-        if (arrayType.getClassName() == null)
+        if (arrayType.getClassName() == null) {
             throw new IllegalArgumentException();
+        }
 
         final int newInstanceId = newInstanceCount++;
         return symbolicArrays.createConstantArray(arrayType, newInstanceId);
@@ -444,124 +498,137 @@ public final class SymbolicHeap {
     /**
      * Builds a new array reference variable using an array type, and the name the concrete array can be null.
      *
-     * @param concreteArray
-     * @param arrayVarName
-     * @return
+     * @param concreteArray the concrete array
+     * @param arrayVarName  the name of the array variable
+     * @return a new ArrayVariable
      */
     public ArrayVariable buildNewArrayReferenceVariable(Object concreteArray, String arrayVarName) {
         final int newInstanceId = newInstanceCount++;
         return symbolicArrays.createVariableArray(concreteArray, newInstanceId, arrayVarName);
     }
 
-    /********* Load Operations *********/
+    /* ======= Load Operations ======= */
 
     /**
-     * Load operation for Real arrays
+     * Load operation for Real arrays.
      *
      * @param symbolicArray Symbolic element og the real array reference
      * @param symbolicIndex Symbolic element of the accessed index
      * @param symbolicValue Symbolic element of the accessed value
      * @return a {@link RealValue} symoblic element.
      */
-    public RealValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, RealValue symbolicValue) {
+    public RealValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                               RealValue symbolicValue) {
         return symbolicArrays.arrayLoad(symbolicArray, symbolicIndex, symbolicValue);
     }
 
     /**
-     * Load operation for String arrays
+     * Load operation for String arrays.
      *
      * @param symbolicArray Symbolic element og the string array reference
      * @param symbolicIndex Symbolic element of the accessed index
      * @param symbolicValue Symbolic element of the accessed value
      * @return a {@link StringValue} symoblic element.
      */
-    public StringValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, StringValue symbolicValue) {
+    public StringValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                                 StringValue symbolicValue) {
         return symbolicArrays.arrayLoad(symbolicArray, symbolicIndex, symbolicValue);
     }
 
     /**
-     * Load operation for Integer arrays
+     * Load operation for Integer arrays.
      *
      * @param symbolicArray Symbolic element og the integer array reference
      * @param symbolicIndex Symbolic element of the accessed index
      * @param symbolicValue Symbolic element of the accessed value
      * @return a {@link IntegerValue} symoblic element.
      */
-    public IntegerValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, IntegerValue symbolicValue) {
+    public IntegerValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                                  IntegerValue symbolicValue) {
         return symbolicArrays.arrayLoad(symbolicArray, symbolicIndex, symbolicValue);
     }
 
     /**
-     * Load operation for Reference arrays
+     * Load operation for Reference arrays.
      *
      * @param symbolicArray Symbolic element og the reference array reference
      * @param symbolicIndex Symbolic element of the accessed index
      * @param symbolicValue Symbolic element of the accessed value
      * @return a {@link ReferenceExpression} symoblic element.
      */
-    public ReferenceExpression arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, ReferenceExpression symbolicValue) {
+    public ReferenceExpression arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                                          ReferenceExpression symbolicValue) {
         return symbolicArrays.arrayLoad(symbolicArray, symbolicIndex, symbolicValue);
     }
 
-    /********* Store Operations *********/
+    /* ======= Store Operations ======= */
 
     /**
-     * Store operation for Real arrays
+     * Store operation for Real arrays.
      *
-     * @param symbolicArray Symbolic element og the reference array reference
+     * @param concreteArray the concrete array
+     * @param symbolicArray Symbolic element of the reference array reference
      * @param symbolicIndex Symbolic element of the accessed index
      * @param symbolicValue Symbolic element of the accessed value
      */
-    public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex, RealValue symbolicValue) {
+    public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                           RealValue symbolicValue) {
         symbolicArrays.arrayStore(concreteArray, symbolicArray, symbolicIndex, symbolicValue);
     }
 
     /**
-     * Store operation for String arrays
+     * Store operation for String arrays.
      *
-     * @param symbolicArray Symbolic element og the reference array reference
+     * @param concreteArray the concrete array
+     * @param symbolicArray Symbolic element of the reference array reference
      * @param symbolicIndex Symbolic element of the accessed index
      * @param symbolicValue Symbolic element of the accessed value
      */
-    public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex, StringValue symbolicValue) {
+    public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                           StringValue symbolicValue) {
         symbolicArrays.arrayStore(concreteArray, symbolicArray, symbolicIndex, symbolicValue);
     }
 
     /**
-     * Store operation for Integer arrays
+     * Store operation for Integer arrays.
      *
-     * @param symbolicArray Symbolic element og the reference array reference
+     * @param concreteArray the concrete array
+     * @param symbolicArray Symbolic element of the reference array reference
      * @param symbolicIndex Symbolic element of the accessed index
      * @param symbolicValue Symbolic element of the accessed value
      */
-    public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex, IntegerValue symbolicValue) {
+    public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                           IntegerValue symbolicValue) {
         symbolicArrays.arrayStore(concreteArray, symbolicArray, symbolicIndex, symbolicValue);
     }
 
     /**
-     * Store operation for Reference arrays
+     * Store operation for Reference arrays.
      *
-     * @param symbolicArray Symbolic element og the reference array reference
+     * @param concreteArray the concrete array
+     * @param symbolicArray Symbolic element of the reference array reference
      * @param symbolicIndex Symbolic element of the accessed index
      * @param symbolicValue Symbolic element of the accessed value
      */
-    public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex, ReferenceExpression symbolicValue) {
+    public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                           ReferenceExpression symbolicValue) {
         symbolicArrays.arrayStore(concreteArray, symbolicArray, symbolicIndex, symbolicValue);
     }
 
 
-    /******** Types Implementation *******/
+    /* ======= Types Implementation ======= */
 
     /**
-	 * Special case scenario for lambda synthetic types.
-	 *
-	 * @param lambdaAnonymousClass
-	 * @param ownerIsIgnored
-	 * @return
-	 */
-	public ReferenceTypeExpression buildNewLambdaTypeConstant(Type lambdaAnonymousClass, boolean ownerIsIgnored) {
-        if (lambdaAnonymousClass == null)
+     * Special case scenario for lambda synthetic types.
+     *
+     * @param lambdaAnonymousClass the lambda anonymous class
+     * @param ownerIsIgnored       whether the owner is ignored
+     * @return the symbolic reference type expression
+     */
+    public ReferenceTypeExpression buildNewLambdaTypeConstant(Type lambdaAnonymousClass, boolean ownerIsIgnored) {
+        if (lambdaAnonymousClass == null) {
             throw new IllegalArgumentException("Lambda Anonymous Class cannot be null.");
+        }
 
         ReferenceTypeExpression lambdaExpression;
         lambdaExpression = symbolicReferenceTypes.get(lambdaAnonymousClass);
@@ -569,7 +636,8 @@ public final class SymbolicHeap {
         if (lambdaExpression == null) {
             final int newReferenceTypeId = newReferenceTypeCount++;
 
-            lambdaExpression = ExpressionFactory.buildLambdaSyntheticTypeConstant(lambdaAnonymousClass, ownerIsIgnored, newReferenceTypeId);
+            lambdaExpression = ExpressionFactory.buildLambdaSyntheticTypeConstant(lambdaAnonymousClass,
+                    ownerIsIgnored, newReferenceTypeId);
             symbolicReferenceTypes.put(lambdaAnonymousClass, lambdaExpression);
         }
 
@@ -579,54 +647,59 @@ public final class SymbolicHeap {
     /**
      * General classes types constant references.
      *
-     * @param type
-     * @return
+     * @param type the type
+     * @return the symbolic reference type expression
      */
     public ReferenceTypeExpression buildNewClassTypeConstant(Type type) {
-	 	if (type == null)
-			throw new IllegalArgumentException("Class type cannot be null.");
+        if (type == null) {
+            throw new IllegalArgumentException("Class type cannot be null.");
+        }
 
-		ReferenceTypeExpression classExpression;
-		classExpression = symbolicReferenceTypes.get(type);
+        ReferenceTypeExpression classExpression;
+        classExpression = symbolicReferenceTypes.get(type);
 
-		if (classExpression == null) {
-			final int newReferenceTypeId = newReferenceTypeCount++;
+        if (classExpression == null) {
+            final int newReferenceTypeId = newReferenceTypeCount++;
 
-			 classExpression = ExpressionFactory.buildClassTypeConstant(type, newReferenceTypeId);
-			 symbolicReferenceTypes.put(type, classExpression);
-		}
+            classExpression = ExpressionFactory.buildClassTypeConstant(type, newReferenceTypeId);
+            symbolicReferenceTypes.put(type, classExpression);
+        }
 
-		return classExpression;
-	}
+        return classExpression;
+    }
 
 
-	/**
-	 * Retrieves the symbolic expression related to this class.
-	 *
-	 * @param classType
-	 * @return
-	 */
-	public ReferenceTypeExpression getReferenceType(Type classType) {
-		if (classType == null) return ExpressionFactory.NULL_TYPE_REFERENCE;
-		if (classType.getClass().equals(Object.class)) return ExpressionFactory.OBJECT_TYPE_REFERENCE;
+    /**
+     * Retrieves the symbolic expression related to this class.
+     *
+     * @param classType the class type
+     * @return the symbolic reference type expression
+     */
+    public ReferenceTypeExpression getReferenceType(Type classType) {
+        if (classType == null) {
+            return ExpressionFactory.NULL_TYPE_REFERENCE;
+        }
+        if (classType.getClass().equals(Object.class)) {
+            return ExpressionFactory.OBJECT_TYPE_REFERENCE;
+        }
 
         ReferenceTypeExpression typeExpression;
-        Class typeClass = classType.getClass();
-		typeExpression = symbolicReferenceTypes.get(classType);
+        Class<?> typeClass = classType.getClass();
+        typeExpression = symbolicReferenceTypes.get(classType);
 
         if (typeExpression == null) {
             final int newReferenceTypeId = newReferenceTypeCount++;
 
-			if (LambdaUtils.isLambda(typeClass)) {
+            if (LambdaUtils.isLambda(typeClass)) {
                 //If we haven't seen this lambda before then it's from non-instrumented sources
                 typeExpression = new LambdaSyntheticTypeConstant(classType, true, newReferenceTypeId);
-			} else if (typeClass.isArray()){
-				typeExpression = new ArrayTypeConstant(classType, newReferenceTypeId);
+            } else if (typeClass.isArray()) {
+                typeExpression = new ArrayTypeConstant(classType, newReferenceTypeId);
             } else {
                 typeExpression = new ClassTypeConstant(classType, newReferenceTypeId);
             }
 
-			symbolicReferenceTypes.put(classType, typeExpression);
+            symbolicReferenceTypes.put(classType, typeExpression);
         }
 
         return typeExpression;

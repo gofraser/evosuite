@@ -32,8 +32,15 @@ import org.objectweb.asm.Type;
  */
 public final class NullTypeConstant extends ReferenceTypeConstant {
 
+    private static final long serialVersionUID = -1234567890123456789L;
+
     public static NullTypeConstant instance;
 
+    /**
+     * Returns the singleton instance of {@link NullTypeConstant}.
+     *
+     * @return the singleton instance
+     */
     public static synchronized NullTypeConstant getInstance() {
         if (instance == null) {
             instance = new NullTypeConstant();

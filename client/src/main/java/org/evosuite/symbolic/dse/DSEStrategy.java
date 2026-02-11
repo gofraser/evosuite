@@ -44,12 +44,10 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 
 /**
- * <p>
  * DSEStrategy class.
- * </p>
- * <p>
- * NOTE (ilebrero): Even though we are on evosuite, this module is a bit out of context with the GA general framework.
- * In the future may be a good idea to rebuild it as a standalone library.
+ *
+ * <p>NOTE (ilebrero): Even though we are on evosuite, this module is a bit out of context with the GA general
+ * framework. In the future may be a good idea to rebuild it as a standalone library.
  *
  * @author ignacio lebrero
  */
@@ -62,11 +60,13 @@ public class DSEStrategy extends TestGenerationStrategy {
     public static final String WITH_TARGET_COVERAGE = "* With target coverage: {}";
     public static final String SYMBOLIC_ARRAYS_SUPPORT_ENABLED = "* Symbolic arrays support enabled: {}";
     public static final String SETTING_UP_DSE_GENERATION_INFO_MESSAGE = "* Setting up DSE test suite generation";
-    public static final String NOT_SUITABLE_METHOD_FOUND_INFO_MESSAGE = "* Found no testable methods in the target class {}";
-    public static final String SYMBOLIC_ARRAYS_IMPLEMENTATION_SELECTED = "* Symbolic arrays implementation selected: {}";
+    public static final String NOT_SUITABLE_METHOD_FOUND_INFO_MESSAGE =
+            "* Found no testable methods in the target class {}";
+    public static final String SYMBOLIC_ARRAYS_IMPLEMENTATION_SELECTED =
+            "* Symbolic arrays implementation selected: {}";
 
     /**
-     * Default stopping conditions
+     * Default stopping conditions.
      */
     public static Properties.DSEStoppingConditionCriterion[] defaultStoppingConditions = {
             Properties.DSEStoppingConditionCriterion.MAXTIME,
@@ -120,13 +120,14 @@ public class DSEStrategy extends TestGenerationStrategy {
 
         long endTime = System.currentTimeMillis() / 1000;
 
-        goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(criterion, false); // recalculated now after the search, eg to
-        // handle exception fitness
+        goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(criterion, false); // recalculated now after the search
+        // recalculated Handle exception fitness
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
         // Newline after progress bar
-        if (Properties.SHOW_PROGRESS)
+        if (Properties.SHOW_PROGRESS) {
             LoggingUtils.getEvoLogger().info("");
+        }
 
         if (!Properties.IS_RUNNING_A_SYSTEM_TEST) { // avoid printing time
             // related info in system
@@ -162,23 +163,27 @@ public class DSEStrategy extends TestGenerationStrategy {
         ExplorationAlgorithm algorithm = dseFactory.getDSEAlgorithm(dseAlgorithmType);
 
         if (Properties.DSE_STOPPING_CONDITION.equals(Properties.DSEStoppingConditionCriterion.DEFAULTS)) {
-            /** Default conditions */
+            /* Default conditions */
             for (Properties.DSEStoppingConditionCriterion condition : defaultStoppingConditions) {
                 algorithm.addStoppingCondition(StoppingConditionFactory.getStoppingCondition(condition));
             }
 
-            /** Stopping conditions */
-            for (Properties.DSEStoppingConditionCriterion stoppingConditionCriterion : dseAlgorithmType.getStoppingConditionCriterions()) {
-                algorithm.addStoppingCondition(StoppingConditionFactory.getStoppingCondition(stoppingConditionCriterion));
+            /* Stopping conditions */
+            for (Properties.DSEStoppingConditionCriterion stoppingConditionCriterion :
+                    dseAlgorithmType.getStoppingConditionCriterions()) {
+                algorithm.addStoppingCondition(
+                        StoppingConditionFactory.getStoppingCondition(stoppingConditionCriterion));
             }
         } else {
-            /** User chosen Stopping Condition */
-            algorithm.addStoppingCondition(StoppingConditionFactory.getStoppingCondition(Properties.DSE_STOPPING_CONDITION));
+            /* User chosen Stopping Condition */
+            algorithm.addStoppingCondition(
+                    StoppingConditionFactory.getStoppingCondition(Properties.DSE_STOPPING_CONDITION));
         }
 
 
-        /** Fitness functions */
-        List<TestSuiteFitnessFunction> fitnessFunctions = FitnessFunctionsUtils.getFitnessFunctions(dseAlgorithmType.getCriteria());
+        /* Fitness functions */
+        List<TestSuiteFitnessFunction> fitnessFunctions =
+                FitnessFunctionsUtils.getFitnessFunctions(dseAlgorithmType.getCriteria());
         algorithm.addFitnessFunctions(fitnessFunctions);
 
 

@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Double.valueOf.
+ *
+ * @author galeotti
+ */
 public final class D_ValueOf extends SymbolicFunction {
 
     private static final String VALUE_OF = "valueOf";
@@ -35,13 +40,13 @@ public final class D_ValueOf extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        RealValue real_value = this.getSymbRealArgument(0);
-        ReferenceConstant symb_double = (ReferenceConstant) this.getSymbRetVal();
-        Double conc_double = (Double) this.getConcRetVal();
+        RealValue realValue = this.getSymbRealArgument(0);
+        ReferenceConstant symbDouble = (ReferenceConstant) this.getSymbRetVal();
+        Double concDouble = (Double) this.getConcRetVal();
         env.heap.putField(Types.JAVA_LANG_DOUBLE, SymbolicHeap.$DOUBLE_VALUE,
-                conc_double, symb_double, real_value);
+                concDouble, symbDouble, realValue);
 
-        return symb_double;
+        return symbDouble;
     }
 
 }

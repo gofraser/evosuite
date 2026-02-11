@@ -21,6 +21,9 @@ package org.evosuite.symbolic.solver;
 
 import org.evosuite.symbolic.solver.smt.*;
 
+/**
+ * Builder for SMT expressions.
+ */
 public abstract class SmtExprBuilder {
 
     public static final SmtIntConstant ZERO_INT = mkIntConstant(0);
@@ -133,6 +136,12 @@ public abstract class SmtExprBuilder {
         return new SmtOperation(SmtOperation.Operator.STORE, arrayExpr, indexExpr, valueExpression);
     }
 
+    /**
+     * Creates an integer constant.
+     *
+     * @param longValue the long value
+     * @return the SMT integer constant
+     */
     public static SmtIntConstant mkIntConstant(long longValue) {
         return new SmtIntConstant(longValue);
     }
@@ -402,7 +411,8 @@ public abstract class SmtExprBuilder {
         return mkArrayFunctionDeclaration(funcName, SmtSort.INT, SmtSort.REAL);
     }
 
-    private static SmtFunctionDeclaration mkArrayFunctionDeclaration(String funcName, SmtSort indexSort, SmtSort valueSort) {
+    private static SmtFunctionDeclaration mkArrayFunctionDeclaration(String funcName, SmtSort indexSort,
+                                                                     SmtSort valueSort) {
         return new SmtFunctionDeclaration(funcName, SmtSort.ARRAY, indexSort, valueSort);
     }
 
@@ -419,9 +429,10 @@ public abstract class SmtExprBuilder {
     }
 
     /**
-     * TODO: Eventually expand the sorts of any declaration to more than one
+     * TODO: Eventually expand the sorts of any declaration to more than one.
      */
-    public static SmtConstantDeclaration mkArrayConstantDeclaration(String constName, SmtSort indexSort, SmtSort valueSort) {
+    public static SmtConstantDeclaration mkArrayConstantDeclaration(String constName, SmtSort indexSort,
+                                                                    SmtSort valueSort) {
         return new SmtConstantDeclaration(constName, SmtSort.ARRAY, indexSort, valueSort);
     }
 

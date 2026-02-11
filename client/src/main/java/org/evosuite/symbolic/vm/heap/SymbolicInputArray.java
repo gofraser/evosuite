@@ -24,7 +24,6 @@ import org.evosuite.symbolic.expr.bv.IntegerVariable;
 import org.evosuite.symbolic.expr.fp.RealVariable;
 import org.evosuite.symbolic.expr.ref.ClassReferenceVariable;
 import org.evosuite.symbolic.expr.ref.ReferenceExpression;
-import org.evosuite.symbolic.expr.ref.ReferenceVariable;
 import org.evosuite.symbolic.expr.ref.array.SymbolicArrayUtil;
 import org.evosuite.symbolic.expr.str.StringVariable;
 import org.evosuite.utils.TypeUtil;
@@ -46,10 +45,16 @@ public final class SymbolicInputArray extends SymbolicArrayImpl {
     private final BitSet steppedOn;
 
     /**
-     * Symbolic array variable name that this array belongs to
+     * Symbolic array variable name that this array belongs to.
      */
     private final String arrayVariableName;
 
+    /**
+     * Constructs a SymbolicInputArray.
+     *
+     * @param contentType       the type of the array content
+     * @param arrayVariableName the name of the array variable
+     */
     public SymbolicInputArray(Type contentType, String arrayVariableName) {
         super(contentType);
 
@@ -57,16 +62,22 @@ public final class SymbolicInputArray extends SymbolicArrayImpl {
         this.arrayVariableName = arrayVariableName;
     }
 
+    /**
+     * Constructs a SymbolicInputArray from another symbolic array.
+     *
+     * @param array             the source symbolic array
+     * @param arrayVariableName the name of the array variable
+     */
     public SymbolicInputArray(SymbolicArray array, String arrayVariableName) {
         this(array.getContentType(), arrayVariableName);
     }
 
     /**
      * We infer that an input variable should be initialized if the index was never set and
-     * a get is used. (Thus a value already set before calling the SUT should be there)
+     * a get is used. (Thus a value already set before calling the SUT should be there).
      *
-     * @param index
-     * @return
+     * @param index the index to get
+     * @return the expression at the index
      */
     @Override
     public Expression get(Integer index) {
@@ -83,8 +94,8 @@ public final class SymbolicInputArray extends SymbolicArrayImpl {
     /**
      * We checked the index value as used.
      *
-     * @param index
-     * @param expression
+     * @param index      the index to set
+     * @param expression the expression to set
      */
     @Override
     public void set(Integer index, Expression expression) {

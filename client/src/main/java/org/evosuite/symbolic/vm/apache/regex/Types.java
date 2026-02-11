@@ -23,15 +23,32 @@ import org.apache.oro.text.regex.Pattern;
 import org.apache.oro.text.regex.Perl5Matcher;
 import org.objectweb.asm.Type;
 
+/**
+ * Constants for Types related to Apache ORO Regex.
+ *
+ * @author galeotti
+ */
 public interface Types {
 
+    /**
+     * String type.
+     */
     Type STR_TYPE = Type.getType(String.class);
 
+    /**
+     * Pattern type.
+     */
     Type PATTERN_TYPE = Type.getType(Pattern.class);
 
+    /**
+     * Descriptor for a method taking two strings and returning a boolean.
+     */
     String STR_STR_TO_BOOLEAN = Type.getMethodDescriptor(
             Type.BOOLEAN_TYPE, STR_TYPE, PATTERN_TYPE);
 
+    /**
+     * Name of the Perl5Matcher class.
+     */
     String ORG_APACHE_ORO_TEXT_REGEX_PERL5MATCHER = Perl5Matcher.class
             .getName().replace('.', '/');
 

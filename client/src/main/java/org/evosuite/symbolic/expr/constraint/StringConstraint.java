@@ -31,6 +31,13 @@ public final class StringConstraint extends Constraint<String> {
 
     static Logger log = LoggerFactory.getLogger(StringConstraint.class);
 
+    /**
+     * Constructs a {@link StringConstraint} with the given operands and comparator.
+     *
+     * @param left the symbolic string comparison
+     * @param comp the comparator
+     * @param right the concrete integer constant
+     */
     public StringConstraint(StringComparison left, Comparator comp, IntegerConstant right) {
         super();
         this.left = left;

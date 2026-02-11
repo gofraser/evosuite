@@ -28,16 +28,15 @@ package org.evosuite.dse;
 import org.evosuite.PackageInfo;
 
 /**
- * Constant values
+ * Constant values.
  *
- * <p>
- * Notice our convention of passing Z3PARAM_ parameters to Z3.
- * </p>
- * <p>
- * TODO: Can we merge this with the instrumentation's Config class?
+ * <p>Notice our convention of passing Z3PARAM_ parameters to Z3.
+ *
+ * <p>TODO: Can we merge this with the instrumentation's Config class?
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
+@SuppressWarnings({"checkstyle:MemberName", "checkstyle:AbbreviationAsWordInName"})
 public class MainConfig {
 
     public static final String LAMBDA_CLASS_NAME_FRAGMENT = "$$Lambda$";
@@ -45,7 +44,9 @@ public class MainConfig {
     private static MainConfig singleton;
 
     /**
-     * Singleton
+     * Singleton.
+     *
+     * @return the singleton instance.
      */
     public static MainConfig get() {
         return singleton;
@@ -53,28 +54,34 @@ public class MainConfig {
 
     /**
      * If no config set yet, then set a new MainConfig.
+     *
+     * @return the singleton instance.
      */
     public static MainConfig setInstance() {
-        if (singleton == null)
+        if (singleton == null) {
             singleton = new MainConfig();
+        }
         return get();
     }
 
     /**
      * If no config set yet, then set conf. This method should only be called if
      * conf is an instance of a sub-class of MainConfig.
+     *
+     * @param conf the configuration instance to set.
+     * @return the singleton instance.
      */
     public static MainConfig setInstance(MainConfig conf) {
-        if (singleton == null)
+        if (singleton == null) {
             singleton = conf;
+        }
         return get();
     }
 
     /**
      * Constructor.
      *
-     * <p>
-     * <b>Should only be called from subclass constructor</b> (or
+     * <p><b>Should only be called from subclass constructor</b> (or
      * {@link #setInstance()}).
      */
     protected MainConfig() {
@@ -121,7 +128,7 @@ public class MainConfig {
             "com.yourkit.",
             //      "icse2010.",  //$NON-NLS-1$   // Ishtiaque: ICSE 2010
             "woda2010.", //$NON-NLS-1$   // Ishtiaque: WODA 2010
-            //      "ecoop2010.",		 //$NON-NLS-1$// Ishtiaque: ECOOP 2010
+            //      "ecoop2010.",         //$NON-NLS-1$// Ishtiaque: ECOOP 2010
             "com.accenture.lab.crest.vm.", //$NON-NLS-1$//ISHTIAQUE: CREST
             "com.mysql.", //$NON-NLS-1$     //Ishtiauqe MySQL access,
 
@@ -166,8 +173,8 @@ public class MainConfig {
     @Help("Artificial maximum number of local variables in a method/constructor")
     public int MAX_LOCALS_DEFAULT = 200;
 
-    public final static String CLINIT = "<clinit>"; //$NON-NLS-1$
-    public final static String INIT = "<init>"; //$NON-NLS-1$
+    public static final String CLINIT = "<clinit>"; //$NON-NLS-1$
+    public static final String INIT = "<init>"; //$NON-NLS-1$
 
     // TODO: Implement this, should be similar to running all Roops methods
     // @Help("Run on all public static methods declared by public classes")
@@ -182,20 +189,24 @@ public class MainConfig {
      * java.lang.instrument.Instrumentation instance passed to our JvmAgent and
      * diffing it with the list of classes we transformed.
      *
-     * @param typeName some/package/SomeType
-     * @return if we omit typeName from instrumentation
+     * @param type some/package/SomeType.
+     * @return if we omit typeName from instrumentation.
      */
     public boolean isIgnored(String type) {
         String typeName = type.replace('/', '.'); //$NON-NLS-1$ //$NON-NLS-2$
 
-        for (String prefix : DO_INSTRUMENT_PREFIXES)
+        for (String prefix : DO_INSTRUMENT_PREFIXES) {
             // positive list overrides exclusions
-            if (typeName.startsWith(prefix))
+            if (typeName.startsWith(prefix)) {
                 return false;
+            }
+        }
 
-        for (String prefix : DO_NOT_INSTRUMENT_PREFIXES)
-            if (typeName.startsWith(prefix))
+        for (String prefix : DO_NOT_INSTRUMENT_PREFIXES) {
+            if (typeName.startsWith(prefix)) {
                 return true;
+            }
+        }
 
         return false;
     }
@@ -221,3 +232,4 @@ public class MainConfig {
     @Help("Class path for finding new classes")
     public String CLASS_PATH = System.getProperty("java.class.path");
 }
+

@@ -30,18 +30,32 @@ import org.evosuite.symbolic.solver.smt.SmtExpr;
 import org.evosuite.symbolic.solver.smt.SmtIntConstant;
 import org.evosuite.utils.RegexDistanceUtils;
 
+/**
+ * Visitor for converting symbolic expressions to CVC4 SMT expressions.
+ */
 final class ExprToCVC4Visitor extends ExprToSmtVisitor {
 
     private final boolean approximateNonLinearExpressions;
 
+    /**
+     * Constructs an ExprToCVC4Visitor with non-linear approximation disabled.
+     */
     public ExprToCVC4Visitor() {
         this(false);
     }
 
+    /**
+     * Constructs an ExprToCVC4Visitor.
+     *
+     * @param rewriteNonLinearExpressions whether to approximate non-linear expressions
+     */
     public ExprToCVC4Visitor(boolean rewriteNonLinearExpressions) {
         this.approximateNonLinearExpressions = rewriteNonLinearExpressions;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected SmtExpr postVisit(IntegerBinaryExpression source, SmtExpr left, Operator operator, SmtExpr right) {
         switch (operator) {
@@ -71,44 +85,44 @@ final class ExprToCVC4Visitor extends ExprToSmtVisitor {
                 }
             }
             case IOR: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bvor = SmtExprBuilder.mkBVOR(bv_left, bv_right);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvor = SmtExprBuilder.mkBVOR(bvLeft, bvRight);
                 return mkBV2Int(bvor);
             }
             case IAND: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bv_and = SmtExprBuilder.mkBVAND(bv_left, bv_right);
-                return mkBV2Int(bv_and);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvAnd = SmtExprBuilder.mkBVAND(bvLeft, bvRight);
+                return mkBV2Int(bvAnd);
             }
             case IXOR: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bv_xor = SmtExprBuilder.mkBVXOR(bv_left, bv_right);
-                return mkBV2Int(bv_xor);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvXor = SmtExprBuilder.mkBVXOR(bvLeft, bvRight);
+                return mkBV2Int(bvXor);
             }
 
             case SHL: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bv_shl = SmtExprBuilder.mkBVSHL(bv_left, bv_right);
-                return mkBV2Int(bv_shl);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvShl = SmtExprBuilder.mkBVSHL(bvLeft, bvRight);
+                return mkBV2Int(bvShl);
             }
 
             case SHR: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bv_shr = SmtExprBuilder.mkBVASHR(bv_left, bv_right);
-                return mkBV2Int(bv_shr);
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvShr = SmtExprBuilder.mkBVASHR(bvLeft, bvRight);
+                return mkBV2Int(bvShr);
             }
 
             case USHR: {
-                SmtExpr bv_left = SmtExprBuilder.mkInt2BV(32, left);
-                SmtExpr bv_right = SmtExprBuilder.mkInt2BV(32, right);
-                SmtExpr bv_shr = SmtExprBuilder.mkBVLSHR(bv_left, bv_right);
-                SmtExpr ret_val = mkBV2Int(bv_shr);
-                return ret_val;
+                SmtExpr bvLeft = SmtExprBuilder.mkInt2BV(32, left);
+                SmtExpr bvRight = SmtExprBuilder.mkInt2BV(32, right);
+                SmtExpr bvShr = SmtExprBuilder.mkBVLSHR(bvLeft, bvRight);
+                SmtExpr retVal = mkBV2Int(bvShr);
+                return retVal;
             }
             default: {
                 return super.postVisit(source, left, operator, right);
@@ -133,6 +147,9 @@ final class ExprToCVC4Visitor extends ExprToSmtVisitor {
         return ite;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected SmtExpr postVisit(RealBinaryExpression source, SmtExpr left, Operator operator, SmtExpr right) {
         switch (operator) {
@@ -160,6 +177,9 @@ final class ExprToCVC4Visitor extends ExprToSmtVisitor {
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected SmtExpr postVisit(StringBinaryComparison source, SmtExpr left, Operator operator, SmtExpr right) {
 

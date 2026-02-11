@@ -38,6 +38,12 @@ public final class IntegerToStringCast extends AbstractExpression<String> implem
 
     private final Expression<Long> expr;
 
+    /**
+     * Constructs an {@link IntegerToStringCast} with the given expression and concrete value.
+     *
+     * @param expr the integer expression to cast
+     * @param concV the concrete string value
+     */
     public IntegerToStringCast(Expression<Long> expr, String concV) {
         super(concV, 1 + expr.getSize(), expr.containsSymbolicVariable());
         this.expr = expr;

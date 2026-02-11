@@ -28,6 +28,12 @@ import java.util.stream.Collectors;
 
 public class SmtQueryPrinter {
 
+    /**
+     * Prints the query.
+     *
+     * @param query a {@link org.evosuite.symbolic.solver.smt.SmtQuery} object.
+     * @return a {@link java.lang.String} object.
+     */
     public String print(SmtQuery query) {
         StringBuffer buff = new StringBuffer();
         buff.append("\n");
@@ -81,40 +87,60 @@ public class SmtQueryPrinter {
 
     }
 
+    /**
+     * Prints the assertion.
+     *
+     * @param smtAssertion a {@link org.evosuite.symbolic.solver.smt.SmtAssertion} object.
+     * @return a {@link java.lang.String} object.
+     */
     public String print(SmtAssertion smtAssertion) {
         SmtExprPrinter printer = new SmtExprPrinter();
         SmtExpr expr = smtAssertion.getFormula();
         String exprStr = expr.accept(printer, null);
-        String str = String.format("(assert %s)", exprStr);
-        return str;
+        return String.format("(assert %s)", exprStr);
     }
 
+    /**
+     * Prints the function definition.
+     *
+     * @param functionDeclaration a {@link org.evosuite.symbolic.solver.smt.SmtFunctionDefinition} object.
+     * @return a {@link java.lang.String} object.
+     */
     public String print(SmtFunctionDefinition functionDeclaration) {
-        String str = String.format("(define-fun %s)", functionDeclaration.getFunctionDefinition());
-        return str;
+        return String.format("(define-fun %s)", functionDeclaration.getFunctionDefinition());
     }
 
+    /**
+     * Prints the function declaration.
+     *
+     * @param functionDeclaration a {@link org.evosuite.symbolic.solver.smt.SmtFunctionDeclaration} object.
+     * @return a {@link java.lang.String} object.
+     */
     public String print(SmtFunctionDeclaration functionDeclaration) {
-        String str = String.format(
+        return String.format(
                 "(declare-fun %s () %s)",
                 functionDeclaration.getFunctionName(),
                 buildSortsString(functionDeclaration.getFunctionSorts()));
-        return str;
     }
 
+    /**
+     * Prints the constant declaration.
+     *
+     * @param constantDeclaration a {@link org.evosuite.symbolic.solver.smt.SmtConstantDeclaration} object.
+     * @return a {@link java.lang.String} object.
+     */
     public String print(SmtConstantDeclaration constantDeclaration) {
-        String str = String.format(
+        return String.format(
                 "(declare-const %s %s)",
                 constantDeclaration.getConstantName(),
                 buildSortsString(constantDeclaration.getConstantSorts()));
-        return str;
     }
 
     /**
      * Transforms sorts into strings.
      *
-     * @param sorts
-     * @return
+     * @param sorts an array of {@link org.evosuite.symbolic.solver.SmtSort} objects.
+     * @return a {@link java.lang.String} object.
      */
     private String buildSortsString(SmtSort[] sorts) {
         List<String> stringSorts = Arrays.stream(sorts).map(sort -> sort.getName()).collect(Collectors.toList());

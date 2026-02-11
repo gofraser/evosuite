@@ -36,7 +36,7 @@ public class InstructionLoggerFactory {
     public static final String LOGGING_MODE_NOT_YET_IMPLEMENTED = "logging mode not yet implemented: ";
 
     /**
-     * Singleton instance
+     * Singleton instance.
      */
     private static final InstructionLoggerFactory self = new InstructionLoggerFactory();
 
@@ -44,6 +44,12 @@ public class InstructionLoggerFactory {
         return self;
     }
 
+    /**
+     * Returns an instruction logger based on the logging mode.
+     *
+     * @param bytecodeLoggingMode the bytecode logging mode
+     * @return an instruction logger
+     */
     public IInstructionLogger getInstructionLogger(Properties.DSEBytecodeLoggingMode bytecodeLoggingMode) {
         if (bytecodeLoggingMode == null) {
             throw new IllegalArgumentException(LOGGING_MODE_NOT_PROVIDED);

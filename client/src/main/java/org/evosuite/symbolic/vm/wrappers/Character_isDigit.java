@@ -25,9 +25,14 @@ import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 
+/**
+ * Symbolic function for Character.isDigit.
+ *
+ * @author galeotti
+ */
 public final class Character_isDigit extends SymbolicFunction {
 
-    private final static String IS_DIGIT = "isDigit";
+    private static final String IS_DIGIT = "isDigit";
 
     public Character_isDigit(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_CHARACTER, IS_DIGIT, Types.C_TO_Z);

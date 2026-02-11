@@ -42,7 +42,7 @@ public final class StandardOutputInstructionLogger extends AbstractInstructionLo
      */
     @Override
     public void log(String p) {
-        /** ilebero: this could be done using MDC or some other pattern? this is the only place we actually use it */
+        /* ilebero: this could be done using MDC or some other pattern? this is the only place we actually use it */
         logger.info(prefix + " | " + p);
         buffer.append(p + " ");
     }
@@ -59,7 +59,7 @@ public final class StandardOutputInstructionLogger extends AbstractInstructionLo
 
     @Override
     public void cleanUp() {
-        /** Nothing to do here */
+        /* Nothing to do here */
     }
 
 }

@@ -20,6 +20,8 @@
 package org.evosuite.symbolic.vm;
 
 /**
+ * Represents a double word (64-bit) operand in the symbolic virtual machine.
+ *
  * @author galeotti
  */
 public interface DoubleWordOperand extends Operand {

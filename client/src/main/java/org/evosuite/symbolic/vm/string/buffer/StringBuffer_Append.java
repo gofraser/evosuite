@@ -32,283 +32,744 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+
+ * Symbolic function implementation for StringBuffer.append.
+
+ *
+
+ * @author galeotti
+
+ */
+
 public abstract class StringBuffer_Append extends SymbolicFunction {
+
+
 
     private static final String APPEND = "append";
 
+
+
+    /**
+
+     * Constructs a StringBuffer_Append.
+
+     *
+
+     * @param env  the symbolic environment
+
+     * @param desc the method descriptor
+
+     */
+
     public StringBuffer_Append(SymbolicEnvironment env, String desc) {
+
         super(env, Types.JAVA_LANG_STRING_BUFFER, APPEND, desc);
+
     }
+
+
 
     protected String stringValBeforeExecution;
 
+
+
+    /**
+
+     * {@inheritDoc}
+
+     */
+
     @Override
+
     public IntegerConstraint beforeExecuteFunction() {
-        StringBuffer conc_str_buffer = (StringBuffer) this.getConcReceiver();
-        if (conc_str_buffer != null) {
-            stringValBeforeExecution = conc_str_buffer.toString();
+
+        StringBuffer concStrBuffer = (StringBuffer) this.getConcReceiver();
+
+        if (concStrBuffer != null) {
+
+            stringValBeforeExecution = concStrBuffer.toString();
+
         } else {
+
             stringValBeforeExecution = null;
+
         }
+
         return null;
+
     }
+
+
+
+    /**
+
+     * Symbolic function implementation for StringBuffer.append(boolean).
+
+     */
 
     public static class StringBufferAppend_B extends StringBuffer_Append {
 
+
+
+        /**
+
+         * Constructs a StringBufferAppend_B.
+
+         *
+
+         * @param env the symbolic environment
+
+         */
+
         public StringBufferAppend_B(SymbolicEnvironment env) {
+
             super(env, Types.Z_TO_STRING_BUFFER);
+
         }
+
+
+
+        /**
+
+         * {@inheritDoc}
+
+         */
 
         @Override
+
         public Object executeFunction() {
 
-            ReferenceConstant symb_str_buffer = this.getSymbReceiver();
-            StringBuffer conc_str_buffer = (StringBuffer) this
+
+
+            ReferenceConstant symbStrBuffer = this.getSymbReceiver();
+
+            StringBuffer concStrBuffer = (StringBuffer) this
+
                     .getConcReceiver();
 
-            IntegerValue symb_boolean = this.getSymbIntegerArgument(0);
+
+
+            IntegerValue symbBoolean = this.getSymbIntegerArgument(0);
+
+
 
             StringValue leftExpr = this.env.heap.getField(
+
                     Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, stringValBeforeExecution);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, stringValBeforeExecution);
+
+
 
             // append string expression
-            String conc_value = conc_str_buffer.toString();
-            StringValue append_expr = new StringBinaryExpression(leftExpr,
-                    Operator.APPEND_BOOLEAN, symb_boolean, conc_value);
+
+            String concValue = concStrBuffer.toString();
+
+            StringValue appendExpr = new StringBinaryExpression(leftExpr,
+
+                    Operator.APPEND_BOOLEAN, symbBoolean, concValue);
+
+
 
             // store to symbolic heap
+
             env.heap.putField(Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, append_expr);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, appendExpr);
+
+
 
             // append returns the StringBuffer
-            return symb_str_buffer;
+
+            return symbStrBuffer;
+
         }
+
     }
+
+
+
+    /**
+
+     * Symbolic function implementation for StringBuffer.append(char).
+
+     */
 
     public static class StringBufferAppend_C extends StringBuffer_Append {
 
+
+
+        /**
+
+         * Constructs a StringBufferAppend_C.
+
+         *
+
+         * @param env the symbolic environment
+
+         */
+
         public StringBufferAppend_C(SymbolicEnvironment env) {
+
             super(env, Types.C_TO_STRING_BUFFER);
+
         }
+
+
+
+        /**
+
+         * {@inheritDoc}
+
+         */
 
         @Override
+
         public Object executeFunction() {
 
-            ReferenceConstant symb_str_buffer = this.getSymbReceiver();
-            StringBuffer conc_str_buffer = (StringBuffer) this
+
+
+            ReferenceConstant symbStrBuffer = this.getSymbReceiver();
+
+            StringBuffer concStrBuffer = (StringBuffer) this
+
                     .getConcReceiver();
 
-            IntegerValue symb_char = this.getSymbIntegerArgument(0);
+
+
+            IntegerValue symbChar = this.getSymbIntegerArgument(0);
+
+
 
             StringValue leftExpr = this.env.heap.getField(
+
                     Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, stringValBeforeExecution);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, stringValBeforeExecution);
+
+
 
             // append string expression
-            String conc_value = conc_str_buffer.toString();
-            StringValue append_expr = new StringBinaryExpression(leftExpr,
-                    Operator.APPEND_CHAR, symb_char, conc_value);
+
+            String concValue = concStrBuffer.toString();
+
+            StringValue appendExpr = new StringBinaryExpression(leftExpr,
+
+                    Operator.APPEND_CHAR, symbChar, concValue);
+
+
 
             // store to symbolic heap
+
             env.heap.putField(Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, append_expr);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, appendExpr);
+
+
 
             // append returns the StringBuffer
-            return symb_str_buffer;
+
+            return symbStrBuffer;
+
         }
+
     }
+
+
+
+    /**
+
+     * Symbolic function implementation for StringBuffer.append(int).
+
+     */
 
     public static class StringBufferAppend_I extends StringBuffer_Append {
 
+
+
+        /**
+
+         * Constructs a StringBufferAppend_I.
+
+         *
+
+         * @param env the symbolic environment
+
+         */
+
         public StringBufferAppend_I(SymbolicEnvironment env) {
+
             super(env, Types.I_TO_STRING_BUFFER);
+
         }
+
+
+
+        /**
+
+         * {@inheritDoc}
+
+         */
 
         @Override
+
         public Object executeFunction() {
 
-            ReferenceConstant symb_str_buffer = this.getSymbReceiver();
-            StringBuffer conc_str_buffer = (StringBuffer) this
+
+
+            ReferenceConstant symbStrBuffer = this.getSymbReceiver();
+
+            StringBuffer concStrBuffer = (StringBuffer) this
+
                     .getConcReceiver();
 
-            IntegerValue symb_int = this.getSymbIntegerArgument(0);
+
+
+            IntegerValue symbInt = this.getSymbIntegerArgument(0);
+
+
 
             StringValue leftExpr = this.env.heap.getField(
+
                     Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, stringValBeforeExecution);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, stringValBeforeExecution);
+
+
 
             // append string expression
-            String conc_value = conc_str_buffer.toString();
-            StringValue append_expr = new StringBinaryExpression(leftExpr,
-                    Operator.APPEND_INTEGER, symb_int, conc_value);
+
+            String concValue = concStrBuffer.toString();
+
+            StringValue appendExpr = new StringBinaryExpression(leftExpr,
+
+                    Operator.APPEND_INTEGER, symbInt, concValue);
+
+
 
             // store to symbolic heap
+
             env.heap.putField(Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, append_expr);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, appendExpr);
+
+
 
             // append returns the StringBuffer
-            return symb_str_buffer;
+
+            return symbStrBuffer;
+
         }
+
     }
+
+
+
+    /**
+
+     * Symbolic function implementation for StringBuffer.append(long).
+
+     */
 
     public static class StringBufferAppend_L extends StringBuffer_Append {
 
+
+
+        /**
+
+         * Constructs a StringBufferAppend_L.
+
+         *
+
+         * @param env the symbolic environment
+
+         */
+
         public StringBufferAppend_L(SymbolicEnvironment env) {
+
             super(env, Types.L_TO_STRING_BUFFER);
+
         }
+
+
+
+        /**
+
+         * {@inheritDoc}
+
+         */
 
         @Override
+
         public Object executeFunction() {
 
-            ReferenceConstant symb_str_buffer = this.getSymbReceiver();
-            StringBuffer conc_str_buffer = (StringBuffer) this
+
+
+            ReferenceConstant symbStrBuffer = this.getSymbReceiver();
+
+            StringBuffer concStrBuffer = (StringBuffer) this
+
                     .getConcReceiver();
 
-            IntegerValue symb_long = this.getSymbIntegerArgument(0);
+
+
+            IntegerValue symbLong = this.getSymbIntegerArgument(0);
+
+
 
             StringValue leftExpr = this.env.heap.getField(
+
                     Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, stringValBeforeExecution);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, stringValBeforeExecution);
+
+
 
             // append string expression
-            String conc_value = conc_str_buffer.toString();
-            StringValue append_expr = new StringBinaryExpression(leftExpr,
-                    Operator.APPEND_INTEGER, symb_long, conc_value);
+
+            String concValue = concStrBuffer.toString();
+
+            StringValue appendExpr = new StringBinaryExpression(leftExpr,
+
+                    Operator.APPEND_INTEGER, symbLong, concValue);
+
+
 
             // store to symbolic heap
+
             env.heap.putField(Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, append_expr);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, appendExpr);
+
+
 
             // append returns the StringBuffer
-            return symb_str_buffer;
+
+            return symbStrBuffer;
+
         }
+
     }
+
+
+
+    /**
+
+     * Symbolic function implementation for StringBuffer.append(float).
+
+     */
 
     public static class StringBufferAppend_F extends StringBuffer_Append {
 
+
+
+        /**
+
+         * Constructs a StringBufferAppend_F.
+
+         *
+
+         * @param env the symbolic environment
+
+         */
+
         public StringBufferAppend_F(SymbolicEnvironment env) {
+
             super(env, Types.F_TO_STRING_BUFFER);
+
         }
+
+
+
+        /**
+
+         * {@inheritDoc}
+
+         */
 
         @Override
+
         public Object executeFunction() {
 
-            ReferenceConstant symb_str_buffer = this.getSymbReceiver();
-            StringBuffer conc_str_buffer = (StringBuffer) this
+
+
+            ReferenceConstant symbStrBuffer = this.getSymbReceiver();
+
+            StringBuffer concStrBuffer = (StringBuffer) this
+
                     .getConcReceiver();
 
-            RealValue symb_float = this.getSymbRealArgument(0);
+
+
+            RealValue symbFloat = this.getSymbRealArgument(0);
+
+
 
             StringValue leftExpr = this.env.heap.getField(
+
                     Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, stringValBeforeExecution);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, stringValBeforeExecution);
+
+
 
             // append string expression
-            String conc_value = conc_str_buffer.toString();
-            StringValue append_expr = new StringBinaryExpression(leftExpr,
-                    Operator.APPEND_REAL, symb_float, conc_value);
+
+            String concValue = concStrBuffer.toString();
+
+            StringValue appendExpr = new StringBinaryExpression(leftExpr,
+
+                    Operator.APPEND_REAL, symbFloat, concValue);
+
+
 
             // store to symbolic heap
+
             env.heap.putField(Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, append_expr);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, appendExpr);
+
+
 
             // append returns the StringBuffer
-            return symb_str_buffer;
+
+            return symbStrBuffer;
+
         }
+
     }
+
+
+
+    /**
+
+     * Symbolic function implementation for StringBuffer.append(double).
+
+     */
 
     public static class StringBufferAppend_D extends StringBuffer_Append {
 
+
+
+        /**
+
+         * Constructs a StringBufferAppend_D.
+
+         *
+
+         * @param env the symbolic environment
+
+         */
+
         public StringBufferAppend_D(SymbolicEnvironment env) {
+
             super(env, Types.D_TO_STRING_BUFFER);
+
         }
+
+
+
+        /**
+
+         * {@inheritDoc}
+
+         */
 
         @Override
+
         public Object executeFunction() {
 
-            ReferenceConstant symb_str_buffer = this.getSymbReceiver();
-            StringBuffer conc_str_buffer = (StringBuffer) this
+
+
+            ReferenceConstant symbStrBuffer = this.getSymbReceiver();
+
+            StringBuffer concStrBuffer = (StringBuffer) this
+
                     .getConcReceiver();
 
-            RealValue symb_double = this.getSymbRealArgument(0);
+
+
+            RealValue symbDouble = this.getSymbRealArgument(0);
+
+
 
             StringValue leftExpr = this.env.heap.getField(
+
                     Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, stringValBeforeExecution);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, stringValBeforeExecution);
+
+
 
             // append string expression
-            String conc_value = conc_str_buffer.toString();
-            StringValue append_expr = new StringBinaryExpression(leftExpr,
-                    Operator.APPEND_REAL, symb_double, conc_value);
+
+            String concValue = concStrBuffer.toString();
+
+            StringValue appendExpr = new StringBinaryExpression(leftExpr,
+
+                    Operator.APPEND_REAL, symbDouble, concValue);
+
+
 
             // store to symbolic heap
+
             env.heap.putField(Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, append_expr);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, appendExpr);
+
+
 
             // append returns the StringBuffer
-            return symb_str_buffer;
+
+            return symbStrBuffer;
+
         }
+
     }
+
+
+
+    /**
+
+     * Symbolic function implementation for StringBuffer.append(String).
+
+     */
 
     public static class StringBufferAppend_STR extends StringBuffer_Append {
 
+
+
         private static final String NULL_STRING = "null";
 
+
+
+        /**
+
+         * Constructs a StringBufferAppend_STR.
+
+         *
+
+         * @param env the symbolic environment
+
+         */
+
         public StringBufferAppend_STR(SymbolicEnvironment env) {
+
             super(env, Types.STR_TO_STRING_BUFFER);
+
         }
+
+
+
+        /**
+
+         * {@inheritDoc}
+
+         */
 
         @Override
+
         public Object executeFunction() {
 
-            ReferenceConstant symb_str_buffer = this.getSymbReceiver();
-            StringBuffer conc_str_buffer = (StringBuffer) this
+
+
+            ReferenceConstant symbStrBuffer = this.getSymbReceiver();
+
+            StringBuffer concStrBuffer = (StringBuffer) this
+
                     .getConcReceiver();
 
+
+
             StringValue leftExpr = this.env.heap.getField(
+
                     Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, stringValBeforeExecution);
 
-            ReferenceExpression symb_str = this.getSymbArgument(0);
-            String conc_str = (String) this.getConcArgument(0);
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
 
-            StringValue symb_str_value;
-            if (conc_str == null) {
-                symb_str_value = ExpressionFactory
+                    symbStrBuffer, stringValBeforeExecution);
+
+
+
+            ReferenceExpression symbStr = this.getSymbArgument(0);
+
+            String concStr = (String) this.getConcArgument(0);
+
+
+
+            StringValue symbStrValue;
+
+            if (concStr == null) {
+
+                symbStrValue = ExpressionFactory
+
                         .buildNewStringConstant(NULL_STRING);
+
             } else {
-                ReferenceConstant symb_non_null_str = (ReferenceConstant) symb_str;
-                symb_str_value = env.heap.getField(Types.JAVA_LANG_STRING,
-                        SymbolicHeap.$STRING_VALUE, conc_str,
-                        symb_non_null_str, conc_str);
+
+                ReferenceConstant symbNonNullStr = (ReferenceConstant) symbStr;
+
+                symbStrValue = env.heap.getField(Types.JAVA_LANG_STRING,
+
+                        SymbolicHeap.$STRING_VALUE, concStr,
+
+                        symbNonNullStr, concStr);
+
             }
 
+
+
             // append string expression
-            String conc_value = conc_str_buffer.toString();
-            StringValue append_expr = new StringBinaryExpression(leftExpr,
-                    Operator.APPEND_STRING, symb_str_value, conc_value);
+
+            String concValue = concStrBuffer.toString();
+
+            StringValue appendExpr = new StringBinaryExpression(leftExpr,
+
+                    Operator.APPEND_STRING, symbStrValue, concValue);
+
+
 
             // store to symbolic heap
+
             env.heap.putField(Types.JAVA_LANG_STRING_BUFFER,
-                    SymbolicHeap.$STRING_BUFFER_CONTENTS, conc_str_buffer,
-                    symb_str_buffer, append_expr);
+
+                    SymbolicHeap.$STRING_BUFFER_CONTENTS, concStrBuffer,
+
+                    symbStrBuffer, appendExpr);
+
+
 
             // append returns the StringBuffer
-            return symb_str_buffer;
+
+            return symbStrBuffer;
+
         }
+
     }
+
 }

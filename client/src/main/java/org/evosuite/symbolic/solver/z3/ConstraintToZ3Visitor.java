@@ -96,18 +96,17 @@ class ConstraintToZ3Visitor implements ConstraintVisitor<SmtExpr, Void> {
     }
 
     @Override
-	public SmtExpr visit(ReferenceConstraint c, Void arg) {
+    public SmtExpr visit(ReferenceConstraint c, Void arg) {
         ExprToSmtVisitor v = new ExprToSmtVisitor();
         SmtExpr left = c.getLeftOperand().accept(v, null);
-		SmtExpr right = c.getRightOperand().accept(v, null);
+        SmtExpr right = c.getRightOperand().accept(v, null);
 
-		if (left == null || right == null) {
-			return null;
-		}
+        if (left == null || right == null) {
+            return null;
+        }
 
-		Comparator cmp = c.getComparator();
-		SmtExpr boolExpr = mkComparison(left, cmp, right);
-		return boolExpr;
+        Comparator cmp = c.getComparator();
+        return mkComparison(left, cmp, right);
     }
 
     private static SmtExpr translateCompareTo(Expression<?> left, Comparator cmp, Expression<?> right) {

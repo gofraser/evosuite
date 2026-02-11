@@ -17,21 +17,28 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.evosuite.symbolic.dse.algorithm.strategies.implementations.KeepSearchingCriteriaStrategies;
+package org.evosuite.symbolic.dse.algorithm.strategies.implementations.pathextension;
 
-import org.evosuite.symbolic.dse.DSETestCase;
-import org.evosuite.symbolic.dse.algorithm.strategies.KeepSearchingCriteriaStrategy;
+import org.evosuite.symbolic.dse.algorithm.GenerationalSearchPathCondition;
 
-import java.util.Queue;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * Strategy for keep searching in case there's still test cases left to explore.
+ * Differs with {@link ExpandExecutionStrategy}
+ * only in that it returns paths in the reverse order.
  *
- * @author ignacio lebrero
+ * @author Ignacio Lebrero
  */
-public class TestCasesPendingStrategy implements KeepSearchingCriteriaStrategy {
+public class RevertedExpandExecutionStrategy extends ExpandExecutionStrategy {
+
     @Override
-    public boolean shouldKeepSearching(Queue<DSETestCase> generatedTests) {
-        return generatedTests.size() > 0;
+    public List<GenerationalSearchPathCondition> generateChildren(
+            GenerationalSearchPathCondition currentPathConditionChild) {
+        List<GenerationalSearchPathCondition> result =
+                super.generateChildren(currentPathConditionChild);
+        Collections.reverse(result);
+        return result;
     }
+
 }

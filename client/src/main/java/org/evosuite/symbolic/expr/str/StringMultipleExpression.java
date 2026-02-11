@@ -82,9 +82,7 @@ public final class StringMultipleExpression extends AbstractExpression<String> i
     }
 
     /**
-     * <p>
-     * getOther
-     * </p>
+     * Returns the other expressions.
      *
      * @return the other
      */

@@ -27,38 +27,51 @@ import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 import org.evosuite.symbolic.vm.string.Types;
 
+/**
+ * Symbolic function implementation for StringBuilder constructors.
+ *
+ * @author galeotti
+ */
 public final class StringBuilder_Init extends SymbolicFunction {
 
     private static final String INIT = "<init>";
 
+    /**
+     * Constructs a StringBuilder_Init.
+     *
+     * @param env the symbolic environment
+     */
     public StringBuilder_Init(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING_BUILDER, INIT,
                 Types.STR_TO_VOID_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
 
         // symbolic receiver (new object)
-        ReferenceConstant symb_str_builder = this
+        ReferenceConstant symbStrBuilder = this
                 .getSymbReceiver();
 
         // string argument
-        String conc_str = (String) this.getConcArgument(0);
-        ReferenceExpression symb_str = this.getSymbArgument(0);
+        String concStr = (String) this.getConcArgument(0);
+        ReferenceExpression symbStr = this.getSymbArgument(0);
 
-        if (symb_str instanceof ReferenceConstant) {
-            ReferenceConstant non_null_symb_string = (ReferenceConstant) symb_str;
-            assert conc_str != null;
+        if (symbStr instanceof ReferenceConstant) {
+            ReferenceConstant nonNullSymbString = (ReferenceConstant) symbStr;
+            assert concStr != null;
 
             StringValue strExpr = env.heap.getField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_str, non_null_symb_string,
-                    conc_str);
+                    SymbolicHeap.$STRING_VALUE, concStr, nonNullSymbString,
+                    concStr);
 
             // update symbolic heap
             env.heap.putField(Types.JAVA_LANG_STRING_BUILDER,
                     SymbolicHeap.$STRING_BUILDER_CONTENTS, null,
-                    symb_str_builder, strExpr);
+                    symbStrBuilder, strExpr);
         }
 
         // return void

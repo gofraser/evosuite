@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Integer.intValue.
+ *
+ * @author galeotti
+ */
 public final class I_IntValue extends SymbolicFunction {
 
     private static final String INT_VALUE = "intValue";
@@ -35,15 +40,15 @@ public final class I_IntValue extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        ReferenceConstant symb_integer = this.getSymbReceiver();
-        Integer conc_integer = (Integer) this.getConcReceiver();
-        int conc_int_value = this.getConcIntRetVal();
+        ReferenceConstant symbInteger = this.getSymbReceiver();
+        Integer concInteger = (Integer) this.getConcReceiver();
+        int concIntValue = this.getConcIntRetVal();
 
-        IntegerValue symb_int_value = env.heap.getField(
-                Types.JAVA_LANG_INTEGER, SymbolicHeap.$INT_VALUE, conc_integer,
-                symb_integer, conc_int_value);
+        IntegerValue symbIntValue = env.heap.getField(
+                Types.JAVA_LANG_INTEGER, SymbolicHeap.$INT_VALUE, concInteger,
+                symbInteger, concIntValue);
 
-        return symb_int_value;
+        return symbIntValue;
     }
 
 }

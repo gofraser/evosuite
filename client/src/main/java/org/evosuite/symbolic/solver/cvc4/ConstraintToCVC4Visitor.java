@@ -32,18 +32,32 @@ import org.evosuite.symbolic.expr.constraint.StringConstraint;
 import org.evosuite.symbolic.solver.SmtExprBuilder;
 import org.evosuite.symbolic.solver.smt.SmtExpr;
 
+/**
+ * Visitor for converting symbolic constraints to CVC4 SMT expressions.
+ */
 final class ConstraintToCVC4Visitor implements ConstraintVisitor<SmtExpr, Void> {
 
     private final ExprToCVC4Visitor exprVisitor;
 
+    /**
+     * Constructs a ConstraintToCVC4Visitor with non-linear rewriting disabled.
+     */
     public ConstraintToCVC4Visitor() {
         this(false);
     }
 
+    /**
+     * Constructs a ConstraintToCVC4Visitor.
+     *
+     * @param rewriteNonLinearConstraints whether to rewrite non-linear constraints
+     */
     public ConstraintToCVC4Visitor(boolean rewriteNonLinearConstraints) {
         this.exprVisitor = new ExprToCVC4Visitor(rewriteNonLinearConstraints);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visit(IntegerConstraint c, Void arg) {
         Expression<?> leftOperand = c.getLeftOperand();
@@ -58,6 +72,9 @@ final class ConstraintToCVC4Visitor implements ConstraintVisitor<SmtExpr, Void> 
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visit(RealConstraint c, Void arg) {
         Expression<?> leftOperand = c.getLeftOperand();
@@ -66,6 +83,9 @@ final class ConstraintToCVC4Visitor implements ConstraintVisitor<SmtExpr, Void> 
         return visit(leftOperand, cmp, rightOperand);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visit(StringConstraint c, Void arg) {
         Expression<?> leftOperand = c.getLeftOperand();
@@ -80,16 +100,19 @@ final class ConstraintToCVC4Visitor implements ConstraintVisitor<SmtExpr, Void> 
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-	public SmtExpr visit(ReferenceConstraint c, Void arg) {
-		Expression<?> leftOperand = c.getLeftOperand();
-		Expression<?> rightOperand = c.getRightOperand();
-		Comparator cmp = c.getComparator();
+    public SmtExpr visit(ReferenceConstraint c, Void arg) {
+        Expression<?> leftOperand = c.getLeftOperand();
+        Expression<?> rightOperand = c.getRightOperand();
+        Comparator cmp = c.getComparator();
 
-		return visit(leftOperand, cmp, rightOperand);
-	}
+        return visit(leftOperand, cmp, rightOperand);
+    }
 
-	private SmtExpr visit(Expression<?> leftOperand, Comparator cmp, Expression<?> rightOperand) {
+    private SmtExpr visit(Expression<?> leftOperand, Comparator cmp, Expression<?> rightOperand) {
         SmtExpr left = leftOperand.accept(exprVisitor, null);
         SmtExpr right = rightOperand.accept(exprVisitor, null);
 

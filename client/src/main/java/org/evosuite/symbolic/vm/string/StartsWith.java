@@ -30,41 +30,63 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 import java.util.ArrayList;
 import java.util.Collections;
 
+/**
+ * Symbolic function implementation for String.startsWith.
+ *
+ * @author galeotti
+ */
 public abstract class StartsWith extends SymbolicFunction {
 
     private static final String STARTS_WITH = "startsWith";
 
+    /**
+     * Constructs a StartsWith.
+     *
+     * @param env  the symbolic environment
+     * @param desc the method descriptor
+     */
     public StartsWith(SymbolicEnvironment env, String desc) {
         super(env, Types.JAVA_LANG_STRING, STARTS_WITH, desc);
     }
 
+    /**
+     * Symbolic function implementation for String.startsWith(String).
+     */
     public static final class StartsWith_S extends StartsWith {
 
+        /**
+         * Constructs a StartsWith_S.
+         *
+         * @param env the symbolic environment
+         */
         public StartsWith_S(SymbolicEnvironment env) {
             super(env, Types.STR_TO_BOOL_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
             // receiver
-            ReferenceConstant symb_receiver = this.getSymbReceiver();
-            String conc_receiver = (String) this.getConcReceiver();
+            ReferenceConstant symbReceiver = this.getSymbReceiver();
+            String concReceiver = (String) this.getConcReceiver();
             // prefix argument
-            ReferenceExpression symb_prefix = this.getSymbArgument(0);
-            String conc_prefix = (String) this.getConcArgument(0);
+            ReferenceExpression symbPrefix = this.getSymbArgument(0);
+            String concPrefix = (String) this.getConcArgument(0);
 
             // return value
             boolean res = this.getConcBooleanRetVal();
 
             StringValue stringReceiverExpr = env.heap.getField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_receiver, symb_receiver, conc_receiver);
+                    SymbolicHeap.$STRING_VALUE, concReceiver, symbReceiver, concReceiver);
 
-            if (symb_prefix instanceof ReferenceConstant) {
-                ReferenceConstant non_null_symb_prefix = (ReferenceConstant) symb_prefix;
+            if (symbPrefix instanceof ReferenceConstant) {
+                ReferenceConstant nonNullSymbPrefix = (ReferenceConstant) symbPrefix;
 
                 StringValue prefixExpr = env.heap.getField(Types.JAVA_LANG_STRING,
-                        SymbolicHeap.$STRING_VALUE, conc_prefix, non_null_symb_prefix, conc_prefix);
+                        SymbolicHeap.$STRING_VALUE, concPrefix, nonNullSymbPrefix, concPrefix);
 
                 if (stringReceiverExpr.containsSymbolicVariable()
                         || prefixExpr.containsSymbolicVariable()) {
@@ -82,21 +104,32 @@ public abstract class StartsWith extends SymbolicFunction {
 
     }
 
+    /**
+     * Symbolic function implementation for String.startsWith(String, int).
+     */
     public static final class StartsWith_SI extends StartsWith {
 
+        /**
+         * Constructs a StartsWith_SI.
+         *
+         * @param env the symbolic environment
+         */
         public StartsWith_SI(SymbolicEnvironment env) {
             super(env, Types.STR_INT_TO_BOOL_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
             // receiver
-            ReferenceConstant symb_receiver = this.getSymbReceiver();
-            String conc_receiver = (String) this.getConcReceiver();
+            ReferenceConstant symbReceiver = this.getSymbReceiver();
+            String concReceiver = (String) this.getConcReceiver();
             // prefix argument
-            ReferenceExpression symb_prefix = this.getSymbArgument(0);
-            String conc_prefix = (String) this.getConcArgument(0);
+            ReferenceExpression symbPrefix = this.getSymbArgument(0);
+            String concPrefix = (String) this.getConcArgument(0);
             // toffset argument
             IntegerValue offsetExpr = this.getSymbIntegerArgument(1);
 
@@ -104,13 +137,13 @@ public abstract class StartsWith extends SymbolicFunction {
             boolean res = this.getConcBooleanRetVal();
 
             StringValue stringReceiverExpr = env.heap.getField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_receiver, symb_receiver, conc_receiver);
+                    SymbolicHeap.$STRING_VALUE, concReceiver, symbReceiver, concReceiver);
 
-            if (symb_prefix instanceof ReferenceConstant) {
-                ReferenceConstant non_null_symb_prefix = (ReferenceConstant) symb_prefix;
+            if (symbPrefix instanceof ReferenceConstant) {
+                ReferenceConstant nonNullSymbPrefix = (ReferenceConstant) symbPrefix;
 
                 StringValue prefixExpr = env.heap.getField(Types.JAVA_LANG_STRING,
-                        SymbolicHeap.$STRING_VALUE, conc_prefix, non_null_symb_prefix, conc_prefix);
+                        SymbolicHeap.$STRING_VALUE, concPrefix, nonNullSymbPrefix, concPrefix);
 
                 if (stringReceiverExpr.containsSymbolicVariable() || prefixExpr.containsSymbolicVariable()
                         || offsetExpr.containsSymbolicVariable()) {

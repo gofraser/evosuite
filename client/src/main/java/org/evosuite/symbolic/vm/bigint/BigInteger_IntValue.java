@@ -27,6 +27,11 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
 import java.math.BigInteger;
 
+/**
+ * Symbolic function for BigInteger.intValue.
+ *
+ * @author galeotti
+ */
 public final class BigInteger_IntValue extends SymbolicFunction {
 
     private static final String INT_VALUE = "intValue";
@@ -38,16 +43,16 @@ public final class BigInteger_IntValue extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        BigInteger conc_big_integer = (BigInteger) this.getConcReceiver();
-        ReferenceConstant symb_big_integer = this.getSymbReceiver();
+        BigInteger concBigInteger = (BigInteger) this.getConcReceiver();
+        ReferenceConstant symbBigInteger = this.getSymbReceiver();
         int res = this.getConcIntRetVal();
 
-        IntegerValue integer_expr = this.env.heap.getField(
+        IntegerValue integerExpr = this.env.heap.getField(
                 Types.JAVA_MATH_BIG_INTEGER,
-                SymbolicHeap.$BIG_INTEGER_CONTENTS, conc_big_integer,
-                symb_big_integer, res);
+                SymbolicHeap.$BIG_INTEGER_CONTENTS, concBigInteger,
+                symbBigInteger, res);
 
-        return integer_expr;
+        return integerExpr;
     }
 
 }

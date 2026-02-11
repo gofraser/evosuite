@@ -19,23 +19,22 @@
  */
 package org.evosuite.dse;
 
-/*
-    This class is taken and adapted from the DSC tool developed by Christoph Csallner.
-    Link at :
-    http://ranger.uta.edu/~csallner/dsc/index.html
- */
-
 /**
+ * This class is taken and adapted from the DSC tool developed by Christoph Csallner.
+ *
+ * <p>Link at : http://ranger.uta.edu/~csallner/dsc/index.html
+ *
  * @author csallner@uta.edu (Christoph Csallner)
  */
+@SuppressWarnings({"checkstyle:MethodName", "checkstyle:AbbreviationAsWordInName"})
 public interface IVM {
 
     /**
      * Pass a caller's nr-th concrete method argument value (which is sitting on
      * the caller's operand stack). There will be no such call for a potentially
      * present receiver instance ("this" parameter).
-     * <p>
-     * There is no CALLER_STACK_RECEIVER, as the receiver is already passed by
+     *
+     * <p>There is no CALLER_STACK_RECEIVER, as the receiver is already passed by
      * the corresponding INVOKE.
      *
      * @param nr                index of the parameter, not counting the receiver and ignoring
@@ -46,6 +45,7 @@ public interface IVM {
      *                          frame. In contrast to nr, this accounts for the receiver and
      *                          the different widths of category-1 and category-2 parameter
      *                          types.
+     * @param value             the parameter value.
      */
     void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, int value);
 
@@ -67,17 +67,30 @@ public interface IVM {
 
     /**
      * Line number in the Java source code.
+     *
+     * @param lineNr the line number.
      */
     void SRC_LINE_NUMBER(int lineNr);
 
     /**
-     * Start of a new method
+     * Start of a new method.
+     *
+     * @param access    the access flags of the method.
+     * @param className the name of the class.
+     * @param methName  the name of the method.
+     * @param methDesc  the descriptor of the method.
      */
     void METHOD_BEGIN(int access, String className, String methName,
                       String methDesc);
 
     /**
-     * Max values of a method
+     * Max values of a method.
+     *
+     * @param className the name of the class.
+     * @param methName  the name of the method.
+     * @param methDesc  the descriptor of the method.
+     * @param maxStack  the maximum stack size.
+     * @param maxLocals the maximum number of local variables.
      */
     void METHOD_MAXS(String className, String methName, String methDesc,
                      int maxStack, int maxLocals);
@@ -95,6 +108,7 @@ public interface IVM {
      *                          frame. In contrast to nr, this accounts for the receiver and
      *                          the different widths of category-1 and category-2 parameter
      *                          types.
+     * @param value             the parameter value.
      */
     void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, int value);
 
@@ -117,11 +131,17 @@ public interface IVM {
     /**
      * METHOD_BEGIN_PARAM for the receiver instance ("this"), if this method is
      * a non-constructor instance method.
+     *
+     * @param value the receiver instance.
      */
     void METHOD_BEGIN_RECEIVER(Object value);
 
     /**
-     * Value returned by the just completed method call
+     * Value returned by the just completed method call.
+     *
+     * @param owner the owner of the method.
+     * @param name  the name of the method.
+     * @param desc  the descriptor of the method.
      */
     void CALL_RESULT(String owner, String name, String desc);
 
@@ -138,10 +158,18 @@ public interface IVM {
     void CALL_RESULT(Object res, String owner, String name, String desc);
 
     /**
-     * Start of a new basic block
+     * Start of a new basic block.
      */
     void BB_BEGIN();
 
+    /**
+     * Start of a handler.
+     *
+     * @param access    the access flags of the method.
+     * @param className the name of the class.
+     * @param methName  the name of the method.
+     * @param methDesc  the descriptor of the method.
+     */
     void HANDLER_BEGIN(int access, String className, String methName,
                        String methDesc);
 
@@ -186,8 +214,11 @@ public interface IVM {
     void SIPUSH(int value);
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc8. html#ldc
+     * LDC instruction.
+     *
+     * <p>See http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc8.html#ldc
+     *
+     * @param x the constant value.
      */
     void LDC(String x);
 
@@ -204,8 +235,11 @@ public interface IVM {
     void LDC2_W(double x);
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6. html#iload
+     * ILOAD instruction.
+     *
+     * <p>See http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc6.html#iload
+     *
+     * @param i the local variable index.
      */
     void ILOAD(int i);
 
@@ -258,8 +292,14 @@ public interface IVM {
     void ALOAD_3();
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#iaload
+     * IALOAD instruction.
+     *
+     * <p>See http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc6.html#iaload
+     *
+     * @param receiver   the array reference.
+     * @param index      the array index.
+     * @param className  the name of the class.
+     * @param methodName the name of the method.
      */
     void IALOAD(Object receiver, int index, String className, String methodName);
 
@@ -278,8 +318,11 @@ public interface IVM {
     void SALOAD(Object receiver, int index, String className, String methodName);
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#istore
+     * ISTORE instruction.
+     *
+     * <p>See http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc6.html#istore
+     *
+     * @param i the local variable index.
      */
     void ISTORE(int i);
 
@@ -366,8 +409,9 @@ public interface IVM {
     void SWAP();
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6. html#iadd
+     * IADD instruction.
+     *
+     * <p>See http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc6.html#iadd
      */
     void IADD();
 
@@ -610,3 +654,4 @@ public interface IVM {
 
     void cleanUp();
 }
+        

@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.evosuite.symbolic.dse.algorithm.strategies.implementations.TestCaseBuildingStrategies;
+package org.evosuite.symbolic.dse.algorithm.strategies.implementations.testcasebuilding;
 
 import org.evosuite.symbolic.PathCondition;
 import org.evosuite.symbolic.dse.DSETestCase;
@@ -30,7 +30,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 
 /**
- * Strategy for building the initial test case with default values
+ * Strategy for building the initial test case with default values.
  *
  * @author ignacio lebrero
  */

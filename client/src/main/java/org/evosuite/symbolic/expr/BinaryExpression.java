@@ -23,28 +23,21 @@ package org.evosuite.symbolic.expr;
 public interface BinaryExpression<T extends Object> {
 
     /**
-     * <p>
-     * getOperator
-     * </p>
+     * Returns the operator of the expression.
      *
-     * @param <T> a T object.
      * @return a {@link org.evosuite.symbolic.expr.Operator} object.
      */
     Operator getOperator();
 
     /**
-     * <p>
-     * getLeftOperand
-     * </p>
+     * Returns the left operand of the expression.
      *
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     Expression<T> getLeftOperand();
 
     /**
-     * <p>
-     * getRightOperand
-     * </p>
+     * Returns the right operand of the expression.
      *
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */

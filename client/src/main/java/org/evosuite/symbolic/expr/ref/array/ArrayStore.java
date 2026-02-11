@@ -36,17 +36,25 @@ import java.util.Set;
  */
 public final class ArrayStore {
 
-    public static final class IntegerArrayStore extends AbstractExpression<Object> implements ArrayValue.IntegerArrayValue {
+    public static final class IntegerArrayStore extends AbstractExpression<Object>
+            implements ArrayValue.IntegerArrayValue {
 
         private final ArrayValue.IntegerArrayValue symbolicArray;
         private final IntegerValue symbolicIndex;
         private final IntegerValue SymbolicValue;
 
         /**
-         * @param arrayExpr
-         * @param indexExpr
+         * Constructs an {@link IntegerArrayStore} with the given expressions and concrete result array.
+         *
+         * @param arrayExpr the symbolic array expression
+         * @param indexExpr the symbolic index expression
+         * @param valueExpression the symbolic value to store
+         * @param resultArray the concrete result array
          */
-        public IntegerArrayStore(ArrayValue.IntegerArrayValue arrayExpr, IntegerValue indexExpr, IntegerValue valueExpression, Object resultArray) {
+        public IntegerArrayStore(ArrayValue.IntegerArrayValue arrayExpr,
+                                 IntegerValue indexExpr,
+                                 IntegerValue valueExpression,
+                                 Object resultArray) {
             super(
                     resultArray,
                     1 + arrayExpr.getSize() + indexExpr.getSize() + valueExpression.getSize(),
@@ -99,17 +107,24 @@ public final class ArrayStore {
         }
     }
 
-    public static final class RealArrayStore extends AbstractExpression<Object> implements ArrayValue.RealArrayValue {
+    public static final class RealArrayStore extends AbstractExpression<Object>
+            implements ArrayValue.RealArrayValue {
         private final RealValue symbolicValue;
         private final IntegerValue symbolicIndex;
         private final ArrayValue.RealArrayValue symbolicArray;
 
         /**
-         * @param arrayExpr
-         * @param indexExpr
-         * @param valueExpression
+         * Constructs a {@link RealArrayStore} with the given expressions and concrete result array.
+         *
+         * @param arrayExpr the symbolic array expression
+         * @param indexExpr the symbolic index expression
+         * @param valueExpression the symbolic value to store
+         * @param concreteResultArray the concrete result array
          */
-        public RealArrayStore(ArrayValue.RealArrayValue arrayExpr, IntegerValue indexExpr, RealValue valueExpression, Object concreteResultArray) {
+        public RealArrayStore(ArrayValue.RealArrayValue arrayExpr,
+                              IntegerValue indexExpr,
+                              RealValue valueExpression,
+                              Object concreteResultArray) {
             super(
                     concreteResultArray,
                     1 + arrayExpr.getSize() + indexExpr.getSize() + valueExpression.getSize(),
@@ -162,17 +177,24 @@ public final class ArrayStore {
         }
     }
 
-    public static final class StringArrayStore extends AbstractExpression<Object> implements ArrayValue.StringArrayValue {
+    public static final class StringArrayStore extends AbstractExpression<Object>
+            implements ArrayValue.StringArrayValue {
         private final StringValue symbolicValue;
         private final IntegerValue symbolicIndex;
         private final ArrayValue.StringArrayValue symbolicArray;
 
         /**
-         * @param arrayExpr
-         * @param indexExpr
-         * @param valueExpression
+         * Constructs a {@link StringArrayStore} with the given expressions and concrete result array.
+         *
+         * @param arrayExpr the symbolic array expression
+         * @param indexExpr the symbolic index expression
+         * @param valueExpression the symbolic value to store
+         * @param concreteResultArray the concrete result array
          */
-        public StringArrayStore(ArrayValue.StringArrayValue arrayExpr, IntegerValue indexExpr, StringValue valueExpression, Object concreteResultArray) {
+        public StringArrayStore(ArrayValue.StringArrayValue arrayExpr,
+                                IntegerValue indexExpr,
+                                StringValue valueExpression,
+                                Object concreteResultArray) {
             super(
                     concreteResultArray,
                     1 + arrayExpr.getSize() + indexExpr.getSize() + valueExpression.getSize(),

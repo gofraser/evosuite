@@ -1,21 +1,21 @@
 /**
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
- * <p>
- * This file is part of EvoSuite.
- * <p>
- * EvoSuite is free software: you can redistribute it and/or modify it
+ *
+ * <p>This file is part of EvoSuite.
+ *
+ * <p>EvoSuite is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation, either version 3.0 of the License, or
  * (at your option) any later version.
- * <p>
- * EvoSuite is distributed in the hope that it will be useful, but
+ *
+ * <p>EvoSuite is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser Public License for more details.
- * <p>
- * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * <p>You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic.dse;
 
@@ -53,22 +53,24 @@ import java.util.*;
 
 /**
  * This class implements a DSE algorithm *as* a subclass of genetic algorithm.
- * <p>
- * Note (ilebrero): not working properly when using MAXTestsStoppingCondition. Recalculating the hole test suite
- * fitness adds an extra count besides the concolic engine execution case,
+ *
+ * <p>Note (ilebrero): not working properly when using MAXTestsStoppingCondition.
+ * Recalculating the hole test suite fitness adds an extra count besides the
+ * concolic engine execution case,
  * (see {@link org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition#testExecuted()} uses).
  *
  * @author jgaleotti
  */
 public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
 
-    public static final String DSE_FINISHED_BY_STROPPING_CONDITION_DEBUG_MESSAGE = "DSE test generation met a stopping condition. Exiting with {} generated test cases for method {}";
+    public static final String DSE_FINISHED_BY_STROPPING_CONDITION_DEBUG_MESSAGE =
+            "DSE test generation met a stopping condition. Exiting with {} generated test cases for method {}";
 
     private static final Logger logger = LoggerFactory.getLogger(DSELegacyAlgorithm.class);
 
     private static final DSEStatistics statisticsLogger = DSEStatistics.getInstance();
     /**
-     * A cache of previous results from the constraint solver
+     * A cache of previous results from the constraint solver.
      */
     private final Map<Set<Constraint<?>>, SolverResult> queryCache =
             new HashMap<>();
@@ -77,7 +79,7 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
      * Applies DSE test generation on a static non-private method until a stopping condition is met or
      * all queries have been explored.
      *
-     * @param staticEntryMethod
+     * @param staticEntryMethod the static entry method to generate tests for.
      */
     private void generateTestCasesAndAppendToBestIndividual(Method staticEntryMethod) {
         double fitnessBeforeAddingDefaultTest = this.getBestIndividual().getFitness();
@@ -110,7 +112,9 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
             TestCase currentTestCase = generatedTests.get(currentTestIndex);
 
             if (this.isFinished()) {
-                logger.debug(DSE_FINISHED_BY_STROPPING_CONDITION_DEBUG_MESSAGE, generatedTests.size(), staticEntryMethod.getName());
+                logger.debug(DSE_FINISHED_BY_STROPPING_CONDITION_DEBUG_MESSAGE,
+                        generatedTests.size(),
+                        staticEntryMethod.getName());
                 return;
             }
 
@@ -140,7 +144,9 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
                 }
 
                 if (this.isFinished()) {
-                    logger.debug(DSE_FINISHED_BY_STROPPING_CONDITION_DEBUG_MESSAGE, generatedTests.size(), staticEntryMethod.getName());
+                    logger.debug(DSE_FINISHED_BY_STROPPING_CONDITION_DEBUG_MESSAGE,
+                            generatedTests.size(),
+                            staticEntryMethod.getName());
                     return;
                 }
 
@@ -213,14 +219,18 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
 
     /**
      * Checks if the currently computed constraint Set could be already solved.
-     * NOTE: Even though the query cache is local to the object instance, is better to put it as a parameter for future separation of the DSE algorithm.
      *
-     * @param pathConditions
-     * @param constraintSet
-     * @param queryCache
-     * @return
+     * <p>NOTE: Even though the query cache is local to the object instance, is better to put it as a
+     * parameter for future separation of the DSE algorithm.
+     *
+     * @param pathConditions the set of explored path conditions.
+     * @param constraintSet the current constraint set to check.
+     * @param queryCache the cache of solver results.
+     * @return true if the constraint set should be skipped.
      */
-    private boolean shouldSkipCurrentConstraintSet(HashSet<Set<Constraint<?>>> pathConditions, Set<Constraint<?>> constraintSet, Map<Set<Constraint<?>>, SolverResult> queryCache) {
+    private boolean shouldSkipCurrentConstraintSet(HashSet<Set<Constraint<?>>> pathConditions,
+                                                   Set<Constraint<?>> constraintSet,
+                                                   Map<Set<Constraint<?>>, SolverResult> queryCache) {
         statisticsLogger.reportNewQueryCacheCall();
 
         if (queryCache.containsKey(constraintSet)) {
@@ -232,7 +242,8 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
         if (isSubSetOf(constraintSet, queryCache.keySet())) {
             statisticsLogger.reportNewQueryCacheHit();
             logger.debug(
-                    "skipping solving of current query because it is satisfiable and solved by previous path condition");
+                    "skipping solving of current query because it is "
+                            + "satisfiable and solved by previous path condition");
             return true;
         }
 
@@ -243,7 +254,8 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
 
         if (isSubSetOf(constraintSet, pathConditions)) {
             logger.debug(
-                    "skipping solving of current query because it is satisfiable and solved by previous path condition");
+                    "skipping solving of current query because it is "
+                            + "satisfiable and solved by previous path condition");
             return true;
         }
 
@@ -295,11 +307,11 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
 
     /**
      * Returns true if the constraints in the query are a subset of any of the constraints in the set
-     * of queries
+     * of queries.
      *
-     * @param query
-     * @param queries
-     * @return
+     * @param query the constraint set to check.
+     * @param queries the collection of constraint sets to compare against.
+     * @return true if query is a subset of any set in queries.
      */
     private static boolean isSubSetOf(Set<Constraint<?>> query,
                                       Collection<Set<Constraint<?>>> queries) {
@@ -312,10 +324,10 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
     }
 
     /**
-     * Builds a default test case for a static target method
+     * Builds a default test case for a static target method.
      *
-     * @param targetStaticMethod
-     * @return
+     * @param targetStaticMethod the target static method.
+     * @return a default test case.
      */
     private static DefaultTestCase buildTestCaseWithDefaultValues(Method targetStaticMethod) {
         TestCaseBuilder testCaseBuilder = new TestCaseBuilder();
@@ -409,7 +421,7 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
     private static final long serialVersionUID = 964984026539409121L;
 
     /**
-     * This algorithm does not evolve populations
+     * This algorithm does not evolve populations.
      */
     @Override
     protected void evolve() {
@@ -417,7 +429,7 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
     }
 
     /**
-     * The population is initialized with an empty test suite
+     * The population is initialized with an empty test suite.
      */
     @Override
     public void initializePopulation() {
@@ -428,10 +440,10 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
     }
 
     /**
-     * Returns a set with the static methods of a class
+     * Returns a set with the static methods of a class.
      *
-     * @param targetClass a class instance
-     * @return
+     * @param targetClass a class instance.
+     * @return a list of static methods.
      */
     private static List<Method> getTargetStaticMethods(Class<?> targetClass) {
         Method[] declaredMethods = targetClass.getDeclaredMethods();
@@ -456,7 +468,7 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
     }
 
     /**
-     * Applies the DSE test generation using the initial population as the initial test cases
+     * Applies the DSE test generation using the initial population as the initial test cases.
      */
     @Override
     public void generateSolution() {
@@ -490,10 +502,10 @@ public class DSELegacyAlgorithm extends GeneticAlgorithm<TestSuiteChromosome> {
 
         }
 
-        /** Test case total execution time **/
+        /* Test case total execution time */
         DSEStatistics.getInstance().reportTotalTestExecutionTime(TestCaseExecutor.getTimeExecuted());
 
-        /** Test case total execution time **/
+        /* Test case total execution time */
         DSEStatistics.getInstance().logStatistics();
 
         this.updateFitnessFunctionsAndValues();

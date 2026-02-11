@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.evosuite.symbolic.dse.algorithm.strategies.implementations.TestCaseSelectionStrategies;
+package org.evosuite.symbolic.dse.algorithm.strategies.implementations.testcaseselection;
 
 import org.evosuite.symbolic.dse.DSETestCase;
 import org.evosuite.symbolic.dse.algorithm.strategies.TestCaseSelectionStrategy;

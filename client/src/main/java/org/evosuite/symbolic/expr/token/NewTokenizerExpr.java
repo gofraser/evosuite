@@ -35,6 +35,12 @@ public final class NewTokenizerExpr extends TokenizerExpr {
     private final StringValue string;
     private final StringValue delim;
 
+    /**
+     * Constructs a {@link NewTokenizerExpr} with the given string and delimiter.
+     *
+     * @param string the symbolic string to tokenize
+     * @param delim the symbolic delimiter string
+     */
     public NewTokenizerExpr(StringValue string, StringValue delim) {
         super(1 + string.getSize() + delim.getSize(), string.containsSymbolicVariable()
                 || delim.containsSymbolicVariable());
@@ -42,8 +48,9 @@ public final class NewTokenizerExpr extends TokenizerExpr {
         this.string = string;
         this.delim = delim;
 
-        if (getSize() > Properties.DSE_CONSTRAINT_LENGTH)
+        if (getSize() > Properties.DSE_CONSTRAINT_LENGTH) {
             throw new ConstraintTooLongException(getSize());
+        }
     }
 
     @Override
@@ -56,11 +63,13 @@ public final class NewTokenizerExpr extends TokenizerExpr {
 
     @Override
     public boolean equals(Object obj) {
-        if (obj == null)
+        if (obj == null) {
             return false;
+        }
 
-        if (this == obj)
+        if (this == obj) {
             return true;
+        }
 
         if (obj instanceof NewTokenizerExpr) {
             NewTokenizerExpr that = (NewTokenizerExpr) obj;

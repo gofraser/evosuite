@@ -30,12 +30,12 @@ import org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithmBase;
 public class MaxTestsStoppingCondition extends StoppingConditionImpl {
 
     /**
-     * Current number of tests
+     * Current number of tests.
      */
     protected static long numTests = 0;
 
     /**
-     * Maximum number of evaluations
+     * Maximum number of evaluations.
      */
     protected long maxTests;
 

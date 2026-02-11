@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Double.doubleValue.
+ *
+ * @author galeotti
+ */
 public final class D_DoubleValue extends SymbolicFunction {
 
     private static final String DOUBLE_VALUE = "doubleValue";
@@ -36,15 +41,15 @@ public final class D_DoubleValue extends SymbolicFunction {
     @Override
     public Object executeFunction() {
 
-        ReferenceConstant symb_double = this.getSymbReceiver();
-        Double conc_double = (Double) this.getConcReceiver();
-        double conc_double_value = this.getConcDoubleRetVal();
+        ReferenceConstant symbDouble = this.getSymbReceiver();
+        Double concDouble = (Double) this.getConcReceiver();
+        double concDoubleValue = this.getConcDoubleRetVal();
 
-        RealValue symb_int_value = env.heap.getField(Types.JAVA_LANG_DOUBLE,
-                SymbolicHeap.$DOUBLE_VALUE, conc_double, symb_double,
-                conc_double_value);
+        RealValue symbIntValue = env.heap.getField(Types.JAVA_LANG_DOUBLE,
+                SymbolicHeap.$DOUBLE_VALUE, concDouble, symbDouble,
+                concDoubleValue);
 
-        return symb_int_value;
+        return symbIntValue;
     }
 
 }

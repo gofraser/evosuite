@@ -21,7 +21,13 @@ package org.evosuite.symbolic.vm;
 
 import org.evosuite.dse.AbstractVM;
 import org.evosuite.symbolic.expr.Operator;
-import org.evosuite.symbolic.expr.bv.*;
+import org.evosuite.symbolic.expr.bv.IntegerBinaryExpression;
+import org.evosuite.symbolic.expr.bv.IntegerComparison;
+import org.evosuite.symbolic.expr.bv.IntegerConstant;
+import org.evosuite.symbolic.expr.bv.IntegerUnaryExpression;
+import org.evosuite.symbolic.expr.bv.IntegerValue;
+import org.evosuite.symbolic.expr.bv.RealComparison;
+import org.evosuite.symbolic.expr.bv.RealToIntegerCast;
 import org.evosuite.symbolic.expr.constraint.IntegerConstraint;
 import org.evosuite.symbolic.expr.fp.IntegerToRealCast;
 import org.evosuite.symbolic.expr.fp.RealBinaryExpression;
@@ -31,7 +37,7 @@ import org.evosuite.symbolic.expr.fp.RealValue;
 /**
  * ByteCode instructions that pop operands off the stack, perform some
  * computation, and optionally push the result back onto the stack. - No heap
- * access - No local variable access - No branching
+ * access - No local variable access - No branching.
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
@@ -49,14 +55,16 @@ public final class ArithmeticVM extends AbstractVM {
     private boolean zeroViolation(IntegerValue value, long valueConcrete) {
         IntegerConstant zero = ExpressionFactory.ICONST_0;
         IntegerConstraint zeroCheck;
-        if (valueConcrete == 0)
+        if (valueConcrete == 0) {
             zeroCheck = ConstraintFactory.eq(value, zero);
-        else
+        } else {
             zeroCheck = ConstraintFactory.neq(value, zero);
+        }
 
         if (zeroCheck.getLeftOperand().containsSymbolicVariable()
-                || zeroCheck.getRightOperand().containsSymbolicVariable())
+                || zeroCheck.getRightOperand().containsSymbolicVariable()) {
             pathConstraint.appendSupportingConstraint(zeroCheck);
+        }
 
         // JVM will throw an exception
         return valueConcrete == 0;
@@ -77,30 +85,30 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * One of the following two:
-     * <p>
-     * Pop two category-1 operands from the stack. Pop single category-2 operand
-     * from the stack.
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc11.html#pop2
+     * Pops two category-1 operands or one category-2 operand from the stack.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc11.html#pop2</p>
      */
     @Override
     public void POP2() {
         OperandStack stack = env.topFrame().operandStack;
         Operand top = stack.popOperand();
 
-        if (top instanceof DoubleWordOperand)
+        if (top instanceof DoubleWordOperand) {
             /* Form 2 */
             return;
+        }
 
         /* Form 1 */
         stack.popOperand();
     }
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc3.html#dup
+     * Duplicates the top operand on the stack.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3.html#dup</p>
      */
     @Override
     public void DUP() {
@@ -109,8 +117,10 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc3.html#dup_x1
+     * Duplicates the top operand on the stack and inserts the copy two values down.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3.html#dup_x1</p>
      */
     @Override
     public void DUP_X1() {
@@ -125,8 +135,10 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc3.html#dup_x2
+     * Duplicates the top operand on the stack and inserts the copy three values down.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3.html#dup_x2</p>
      */
     @Override
     public void DUP_X2() {
@@ -149,8 +161,10 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc3.html#dup2
+     * Duplicates the top two category-1 operands or one category-2 operand on the stack.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3.html#dup2</p>
      */
     @Override
     public void DUP2() {
@@ -173,8 +187,11 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc3.html#dup2_x1
+     * Duplicates the top two category-1 operands or one category-2 operand on the stack
+     * and inserts the copy three values down.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3.html#dup2_x1</p>
      */
     @Override
     public void DUP2_X1() {
@@ -204,8 +221,11 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc3.html#dup2_x2
+     * Duplicates the top two category-1 operands or one category-2 operand on the stack
+     * and inserts the copy four values down.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc3.html#dup2_x2</p>
      */
     @Override
     public void DUP2_X2() {
@@ -261,8 +281,10 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc13.html#swap
+     * Swaps the top two category-1 operands on the stack.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc13.html#swap</p>
      */
     @Override
     public void SWAP() {
@@ -274,28 +296,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * @see http
-     * ://java.sun.com/docs/books/jvms/second_edition/html/Instructions2
-     * .doc6.html#iadd
+     * Integer addition.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#iadd</p>
      */
     @Override
     public void IADD() {
         IntegerValue right = env.topFrame().operandStack.popBv32();
         IntegerValue left = env.topFrame().operandStack.popBv32();
 
-        int left_concrete_value = left.getConcreteValue().intValue();
-        int right_concrete_value = right.getConcreteValue().intValue();
+        int leftConcVal = left.getConcreteValue().intValue();
+        int rightConcVal = right.getConcreteValue().intValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        int con = left_concrete_value + right_concrete_value;
+        int con = leftConcVal + rightConcVal;
 
         IntegerValue intExpr = ExpressionFactory.add(left, right, con);
 
@@ -304,27 +327,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc8.html#ladd
+     * Long addition.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8.html#ladd</p>
      */
     @Override
     public void LADD() {
         IntegerValue right = env.topFrame().operandStack.popBv64();
         IntegerValue left = env.topFrame().operandStack.popBv64();
 
-        long left_concrete_value = left.getConcreteValue();
-        long right_concrete_value = right.getConcreteValue();
+        long leftConcVal = left.getConcreteValue();
+        long rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        long con = left_concrete_value + right_concrete_value;
+        long con = leftConcVal + rightConcVal;
 
         IntegerValue intExpr = ExpressionFactory.add(left, right, con);
 
@@ -332,28 +357,30 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc4.html#fadd
+     * Float addition.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc4.html#fadd</p>
      */
     @Override
     public void FADD() {
         RealValue right = env.topFrame().operandStack.popFp32();
         RealValue left = env.topFrame().operandStack.popFp32();
 
-        float left_concrete_value = left.getConcreteValue()
+        float leftConcVal = left.getConcreteValue()
                 .floatValue();
-        float right_concrete_value = right.getConcreteValue()
+        float rightConcVal = right.getConcreteValue()
                 .floatValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        float con = left_concrete_value + right_concrete_value;
+        float con = leftConcVal + rightConcVal;
 
         RealValue realExpr = ExpressionFactory.add(left, right, con);
 
@@ -366,18 +393,18 @@ public final class ArithmeticVM extends AbstractVM {
         RealValue right = env.topFrame().operandStack.popFp64();
         RealValue left = env.topFrame().operandStack.popFp64();
 
-        double left_concrete_value = left.getConcreteValue();
-        double right_concrete_value = right.getConcreteValue();
+        double leftConcVal = left.getConcreteValue();
+        double rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        double con = left_concrete_value + right_concrete_value;
+        double con = leftConcVal + rightConcVal;
 
         RealValue realExpr = ExpressionFactory.add(left, right, con);
 
@@ -385,28 +412,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * @see http
-     * ://java.sun.com/docs/books/jvms/second_edition/html/Instructions2
-     * .doc6.html#isub
+     * Integer subtraction.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#isub</p>
      */
     @Override
     public void ISUB() {
         IntegerValue right = env.topFrame().operandStack.popBv32();
         IntegerValue left = env.topFrame().operandStack.popBv32();
 
-        int left_concrete_value = left.getConcreteValue().intValue();
-        int right_concrete_value = right.getConcreteValue().intValue();
+        int leftConcVal = left.getConcreteValue().intValue();
+        int rightConcVal = right.getConcreteValue().intValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        int con = left_concrete_value - right_concrete_value;
+        int con = leftConcVal - rightConcVal;
 
         IntegerValue intExpr = new IntegerBinaryExpression(left,
                 Operator.MINUS, right, (long) con);
@@ -416,28 +444,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * @see http
-     * ://java.sun.com/docs/books/jvms/second_edition/html/Instructions2
-     * .doc8.html#lsub
+     * Long subtraction.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8.html#lsub</p>
      */
     @Override
     public void LSUB() {
         IntegerValue right = env.topFrame().operandStack.popBv64();
         IntegerValue left = env.topFrame().operandStack.popBv64();
 
-        long left_concrete_value = left.getConcreteValue();
-        long right_concrete_value = right.getConcreteValue();
+        long leftConcVal = left.getConcreteValue();
+        long rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        long con = left_concrete_value - right_concrete_value;
+        long con = leftConcVal - rightConcVal;
 
         IntegerValue intExpr = new IntegerBinaryExpression(left,
                 Operator.MINUS, right, con);
@@ -446,27 +475,27 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     *
+     * Float Subtraction.
      */
     @Override
     public void FSUB() {
         RealValue right = env.topFrame().operandStack.popFp32();
         RealValue left = env.topFrame().operandStack.popFp32();
 
-        float left_concrete_value = left.getConcreteValue()
+        float leftConcVal = left.getConcreteValue()
                 .floatValue();
-        float right_concrete_value = right.getConcreteValue()
+        float rightConcVal = right.getConcreteValue()
                 .floatValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        float con = left_concrete_value - right_concrete_value;
+        float con = leftConcVal - rightConcVal;
 
         RealValue realExpr = new RealBinaryExpression(left, Operator.MINUS,
                 right, (double) con);
@@ -479,18 +508,18 @@ public final class ArithmeticVM extends AbstractVM {
         RealValue right = env.topFrame().operandStack.popFp64();
         RealValue left = env.topFrame().operandStack.popFp64();
 
-        double left_concrete_value = left.getConcreteValue();
-        double right_concrete_value = right.getConcreteValue();
+        double leftConcVal = left.getConcreteValue();
+        double rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        double con = left_concrete_value - right_concrete_value;
+        double con = leftConcVal - rightConcVal;
 
         RealValue realExpr = new RealBinaryExpression(left, Operator.MINUS,
                 right, con);
@@ -499,28 +528,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * @see http
-     * ://java.sun.com/docs/books/jvms/second_edition/html/Instructions2
-     * .doc6.html#imul
+     * Integer multiplication.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#imul</p>
      */
     @Override
     public void IMUL() {
         IntegerValue right = env.topFrame().operandStack.popBv32();
         IntegerValue left = env.topFrame().operandStack.popBv32();
 
-        int left_concrete_value = left.getConcreteValue().intValue();
-        int right_concrete_value = right.getConcreteValue().intValue();
+        int leftConcVal = left.getConcreteValue().intValue();
+        int rightConcVal = right.getConcreteValue().intValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        int con = left_concrete_value * right_concrete_value;
+        int con = leftConcVal * rightConcVal;
 
         IntegerValue intExpr = ExpressionFactory.mul(left, right, con);
 
@@ -529,28 +559,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * @see http
-     * ://java.sun.com/docs/books/jvms/second_edition/html/Instructions2
-     * .doc8.html#lmul
+     * Long multiplication.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8.html#lmul</p>
      */
     @Override
     public void LMUL() {
         IntegerValue right = env.topFrame().operandStack.popBv64();
         IntegerValue left = env.topFrame().operandStack.popBv64();
 
-        long left_concrete_value = left.getConcreteValue();
-        long right_concrete_value = right.getConcreteValue();
+        long leftConcVal = left.getConcreteValue();
+        long rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        long con = left_concrete_value * right_concrete_value;
+        long con = leftConcVal * rightConcVal;
 
         IntegerValue intExpr = ExpressionFactory.mul(left, right, con);
 
@@ -562,20 +593,20 @@ public final class ArithmeticVM extends AbstractVM {
         RealValue right = env.topFrame().operandStack.popFp32();
         RealValue left = env.topFrame().operandStack.popFp32();
 
-        float left_concrete_value = left.getConcreteValue()
+        float leftConcVal = left.getConcreteValue()
                 .floatValue();
-        float right_concrete_value = right.getConcreteValue()
+        float rightConcVal = right.getConcreteValue()
                 .floatValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        float con = left_concrete_value * right_concrete_value;
+        float con = leftConcVal * rightConcVal;
 
         RealValue realExpr = ExpressionFactory.mul(left, right, con);
 
@@ -587,18 +618,18 @@ public final class ArithmeticVM extends AbstractVM {
         RealValue right = env.topFrame().operandStack.popFp64();
         RealValue left = env.topFrame().operandStack.popFp64();
 
-        double left_concrete_value = left.getConcreteValue();
-        double right_concrete_value = right.getConcreteValue();
+        double leftConcVal = left.getConcreteValue();
+        double rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        double con = left_concrete_value * right_concrete_value;
+        double con = leftConcVal * rightConcVal;
 
         RealValue realExpr = ExpressionFactory.mul(left, right, con);
 
@@ -606,14 +637,13 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * a/b
-     * <p>
-     * if (b==0) throw exception; // clear stack, push exception else actual
-     * division // compute, push result
+     * Divide integers.
      *
-     * @see http
-     * ://java.sun.com/docs/books/jvms/second_edition/html/Instructions2
-     * .doc6.html#idiv
+     * <p>If {@code b == 0} throw exception (clear stack, push exception),
+     * else actual division (compute, push result).</p>
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#idiv</p>
      */
     @Override
     public void IDIV(int rhsValue) {
@@ -621,22 +651,23 @@ public final class ArithmeticVM extends AbstractVM {
         IntegerValue right = env.topFrame().operandStack.popBv32();
         IntegerValue left = env.topFrame().operandStack.popBv32();
 
-        if (zeroViolation(right, rhsValue))
+        if (zeroViolation(right, rhsValue)) {
             return;
+        }
 
-        int left_concrete_value = left.getConcreteValue().intValue();
-        int right_concrete_value = right.getConcreteValue().intValue();
+        int leftConcVal = left.getConcreteValue().intValue();
+        int rightConcVal = right.getConcreteValue().intValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        int con = left_concrete_value / right_concrete_value;
+        int con = leftConcVal / rightConcVal;
 
         IntegerValue intExpr = ExpressionFactory.div(left, right, con);
 
@@ -645,31 +676,33 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * @see http
-     * ://java.sun.com/docs/books/jvms/second_edition/html/Instructions2
-     * .doc8.html#ldiv
+     * Divide long.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8.html#ldiv</p>
      */
     @Override
     public void LDIV(long rhsValue) {
         IntegerValue right = env.topFrame().operandStack.popBv64();
         IntegerValue left = env.topFrame().operandStack.popBv64();
 
-        if (zeroViolation(right, rhsValue))
+        if (zeroViolation(right, rhsValue)) {
             return;
+        }
 
-        long left_concrete_value = left.getConcreteValue();
-        long right_concrete_value = right.getConcreteValue();
+        long leftConcVal = left.getConcreteValue();
+        long rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        long con = left_concrete_value / right_concrete_value;
+        long con = leftConcVal / rightConcVal;
 
         IntegerValue intExpr = ExpressionFactory.div(left, right, con);
 
@@ -681,20 +714,20 @@ public final class ArithmeticVM extends AbstractVM {
         RealValue right = env.topFrame().operandStack.popFp32();
         RealValue left = env.topFrame().operandStack.popFp32();
 
-        float left_concrete_value = left.getConcreteValue()
+        float leftConcVal = left.getConcreteValue()
                 .floatValue();
-        float right_concrete_value = right.getConcreteValue()
+        float rightConcVal = right.getConcreteValue()
                 .floatValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        float con = left_concrete_value / right_concrete_value;
+        float con = leftConcVal / rightConcVal;
 
         RealValue realExpr = ExpressionFactory.div(left, right, con);
 
@@ -706,18 +739,18 @@ public final class ArithmeticVM extends AbstractVM {
         RealValue right = env.topFrame().operandStack.popFp64();
         RealValue left = env.topFrame().operandStack.popFp64();
 
-        double left_concrete_value = left.getConcreteValue();
-        double right_concrete_value = right.getConcreteValue();
+        double leftConcVal = left.getConcreteValue();
+        double rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        double con = left_concrete_value / right_concrete_value;
+        double con = leftConcVal / rightConcVal;
 
         RealValue realExpr = ExpressionFactory.div(left, right, con);
 
@@ -725,32 +758,33 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * Modulo -- Remainder -- %
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#irem
+     * Modulo -- Remainder -- %.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#irem</p>
      */
     @Override
     public void IREM(int rhsValue) {
         IntegerValue right = env.topFrame().operandStack.popBv32();
         IntegerValue left = env.topFrame().operandStack.popBv32();
 
-        if (zeroViolation(right, rhsValue))
+        if (zeroViolation(right, rhsValue)) {
             return;
+        }
 
-        int left_concrete_value = left.getConcreteValue().intValue();
-        int right_concrete_value = right.getConcreteValue().intValue();
+        int leftConcVal = left.getConcreteValue().intValue();
+        int rightConcVal = right.getConcreteValue().intValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        int con = left_concrete_value % right_concrete_value;
+        int con = leftConcVal % rightConcVal;
 
         IntegerValue intExpr = ExpressionFactory.rem(left, right, con);
 
@@ -763,20 +797,20 @@ public final class ArithmeticVM extends AbstractVM {
         RealValue right = env.topFrame().operandStack.popFp32();
         RealValue left = env.topFrame().operandStack.popFp32();
 
-        float left_concrete_value = left.getConcreteValue()
+        float leftConcVal = left.getConcreteValue()
                 .floatValue();
-        float right_concrete_value = right.getConcreteValue()
+        float rightConcVal = right.getConcreteValue()
                 .floatValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        float con = left_concrete_value % right_concrete_value;
+        float con = leftConcVal % rightConcVal;
 
         RealValue realExpr = ExpressionFactory.rem(left, right, con);
 
@@ -788,18 +822,18 @@ public final class ArithmeticVM extends AbstractVM {
         RealValue right = env.topFrame().operandStack.popFp64();
         RealValue left = env.topFrame().operandStack.popFp64();
 
-        double left_concrete_value = left.getConcreteValue();
-        double right_concrete_value = right.getConcreteValue();
+        double leftConcVal = left.getConcreteValue();
+        double rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        double con = left_concrete_value % right_concrete_value;
+        double con = leftConcVal % rightConcVal;
 
         RealValue realExpr = ExpressionFactory.rem(left, right, con);
 
@@ -814,14 +848,14 @@ public final class ArithmeticVM extends AbstractVM {
     public void INEG() {
         IntegerValue param = env.topFrame().operandStack.popBv32();
 
-        int param_concrete_value = param.getConcreteValue().intValue();
+        int paramConcVal = param.getConcreteValue().intValue();
 
         if (!param.containsSymbolicVariable()) {
             param = ExpressionFactory
-                    .buildNewIntegerConstant(param_concrete_value);
+                    .buildNewIntegerConstant(paramConcVal);
         }
 
-        int con = -param_concrete_value;
+        int con = -paramConcVal;
 
         IntegerValue intExpr = new IntegerUnaryExpression(param, Operator.NEG,
                 (long) con);
@@ -838,14 +872,14 @@ public final class ArithmeticVM extends AbstractVM {
     public void LNEG() {
         IntegerValue param = env.topFrame().operandStack.popBv64();
 
-        long param_concrete_value = param.getConcreteValue();
+        long paramConcVal = param.getConcreteValue();
 
         if (!param.containsSymbolicVariable()) {
             param = ExpressionFactory
-                    .buildNewIntegerConstant(param_concrete_value);
+                    .buildNewIntegerConstant(paramConcVal);
         }
 
-        long con = -param_concrete_value;
+        long con = -paramConcVal;
 
         IntegerValue intExpr = new IntegerUnaryExpression(param, Operator.NEG,
                 con);
@@ -857,14 +891,14 @@ public final class ArithmeticVM extends AbstractVM {
     public void FNEG() {
         RealValue param = env.topFrame().operandStack.popFp32();
 
-        float param_concrete_value = param.getConcreteValue()
+        float paramConcVal = param.getConcreteValue()
                 .floatValue();
 
         if (!param.containsSymbolicVariable()) {
             param = ExpressionFactory
-                    .buildNewRealConstant(param_concrete_value);
+                    .buildNewRealConstant(paramConcVal);
         }
-        float con = -param_concrete_value;
+        float con = -paramConcVal;
 
         RealValue realExpr = new RealUnaryExpression(param, Operator.NEG,
                 (double) con);
@@ -876,13 +910,13 @@ public final class ArithmeticVM extends AbstractVM {
     public void DNEG() {
         RealValue param = env.topFrame().operandStack.popFp64();
 
-        double param_concrete_value = param.getConcreteValue();
+        double paramConcVal = param.getConcreteValue();
 
         if (!param.containsSymbolicVariable()) {
             param = ExpressionFactory
-                    .buildNewRealConstant(param_concrete_value);
+                    .buildNewRealConstant(paramConcVal);
         }
-        double con = -param_concrete_value;
+        double con = -paramConcVal;
 
         RealValue realExpr = new RealUnaryExpression(param, Operator.NEG, con);
 
@@ -890,192 +924,192 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * Stack=value1(int)|value2(int)
-     * <p>
-     * Pops two ints off the stack. Shifts value2 left by the amount indicated
+     * Stack=value1(int)|value2(int).
+     *
+     * <p>Pops two ints off the stack. Shifts value2 left by the amount indicated
      * in the five low bits of value1. The int result is then pushed back onto
-     * the stack.
+     * the stack.</p>
      */
     @Override
     public void ISHL() {
-        IntegerValue right_expr = env.topFrame().operandStack
+        IntegerValue rightExpr = env.topFrame().operandStack
                 .popBv32();
-        IntegerValue left_expr = env.topFrame().operandStack
+        IntegerValue leftExpr = env.topFrame().operandStack
                 .popBv32();
 
-        int left_concrete_value = left_expr.getConcreteValue()
+        int leftConcVal = leftExpr.getConcreteValue()
                 .intValue();
-        int right_concrete_value = right_expr.getConcreteValue()
+        int rightConcVal = rightExpr.getConcreteValue()
                 .intValue();
 
-        int concrete_value = left_concrete_value << (right_concrete_value & 0x001F);
+        int concreteValue = leftConcVal << (rightConcVal & 0x001F);
 
         IntegerBinaryExpression intExpr = new IntegerBinaryExpression(
-                left_expr, Operator.SHL, right_expr, (long) concrete_value);
+                leftExpr, Operator.SHL, rightExpr, (long) concreteValue);
 
         env.topFrame().operandStack.pushBv32(intExpr);
     }
 
     /**
-     * Stack=value1(int)|value2(int)
-     * <p>
-     * Pops two ints off the stack. Shifts value2 left by the amount indicated
+     * Stack=value1(int)|value2(int).
+     *
+     * <p>Pops two ints off the stack. Shifts value2 left by the amount indicated
      * in the five low bits of value1. The int result is then pushed back onto
-     * the stack.
+     * the stack.</p>
      */
     @Override
     public void ISHR() {
-        IntegerValue right_expr = env.topFrame().operandStack
+        IntegerValue rightExpr = env.topFrame().operandStack
                 .popBv32();
-        IntegerValue left_expr = env.topFrame().operandStack
+        IntegerValue leftExpr = env.topFrame().operandStack
                 .popBv32();
 
-        int left_concrete_value = left_expr.getConcreteValue()
+        int leftConcVal = leftExpr.getConcreteValue()
                 .intValue();
-        int right_concrete_value = right_expr.getConcreteValue()
+        int rightConcVal = rightExpr.getConcreteValue()
                 .intValue();
 
-        int concrete_value = left_concrete_value >> (right_concrete_value & 0x001F);
+        int concreteValue = leftConcVal >> (rightConcVal & 0x001F);
 
         IntegerBinaryExpression intExpr = new IntegerBinaryExpression(
-                left_expr, Operator.SHR, right_expr, (long) concrete_value);
+                leftExpr, Operator.SHR, rightExpr, (long) concreteValue);
 
         env.topFrame().operandStack.pushBv32(intExpr);
     }
 
     /**
-     * Stack=value1(int)|value2(int)
-     * <p>
-     * Pops two ints off the operand stack. Shifts value1 right by the amount
+     * Stack=value1(int)|value2(int).
+     *
+     * <p>Pops two ints off the operand stack. Shifts value1 right by the amount
      * indicated in the five low bits of value2. The int result is then pushed
      * back onto the stack. value1 is shifted logically (ignoring the sign
-     * extension - useful for unsigned values).
+     * extension - useful for unsigned values).</p>
      */
     @Override
     public void IUSHR() {
-        IntegerValue right_expr = env.topFrame().operandStack
+        IntegerValue rightExpr = env.topFrame().operandStack
                 .popBv32();
-        IntegerValue left_expr = env.topFrame().operandStack
+        IntegerValue leftExpr = env.topFrame().operandStack
                 .popBv32();
 
-        int left_concrete_value = left_expr.getConcreteValue()
+        int leftConcVal = leftExpr.getConcreteValue()
                 .intValue();
-        int right_concrete_value = right_expr.getConcreteValue()
+        int rightConcVal = rightExpr.getConcreteValue()
                 .intValue();
 
-        int concrete_value = left_concrete_value >>> (right_concrete_value & 0x001F);
+        int concreteValue = leftConcVal >>> (rightConcVal & 0x001F);
 
         IntegerBinaryExpression intExpr = new IntegerBinaryExpression(
-                left_expr, Operator.USHR, right_expr, (long) concrete_value);
+                leftExpr, Operator.USHR, rightExpr, (long) concreteValue);
 
         env.topFrame().operandStack.pushBv32(intExpr);
     }
 
     /**
-     * Stack=value1(int)|value2(long)
-     * <p>
-     * Pops an integer and a long integer and from the stack. Shifts value2 (the
+     * Stack=value1(int)|value2(long).
+     *
+     * <p>Pops an integer and a long integer and from the stack. Shifts value2 (the
      * long integer) right by the amount indicated in the low six bits of value1
      * (an int). The long integer result is then pushed back onto the stack. The
      * value is shifted logically (ignoring the sign extension - useful for
-     * unsigned values).
+     * unsigned values).</p>
      */
     @Override
     public void LUSHR() {
-        IntegerValue right_expr = env.topFrame().operandStack
+        IntegerValue rightExpr = env.topFrame().operandStack
                 .popBv32();
-        IntegerValue left_expr = env.topFrame().operandStack
+        IntegerValue leftExpr = env.topFrame().operandStack
                 .popBv64();
 
-        long left_concrete_value = left_expr.getConcreteValue();
-        int right_concrete_value = right_expr.getConcreteValue()
+        long leftConcVal = leftExpr.getConcreteValue();
+        int rightConcVal = rightExpr.getConcreteValue()
                 .intValue();
 
-        long concrete_value = left_concrete_value >>> (right_concrete_value & 0x001F);
+        long concreteValue = leftConcVal >>> (rightConcVal & 0x001F);
 
         IntegerBinaryExpression intExpr = new IntegerBinaryExpression(
-                left_expr, Operator.USHR, right_expr, concrete_value);
+                leftExpr, Operator.USHR, rightExpr, concreteValue);
 
         env.topFrame().operandStack.pushBv64(intExpr);
     }
 
     /**
-     * Stack=value1(int)|value2(long)
-     * <p>
-     * Pops an int and a long integer from the stack. Shifts value2 (the long
+     * Stack=value1(int)|value2(long).
+     *
+     * <p>Pops an int and a long integer from the stack. Shifts value2 (the long
      * integer) right by the amount indicated in the low six bits of value1 (an
      * int). The long integer result is then pushed back onto the stack. The
-     * value is shifted arithmetically (preserving the sign extension).
+     * value is shifted arithmetically (preserving the sign extension).</p>
      */
     @Override
     public void LSHR() {
-        IntegerValue right_expr = env.topFrame().operandStack
+        IntegerValue rightExpr = env.topFrame().operandStack
                 .popBv32();
-        IntegerValue left_expr = env.topFrame().operandStack
+        IntegerValue leftExpr = env.topFrame().operandStack
                 .popBv64();
 
-        long left_concrete_value = left_expr.getConcreteValue();
-        int right_concrete_value = right_expr.getConcreteValue()
+        long leftConcVal = leftExpr.getConcreteValue();
+        int rightConcVal = rightExpr.getConcreteValue()
                 .intValue();
 
-        long concrete_value = left_concrete_value >> (right_concrete_value & 0x001F);
+        long concreteValue = leftConcVal >> (rightConcVal & 0x001F);
 
         IntegerBinaryExpression intExpr = new IntegerBinaryExpression(
-                left_expr, Operator.SHL, right_expr, concrete_value);
+                leftExpr, Operator.SHL, rightExpr, concreteValue);
 
         env.topFrame().operandStack.pushBv64(intExpr);
     }
 
     /**
-     * Stack=value1(int)|value2(long)
-     * <p>
-     * Pops a long integer and an int from the stack. Shifts value2 (the long
+     * Stack=value1(int)|value2(long).
+     *
+     * <p>Pops a long integer and an int from the stack. Shifts value2 (the long
      * integer) left by the amount indicated in the low six bits of value1 (an
-     * int). The long integer result is then pushed back onto the stack.
+     * int). The long integer result is then pushed back onto the stack.</p>
      */
     @Override
     public void LSHL() {
-        IntegerValue right_expr = env.topFrame().operandStack
+        IntegerValue rightExpr = env.topFrame().operandStack
                 .popBv32();
-        IntegerValue left_expr = env.topFrame().operandStack
+        IntegerValue leftExpr = env.topFrame().operandStack
                 .popBv64();
 
-        long left_concrete_value = left_expr.getConcreteValue();
-        int right_concrete_value = right_expr.getConcreteValue()
+        long leftConcVal = leftExpr.getConcreteValue();
+        int rightConcVal = rightExpr.getConcreteValue()
                 .intValue();
 
-        long concrete_value = left_concrete_value << (right_concrete_value & 0x001F);
+        long concreteValue = leftConcVal << (rightConcVal & 0x001F);
 
         IntegerBinaryExpression intExpr = new IntegerBinaryExpression(
-                left_expr, Operator.SHL, right_expr, concrete_value);
+                leftExpr, Operator.SHL, rightExpr, concreteValue);
 
         env.topFrame().operandStack.pushBv64(intExpr);
     }
 
     /**
-     * bitwise AND
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#iand
+     * bitwise AND.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#iand</p>
      */
     @Override
     public void IAND() {
         IntegerValue right = env.topFrame().operandStack.popBv32();
         IntegerValue left = env.topFrame().operandStack.popBv32();
 
-        int left_concrete_value = left.getConcreteValue().intValue();
-        int right_concrete_value = right.getConcreteValue().intValue();
+        int leftConcVal = left.getConcreteValue().intValue();
+        int rightConcVal = right.getConcreteValue().intValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        int con = left_concrete_value & right_concrete_value;
+        int con = leftConcVal & rightConcVal;
 
         IntegerValue intExpr = new IntegerBinaryExpression(left, Operator.IAND,
                 right, (long) con);
@@ -1085,29 +1119,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * bitwise OR
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#ior
+     * bitwise OR.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#ior</p>
      */
     @Override
     public void IOR() {
         IntegerValue right = env.topFrame().operandStack.popBv32();
         IntegerValue left = env.topFrame().operandStack.popBv32();
 
-        int left_concrete_value = left.getConcreteValue().intValue();
-        int right_concrete_value = right.getConcreteValue().intValue();
+        int leftConcVal = left.getConcreteValue().intValue();
+        int rightConcVal = right.getConcreteValue().intValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        int con = left_concrete_value | right_concrete_value;
+        int con = leftConcVal | rightConcVal;
 
         IntegerValue intExpr = new IntegerBinaryExpression(left, Operator.IOR,
                 right, (long) con);
@@ -1117,29 +1151,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * bitwise XOR
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#ixor
+     * bitwise XOR.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#ixor</p>
      */
     @Override
     public void IXOR() {
         IntegerValue right = env.topFrame().operandStack.popBv32();
         IntegerValue left = env.topFrame().operandStack.popBv32();
 
-        int left_concrete_value = left.getConcreteValue().intValue();
-        int right_concrete_value = right.getConcreteValue().intValue();
+        int leftConcVal = left.getConcreteValue().intValue();
+        int rightConcVal = right.getConcreteValue().intValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        int con = left_concrete_value ^ right_concrete_value;
+        int con = leftConcVal ^ rightConcVal;
 
         IntegerValue intExpr = new IntegerBinaryExpression(left, Operator.IXOR,
                 right, (long) con);
@@ -1149,28 +1183,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * @see http
-     * ://java.sun.com/docs/books/jvms/second_edition/html/Instructions2
-     * .doc8.html#land
+     * Bitwise AND.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8.html#land</p>
      */
     @Override
     public void LAND() {
         IntegerValue right = env.topFrame().operandStack.popBv64();
         IntegerValue left = env.topFrame().operandStack.popBv64();
 
-        long left_concrete_value = left.getConcreteValue();
-        long right_concrete_value = right.getConcreteValue();
+        long leftConcVal = left.getConcreteValue();
+        long rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        long con = left_concrete_value & right_concrete_value;
+        long con = leftConcVal & rightConcVal;
 
         IntegerValue intExpr = new IntegerBinaryExpression(left, Operator.IAND,
                 right, con);
@@ -1179,28 +1214,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * @see http
-     * ://java.sun.com/docs/books/jvms/second_edition/html/Instructions2
-     * .doc8.html#lor
+     * Bitwise OR.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8.html#lor</p>
      */
     @Override
     public void LOR() {
         IntegerValue right = env.topFrame().operandStack.popBv64();
         IntegerValue left = env.topFrame().operandStack.popBv64();
 
-        long left_concrete_value = left.getConcreteValue();
-        long right_concrete_value = right.getConcreteValue();
+        long leftConcVal = left.getConcreteValue();
+        long rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        long con = left_concrete_value | right_concrete_value;
+        long con = leftConcVal | rightConcVal;
 
         IntegerValue intExpr = new IntegerBinaryExpression(left, Operator.IOR,
                 right, con);
@@ -1209,28 +1245,29 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * @see http
-     * ://java.sun.com/docs/books/jvms/second_edition/html/Instructions2
-     * .doc8.html#lxor
+     * Bitwise XOR.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8.html#lxor</p>
      */
     @Override
     public void LXOR() {
         IntegerValue right = env.topFrame().operandStack.popBv64();
         IntegerValue left = env.topFrame().operandStack.popBv64();
 
-        long left_concrete_value = left.getConcreteValue();
-        long right_concrete_value = right.getConcreteValue();
+        long leftConcVal = left.getConcreteValue();
+        long rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        long con = left_concrete_value ^ right_concrete_value;
+        long con = leftConcVal ^ rightConcVal;
 
         IntegerValue intExpr = new IntegerBinaryExpression(left, Operator.IXOR,
                 right, con);
@@ -1239,10 +1276,10 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * Increment i-th local (int) variable by constant (int) value
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#iinc
+     * Increment i-th local (int) variable by constant (int) value.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#iinc</p>
      */
     @Override
     public void IINC(int i, int value) {
@@ -1250,15 +1287,15 @@ public final class ArithmeticVM extends AbstractVM {
                 .buildNewIntegerConstant(value);
         IntegerValue left = env.topFrame().localsTable.getBv32Local(i);
 
-        int left_concrete_value = left.getConcreteValue().intValue();
-        int right_concrete_value = value;
+        int leftConcVal = left.getConcreteValue().intValue();
+        int rightConcVal = value;
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
 
-        int con = left_concrete_value + right_concrete_value;
+        int con = leftConcVal + rightConcVal;
 
         IntegerValue intExpr = ExpressionFactory.add(left, right, con);
 
@@ -1266,44 +1303,46 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
+     * Compare long.
+     *
      * <pre>
-     * (a > b)  ==>  1
-     * (a == b) ==>  0
-     * (a < b)  ==> -1
+     * (a &gt; b)  ==&gt;  1
+     * (a == b) ==&gt;  0
+     * (a &lt; b)  ==&gt; -1
      * </pre>
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc8.html#lcmp
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc8.html#lcmp</p>
      */
     @Override
     public void LCMP() {
         IntegerValue right = env.topFrame().operandStack.popBv64();
         IntegerValue left = env.topFrame().operandStack.popBv64();
 
-        long left_concrete_value = left.getConcreteValue();
-        long right_concrete_value = right.getConcreteValue();
+        long leftConcVal = left.getConcreteValue();
+        long rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        int concrete_value = 0;
-        if (left_concrete_value == right_concrete_value) {
-            concrete_value = 0;
-        } else if (left_concrete_value > right_concrete_value) {
-            concrete_value = 1;
+        int concVal = 0;
+        if (leftConcVal == rightConcVal) {
+            concVal = 0;
+        } else if (leftConcVal > rightConcVal) {
+            concVal = 1;
         } else {
-            assert left_concrete_value < right_concrete_value;
-            concrete_value = -1;
+            assert leftConcVal < rightConcVal;
+            concVal = -1;
         }
 
         IntegerComparison intComp = new IntegerComparison(left, right,
-                (long) concrete_value);
+                (long) concVal);
 
         env.topFrame().operandStack.pushBv32(intComp);
     }
@@ -1317,34 +1356,34 @@ public final class ArithmeticVM extends AbstractVM {
         RealValue right = env.topFrame().operandStack.popFp32();
         RealValue left = env.topFrame().operandStack.popFp32();
 
-        float left_concrete_value = left.getConcreteValue()
+        float leftConcVal = left.getConcreteValue()
                 .floatValue();
-        float right_concrete_value = right.getConcreteValue()
+        float rightConcVal = right.getConcreteValue()
                 .floatValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        int concrete_value;
-        if (new Double(left_concrete_value).isNaN()
-                || new Double(right_concrete_value).isNaN()) {
-            concrete_value = 1;
-        } else if (left_concrete_value == right_concrete_value) {
-            concrete_value = 0;
-        } else if (left_concrete_value > right_concrete_value) {
-            concrete_value = 1;
+        int concVal;
+        if (new Double(leftConcVal).isNaN()
+                || new Double(rightConcVal).isNaN()) {
+            concVal = 1;
+        } else if (leftConcVal == rightConcVal) {
+            concVal = 0;
+        } else if (leftConcVal > rightConcVal) {
+            concVal = 1;
         } else {
-            assert left_concrete_value < right_concrete_value;
-            concrete_value = -1;
+            assert leftConcVal < rightConcVal;
+            concVal = -1;
         }
 
         RealComparison ret = new RealComparison(left, right,
-                (long) concrete_value);
+                (long) concVal);
 
         env.topFrame().operandStack.pushBv32(ret);
     }
@@ -1367,32 +1406,32 @@ public final class ArithmeticVM extends AbstractVM {
         RealValue right = env.topFrame().operandStack.popFp64();
         RealValue left = env.topFrame().operandStack.popFp64();
 
-        double left_concrete_value = left.getConcreteValue();
-        double right_concrete_value = right.getConcreteValue();
+        double leftConcVal = left.getConcreteValue();
+        double rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(left_concrete_value);
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewRealConstant(right_concrete_value);
+                    .buildNewRealConstant(rightConcVal);
         }
 
-        int concrete_value;
-        if (new Double(left_concrete_value).isNaN()
-                || new Double(right_concrete_value).isNaN()) {
-            concrete_value = 1;
-        } else if (left_concrete_value == right_concrete_value) {
-            concrete_value = 0;
-        } else if (left_concrete_value > right_concrete_value) {
-            concrete_value = 1;
+        int concVal;
+        if (new Double(leftConcVal).isNaN()
+                || new Double(rightConcVal).isNaN()) {
+            concVal = 1;
+        } else if (leftConcVal == rightConcVal) {
+            concVal = 0;
+        } else if (leftConcVal > rightConcVal) {
+            concVal = 1;
         } else {
-            assert left_concrete_value < right_concrete_value;
-            concrete_value = -1;
+            assert leftConcVal < rightConcVal;
+            concVal = -1;
         }
 
         RealComparison ret = new RealComparison(left, right,
-                (long) concrete_value);
+                (long) concVal);
 
         env.topFrame().operandStack.pushBv32(ret);
     }
@@ -1407,12 +1446,12 @@ public final class ArithmeticVM extends AbstractVM {
     }
 
     /**
-     * int --> long
-     * <p>
-     * This conversion is exact = preserve all information.
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#i2l
+     * int --&gt; long.
+     *
+     * <p>This conversion is exact = preserve all information.</p>
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * doc6.html#i2l</p>
      */
     @Override
     public void I2L() {
@@ -1426,15 +1465,15 @@ public final class ArithmeticVM extends AbstractVM {
      */
     @Override
     public void I2F() {
-        IntegerValue integerExpr = env.topFrame().operandStack.popBv32();
-        int integerValue = integerExpr.getConcreteValue().intValue();
+        IntegerValue intExpr = env.topFrame().operandStack.popBv32();
+        int intVal = intExpr.getConcreteValue().intValue();
         RealValue realExpr;
-        float concreteValue = (float) integerValue;
-        if (!integerExpr.containsSymbolicVariable()) {
-            realExpr = ExpressionFactory.buildNewRealConstant(concreteValue);
+        float concVal = (float) intVal;
+        if (!intExpr.containsSymbolicVariable()) {
+            realExpr = ExpressionFactory.buildNewRealConstant(concVal);
         } else {
-            realExpr = new IntegerToRealCast(integerExpr,
-                    (double) concreteValue);
+            realExpr = new IntegerToRealCast(intExpr,
+                    (double) concVal);
         }
         env.topFrame().operandStack.pushFp32(realExpr);
     }
@@ -1445,51 +1484,51 @@ public final class ArithmeticVM extends AbstractVM {
      */
     @Override
     public void I2D() {
-        IntegerValue integerExpr = env.topFrame().operandStack.popBv32();
-        int integerValue = integerExpr.getConcreteValue().intValue();
+        IntegerValue intExpr = env.topFrame().operandStack.popBv32();
+        int intVal = intExpr.getConcreteValue().intValue();
         RealValue realExpr;
-        double concreteValue = integerValue;
-        if (!integerExpr.containsSymbolicVariable()) {
-            realExpr = ExpressionFactory.buildNewRealConstant(concreteValue);
+        double concVal = intVal;
+        if (!intExpr.containsSymbolicVariable()) {
+            realExpr = ExpressionFactory.buildNewRealConstant(concVal);
         } else {
-            realExpr = new IntegerToRealCast(integerExpr,
-                    concreteValue);
+            realExpr = new IntegerToRealCast(intExpr,
+                    concVal);
         }
         env.topFrame().operandStack.pushFp64(realExpr);
     }
 
     @Override
     public void L2I() {
-        IntegerValue integerExpr = env.topFrame().operandStack.popBv64();
-        env.topFrame().operandStack.pushBv32(integerExpr);
+        IntegerValue intExpr = env.topFrame().operandStack.popBv64();
+        env.topFrame().operandStack.pushBv32(intExpr);
     }
 
     @Override
     public void L2F() {
-        IntegerValue integerExpr = env.topFrame().operandStack.popBv64();
-        long longValue = integerExpr.getConcreteValue();
+        IntegerValue intExpr = env.topFrame().operandStack.popBv64();
+        long longVal = intExpr.getConcreteValue();
         RealValue realExpr;
-        float concreteValue = (float) longValue;
-        if (!integerExpr.containsSymbolicVariable()) {
-            realExpr = ExpressionFactory.buildNewRealConstant(concreteValue);
+        float concVal = (float) longVal;
+        if (!intExpr.containsSymbolicVariable()) {
+            realExpr = ExpressionFactory.buildNewRealConstant(concVal);
         } else {
-            realExpr = new IntegerToRealCast(integerExpr,
-                    (double) concreteValue);
+            realExpr = new IntegerToRealCast(intExpr,
+                    (double) concVal);
         }
         env.topFrame().operandStack.pushFp32(realExpr);
     }
 
     @Override
     public void L2D() {
-        IntegerValue integerExpr = env.topFrame().operandStack.popBv64();
-        long longValue = integerExpr.getConcreteValue();
+        IntegerValue intExpr = env.topFrame().operandStack.popBv64();
+        long longVal = intExpr.getConcreteValue();
         RealValue realExpr;
-        double concreteValue = (double) longValue;
-        if (!integerExpr.containsSymbolicVariable()) {
-            realExpr = ExpressionFactory.buildNewRealConstant(concreteValue);
+        double concVal = (double) longVal;
+        if (!intExpr.containsSymbolicVariable()) {
+            realExpr = ExpressionFactory.buildNewRealConstant(concVal);
         } else {
-            realExpr = new IntegerToRealCast(integerExpr,
-                    concreteValue);
+            realExpr = new IntegerToRealCast(intExpr,
+                    concVal);
         }
         env.topFrame().operandStack.pushFp64(realExpr);
     }
@@ -1497,13 +1536,13 @@ public final class ArithmeticVM extends AbstractVM {
     @Override
     public void F2I() {
         RealValue realExpr = env.topFrame().operandStack.popFp32();
-        float doubleValue = realExpr.getConcreteValue().floatValue();
+        float floatVal = realExpr.getConcreteValue().floatValue();
         IntegerValue intExpr;
-        int concreteValue = (int) doubleValue;
+        int concVal = (int) floatVal;
         if (!realExpr.containsSymbolicVariable()) {
-            intExpr = ExpressionFactory.buildNewIntegerConstant(concreteValue);
+            intExpr = ExpressionFactory.buildNewIntegerConstant(concVal);
         } else {
-            intExpr = new RealToIntegerCast(realExpr, (long) concreteValue);
+            intExpr = new RealToIntegerCast(realExpr, (long) concVal);
         }
         env.topFrame().operandStack.pushBv32(intExpr);
     }
@@ -1511,13 +1550,13 @@ public final class ArithmeticVM extends AbstractVM {
     @Override
     public void F2L() {
         RealValue realExpr = env.topFrame().operandStack.popFp32();
-        float floatValue = realExpr.getConcreteValue().floatValue();
+        float floatVal = realExpr.getConcreteValue().floatValue();
         IntegerValue intExpr;
-        long concreteValue = (long) floatValue;
+        long concVal = (long) floatVal;
         if (!realExpr.containsSymbolicVariable()) {
-            intExpr = ExpressionFactory.buildNewIntegerConstant(concreteValue);
+            intExpr = ExpressionFactory.buildNewIntegerConstant(concVal);
         } else {
-            intExpr = new RealToIntegerCast(realExpr, concreteValue);
+            intExpr = new RealToIntegerCast(realExpr, concVal);
         }
         env.topFrame().operandStack.pushBv64(intExpr);
     }
@@ -1531,13 +1570,13 @@ public final class ArithmeticVM extends AbstractVM {
     @Override
     public void D2I() {
         RealValue realExpr = env.topFrame().operandStack.popFp64();
-        double doubleValue = realExpr.getConcreteValue();
+        double doubleVal = realExpr.getConcreteValue();
         IntegerValue intExpr;
-        int concreteValue = (int) doubleValue;
+        int concVal = (int) doubleVal;
         if (!realExpr.containsSymbolicVariable()) {
-            intExpr = ExpressionFactory.buildNewIntegerConstant(concreteValue);
+            intExpr = ExpressionFactory.buildNewIntegerConstant(concVal);
         } else {
-            intExpr = new RealToIntegerCast(realExpr, (long) concreteValue);
+            intExpr = new RealToIntegerCast(realExpr, (long) concVal);
         }
         env.topFrame().operandStack.pushBv32(intExpr);
     }
@@ -1545,13 +1584,13 @@ public final class ArithmeticVM extends AbstractVM {
     @Override
     public void D2L() {
         RealValue realExpr = env.topFrame().operandStack.popFp64();
-        double doubleValue = realExpr.getConcreteValue();
+        double doubleVal = realExpr.getConcreteValue();
         IntegerValue intExpr;
-        long concreteValue = (long) doubleValue;
+        long concVal = (long) doubleVal;
         if (!realExpr.containsSymbolicVariable()) {
-            intExpr = ExpressionFactory.buildNewIntegerConstant(concreteValue);
+            intExpr = ExpressionFactory.buildNewIntegerConstant(concVal);
         } else {
-            intExpr = new RealToIntegerCast(realExpr, concreteValue);
+            intExpr = new RealToIntegerCast(realExpr, concVal);
         }
         env.topFrame().operandStack.pushBv64(intExpr);
     }
@@ -1564,17 +1603,17 @@ public final class ArithmeticVM extends AbstractVM {
 
     @Override
     public void I2B() {
-        return; /* ignore I2B */
+        // ignore I2B
     }
 
     @Override
     public void I2C() {
-        return; /* ignore I2C */
+        // ignore I2C
     }
 
     @Override
     public void I2S() {
-        return; /* ignore I2C */
+        // ignore I2S
     }
 
     @Override
@@ -1582,22 +1621,23 @@ public final class ArithmeticVM extends AbstractVM {
         IntegerValue right = env.topFrame().operandStack.popBv64();
         IntegerValue left = env.topFrame().operandStack.popBv64();
 
-        if (zeroViolation(right, rhs))
+        if (zeroViolation(right, rhs)) {
             return;
+        }
 
-        long left_concrete_value = left.getConcreteValue();
-        long right_concrete_value = right.getConcreteValue();
+        long leftConcVal = left.getConcreteValue();
+        long rightConcVal = right.getConcreteValue();
 
         if (!left.containsSymbolicVariable()) {
             left = ExpressionFactory
-                    .buildNewIntegerConstant(left_concrete_value);
+                    .buildNewIntegerConstant(leftConcVal);
         }
         if (!right.containsSymbolicVariable()) {
             right = ExpressionFactory
-                    .buildNewIntegerConstant(right_concrete_value);
+                    .buildNewIntegerConstant(rightConcVal);
         }
 
-        long con = left_concrete_value % right_concrete_value;
+        long con = leftConcVal % rightConcVal;
 
         IntegerValue intExpr = ExpressionFactory.rem(left, right, con);
 

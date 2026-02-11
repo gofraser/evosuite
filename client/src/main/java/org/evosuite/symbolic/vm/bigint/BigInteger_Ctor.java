@@ -28,6 +28,11 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
 import java.math.BigInteger;
 
+/**
+ * Symbolic function for BigInteger constructor.
+ *
+ * @author galeotti
+ */
 public final class BigInteger_Ctor extends SymbolicFunction {
 
     public BigInteger_Ctor(SymbolicEnvironment env) {
@@ -37,28 +42,28 @@ public final class BigInteger_Ctor extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        String conc_string = (String) this.getConcArgument(0);
-        ReferenceConstant str_ref = (ReferenceConstant) this.getSymbArgument(0);
+        String concString = (String) this.getConcArgument(0);
+        ReferenceConstant strRef = (ReferenceConstant) this.getSymbArgument(0);
 
-        StringValue symb_string = this.env.heap.getField(
+        StringValue symbString = this.env.heap.getField(
                 Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                conc_string, str_ref, conc_string);
+                concString, strRef, concString);
 
-        if (symb_string.containsSymbolicVariable()) {
+        if (symbString.containsSymbolicVariable()) {
 
-            ReferenceConstant symb_big_integer = (ReferenceConstant) env
+            ReferenceConstant symbBigInteger = (ReferenceConstant) env
                     .topFrame().operandStack.peekRef();
 
-            BigInteger bigInteger = new BigInteger(conc_string);
+            BigInteger bigInteger = new BigInteger(concString);
             long concVal = bigInteger.longValue();
 
-            StringToIntegerCast big_integer_value = new StringToIntegerCast(
-                    symb_string, concVal);
+            StringToIntegerCast bigIntegerValue = new StringToIntegerCast(
+                    symbString, concVal);
 
             env.heap.putField(Types.JAVA_MATH_BIG_INTEGER,
                     SymbolicHeap.$BIG_INTEGER_CONTENTS,
-                    null /* conc_big_integer */, symb_big_integer,
-                    big_integer_value);
+                    null /* concBigInteger */, symbBigInteger,
+                    bigIntegerValue);
         }
 
         // return void

@@ -36,10 +36,12 @@ public final class GetFieldExpression extends ReferenceExpression {
 
     /**
      * Creates a symbolic expression of the form "expr.F" where expr is the
-     * <code>ReferenceExpression</code>, F is the string <code>fieldName</code>
+     * {@code ReferenceExpression}, F is the string {@code fieldName}
      * and the concrete value of the symbolic expression "expr.F" is
-     * <code>concreteValue</code>
+     * {@code concreteValue}.
      *
+     * @param objectType the type of the field
+     * @param instanceId the unique id of the field reference
      * @param receiverExpr  the symbolic expression of the receiver object
      * @param fieldName     the field name
      * @param concreteValue the concrete object for the symbolic expression expr.F
@@ -54,9 +56,9 @@ public final class GetFieldExpression extends ReferenceExpression {
 
     /**
      * Returns the set of all the variables in the receiver expression (the expr
-     * in expr.F)
+     * in expr.F).
      *
-     * @return
+     * @return the set of variables
      */
     @Override
     public Set<Variable<?>> getVariables() {
@@ -69,18 +71,18 @@ public final class GetFieldExpression extends ReferenceExpression {
     }
 
     /**
-     * Returns the receiver expression (the expr in expr.F)
+     * Returns the receiver expression (the expr in expr.F).
      *
-     * @return
+     * @return the receiver expression
      */
     public ReferenceExpression getReceiverExpr() {
         return receiverExpr;
     }
 
     /**
-     * Returns the field name (the F in expr.F)
+     * Returns the field name (the F in expr.F).
      *
-     * @return
+     * @return the field name
      */
     public String getFieldName() {
         return fieldName;

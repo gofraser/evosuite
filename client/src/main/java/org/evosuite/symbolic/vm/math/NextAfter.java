@@ -29,7 +29,8 @@ public abstract class NextAfter {
 
     private static final String NEXT_AFTER = "nextAfter";
 
-    public final static class NextAfter_D extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class NextAfter_D extends SymbolicFunction {
 
         public NextAfter_D(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, NEXT_AFTER, Types.DD2D_DESCRIPTOR);

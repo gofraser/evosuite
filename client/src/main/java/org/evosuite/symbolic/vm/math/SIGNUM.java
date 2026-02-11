@@ -29,7 +29,8 @@ public abstract class SIGNUM {
 
     private static final String SIGNUM = "signum";
 
-    public final static class SIGNUM_D extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class SIGNUM_D extends SymbolicFunction {
 
         public SIGNUM_D(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, SIGNUM, Types.D2D_DESCRIPTOR);
@@ -51,7 +52,8 @@ public abstract class SIGNUM {
 
     }
 
-    public final static class SIGNUM_F extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class SIGNUM_F extends SymbolicFunction {
 
         public SIGNUM_F(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, SIGNUM, Types.F2F_DESCRIPTOR);

@@ -25,9 +25,14 @@ import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 
+/**
+ * Symbolic function for Character.isLetter.
+ *
+ * @author galeotti
+ */
 public final class Character_isLetter extends SymbolicFunction {
 
-    private final static String IS_LETTER = "isLetter";
+    private static final String IS_LETTER = "isLetter";
 
     public Character_isLetter(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_CHARACTER, IS_LETTER, Types.C_TO_Z);

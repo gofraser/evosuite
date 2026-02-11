@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Byte constructor.
+ *
+ * @author galeotti
+ */
 public final class B_Init extends SymbolicFunction {
 
     public B_Init(SymbolicEnvironment env) {
@@ -34,9 +39,9 @@ public final class B_Init extends SymbolicFunction {
     @Override
     public Object executeFunction() {
         IntegerValue bv32 = this.getSymbIntegerArgument(0);
-        ReferenceConstant symb_byte = this.getSymbReceiver();
+        ReferenceConstant symbByte = this.getSymbReceiver();
         env.heap.putField(Types.JAVA_LANG_BYTE, SymbolicHeap.$BYTE_VALUE,
-                null/* conc_integer */, symb_byte, bv32);
+                null/* concByte */, symbByte, bv32);
 
         // return void
         return null;

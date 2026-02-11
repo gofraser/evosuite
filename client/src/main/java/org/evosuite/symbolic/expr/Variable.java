@@ -22,24 +22,23 @@ package org.evosuite.symbolic.expr;
 public interface Variable<T extends Object> extends Expression<T> {
 
     /**
-     * <p>getName</p>
+     * Returns the name of the variable.
      *
-     * @param <T> a T object.
-     * @return a {@link java.lang.String} object.
+     * @return the variable name.
      */
     String getName();
 
     /**
-     * <p>getMinValue</p>
+     * Returns the minimum possible value of the variable.
      *
-     * @return a T object.
+     * @return the minimum value.
      */
     T getMinValue();
 
     /**
-     * <p>getMaxValue</p>
+     * Returns the maximum possible value of the variable.
      *
-     * @return a T object.
+     * @return the maximum value.
      */
     T getMaxValue();
 }

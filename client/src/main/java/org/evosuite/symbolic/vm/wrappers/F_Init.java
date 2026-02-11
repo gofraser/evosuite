@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Float constructor.
+ *
+ * @author galeotti
+ */
 public final class F_Init extends SymbolicFunction {
 
     public F_Init(SymbolicEnvironment env) {
@@ -35,9 +40,9 @@ public final class F_Init extends SymbolicFunction {
     public Object executeFunction() {
 
         RealValue fp32 = this.getSymbRealArgument(0);
-        ReferenceConstant symb_float = this.getSymbReceiver();
+        ReferenceConstant symbFloat = this.getSymbReceiver();
         env.heap.putField(Types.JAVA_LANG_FLOAT, SymbolicHeap.$FLOAT_VALUE,
-                null/* conc_float */, symb_float, fp32);
+                null/* concFloat */, symbFloat, fp32);
         // return void
         return null;
     }

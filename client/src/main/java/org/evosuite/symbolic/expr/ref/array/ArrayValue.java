@@ -23,7 +23,7 @@ import org.evosuite.symbolic.expr.Expression;
 import org.evosuite.symbolic.expr.SymbolicValue;
 
 /**
- * interface for array related expressions
+ * Interface for array related expressions.
  *
  * @author Ignacio Lebrero
  */

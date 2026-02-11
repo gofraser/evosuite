@@ -22,11 +22,13 @@ package org.evosuite.symbolic.expr.ref;
 import org.objectweb.asm.Type;
 
 /**
- * Represents all non null constant references
+ * Represents all non null constant references.
  *
  * @author Ignacio Lebrero
  */
 public abstract class NonNullReferenceConstant extends ReferenceConstant {
+
+    private static final long serialVersionUID = -4567890123456789012L;
 
     public NonNullReferenceConstant(Type objectType, int instanceId) {
         super(objectType, instanceId);

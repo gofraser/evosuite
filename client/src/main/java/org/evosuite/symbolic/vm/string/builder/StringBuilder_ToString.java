@@ -26,39 +26,52 @@ import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 import org.evosuite.symbolic.vm.string.Types;
 
+/**
+ * Symbolic function implementation for StringBuilder.toString.
+ *
+ * @author galeotti
+ */
 public final class StringBuilder_ToString extends SymbolicFunction {
 
     private static final String TO_STRING = "toString";
 
+    /**
+     * Constructs a StringBuilder_ToString.
+     *
+     * @param env the symbolic environment
+     */
     public StringBuilder_ToString(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING_BUILDER, TO_STRING,
                 Types.TO_STR_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
-        ReferenceConstant symb_str_builder = this
+        ReferenceConstant symbStrBuilder = this
                 .getSymbReceiver();
 
         // receiver
-        StringBuilder conc_str_builder = (StringBuilder) this.getConcReceiver();
+        StringBuilder concStrBuilder = (StringBuilder) this.getConcReceiver();
 
         // return value
         String res = (String) this.getConcRetVal();
 
         if (res != null) {
-            ReferenceConstant symb_ret_val = (ReferenceConstant) this
+            ReferenceConstant symbRetVal = (ReferenceConstant) this
                     .getSymbRetVal();
 
-            StringValue symb_value = env.heap.getField(
+            StringValue symbValue = env.heap.getField(
                     Types.JAVA_LANG_STRING_BUILDER,
-                    SymbolicHeap.$STRING_BUILDER_CONTENTS, conc_str_builder,
-                    symb_str_builder, conc_str_builder.toString());
+                    SymbolicHeap.$STRING_BUILDER_CONTENTS, concStrBuilder,
+                    symbStrBuilder, concStrBuilder.toString());
 
-            String conc_receiver = res;
+            String concReceiver = res;
             env.heap.putField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_receiver, symb_ret_val,
-                    symb_value);
+                    SymbolicHeap.$STRING_VALUE, concReceiver, symbRetVal,
+                    symbValue);
         }
 
         return this.getSymbRetVal();

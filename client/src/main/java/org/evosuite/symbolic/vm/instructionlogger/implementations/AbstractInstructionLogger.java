@@ -35,235 +35,653 @@ import java.util.List;
  */
 
 /**
+
  * Central log.
- * <p>
- * Offers convenience methods for logging short lists of strings that
- * do not use the String "+" operator.
- * <p>
- * FIXME: very primitive
+
  *
+
+ * <p>Offers convenience methods for logging short lists of strings that
+
+ * do not use the String "+" operator.</p>
+
+ *
+
+ * <p>FIXME: very primitive</p>
+
+ *
+
  * @author csallner@uta.edu (Christoph Csallner)
+
  */
+
 public abstract class AbstractInstructionLogger implements IInstructionLogger {
 
+
+
     private static final transient Logger logger = LoggerFactory.getLogger(AbstractInstructionLogger.class);
+
     static List<String> instructionsExecuted = new ArrayList<>();
+
     static StringBuilder buffer = new StringBuilder();
 
-    public final static String NL = System.getProperty("line.separator");
-    public final static String FS = System.getProperty("file.separator");
+
+
+    public static final String NL = System.getProperty("line.separator");
+
+    public static final String FS = System.getProperty("file.separator");
+
+
 
     /**
+
      * Log parameter as p.
+
+     *
+
+     * @param p the string parameter
+
      */
+
     public abstract void log(String p);
 
+
+
     /**
+
      * Log newline.
+
      */
+
     public abstract void logln();
+
+
 
     public abstract void cleanUp();
 
+
+
     /**
+
      * Log parameter as p.
+
+     *
+
+     * @param p the integer parameter
+
      */
+
     public void log(int p) {
+
         log(String.valueOf(p));
+
     }
 
+
+
     /**
+
      * Log parameters as ab.
+
+     *
+
+     * @param a first parameter
+
+     * @param b second parameter
+
      */
+
     public void log(String a, String b) {
+
         log(a);
+
         log(b);
+
     }
 
+
+
     /**
+
      * Log parameters as abc.
+
+     *
+
+     * @param a first parameter
+
+     * @param b second parameter
+
+     * @param c third parameter
+
      */
+
     public void log(String a, String b, String c) {
+
         log(a);
+
         log(b);
+
         log(c);
+
     }
 
+
+
     /**
+
      * Log parameters as abcd.
+
+     *
+
+     * @param a first parameter
+
+     * @param b second parameter
+
+     * @param c third parameter
+
+     * @param d fourth parameter
+
      */
+
     public void log(String a, String b, String c, String d) {
+
         log(a);
+
         log(b);
+
         log(c);
+
         log(d);
+
     }
 
+
+
     /**
+
      * Log parameters as abcde.
+
+     *
+
+     * @param a first parameter
+
+     * @param b second parameter
+
+     * @param c third parameter
+
+     * @param d fourth parameter
+
+     * @param e fifth parameter
+
      */
+
     public void log(String a, String b, String c, String d, String e) {
+
         log(a);
+
         log(b);
+
         log(c);
+
         log(d);
+
         log(e);
+
     }
 
+
+
     /**
+
      * Log parameter as p followed by newline.
+
+     *
+
+     * @param p the integer parameter
+
      */
+
     public void logln(int p) {
+
         log(p);
+
         logln();
+
     }
 
+
+
     /**
+
      * Log stack trace of exception. If it is an exception thrown by the user
+
      * program, omit lower part of stack trace that shows Dsc invocation
+
      * machinery.
+
+     *
+
+     * @param e the exception to log
+
      */
+
     public void logln(Throwable e) {
-        if (e == null)
+
+        if (e == null) {
+
             return;
+
+        }
+
+
 
         log("Aborted with: ");
+
         logln(e.toString());
 
+
+
         StackTraceElement[] trace = e.getStackTrace();
-        if (trace == null)
+
+        if (trace == null) {
+
             return;
+
+        }
+
+
 
         for (StackTraceElement ste : trace) {
-            if (ste == null)
+
+            if (ste == null) {
+
                 continue;
 
-            String className = ste.getClassName();
-            if (className != null && className.startsWith("edu.uta.cse.dsc.vm.MethodExploration")) {
-                logln("\t.. invoked by Dsc.");
-                break;
             }
 
+
+
+            String className = ste.getClassName();
+
+            if (className != null && className.startsWith("edu.uta.cse.dsc.vm.MethodExploration")) {
+
+                logln("\t.. invoked by Dsc.");
+
+                break;
+
+            }
+
+
+
             log("\tat ");
+
             logln(ste.toString());
+
         }
+
     }
 
+
+
     /**
+
      * Log parameter as p followed by newline.
+
+     *
+
+     * @param p the object parameter
+
      */
+
     public void logln(Object p) {
+
         logln(p.toString());
+
     }
 
+
+
     /**
+
      * Log parameter as p followed by newline.
+
+     *
+
+     * @param p the string parameter
+
      */
+
     public void logln(String p) {
+
         logger.info(p);
+
         logln();
+
     }
 
+
+
     /**
+
      * Log parameters as ab followed by newline.
+
+     *
+
+     * @param a first parameter
+
+     * @param b second parameter
+
      */
+
     public void logln(String a, String b) {
+
         log(a, b);
+
         logln();
+
     }
 
+
+
     /**
+
      * Log parameters as abc followed by newline.
+
+     *
+
+     * @param a first parameter
+
+     * @param b second parameter
+
+     * @param c third parameter
+
      */
+
     public void logln(String a, String b, String c) {
+
         log(a, b, c);
+
         logln();
+
     }
 
+
+
     /**
+
      * Log parameters as abcd followed by newline.
+
+     *
+
+     * @param a first parameter
+
+     * @param b second parameter
+
+     * @param c third parameter
+
+     * @param d fourth parameter
+
      */
+
     public void logln(String a, String b, String c, String d) {
+
         log(a, b, c, d);
+
         logln();
+
     }
+
+
 
     /**
+
      * Log parameters as abcde followed by newline.
+
+     *
+
+     * @param a first parameter
+
+     * @param b second parameter
+
+     * @param c third parameter
+
+     * @param d fourth parameter
+
+     * @param e fifth parameter
+
      */
+
     public void logln(String a, String b, String c, String d, String e) {
+
         log(a, b, c, d, e);
+
         logln();
+
     }
 
+
+
+    /**
+     * Logs the object string representation to a file if doLog is true.
+     *
+     * @param doLog whether to log
+     * @param o the object to log
+     * @param fileName the filename where to log
+     */
     public void logfileIf(boolean doLog, Object o, String fileName) {
-        if (!doLog)    // src-util should not depend on src-vm
+
+        if (!doLog) { // src-util should not depend on src-vm
+
             return;
 
-        try (FileWriter fstream = new FileWriter(fileName)) {
-            final BufferedWriter writer = new BufferedWriter(fstream);
-            writer.write(o.toString());
-            writer.close();
-        } catch (Exception e) { //Catch exception if any
-            System.err.println("File error: " + e.getMessage());
         }
+
+
+
+        try (FileWriter fstream = new FileWriter(fileName)) {
+
+            final BufferedWriter writer = new BufferedWriter(fstream);
+
+            writer.write(o.toString());
+
+            writer.close();
+
+        } catch (Exception e) { //Catch exception if any
+
+            System.err.println("File error: " + e.getMessage());
+
+        }
+
     }
 
 
+
+
+
     /**
+
      * Logs parameter, if doLog.
+
+     *
+
+     * @param doLog whether to log
+
+     * @param s the string to log
+
      */
+
     public void logIf(boolean doLog, String s) {
-        if (doLog)
+
+        if (doLog) {
+
             log(s);
+
+        }
+
     }
 
 
+
+
+
     /**
+
      * Logs newline, if doLog.
+
+     *
+
+     * @param doLog whether to log
+
      */
+
     public void loglnIf(boolean doLog) {
-        if (doLog)
+
+        if (doLog) {
+
             logln();
+
+        }
+
     }
 
+
+
     /**
+
      * Logs parameter followed by newline, if doLog.
+
+     *
+
+     * @param doLog whether to log
+
+     * @param s the string to log
+
      */
+
     public void loglnIf(boolean doLog, String s) {
-        if (doLog)
+
+        if (doLog) {
+
             logln(s);
+
+        }
+
     }
 
+
+
     /**
+
      * Logs parameters as ab followed by newline, if doLog.
+
+     *
+
+     * @param doLog whether to log
+
+     * @param a first parameter
+
+     * @param b second parameter
+
      */
+
     public void loglnIf(boolean doLog, String a, String b) {
-        if (doLog)
+
+        if (doLog) {
+
             logln(a, b);
+
+        }
+
     }
 
+
+
     /**
+
      * Logs parameters as abc followed by newline, if doLog.
+
+     *
+
+     * @param doLog whether to log
+
+     * @param a first parameter
+
+     * @param b second parameter
+
+     * @param c third parameter
+
      */
+
     public void loglnIf(boolean doLog, String a, String b, String c) {
-        if (doLog)
+
+        if (doLog) {
+
             logln(a, b, c);
+
+        }
+
     }
 
+
+
     /**
+
      * Logs parameters as abcd followed by newline, if doLog.
+
+     *
+
+     * @param doLog whether to log
+
+     * @param a first parameter
+
+     * @param b second parameter
+
+     * @param c third parameter
+
+     * @param d fourth parameter
+
      */
+
     public void loglnIf(boolean doLog, String a, String b, String c, String d) {
-        if (doLog)
+
+        if (doLog) {
+
             logln(a, b, c, d);
+
+        }
+
     }
 
+
+
     /**
+
      * Logs parameters as abcde followed by newline, if doLog.
+
+     *
+
+     * @param doLog whether to log
+
+     * @param a first parameter
+
+     * @param b second parameter
+
+     * @param c third parameter
+
+     * @param d fourth parameter
+
+     * @param e fifth parameter
+
      */
+
     public void loglnIf(boolean doLog, String a, String b, String c, String d, String e) {
-        if (doLog)
+
+        if (doLog) {
+
             logln(a, b, c, d, e);
+
+        }
+
     }
+
 }
+

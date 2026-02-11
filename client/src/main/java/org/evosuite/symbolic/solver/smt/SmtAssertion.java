@@ -23,14 +23,28 @@ public final class SmtAssertion {
 
     private final SmtExpr formula;
 
+    /**
+     * Constructor.
+     *
+     * @param f a {@link org.evosuite.symbolic.solver.smt.SmtExpr} object.
+     */
     public SmtAssertion(SmtExpr f) {
         this.formula = f;
     }
 
+    /**
+     * Returns the formula.
+     *
+     * @return a {@link org.evosuite.symbolic.solver.smt.SmtExpr} object.
+     */
     public SmtExpr getFormula() {
         return formula;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public String toString() {
         SmtQueryPrinter printer = new SmtQueryPrinter();
         String str = printer.print(this);

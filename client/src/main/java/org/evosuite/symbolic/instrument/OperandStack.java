@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic.instrument;
 
@@ -35,12 +35,12 @@ import static org.objectweb.asm.Type.VOID_TYPE;
  */
 
 /**
- * Helper class
- * <p>
- * Methods to generate bytecodes that mutate the
- * operand stack
- * <p>
- * TODO: Handle all cases via local variables, via LocalVariablesSorter:
+ * Helper class.
+ *
+ * <p>Methods to generate bytecodes that mutate the
+ * operand stack.
+ *
+ * <p>TODO: Handle all cases via local variables, via LocalVariablesSorter:
  * http://asm.ow2.org/asm30/javadoc/user/org/objectweb/asm/commons/LocalVariablesSorter.html
  *
  * @author csallner@uta.edu (Christoph Csallner)
@@ -58,15 +58,18 @@ final class OperandStack {
     private String desc(Type returnType, Type... argumentTypes) {
         StringBuffer desc = new StringBuffer();
         desc.append("("); //$NON-NLS-1$
-        for (Type type : argumentTypes)
+        for (Type type : argumentTypes) {
             desc.append(type.getDescriptor());
+        }
         desc.append(")"); //$NON-NLS-1$
         desc.append(returnType.getDescriptor());
         return desc.toString();
     }
 
     /**
-     * Push i onto our operand stack
+     * Push i onto our operand stack.
+     *
+     * @param i a int.
      */
     void pushInt(int i) {
         switch (i) {
@@ -91,6 +94,8 @@ final class OperandStack {
             case 5:
                 mv.visitInsn(ICONST_5);
                 return;
+            default:
+                break;
         }
         if (i >= Byte.MIN_VALUE && i <= Byte.MAX_VALUE) {
             mv.visitIntInsn(BIPUSH, i);
@@ -104,80 +109,10 @@ final class OperandStack {
     }
 
     /**
-     * ...
-     * ==>
-     * ..., s[0], s[1], ..., s[n]
-     */
-
-    void pushStrings(String... strings) {
-        for (String string : strings) {
-            mv.visitLdcInsn(string);
-        }
-    }
-
-    /**
-     * ..., b1, a1
-     * ==>
-     * ..., b1, a1, b1
-     */
-    void b1a1__b1a1b1() {
-        /* ..., b1, a1*/
-        mv.visitInsn(SWAP);
-        /* ..., a1, b1*/
-        mv.visitInsn(DUP_X1);
-        /* ..., b1, a1, b1*/
-    }
-
-    /**
-     * ..., b1, a2
-     * ==>
-     * ..., b1, a2, b1
-     */
-    void b1a2__b1a2b1() {
-        /* ..., b1, a2 */
-        mv.visitInsn(DUP2_X1);
-        /* ..., a2, b1, a2 */
-        mv.visitInsn(POP2);
-        /* ..., a2, b1 */
-        mv.visitInsn(DUP_X2);
-        /* ..., b1, a2, b1 */
-    }
-
-    /**
-     * ..., b2, a1
-     * ==>
-     * ..., b2, a1, b2
-     */
-    void b2a1__b2a1b2() {
-        /* ..., b2, a1 */
-        mv.visitInsn(DUP_X2);
-        /* ..., a1, b2, a1 */
-        mv.visitInsn(POP);
-        /* ..., a1, b2 */
-        mv.visitInsn(DUP2_X1);
-        /* ..., b2, a1, b2 */
-    }
-
-    /**
-     * ..., b2, a2
-     * ==>
-     * ..., b2, a2, b2
-     */
-    void b2a2__b2a2b2() {
-        /* ..., b2, a2 */
-        mv.visitInsn(DUP2_X2);
-        /* ..., a2, b2, a2 */
-        mv.visitInsn(POP2);
-        /* ..., a2, b2 */
-        mv.visitInsn(DUP2_X2);
-        /* ..., b2, a2, b2 */
-    }
-
-    /**
-     * Transform top of operand stack, assuming each operand is of category-1:
-     * <p>
-     * ..., c1, b1, a1
-     * ==>
+     * Transform top of operand stack, assuming each operand is of category-1.
+     *
+     * <p>..., c1, b1, a1
+     * ==&gt;
      * ..., c1, b1, a1, c1
      */
     void c1b1a1__c1b1a1c1() {
@@ -195,9 +130,80 @@ final class OperandStack {
     }
 
     /**
+     * ...
+     * ==&gt;
+     * ..., s[0], s[1], ..., s[n].
+     *
+     * @param strings an array of {@link java.lang.String} objects.
+     */
+    void pushStrings(String... strings) {
+        for (String string : strings) {
+            mv.visitLdcInsn(string);
+        }
+    }
+
+    /**
+     * ..., b1, a1
+     * ==&gt;
+     * ..., b1, a1, b1.
+     */
+    void b1a1__b1a1b1() {
+        /* ..., b1, a1*/
+        mv.visitInsn(SWAP);
+        /* ..., a1, b1*/
+        mv.visitInsn(DUP_X1);
+        /* ..., b1, a1, b1*/
+    }
+
+    /**
+     * ..., b1, a2
+     * ==&gt;
+     * ..., b1, a2, b1.
+     */
+    void b1a2__b1a2b1() {
+        /* ..., b1, a2 */
+        mv.visitInsn(DUP2_X1);
+        /* ..., a2, b1, a2 */
+        mv.visitInsn(POP2);
+        /* ..., a2, b1 */
+        mv.visitInsn(DUP_X2);
+        /* ..., b1, a2, b1 */
+    }
+
+    /**
+     * ..., b2, a1
+     * ==&gt;
+     * ..., b2, a1, b2.
+     */
+    void b2a1__b2a1b2() {
+        /* ..., b2, a1 */
+        mv.visitInsn(DUP_X2);
+        /* ..., a1, b2, a1 */
+        mv.visitInsn(POP);
+        /* ..., a1, b2 */
+        mv.visitInsn(DUP2_X1);
+        /* ..., b2, a1, b2 */
+    }
+
+    /**
+     * ..., b2, a2
+     * ==&gt;
+     * ..., b2, a2, b2.
+     */
+    void b2a2__b2a2b2() {
+        /* ..., b2, a2 */
+        mv.visitInsn(DUP2_X2);
+        /* ..., a2, b2, a2 */
+        mv.visitInsn(POP2);
+        /* ..., a2, b2 */
+        mv.visitInsn(DUP2_X2);
+        /* ..., b2, a2, b2 */
+    }
+
+    /**
      * ..., c1, b1, a2
-     * ==>
-     * ..., c1, b1, a2, c1
+     * ==&gt;
+     * ..., c1, b1, a2, c1.
      */
     void c1b1a2__c1b1a2c1() {
         /* ..., c1, b1, a2 */
@@ -213,8 +219,8 @@ final class OperandStack {
 
     /**
      * ..., c1, b2, a1
-     * ==>
-     * ..., c1, b2, a1, c1
+     * ==&gt;
+     * ..., c1, b2, a1, c1.
      */
     void c1b2a1__c1b2a1c1() {
         /* ..., c1, b2, a1 */
@@ -241,13 +247,18 @@ final class OperandStack {
     }
 
     /**
-     * Pass a single parameter
+     * Pass a single parameter.
+     *
+     * @param argType a {@link org.objectweb.asm.Type} object.
+     * @param paramNr a int.
+     * @param calleeLocalsIndex a int.
      */
     void passCallerStackParam(Type argType, int paramNr, int calleeLocalsIndex) {
         /* Replace concrete complex type by java.lang.Object */
         Type type = argType;
-        if (type.getSort() == Type.OBJECT || type.getSort() == Type.ARRAY)
+        if (type.getSort() == Type.OBJECT || type.getSort() == Type.ARRAY) {
             type = TYPE_OBJECT;
+        }
 
         pushInt(paramNr);
         pushInt(calleeLocalsIndex);
@@ -257,17 +268,23 @@ final class OperandStack {
 
     /**
      * Pass non-receiver-parameters one at a time,
-     * right to left, downwards the operand stack
+     * right to left, downwards the operand stack.
+     *
+     * @param argTypes an array of {@link org.objectweb.asm.Type} objects.
+     * @param needThis a boolean.
      */
     void passCallerStackParams(Type[] argTypes, boolean needThis) {
-        if (argTypes == null || argTypes.length == 0)
+        if (argTypes == null || argTypes.length == 0) {
             return;
+        }
 
         int calleeLocalsIndex = 0;
-        for (Type type : argTypes)
+        for (Type type : argTypes) {
             calleeLocalsIndex += type.getSize();
-        if (needThis)
+        }
+        if (needThis) {
             calleeLocalsIndex += 1;
+        }
 
         int paramNr = argTypes.length - 1;    // work right to left
 
@@ -276,8 +293,9 @@ final class OperandStack {
             calleeLocalsIndex -= 1;
             mv.visitInsn(DUP);
             passCallerStackParam(argTypes[paramNr], paramNr, calleeLocalsIndex);
-            if (argTypes.length == 1)
+            if (argTypes.length == 1) {
                 return;
+            }
             paramNr -= 1;
 
             if (argTypes[paramNr].getSize() == 1) {
@@ -288,14 +306,16 @@ final class OperandStack {
                 calleeLocalsIndex -= 2;
                 b2a1__b2a1b2();
                 passCallerStackParam(argTypes[paramNr], paramNr, calleeLocalsIndex);
-            } else
+            } else {
                 check(false);
+            }
         } else if (argTypes[paramNr].getSize() == 2) {
             calleeLocalsIndex -= 2;
             mv.visitInsn(DUP2);
             passCallerStackParam(argTypes[paramNr], paramNr, calleeLocalsIndex);
-            if (argTypes.length == 1)
+            if (argTypes.length == 1) {
                 return;
+            }
             paramNr -= 1;
             if (argTypes[paramNr].getSize() == 1) {
                 calleeLocalsIndex -= 1;
@@ -305,9 +325,11 @@ final class OperandStack {
                 calleeLocalsIndex -= 2;
                 b2a2__b2a2b2();
                 passCallerStackParam(argTypes[paramNr], paramNr, calleeLocalsIndex);
-            } else
+            } else {
                 check(false);
-        } else
+            }
+        } else {
             check(false);
+        }
     }
 }

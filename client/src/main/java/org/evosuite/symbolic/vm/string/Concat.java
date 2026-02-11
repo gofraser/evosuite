@@ -27,41 +27,54 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for String.concat.
+ *
+ * @author galeotti
+ */
 public final class Concat extends SymbolicFunction {
 
     private static final String CONCAT = "concat";
 
+    /**
+     * Constructs a Concat.
+     *
+     * @param env the symbolic environment
+     */
     public Concat(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING, CONCAT, Types.STR_TO_STR_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
 
-        String conc_left = (String) this.getConcReceiver();
-        ReferenceConstant symb_left = this.getSymbReceiver();
+        String concLeft = (String) this.getConcReceiver();
+        ReferenceConstant symbLeft = this.getSymbReceiver();
 
-        StringValue left_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_left, symb_left, conc_left);
+        StringValue leftExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concLeft, symbLeft, concLeft);
 
-        String conc_right = (String) this.getConcArgument(0);
-        ReferenceConstant symb_right = (ReferenceConstant) this
+        String concRight = (String) this.getConcArgument(0);
+        ReferenceConstant symbRight = (ReferenceConstant) this
                 .getSymbArgument(0);
 
-        StringValue right_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_right, symb_right, conc_right);
+        StringValue rightExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concRight, symbRight, concRight);
 
         String res = (String) this.getConcRetVal();
         if (res != null) {
-            StringBinaryExpression symb_value = new StringBinaryExpression(
-                    left_expr, Operator.CONCAT, right_expr, res);
+            StringBinaryExpression symbValue = new StringBinaryExpression(
+                    leftExpr, Operator.CONCAT, rightExpr, res);
 
-            ReferenceConstant symb_receiver = (ReferenceConstant) env.topFrame().operandStack
+            ReferenceConstant symbReceiver = (ReferenceConstant) env.topFrame().operandStack
                     .peekRef();
-            String conc_receiver = res;
+            String concReceiver = res;
             env.heap.putField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_receiver, symb_receiver,
-                    symb_value);
+                    SymbolicHeap.$STRING_VALUE, concReceiver, symbReceiver,
+                    symbValue);
         }
         return this.getSymbRetVal();
     }

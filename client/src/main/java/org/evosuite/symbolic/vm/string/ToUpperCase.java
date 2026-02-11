@@ -27,33 +27,46 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for String.toUpperCase.
+ *
+ * @author galeotti
+ */
 public final class ToUpperCase extends SymbolicFunction {
 
     private static final String TO_UPPER_CASE = "toUpperCase";
 
+    /**
+     * Constructs a ToUpperCase.
+     *
+     * @param env the symbolic environment
+     */
     public ToUpperCase(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING, TO_UPPER_CASE,
                 Types.TO_STR_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
 
         // object receiver
-        ReferenceConstant symb_str = this.getSymbReceiver();
-        String conc_str = (String) this.getConcReceiver();
+        ReferenceConstant symbStr = this.getSymbReceiver();
+        String concStr = (String) this.getConcReceiver();
 
         // return value
-        String conc_ret_val = (String) this.getConcRetVal();
-        ReferenceConstant symb_ret_val = (ReferenceConstant) this.getSymbRetVal();
+        String concRetVal = (String) this.getConcRetVal();
+        ReferenceConstant symbRetVal = (ReferenceConstant) this.getSymbRetVal();
 
-        StringValue string_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_str, symb_str, conc_str);
-        StringUnaryExpression symb_value = new StringUnaryExpression(
-                string_expr, Operator.TOUPPERCASE, conc_ret_val);
+        StringValue stringExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concStr, symbStr, concStr);
+        StringUnaryExpression symbValue = new StringUnaryExpression(
+                stringExpr, Operator.TOUPPERCASE, concRetVal);
 
         env.heap.putField(Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                conc_ret_val, symb_ret_val, symb_value);
+                concRetVal, symbRetVal, symbValue);
 
         return this.getSymbRetVal();
     }

@@ -32,33 +32,46 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
 import java.util.ArrayList;
 
+/**
+ * Symbolic function implementation for String.regionMatches (5 arguments).
+ *
+ * @author galeotti
+ */
 public final class RegionMatches5 extends SymbolicFunction {
 
     private static final String REGION_MATCHES = "regionMatches";
 
+    /**
+     * Constructs a RegionMatches5.
+     *
+     * @param env the symbolic environment
+     */
     public RegionMatches5(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING, REGION_MATCHES,
                 Types.INT_STR_INT_INT_TO_BOOL_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
 
-        ReferenceConstant symb_receiver = this
+        ReferenceConstant symbReceiver = this
                 .getSymbReceiver();
-        String conc_receiver = (String) this.getConcReceiver();
+        String concReceiver = (String) this.getConcReceiver();
         StringValue stringReceiverExpr = env.heap.getField(
                 Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                conc_receiver, symb_receiver, conc_receiver);
+                concReceiver, symbReceiver, concReceiver);
 
         IntegerValue ignoreCaseExpr = new IntegerConstant(0);
         IntegerValue toffsetExpr = this.getSymbIntegerArgument(0);
 
-        ReferenceConstant symb_other = (ReferenceConstant) this
+        ReferenceConstant symbOther = (ReferenceConstant) this
                 .getSymbArgument(1);
-        String conc_other = (String) this.getConcArgument(1);
+        String concOther = (String) this.getConcArgument(1);
         StringValue otherExpr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_other, symb_other, conc_other);
+                SymbolicHeap.$STRING_VALUE, concOther, symbOther, concOther);
         IntegerValue ooffsetExpr = this.getSymbIntegerArgument(2);
         IntegerValue lenExpr = this.getSymbIntegerArgument(3);
 

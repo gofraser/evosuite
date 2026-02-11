@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic.instrument;
 
@@ -28,7 +28,7 @@ import org.objectweb.asm.Opcodes;
  */
 
 /**
- * TODO: Does Asm has this already somewhere?
+ * TODO: Does Asm has this already somewhere?.
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */

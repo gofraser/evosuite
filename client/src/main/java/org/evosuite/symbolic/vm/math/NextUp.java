@@ -29,7 +29,8 @@ public abstract class NextUp {
 
     private static final String NEXT_UP = "nextUp";
 
-    public final static class NextUp_D extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class NextUp_D extends SymbolicFunction {
 
         public NextUp_D(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, NEXT_UP, Types.D2D_DESCRIPTOR);
@@ -51,7 +52,8 @@ public abstract class NextUp {
 
     }
 
-    public final static class NextUp_F extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class NextUp_F extends SymbolicFunction {
 
         public NextUp_F(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, NEXT_UP, Types.F2F_DESCRIPTOR);

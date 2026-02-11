@@ -19,6 +19,9 @@
  */
 package org.evosuite.symbolic.solver;
 
+/**
+ * Exception thrown when the solver's output cannot be parsed.
+ */
 public final class SolverParseException extends Exception {
 
 

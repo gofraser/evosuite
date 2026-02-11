@@ -24,7 +24,7 @@ import org.evosuite.symbolic.dse.algorithm.GenerationalSearchPathCondition;
 import java.util.List;
 
 /**
- * Interface for path extension strategies
+ * Interface for path extension strategies.
  *
  * @author ignacio lebrero
  */

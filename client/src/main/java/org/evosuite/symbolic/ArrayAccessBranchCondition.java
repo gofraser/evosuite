@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic;
 
@@ -37,18 +37,23 @@ public final class ArrayAccessBranchCondition extends BranchCondition {
      * An array access condition is identified by the className, methodName and instructionIndex and the target
      * constraint.
      *
-     * @param className
-     * @param methodName
-     * @param instructionIndex
-     * @param constraint
-     * @param isErrorBranch
+     * @param className a {@link java.lang.String} object.
+     * @param methodName a {@link java.lang.String} object.
+     * @param instructionIndex a int.
+     * @param constraint a {@link org.evosuite.symbolic.expr.Constraint} object.
+     * @param isErrorBranch a boolean.
      */
-    public ArrayAccessBranchCondition(String className, String methodName, int instructionIndex, Constraint<?> constraint,
-                                      boolean isErrorBranch) {
+    public ArrayAccessBranchCondition(String className, String methodName, int instructionIndex,
+                                      Constraint<?> constraint, boolean isErrorBranch) {
         super(className, methodName, instructionIndex, constraint, new ArrayList<>());
         this.isErrorBranch = isErrorBranch;
     }
 
+    /**
+     * Returns true if this is an error branch.
+     *
+     * @return a boolean.
+     */
     public boolean isErrorBranch() {
         return isErrorBranch;
     }

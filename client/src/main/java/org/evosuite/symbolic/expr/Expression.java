@@ -25,49 +25,62 @@ import java.util.Set;
 public interface Expression<T extends Object> extends Serializable {
 
     /**
-     * <p>
-     * getParent
-     * </p>
+     * Returns the parent expression.
      *
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     Expression<?> getParent();
 
     /**
-     * <p>
-     * setParent
-     * </p>
+     * Sets the parent expression.
      *
      * @param expr a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     void setParent(Expression<?> expr);
 
     /**
-     * <p>
-     * getConcreteValue
-     * </p>
+     * Returns the concrete value of the expression.
      *
      * @return a {@link java.lang.Object} object.
      */
     T getConcreteValue();
 
     /**
-     * <p>
-     * getSize
-     * </p>
+     * Returns the size of the expression.
      *
-     * @return a int.
+     * @return the expression size.
      */
     int getSize();
 
     /**
-     * Returns true iif
+     * Returns true if the expression contains a symbolic variable.
+     *
+     * @return true if it contains a symbolic variable, false otherwise.
      */
     boolean containsSymbolicVariable();
 
+    /**
+     * Returns the set of symbolic variables in the expression.
+     *
+     * @return the set of variables.
+     */
     Set<Variable<?>> getVariables();
 
+    /**
+     * Returns the set of constant values in the expression.
+     *
+     * @return the set of constants.
+     */
     Set<Object> getConstants();
 
+    /**
+     * Accepts an expression visitor.
+     *
+     * @param v the visitor
+     * @param arg the argument
+     * @param <K> the return type
+     * @param <V> the argument type
+     * @return the visitor result
+     */
     <K, V> K accept(ExpressionVisitor<K, V> v, V arg);
 }

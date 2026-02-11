@@ -21,9 +21,7 @@ package org.evosuite.symbolic.vm.heap.symbolicHeapSection;
 
 import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.expr.fp.RealValue;
-import org.evosuite.symbolic.expr.ref.ReferenceConstant;
 import org.evosuite.symbolic.expr.ref.ReferenceExpression;
-import org.evosuite.symbolic.expr.ref.ReferenceVariable;
 import org.evosuite.symbolic.expr.ref.array.ArrayConstant;
 import org.evosuite.symbolic.expr.ref.array.ArrayValue;
 import org.evosuite.symbolic.expr.ref.array.ArrayVariable;
@@ -43,9 +41,9 @@ import java.util.Map;
 public class SelectStoreImpl implements ArraysSection {
 
     /**
-     * Symbolic Arrays Memory model
-     * <p>
-     * TODO: Implement Strings and References
+     * Symbolic Arrays Memory model.
+     *
+     * <p>TODO: Implement Strings and References</p>
      */
     private final Map<ReferenceExpression, ArrayValue.RealArrayValue> realArrays = new HashMap<>();
     private final Map<ReferenceExpression, ArrayValue.StringArrayValue> stringArrays = new HashMap<>();
@@ -54,28 +52,37 @@ public class SelectStoreImpl implements ArraysSection {
 
 
     @Override
-    public IntegerValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, IntegerValue symbolicValue) {
+    public IntegerValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                                  IntegerValue symbolicValue) {
         ArrayValue.IntegerArrayValue arrayExpression = integerArrays.get(symbolicArray);
         return ExpressionFactory.buildArraySelectExpression(arrayExpression, symbolicIndex, symbolicValue);
     }
 
     /**
-     * TODO: Implement me!
+     * TODO: Implement me!.
+     *
+     * @param symbolicArray the symbolic array
+     * @param symbolicIndex the symbolic index
+     * @param symbolicValue the symbolic value
+     * @return the loaded value
      */
     @Override
-    public ReferenceExpression arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, ReferenceExpression symbolicValue) {
-        ArrayValue.ReferenceArrayValue arrayExpression = referenceArrays.get(symbolicArray);
+    public ReferenceExpression arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                                         ReferenceExpression symbolicValue) {
+        // ArrayValue.ReferenceArrayValue arrayExpression = referenceArrays.get(symbolicArray);
         return null;
     }
 
     @Override
-    public RealValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, RealValue symbolicValue) {
+    public RealValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                               RealValue symbolicValue) {
         ArrayValue.RealArrayValue arrayExpression = realArrays.get(symbolicArray);
         return ExpressionFactory.buildArraySelectExpression(arrayExpression, symbolicIndex, symbolicValue);
     }
 
     @Override
-    public StringValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, StringValue symbolicValue) {
+    public StringValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                                 StringValue symbolicValue) {
         ArrayValue.StringArrayValue arrayExpression = stringArrays.get(symbolicArray);
         return ExpressionFactory.buildArraySelectExpression(arrayExpression, symbolicIndex, symbolicValue);
     }
@@ -83,76 +90,87 @@ public class SelectStoreImpl implements ArraysSection {
     @Override
     public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
                            IntegerValue symbolicValue) {
-        ArrayValue.IntegerArrayValue symbolic_array_instance = integerArrays.get(symbolicArray);
-        ArrayValue.IntegerArrayValue new_symbolic_array_instance = ExpressionFactory.buildArrayStoreExpression(
-                symbolic_array_instance,
+        ArrayValue.IntegerArrayValue symbolicArrayInstance = integerArrays.get(symbolicArray);
+        ArrayValue.IntegerArrayValue newSymbolicArrayInstance = ExpressionFactory.buildArrayStoreExpression(
+                symbolicArrayInstance,
                 symbolicIndex,
                 symbolicValue,
                 concreteArray
         );
 
-        integerArrays.put(symbolicArray, new_symbolic_array_instance);
+        integerArrays.put(symbolicArray, newSymbolicArrayInstance);
     }
 
     @Override
     public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
                            RealValue symbolicValue) {
 
-        ArrayValue.RealArrayValue symbolic_array_instance = realArrays.get(symbolicArray);
-        ArrayValue.RealArrayValue new_symbolic_array_instance = ExpressionFactory.buildArrayStoreExpression(
-                symbolic_array_instance,
+        ArrayValue.RealArrayValue symbolicArrayInstance = realArrays.get(symbolicArray);
+        ArrayValue.RealArrayValue newSymbolicArrayInstance = ExpressionFactory.buildArrayStoreExpression(
+                symbolicArrayInstance,
                 symbolicIndex,
                 symbolicValue,
                 concreteArray
         );
 
-        realArrays.put(symbolicArray, new_symbolic_array_instance);
+        realArrays.put(symbolicArray, newSymbolicArrayInstance);
     }
 
     /**
-     * TODO: Implement me!
+     * TODO: Implement me!.
+     *
+     * @param concreteArray the concrete array
+     * @param symbolicArray the symbolic array
+     * @param symbolicIndex the symbolic index
+     * @param symbolicValue the symbolic value
      */
     @Override
     public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
                            ReferenceExpression symbolicValue) {
-//		ArrayValue.ReferenceArrayValue symbolic_array_instance = referenceArrays.get(symbolicArray);
-//		ArrayValue.ReferenceArrayValue new_symbolic_array_instance = ExpressionFactory.buildArrayStoreExpression(
-//			symbolic_array_instance,
-//      symbolicIndex,
-//      symbolicValue,
-//      concreteArray
-//		);
-//
-//		referenceArrays.put(symbolicArray, new_symbolic_array_instance);
+        /*
+         * ArrayValue.ReferenceArrayValue symbolicArrayInstance = referenceArrays.get(symbolicArray);
+         * ArrayValue.ReferenceArrayValue newSymbolicArrayInstance = ExpressionFactory.buildArrayStoreExpression(
+         *     symbolicArrayInstance,
+         *     symbolicIndex,
+         *     symbolicValue,
+         *     concreteArray
+         * );
+         *
+         * referenceArrays.put(symbolicArray, newSymbolicArrayInstance);
+         */
     }
 
 
     @Override
     public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
                            StringValue symbolicValue) {
-        ArrayValue.StringArrayValue symbolic_array_instance = stringArrays.get(symbolicArray);
-        ArrayValue.StringArrayValue new_symbolic_array_instance = ExpressionFactory.buildArrayStoreExpression(
-                symbolic_array_instance,
+        ArrayValue.StringArrayValue symbolicArrayInstance = stringArrays.get(symbolicArray);
+        ArrayValue.StringArrayValue newSymbolicArrayInstance = ExpressionFactory.buildArrayStoreExpression(
+                symbolicArrayInstance,
                 symbolicIndex,
                 symbolicValue,
                 concreteArray
         );
 
-        stringArrays.put(symbolicArray, new_symbolic_array_instance);
+        stringArrays.put(symbolicArray, newSymbolicArrayInstance);
     }
 
     @Override
     public ArrayVariable createVariableArray(Object concreteArray, int instanceId, String arrayName) {
-        ArrayVariable arrayVariable = (ArrayVariable) ExpressionFactory.buildArrayVariableExpression(instanceId, arrayName, concreteArray);
+        ArrayVariable arrayVariable = (ArrayVariable) ExpressionFactory.buildArrayVariableExpression(instanceId,
+                arrayName, concreteArray);
 
-        if (concreteArray != null) initializeArrayReference(arrayVariable);
+        if (concreteArray != null) {
+            initializeArrayReference(arrayVariable);
+        }
 
         return arrayVariable;
     }
 
     @Override
    public ArrayConstant createConstantArray(Type arrayType, int instanceId) {
-        ArrayConstant arrayConstant = (ArrayConstant) ExpressionFactory.buildArrayConstantExpression(arrayType, instanceId);
+        ArrayConstant arrayConstant = (ArrayConstant) ExpressionFactory.buildArrayConstantExpression(arrayType,
+                instanceId);
 
         return arrayConstant;
     }

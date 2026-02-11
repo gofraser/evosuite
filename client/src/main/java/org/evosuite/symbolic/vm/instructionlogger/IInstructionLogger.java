@@ -20,7 +20,7 @@
 package org.evosuite.symbolic.vm.instructionlogger;
 
 /**
- * Interface for instruction loggers
+ * Interface for instruction loggers.
  *
  * @author Ignacio Lebrero
  */
@@ -141,7 +141,7 @@ public interface IInstructionLogger {
     void loglnIf(boolean doLog, String a, String b, String c, String d, String e);
 
     /**
-     * Cleans up any internal state
+     * Cleans up any internal state.
      */
     void cleanUp();
 }

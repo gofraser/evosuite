@@ -38,6 +38,12 @@ public final class RealToStringCast extends AbstractExpression<String> implement
 
     private final Expression<Double> expr;
 
+    /**
+     * Constructs a {@link RealToStringCast} with the given expression and concrete value.
+     *
+     * @param _expr the real expression to cast
+     * @param concVal the concrete string value
+     */
     public RealToStringCast(Expression<Double> _expr, String concVal) {
         super(concVal, 1 + _expr.getSize(), _expr.containsSymbolicVariable());
         this.expr = _expr;

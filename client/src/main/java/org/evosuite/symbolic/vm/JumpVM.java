@@ -29,9 +29,9 @@ import org.evosuite.symbolic.expr.ref.ReferenceExpression;
 import java.util.Vector;
 
 /**
- * Java byte codes we group together as "jump-related"
- * <p>
- * Explicit intra-procedural control transfer, conditional or unconditional:
+ * Java byte codes we group together as "jump-related".
+ *
+ * <p>Explicit intra-procedural control transfer, conditional or unconditional:
  * Goto, jump, etc.
  *
  * @author csallner@uta.edu (Christoph Csallner)
@@ -42,7 +42,7 @@ public final class JumpVM extends AbstractVM {
     private final PathConditionCollector pc;
 
     /**
-     * Constructor
+     * Constructs a new JumpVM with the given environment and path condition collector.
      */
     public JumpVM(SymbolicEnvironment env, PathConditionCollector pc) {
         this.env = env;
@@ -52,8 +52,8 @@ public final class JumpVM extends AbstractVM {
     /**
      * (p == 0) is just ((p == right) with right==0). (p != 0) is just (not (p ==
      * 0)).
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc6.html#ifcond
      */
     @Override
@@ -74,9 +74,9 @@ public final class JumpVM extends AbstractVM {
     }
 
     /**
-     * (p < 0) is just ((p < right) with right==0). (p >= 0) is just (not (p < 0)).
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * (p &lt; 0) is just ((p &lt; right) with right==0). (p &gt;= 0) is just (not (p &lt; 0)).
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc6.html#ifcond
      */
 
@@ -98,11 +98,11 @@ public final class JumpVM extends AbstractVM {
     }
 
     /**
-     * (p > 0) is just (0 < p). (0 < p) is just ((left < p) with left==0).
-     * <p>
-     * (p <= 0) is just (0 >= p). (0 >= p) is just (not (0 < p )).
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * (p &gt; 0) is just (0 &lt; p). (0 &lt; p) is just ((left &lt; p) with left==0).
+     *
+     * <p>(p &lt;= 0) is just (0 &gt;= p). (0 &gt;= p) is just (not (0 &lt; p )).
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc6.html#ifcond
      */
     @Override
@@ -130,8 +130,8 @@ public final class JumpVM extends AbstractVM {
 
     /**
      * (left == right). (left != right) is just (not (left == right)).
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc6.html#if_icmpcond
      */
     @Override
@@ -149,8 +149,9 @@ public final class JumpVM extends AbstractVM {
             cnstr = ConstraintFactory.neq(leftOp, rightOp); // "False" branch
         }
         // add branch condition iif local constraint is concrete
-        if (cnstr.getLeftOperand().containsSymbolicVariable() || cnstr.getRightOperand().containsSymbolicVariable())
+        if (cnstr.getLeftOperand().containsSymbolicVariable() || cnstr.getRightOperand().containsSymbolicVariable()) {
             pc.appendIfBranchCondition(className, methName, branchIndex, isTrueBranch, cnstr);
+        }
     }
 
     @Override
@@ -159,9 +160,9 @@ public final class JumpVM extends AbstractVM {
     }
 
     /**
-     * (left < right). (left >= right) is just (not (left < right)).
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * (left &lt; right). (left &gt;= right) is just (not (left &lt; right)).
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc6.html#if_icmpcond
      */
     @Override
@@ -180,8 +181,9 @@ public final class JumpVM extends AbstractVM {
         }
 
         // add branch condition iif local constraint is concrete
-        if (cnstr.getLeftOperand().containsSymbolicVariable() || cnstr.getRightOperand().containsSymbolicVariable())
+        if (cnstr.getLeftOperand().containsSymbolicVariable() || cnstr.getRightOperand().containsSymbolicVariable()) {
             pc.appendIfBranchCondition(className, methName, branchIndex, isTrueBranch, cnstr);
+        }
     }
 
     @Override
@@ -190,10 +192,10 @@ public final class JumpVM extends AbstractVM {
     }
 
     /**
-     * (left > right) is just (right < left). (left <= right) is just (not (left >
+     * (left &gt; right) is just (right &lt; left). (left &lt;= right) is just (not (left &gt;
      * right)).
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc6.html#if_icmpcond
      */
     @Override
@@ -218,31 +220,33 @@ public final class JumpVM extends AbstractVM {
 
     /**
      * (left == right). (left != right) is just (not (left == right)).
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc6.html#if_acmpcond
      */
     @Override
-    public void IF_ACMPEQ(String className, String methName, int branchIndex, Object conc_left, Object conc_right) {
-        ReferenceExpression right_ref = env.topFrame().operandStack.popRef();
-        ReferenceExpression left_ref = env.topFrame().operandStack.popRef();
+    public void IF_ACMPEQ(String className, String methName, int branchIndex, Object concLeft, Object concRight) {
+        ReferenceExpression rightRef = env.topFrame().operandStack.popRef();
+        ReferenceExpression leftRef = env.topFrame().operandStack.popRef();
 
-        env.heap.initializeReference(conc_left, left_ref);
-        env.heap.initializeReference(conc_right, right_ref);
+        env.heap.initializeReference(concLeft, leftRef);
+        env.heap.initializeReference(concRight, rightRef);
 
         ReferenceConstraint cnstr;
-		boolean isTrueBranch;
-		if (conc_left == conc_right) {
-			cnstr = ConstraintFactory.eq(left_ref, right_ref); // True Branch
-			isTrueBranch = true;
-		} else {
-			cnstr = ConstraintFactory.neq(left_ref, right_ref); // False branch
-			isTrueBranch = false;
-		}
+        boolean isTrueBranch;
+        if (concLeft == concRight) {
+            cnstr = ConstraintFactory.eq(leftRef, rightRef); // True Branch
+            isTrueBranch = true;
+        } else {
+            cnstr = ConstraintFactory.neq(leftRef, rightRef); // False branch
+            isTrueBranch = false;
+        }
 
-		// Add branch condition iif local constraint is concrete
-		if (cnstr.getLeftOperand().containsSymbolicVariable() || cnstr.getRightOperand().containsSymbolicVariable())
-			pc.appendIfBranchCondition(className, methName, branchIndex, isTrueBranch, cnstr);
+        // Add branch condition iif local constraint is concrete
+        if (cnstr.getLeftOperand().containsSymbolicVariable()
+                || cnstr.getRightOperand().containsSymbolicVariable()) {
+            pc.appendIfBranchCondition(className, methName, branchIndex, isTrueBranch, cnstr);
+        }
     }
 
     @Override
@@ -276,8 +280,7 @@ public final class JumpVM extends AbstractVM {
      * are no holes (missing targets) between the lowest and highest target. Hence
      * the compiler does not need to translate the case values to offsets.
      *
-     * <p>
-     * We treat the switch statement as a nested if in order lowest to highest index
+     * <p>We treat the switch statement as a nested if in order lowest to highest index
      * as follows.
      *
      * <pre>
@@ -289,8 +292,8 @@ public final class JumpVM extends AbstractVM {
      *   {
      *     if ..
      * </pre>
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc14.html#tableswitch
      */
     @Override
@@ -319,8 +322,9 @@ public final class JumpVM extends AbstractVM {
         for (int i = 0; i < constraints.size() - 1; i++) {
             IntegerConstraint cnstrt = constraints.get(i);
             if (cnstrt.getLeftOperand().containsSymbolicVariable()
-                    || cnstrt.getRightOperand().containsSymbolicVariable())
+                    || cnstrt.getRightOperand().containsSymbolicVariable()) {
                 pc.appendSupportingConstraint(cnstrt);
+            }
         }
         // add branch condition iif local constraint is concrete
         IntegerConstraint cnstr = constraints.get(constraints.size() - 1);
@@ -338,12 +342,11 @@ public final class JumpVM extends AbstractVM {
      * <b>switch</b> statement whose cases may not be numbered consecutively. I.e.,
      * there may be holes (missing targets) between the lowest and highest target.
      *
-     * <p>
-     * Very similar to {@link #TABLESWITCH}. The main difference is that here we are
+     * <p>Very similar to {@link #TABLESWITCH}. The main difference is that here we are
      * given a list of explicit goals. Tableswitch defines its goals implicitly,
      * between min and max.
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc8.html#lookupswitch
      */
     @Override
@@ -374,8 +377,9 @@ public final class JumpVM extends AbstractVM {
         for (int i = 0; i < constraints.size() - 1; i++) {
             IntegerConstraint cnstrnt = constraints.get(i);
             if (cnstrnt.getLeftOperand().containsSymbolicVariable()
-                    || cnstrnt.getRightOperand().containsSymbolicVariable())
+                    || cnstrnt.getRightOperand().containsSymbolicVariable()) {
                 pc.appendSupportingConstraint(cnstrnt);
+            }
         }
 
         // add branch condition iif local constraint is concrete
@@ -392,13 +396,13 @@ public final class JumpVM extends AbstractVM {
     }
 
     /**
-     * Unconditional jump
-     * <p>
-     * No change to operand stack or local variables.
-     * <p>
-     * ... ==> ...
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * Unconditional jump.
+     *
+     * <p>No change to operand stack or local variables.
+     *
+     * <p>... ==&gt; ...
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc5.html#goto
      */
     @Override
@@ -411,13 +415,9 @@ public final class JumpVM extends AbstractVM {
         GOTO();
     }
 
-    /**
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc
-     * .html#athrow
-     */
     @Override
     public void ATHROW(Throwable throwable) {
-        /**
+        /*
          * This instructions pops the operand stack and throws an exception. We only
          * update the operand stack since exceptions are not explicitly modelled in the
          * VM.
@@ -429,13 +429,13 @@ public final class JumpVM extends AbstractVM {
     /* Subroutine jump */
 
     /**
-     * Unconditional jump (to sub-routine, finally block)
-     * <p>
-     * Pushes address onto operand stack, which finally block will astore.
-     * <p>
-     * ... ==> ..., address
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * Unconditional jump (to sub-routine, finally block).
+     *
+     * <p>Pushes address onto operand stack, which finally block will astore.
+     *
+     * <p>... ==&gt; ..., address
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc7.html#jsr
      */
     @Override
@@ -449,13 +449,13 @@ public final class JumpVM extends AbstractVM {
     }
 
     /**
-     * Return from sub-routine
-     * <p>
-     * Operand stack and local variables remain unchanged.
-     * <p>
-     * ... ==> ...
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
+     * Return from sub-routine.
+     *
+     * <p>Operand stack and local variables remain unchanged.
+     *
+     * <p>... ==&gt; ...
+     *
+     * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc12.html#ret
      */
     @Override

@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic.solver.z3;
 
@@ -48,15 +48,15 @@ public class Z3Solver extends SmtSolver {
     public SolverResult executeSolver(Collection<Constraint<?>> constraints) throws SolverTimeoutException, IOException,
             SolverParseException, SolverEmptyQueryException, SolverErrorException {
 
-        long hard_timeout = Properties.DSE_CONSTRAINT_SOLVER_TIMEOUT_MILLIS;
+        long hardTimeout = Properties.DSE_CONSTRAINT_SOLVER_TIMEOUT_MILLIS;
 
         Set<Variable<?>> variables = new HashSet<>();
         for (Constraint<?> c : constraints) {
-            Set<Variable<?>> c_variables = c.getVariables();
-            variables.addAll(c_variables);
+            Set<Variable<?>> vars = c.getVariables();
+            variables.addAll(vars);
         }
 
-        SmtQuery query = buildSmtQuery(constraints, hard_timeout);
+        SmtQuery query = buildSmtQuery(constraints, hardTimeout);
 
         if (query.getConstantDeclarations().isEmpty()) {
             logger.debug("Z3 SMT query has no variables");
@@ -65,8 +65,7 @@ public class Z3Solver extends SmtSolver {
 
         if (query.getAssertions().isEmpty()) {
             Map<String, Object> emptySolution = new HashMap<>();
-            SolverResult emptySAT = SolverResult.newSAT(emptySolution);
-            return emptySAT;
+            return SolverResult.newSAT(emptySolution);
         }
 
         SmtQueryPrinter printer = new SmtQueryPrinter();
@@ -86,7 +85,7 @@ public class Z3Solver extends SmtSolver {
         ByteArrayOutputStream stdout = new ByteArrayOutputStream();
         String output;
         try {
-            launchNewSolvingProcess(z3Cmd, queryStr, (int) hard_timeout, stdout);
+            launchNewSolvingProcess(z3Cmd, queryStr, (int) hardTimeout, stdout);
             output = stdout.toString("UTF-8");
         } catch (SolverErrorException ex) {
             output = stdout.toString("UTF-8");
@@ -110,32 +109,31 @@ public class Z3Solver extends SmtSolver {
             boolean check = checkSAT(constraints, result);
             if (!check) {
                 logger.debug("Z3 solution fails to solve the constraint system!");
-                SolverResult unsatResult = SolverResult.newUNSAT();
-                return unsatResult;
+                return SolverResult.newUNSAT();
             }
         }
 
         return result;
     }
 
-    private final static int ASCII_TABLE_LENGTH = 90;
+    private static final int ASCII_TABLE_LENGTH = 90;
 
     private static String encodeString(String str) {
         char[] charArray = str.toCharArray();
-        String ret_val = "";
+        String retVal = "";
         for (char c : charArray) {
             // if (Character.isISOControl(c)) {
             if (Integer.toHexString(c).length() == 1) {
                 // padding
-                ret_val += "\\x0" + Integer.toHexString(c);
+                retVal += "\\x0" + Integer.toHexString(c);
             } else {
-                ret_val += "\\x" + Integer.toHexString(c);
+                retVal += "\\x" + Integer.toHexString(c);
             }
             // } else {
             // ret_val += c;
             // }
         }
-        return ret_val;
+        return retVal;
     }
 
     private static String buildIntToCharFunction() {

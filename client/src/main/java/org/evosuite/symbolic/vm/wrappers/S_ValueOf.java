@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Short.valueOf.
+ *
+ * @author galeotti
+ */
 public final class S_ValueOf extends SymbolicFunction {
 
     private static final String VALUE_OF = "valueOf";
@@ -35,12 +40,12 @@ public final class S_ValueOf extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        IntegerValue int_value = this.getSymbIntegerArgument(0);
-        ReferenceConstant symb_short = (ReferenceConstant) this.getSymbRetVal();
-        Short conc_short = (Short) this.getConcRetVal();
+        IntegerValue intValue = this.getSymbIntegerArgument(0);
+        ReferenceConstant symbShort = (ReferenceConstant) this.getSymbRetVal();
+        Short concShort = (Short) this.getConcRetVal();
         env.heap.putField(Types.JAVA_LANG_SHORT, SymbolicHeap.$SHORT_VALUE,
-                conc_short, symb_short, int_value);
-        return symb_short;
+                concShort, symbShort, intValue);
+        return symbShort;
     }
 
 }

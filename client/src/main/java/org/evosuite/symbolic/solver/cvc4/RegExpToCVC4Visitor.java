@@ -26,11 +26,20 @@ import org.evosuite.symbolic.solver.smt.SmtExpr;
 import org.evosuite.symbolic.solver.smt.SmtIntConstant;
 import org.evosuite.symbolic.solver.smt.SmtStringConstant;
 
+/**
+ * Visitor for converting regular expressions to CVC4 SMT expressions.
+ */
 public final class RegExpToCVC4Visitor extends RegExpVisitor<SmtExpr> {
 
+    /**
+     * Constructs a RegExpToCVC4Visitor.
+     */
     public RegExpToCVC4Visitor() {
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitUnion(RegExp left, RegExp right) {
         SmtExpr leftExpr = visitRegExp(left);
@@ -42,6 +51,9 @@ public final class RegExpToCVC4Visitor extends RegExpVisitor<SmtExpr> {
         return unionExpr;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitString(String s) {
         SmtStringConstant strConstant = SmtExprBuilder.mkStringConstant(s);
@@ -49,6 +61,9 @@ public final class RegExpToCVC4Visitor extends RegExpVisitor<SmtExpr> {
         return strToRegExpr;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitRepeatMinMax(RegExp e, int min, int max) {
         SmtExpr regExpr = this.visitRegExp(e);
@@ -62,6 +77,9 @@ public final class RegExpToCVC4Visitor extends RegExpVisitor<SmtExpr> {
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitRepeatMin(RegExp e, int min) {
         SmtExpr regExpr = this.visitRegExp(e);
@@ -78,6 +96,9 @@ public final class RegExpToCVC4Visitor extends RegExpVisitor<SmtExpr> {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitRepeat(RegExp arg) {
         SmtExpr expr = this.visitRegExp(arg);
@@ -88,6 +109,9 @@ public final class RegExpToCVC4Visitor extends RegExpVisitor<SmtExpr> {
         return repeatExpr;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitOptional(RegExp e) {
         SmtExpr expr = this.visitRegExp(e);
@@ -98,6 +122,9 @@ public final class RegExpToCVC4Visitor extends RegExpVisitor<SmtExpr> {
         return optExpr;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitConcatenation(RegExp left, RegExp right) {
         SmtExpr leftExpr = this.visitRegExp(left);
@@ -109,6 +136,9 @@ public final class RegExpToCVC4Visitor extends RegExpVisitor<SmtExpr> {
         return concat;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitCharRange(char from, char to) {
         String fromStr = String.valueOf(from);
@@ -123,6 +153,9 @@ public final class RegExpToCVC4Visitor extends RegExpVisitor<SmtExpr> {
         return rangeExpr;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitChar(char c) {
         String str = String.valueOf(c);
@@ -131,41 +164,62 @@ public final class RegExpToCVC4Visitor extends RegExpVisitor<SmtExpr> {
         return expr;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitAnyChar() {
         return SmtExprBuilder.mkREAllChar();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitInterval(int min, int max) {
         throw new IllegalStateException(
                 "Optional dk.brics productions are not supported. Check syntax_flags of RegExp(String,String)");
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitIntersection(RegExp left, RegExp right) {
         throw new IllegalStateException(
                 "Optional dk.brics productions are not supported. Check syntax_flags of RegExp(String,String)");
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitAutomaton(RegExp e) {
         throw new IllegalStateException(
                 "Optional dk.brics productions are not supported. Check syntax_flags of RegExp(String,String)");
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitComplement(RegExp e) {
         throw new IllegalStateException(
                 "Optional dk.brics productions are not supported. Check syntax_flags of RegExp(String,String)");
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitEmpty() {
         throw new IllegalStateException(
                 "Optional dk.brics productions are not supported. Check syntax_flags of RegExp(String,String)");
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public SmtExpr visitAnyString() {
         throw new IllegalStateException(

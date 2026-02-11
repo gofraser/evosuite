@@ -59,7 +59,8 @@ public class DSEStrategyLegacy extends TestGenerationStrategy {
 
         List<TestFitnessFunction> goals = getGoals(true);
         if (!canGenerateTestsForSUT()) {
-            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}", Properties.TARGET_CLASS);
+            LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}",
+                    Properties.TARGET_CLASS);
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
@@ -105,14 +106,16 @@ public class DSEStrategyLegacy extends TestGenerationStrategy {
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
 
         // Newline after progress bar
-        if (Properties.SHOW_PROGRESS)
+        if (Properties.SHOW_PROGRESS) {
             LoggingUtils.getEvoLogger().info("");
+        }
 
         if (!Properties.IS_RUNNING_A_SYSTEM_TEST) { // avoid printing time
             // related info in system
             // tests due to lack of
             // determinism
-            LoggingUtils.getEvoLogger().info("* Search finished after {}s and {} statements, best individual has fitness: {}",
+            LoggingUtils.getEvoLogger().info("* Search finished after {}s and {} statements, "
+                            + "best individual has fitness: {}",
                     (endTime - startTime),
                     MaxStatementsStoppingCondition.getNumExecutedStatements(),
                     testSuite.getFitness());
@@ -136,8 +139,9 @@ public class DSEStrategyLegacy extends TestGenerationStrategy {
             if (verbose) {
                 LoggingUtils.getEvoLogger().info("* Total number of test goals: {}", factory.getCoverageGoals().size());
                 if (Properties.PRINT_GOALS) {
-                    for (TestFitnessFunction goal : factory.getCoverageGoals())
+                    for (TestFitnessFunction goal : factory.getCoverageGoals()) {
                         LoggingUtils.getEvoLogger().info("{}", goal);
+                    }
                 }
             }
         } else {
@@ -149,11 +153,13 @@ public class DSEStrategyLegacy extends TestGenerationStrategy {
                 goals.addAll(goalFactory.getCoverageGoals());
 
                 if (verbose) {
-                    LoggingUtils.getEvoLogger().info("  - {} {}", goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
+                    LoggingUtils.getEvoLogger().info("  - {} {}",
+                            goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
                             goalFactory.getCoverageGoals().size());
                     if (Properties.PRINT_GOALS) {
-                        for (TestFitnessFunction goal : goalFactory.getCoverageGoals())
+                        for (TestFitnessFunction goal : goalFactory.getCoverageGoals()) {
                             LoggingUtils.getEvoLogger().info("{}", goal);
+                        }
                     }
                 }
             }

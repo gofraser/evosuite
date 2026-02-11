@@ -28,33 +28,50 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for String.valueOf.
+ *
+ * @author galeotti
+ */
 public abstract class ValueOf extends SymbolicFunction {
 
     private static final String VALUE_OF = "valueOf";
 
-    public static abstract class ValueOf_Int extends ValueOf {
+    /**
+     * Base class for ValueOf implementations that take an integer-like argument.
+     */
+    public abstract static class ValueOf_Int extends ValueOf {
 
+        /**
+         * Constructs a ValueOf_Int.
+         *
+         * @param env  the symbolic environment
+         * @param desc the method descriptor
+         */
         public ValueOf_Int(SymbolicEnvironment env, String desc) {
             super(env, desc);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public final Object executeFunction() {
 
-            IntegerValue symb_arg = this.getSymbIntegerArgument(0);
+            IntegerValue symbArg = this.getSymbIntegerArgument(0);
 
-            ReferenceExpression symb_ret_val = this.getSymbRetVal();
-            String conc_ret_val = (String) this.getConcRetVal();
+            ReferenceExpression symbRetVal = this.getSymbRetVal();
+            String concRetVal = (String) this.getConcRetVal();
 
-            if (symb_arg.containsSymbolicVariable()) {
-                StringValue symbExpr = new IntegerToStringCast(symb_arg,
-                        conc_ret_val);
+            if (symbArg.containsSymbolicVariable()) {
+                StringValue symbExpr = new IntegerToStringCast(symbArg,
+                        concRetVal);
 
-                ReferenceConstant symb_non_null_ret_val = (ReferenceConstant) symb_ret_val;
+                ReferenceConstant symbNonNullRetVal = (ReferenceConstant) symbRetVal;
 
                 env.heap.putField(Types.JAVA_LANG_STRING,
-                        SymbolicHeap.$STRING_VALUE, conc_ret_val,
-                        symb_non_null_ret_val, symbExpr);
+                        SymbolicHeap.$STRING_VALUE, concRetVal,
+                        symbNonNullRetVal, symbExpr);
             }
             return this.getSymbRetVal();
 
@@ -62,39 +79,56 @@ public abstract class ValueOf extends SymbolicFunction {
 
     }
 
+    /**
+     * Constructs a ValueOf.
+     *
+     * @param env  the symbolic environment
+     * @param desc the method descriptor
+     */
     public ValueOf(SymbolicEnvironment env, String desc) {
         super(env, Types.JAVA_LANG_STRING, VALUE_OF, desc);
     }
 
+    /**
+     * Symbolic function implementation for String.valueOf(Object).
+     */
     public static final class ValueOf_O extends ValueOf {
 
+        /**
+         * Constructs a ValueOf_O.
+         *
+         * @param env the symbolic environment
+         */
         public ValueOf_O(SymbolicEnvironment env) {
             super(env, Types.OBJECT_TO_STR_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
-            ReferenceExpression symb_arg = this.getSymbArgument(0);
-            Object conc_arg = this.getConcArgument(0);
+            ReferenceExpression symbArg = this.getSymbArgument(0);
+            Object concArg = this.getConcArgument(0);
 
-            ReferenceExpression symb_ret_val = this.getSymbRetVal();
-            String conc_ret_val = (String) this.getConcRetVal();
+            ReferenceExpression symbRetVal = this.getSymbRetVal();
+            String concRetVal = (String) this.getConcRetVal();
 
-            if (conc_arg != null && conc_arg instanceof String) {
+            if (concArg != null && concArg instanceof String) {
 
-                String conc_str_arg = (String) conc_arg;
-                ReferenceConstant symb_non_null_str = (ReferenceConstant) symb_arg;
+                String concStrArg = (String) concArg;
+                ReferenceConstant symbNonNullStr = (ReferenceConstant) symbArg;
 
                 StringValue strExpr = env.heap.getField(Types.JAVA_LANG_STRING,
-                        SymbolicHeap.$STRING_VALUE, conc_str_arg,
-                        symb_non_null_str, conc_str_arg);
+                        SymbolicHeap.$STRING_VALUE, concStrArg,
+                        symbNonNullStr, concStrArg);
 
-                ReferenceConstant symb_non_null_ret_val = (ReferenceConstant) symb_ret_val;
+                ReferenceConstant symbNonNullRetVal = (ReferenceConstant) symbRetVal;
 
                 env.heap.putField(Types.JAVA_LANG_STRING,
-                        SymbolicHeap.$STRING_VALUE, conc_ret_val,
-                        symb_non_null_ret_val, strExpr);
+                        SymbolicHeap.$STRING_VALUE, concRetVal,
+                        symbNonNullRetVal, strExpr);
             }
 
             return this.getSymbRetVal();
@@ -102,29 +136,61 @@ public abstract class ValueOf extends SymbolicFunction {
 
     }
 
+    /**
+     * Symbolic function implementation for String.valueOf(long).
+     */
     public static final class ValueOf_J extends ValueOf_Int {
 
+        /**
+         * Constructs a ValueOf_J.
+         *
+         * @param env the symbolic environment
+         */
         public ValueOf_J(SymbolicEnvironment env) {
             super(env, Types.LONG_TO_STR_DESCRIPTOR);
         }
     }
 
+    /**
+     * Symbolic function implementation for String.valueOf(int).
+     */
     public static final class ValueOf_I extends ValueOf_Int {
 
+        /**
+         * Constructs a ValueOf_I.
+         *
+         * @param env the symbolic environment
+         */
         public ValueOf_I(SymbolicEnvironment env) {
             super(env, Types.INT_TO_STR_DESCRIPTOR);
         }
     }
 
+    /**
+     * Symbolic function implementation for String.valueOf(char).
+     */
     public static final class ValueOf_C extends ValueOf_Int {
 
+        /**
+         * Constructs a ValueOf_C.
+         *
+         * @param env the symbolic environment
+         */
         public ValueOf_C(SymbolicEnvironment env) {
             super(env, Types.CHAR_TO_STR_DESCRIPTOR);
         }
     }
 
+    /**
+     * Symbolic function implementation for String.valueOf(boolean).
+     */
     public static final class ValueOf_B extends ValueOf_Int {
 
+        /**
+         * Constructs a ValueOf_B.
+         *
+         * @param env the symbolic environment
+         */
         public ValueOf_B(SymbolicEnvironment env) {
             super(env, Types.BOOLEAN_TO_STR_DESCRIPTOR);
         }

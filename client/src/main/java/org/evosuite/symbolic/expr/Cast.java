@@ -28,9 +28,8 @@ package org.evosuite.symbolic.expr;
 public interface Cast<T> {
 
     /**
-     * <p>getConcreteObject</p>
+     * Returns the expression argument of the cast.
      *
-     * @param <T> a T object.
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     Expression<T> getArgument();

@@ -28,32 +28,45 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for String.charAt.
+ *
+ * @author galeotti
+ */
 public final class CharAt extends SymbolicFunction {
 
     private static final String CHAR_AT = "charAt";
 
+    /**
+     * Constructs a CharAt.
+     *
+     * @param env the symbolic environment
+     */
     public CharAt(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING, CHAR_AT,
                 Types.INT_TO_CHAR_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
 
-        String conc_str = (String) this.getConcReceiver();
-        ReferenceConstant symb_str = this.getSymbReceiver();
-        StringValue string_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_str, symb_str, conc_str);
+        String concStr = (String) this.getConcReceiver();
+        ReferenceConstant symbStr = this.getSymbReceiver();
+        StringValue stringExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concStr, symbStr, concStr);
 
-        IntegerValue index_expr = this.getSymbIntegerArgument(0);
+        IntegerValue indexExpr = this.getSymbIntegerArgument(0);
         char res = this.getConcCharRetVal();
 
 
-        if (string_expr.containsSymbolicVariable()
-                || index_expr.containsSymbolicVariable()) {
+        if (stringExpr.containsSymbolicVariable()
+                || indexExpr.containsSymbolicVariable()) {
 
             return new StringBinaryToIntegerExpression(
-                    string_expr, Operator.CHARAT, index_expr, (long) res);
+                    stringExpr, Operator.CHARAT, indexExpr, (long) res);
 
         } else {
             return this.getSymbIntegerRetVal();

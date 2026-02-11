@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Double constructor.
+ *
+ * @author galeotti
+ */
 public final class D_Init extends SymbolicFunction {
 
     public D_Init(SymbolicEnvironment env) {
@@ -34,9 +39,9 @@ public final class D_Init extends SymbolicFunction {
     @Override
     public Object executeFunction() {
         RealValue fp64 = this.getSymbRealArgument(0);
-        ReferenceConstant symb_double = this.getSymbReceiver();
+        ReferenceConstant symbDouble = this.getSymbReceiver();
         env.heap.putField(Types.JAVA_LANG_DOUBLE, SymbolicHeap.$DOUBLE_VALUE,
-                null/* conc_double */, symb_double, fp64);
+                null/* concDouble */, symbDouble, fp64);
         // return voids
         return null;
     }

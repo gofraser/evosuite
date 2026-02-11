@@ -22,6 +22,8 @@ package org.evosuite.symbolic.vm;
 import org.evosuite.symbolic.expr.bv.IntegerValue;
 
 /**
+ * Represents an integer operand in the symbolic virtual machine.
+ *
  * @author galeotti
  */
 public interface IntegerOperand extends Operand {

@@ -34,18 +34,18 @@ public class PathCondition {
     private final List<BranchCondition> pathCondition;
 
     /**
-     * Creates a new path condition from a list of branch conditions
+     * Creates a new path condition from a list of branch conditions.
      *
-     * @param branchConditions
+     * @param branchConditions the list of branch conditions
      */
     public PathCondition(List<BranchCondition> branchConditions) {
         this.pathCondition = new LinkedList<>(branchConditions);
     }
 
     /**
-     * Returns the constraints for this path condition
+     * Returns the constraints for this path condition.
      *
-     * @return
+     * @return a list of constraints
      */
     public List<Constraint<?>> getConstraints() {
         List<Constraint<?>> constraints = new LinkedList<>();
@@ -57,42 +57,46 @@ public class PathCondition {
     }
 
     /**
-     * Returns the list of branch conditions on this path condition
+     * Returns the list of branch conditions on this path condition.
      *
-     * @return
+     * @return the list of branch conditions
      */
     public List<BranchCondition> getBranchConditions() {
         return this.pathCondition;
     }
 
     /**
-     * Returns true if the path condition is empty
+     * Returns true if the path condition is empty.
      *
-     * @return
+     * @return true if the path condition is empty, false otherwise
      */
     public boolean isEmpty() {
         return this.pathCondition.isEmpty();
     }
 
     /**
-     * The length of the path condition in terms of branch conditions
+     * The length of the path condition in terms of branch conditions.
      *
-     * @return
+     * @return the number of branch conditions
      */
     public int size() {
         return this.pathCondition.size();
     }
 
     /**
-     * Returns the branch condition at position <code>index</code>
+     * Returns the branch condition at position <code>index</code>.
      *
-     * @param index
-     * @return
+     * @param index the position in the path condition
+     * @return the branch condition at the specified index
      */
     public BranchCondition get(int index) {
         return this.pathCondition.get(index);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public String toString() {
         return pathCondition.toString();
     }

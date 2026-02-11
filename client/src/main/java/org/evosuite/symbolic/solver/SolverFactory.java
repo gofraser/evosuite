@@ -24,14 +24,29 @@ import org.evosuite.symbolic.solver.avm.EvoSuiteSolver;
 import org.evosuite.symbolic.solver.cvc4.CVC4Solver;
 import org.evosuite.symbolic.solver.z3.Z3Solver;
 
+/**
+ * Factory for creating solver instances.
+ *
+ * @author galeotti
+ */
 public class SolverFactory {
 
     private static final SolverFactory instance = new SolverFactory();
 
+    /**
+     * Returns the singleton instance of the factory.
+     *
+     * @return a {@link org.evosuite.symbolic.solver.SolverFactory} object.
+     */
     public static SolverFactory getInstance() {
         return instance;
     }
 
+    /**
+     * Builds a new solver instance based on the current properties.
+     *
+     * @return a {@link org.evosuite.symbolic.solver.Solver} object.
+     */
     public Solver buildNewSolver() {
         switch (Properties.DSE_SOLVER) {
             case Z3_SOLVER:

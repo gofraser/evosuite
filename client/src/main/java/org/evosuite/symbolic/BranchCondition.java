@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic;
 
@@ -34,17 +34,17 @@ import java.util.Objects;
  */
 public class BranchCondition {
     /**
-     * Class where the branch instruction is
+     * Class where the branch instruction is.
      */
     private final String className;
 
     /**
-     * Method where the branch instruction is
+     * Method where the branch instruction is.
      */
     private final String methodName;
 
     /**
-     * Position of the instruction in the method bytecode
+     * Position of the instruction in the method bytecode.
      */
     private final int instructionIndex;
 
@@ -55,13 +55,13 @@ public class BranchCondition {
     /**
      * A branch condition is identified by the className, methodName and branchIndex
      * belonging to the class in the SUT, the target constraint and all the
-     * supporting constraint for that particular branch (zero checks, etc)
+     * supporting constraint for that particular branch (zero checks, etc).
      *
-     * @param className             a {@link java.lang.String} object
-     * @param methodName            a {@link java.lang.String} object
-     * @param instructionIndex      an {@link int} value
-     * @param constraint            a {@link Constraint} object
-     * @param supportingConstraints a {@link java.util.Set} object.
+     * @param className             a {@link java.lang.String} object.
+     * @param methodName            a {@link java.lang.String} object.
+     * @param instructionIndex      an {@link int} value.
+     * @param constraint            a {@link org.evosuite.symbolic.expr.Constraint} object.
+     * @param supportingConstraints a {@link java.util.List} object.
      */
     public BranchCondition(String className, String methodName, int instructionIndex, Constraint<?> constraint,
                            List<Constraint<?>> supportingConstraints) {
@@ -88,14 +88,29 @@ public class BranchCondition {
         return ret;
     }
 
+    /**
+     * Returns the class name.
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getClassName() {
         return className;
     }
 
+    /**
+     * Returns the instruction index.
+     *
+     * @return a int.
+     */
     public int getInstructionIndex() {
         return instructionIndex;
     }
 
+    /**
+     * Returns the full name.
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getFullName() {
         return className + "." + methodName;
     }
@@ -104,7 +119,7 @@ public class BranchCondition {
      * Returns the constraint for actual branch. This constraint has to be negated
      * to take another path.
      *
-     * @return
+     * @return a {@link org.evosuite.symbolic.expr.Constraint} object.
      */
     public Constraint<?> getConstraint() {
         return constraint;
@@ -113,14 +128,19 @@ public class BranchCondition {
     /**
      * Returns a list of implicit constraints (nullity checks, zero division, index
      * within bounds, negative size array length, etc.) collected before the current
-     * branch condition and after the last symbolic branch condition
+     * branch condition and after the last symbolic branch condition.
      *
-     * @return
+     * @return a {@link java.util.List} object.
      */
     public List<Constraint<?>> getSupportingConstraints() {
         return supportingConstraints;
     }
 
+    /**
+     * Returns the method name.
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getMethodName() {
         return methodName;
     }
@@ -128,7 +148,7 @@ public class BranchCondition {
     /**
      * For simplicity we create this construction of the object to handle path conditions easily.
      *
-     * @return
+     * @return a {@link org.evosuite.symbolic.BranchCondition} object.
      */
     public BranchCondition getNegatedVersion() {
         return new BranchCondition(className, methodName, instructionIndex, constraint.negate(), supportingConstraints);
@@ -136,14 +156,18 @@ public class BranchCondition {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         BranchCondition that = (BranchCondition) o;
-        return instructionIndex == that.instructionIndex &&
-                className.equals(that.className) &&
-                methodName.equals(that.methodName) &&
-                constraint.equals(that.constraint) &&
-                supportingConstraints.equals(that.supportingConstraints);
+        return instructionIndex == that.instructionIndex
+                && className.equals(that.className)
+                && methodName.equals(that.methodName)
+                && constraint.equals(that.constraint)
+                && supportingConstraints.equals(that.supportingConstraints);
     }
 
     @Override

@@ -24,7 +24,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
 /**
- * Frame for a method invocation
+ * Frame for a method invocation.
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
@@ -33,7 +33,10 @@ public final class MethodFrame extends Frame {
     private final Method method;
 
     /**
-     * Constructor
+     * Constructor.
+     *
+     * @param method the method
+     * @param maxLocals maximum number of local variables
      */
     MethodFrame(Method method, int maxLocals) {
         super(maxLocals);

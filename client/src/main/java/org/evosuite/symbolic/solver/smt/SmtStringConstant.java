@@ -47,15 +47,20 @@ public final class SmtStringConstant extends SmtConstant {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         SmtStringConstant other = (SmtStringConstant) obj;
         if (stringValue == null) {
             return other.stringValue == null;
-        } else return stringValue.equals(other.stringValue);
+        } else {
+            return stringValue.equals(other.stringValue);
+        }
     }
 }

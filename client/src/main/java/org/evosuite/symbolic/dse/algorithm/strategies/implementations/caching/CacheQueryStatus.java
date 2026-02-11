@@ -17,26 +17,11 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.evosuite.symbolic.dse.algorithm.strategies.implementations.PathExtensionStrategies;
-
-import org.evosuite.symbolic.dse.algorithm.GenerationalSearchPathCondition;
-
-import java.util.Collections;
-import java.util.List;
+package org.evosuite.symbolic.dse.algorithm.strategies.implementations.caching;
 
 /**
- * Differs with {@link org.evosuite.symbolic.dse.algorithm.strategies.implementations.PathExtensionStrategies.ExpandExecutionStrategy}
- * only in that it returns paths in the reverse order.
+ * Enum for checking which case of skipping solving we are in.
  *
  * @author Ignacio Lebrero
  */
-public class RevertedExpandExecutionStrategy extends ExpandExecutionStrategy {
-
-    @Override
-    public List<GenerationalSearchPathCondition> generateChildren(GenerationalSearchPathCondition currentPathConditionChild) {
-        List<GenerationalSearchPathCondition> result = super.generateChildren(currentPathConditionChild);
-        Collections.reverse(result);
-        return result;
-    }
-
-}
+public enum CacheQueryStatus { HIT_UNSAT, HIT_SAT, MISS }

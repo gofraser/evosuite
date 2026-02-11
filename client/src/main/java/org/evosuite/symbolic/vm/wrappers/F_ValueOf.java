@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Float.valueOf.
+ *
+ * @author galeotti
+ */
 public final class F_ValueOf extends SymbolicFunction {
 
     private static final String VALUE_OF = "valueOf";
@@ -35,12 +40,12 @@ public final class F_ValueOf extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        RealValue real_value = this.getSymbRealArgument(0);
-        ReferenceConstant symb_float = (ReferenceConstant) this.getSymbRetVal();
-        Float conc_float = (Float) this.getConcRetVal();
+        RealValue realValue = this.getSymbRealArgument(0);
+        ReferenceConstant symbFloat = (ReferenceConstant) this.getSymbRetVal();
+        Float concFloat = (Float) this.getConcRetVal();
         env.heap.putField(Types.JAVA_LANG_FLOAT, SymbolicHeap.$FLOAT_VALUE,
-                conc_float, symb_float, real_value);
-        return symb_float;
+                concFloat, symbFloat, realValue);
+        return symbFloat;
     }
 
 }

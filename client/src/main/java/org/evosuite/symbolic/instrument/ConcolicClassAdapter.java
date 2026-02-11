@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic.instrument;
 
@@ -32,7 +32,7 @@ import org.objectweb.asm.commons.JSRInlinerAdapter;
 
 
 /**
- * The main instrumentation class is {@link ConcolicMethodAdapter}
+ * The main instrumentation class is {@link ConcolicMethodAdapter}.
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */

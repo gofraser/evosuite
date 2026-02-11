@@ -22,6 +22,8 @@ package org.evosuite.symbolic.vm;
 import org.evosuite.dse.AbstractVM;
 
 /**
+ * Symbolic virtual machine for other instructions.
+ *
  * @author galeotti
  */
 public final class OtherVM extends AbstractVM {
@@ -38,7 +40,7 @@ public final class OtherVM extends AbstractVM {
     }
 
     /**
-     * Enter synchronized region of code
+     * Enter synchronized region of code.
      */
     @Override
     public void MONITORENTER() {

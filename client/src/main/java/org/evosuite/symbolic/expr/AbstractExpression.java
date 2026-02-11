@@ -32,6 +32,13 @@ public abstract class AbstractExpression<T> implements Expression<T> {
 
     private final int size;
 
+    /**
+     * Constructs an {@link AbstractExpression} with the given concrete value, size and symbolic flag.
+     *
+     * @param concreteValue the concrete value
+     * @param size the expression size
+     * @param containsSymbolicVariable whether it contains symbolic variables
+     */
     public AbstractExpression(T concreteValue, int size, boolean containsSymbolicVariable) {
         this.concreteValue = concreteValue;
         this.size = size;

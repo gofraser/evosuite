@@ -49,38 +49,45 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
 
         // special integer constraint: string indexOf char != -1
         long distance = getDistanceIndexOfCFound(n, leftVal, rightVal);
-        if (distance != -1)
+        if (distance != -1) {
             return distance;
+        }
 
         // special integer constraint: string indexOfCI char index != -1
         distance = getDistanceIndexOfCIFound(n, leftVal, rightVal);
-        if (distance != -1)
+        if (distance != -1) {
             return distance;
+        }
 
         // special integer constraint: string indexOf char == k (k>-1)
         distance = getDistanceIndexOfCEqualsK(n, leftVal, rightVal);
-        if (distance != -1)
+        if (distance != -1) {
             return distance;
+        }
 
         // special integer constraint: string indexOf char int == k (k>-1)
         distance = getDistanceIndexOfCIEqualsK(n, leftVal, rightVal);
-        if (distance != -1)
+        if (distance != -1) {
             return distance;
+        }
 
         // special case: regex
         distance = getDistanceRegex(n, leftVal, rightVal);
-        if (distance != -1)
+        if (distance != -1) {
             return distance;
+        }
 
         // special cases: reader.read()==-1
         // special cases: reader.read()!=-1
         distance = getDistanceStringReaderLength(n, leftVal, rightVal);
-        if (distance != -1)
+        if (distance != -1) {
             return distance;
+        }
 
         distance = getDistanceStringIsInteger(n, leftVal, rightVal);
-        if (distance != -1)
+        if (distance != -1) {
             return distance;
+        }
 
         Comparator cmpr = n.getComparator();
         log.debug("Calculating distance for " + leftVal + " " + cmpr + " " + rightVal);
@@ -219,10 +226,10 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
     }
 
     @Override
-	public Object visit(ReferenceConstraint n, Void arg) {
-		//TODO: this is only == or != would the distance be only 0 or 1?
-		return null;
-	}
+    public Object visit(ReferenceConstraint n, Void arg) {
+        //TODO: this is only == or != would the distance be only 0 or 1?
+        return null;
+    }
 
     private static long getDistanceIndexOfCEqualsK(IntegerConstraint n, long leftVal, long rightVal) {
         if (n.getLeftOperand() instanceof StringBinaryToIntegerExpression && n.getComparator() == Comparator.EQ
@@ -266,18 +273,20 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
                 char theChar = (char) left_operand;
                 if ((n.getComparator() == Comparator.EQ && rightVal == 1L)
                         || (n.getComparator() == Comparator.NE && rightVal == 0L)) {
-                    if (theChar < '0')
+                    if (theChar < '0') {
                         return '0' - theChar;
-                    else if (theChar > '9')
+                    } else if (theChar > '9') {
                         return theChar - '9';
-                    else
+                    } else {
                         return 0;
+                    }
                 } else if ((n.getComparator() == Comparator.EQ && rightVal == 0L)
                         || (n.getComparator() == Comparator.NE && rightVal == 1L)) {
-                    if (theChar < '0' || theChar > '9')
+                    if (theChar < '0' || theChar > '9') {
                         return 0;
-                    else
+                    } else {
                         return Math.min(Math.abs('9' - theChar), Math.abs(theChar - '0'));
+                    }
                 }
 
             } else if (((IntegerUnaryExpression) n.getLeftOperand()).getOperator() == Operator.ISLETTER) {
@@ -287,18 +296,20 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
                 char theChar = (char) left_operand;
                 if ((n.getComparator() == Comparator.EQ && rightVal == 1L)
                         || (n.getComparator() == Comparator.NE && rightVal == 0L)) {
-                    if (theChar < 'A')
+                    if (theChar < 'A') {
                         return 'A' - theChar;
-                    else if (theChar > 'z')
+                    } else if (theChar > 'z') {
                         return theChar - 'z';
-                    else
+                    } else {
                         return 0;
+                    }
                 } else if ((n.getComparator() == Comparator.EQ && rightVal == 0L)
                         || (n.getComparator() == Comparator.NE && rightVal == 1L)) {
-                    if (theChar < 'A' || theChar > 'z')
+                    if (theChar < 'A' || theChar > 'z') {
                         return 0;
-                    else
+                    } else {
                         return Math.min(Math.abs('z' - theChar), Math.abs(theChar - 'A'));
+                    }
                 }
             }
         }
@@ -396,9 +407,9 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
 
             if ((intValue.getConcreteValue() == 0L) && n.getComparator().equals(Comparator.LT)) {
 
-                if (conc_string_length <= new_length)
+                if (conc_string_length <= new_length) {
                     return 0L;
-                else {
+                } else {
                     // return distance to length(string)<=new_length
                     return conc_string_length - new_length;
                 }
@@ -406,9 +417,9 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
 
             if ((intValue.getConcreteValue() == 0L) && n.getComparator().equals(Comparator.GE)) {
 
-                if (conc_string_length > new_length)
+                if (conc_string_length > new_length) {
                     return 0L;
-                else {
+                } else {
                     // return distance to length(string)>new_length
                     return new_length - conc_string_length + 1;
                 }
@@ -418,17 +429,17 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
                     && (n.getComparator().equals(Comparator.EQ) || n.getComparator().equals(Comparator.NE))) {
 
                 if (n.getComparator().equals(Comparator.EQ)) {
-                    if (conc_string_length <= new_length)
+                    if (conc_string_length <= new_length) {
                         return 0L;
-                    else {
+                    } else {
                         // return distance to length(string)<=new_length
                         return conc_string_length - new_length;
                     }
 
                 } else if (n.getComparator().equals(Comparator.NE)) {
-                    if (conc_string_length > new_length)
+                    if (conc_string_length > new_length) {
                         return 0L;
-                    else {
+                    } else {
                         // return distance to length(string)>new_length
                         return new_length - conc_string_length + 1;
                     }
@@ -597,7 +608,8 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
                     long length = (Long) comparison.getOther().get(2).accept(exprExecutor, null);
                     long ignoreCase = (Long) comparison.getOther().get(3).accept(exprExecutor, null);
 
-                    return StrRegionMatches(first, (int) frstStart, second, (int) secStart, (int) length, ignoreCase != 0);
+                    return StrRegionMatches(first, (int) frstStart, second, (int) secStart, (int) length,
+                            ignoreCase != 0);
                 default:
                     log.warn("StringComparison: unimplemented operator!" + comparison.getOperator());
                     return Double.MAX_VALUE;
@@ -609,8 +621,9 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
 
     private static double StrRegionMatches(String value, int thisStart, String string, int start, int length,
                                            boolean ignoreCase) {
-        if (value == null || string == null)
+        if (value == null || string == null) {
             throw new NullPointerException();
+        }
 
         if (start < 0 || string.length() - start < length) {
             return length - string.length() + start;
@@ -640,9 +653,9 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
     }
 
     private static double StrEquals(String first, Object second) {
-        if (first.equals(second))
+        if (first.equals(second)) {
             return 0; // Identical
-        else {
+        } else {
             return avmDistance(first, second.toString());
             // return editDistance(first, second.toString());
         }

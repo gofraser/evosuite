@@ -20,6 +20,8 @@
 package org.evosuite.symbolic.vm;
 
 /**
+ * Represents an operand in the symbolic virtual machine.
+ *
  * @author galeotti
  */
 public interface Operand {

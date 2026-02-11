@@ -22,9 +22,7 @@ package org.evosuite.symbolic.vm.heap.symbolicHeapSection;
 import org.evosuite.symbolic.expr.Expression;
 import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.expr.fp.RealValue;
-import org.evosuite.symbolic.expr.ref.ReferenceConstant;
 import org.evosuite.symbolic.expr.ref.ReferenceExpression;
-import org.evosuite.symbolic.expr.ref.ReferenceVariable;
 import org.evosuite.symbolic.expr.ref.array.ArrayConstant;
 import org.evosuite.symbolic.expr.ref.array.ArrayVariable;
 import org.evosuite.symbolic.expr.str.StringValue;
@@ -45,14 +43,15 @@ import java.util.Map;
 public class LazyArraysImpl implements ArraysSection {
 
     /**
-     * Symbolic Arrays Memory model
-     * <p>
-     * TODO: Implement Strings and References
+     * Symbolic Arrays Memory model.
+     *
+     * <p>TODO: Implement Strings and References</p>
      */
     private final Map<ReferenceExpression, SymbolicArray> symbolicArrays = new HashMap<>();
 
     @Override
-    public ReferenceExpression arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, ReferenceExpression symbolicValue) {
+    public ReferenceExpression arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                                         ReferenceExpression symbolicValue) {
         int concreteIndex = Math.toIntExact(symbolicIndex.getConcreteValue());
         SymbolicArray symbolicArrayContents;
 
@@ -61,7 +60,8 @@ public class LazyArraysImpl implements ArraysSection {
     }
 
     @Override
-    public IntegerValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, IntegerValue symbolicValue) {
+    public IntegerValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                                  IntegerValue symbolicValue) {
         int concreteIndex = Math.toIntExact(symbolicIndex.getConcreteValue());
 
         SymbolicArray symbolicArrayContents = getOrCreateSymbolicArray(symbolicArray);
@@ -69,7 +69,8 @@ public class LazyArraysImpl implements ArraysSection {
     }
 
     @Override
-    public RealValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, RealValue symbolicValue) {
+    public RealValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                               RealValue symbolicValue) {
         int concreteIndex = Math.toIntExact(symbolicIndex.getConcreteValue());
 
         SymbolicArray symbolicArrayContents = getOrCreateSymbolicArray(symbolicArray);
@@ -77,7 +78,8 @@ public class LazyArraysImpl implements ArraysSection {
     }
 
     @Override
-    public StringValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex, StringValue symbolicValue) {
+    public StringValue arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
+                                 StringValue symbolicValue) {
         int concreteIndex = Math.toIntExact(symbolicIndex.getConcreteValue());
         SymbolicArray symbolicArrayContents;
 
@@ -124,7 +126,8 @@ public class LazyArraysImpl implements ArraysSection {
 
     @Override
     public ArrayVariable createVariableArray(Object concreteArray, int instanceId, String arrayName) {
-  	    ArrayVariable symbolicArrayVariable = (ArrayVariable) ExpressionFactory.buildArrayVariableExpression(instanceId, arrayName, concreteArray);
+        ArrayVariable symbolicArrayVariable = (ArrayVariable) ExpressionFactory.buildArrayVariableExpression(instanceId,
+                arrayName, concreteArray);
 
         SymbolicArray symbolicArray = getOrCreateSymbolicArray(symbolicArrayVariable);
         symbolicArrays.put(symbolicArrayVariable, new SymbolicInputArray(symbolicArray, arrayName));
@@ -134,8 +137,9 @@ public class LazyArraysImpl implements ArraysSection {
 
     @Override
     public ArrayConstant createConstantArray(Type arrayType, int instanceId) {
-	  ArrayConstant arrayReference = (ArrayConstant) ExpressionFactory.buildArrayConstantExpression(arrayType, instanceId);
-      getOrCreateSymbolicArray(arrayReference);
+        ArrayConstant arrayReference = (ArrayConstant) ExpressionFactory.buildArrayConstantExpression(arrayType,
+                instanceId);
+        getOrCreateSymbolicArray(arrayReference);
 
         return arrayReference;
     }
@@ -149,9 +153,11 @@ public class LazyArraysImpl implements ArraysSection {
     }
 
     /**
-     * Creation section
+     * Creation section.
+     *
+     * @param symbolicArrayReference the symbolic array reference
+     * @return the symbolic array contents
      */
-
     private SymbolicArray getOrCreateSymbolicArray(ReferenceExpression symbolicArrayReference) {
         Type contentType = symbolicArrayReference.getObjectType().getElementType();
         SymbolicArray symbolicArrayContents = symbolicArrays.get(symbolicArrayReference);

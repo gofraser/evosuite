@@ -19,6 +19,9 @@
  */
 package org.evosuite.symbolic.solver;
 
+/**
+ * Represents the different sorts (types) supported by the SMT solver.
+ */
 public enum SmtSort {
     INT("Int"),
     REAL("Real"),

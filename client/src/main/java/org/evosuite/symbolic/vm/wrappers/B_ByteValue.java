@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Byte.byteValue.
+ *
+ * @author galeotti
+ */
 public final class B_ByteValue extends SymbolicFunction {
 
     private static final String BYTE_VALUE = "byteValue";
@@ -35,16 +40,16 @@ public final class B_ByteValue extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        ReferenceConstant symb_byte = this.getSymbReceiver();
-        Byte conc_byte = (Byte) this.getConcReceiver();
+        ReferenceConstant symbByte = this.getSymbReceiver();
+        Byte concByte = (Byte) this.getConcReceiver();
 
-        int conc_byte_value = this.getConcByteRetVal();
+        int concByteValue = this.getConcByteRetVal();
 
-        IntegerValue symb_byte_value = env.heap
+        IntegerValue symbByteValue = env.heap
                 .getField(Types.JAVA_LANG_BYTE, SymbolicHeap.$BYTE_VALUE,
-                        conc_byte, symb_byte, conc_byte_value);
+                        concByte, symbByte, concByteValue);
 
-        return symb_byte_value;
+        return symbByteValue;
     }
 
 }

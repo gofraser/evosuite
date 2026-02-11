@@ -43,9 +43,9 @@ public class ConcolicMutation {
     protected static final Logger logger = LoggerFactory.getLogger(ConcolicMutation.class);
 
     /**
-     * Generate new constraint and ask solver for solution
+     * Generate new constraint and ask solver for solution.
      *
-     * @param pathCondition
+     * @param pathCondition a {@link java.util.List} object.
      * @param targetCondition a {@link org.evosuite.symbolic.BranchCondition} object.
      * @param test            a {@link org.evosuite.testcase.TestCase} object.
      * @return a {@link org.evosuite.testcase.TestCase} object.
@@ -134,17 +134,18 @@ public class ConcolicMutation {
     }
 
     /**
-     * Get the statement that defines this variable
+     * Get the statement that defines this variable.
      *
-     * @param test
-     * @param name
-     * @return
+     * @param test a {@link org.evosuite.testcase.TestCase} object.
+     * @param name a {@link java.lang.String} object.
+     * @return a {@link org.evosuite.testcase.statements.PrimitiveStatement} object.
      */
     private static PrimitiveStatement<?> getStatement(TestCase test, String name) {
         for (Statement statement : test) {
             if (statement instanceof PrimitiveStatement<?>) {
-                if (statement.getReturnValue().getName().equals(name))
+                if (statement.getReturnValue().getName().equals(name)) {
                     return (PrimitiveStatement<?>) statement;
+                }
             }
         }
         return null;
@@ -152,10 +153,10 @@ public class ConcolicMutation {
 
     /**
      * Apply cone of influence reduction to constraints with respect to the last
-     * constraint in the list
+     * constraint in the list.
      *
-     * @param constraints
-     * @return
+     * @param constraints a {@link java.util.List} object.
+     * @return a {@link java.util.List} object.
      */
     private static List<Constraint<?>> reduce(List<Constraint<?>> constraints) {
 
@@ -180,10 +181,10 @@ public class ConcolicMutation {
     }
 
     /**
-     * Determine the set of variable referenced by this constraint
+     * Determine the set of variable referenced by this constraint.
      *
-     * @param constraint
-     * @return
+     * @param constraint a {@link org.evosuite.symbolic.expr.Constraint} object.
+     * @return a {@link java.util.Set} object.
      */
     private static Set<Variable<?>> getVariables(Constraint<?> constraint) {
         Set<Variable<?>> variables = new HashSet<>();
@@ -193,10 +194,10 @@ public class ConcolicMutation {
     }
 
     /**
-     * Recursively determine constraints in expression
+     * Recursively determine constraints in expression.
      *
-     * @param expr
-     * @param variables
+     * @param expr a {@link org.evosuite.symbolic.expr.Expression} object.
+     * @param variables a {@link java.util.Set} object.
      */
     private static void getVariables(Expression<?> expr, Set<Variable<?>> variables) {
         if (expr instanceof Variable<?>) {

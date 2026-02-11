@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Boolean.valueOf.
+ *
+ * @author galeotti
+ */
 public final class Z_ValueOf extends SymbolicFunction {
 
     private static final String VALUE_OF = "valueOf";
@@ -35,12 +40,12 @@ public final class Z_ValueOf extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        IntegerValue int_value = this.getSymbIntegerArgument(0);
-        ReferenceConstant symb_boolean = (ReferenceConstant) this.getSymbRetVal();
-        Boolean conc_boolean = (Boolean) this.getConcRetVal();
+        IntegerValue intValue = this.getSymbIntegerArgument(0);
+        ReferenceConstant symbBoolean = (ReferenceConstant) this.getSymbRetVal();
+        Boolean concBoolean = (Boolean) this.getConcRetVal();
         env.heap.putField(Types.JAVA_LANG_BOOLEAN, SymbolicHeap.$BOOLEAN_VALUE,
-                conc_boolean, symb_boolean, int_value);
-        return symb_boolean;
+                concBoolean, symbBoolean, intValue);
+        return symbBoolean;
     }
 
 }

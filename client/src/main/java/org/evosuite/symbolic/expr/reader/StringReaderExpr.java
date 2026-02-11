@@ -39,18 +39,32 @@ public final class StringReaderExpr extends AbstractExpression<Long> implements
     private final StringValue string;
     private final int readerPosition;
 
+    /**
+     * Constructs a {@link StringReaderExpr} with the given concrete value and string.
+     *
+     * @param conc_value the concrete value of the expression
+     * @param string the symbolic string value
+     */
     public StringReaderExpr(Long conc_value, StringValue string) {
         this(conc_value, string, 0);
     }
 
+    /**
+     * Constructs a {@link StringReaderExpr} with the given concrete value, string and reader position.
+     *
+     * @param conc_value the concrete value of the expression
+     * @param string the symbolic string value
+     * @param readerPosition the position of the reader
+     */
     public StringReaderExpr(Long conc_value, StringValue string, int readerPosition) {
         super(conc_value, 1 + string.getSize(), string.containsSymbolicVariable());
 
         this.string = string;
         this.readerPosition = readerPosition;
 
-        if (getSize() > Properties.DSE_CONSTRAINT_LENGTH)
+        if (getSize() > Properties.DSE_CONSTRAINT_LENGTH) {
             throw new ConstraintTooLongException(getSize());
+        }
     }
 
     @Override
@@ -61,11 +75,13 @@ public final class StringReaderExpr extends AbstractExpression<Long> implements
 
     @Override
     public boolean equals(Object obj) {
-        if (obj == null)
+        if (obj == null) {
             return false;
+        }
 
-        if (this == obj)
+        if (this == obj) {
             return true;
+        }
 
         if (obj instanceof StringReaderExpr) {
             StringReaderExpr that = (StringReaderExpr) obj;

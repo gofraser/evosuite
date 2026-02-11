@@ -29,6 +29,8 @@ import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
 /**
+ * Symbolic function for Pattern.matches.
+ *
  * @author galeotti
  */
 public final class Pattern_Matches extends SymbolicFunction {
@@ -44,28 +46,28 @@ public final class Pattern_Matches extends SymbolicFunction {
     public Object executeFunction() {
 
         // argument 0
-        String regex_str = (String) this.getConcArgument(0);
-        ReferenceConstant regex_ref = (ReferenceConstant) this.getSymbArgument(0);
+        String regexStr = (String) this.getConcArgument(0);
+        ReferenceConstant regexRef = (ReferenceConstant) this.getSymbArgument(0);
 
         // argument 1
-        CharSequence input_char_seq = (CharSequence) this.getConcArgument(1);
-        ReferenceExpression input_ref = this.getSymbArgument(1);
+        CharSequence inputCharSequence = (CharSequence) this.getConcArgument(1);
+        ReferenceExpression inputRef = this.getSymbArgument(1);
 
         // return value
         boolean res = this.getConcBooleanRetVal();
 
         // symbolic execution
-        StringValue symb_regex = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, regex_str, regex_ref, regex_str);
+        StringValue symbRegex = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, regexStr, regexRef, regexStr);
 
-        StringValue symb_input = getSymbInput(input_char_seq, input_ref);
+        StringValue symbInput = getSymbInput(inputCharSequence, inputRef);
 
-        if (symb_input != null && symb_input.containsSymbolicVariable()) {
+        if (symbInput != null && symbInput.containsSymbolicVariable()) {
 
-            int concrete_value = res ? 1 : 0;
+            int concreteValue = res ? 1 : 0;
 
-            StringBinaryComparison strComp = new StringBinaryComparison(symb_regex,
-                    Operator.PATTERNMATCHES, symb_input, (long) concrete_value);
+            StringBinaryComparison strComp = new StringBinaryComparison(symbRegex,
+                    Operator.PATTERNMATCHES, symbInput, (long) concreteValue);
 
             return strComp;
         } else {
@@ -74,32 +76,32 @@ public final class Pattern_Matches extends SymbolicFunction {
 
     }
 
-    private StringValue getSymbInput(CharSequence input_char_seq,
-                                     ReferenceExpression input_ref) {
-        StringValue symb_input;
-        if (input_ref instanceof ReferenceConstant) {
-            ReferenceConstant input_str_ref = (ReferenceConstant) input_ref;
-            assert input_char_seq != null;
+    private StringValue getSymbInput(CharSequence inputCharSequence,
+                                     ReferenceExpression inputRef) {
+        StringValue symbInput;
+        if (inputRef instanceof ReferenceConstant) {
+            ReferenceConstant inputStrRef = (ReferenceConstant) inputRef;
+            assert inputCharSequence != null;
 
-            if (input_char_seq instanceof String) {
+            if (inputCharSequence instanceof String) {
 
-                String string = (String) input_char_seq;
-                symb_input = env.heap.getField(Types.JAVA_LANG_STRING,
-                        SymbolicHeap.$STRING_VALUE, string, input_str_ref,
+                String string = (String) inputCharSequence;
+                symbInput = env.heap.getField(Types.JAVA_LANG_STRING,
+                        SymbolicHeap.$STRING_VALUE, string, inputStrRef,
                         string);
 
-            } else if (input_char_seq instanceof StringBuilder) {
+            } else if (inputCharSequence instanceof StringBuilder) {
 
-                StringBuilder stringBuffer = (StringBuilder) input_char_seq;
-                symb_input = env.heap.getField(Types.JAVA_LANG_STRING_BUILDER,
+                StringBuilder stringBuffer = (StringBuilder) inputCharSequence;
+                symbInput = env.heap.getField(Types.JAVA_LANG_STRING_BUILDER,
                         SymbolicHeap.$STRING_BUILDER_CONTENTS, stringBuffer,
-                        input_str_ref, stringBuffer.toString());
+                        inputStrRef, stringBuffer.toString());
             } else {
-                symb_input = null;
+                symbInput = null;
             }
         } else {
-            symb_input = null;
+            symbInput = null;
         }
-        return symb_input;
+        return symbInput;
     }
 }

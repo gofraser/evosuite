@@ -33,10 +33,23 @@ public class SymbolicArrayUtil {
     public static final String ARRAY_CONTENT_VARIABLE_NAME_SEPARATOR = "_";
     public static final String ARRAY_CONTENT_VARIABLE_NAME_SEPARATOR_REGEX = "\\_";
 
+    /**
+     * Builds the name of a symbolic variable representing an element of a symbolic array.
+     *
+     * @param arrayVariableName the name of the array symbolic variable
+     * @param index the index of the element
+     * @return the name of the element symbolic variable
+     */
     public static String buildArrayContentVariableName(String arrayVariableName, int index) {
-        if (arrayVariableName == null) throw new IllegalArgumentException(ARRAY_NAME_CANNOT_BE_NULL);
-        if (arrayVariableName.length() == 0) throw new IllegalArgumentException(ARRAY_NAME_CANNOT_BE_EMPTY);
-        if (index < 0) throw new IllegalArgumentException(ARRAY_INDEX_CANNOT_BE_LOWER_THAN_0);
+        if (arrayVariableName == null) {
+            throw new IllegalArgumentException(ARRAY_NAME_CANNOT_BE_NULL);
+        }
+        if (arrayVariableName.length() == 0) {
+            throw new IllegalArgumentException(ARRAY_NAME_CANNOT_BE_EMPTY);
+        }
+        if (index < 0) {
+            throw new IllegalArgumentException(ARRAY_INDEX_CANNOT_BE_LOWER_THAN_0);
+        }
 
         return new StringBuilder()
                 .append(arrayVariableName)
@@ -47,8 +60,16 @@ public class SymbolicArrayUtil {
                 .toString();
     }
 
+    /**
+     * Returns whether the given name represents an element of a symbolic array.
+     *
+     * @param name the name to check
+     * @return true if the name represents an array element, false otherwise
+     */
     public static boolean isArrayContentVariableName(String name) {
-        if (name == null) throw new IllegalArgumentException(ARRAY_NAME_CANNOT_BE_NULL);
+        if (name == null) {
+            throw new IllegalArgumentException(ARRAY_NAME_CANNOT_BE_NULL);
+        }
 
         String[] nameElements = name.split(ARRAY_CONTENT_VARIABLE_NAME_SEPARATOR_REGEX);
 

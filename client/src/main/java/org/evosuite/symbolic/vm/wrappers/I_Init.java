@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Integer constructor.
+ *
+ * @author galeotti
+ */
 public final class I_Init extends SymbolicFunction {
 
     public I_Init(SymbolicEnvironment env) {
@@ -34,9 +39,9 @@ public final class I_Init extends SymbolicFunction {
     @Override
     public Object executeFunction() {
         IntegerValue bv32 = this.getSymbIntegerArgument(0);
-        ReferenceConstant symb_integer = this.getSymbReceiver();
+        ReferenceConstant symbInteger = this.getSymbReceiver();
         env.heap.putField(Types.JAVA_LANG_INTEGER, SymbolicHeap.$INT_VALUE,
-                null/* conc_integer */, symb_integer, bv32);
+                null/* concInteger */, symbInteger, bv32);
 
         // return void
         return null;

@@ -27,11 +27,19 @@ import org.evosuite.symbolic.expr.fp.RealValue;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 
+/**
+ * Symbolic functions for Math.abs.
+ *
+ * @author galeotti
+ */
 public abstract class ABS {
 
     private static final String ABS_FUNCTION_NAME = "abs";
 
-    public final static class ABS_D extends SymbolicFunction {
+    /**
+     * Symbolic function for Math.abs(double).
+     */
+    public static final class ABS_D extends SymbolicFunction {
 
         public ABS_D(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, ABS_FUNCTION_NAME,
@@ -43,19 +51,22 @@ public abstract class ABS {
             double res = this.getConcDoubleRetVal();
             RealValue realExpression = this.getSymbRealArgument(0);
 
-            RealValue sym_val;
+            RealValue symVal;
             if (realExpression.containsSymbolicVariable()) {
-                sym_val = new RealUnaryExpression(realExpression, Operator.ABS,
+                symVal = new RealUnaryExpression(realExpression, Operator.ABS,
                         res);
             } else {
-                sym_val = this.getSymbRealRetVal();
+                symVal = this.getSymbRealRetVal();
             }
-            return sym_val;
+            return symVal;
         }
 
     }
 
-    public final static class ABS_F extends SymbolicFunction {
+    /**
+     * Symbolic function for Math.abs(float).
+     */
+    public static final class ABS_F extends SymbolicFunction {
 
         public ABS_F(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, ABS_FUNCTION_NAME,
@@ -67,18 +78,21 @@ public abstract class ABS {
             float res = this.getConcFloatRetVal();
             RealValue realExpression = this.getSymbRealArgument(0);
 
-            RealValue sym_val;
+            RealValue symVal;
             if (realExpression.containsSymbolicVariable()) {
-                sym_val = new RealUnaryExpression(realExpression, Operator.ABS,
+                symVal = new RealUnaryExpression(realExpression, Operator.ABS,
                         (double) res);
             } else {
-                sym_val = this.getSymbRealRetVal();
+                symVal = this.getSymbRealRetVal();
             }
-            return sym_val;
+            return symVal;
         }
     }
 
-    public final static class ABS_I extends SymbolicFunction {
+    /**
+     * Symbolic function for Math.abs(int).
+     */
+    public static final class ABS_I extends SymbolicFunction {
 
         public ABS_I(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, ABS_FUNCTION_NAME,
@@ -89,19 +103,22 @@ public abstract class ABS {
         public Object executeFunction() {
             int res = this.getConcIntRetVal();
             IntegerValue intExpression = this.getSymbIntegerArgument(0);
-            IntegerValue sym_val;
+            IntegerValue symVal;
             if (intExpression.containsSymbolicVariable()) {
-                sym_val = new IntegerUnaryExpression(intExpression,
+                symVal = new IntegerUnaryExpression(intExpression,
                         Operator.ABS, (long) res);
             } else {
-                sym_val = this.getSymbIntegerRetVal();
+                symVal = this.getSymbIntegerRetVal();
             }
-            return sym_val;
+            return symVal;
         }
 
     }
 
-    public final static class ABS_L extends SymbolicFunction {
+    /**
+     * Symbolic function for Math.abs(long).
+     */
+    public static final class ABS_L extends SymbolicFunction {
 
         public ABS_L(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, ABS_FUNCTION_NAME,
@@ -112,14 +129,14 @@ public abstract class ABS {
         public Object executeFunction() {
             long res = this.getConcLongRetVal();
             IntegerValue intExpression = this.getSymbIntegerArgument(0);
-            IntegerValue sym_val;
+            IntegerValue symVal;
             if (intExpression.containsSymbolicVariable()) {
-                sym_val = new IntegerUnaryExpression(intExpression,
+                symVal = new IntegerUnaryExpression(intExpression,
                         Operator.ABS, res);
             } else {
-                sym_val = this.getSymbIntegerRetVal();
+                symVal = this.getSymbIntegerRetVal();
             }
-            return sym_val;
+            return symVal;
         }
 
     }

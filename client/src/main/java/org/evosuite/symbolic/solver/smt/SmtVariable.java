@@ -41,16 +41,21 @@ public abstract class SmtVariable extends SmtExpr {
 
     @Override
     public final boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         SmtVariable other = (SmtVariable) obj;
         if (varName == null) {
             return other.varName == null;
-        } else return varName.equals(other.varName);
+        } else {
+            return varName.equals(other.varName);
+        }
     }
 
     @Override

@@ -32,15 +32,18 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.*;
 
+/**
+ * Solver implementation for the CVC4 SMT solver.
+ */
 public final class CVC4Solver extends SmtSolver {
 
     private boolean reWriteNonLinearConstraints = false;
 
     /**
      * If enabled the translation will approximate non-linear constraints with
-     * concrete values
+     * concrete values.
      *
-     * @param rewrite
+     * @param rewrite whether to rewrite non-linear constraints
      */
     public void setRewriteNonLinearConstraints(boolean rewrite) {
         reWriteNonLinearConstraints = rewrite;
@@ -48,17 +51,26 @@ public final class CVC4Solver extends SmtSolver {
 
     static Logger logger = LoggerFactory.getLogger(CVC4Solver.class);
 
+    /**
+     * Constructs a CVC4Solver.
+     *
+     * @param addMissingValues whether to add missing variables
+     */
     public CVC4Solver(boolean addMissingValues) {
         super(addMissingValues);
     }
 
+    /**
+     * Constructs a CVC4Solver with default settings.
+     */
     public CVC4Solver() {
         super();
     }
 
     @Override
-    public SolverResult executeSolver(Collection<Constraint<?>> constraints) throws SolverTimeoutException,
-            SolverEmptyQueryException, SolverErrorException, SolverParseException, IOException {
+    public SolverResult executeSolver(Collection<Constraint<?>> constraints)
+            throws SolverTimeoutException, SolverEmptyQueryException, SolverErrorException,
+            SolverParseException, IOException {
 
         if (Properties.CVC4_PATH == null) {
             String errMsg = "Property CVC4_PATH should be setted in order to use the CVC4 Solver!";
@@ -77,8 +89,8 @@ public final class CVC4Solver extends SmtSolver {
 
         Set<Variable<?>> variables = new HashSet<>();
         for (Constraint<?> c : constraints) {
-            Set<Variable<?>> c_variables = c.getVariables();
-            variables.addAll(c_variables);
+            Set<Variable<?>> cvariables = c.getVariables();
+            variables.addAll(cvariables);
         }
 
         SmtQuery query = buildSmtQuery(constraints);
@@ -118,7 +130,8 @@ public final class CVC4Solver extends SmtSolver {
             }
 
             if (output.startsWith("unsat") && output.contains(
-                    "(error \"Cannot get the current model unless immediately preceded by SAT/INVALID or UNKNOWN response.\")")) {
+                    "(error \"Cannot get the current model unless immediately preceded by SAT/INVALID or "
+                            + "UNKNOWN response.\")")) {
                 // UNSAT
                 SolverResult unsatResult = SolverResult.newUNSAT();
                 return unsatResult;
@@ -246,7 +259,7 @@ public final class CVC4Solver extends SmtSolver {
         // modulus) by a constant value
         cmd += " --lang smt"; // query language is SMT-LIB
         cmd += " --finite-model-find";
-        /**
+        /*
          * Option --finite-model-find has two effects:
          *
          * 1. It extends the ground UF solver to "UF + finite cardinality constraints",
@@ -270,8 +283,8 @@ public final class CVC4Solver extends SmtSolver {
     private static boolean hasNonLinearConstraints(Collection<Constraint<?>> constraints) {
         NonLinearConstraintVisitor v = new NonLinearConstraintVisitor();
         for (Constraint<?> constraint : constraints) {
-            Boolean ret_val = constraint.accept(v, null);
-            if (ret_val) {
+            Boolean retVal = constraint.accept(v, null);
+            if (retVal) {
                 return true;
             }
         }
@@ -279,7 +292,7 @@ public final class CVC4Solver extends SmtSolver {
     }
 
     // private final static int ASCII_TABLE_LENGTH = 256;
-    private final static int ASCII_TABLE_LENGTH = 256;
+    private static final int ASCII_TABLE_LENGTH = 256;
 
     private static String buildIntToCharFunction() {
         StringBuffer buff = new StringBuffer();

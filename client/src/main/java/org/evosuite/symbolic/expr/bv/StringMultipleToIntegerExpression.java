@@ -82,9 +82,7 @@ public final class StringMultipleToIntegerExpression extends AbstractExpression<
     }
 
     /**
-     * <p>
-     * getOther
-     * </p>
+     * Returns the other expressions.
      *
      * @return the other
      */

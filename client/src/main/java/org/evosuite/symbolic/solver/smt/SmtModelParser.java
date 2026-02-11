@@ -57,6 +57,15 @@ public final class SmtModelParser extends ResultParser {
         this.initialValues = null;
     }
 
+    /**
+     * Parses the solver result string.
+     *
+     * @param solverResultStr a {@link java.lang.String} object.
+     * @return a {@link org.evosuite.symbolic.solver.SolverResult} object.
+     * @throws org.evosuite.symbolic.solver.SolverParseException if any.
+     * @throws org.evosuite.symbolic.solver.SolverErrorException if any.
+     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
+     */
     public SolverResult parse(String solverResultStr)
             throws SolverParseException, SolverErrorException, SolverTimeoutException {
         if (solverResultStr.startsWith(SAT_TOKEN)) {
@@ -109,7 +118,7 @@ public final class SmtModelParser extends ResultParser {
             if (token.equals(DEFINE_FUN_TOKEN)) {
                 token = consumeTokens(tokenizer, NEW_LINE_TOKEN, BLANK_SPACE_TOKEN);
 
-                String fun_name = token;
+                String funName = token;
 
                 token = consumeTokens(tokenizer, NEW_LINE_TOKEN, BLANK_SPACE_TOKEN);
                 checkExpectedToken(LEFT_PARENTHESIS_TOKEN, token);
@@ -141,7 +150,7 @@ public final class SmtModelParser extends ResultParser {
                 token = consumeTokens(tokenizer, NEW_LINE_TOKEN, BLANK_SPACE_TOKEN);
                 checkExpectedToken(RIGHT_PARENTHESIS_TOKEN, token);
 
-                solution.put(fun_name, value);
+                solution.put(funName, value);
                 token = consumeTokens(tokenizer, NEW_LINE_TOKEN, BLANK_SPACE_TOKEN);
             }
         }
@@ -235,7 +244,8 @@ public final class SmtModelParser extends ResultParser {
         return arrayContents;
     }
 
-    private Object doParseArrayContent(StringTokenizer tokenizer, String contentType, String token, int elementsAmount) {
+    private Object doParseArrayContent(StringTokenizer tokenizer, String contentType, String token,
+                                       int elementsAmount) {
         Map<Integer, Object> arrayContents = new HashMap();
         int maxIndex = 0;
 
@@ -255,7 +265,9 @@ public final class SmtModelParser extends ResultParser {
             }
 
             arrayContents.put(index, content);
-            if (index > maxIndex) maxIndex = index;
+            if (index > maxIndex) {
+                maxIndex = index;
+            }
 
             token = consumeTokens(tokenizer, NEW_LINE_TOKEN, BLANK_SPACE_TOKEN);
             checkExpectedToken(RIGHT_PARENTHESIS_TOKEN, token);
@@ -263,8 +275,9 @@ public final class SmtModelParser extends ResultParser {
         }
 
         // TODO (ilebrero): There's an incoherence between the result of SMT (arrays are modeled as undefined functions)
-        //  		 and the check we do after parsing this result to check if the solution is valid. We have to recreate the
-        //			 hole concrete array then and we don't have info at this point about the length variable (it may be bigger).
+        // and the check we do after parsing this result to check if the solution is valid. We have to recreate the
+        // hole concrete array then and we don't have info at this point about the length variable
+        // (it may be bigger).
         //
         // We create the concrete array
         Object array = buildNewArray(contentType, maxIndex + 1);
@@ -289,11 +302,11 @@ public final class SmtModelParser extends ResultParser {
     }
 
     /**
-     * Creates a new array instance based on a content type and length
+     * Creates a new array instance based on a content type and length.
      *
-     * @param contentType
-     * @param length
-     * @return
+     * @param contentType a {@link java.lang.String} object.
+     * @param length a int.
+     * @return a {@link java.lang.Object} object.
      */
     private Object buildNewArray(String contentType, int length) {
         Class componentTypeClass;

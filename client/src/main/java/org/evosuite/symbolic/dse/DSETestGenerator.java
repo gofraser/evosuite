@@ -62,7 +62,7 @@ public class DSETestGenerator {
      * Creates a new test generator using a test suite. The test case will be added
      * to the test suite.
      *
-     * @param suite
+     * @param suite the test suite to use.
      */
     public DSETestGenerator(TestSuiteChromosome suite) {
         this.suite = suite;
@@ -91,8 +91,8 @@ public class DSETestGenerator {
         // test.getMutationHistory().clear();
         test.clone(); // I am not sure what is the purpose of this
 
-        DefaultTestCase clone_test_case = (DefaultTestCase) test.getTestCase().clone();
-        final PathCondition collectedPathCondition = new ConcolicExecutorImpl().execute(clone_test_case);
+        DefaultTestCase cloneTestCase = (DefaultTestCase) test.getTestCase().clone();
+        final PathCondition collectedPathCondition = new ConcolicExecutorImpl().execute(cloneTestCase);
 
         logger.info("Done concolic execution");
 
@@ -106,7 +106,8 @@ public class DSETestGenerator {
 
         Set<VariableReference> symbolicVariables = new HashSet<>();
         for (Integer position : statementIndexes) {
-            final VariableReference variableReference = test.getTestCase().getStatement(position).getReturnValue();
+            final VariableReference variableReference =
+                    test.getTestCase().getStatement(position).getReturnValue();
             symbolicVariables.add(variableReference);
         }
 
@@ -144,7 +145,8 @@ public class DSETestGenerator {
             }
             logger.info("Is relevant for " + symbolicVariables);
 
-            List<Constraint<?>> query = SolverUtils.buildQueryNegatingIthCondition(collectedPathCondition, conditionIndex);
+            List<Constraint<?>> query =
+                    SolverUtils.buildQueryNegatingIthCondition(collectedPathCondition, conditionIndex);
 
             logger.info("Trying to solve: ");
             for (Constraint<?> c : query) {
@@ -156,7 +158,8 @@ public class DSETestGenerator {
             long startSolvingTime = System.currentTimeMillis();
 
             // Get solution
-            SolverResult solverResult = SolverUtils.solveQuery(query);
+            SolverResult solverResult =
+                    SolverUtils.solveQuery(query);
 
             long estimatedSolvingTime = System.currentTimeMillis() - startSolvingTime;
             DSEStatistics.getInstance().reportNewSolvingTime(estimatedSolvingTime);
@@ -188,8 +191,9 @@ public class DSETestGenerator {
                     DSEStatistics.getInstance().reportNewTestUnuseful();
                     test.setTestCase(oldTest);
                     // FIXXME: How can this be null?
-                    if (oldResult != null)
+                    if (oldResult != null) {
                         test.setLastExecutionResult(oldResult);
+                    }
                     // TODO Mutation
                 }
             }
@@ -204,9 +208,9 @@ public class DSETestGenerator {
      * coverage of the whole test suite is used, otherwise, only the coverage of the
      * single test case.
      *
-     * @param test                   the original test case
-     * @param collectedPathCondition a path condition obtained from concolic execution
-     * @return
+     * @param test                   the original test case.
+     * @param collectedPathCondition a path condition obtained from concolic execution.
+     * @return a list of condition indexes not covered two ways.
      */
     private List<Integer> computeConditionIndexesNotCoveredTwoWays(final TestChromosome test,
                                                                    final PathCondition collectedPathCondition) {
@@ -225,9 +229,9 @@ public class DSETestGenerator {
      * test case belongs to a whole test suite, then the coverage of the test suite
      * is used, otherwise the single test case is used.
      *
-     * @param test
-     * @param branchIndex
-     * @return
+     * @param test the test chromosome.
+     * @param branchIndex the branch instruction index.
+     * @return true if covered two ways.
      */
     private boolean isCoveredTwoWays(TestChromosome test, int branchIndex) {
 
@@ -257,11 +261,11 @@ public class DSETestGenerator {
     }
 
     /**
-     * Returns true iff the constraint has at least one variable that is
+     * Returns true iff the constraint has at least one variable that is.
      *
-     * @param constraint
-     * @param targets
-     * @return
+     * @param constraint the constraint.
+     * @param targets the target variables.
+     * @return true if relevant.
      */
     private boolean isRelevant(Constraint<?> constraint, Set<VariableReference> targets) {
         Set<Variable<?>> variables = constraint.getVariables();
@@ -270,8 +274,9 @@ public class DSETestGenerator {
             targetNames.add(v.getName());
         }
         for (Variable<?> var : variables) {
-            if (targetNames.contains(var.getName()))
+            if (targetNames.contains(var.getName())) {
                 return true;
+            }
         }
         return false;
     }

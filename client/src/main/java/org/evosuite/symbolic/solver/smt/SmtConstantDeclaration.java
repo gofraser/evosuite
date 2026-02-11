@@ -26,19 +26,39 @@ public final class SmtConstantDeclaration {
     private final String name;
     private final SmtSort[] sorts;
 
+    /**
+     * Constructor.
+     *
+     * @param constantName a {@link java.lang.String} object.
+     * @param constantSorts an array of {@link org.evosuite.symbolic.solver.SmtSort} objects.
+     */
     public SmtConstantDeclaration(String constantName, SmtSort... constantSorts) {
         this.name = constantName;
         this.sorts = constantSorts;
     }
 
+    /**
+     * Returns the constant name.
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getConstantName() {
         return name;
     }
 
+    /**
+     * Returns the constant sorts.
+     *
+     * @return an array of {@link org.evosuite.symbolic.solver.SmtSort} objects.
+     */
     public SmtSort[] getConstantSorts() {
         return sorts;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public String toString() {
         SmtQueryPrinter printer = new SmtQueryPrinter();
         String str = printer.print(this);

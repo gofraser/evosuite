@@ -27,26 +27,39 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for String.length.
+ *
+ * @author galeotti
+ */
 public final class Length extends SymbolicFunction {
 
     private static final String LENGTH = "length";
 
+    /**
+     * Constructs a Length.
+     *
+     * @param env the symbolic environment
+     */
     public Length(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING, LENGTH, Types.TO_INT_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
-        ReferenceConstant symb_str = this.getSymbReceiver();
-        String conc_str = (String) this.getConcReceiver();
+        ReferenceConstant symbStr = this.getSymbReceiver();
+        String concStr = (String) this.getConcReceiver();
         int res = this.getConcIntRetVal();
 
-        StringValue string_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_str, symb_str, conc_str);
+        StringValue stringExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concStr, symbStr, concStr);
 
-        if (string_expr.containsSymbolicVariable()) {
+        if (stringExpr.containsSymbolicVariable()) {
             StringUnaryToIntegerExpression strUnExpr = new StringUnaryToIntegerExpression(
-                    string_expr, Operator.LENGTH, (long) res);
+                    stringExpr, Operator.LENGTH, (long) res);
             return strUnExpr;
         }
 

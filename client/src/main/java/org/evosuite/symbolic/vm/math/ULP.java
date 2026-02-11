@@ -29,7 +29,8 @@ public abstract class ULP {
 
     private static final String ULP = "ulp";
 
-    public final static class ULP_D extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class ULP_D extends SymbolicFunction {
 
         public ULP_D(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, ULP, Types.D2D_DESCRIPTOR);
@@ -51,7 +52,8 @@ public abstract class ULP {
 
     }
 
-    public final static class ULP_F extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class ULP_F extends SymbolicFunction {
 
         public ULP_F(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, ULP, Types.F2F_DESCRIPTOR);

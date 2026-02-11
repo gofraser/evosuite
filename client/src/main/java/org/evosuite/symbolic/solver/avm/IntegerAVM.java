@@ -47,7 +47,7 @@ final class IntegerAVM extends VariableAVM {
     /**
      * Saves a new checkpoint for the current value and the current distance.
      *
-     * @param newDist
+     * @param newDist a double.
      */
     private void checkpointVar(double newDist) {
         checkpointedDistance = newDist;
@@ -59,8 +59,7 @@ final class IntegerAVM extends VariableAVM {
      * the bounds of the variable the new value is set to the the appropriate
      * bound.
      *
-     * @param intVar
-     * @param increment
+     * @param i a long.
      */
     private void incrementVar(long i) {
         long oldVal = intVar.getConcreteValue();
@@ -83,10 +82,10 @@ final class IntegerAVM extends VariableAVM {
 
     /**
      * Returns if the new distance is smaller than the checkpointing old
-     * distance
+     * distance.
      *
-     * @param newDistance
-     * @return
+     * @param newDistance a double.
+     * @return a boolean.
      */
     private boolean distImpr(double newDistance) {
         return newDistance < checkpointedDistance;
@@ -96,11 +95,11 @@ final class IntegerAVM extends VariableAVM {
      * Apply AVM to the integer variable. The search is guided using the
      * constraint system.
      *
-     * @param intVar an integer variable on which AVM will be applied
-     * @param cnstr  a constraint system to guide AVM
      * @return true iff a new value was found such that distance is smaller than
-     * before
+     *     before.
+     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
+    @Override
     public boolean applyAVM() throws SolverTimeoutException {
         double newDist;
         boolean improvement = false;
@@ -173,9 +172,10 @@ final class IntegerAVM extends VariableAVM {
     }
 
     /**
-     * AVM inner loop
+     * AVM inner loop.
      *
-     * @param delta
+     * @param delta a long.
+     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
     private void iterateVar(long delta) throws SolverTimeoutException {
 

@@ -31,7 +31,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * Collects a path condition during concolic execution
+ * Collects a path condition during concolic execution.
  *
  * @author galeotti
  */
@@ -46,11 +46,11 @@ public final class PathConditionCollector {
     }
 
     /**
-     * Add a supporting constraint to the current branch condition When the branch
+     * Add a supporting constraint to the current branch condition. When the branch
      * condition is currently added, then these supporting constraints will be added
-     * to the new branch condition
+     * to the new branch condition.
      *
-     * @param constraint
+     * @param constraint the supporting constraint
      */
     public void appendSupportingConstraint(IntegerConstraint constraint) {
         Constraint<?> normalizedConstraint = normalizeConstraint(constraint);
@@ -62,13 +62,14 @@ public final class PathConditionCollector {
      * Instructions:
      * XSTORE, XLOAD, XASTORE, XALOAD -> Out of bounds index violation
      * NEWARRAY, ANEWARRAY, MULINEWARRAY -> Negative index violation
-     * <p>
-     * TODO (ilebrero): As array accesses don't count as branches yet (probably an implementation on the static analysis
-     * 									stage?), we model the instruction index as -1.
+     *
+     * <p>TODO (ilebrero): As array accesses don't count as branches yet (probably an
+     * implementation on the static analysis stage?), we model the instruction index as -1.</p>
      *
      * @param constraint the constraint for the branch condition
      * @param className  the class name where the branch is
      * @param methodName the method where the branch is
+     * @param isErrorBranch whether it is an error branch
      */
     public void appendArrayAccessCondition(IntegerConstraint constraint,
                                            String className,
@@ -77,7 +78,7 @@ public final class PathConditionCollector {
 
         Constraint<?> normalizedConstraint = normalizeConstraint(constraint);
 
-        /** Note (ilebrero): instruction index is kept for retro-compatibility only */
+        /* Note (ilebrero): instruction index is kept for retro-compatibility only */
         BranchCondition branchCondition = new ArrayAccessBranchCondition(className,
                 methodName,
                 -1,
@@ -88,11 +89,12 @@ public final class PathConditionCollector {
     }
 
     /**
-     * Add a new constraint to a branch condition for a IF instruction
+     * Add a new constraint to a branch condition for a IF instruction.
      *
      * @param className   the class name where the branch is
      * @param methName    the method where the branch is
      * @param branchIndex the branch index
+     * @param isTrueBranch whether it is the true branch
      * @param c           the constraint for the branch condition
      */
     public void appendIfBranchCondition(String className, String methName, int branchIndex, boolean isTrueBranch,
@@ -100,74 +102,71 @@ public final class PathConditionCollector {
 
         Constraint<?> normalizedConstraint = normalizeConstraint(c);
 
-        LinkedList<Constraint<?>> branch_supporting_constraints = new LinkedList<>(
+        LinkedList<Constraint<?>> branchSupportingConstraints = new LinkedList<>(
                 currentSupportingConstraints);
 
-        IfBranchCondition new_branch = new IfBranchCondition(className, methName, branchIndex, normalizedConstraint,
-                branch_supporting_constraints, isTrueBranch);
+        IfBranchCondition newBranch = new IfBranchCondition(className, methName, branchIndex, normalizedConstraint,
+                branchSupportingConstraints, isTrueBranch);
 
-        branchConditions.add(new_branch);
+        branchConditions.add(newBranch);
 
         currentSupportingConstraints.clear();
     }
 
     /**
-	 * Add a new constraint to a branch condition for a IF instruction
-	 *
-	 * @param className
-	 *            the class name where the branch is
-	 * @param methName
-	 *            the method where the branch is
-	 * @param branchIndex
-	 *            the branch index
-	 * @param c
-	 *            the constraint for the branch condition
-	 */
-	public void appendIfBranchCondition(String className, String methName, int branchIndex, boolean isTrueBranch,
-			ReferenceConstraint c) {
+     * Add a new constraint to a branch condition for a IF instruction.
+     *
+     * @param className   the class name where the branch is
+     * @param methName    the method where the branch is
+     * @param branchIndex the branch index
+     * @param isTrueBranch whether it is the true branch
+     * @param c           the constraint for the branch condition
+     */
+    public void appendIfBranchCondition(String className, String methName, int branchIndex, boolean isTrueBranch,
+                                        ReferenceConstraint c) {
 
-		LinkedList<Constraint<?>> branch_supporting_constraints = new LinkedList<>(
-				currentSupportingConstraints);
+        LinkedList<Constraint<?>> branchSupportingConstraints = new LinkedList<>(
+                currentSupportingConstraints);
 
-		IfBranchCondition new_branch = new IfBranchCondition(className, methName, branchIndex, c,
-				branch_supporting_constraints, isTrueBranch);
+        IfBranchCondition newBranch = new IfBranchCondition(className, methName, branchIndex, c,
+                branchSupportingConstraints, isTrueBranch);
 
-		branchConditions.add(new_branch);
+        branchConditions.add(newBranch);
 
-		currentSupportingConstraints.clear();
-	}
+        currentSupportingConstraints.clear();
+    }
 
     /**
      * Appends a switch branch condition originated by a switch bytecode instruction
-     * that matched a certain goal
+     * that matched a certain goal.
      *
-     * @param className
-     * @param methodName
-     * @param instructionIndex
-     * @param goal
-     * @param c
+     * @param className the class name where the branch is
+     * @param methodName the method where the branch is
+     * @param instructionIndex the instruction index
+     * @param c the constraint for the branch condition
+     * @param goal the goal matched
      */
     public void appendSwitchBranchCondition(String className, String methodName, int instructionIndex,
                                             IntegerConstraint c, int goal) {
 
         Constraint<?> normalizedConstraint = normalizeConstraint(c);
 
-        LinkedList<Constraint<?>> branch_supporting_constraints = new LinkedList<>(
+        LinkedList<Constraint<?>> branchSupportingConstraints = new LinkedList<>(
                 currentSupportingConstraints);
 
-        SwitchBranchCondition new_branch = new SwitchBranchCondition(className, methodName, instructionIndex,
-                normalizedConstraint, branch_supporting_constraints, goal);
+        SwitchBranchCondition newBranch = new SwitchBranchCondition(className, methodName, instructionIndex,
+                normalizedConstraint, branchSupportingConstraints, goal);
 
-        branchConditions.add(new_branch);
+        branchConditions.add(newBranch);
 
         currentSupportingConstraints.clear();
 
     }
 
     /**
-     * Returns the collected list of branch conditions during concolic execution
+     * Returns the collected list of branch conditions during concolic execution.
      *
-     * @return
+     * @return the list of branch conditions
      */
     public List<BranchCondition> getPathCondition() {
         return new LinkedList<>(branchConditions);
@@ -175,25 +174,25 @@ public final class PathConditionCollector {
 
     /**
      * Appends a switch branch condition originated by the execution of a switch
-     * bytecode instruction that did not match any goal
+     * bytecode instruction that did not match any goal.
      *
-     * @param className
-     * @param methodName
-     * @param instructionIndex
-     * @param c
+     * @param className the class name where the branch is
+     * @param methodName the method where the branch is
+     * @param instructionIndex the instruction index
+     * @param c the constraint for the branch condition
      */
     public void appendDefaultSwitchBranchCondition(String className, String methodName, int instructionIndex,
                                                    IntegerConstraint c) {
 
         Constraint<?> normalizedConstraint = normalizeConstraint(c);
 
-        LinkedList<Constraint<?>> branch_supporting_constraints = new LinkedList<>(
+        LinkedList<Constraint<?>> branchSupportingConstraints = new LinkedList<>(
                 currentSupportingConstraints);
 
-        SwitchBranchCondition new_branch = new SwitchBranchCondition(className, methodName, instructionIndex,
-                normalizedConstraint, branch_supporting_constraints);
+        SwitchBranchCondition newBranch = new SwitchBranchCondition(className, methodName, instructionIndex,
+                normalizedConstraint, branchSupportingConstraints);
 
-        branchConditions.add(new_branch);
+        branchConditions.add(newBranch);
 
         currentSupportingConstraints.clear();
 

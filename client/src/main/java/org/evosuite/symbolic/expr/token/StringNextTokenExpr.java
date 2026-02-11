@@ -50,6 +50,12 @@ public final class StringNextTokenExpr extends AbstractExpression<String> implem
 
     private final TokenizerExpr tokenizerExpr;
 
+    /**
+     * Constructs a {@link StringNextTokenExpr} with the given tokenizer expression and concrete value.
+     *
+     * @param tokenizerExpr the tokenizer expression
+     * @param con the concrete value
+     */
     public StringNextTokenExpr(TokenizerExpr tokenizerExpr, String con) {
         super(con, 1 + tokenizerExpr.getSize(), tokenizerExpr.containsSymbolicVariable());
         this.tokenizerExpr = tokenizerExpr;

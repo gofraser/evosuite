@@ -24,85 +24,118 @@ import org.evosuite.symbolic.expr.Constraint;
 import java.util.Collection;
 import java.util.HashMap;
 
+/**
+ * A cache for solver results.
+ *
+ * @author ilebrero
+ */
 public final class SolverCache {
 
     private static final SolverCache instance = new SolverCache();
     private static final String CONTRAINT_NOT_CACHED_EXCEPTION_MESSAGE = "The constraint is not cached!";
-    private static final String SOLVER_RESULT_CANNOT_BE_NULL_EXCEPTION_MESSAGE = "Unable to save solver result as its null.";
+    private static final String SOLVER_RESULT_CANNOT_BE_NULL_EXCEPTION_MESSAGE =
+            "Unable to save solver result as its null.";
 
-    private int number_of_hits = 0;
-    private int number_of_accesses = 0;
-    private int cached_sat_result_count = 0;
-    private int cached_unsat_result_count = 0;
-    private boolean valid_cached_solution = false;
+    private int numberOfHits = 0;
+    private int numberOfAccesses = 0;
+    private int cachedSatResultCount = 0;
+    private int cachedUnsatResultCount = 0;
+    private boolean validCachedSolution = false;
 
-    private final HashMap<Collection<Constraint<?>>, SolverResult> cached_solver_results = new HashMap<>();
-    private SolverResult cached_solution = null;
+    private final HashMap<Collection<Constraint<?>>, SolverResult> cachedSolverResults = new HashMap<>();
+    private SolverResult cachedSolution = null;
 
+    /**
+     * Returns the number of cached UNSAT results.
+     *
+     * @return the number of UNSAT results
+     */
     public int getNumberOfUNSATs() {
-        return cached_unsat_result_count;
+        return cachedUnsatResultCount;
     }
 
+    /**
+     * Returns the number of cached SAT results.
+     *
+     * @return the number of SAT results
+     */
     public int getNumberOfSATs() {
-        return cached_sat_result_count;
+        return cachedSatResultCount;
     }
 
     private SolverCache() {
         /* empty constructor */
     }
 
+    /**
+     * Returns the singleton instance of the solver cache.
+     *
+     * @return the solver cache instance
+     */
     public static SolverCache getInstance() {
         return instance;
     }
 
-    private void addUNSAT(Collection<Constraint<?>> unsat_constraints, SolverResult unsatResult) {
-        cached_solver_results.put(unsat_constraints, unsatResult);
-        cached_unsat_result_count++;
+    private void addUNSAT(Collection<Constraint<?>> unsatConstraints, SolverResult unsatResult) {
+        cachedSolverResults.put(unsatConstraints, unsatResult);
+        cachedUnsatResultCount++;
     }
 
-    private void addSAT(Collection<Constraint<?>> sat_constraints, SolverResult satResult) {
-        cached_solver_results.put(sat_constraints, satResult);
-        cached_sat_result_count++;
+    private void addSAT(Collection<Constraint<?>> satConstraints, SolverResult satResult) {
+        cachedSolverResults.put(satConstraints, satResult);
+        cachedSatResultCount++;
     }
 
+    /**
+     * Checks if a result for the given constraints is cached.
+     *
+     * @param constraints the collection of constraints
+     * @return true if a result is cached, false otherwise
+     */
     public boolean hasCachedResult(Collection<Constraint<?>> constraints) {
-        number_of_accesses++;
+        numberOfAccesses++;
 
-        if (this.cached_solver_results.containsKey(constraints)) {
-            valid_cached_solution = true;
-            cached_solution = this.cached_solver_results.get(constraints);
-            number_of_hits++;
+        if (this.cachedSolverResults.containsKey(constraints)) {
+            validCachedSolution = true;
+            cachedSolution = this.cachedSolverResults.get(constraints);
+            numberOfHits++;
             return true;
         } else {
-            valid_cached_solution = false;
+            validCachedSolution = false;
             return false;
         }
     }
 
+    /**
+     * Returns the hit rate of the cache.
+     *
+     * @return the hit rate
+     */
     public double getHitRate() {
-        return (double) this.number_of_hits / (double) this.number_of_accesses;
+        return (double) this.numberOfHits / (double) this.numberOfAccesses;
     }
 
     /**
-     * If not in cache returns IllegalArgumentException()
+     * Returns the cached result.
+     * If not in cache, throws an {@link IllegalArgumentException}.
      *
-     * @return
+     * @return the cached solver result
      */
     public SolverResult getCachedResult() {
 
-        if (valid_cached_solution == false) {
+        if (validCachedSolution == false) {
             throw new IllegalArgumentException(CONTRAINT_NOT_CACHED_EXCEPTION_MESSAGE);
         }
 
-        valid_cached_solution = false;
-        return this.cached_solution;
+        validCachedSolution = false;
+        return this.cachedSolution;
     }
 
     /**
-     * Saves result to cache
+     * Saves a solver result to the cache.
      *
-     * @param constraints
-     * @param solverResult
+     * @param constraints  the collection of constraints
+     * @param solverResult the solver result to save
      */
     public void saveSolverResult(Collection<Constraint<?>> constraints, SolverResult solverResult) {
         if (solverResult == null) {

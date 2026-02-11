@@ -30,32 +30,25 @@ public abstract class Constraint<T extends Object> implements Serializable {
     private static final long serialVersionUID = 7547747352755232472L;
 
     /**
-     * <p>
-     * getComparator
-     * </p>
+     * Returns the comparator used in this constraint.
      *
-     * @param <T> a T object.
      * @return a {@link org.evosuite.symbolic.expr.Comparator} object.
      */
-    abstract public Comparator getComparator();
+    public abstract Comparator getComparator();
 
     /**
-     * <p>
-     * getLeftOperand
-     * </p>
+     * Returns the left operand of the constraint.
      *
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
-    abstract public Expression<?> getLeftOperand();
+    public abstract Expression<?> getLeftOperand();
 
     /**
-     * <p>
-     * getRightOperand
-     * </p>
+     * Returns the right operand of the constraint.
      *
      * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
-    abstract public Expression<?> getRightOperand();
+    public abstract Expression<?> getRightOperand();
 
     private int hash = 0;
 
@@ -64,9 +57,7 @@ public abstract class Constraint<T extends Object> implements Serializable {
      */
     @Override
     public int hashCode() {
-        if (hash != 0) {
-
-        } else {
+        if (hash == 0) {
             hash = getLeftOperand().hashCode() + getComparator().hashCode()
                     + getRightOperand().hashCode();
         }
@@ -76,11 +67,9 @@ public abstract class Constraint<T extends Object> implements Serializable {
     protected int size = 0;
 
     /**
-     * <p>
-     * Getter for the field <code>size</code>.
-     * </p>
+     * Returns the size of the constraint.
      *
-     * @return a int.
+     * @return the constraint size.
      */
     public int getSize() {
         if (size == 0) {
@@ -109,9 +98,9 @@ public abstract class Constraint<T extends Object> implements Serializable {
     }
 
     /**
-     * Sound but not complete
+     * Returns whether the constraint is solvable.
      *
-     * @return a boolean.
+     * @return true if solvable, false otherwise.
      */
     public boolean isSolveable() {
         if (getLeftOperand().equals(getRightOperand())) {
@@ -122,18 +111,28 @@ public abstract class Constraint<T extends Object> implements Serializable {
         return true;
     }
 
+    /**
+     * Returns the negation of this constraint.
+     *
+     * @return the negated constraint.
+     */
     public abstract Constraint<T> negate();
 
     /**
-     * Returns x/(x+1)
+     * Returns a normalized value between 0 and 1.
      *
-     * @param x
+     * @param x the value to normalize
      * @return a normalized double value
      */
     protected static double normalize(double x) {
         return x / (x + 1.0);
     }
 
+    /**
+     * Returns the set of symbolic variables in the constraint.
+     *
+     * @return the set of variables.
+     */
     public Set<Variable<?>> getVariables() {
         Set<Variable<?>> result = new HashSet<>();
         result.addAll(this.getLeftOperand().getVariables());
@@ -141,6 +140,11 @@ public abstract class Constraint<T extends Object> implements Serializable {
         return result;
     }
 
+    /**
+     * Returns the set of constants in the constraint.
+     *
+     * @return the set of constants.
+     */
     public Set<Object> getConstants() {
         Set<Object> result = new HashSet<>();
         result.addAll(this.getLeftOperand().getConstants());
@@ -148,5 +152,14 @@ public abstract class Constraint<T extends Object> implements Serializable {
         return result;
     }
 
+    /**
+     * Accepts a constraint visitor.
+     *
+     * @param v the visitor
+     * @param arg the argument
+     * @param <K> the return type
+     * @param <V> the argument type
+     * @return the visitor result
+     */
     public abstract <K, V> K accept(ConstraintVisitor<K, V> v, V arg);
 }

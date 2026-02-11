@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Float.floatValue.
+ *
+ * @author galeotti
+ */
 public final class F_FloatValue extends SymbolicFunction {
 
     private static final String FLOAT_VALUE = "floatValue";
@@ -35,16 +40,16 @@ public final class F_FloatValue extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        ReferenceConstant symb_float = this.getSymbReceiver();
-        Float conc_float = (Float) this.getConcReceiver();
+        ReferenceConstant symbFloat = this.getSymbReceiver();
+        Float concFloat = (Float) this.getConcReceiver();
 
-        float conc_float_value = this.getConcFloatRetVal();
+        float concFloatValue = this.getConcFloatRetVal();
 
-        RealValue symb_int_value = env.heap.getField(Types.JAVA_LANG_FLOAT,
-                SymbolicHeap.$FLOAT_VALUE, conc_float, symb_float,
-                conc_float_value);
+        RealValue symbIntValue = env.heap.getField(Types.JAVA_LANG_FLOAT,
+                SymbolicHeap.$FLOAT_VALUE, concFloat, symbFloat,
+                concFloatValue);
 
-        return symb_int_value;
+        return symbIntValue;
     }
 
 }

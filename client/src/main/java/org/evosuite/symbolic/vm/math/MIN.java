@@ -31,7 +31,8 @@ public abstract class MIN {
 
     private static final String MIN = "min";
 
-    public final static class MIN_D extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class MIN_D extends SymbolicFunction {
 
         public MIN_D(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, MIN, Types.DD2D_DESCRIPTOR);
@@ -55,7 +56,8 @@ public abstract class MIN {
 
     }
 
-    public final static class MIN_F extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class MIN_F extends SymbolicFunction {
 
         public MIN_F(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, MIN, Types.FF2F_DESCRIPTOR);
@@ -80,7 +82,8 @@ public abstract class MIN {
 
     }
 
-    public final static class MIN_I extends SymbolicFunction {
+    @SuppressWarnings("checkstyle:TypeName")
+    public static final class MIN_I extends SymbolicFunction {
 
         public MIN_I(SymbolicEnvironment env) {
             super(env, Types.JAVA_LANG_MATH, MIN, Types.II2I_DESCRIPTOR);

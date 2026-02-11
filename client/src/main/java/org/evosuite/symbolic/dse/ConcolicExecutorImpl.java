@@ -56,19 +56,29 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
     private static final Logger logger = LoggerFactory.getLogger(ConcolicExecutorImpl.class);
 
     /**
-     * Instrumenting class loader
+     * Instrumenting class loader.
      */
     private final ConcolicInstrumentingClassLoader instrumentingClassLoader;
 
+    /**
+     * Constructor.
+     */
     public ConcolicExecutorImpl() {
         this.instrumentingClassLoader = new ConcolicInstrumentingClassLoader(new ConcolicBytecodeInstrumentation());
 
-        /**
+        /*
          * Prepare DSC configuration
          */
         MainConfig.setInstance();
     }
 
+    /**
+     * Returns the symbolic path of the test chromosome.
+     *
+     * @param test a {@link org.evosuite.testcase.TestChromosome} object.
+     * @return a {@link java.util.List} object.
+     */
+    @Override
     public List<BranchCondition> getSymbolicPath(TestChromosome test) {
         TestChromosome dscCopy = test.clone();
         DefaultTestCase defaultTestCase = (DefaultTestCase) dscCopy.getTestCase();
@@ -77,27 +87,33 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
         return pathCondition.getBranchConditions();
     }
 
+    /**
+     * Executes the test case and returns the path condition.
+     *
+     * @param defaultTestCase a {@link org.evosuite.testcase.DefaultTestCase} object.
+     * @return a {@link org.evosuite.symbolic.PathCondition} object.
+     */
     public PathCondition execute(DefaultTestCase defaultTestCase) {
         logger.debug("Preparing concolic execution");
 
-        /**
+        /*
          * Memory model
          * Path constraint and symbolic environment
          */
         SymbolicEnvironment symbolicEnvironment = new SymbolicEnvironment(instrumentingClassLoader);
         PathConditionCollector pathConditionCollector = new PathConditionCollector();
 
-        /**
+        /*
          * Observers for TestCaseExecutor
          */
         SymbolicObserver symbolicExecObserver = new SymbolicObserver(symbolicEnvironment);
 
-        /**
+        /*
          * VM listeners
          */
         setUpVMListeners(symbolicEnvironment, pathConditionCollector);
 
-        /**
+        /*
          * Override test case classloader for instrumentation
          */
         defaultTestCase.getChangedClassLoader();
@@ -110,7 +126,7 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
         logger.info("Starting concolic execution");
         ExecutionResult result = new ExecutionResult(defaultTestCase, null);
 
-        /**
+        /*
          * Execute the test case
          */
         try {
@@ -140,6 +156,13 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
         return new PathCondition(branches);
     }
 
+    /**
+     * Executes the test case.
+     *
+     * @param defaultTestCase a {@link org.evosuite.testcase.DefaultTestCase} object.
+     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
+     * @throws java.lang.Exception if any.
+     */
     private ExecutionResult executeTestCase(DefaultTestCase defaultTestCase) throws Exception {
         logger.debug("Executing test");
         ExecutionResult result;
@@ -154,7 +177,8 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
         return result;
     }
 
-    private void setUpVMListeners(SymbolicEnvironment symbolicEnvironment, PathConditionCollector pathConditionCollector) {
+    private void setUpVMListeners(SymbolicEnvironment symbolicEnvironment,
+                                  PathConditionCollector pathConditionCollector) {
         List<IVM> listeners = new ArrayList<>();
         listeners.add(new CallVM(symbolicEnvironment, instrumentingClassLoader));
         listeners.add(new JumpVM(symbolicEnvironment, pathConditionCollector));
@@ -178,9 +202,9 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
         ExpressionEvaluator exprExecutor = new ExpressionEvaluator();
         for (BranchCondition branchCondition : branches) {
 
-            for (Constraint<?> supporting_constraint : branchCondition.getSupportingConstraints()) {
-                supporting_constraint.getLeftOperand().accept(exprExecutor, null);
-                supporting_constraint.getRightOperand().accept(exprExecutor, null);
+            for (Constraint<?> supportingConstraint : branchCondition.getSupportingConstraints()) {
+                supportingConstraint.getLeftOperand().accept(exprExecutor, null);
+                supportingConstraint.getRightOperand().accept(exprExecutor, null);
                 nrOfConstraints++;
             }
 

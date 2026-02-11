@@ -19,13 +19,19 @@
  */
 package org.evosuite.symbolic.solver;
 
+/**
+ * Exception thrown when the solver times out.
+ */
 public final class SolverTimeoutException extends Exception {
 
 
     private static final long serialVersionUID = 437518700827698182L;
 
+    /**
+     * Constructs a new SolverTimeoutException.
+     */
     public SolverTimeoutException() {
-        // TODO Auto-generated constructor stub
+        super();
     }
 
 }

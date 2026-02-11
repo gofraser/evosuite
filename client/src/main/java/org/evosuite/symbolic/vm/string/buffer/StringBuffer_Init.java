@@ -25,40 +25,59 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for StringBuffer constructors.
+ *
+ * @author galeotti
+ */
 public abstract class StringBuffer_Init extends SymbolicFunction {
 
     private static final String INIT = "<init>";
 
+    /**
+     * Constructs a StringBuffer_Init.
+     *
+     * @param env  the symbolic environment
+     * @param desc the method descriptor
+     */
     public StringBuffer_Init(SymbolicEnvironment env, String desc) {
         super(env, Types.JAVA_LANG_STRING_BUFFER, INIT, desc);
     }
 
+    /**
+     * Symbolic function implementation for StringBuffer(String) constructor.
+     */
     public static final class StringBufferInit_S extends StringBuffer_Init {
 
+        /**
+         * Constructs a StringBufferInit_S.
+         *
+         * @param env the symbolic environment
+         */
         public StringBufferInit_S(SymbolicEnvironment env) {
             super(env, Types.STR_TO_VOID_DESCRIPTOR);
 
         }
 
         /**
-         * new StringBuffer(String)
+         * new StringBuffer(String).
          */
         @Override
         public Object executeFunction() {
-            ReferenceConstant symb_str_buffer = this.getSymbReceiver();
-            ReferenceConstant symb_string = (ReferenceConstant) this
+            ReferenceConstant symbStrBuffer = this.getSymbReceiver();
+            ReferenceConstant symbString = (ReferenceConstant) this
                     .getSymbArgument(0);
-            String conc_string = (String) this.getConcArgument(0);
+            String concString = (String) this.getConcArgument(0);
 
             // get symbolic value for string argument
-            StringValue string_value = this.env.heap.getField(
+            StringValue stringValue = this.env.heap.getField(
                     Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                    conc_string, symb_string, conc_string);
+                    concString, symbString, concString);
 
             // update symbolic heap
             this.env.heap.putField(Types.JAVA_LANG_STRING_BUFFER,
                     SymbolicHeap.$STRING_BUFFER_CONTENTS, null,
-                    symb_str_buffer, string_value);
+                    symbStrBuffer, stringValue);
 
             // return void
             return null;

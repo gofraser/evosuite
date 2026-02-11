@@ -23,7 +23,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Member;
 
 /**
- * Frame for a constructor invocation (<init>)
+ * Frame for a constructor invocation (&lt;init&gt;).
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
@@ -31,7 +31,10 @@ public final class ConstructorFrame extends Frame {
     private final Constructor<?> constructor;
 
     /**
-     * Constructor
+     * Constructor.
+     *
+     * @param constructor the constructor
+     * @param maxLocals maximum number of local variables
      */
     public ConstructorFrame(Constructor<?> constructor, int maxLocals) {
         super(maxLocals);

@@ -32,7 +32,6 @@ import org.evosuite.symbolic.expr.reftype.LambdaSyntheticTypeConstant;
 import org.evosuite.symbolic.expr.str.StringBinaryExpression;
 import org.evosuite.symbolic.expr.str.StringConstant;
 import org.evosuite.symbolic.instrument.ConcolicInstrumentingClassLoader;
-import org.evosuite.symbolic.instrument.ConcolicMethodAdapter;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 import org.evosuite.symbolic.vm.string.Types;
 import org.objectweb.asm.Type;
@@ -53,11 +52,11 @@ import java.util.Stack;
 
 /**
  * Explicit inter-procedural control transfer: InvokeXXX, Return, etc.
- * <p>
- * We ignore the CALLER_STACK_PARAM calls here, as we have maintained the
+ *
+ * <p>We ignore the CALLER_STACK_PARAM calls here, as we have maintained the
  * operand stack during the caller's execution, so we already know the operand
  * stack values and therefore the parameter values to be used for a given method
- * invocation.
+ * invocation.</p>
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
@@ -65,12 +64,12 @@ public final class CallVM extends AbstractVM {
 
     public static final String STRING_CONCATENATION_INDY_PARAMETER_IDENTIFIER = "\u0001";
     /**
-     * Environment
+     * Environment.
      */
     private final SymbolicEnvironment env;
 
     /**
-     * Instrumentation
+     * Instrumentation.
      */
     private final ConcolicInstrumentingClassLoader classLoader;
 
@@ -78,7 +77,7 @@ public final class CallVM extends AbstractVM {
     private final HashMap<Member, MemberInfo> memberInfos = new HashMap<>();
 
     /**
-     * Constructor
+     * Constructor.
      */
     public CallVM(SymbolicEnvironment env, ConcolicInstrumentingClassLoader classLoader) {
         this.env = env;
@@ -87,13 +86,18 @@ public final class CallVM extends AbstractVM {
 
     /**
      * Begin of a basic block that is the begin of an exception handler.
-     * <p>
-     * We could be in an entirely different invocation frame than the previous
-     * instruction was in.
-     * <p>
-     * TODO: Account for different call sites in the same method. This may lead
+     *
+     * <p>We could be in an entirely different invocation frame than the previous
+     * instruction was in.</p>
+     *
+     * <p>TODO: Account for different call sites in the same method. This may lead
      * to the need to discard frames although they are of the same function as
-     * indicated by the parameters.
+     * indicated by the parameters.</p>
+     *
+     * @param access the access flags
+     * @param className the class name
+     * @param methName the method name
+     * @param methDesc the method descriptor
      */
     @Override
     public void HANDLER_BEGIN(int access, String className, String methName, String methDesc) {
@@ -106,12 +110,13 @@ public final class CallVM extends AbstractVM {
 
             // the method or constructor containing this handler
             Member function = null;
-            if (conf.INIT.equals(methName))
+            if (conf.INIT.equals(methName)) {
                 function = resolveConstructorOverloading(className, methDesc);
-            else
+            } else {
                 function = resolveMethodOverloading(className, methName, methDesc);
+            }
 
-            /**
+            /*
              * function could be equal to null if handler is in class
              * initializer
              */
@@ -119,79 +124,91 @@ public final class CallVM extends AbstractVM {
         }
 
         env.topFrame().operandStack.clearOperands();
-        /**
+        /*
          * This exception is added to the HANDLER_BEGIN because no other
          * instruction adds the corresponding exception. The handler will store
          * the exception to the locals table
          */
-        ReferenceConstant exception_reference = new ClassReferenceConstant(Type.getType(Exception.class), -1);
-        env.topFrame().operandStack.pushRef(exception_reference);
+        ReferenceConstant exceptionReference = new ClassReferenceConstant(Type.getType(Exception.class), -1);
+        env.topFrame().operandStack.pushRef(exceptionReference);
     }
 
     /**
      * Cache max values for this method, except for static initializers.
+     *
+     * @param className the class name
+     * @param methName the method name
+     * @param methDesc the method descriptor
+     * @param maxStack maximum stack size
+     * @param maxLocals maximum local variables
      */
     @Override
     public void METHOD_MAXS(String className, String methName, String methDesc, int maxStack, int maxLocals) {
-        if (conf.CLINIT.equals(methName))
+        if (conf.CLINIT.equals(methName)) {
             return;
+        }
 
         Member member = null;
-        if (conf.INIT.equals(methName))
+        if (conf.INIT.equals(methName)) {
             member = resolveConstructorOverloading(className, methDesc);
-        else
+        } else {
             member = resolveMethodOverloading(className, methName, methDesc);
+        }
 
-        if (member == null)
+        if (member == null) {
             return; // TODO: could not resolve method or constructor
+        }
 
-        if (memberInfos.containsKey(member))
+        if (memberInfos.containsKey(member)) {
             return;
+        }
 
         memberInfos.put(member, new MemberInfo(maxStack, maxLocals));
     }
 
-    /**
-     * Pop operands off caller stack
-     * <p>
-     * Method methName is about to start execution.
-     * <p>
-     * At this point we have either already seen (observed InvokeXXX) or missed
-     * this invocation of the methName method.
-     * <p>
-     * We miss any of the following: - invoke <clinit> (as there are no such
-     * statements) - invoke <init> (as we do not add instrumentation code for
-     * these)
-     * <p>
-     * User code cannot call the <clinit>() method directly. Instead, the JVM
+    /*
+     * Pop operands off caller stack.
+     *
+     * <p>Method methName is about to start execution.</p>
+     *
+     * <p>At this point we have either already seen (observed InvokeXXX) or missed
+     * this invocation of the methName method.</p>
+     *
+     * <p>We miss any of the following: - invoke &lt;clinit&gt; (as there are no such
+     * statements) - invoke &lt;init&gt; (as we do not add instrumentation code for
+     * these)</p>
+     *
+     * <p>User code cannot call the &lt;clinit&gt;() method directly. Instead, the JVM
      * invokes a class's initializer implicitly, upon the first use of the
-     * class.
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Concepts.doc.html
-     * #32316
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Concepts.doc
-     * .html#19075
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Overview
-     * .doc.html#16262
+     * class.</p>
+     *
+     * <p><a href="http://java.sun.com/docs/books/jvms/second_edition/html/Concepts.doc.html#32316">JVMS</a>
+     * <a href="http://java.sun.com/docs/books/jvms/second_edition/html/Concepts.doc.html#19075">JVMS</a>
+     * <a href="http://java.sun.com/docs/books/jvms/second_edition/html/Overview.doc.html#16262">JVMS</a></p>
+     *
+     * @param access the access flags
+     * @param className the class name
+     * @param methName the method name
+     * @param methDesc the method descriptor
      */
     @Override
     public void METHOD_BEGIN(int access, String className, String methName, String methDesc) {
         /* TODO: Use access param to determine needsThis */
 
         if (conf.CLINIT.equals(methName)) {
-            CLINIT_BEGIN(className);
+            clinitBegin(className);
             return;
         }
 
         if (env.topFrame().weInvokedInstrumentedCode() == false
                 || env.topFrame().weInvokedSyntheticLambdaCodeThatInvokesNonInstrCode()) {
-            /** TODO: Stream API seems to need special treatment as the call stack is of the form:
-             4 - lambda static method call (instrumented)
-             3 - lambda's call (non-instrumented)
-             2 - Stream API code (non-instrumented code)
-             1 - stream API call (instrumented)
-             0 - Code (Instruemnted)
-             This way we loose track of symbolic elements in the first non-instrumented code section */
+            /* TODO: Stream API seems to need special treatment as the call stack is of the form:
+             * 4 - lambda static method call (instrumented)
+             * 3 - lambda's call (non-instrumented)
+             * 2 - Stream API code (non-instrumented code)
+             * 1 - stream API call (instrumented)
+             * 0 - Code (Instruemnted)
+             * This way we loose track of symbolic elements in the first non-instrumented code section */
             // An uninstrumented caller has called instrumented code
             // This is problemtatic
         }
@@ -207,13 +224,14 @@ public final class CallVM extends AbstractVM {
             Constructor<?> constructor = resolveConstructorOverloading(className, methDesc);
             int maxLocals = conf.MAX_LOCALS_DEFAULT;
             MemberInfo memberInfo = memberInfos.get(constructor);
-            if (memberInfo != null)
+            if (memberInfo != null) {
                 maxLocals = memberInfo.maxLocals;
+            }
             frame = new ConstructorFrame(constructor, maxLocals);
             calleeNeedsThis = true;
 
             if (callerFrame.weInvokedInstrumentedCode() == false) {
-                /**
+                /*
                  * Since this is a constructor called from un-instrumented code,
                  * we need to "simulate" the missing NEW. This means 1) create a
                  * new object reference 2) populate the localstable with the new
@@ -228,8 +246,9 @@ public final class CallVM extends AbstractVM {
             Method method = resolveMethodOverloading(className, methName, methDesc);
             int maxLocals = conf.MAX_LOCALS_DEFAULT;
             MemberInfo memberInfo = memberInfos.get(method);
-            if (memberInfo != null)
+            if (memberInfo != null) {
                 maxLocals = memberInfo.maxLocals;
+            }
             frame = new MethodFrame(method, maxLocals);
             calleeNeedsThis = !Modifier.isStatic(method.getModifiers());
         }
@@ -265,11 +284,11 @@ public final class CallVM extends AbstractVM {
         int index = 0;
         for (Operand param : params) {
             frame.localsTable.setOperand(index + (calleeNeedsThis ? 1 : 0), param);
-            if (param instanceof SingleWordOperand)
+            if (param instanceof SingleWordOperand) {
                 index += 1;
-            else if (param instanceof DoubleWordOperand)
+            } else if (param instanceof DoubleWordOperand) {
                 index += 2;
-            else {
+            } else {
                 throw new IllegalStateException("Unknown operand type " + param.getClass().getName());
             }
         }
@@ -294,8 +313,8 @@ public final class CallVM extends AbstractVM {
     @Override
     public void METHOD_BEGIN_PARAM(int nr, int index, int value) {
         if (!env.callerFrame().weInvokedInstrumentedCode()) {
-            IntegerConstant literal_value = ExpressionFactory.buildNewIntegerConstant(value);
-            env.topFrame().localsTable.setBv32Local(index, literal_value);
+            IntegerConstant literalValue = ExpressionFactory.buildNewIntegerConstant(value);
+            env.topFrame().localsTable.setBv32Local(index, literalValue);
         }
     }
 
@@ -330,36 +349,36 @@ public final class CallVM extends AbstractVM {
     @Override
     public void METHOD_BEGIN_PARAM(int nr, int index, long value) {
         if (!env.callerFrame().weInvokedInstrumentedCode()) {
-            IntegerConstant literal_value = ExpressionFactory.buildNewIntegerConstant(value);
-            env.topFrame().localsTable.setBv64Local(index, literal_value);
+            IntegerConstant literalValue = ExpressionFactory.buildNewIntegerConstant(value);
+            env.topFrame().localsTable.setBv64Local(index, literalValue);
         }
     }
 
     @Override
     public void METHOD_BEGIN_PARAM(int nr, int index, double value) {
         if (!env.callerFrame().weInvokedInstrumentedCode()) {
-            RealConstant literal_value = ExpressionFactory.buildNewRealConstant(value);
-            env.topFrame().localsTable.setFp64Local(index, literal_value);
+            RealConstant literalValue = ExpressionFactory.buildNewRealConstant(value);
+            env.topFrame().localsTable.setFp64Local(index, literalValue);
         }
     }
 
     @Override
     public void METHOD_BEGIN_PARAM(int nr, int index, float value) {
         if (!env.callerFrame().weInvokedInstrumentedCode()) {
-            RealConstant literal_value = ExpressionFactory.buildNewRealConstant(value);
-            env.topFrame().localsTable.setFp32Local(index, literal_value);
+            RealConstant literalValue = ExpressionFactory.buildNewRealConstant(value);
+            env.topFrame().localsTable.setFp32Local(index, literalValue);
         }
     }
 
     @Override
-    public void METHOD_BEGIN_PARAM(int nr, int index, Object conc_ref) {
+    public void METHOD_BEGIN_PARAM(int nr, int index, Object concRef) {
         if (!env.callerFrame().weInvokedInstrumentedCode()) {
-            ReferenceExpression symb_ref = env.heap.getReference(conc_ref);
-            env.topFrame().localsTable.setRefLocal(index, symb_ref);
+            ReferenceExpression symbRef = env.heap.getReference(concRef);
+            env.topFrame().localsTable.setRefLocal(index, symbRef);
         }
     }
 
-    /**
+    /*
      * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc6.html#invokestatic
      */
@@ -370,7 +389,7 @@ public final class CallVM extends AbstractVM {
         methodCall(className, methName, methDesc);
     }
 
-    /**
+    /*
      * We get this callback immediately after the user's invokedynamic instruction for string concatenation.
      * <p>
      * See: {@link ConcolicMethodAdapter#visitInvokeDynamicInsn}
@@ -380,8 +399,8 @@ public final class CallVM extends AbstractVM {
         // Retrieve concatenated elements from recipe
         String[] pieces = stringRecipe.split(STRING_CONCATENATION_INDY_PARAMETER_IDENTIFIER, -1);
 
-        List<StringConstant> symbolicLiterals = new ArrayList();
-        Stack<Expression<?>> symbolicParameters = new Stack();
+        List<StringConstant> symbolicLiterals = new ArrayList<>();
+        Stack<Expression<?>> symbolicParameters = new Stack<>();
 
         // Build literals
         for (String piece : pieces) {
@@ -391,7 +410,7 @@ public final class CallVM extends AbstractVM {
         // Pop arguments
         for (int i = 0; i < pieces.length - 1; i++) {
             Operand symbolicOperand = env.topFrame().operandStack.popOperand();
-            Expression currentOperandExpression = OperandUtils.retrieveOperandExpression(symbolicOperand);
+            Expression<?> currentOperandExpression = OperandUtils.retrieveOperandExpression(symbolicOperand);
 
             // For Strings we take the expression stored in the heap
             if (currentOperandExpression instanceof ReferenceExpression
@@ -409,7 +428,7 @@ public final class CallVM extends AbstractVM {
 
         Expression<String> symbolicResult = symbolicLiterals.get(0);
         // We create a chain of appended elements
-        for (int i = 1; i < symbolicLiterals.toArray().length; ++i) {
+        for (int i = 1; i < symbolicLiterals.size(); ++i) {
             Expression<?> currentParameter = symbolicParameters.pop();
             Expression<String> currentLiteral = symbolicLiterals.get(i);
 
@@ -417,42 +436,51 @@ public final class CallVM extends AbstractVM {
             symbolicResult = buildNewAppendExpression(symbolicResult, currentParameter);
 
             // Appends next literal
-            symbolicResult = new StringBinaryExpression(symbolicResult, Operator.APPEND_STRING, currentLiteral, symbolicResult.getConcreteValue() + currentLiteral.getConcreteValue());
+            symbolicResult = new StringBinaryExpression(symbolicResult, Operator.APPEND_STRING,
+                    currentLiteral, symbolicResult.getConcreteValue() + currentLiteral.getConcreteValue());
         }
 
 
         ReferenceConstant resultReference = (ReferenceConstant) env.heap.getReference(concatenationResult);
-        env.heap.putField(Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE, concatenationResult, resultReference, symbolicResult);
+        env.heap.putField(Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE, concatenationResult,
+                resultReference, symbolicResult);
 
         env.topFrame().operandStack.pushRef(resultReference);
     }
 
-    /**
+    /*
      * Helper for creating Strings append expressions.
      *
-     * @param symbolicResult
-     * @param expression
-     * @return
+     * @param symbolicResult the symbolic result
+     * @param expression the expression to append
+     * @return a new StringBinaryExpression
      */
-    private StringBinaryExpression buildNewAppendExpression(Expression<String> symbolicResult, Expression<?> expression) {
-        Class type = expression.getConcreteValue().getClass();
+    private StringBinaryExpression buildNewAppendExpression(Expression<String> symbolicResult,
+                                                             Expression<?> expression) {
+        Class<?> type = expression.getConcreteValue().getClass();
 
-        if (type.equals(Integer.class) || type.equals(Long.class) || type.equals(Short.class) || type.equals(Byte.class)) {
-            return new StringBinaryExpression(symbolicResult, Operator.APPEND_INTEGER, expression, symbolicResult.getConcreteValue() + expression.getConcreteValue());
+        if (type.equals(Integer.class) || type.equals(Long.class) || type.equals(Short.class)
+                || type.equals(Byte.class)) {
+            return new StringBinaryExpression(symbolicResult, Operator.APPEND_INTEGER, expression,
+                    symbolicResult.getConcreteValue() + expression.getConcreteValue());
         } else if (type.equals(Character.class)) {
-            return new StringBinaryExpression(symbolicResult, Operator.APPEND_CHAR, expression, symbolicResult.getConcreteValue() + expression.getConcreteValue());
+            return new StringBinaryExpression(symbolicResult, Operator.APPEND_CHAR, expression,
+                    symbolicResult.getConcreteValue() + expression.getConcreteValue());
         } else if (type.equals(Boolean.class)) {
-            return new StringBinaryExpression(symbolicResult, Operator.APPEND_BOOLEAN, expression, symbolicResult.getConcreteValue() + expression.getConcreteValue());
+            return new StringBinaryExpression(symbolicResult, Operator.APPEND_BOOLEAN, expression,
+                    symbolicResult.getConcreteValue() + expression.getConcreteValue());
         } else if (type.equals(Float.class) || type.equals(Double.class)) {
-            return new StringBinaryExpression(symbolicResult, Operator.APPEND_REAL, expression, symbolicResult.getConcreteValue() + expression.getConcreteValue());
+            return new StringBinaryExpression(symbolicResult, Operator.APPEND_REAL, expression,
+                    symbolicResult.getConcreteValue() + expression.getConcreteValue());
         } else if (type.equals(String.class)) {
-            return new StringBinaryExpression(symbolicResult, Operator.APPEND_STRING, expression, symbolicResult.getConcreteValue() + expression.getConcreteValue());
+            return new StringBinaryExpression(symbolicResult, Operator.APPEND_STRING, expression,
+                    symbolicResult.getConcreteValue() + expression.getConcreteValue());
         } else {
             throw new IllegalArgumentException("Expression appended type not supported yet");
         }
     }
 
-    /**
+    /*
      * We get this callback immediately after the user's invokedynamic instruction.
      * <p>
      * See: {@link ConcolicMethodAdapter#visitInvokeDynamicInsn}
@@ -461,18 +489,21 @@ public final class CallVM extends AbstractVM {
     public void INVOKEDYNAMIC(Object indyResult, String owner) {
         final Class<?> anonymousClass = indyResult.getClass();
 
-        if (!LambdaUtils.isLambda(anonymousClass))
-            throw new IllegalArgumentException("InvokeDynamic for things other than lambdas are not implemented yet!, class found: " + anonymousClass.getName());
+        if (!LambdaUtils.isLambda(anonymousClass)) {
+            throw new IllegalArgumentException("InvokeDynamic for things other than lambdas are not implemented yet!, "
+                    + "class found: " + anonymousClass.getName());
+        }
 
         Type anonymousClassType = Type.getType(anonymousClass);
-        env.heap.buildNewLambdaTypeConstant(anonymousClassType, conf.isIgnored(owner)); // Add it as lambda owner
+        // Add it as lambda owner
+        env.heap.buildNewLambdaTypeConstant(anonymousClassType, conf.isIgnored(owner));
         env.ensurePrepared(anonymousClass); // prepare symbolic fields
 
         // Create reference
         final ReferenceConstant symbolicRef = env.heap.buildNewClassReferenceConstant(anonymousClassType);
         env.heap.initializeReference(indyResult, symbolicRef);
 
-        /**
+        /*
          * emulate JVM's anonymous Lambda class instantiation: This
          * class seems to have the right kind of fields for all
          * scenarios (generated static lambda method or simple
@@ -482,29 +513,31 @@ public final class CallVM extends AbstractVM {
         for (int i = fields.length - 1; i >= 0; i--) {
             Operand symbolicOperand = env.topFrame().operandStack.popOperand();
             Expression<?> symbolicValue = OperandUtils.retrieveOperandExpression(symbolicOperand);
-            env.heap.putField(anonymousClass.getName(), fields[i].getName(), anonymousClass, symbolicRef, symbolicValue);
+            env.heap.putField(anonymousClass.getName(), fields[i].getName(), anonymousClass, symbolicRef,
+                    symbolicValue);
         }
 
         env.topFrame().operandStack.pushRef(symbolicRef); // Symbolic instance produced by invokedynamic
     }
 
-    /**
+    /*
      * Used to invoke any
      * <ul>
-     * <li>instance initialization method <init> = (constructor + field init)
+     * <li>instance initialization method &lt;init&gt; = (constructor + field init)
      * </li>
      * <li>private method</li>
      * <li>method of a superclass of the current class</li>
      * </ul>
-     * <p>
-     * No dynamic dispatch (unlike InvokeVirtual)
-     * <p>
-     * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
-     * doc6.html#invokespecial
-     * http://java.sun.com/docs/books/jvms/second_edition
-     * /html/Overview.doc.html#12174
-     * http://java.sun.com/docs/books/jvms/second_edition
-     * /html/Concepts.doc.html#33032
+     *
+     * <p>No dynamic dispatch (unlike InvokeVirtual)</p>
+     *
+     * <p><a href="http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc6.html#invokespecial">JVMS</a>
+     * <a href="http://java.sun.com/docs/books/jvms/second_edition/html/Overview.doc.html#12174">JVMS</a>
+     * <a href="http://java.sun.com/docs/books/jvms/second_edition/html/Concepts.doc.html#33032">JVMS</a></p>
+     *
+     * @param className the class name
+     * @param methName the method name
+     * @param methDesc the method descriptor
      */
     @Override
     public void INVOKESPECIAL(String className, String methName, String methDesc) {
@@ -521,17 +554,11 @@ public final class CallVM extends AbstractVM {
     }
 
     @Override
-    public void INVOKESPECIAL(Object conc_receiver, String className, String methName, String methDesc) {
+    public void INVOKESPECIAL(Object concReceiver, String className, String methName, String methDesc) {
         INVOKESPECIAL(className, methName, methDesc);
-//		String concreteClassName = conc_receiver.getClass().getName();
-//		if (concreteClassName != null) {
-//			INVOKESPECIAL(concreteClassName, methName, methDesc);
-//		} else {
-//			INVOKESPECIAL(className, methName, methDesc);
-//		}
     }
 
-    /**
+    /*
      * We get this callback right before the user code makes the corresponding
      * virtual call to method className.methName(methDesc). See:
      * {@link ConcolicMethodAdapter#visitMethodInsn}
@@ -539,12 +566,19 @@ public final class CallVM extends AbstractVM {
      * <p>
      * The current instrumentation system only calls this version of
      * INVOKEVIRTUAL for methods that take two or fewer parameters.
+     * </p>
      * <p>
      * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc6.html#invokevirtual
+     * </p>
+     *
+     * @param concReceiver the concrete receiver
+     * @param className the class name
+     * @param methName the method name
+     * @param methDesc the method descriptor
      */
     @Override
-    public void INVOKEVIRTUAL(Object conc_receiver, String className, String methName, String methDesc) {
+    public void INVOKEVIRTUAL(Object concReceiver, String className, String methName, String methDesc) {
         stackParamCount = 0;
 
         env.topFrame().invokeNeedsThis = true;
@@ -554,19 +588,20 @@ public final class CallVM extends AbstractVM {
         for (int i = 0; i < argTypes.length; i++) {
             it.next();
         }
-        ReferenceOperand ref_operand = (ReferenceOperand) it.next();
-        ReferenceExpression symb_receiver = ref_operand.getReference();
-        env.heap.initializeReference(conc_receiver, symb_receiver);
+        ReferenceOperand refOperand = (ReferenceOperand) it.next();
+        ReferenceExpression symbReceiver = refOperand.getReference();
+        env.heap.initializeReference(concReceiver, symbReceiver);
 
-        if (nullReferenceViolation(conc_receiver, symb_receiver))
+        if (nullReferenceViolation(concReceiver, symbReceiver)) {
             return;
+        }
 
-        String concreteClassName = conc_receiver.getClass().getName();
+        String concreteClassName = concReceiver.getClass().getName();
         Method virtualMethod = methodCall(concreteClassName, methName, methDesc);
-        chooseReceiverType(className, conc_receiver, methDesc, virtualMethod);
+        chooseReceiverType(className, concReceiver, methDesc, virtualMethod);
     }
 
-    /**
+    /*
      * We get this callback right before the user code makes the corresponding
      * call to interface method className.methName(methDesc). See:
      * {@link ConcolicMethodAdapter#visitMethodInsn}
@@ -574,42 +609,48 @@ public final class CallVM extends AbstractVM {
      * <p>
      * http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.
      * doc6.html#invokeinterface
+     * </p>
      */
     @Override
     public void INVOKEINTERFACE(Object concreteReceiver, String className, String methName, String methDesc) {
         stackParamCount = 0;
         env.topFrame().invokeNeedsThis = true;
 
-        if (nullReferenceViolation(concreteReceiver, null))
+        if (nullReferenceViolation(concreteReceiver, null)) {
             return;
+        }
 
         // Ilebrero: Lambdas doesn't seem to be instrumentable.
         // The code itself is in the respective owner class.
         if (LambdaUtils.isLambda(concreteReceiver.getClass())) {
 
             // Check if we call non-instrumented code
-            Class anonymousClass = concreteReceiver.getClass();
+            Class<?> anonymousClass = concreteReceiver.getClass();
             Type anonymousClassType = Type.getType(anonymousClass);
-			LambdaSyntheticTypeConstant lambdaReferenceType = (LambdaSyntheticTypeConstant) env.heap.getReferenceType(anonymousClassType);
+            LambdaSyntheticTypeConstant lambdaReferenceType = (LambdaSyntheticTypeConstant) env.heap
+                    .getReferenceType(anonymousClassType);
 
             // If this lambda hasn't been seen before, we assume it's not instrumented
             env.topFrame().invokeInstrumentedCode(!lambdaReferenceType.callsNonInstrumentedCode());
-            env.topFrame().invokeLambdaSyntheticCodeThatInvokesNonInstrCode(lambdaReferenceType.callsNonInstrumentedCode());
+            env.topFrame().invokeLambdaSyntheticCodeThatInvokesNonInstrCode(lambdaReferenceType
+                    .callsNonInstrumentedCode());
 
             // Nothing to do.
-            if (lambdaReferenceType.callsNonInstrumentedCode()) return;
+            if (lambdaReferenceType.callsNonInstrumentedCode()) {
+                return;
+            }
 
             // TODO(ilebrero): If this lambda is related to a method reference, we need to replace the lambda's symbolic
             //                 receiver with the method reference's related instance as this is just a redirection,
             //                 is this possible? Currently when trying to get a symbolic field, as the symbolic receiver
             //                 is from the lambda, no previous symbolic elements of tat object instance are being used.
 
-            /**
+            /*
              * for closures: In case we jump to a closure, we need to add the bounded closure elements to the stack
-             * 				 as this is implicitly done by the JVM. Notice that at this point the descriptor won't
-             * 				 tell us about this element (i.e (Ljava/lang/Object;)Ljava/lang/Object;) but the actual
-             * 				 closure method will have extra elemenets on its descriptor (i.e.
-             * 				 (Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;))
+             * as this is implicitly done by the JVM. Notice that at this point the descriptor won't
+             * tell us about this element (i.e (Ljava/lang/Object;)Ljava/lang/Object;) but the actual
+             * closure method will have extra elemenets on its descriptor (i.e.
+             * (Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;))
              * - pop original operands
              * - pop receiver
              * - push captured (as receiver fields) operands
@@ -629,18 +670,19 @@ public final class CallVM extends AbstractVM {
 
                 // Push closure bounded fields expressions
                 final Field[] fields = anonymousClass.getDeclaredFields();
-                final Expression[] fieldExpressions = new Expression[fields.length];
+                final Expression<?>[] fieldExpressions = new Expression[fields.length];
 
                 for (Field field : fields) {
                     int fieldLoc = Integer.parseInt(field.getName().substring(4)) - 1;
-                    fieldExpressions[fieldLoc] = env.heap.getField(anonymousClass.getName(), field.getName(), anonymousClass, receiverSymbolic);
+                    fieldExpressions[fieldLoc] = env.heap.getField(anonymousClass.getName(), field.getName(),
+                            anonymousClass, receiverSymbolic);
                 }
 
                 // Push receiver
                 env.topFrame().operandStack.pushRef(receiverSymbolic);
 
                 // Push new operands
-                for (Expression expression : fieldExpressions) {
+                for (Expression<?> expression : fieldExpressions) {
                     Operand operand = OperandUtils.expressionToOperand(expression);
                     env.topFrame().operandStack.pushOperand(operand);
                 }
@@ -660,7 +702,7 @@ public final class CallVM extends AbstractVM {
         chooseReceiverType(className, concreteReceiver, methDesc, method);
     }
 
-    /**
+    /*
      * Dispose our frame, we have no value to return.
      */
     @Override
@@ -668,7 +710,7 @@ public final class CallVM extends AbstractVM {
         popFrameAndDisposeCallerParams();
     }
 
-    /**
+    /*
      * Dispose our frame and transfer the return value back.
      */
     @Override
@@ -676,8 +718,8 @@ public final class CallVM extends AbstractVM {
         Frame returningFrame = popFrameAndDisposeCallerParams();
 
         if (env.topFrame().weInvokedInstrumentedCode()) {
-            Operand ret_val = returningFrame.operandStack.popOperand();
-            env.topFrame().operandStack.pushOperand(ret_val);
+            Operand retVal = returningFrame.operandStack.popOperand();
+            env.topFrame().operandStack.pushOperand(retVal);
         }
     }
 
@@ -701,19 +743,25 @@ public final class CallVM extends AbstractVM {
         IRETURN();
     }
 
-    /**
+    /*
      * No actual return value.
      * <p>
      * If we invoked uninstrumented code, then throw away the parameters passed
      * to that uninstrumented code.
+     * </p>
+     *
+     * @param owner the owner of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
      */
     @Override
     public void CALL_RESULT(String owner, String name, String desc) {
-        if (callResultIsPushed())
+        if (callResultIsPushed()) {
             // RETURN already did it
             return;
+        }
 
-        /**
+        /*
          * Since control flow is returning from un-instrumented code, we
          * must get rid of the method arguments since the callee did not
          * consume the method arguments.
@@ -721,9 +769,14 @@ public final class CallVM extends AbstractVM {
         env.topFrame().disposeMethInvokeArgs(desc);
     }
 
-    /**
+    /*
      * Our chance to capture the value returned by a native or un-instrumented
      * method.
+     *
+     * @param res the result value
+     * @param owner the owner of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
      */
     @Override
     public void CALL_RESULT(boolean res, String owner, String name, String desc) {
@@ -733,7 +786,7 @@ public final class CallVM extends AbstractVM {
             // it
             return;
         } else {
-            /**
+            /*
              * We are returning from uninstrumented code. This is the only way
              * of storing the uninstrumented return value to the symbolic state.
              */
@@ -743,20 +796,26 @@ public final class CallVM extends AbstractVM {
         }
     }
 
-    /**
+    /*
      * int, short, byte all map to a BitVec32
      * <p>
      * TODO: Will this work for char?
+     * </p>
+     *
+     * @param res the result value
+     * @param owner the owner of the method
+     * @param name the name of the method
+     * @param desc the descriptor of the method
      */
     @Override
     public void CALL_RESULT(int res, String owner, String name, String desc) {
         CALL_RESULT(owner, name, desc);
 
-        if (callResultIsPushed()) {// RETURN already did
+        if (callResultIsPushed()) { // RETURN already did
             // it
             return;
         } else {
-            /**
+            /*
              * We are returning from uninstrumented code. This is the only way
              * of storing the uninstrumented return value to the symbolic state.
              */
@@ -765,20 +824,22 @@ public final class CallVM extends AbstractVM {
         }
     }
 
+        
+
     @Override
     public void CALL_RESULT(Object res, String owner, String name, String desc) {
         CALL_RESULT(owner, name, desc);
 
-        if (callResultIsPushed())
+        if (callResultIsPushed()) {
             // RETURN already did it
             return;
-        else {
-            /**
+        } else {
+            /*
              * We are returning from uninstrumented code. This is the only way
              * of storing the method return value to the symbolic state.
              */
-            ReferenceExpression symb_ref = env.heap.getReference(res);
-            env.topFrame().operandStack.pushRef(symb_ref);
+            ReferenceExpression symbRef = env.heap.getReference(res);
+            env.topFrame().operandStack.pushRef(symbRef);
         }
     }
 
@@ -790,7 +851,7 @@ public final class CallVM extends AbstractVM {
             // RETURN already did it
             return;
         } else {
-            /**
+            /*
              * We are returning from uninstrumented code. This is the only way
              * of storing the uninstrumented return value to the symbolic state.
              */
@@ -807,7 +868,7 @@ public final class CallVM extends AbstractVM {
             // RETURN already did it
             return;
         } else {
-            /**
+            /*
              * We are returning from uninstrumented code. This is the only way
              * of storing the uninstrumented return value to the symbolic state.
              */
@@ -820,11 +881,11 @@ public final class CallVM extends AbstractVM {
     public void CALL_RESULT(float res, String owner, String name, String desc) {
         CALL_RESULT(owner, name, desc);
 
-        if (callResultIsPushed()) {// RETURN already did
+        if (callResultIsPushed()) { // RETURN already did
             // it
             return;
         } else {
-            /**
+            /*
              * We are returning from uninstrumented code. This is the only way
              * of storing the uninstrumented return value to the symbolic state.
              */
@@ -875,15 +936,15 @@ public final class CallVM extends AbstractVM {
     }
 
     @Override
-    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, Object conc_ref) {
+    public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, Object concRef) {
         stackParamCount++;
 
-        int operand_index = stackParamCount - 1;
-        Operand op = getOperand(operand_index);
-        ReferenceOperand ref_op = (ReferenceOperand) op;
-        ReferenceExpression symb_ref = ref_op.getReference();
+        int operandIndex = stackParamCount - 1;
+        Operand op = getOperand(operandIndex);
+        ReferenceOperand refOp = (ReferenceOperand) op;
+        ReferenceExpression symbRef = refOp.getReference();
 
-        env.heap.initializeReference(conc_ref, symb_ref);
+        env.heap.initializeReference(concRef, symbRef);
     }
 
     private Operand getOperand(int index) {
@@ -898,29 +959,35 @@ public final class CallVM extends AbstractVM {
         return null;
     }
 
-    /**
-     * Start executing a static (class) initializer -- <clinit>()
+    /*
+     * Start executing a static (class) initializer -- &lt;clinit&gt;()
+     *
+     * @param className the name of the class being initialized
      */
-    private void CLINIT_BEGIN(String className) {
+    private void clinitBegin(String className) {
         /*
          * <clinit>() method can read textually earlier fields
          */
-//		env.ensurePrepared(className);
+        // env.ensurePrepared(className);
         Frame frame = new StaticInitializerFrame(className);
         env.pushFrame(frame); // <clinit>() has no parameters
     }
 
-    /**
+    /*
+     * @param className the name of the class
+     * @param methName the name of the method
      * @param function the method we are looking for in the frame stack
      * @return constructor matches with the current frame, after discarding some
-     * frames when necessary to match
+     *         frames when necessary to match
      */
     private boolean discardFrames(String className, String methName, Member function) {
-        if (function == null)
+        if (function == null) {
             throw new IllegalArgumentException("function should be non null");
+        }
 
-        if (env.topFrame() instanceof FakeBottomFrame)
+        if (env.topFrame() instanceof FakeBottomFrame) {
             return false;
+        }
 
         Frame topFrame = env.topFrame();
         if (topFrame instanceof StaticInitializerFrame) {
@@ -930,19 +997,22 @@ public final class CallVM extends AbstractVM {
             }
         }
 
-        if (function != null && function.equals(topFrame.getMember()))
+        if (function != null && function.equals(topFrame.getMember())) {
             return true;
+        }
 
         env.popFrame();
         return discardFrames(className, methName, function);
     }
 
     private boolean discardFramesClassInitializer(String className, String methName) {
-        if (!conf.CLINIT.equals(methName))
+        if (!conf.CLINIT.equals(methName)) {
             throw new IllegalArgumentException("methName should be <clinit>");
+        }
 
-        if (env.topFrame() instanceof FakeBottomFrame)
+        if (env.topFrame() instanceof FakeBottomFrame) {
             return false;
+        }
 
         Frame topFrame = env.topFrame();
         if (topFrame instanceof StaticInitializerFrame) {
@@ -964,10 +1034,12 @@ public final class CallVM extends AbstractVM {
 
             Method[] declMeths = claz.getDeclaredMethods();
             for (Method declMeth : declMeths) {
-                if (!Modifier.isPublic(declMeth.getModifiers()))
+                if (!Modifier.isPublic(declMeth.getModifiers())) {
                     continue;
-                if (declMeth.getName().equals(methName))
+                }
+                if (declMeth.getName().equals(methName)) {
                     method = declMeth;
+                }
             }
 
             if (method != null) {
@@ -981,18 +1053,23 @@ public final class CallVM extends AbstractVM {
 
     }
 
-    /**
+    /*
      * Asm method descriptor --> Method parameters as Java Reflection classes.
      * <p>
      * Does not include the receiver for
+     * </p>
+     *
+     * @param methDesc the method descriptor
+     * @return the argument classes
      */
     private Class<?>[] getArgumentClasses(String methDesc) {
         Class<?>[] classes;
 
         Type[] asmTypes = Type.getArgumentTypes(methDesc);
         classes = new Class<?>[asmTypes.length];
-        for (int i = 0; i < classes.length; i++)
+        for (int i = 0; i < classes.length; i++) {
             classes[i] = classLoader.getClassForType(asmTypes[i]);
+        }
 
         return classes;
     }
@@ -1002,44 +1079,48 @@ public final class CallVM extends AbstractVM {
         try {
             method = clazz.getDeclaredMethod(methodName, argTypes);
         } catch (NoSuchMethodException ignored) {
+            // ignore
         }
         return method;
     }
 
-    /**
+    /*
      * Resolves (static) method overloading.
-     * <p>
-     * Ensures that owner class is prepared.
-     * <p>
-     * FIXME: user code calling java.util.Deque.isEmpty() crashes this method
      *
+     * <p>Ensures that owner class is prepared.</p>
+     *
+     * <p>FIXME: user code calling java.util.Deque.isEmpty() crashes this method</p>
+     *
+     * @param owner the owner class
+     * @param name the name of the method
+     * @param methDesc the method descriptor
      * @return method named name, declared by owner or one of its super-classes,
-     * which has the parameters encoded in methDesc.
+     *         which has the parameters encoded in methDesc.
      */
     private Method resolveMethodOverloading(String owner, String name, String methDesc) {
-        if (owner.equals("com.sun.org.apache.xerces.internal.jaxp.SAXParserImpl")) {
-            int y = 0;
-        }
         Method method = null;
         final Deque<Class<?>> interfaces = new LinkedList<>();
 
         Class<?> claz = env.ensurePrepared(owner);
-        /* Resolve method overloading -- need method parameter types */
+        /* Resolve overloading -- need method parameter types */
         Class<?>[] argTypes = getArgumentClasses(methDesc);
         while ((method == null) && (claz != null)) {
             interfaces.addAll(Arrays.asList(claz.getInterfaces()));
 
             method = findMethodFromClass(claz, name, argTypes);
 
-            if (method == null)
+            if (method == null) {
                 claz = claz.getSuperclass();
+            }
 
-            if (claz == null && !interfaces.isEmpty())
+            if (claz == null && !interfaces.isEmpty()) {
                 claz = interfaces.pop();
+            }
         }
 
-        if (method == null)
+        if (method == null) {
             throw new IllegalArgumentException("Failed to resolve " + owner + "." + name);
+        }
 
         return method;
     }
@@ -1062,19 +1143,22 @@ public final class CallVM extends AbstractVM {
     }
 
     /**
-     * @return method is instrumented. It is neither native nor declared by an
-     * ignored JDK class, etc.
+     * Returns whether the method is ignored.
+     *
+     * @param method the method to check
+     * @return true if ignored, false otherwise
      */
     private boolean isIgnored(Method method) {
-        if (Modifier.isNative(method.getModifiers()))
+        if (Modifier.isNative(method.getModifiers())) {
             return false;
+        }
 
         /* virtual method */
-        /** NOTE (ilebrero): are there other cases like this? */
-        /** TODO (ilebrero): Create a special case for local and anonymous classes goal tracking for DSE. So far,
-         * 					 evosuite is skipping tracking those, even though in DSE they are symbolized and tests are
-         * 					 created (In fact, they are being dropped by TestSuiteMinizer for not finding goals that
-         * 					 they cover). */
+        /* NOTE (ilebrero): are there other cases like this? */
+        /* TODO (ilebrero): Create a special case for local and anonymous classes goal tracking for DSE. So far,
+         *                      evosuite is skipping tracking those, even though in DSE they are symbolized and tests
+         *                      are created (In fact, they are being dropped by TestSuiteMinizer for not finding goals
+         *                      that they cover). */
         if (method.getDeclaringClass().isAnonymousClass() || method.getDeclaringClass().isLocalClass()) {
             // anonymous or local class
             String name = method.getDeclaringClass().getName();
@@ -1089,12 +1173,15 @@ public final class CallVM extends AbstractVM {
     }
 
     /**
-     * Method call
+     * Method call.
      * <ul>
-     * <li>not a constructor <init></li>
-     * <li>not a class initializer <clinit></li>
+     * <li>not a constructor &lt;init&gt;</li>
+     * <li>not a class initializer &lt;clinit&gt;</li>
      * </ul>
      *
+     * @param className the name of the class
+     * @param methName the name of the method
+     * @param methDesc the method descriptor
      * @return static method descriptor
      */
     private Method methodCall(String className, String methName, String methDesc) {
@@ -1106,12 +1193,24 @@ public final class CallVM extends AbstractVM {
         return method;
     }
 
-    private boolean nullReferenceViolation(Object conc_receiver, ReferenceExpression symb_receiver) {
-        return conc_receiver == null;
+    /**
+     * Checks for null reference violation.
+     *
+     * @param concReceiver the concrete receiver
+     * @param symbReceiver the symbolic receiver
+     * @return true if violation occurred, false otherwise
+     */
+    private boolean nullReferenceViolation(Object concReceiver, ReferenceExpression symbReceiver) {
+        return concReceiver == null;
     }
 
     /**
      * Add dynamic type of receiver to path condition.
+     *
+     * @param className the name of the class
+     * @param receiver the receiver object
+     * @param methDesc the method descriptor
+     * @param staticMethod the static method
      */
     private void chooseReceiverType(String className, Object receiver, String methDesc, Method staticMethod) {
 
@@ -1124,8 +1223,9 @@ public final class CallVM extends AbstractVM {
          * can happen: not(isFinal(static receiver type))
          */
         final Class<?> staticReceiver = env.ensurePrepared(className);
-        if (Modifier.isFinal(staticReceiver.getModifiers()))
+        if (Modifier.isFinal(staticReceiver.getModifiers())) {
             return;
+        }
 
         /*
          * Heuristic: Do not encode the receiver type if a method is
@@ -1135,27 +1235,31 @@ public final class CallVM extends AbstractVM {
          * descriptor))
          */
         final int methodModifiers = staticMethod.getModifiers();
-        if (Modifier.isNative(methodModifiers) && Modifier.isFinal(methodModifiers))
+        if (Modifier.isNative(methodModifiers) && Modifier.isFinal(methodModifiers)) {
             return;
+        }
 
     }
 
     private Frame popFrameAndDisposeCallerParams() {
         Frame frame = env.popFrame();
 
-        if (!env.isEmpty() && env.topFrame().weInvokedInstrumentedCode())
+        if (!env.isEmpty() && env.topFrame().weInvokedInstrumentedCode()) {
             env.topFrame().disposeMethInvokeArgs(frame);
+        }
 
         return frame;
     }
 
-    /**
+    /*
      * Nested class: Container for maximum size of operand stack and maximum
      * number of local variables.
      */
-    private final static class MemberInfo {
+    private static final class MemberInfo {
         @SuppressWarnings("unused")
-        final int maxStack, maxLocals;
+        final int maxStack;
+        @SuppressWarnings("unused")
+        final int maxLocals;
 
         MemberInfo(int maxStack, int maxLocals) {
             this.maxStack = maxStack;
@@ -1168,3 +1272,4 @@ public final class CallVM extends AbstractVM {
                 && !env.topFrame().weInvokedSyntheticLambdaCodeThatInvokesNonInstrCode();
     }
 }
+

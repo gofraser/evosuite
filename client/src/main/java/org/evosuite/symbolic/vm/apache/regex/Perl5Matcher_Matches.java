@@ -30,15 +30,28 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for Perl5Matcher.matches.
+ *
+ * @author galeotti
+ */
 public final class Perl5Matcher_Matches extends SymbolicFunction {
 
     private static final String MATCHES = "matches";
 
+    /**
+     * Constructs a Perl5Matcher_Matches.
+     *
+     * @param env the symbolic environment
+     */
     public Perl5Matcher_Matches(SymbolicEnvironment env) {
         super(env, Types.ORG_APACHE_ORO_TEXT_REGEX_PERL5MATCHER, MATCHES,
                 Types.STR_STR_TO_BOOLEAN);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
         // Perl5Matcher conc_matcher = (Perl5Matcher) this.getConcReceiver();
@@ -46,28 +59,28 @@ public final class Perl5Matcher_Matches extends SymbolicFunction {
         // .getSymbReceiver();
         boolean res = this.getConcBooleanRetVal();
 
-        ReferenceConstant symb_string_ref = (ReferenceConstant) this
+        ReferenceConstant symbStringRef = (ReferenceConstant) this
                 .getSymbArgument(0);
         // Reference symb_pattern_ref = this.getSymbArgument(1);
 
-        String conc_string = (String) this.getConcArgument(0);
-        Pattern conc_pattern = (Pattern) this.getConcArgument(1);
+        String concString = (String) this.getConcArgument(0);
+        Pattern concPattern = (Pattern) this.getConcArgument(1);
 
-        StringValue symb_string_value = env.heap.getField(
+        StringValue symbStringValue = env.heap.getField(
                 org.evosuite.symbolic.vm.regex.Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_string, symb_string_ref,
-                conc_string);
+                SymbolicHeap.$STRING_VALUE, concString, symbStringRef,
+                concString);
 
-        if (symb_string_value != null
-                && symb_string_value.containsSymbolicVariable()) {
-            int concrete_value = res ? 1 : 0;
-            String pattern_str = conc_pattern.getPattern();
-            StringConstant symb_pattern_value = ExpressionFactory
-                    .buildNewStringConstant(pattern_str);
+        if (symbStringValue != null
+                && symbStringValue.containsSymbolicVariable()) {
+            int concreteValue = res ? 1 : 0;
+            String patternStr = concPattern.getPattern();
+            StringConstant symbPatternValue = ExpressionFactory
+                    .buildNewStringConstant(patternStr);
 
             StringBinaryComparison strComp = new StringBinaryComparison(
-                    symb_pattern_value, Operator.APACHE_ORO_PATTERN_MATCHES,
-                    symb_string_value, (long) concrete_value);
+                    symbPatternValue, Operator.APACHE_ORO_PATTERN_MATCHES,
+                    symbStringValue, (long) concreteValue);
 
             return strComp;
         } else {

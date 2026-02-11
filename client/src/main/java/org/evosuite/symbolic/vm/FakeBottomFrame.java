@@ -35,7 +35,7 @@ public final class FakeBottomFrame extends Frame {
 
 
     /**
-     * Constructor
+     * Constructor.
      */
     public FakeBottomFrame() {
         super(0);

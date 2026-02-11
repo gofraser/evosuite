@@ -75,8 +75,8 @@ import java.util.StringTokenizer;
 
 /**
  * returns the concrete evaluation for a given expression.
- * <p>
- * NOTE (ilebrero): The arrays implementation may be a bit expensive.
+ *
+ * <p>NOTE (ilebrero): The arrays implementation may be a bit expensive.
  *
  * @author galeotti
  */
@@ -327,7 +327,8 @@ public class ExpressionEvaluator implements ExpressionVisitor<Object, Void> {
         Object second = n.getRightOperand().accept(this, null);
         ArrayList<Expression<?>> other_v = n.getOther();
 
-        long secLong, thrdLong;
+        long secLong;
+        long thrdLong;
         String secStr;
 
         Operator op = n.getOperator();
@@ -596,8 +597,10 @@ public class ExpressionEvaluator implements ExpressionVisitor<Object, Void> {
         String first = (String) n.getLeftOperand().accept(this, null);
         Object right = n.getRightOperand().accept(this, null);
         ArrayList<Expression<?>> other_v = n.getOther();
-        long secLong, thrdLong;
-        String secStr, thrdStr;
+        long secLong;
+        long thrdLong;
+        String secStr;
+        String thrdStr;
 
         Operator op = n.getOperator();
         switch (op) {
@@ -783,10 +786,14 @@ public class ExpressionEvaluator implements ExpressionVisitor<Object, Void> {
     }
 
     @Override
-    public Object visit(ArrayConstant.StringArrayConstant r, Void arg) { return r.getConcreteValue(); }
+    public Object visit(ArrayConstant.StringArrayConstant r, Void arg) {
+        return r.getConcreteValue();
+    }
 
     @Override
-    public Object visit(ArrayConstant.ReferenceArrayConstant r, Void arg) { return r.getConcreteValue(); }
+    public Object visit(ArrayConstant.ReferenceArrayConstant r, Void arg) {
+        return r.getConcreteValue();
+    }
 
     @Override
     public Object visit(ArrayVariable.IntegerArrayVariable r, Void arg) {
@@ -799,10 +806,14 @@ public class ExpressionEvaluator implements ExpressionVisitor<Object, Void> {
     }
 
     @Override
-    public Object visit(ArrayVariable.StringArrayVariable r, Void arg) { return r.getConcreteValue(); }
+    public Object visit(ArrayVariable.StringArrayVariable r, Void arg) {
+        return r.getConcreteValue();
+    }
 
     @Override
-    public Object visit(ArrayVariable.ReferenceArrayVariable r, Void arg) { return r.getConcreteValue(); }
+    public Object visit(ArrayVariable.ReferenceArrayVariable r, Void arg) {
+        return r.getConcreteValue();
+    }
 
     // References
 

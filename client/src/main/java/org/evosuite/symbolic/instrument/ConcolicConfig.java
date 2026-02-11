@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.symbolic.instrument;
 
@@ -38,12 +38,12 @@ import org.evosuite.dse.VM;
 public final class ConcolicConfig {
 
     /**
-     * Log each class and if we rewrite it (y/n)
+     * Log each class and if we rewrite it (y/n).
      */
     public static final boolean LOG_CLASS_NAMES = false;
 
     /**
-     * Class whose methods the instrumentation code will call
+     * Class whose methods the instrumentation code will call.
      */
 
     public static final String VM_FQ = VM.class.getName().replace('.', '/'); //$NON-NLS-1$

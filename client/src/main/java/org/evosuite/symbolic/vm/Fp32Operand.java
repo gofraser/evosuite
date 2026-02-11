@@ -22,6 +22,8 @@ package org.evosuite.symbolic.vm;
 import org.evosuite.symbolic.expr.fp.RealValue;
 
 /**
+ * Represents a 32-bit floating point operand in the symbolic virtual machine.
+ *
  * @author galeotti
  */
 public final class Fp32Operand implements SingleWordOperand, RealOperand {

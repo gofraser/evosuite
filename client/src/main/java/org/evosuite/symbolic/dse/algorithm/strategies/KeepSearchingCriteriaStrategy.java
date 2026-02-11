@@ -24,7 +24,7 @@ import org.evosuite.symbolic.dse.DSETestCase;
 import java.util.Queue;
 
 /**
- * Interface for extra stopping conditions on the generated test suite
+ * Interface for extra stopping conditions on the generated test suite.
  *
  * @author ignacio lebrero
  */

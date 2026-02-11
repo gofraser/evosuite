@@ -25,9 +25,14 @@ import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 
+/**
+ * Symbolic function for Character.getNumericValue.
+ *
+ * @author galeotti
+ */
 public final class Character_getNumericValue extends SymbolicFunction {
 
-    private final static String GET_NUMERIC_VALUE = "getNumericValue";
+    private static final String GET_NUMERIC_VALUE = "getNumericValue";
 
     public Character_getNumericValue(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_CHARACTER, GET_NUMERIC_VALUE, Types.C_TO_I);

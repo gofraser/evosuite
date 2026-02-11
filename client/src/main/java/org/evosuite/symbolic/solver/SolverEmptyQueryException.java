@@ -19,6 +19,9 @@
  */
 package org.evosuite.symbolic.solver;
 
+/**
+ * Exception thrown when the solver query is empty.
+ */
 public final class SolverEmptyQueryException extends Exception {
 
     public SolverEmptyQueryException(String errMsg) {

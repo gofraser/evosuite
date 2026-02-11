@@ -58,11 +58,18 @@ public class TestCaseBuilder {
         this.nextPosition = startingPosition;
     }
 
+    /**
+     * Appends a constructor statement to the test case.
+     *
+     * @param constructor a {@link java.lang.reflect.Constructor} object.
+     * @param parameters an array of {@link org.evosuite.testcase.variable.VariableReference} objects.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendConstructor(Constructor<?> constructor, VariableReference... parameters) {
-        List<VariableReference> parameter_list = Arrays.asList(parameters);
+        List<VariableReference> parameterList = Arrays.asList(parameters);
         ConstructorStatement constructorStmt = new ConstructorStatement(testCase,
                 new GenericConstructor(constructor,
-                        constructor.getDeclaringClass()), parameter_list);
+                        constructor.getDeclaringClass()), parameterList);
 
         addStatement(constructorStmt);
 
@@ -70,6 +77,12 @@ public class TestCaseBuilder {
         return constructorStmt.getReturnValue();
     }
 
+    /**
+     * Appends an int primitive statement to the test case.
+     *
+     * @param intValue a int.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendIntPrimitive(int intValue) {
         IntPrimitiveStatement primitiveStmt = new IntPrimitiveStatement(testCase,
                 intValue);
@@ -77,35 +90,53 @@ public class TestCaseBuilder {
         return primitiveStmt.getReturnValue();
     }
 
+    /**
+     * Returns the code representation of the test case.
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String toCode() {
         return testCase.toCode();
     }
 
     /**
-     * @param callee     <code>null</code> for state methods
-     * @param method
-     * @param parameters
+     * Appends a method call statement to the test case.
+     *
+     * @param callee     <code>null</code> for static methods
+     * @param method     the method to be called
+     * @param parameters the parameters for the method call
      * @return <code>void reference</code> for void methods
      */
     public VariableReference appendMethod(VariableReference callee,
                                           Method method, VariableReference... parameters) {
-        List<VariableReference> parameter_list = Arrays.asList(parameters);
+        List<VariableReference> parameterList = Arrays.asList(parameters);
         MethodStatement methodStmt = null;
         if (callee == null) {
             methodStmt = new MethodStatement(testCase, new GenericMethod(method,
-                    method.getDeclaringClass()), callee, parameter_list);
+                    method.getDeclaringClass()), callee, parameterList);
         } else {
             methodStmt = new MethodStatement(testCase, new GenericMethod(method,
-                    callee.getType()), callee, parameter_list);
+                    callee.getType()), callee, parameterList);
         }
         addStatement(methodStmt);
         return methodStmt.getReturnValue();
     }
 
+    /**
+     * Returns the default test case.
+     *
+     * @return a {@link org.evosuite.testcase.DefaultTestCase} object.
+     */
     public DefaultTestCase getDefaultTestCase() {
         return testCase;
     }
 
+    /**
+     * Appends a string primitive statement to the test case.
+     *
+     * @param string a {@link java.lang.String} object.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendStringPrimitive(String string) {
         StringPrimitiveStatement primitiveStmt = new StringPrimitiveStatement(
                 testCase, string);
@@ -113,6 +144,12 @@ public class TestCaseBuilder {
         return primitiveStmt.getReturnValue();
     }
 
+    /**
+     * Appends a boolean primitive statement to the test case.
+     *
+     * @param b a boolean.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendBooleanPrimitive(boolean b) {
         BooleanPrimitiveStatement primitiveStmt = new BooleanPrimitiveStatement(
                 testCase, b);
@@ -120,6 +157,12 @@ public class TestCaseBuilder {
         return primitiveStmt.getReturnValue();
     }
 
+    /**
+     * Appends a double primitive statement to the test case.
+     *
+     * @param d a double.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendDoublePrimitive(double d) {
         DoublePrimitiveStatement primitiveStmt = new DoublePrimitiveStatement(
                 testCase, d);
@@ -127,6 +170,13 @@ public class TestCaseBuilder {
         return primitiveStmt.getReturnValue();
     }
 
+    /**
+     * Appends an assignment statement to the test case.
+     *
+     * @param receiver a {@link org.evosuite.testcase.variable.VariableReference} object.
+     * @param field a {@link java.lang.reflect.Field} object.
+     * @param value a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public void appendAssignment(VariableReference receiver, Field field,
                                  VariableReference value) {
         FieldReference fieldReference;
@@ -143,6 +193,12 @@ public class TestCaseBuilder {
         addStatement(stmt);
     }
 
+    /**
+     * Appends a static field statement to the test case.
+     *
+     * @param field a {@link java.lang.reflect.Field} object.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendStaticFieldStmt(Field field) {
         Class<?> declaringClass = field.getDeclaringClass();
         final GenericField genericField = new GenericField(field,
@@ -153,6 +209,13 @@ public class TestCaseBuilder {
         return stmt.getReturnValue();
     }
 
+    /**
+     * Appends a field statement to the test case.
+     *
+     * @param receiver a {@link org.evosuite.testcase.variable.VariableReference} object.
+     * @param field a {@link java.lang.reflect.Field} object.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendFieldStmt(VariableReference receiver,
                                              Field field) {
 
@@ -166,12 +229,24 @@ public class TestCaseBuilder {
         return stmt.getReturnValue();
     }
 
+    /**
+     * Appends a null statement to the test case.
+     *
+     * @param type a {@link java.lang.reflect.Type} object.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendNull(Type type) {
         NullStatement stmt = new NullStatement(testCase, type);
         addStatement(stmt);
         return stmt.getReturnValue();
     }
 
+    /**
+     * Appends an enum primitive statement to the test case.
+     *
+     * @param value a {@link java.lang.Enum} object.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendEnumPrimitive(Enum<?> value) {
         EnumPrimitiveStatement primitiveStmt = new EnumPrimitiveStatement(testCase,
                 value);
@@ -179,6 +254,13 @@ public class TestCaseBuilder {
         return primitiveStmt.getReturnValue();
     }
 
+    /**
+     * Appends an array statement to the test case.
+     *
+     * @param type a {@link java.lang.reflect.Type} object.
+     * @param length an array of int.
+     * @return a {@link org.evosuite.testcase.variable.ArrayReference} object.
+     */
     public ArrayReference appendArrayStmt(Type type, int... length) {
         ArrayStatement arrayStmt = new ArrayStatement(testCase, type, length);
         addStatement(arrayStmt);
@@ -186,11 +268,12 @@ public class TestCaseBuilder {
     }
 
     /**
+     * Appends an array element assignment.
      * array[index] := var
      *
-     * @param array
-     * @param index
-     * @param var
+     * @param array the array reference
+     * @param index the element index
+     * @param var   the value to be assigned
      */
     public void appendAssignment(ArrayReference array, int index,
                                  VariableReference var) {
@@ -201,11 +284,12 @@ public class TestCaseBuilder {
     }
 
     /**
+     * Appends a multi-dimensional array element assignment.
      * array[index[0]][index[1]]...[index[n]] := var
      *
-     * @param array
-     * @param index
-     * @param var
+     * @param array the array reference
+     * @param index the list of indices
+     * @param var   the value to be assigned
      */
     public void appendAssignment(ArrayReference array, List<Integer> index,
                                  VariableReference var) {
@@ -216,11 +300,12 @@ public class TestCaseBuilder {
     }
 
     /**
+     * Appends an assignment from an array element to a variable.
      * var := array[index]
      *
-     * @param var
-     * @param array
-     * @param index
+     * @param var   the variable reference
+     * @param array the array reference
+     * @param index the element index
      */
     public void appendAssignment(VariableReference var, ArrayReference array,
                                  int index) {
@@ -229,12 +314,24 @@ public class TestCaseBuilder {
         addStatement(stmt);
     }
 
+    /**
+     * Appends a long primitive statement to the test case.
+     *
+     * @param l a long.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendLongPrimitive(long l) {
         LongPrimitiveStatement primitiveStmt = new LongPrimitiveStatement(testCase, l);
         addStatement(primitiveStmt);
         return primitiveStmt.getReturnValue();
     }
 
+    /**
+     * Appends a float primitive statement to the test case.
+     *
+     * @param f a float.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendFloatPrimitive(float f) {
         FloatPrimitiveStatement primitiveStmt = new FloatPrimitiveStatement(testCase,
                 f);
@@ -242,6 +339,12 @@ public class TestCaseBuilder {
         return primitiveStmt.getReturnValue();
     }
 
+    /**
+     * Appends a short primitive statement to the test case.
+     *
+     * @param s a short.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendShortPrimitive(short s) {
         ShortPrimitiveStatement primitiveStmt = new ShortPrimitiveStatement(testCase,
                 s);
@@ -249,24 +352,48 @@ public class TestCaseBuilder {
         return primitiveStmt.getReturnValue();
     }
 
+    /**
+     * Appends a byte primitive statement to the test case.
+     *
+     * @param b a byte.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendBytePrimitive(byte b) {
         BytePrimitiveStatement primitiveStmt = new BytePrimitiveStatement(testCase, b);
         addStatement(primitiveStmt);
         return primitiveStmt.getReturnValue();
     }
 
+    /**
+     * Appends a char primitive statement to the test case.
+     *
+     * @param c a char.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendCharPrimitive(char c) {
         CharPrimitiveStatement primitiveStmt = new CharPrimitiveStatement(testCase, c);
         addStatement(primitiveStmt);
         return primitiveStmt.getReturnValue();
     }
 
+    /**
+     * Appends a class primitive statement to the test case.
+     *
+     * @param value a {@link java.lang.Class} object.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendClassPrimitive(Class<?> value) {
         ClassPrimitiveStatement stmt = new ClassPrimitiveStatement(testCase, value);
         addStatement(stmt);
         return stmt.getReturnValue();
     }
 
+    /**
+     * Appends a file name primitive statement to the test case.
+     *
+     * @param evosuiteFile a {@link org.evosuite.runtime.testdata.EvoSuiteFile} object.
+     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
+     */
     public VariableReference appendFileNamePrimitive(EvoSuiteFile evosuiteFile) {
         FileNamePrimitiveStatement stmt = new FileNamePrimitiveStatement(testCase, evosuiteFile);
         addStatement(stmt);
@@ -275,12 +402,13 @@ public class TestCaseBuilder {
 
 
     /**
+     * Appends an assignment from a field to another field.
      * x.f1 := y.f2
      *
-     * @param receiver
-     * @param field
-     * @param src
-     * @param fieldSrc
+     * @param receiver the receiver object of the destination field
+     * @param field    the destination field
+     * @param src      the receiver object of the source field
+     * @param fieldSrc the source field
      */
     public void appendAssignment(VariableReference receiver, Field field,
                                  VariableReference src, Field fieldSrc) {
@@ -308,10 +436,16 @@ public class TestCaseBuilder {
     }
 
 
+    /**
+     * Adds an exception to the current statement.
+     *
+     * @param exception a {@link java.lang.Throwable} object.
+     */
     public void addException(Throwable exception) {
         int currentPos = this.testCase.size() - 1;
-        if (currentPos < 0)
+        if (currentPos < 0) {
             throw new IllegalStateException("Cannot add exception to empty test case");
+        }
 
         if (exceptions.containsKey(currentPos)) {
             throw new IllegalStateException("Statement already contains an exception!");
@@ -323,7 +457,7 @@ public class TestCaseBuilder {
     /**
      * Inserts an statement on the current selected position.
      *
-     * @param stmt
+     * @param stmt the statement to be added
      */
     private void addStatement(Statement stmt) {
 

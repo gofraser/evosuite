@@ -33,14 +33,32 @@ public class DSEExplorationException extends RuntimeException {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DSEExplorationException.class);
 
+    /**
+     * Constructor.
+     *
+     * @param msg a {@link java.lang.String} object.
+     */
     public DSEExplorationException(final String msg) {
         super(msg);
     }
 
+    /**
+     * Constructor.
+     *
+     * @param e a {@link java.lang.Throwable} object.
+     */
     public DSEExplorationException(final Throwable e) {
         super(e);
     }
 
+    /**
+     * Checks if the expression is true, otherwise throws a DSEExplorationException.
+     *
+     * @param expr a boolean.
+     * @param msg a {@link java.lang.String} object.
+     * @param msgArgs a {@link java.lang.Object} object.
+     * @throws org.evosuite.symbolic.dse.algorithm.DSEExplorationException if any.
+     */
     public static void check(final boolean expr, final String msg, final Object... msgArgs)
             throws DSEExplorationException {
         if (!expr) {
@@ -51,6 +69,14 @@ public class DSEExplorationException extends RuntimeException {
     }
 
 
+    /**
+     * Propagates an error.
+     *
+     * @param t a {@link java.lang.Throwable} object.
+     * @param msg a {@link java.lang.String} object.
+     * @param msgArgs a {@link java.lang.Object} object.
+     * @throws org.evosuite.symbolic.dse.algorithm.DSEExplorationException if any.
+     */
     public static void propagateError(final Throwable t, final String msg, final Object... msgArgs)
             throws DSEExplorationException {
         final String finalMsg = String.format(msg, msgArgs);

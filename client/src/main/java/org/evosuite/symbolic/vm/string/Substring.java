@@ -32,83 +32,118 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 import java.util.ArrayList;
 import java.util.Collections;
 
+/**
+ * Symbolic function implementation for String.substring.
+ *
+ * @author galeotti
+ */
 public abstract class Substring extends SymbolicFunction {
 
     private static final String SUBSTRING = "substring";
 
+    /**
+     * Constructs a Substring.
+     *
+     * @param env  the symbolic environment
+     * @param desc the method descriptor
+     */
     public Substring(SymbolicEnvironment env, String desc) {
         super(env, Types.JAVA_LANG_STRING, SUBSTRING, desc);
     }
 
+    /**
+     * Symbolic function implementation for String.substring(int, int).
+     */
     public static final class Substring_II extends Substring {
+
+        /**
+         * Constructs a Substring_II.
+         *
+         * @param env the symbolic environment
+         */
         public Substring_II(SymbolicEnvironment env) {
             super(env, Types.INT_INT_TO_STR_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
-            ReferenceConstant symb_receiver = this.getSymbReceiver();
-            String conc_receiver = (String) this.getConcReceiver();
+            ReferenceConstant symbReceiver = this.getSymbReceiver();
+            String concReceiver = (String) this.getConcReceiver();
 
             IntegerValue beginIndexExpr = this.getSymbIntegerArgument(0);
             IntegerValue endIndexExpr = this.getSymbIntegerArgument(1);
 
-            StringValue str_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_receiver, symb_receiver,
-                    conc_receiver);
+            StringValue strExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                    SymbolicHeap.$STRING_VALUE, concReceiver, symbReceiver,
+                    concReceiver);
 
-            ReferenceConstant symb_ret_val = (ReferenceConstant) this
+            ReferenceConstant symbRetVal = (ReferenceConstant) this
                     .getSymbRetVal();
-            String conc_ret_val = (String) this.getConcRetVal();
+            String concRetVal = (String) this.getConcRetVal();
 
-            StringMultipleExpression symb_value = new StringMultipleExpression(
-                    str_expr, Operator.SUBSTRING, beginIndexExpr,
+            StringMultipleExpression symbValue = new StringMultipleExpression(
+                    strExpr, Operator.SUBSTRING, beginIndexExpr,
                     new ArrayList<>(Collections
                             .singletonList(endIndexExpr)),
-                    conc_ret_val);
+                    concRetVal);
 
             env.heap.putField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_ret_val, symb_ret_val,
-                    symb_value);
+                    SymbolicHeap.$STRING_VALUE, concRetVal, symbRetVal,
+                    symbValue);
 
             return this.getSymbRetVal();
         }
     }
 
+    /**
+     * Symbolic function implementation for String.substring(int).
+     */
     public static final class Substring_I extends Substring {
+
+        /**
+         * Constructs a Substring_I.
+         *
+         * @param env the symbolic environment
+         */
         public Substring_I(SymbolicEnvironment env) {
             super(env, Types.INT_TO_STR_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
-            ReferenceConstant symb_receiver = this.getSymbReceiver();
-            String conc_receiver = (String) this.getConcReceiver();
+            ReferenceConstant symbReceiver = this.getSymbReceiver();
+            String concReceiver = (String) this.getConcReceiver();
 
             IntegerValue beginIndexExpr = this.getSymbIntegerArgument(0);
 
-            StringValue str_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_receiver, symb_receiver,
-                    conc_receiver);
+            StringValue strExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                    SymbolicHeap.$STRING_VALUE, concReceiver, symbReceiver,
+                    concReceiver);
 
-            ReferenceConstant symb_ret_val = (ReferenceConstant) this
+            ReferenceConstant symbRetVal = (ReferenceConstant) this
                     .getSymbRetVal();
-            String conc_ret_val = (String) this.getConcRetVal();
+            String concRetVal = (String) this.getConcRetVal();
 
             IntegerValue lengthExpr = new StringUnaryToIntegerExpression(
-                    str_expr, Operator.LENGTH, (long) conc_receiver.length());
+                    strExpr, Operator.LENGTH, (long) concReceiver.length());
 
-            StringMultipleExpression symb_value = new StringMultipleExpression(
-                    str_expr, Operator.SUBSTRING, beginIndexExpr,
+            StringMultipleExpression symbValue = new StringMultipleExpression(
+                    strExpr, Operator.SUBSTRING, beginIndexExpr,
                     new ArrayList<>(Collections
                             .singletonList(lengthExpr)),
-                    conc_ret_val);
+                    concRetVal);
 
             env.heap.putField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_ret_val, symb_ret_val,
-                    symb_value);
+                    SymbolicHeap.$STRING_VALUE, concRetVal, symbRetVal,
+                    symbValue);
 
             return this.getSymbRetVal();
         }

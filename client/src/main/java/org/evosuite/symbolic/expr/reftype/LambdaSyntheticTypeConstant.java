@@ -19,23 +19,32 @@
  */
 package org.evosuite.symbolic.expr.reftype;
 
-import org.objectweb.asm.Type;
 import org.evosuite.symbolic.expr.ExpressionVisitor;
+import org.objectweb.asm.Type;
 
 /**
  * General expression for anonymous jvm-created lambda classes (usually after invokedynamic is used).
- * <p>
- * TODO: Lambdas may be closures so a lot of fields may be attached to them.
+ *
+ * <p>TODO: Lambdas may be closures so a lot of fields may be attached to them.
  *
  * @author Ignacio Lebrero
  */
 public final class LambdaSyntheticTypeConstant extends NonNullReferenceTypeConstant {
 
-     /**
-     * Whether this lambda is called from non instrumented sources
+    private static final long serialVersionUID = -1234567890123456789L;
+
+    /**
+     * Whether this lambda is called from non instrumented sources.
      */
     private boolean callsNonInstrumentedCode;
 
+    /**
+     * Constructs a {@link LambdaSyntheticTypeConstant} with the given type, non-instrumented code flag and id.
+     *
+     * @param concreteValue the type of the lambda
+     * @param callsNonInstrumentedCode whether it calls non-instrumented code
+     * @param referenceTypeId the unique id of the reference type
+     */
     public LambdaSyntheticTypeConstant(Type concreteValue, boolean callsNonInstrumentedCode, int referenceTypeId) {
         super(concreteValue, referenceTypeId);
 

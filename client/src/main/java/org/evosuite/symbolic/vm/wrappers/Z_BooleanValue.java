@@ -25,6 +25,11 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function for Boolean.booleanValue.
+ *
+ * @author galeotti
+ */
 public final class Z_BooleanValue extends SymbolicFunction {
 
     private static final String BOOLEAN_VALUE = "booleanValue";
@@ -35,13 +40,13 @@ public final class Z_BooleanValue extends SymbolicFunction {
 
     @Override
     public Object executeFunction() {
-        ReferenceConstant symb_boolean = this.getSymbReceiver();
-        Boolean conc_boolean = (Boolean) this.getConcReceiver();
-        boolean conc_boolean_value = this.getConcBooleanRetVal();
-        IntegerValue symb_boolean_value = env.heap.getField(
+        ReferenceConstant symbBoolean = this.getSymbReceiver();
+        Boolean concBoolean = (Boolean) this.getConcReceiver();
+        boolean concBooleanValue = this.getConcBooleanRetVal();
+        IntegerValue symbBooleanValue = env.heap.getField(
                 Types.JAVA_LANG_BOOLEAN, SymbolicHeap.$BOOLEAN_VALUE,
-                conc_boolean, symb_boolean, conc_boolean_value ? 1 : 0);
-        return symb_boolean_value;
+                concBoolean, symbBoolean, concBooleanValue ? 1 : 0);
+        return symbBooleanValue;
     }
 
 }

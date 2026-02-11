@@ -28,6 +28,11 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
 import java.util.regex.Matcher;
 
+/**
+ * Symbolic function for Pattern.matcher.
+ *
+ * @author galeotti
+ */
 public final class Pattern_Matcher extends SymbolicFunction {
 
     private static final String MATCHER = "matcher";
@@ -42,29 +47,29 @@ public final class Pattern_Matcher extends SymbolicFunction {
 
         // receiver
         @SuppressWarnings("unused")
-        ReferenceConstant symb_receiver = this.getSymbReceiver();
+        ReferenceConstant symbReceiver = this.getSymbReceiver();
 
         // argument
-        CharSequence conc_char_seq = (CharSequence) this.getConcArgument(0);
-        ReferenceExpression symb_char_seq = this.getSymbArgument(0);
+        CharSequence concCharSequence = (CharSequence) this.getConcArgument(0);
+        ReferenceExpression symbCharSequence = this.getSymbArgument(0);
 
         // return value
-        Matcher conc_matcher = (Matcher) this.getConcRetVal();
-        ReferenceConstant symb_matcher = (ReferenceConstant) this.getSymbRetVal();
+        Matcher concMatcher = (Matcher) this.getConcRetVal();
+        ReferenceConstant symbMatcher = (ReferenceConstant) this.getSymbRetVal();
 
-        if (conc_char_seq != null && conc_char_seq instanceof String) {
-            assert symb_char_seq instanceof ReferenceConstant;
-            ReferenceConstant symb_string = (ReferenceConstant) symb_char_seq;
+        if (concCharSequence != null && concCharSequence instanceof String) {
+            assert symbCharSequence instanceof ReferenceConstant;
+            ReferenceConstant symbString = (ReferenceConstant) symbCharSequence;
 
-            String string = (String) conc_char_seq;
-            StringValue symb_input = env.heap.getField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, string, symb_string, string);
+            String string = (String) concCharSequence;
+            StringValue symbInput = env.heap.getField(Types.JAVA_LANG_STRING,
+                    SymbolicHeap.$STRING_VALUE, string, symbString, string);
 
             env.heap.putField(Types.JAVA_UTIL_REGEX_MATCHER,
-                    SymbolicHeap.$MATCHER_INPUT, conc_matcher, symb_matcher,
-                    symb_input);
+                    SymbolicHeap.$MATCHER_INPUT, concMatcher, symbMatcher,
+                    symbInput);
         }
-        return symb_matcher;
+        return symbMatcher;
     }
 
 }

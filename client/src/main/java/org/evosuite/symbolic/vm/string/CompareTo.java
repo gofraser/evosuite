@@ -27,37 +27,50 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
+/**
+ * Symbolic function implementation for String.compareTo.
+ *
+ * @author galeotti
+ */
 public final class CompareTo extends SymbolicFunction {
 
     private static final String COMPARE_TO = "compareTo";
 
+    /**
+     * Constructs a CompareTo.
+     *
+     * @param env the symbolic environment
+     */
     public CompareTo(SymbolicEnvironment env) {
         super(env, Types.JAVA_LANG_STRING, COMPARE_TO,
                 Types.STR_TO_INT_DESCRIPTOR);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object executeFunction() {
 
-        String conc_left = (String) this.getConcReceiver();
-        ReferenceConstant symb_left = this.getSymbReceiver();
+        String concLeft = (String) this.getConcReceiver();
+        ReferenceConstant symbLeft = this.getSymbReceiver();
 
-        StringValue left_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_left, symb_left, conc_left);
+        StringValue leftExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concLeft, symbLeft, concLeft);
 
-        String conc_right = (String) this.getConcArgument(0);
-        ReferenceConstant symb_right = (ReferenceConstant) this
+        String concRight = (String) this.getConcArgument(0);
+        ReferenceConstant symbRight = (ReferenceConstant) this
                 .getSymbArgument(0);
 
-        StringValue right_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                SymbolicHeap.$STRING_VALUE, conc_right, symb_right, conc_right);
+        StringValue rightExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                SymbolicHeap.$STRING_VALUE, concRight, symbRight, concRight);
 
         int res = this.getConcIntRetVal();
 
-        if (left_expr.containsSymbolicVariable()
-                || right_expr.containsSymbolicVariable()) {
+        if (leftExpr.containsSymbolicVariable()
+                || rightExpr.containsSymbolicVariable()) {
             StringBinaryToIntegerExpression strBExpr = new StringBinaryToIntegerExpression(
-                    left_expr, Operator.COMPARETO, right_expr, (long) res);
+                    leftExpr, Operator.COMPARETO, rightExpr, (long) res);
 
             return strBExpr;
         } else {

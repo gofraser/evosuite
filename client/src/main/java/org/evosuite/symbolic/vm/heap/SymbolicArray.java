@@ -30,25 +30,25 @@ import org.objectweb.asm.Type;
 public interface SymbolicArray {
 
     /**
-     * Returns the array content type
+     * Returns the array content type.
      *
      * @return a {@link org.objectweb.asm.Type} object
      */
     Type getContentType();
 
     /**
-     * Returns an expression representing the symbolic value stored at the ith position
+     * Returns an expression representing the symbolic value stored at the ith position.
      *
-     * @param index
+     * @param index the index to get
      * @return a {@link org.evosuite.symbolic.expr.Expression} object
      */
     Expression get(Integer index);
 
     /**
-     * Symbolically updates the ith element of the array
+     * Symbolically updates the ith element of the array.
      *
-     * @param index
-     * @param expression
+     * @param index      the index to set
+     * @param expression the expression to set
      */
     void set(Integer index, Expression expression);
 

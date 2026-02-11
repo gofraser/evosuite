@@ -34,10 +34,10 @@ public class DSEStrategyFactory {
     public static final String DSE_MODULE_NOT_YET_IMPLEMENTED = "DSE Module not yet implemented: ";
 
     /**
-     * Builds a new DSE strategy
+     * Builds a new DSE strategy.
      *
-     * @param selectedModule
-     * @return
+     * @param selectedModule the DSE module version to use.
+     * @return a new test generation strategy.
      */
     public static TestGenerationStrategy getDSEStrategy(DSE_MODULE_VERSION selectedModule) {
         if (selectedModule == null) {

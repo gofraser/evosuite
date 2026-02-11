@@ -20,6 +20,8 @@
 package org.evosuite.symbolic.vm;
 
 /**
+ * Represents a single word (32-bit) operand in the symbolic virtual machine.
+ *
  * @author galeotti
  */
 public interface SingleWordOperand extends Operand {

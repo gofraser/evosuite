@@ -29,23 +29,25 @@ import org.objectweb.asm.Type;
  */
 public class ClassReferenceVariable extends ReferenceVariable {
 
-	/**
-	 * Creates a new reference variable using the type of the reference, an
-	 * instance id, the name of the variable and the concrete object reference.
-	 * The resulting variable is initialized.
-	 *
-	 * @param objectType
-	 * @param instanceId
-	 * @param name
-	 * @param concreteValue
-	 */
-	public ClassReferenceVariable(Type objectType, int instanceId, String name, Object concreteValue) {
-		super(objectType, instanceId, name, concreteValue);
-	}
+    private static final long serialVersionUID = -4561234567890123456L;
 
-	@Override
-	public <K, V> K accept(ExpressionVisitor<K, V> v, V arg) {
-		return v.visit(this, arg);
-	}
+    /**
+     * Creates a new reference variable using the type of the reference, an
+     * instance id, the name of the variable and the concrete object reference.
+     * The resulting variable is initialized.
+     *
+     * @param objectType the type of the reference
+     * @param instanceId the unique id of the reference
+     * @param name the name of the variable
+     * @param concreteValue the concrete object reference
+     */
+    public ClassReferenceVariable(Type objectType, int instanceId, String name, Object concreteValue) {
+        super(objectType, instanceId, name, concreteValue);
+    }
+
+    @Override
+    public <K, V> K accept(ExpressionVisitor<K, V> v, V arg) {
+        return v.visit(this, arg);
+    }
 
 }

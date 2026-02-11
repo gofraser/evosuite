@@ -25,10 +25,18 @@ import org.evosuite.symbolic.expr.fp.RealValue;
 import org.evosuite.symbolic.expr.ref.ReferenceExpression;
 
 /**
+ * Utility methods for working with operands.
+ *
  * @author Ilebrero
  */
 public class OperandUtils {
 
+    /**
+     * Retrieves the expression from an operand.
+     *
+     * @param operand the operand
+     * @return the expression
+     */
     public static Expression<?> retrieveOperandExpression(Operand operand) {
         if (operand instanceof IntegerOperand) {
             IntegerOperand intOp = (IntegerOperand) operand;
@@ -40,11 +48,18 @@ public class OperandUtils {
             ReferenceOperand referenceOperand = (ReferenceOperand) operand;
             return referenceOperand.getReference();
         } else {
-            throw new IllegalStateException("Unexpected operandType: " + operand.getClass().getName() + " is not a supported operand.");
+            throw new IllegalStateException("Unexpected operandType: " + operand.getClass().getName()
+                    + " is not a supported operand.");
         }
     }
 
-    public static Operand expressionToOperand(Expression expression) {
+    /**
+     * Converts an expression to an operand.
+     *
+     * @param expression the expression
+     * @return the operand
+     */
+    public static Operand expressionToOperand(Expression<?> expression) {
         if (expression instanceof IntegerValue) {
             IntegerValue intExpression = (IntegerValue) expression;
             return new Bv64Operand(intExpression);
@@ -55,7 +70,8 @@ public class OperandUtils {
             ReferenceExpression referenceExpression = (ReferenceExpression) expression;
             return new ReferenceOperand(referenceExpression);
         } else {
-            throw new IllegalStateException("Unexpected expression type: " + expression.getClass().getName() + " is not a supported operand.");
+            throw new IllegalStateException("Unexpected expression type: " + expression.getClass().getName()
+                    + " is not a supported operand.");
         }
     }
 

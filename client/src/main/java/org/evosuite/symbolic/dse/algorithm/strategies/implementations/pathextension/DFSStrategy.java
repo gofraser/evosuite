@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.evosuite.symbolic.dse.algorithm.strategies.implementations.PathExtensionStrategies;
+package org.evosuite.symbolic.dse.algorithm.strategies.implementations.pathextension;
 
 import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.PathCondition;
@@ -32,8 +32,8 @@ import java.util.List;
 
 /**
  * Classic DFS exploration. New path conditions are created incrementally from the smallest to the largest.
- * <p>
- * TODO: This is very similar to {@link org.evosuite.symbolic.dse.algorithm.strategies.implementations.PathExtensionStrategies.ExpandExecutionStrategy}
+ *
+ * <p>TODO: This is very similar to {@link ExpandExecutionStrategy}
  * It can be an extensions later on.
  *
  * @author Ignacio Lebrero
@@ -45,10 +45,12 @@ public class DFSStrategy implements PathExtensionStrategy {
     Logger logger = LoggerFactory.getLogger(DFSStrategy.class);
 
     @Override
-    public List<GenerationalSearchPathCondition> generateChildren(GenerationalSearchPathCondition currentPathConditionChild) {
+    public List<GenerationalSearchPathCondition> generateChildren(
+            GenerationalSearchPathCondition currentPathConditionChild) {
         List<GenerationalSearchPathCondition> result = new ArrayList();
         List<BranchCondition> accumulatedBranchConditions = new ArrayList();
-        List<BranchCondition> currentPathConditionBranchConditions = currentPathConditionChild.getPathCondition().getBranchConditions();
+        List<BranchCondition> currentPathConditionBranchConditions =
+                currentPathConditionChild.getPathCondition().getBranchConditions();
 
         // Create the PCs from the longest to the shortest
         for (int i = 0; i < currentPathConditionBranchConditions.size(); i++) {

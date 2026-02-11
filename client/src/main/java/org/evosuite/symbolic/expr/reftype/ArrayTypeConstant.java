@@ -23,7 +23,7 @@ import org.evosuite.symbolic.expr.ExpressionVisitor;
 import org.objectweb.asm.Type;
 
 /**
- * Represents all array types
+ * Represents all array types.
  *
  * @author Ignacio Lebrero
  */

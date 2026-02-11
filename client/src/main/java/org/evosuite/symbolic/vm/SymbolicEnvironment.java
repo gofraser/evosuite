@@ -35,18 +35,20 @@ import java.util.LinkedList;
 import java.util.Set;
 
 /**
+ * Represents the symbolic environment during concolic execution.
+ *
  * @author galeotti
  */
 public final class SymbolicEnvironment {
 
     /**
-     * Storage for symbolic information in the memory heap
-     * This might be extended at some point
+     * Storage for symbolic information in the memory heap.
+     * This might be extended at some point.
      */
     public final SymbolicHeap heap = new SymbolicHeap();
 
     /**
-     * Stack of function/method/constructor invocation frames
+     * Stack of function/method/constructor invocation frames.
      */
     private final Deque<Frame> stackFrame = new LinkedList<>();
 
@@ -62,22 +64,47 @@ public final class SymbolicEnvironment {
         this.instrumentingClassLoader = instrumentingClassLoader;
     }
 
+    /**
+     * Returns the top frame of the stack.
+     *
+     * @return the top frame
+     */
     public Frame topFrame() {
         return stackFrame.peek();
     }
 
+    /**
+     * Pops the top frame from the stack.
+     *
+     * @return the popped frame
+     */
     public Frame popFrame() {
         return stackFrame.pop();
     }
 
+    /**
+     * Returns whether the stack is empty.
+     *
+     * @return true if empty, false otherwise
+     */
     public boolean isEmpty() {
         return stackFrame.isEmpty();
     }
 
+    /**
+     * Pushes a frame onto the stack.
+     *
+     * @param frame the frame to push
+     */
     public void pushFrame(Frame frame) {
         stackFrame.push(frame);
     }
 
+    /**
+     * Returns the caller frame (one below the top).
+     *
+     * @return the caller frame
+     */
     public Frame callerFrame() {
         Frame top = stackFrame.pop();
         Frame res = stackFrame.peek();
@@ -85,13 +112,19 @@ public final class SymbolicEnvironment {
         return res;
     }
 
+    /**
+     * Ensures that the class is prepared.
+     *
+     * @param className the class name
+     * @return the prepared class
+     */
     public Class<?> ensurePrepared(String className) {
         Type ownerType = Type.getObjectType(className);
         if (ownerType.getSort() == Type.ARRAY) {
             Type elemType = ownerType.getElementType();
-            if (TypeUtil.isValue(elemType))
+            if (TypeUtil.isValue(elemType)) {
                 return TypeUtil.getPrimitiveArrayClassFromElementType(elemType);
-            else {
+            } else {
                 // ensurePrepared component class
                 className = elemType.getClassName();
                 Class<?> claz = instrumentingClassLoader.getClassForName(className);
@@ -108,13 +141,20 @@ public final class SymbolicEnvironment {
         }
     }
 
+    /**
+     * Ensures that the class is prepared.
+     *
+     * @param claz the class
+     */
     public void ensurePrepared(Class<?> claz) {
-        if (preparedClasses.contains(claz))
+        if (preparedClasses.contains(claz)) {
             return; // done, we have prepared this class earlier
+        }
 
         Class<?> superClass = claz.getSuperclass();
-        if (superClass != null)
+        if (superClass != null) {
             ensurePrepared(superClass); // prepare super class first
+        }
 
         String className = claz.getCanonicalName();
         if (className == null) {
@@ -139,10 +179,12 @@ public final class SymbolicEnvironment {
 
     /**
      * Prepare stack of function invocation frames.
-     * <p>
-     * Clear function invocation stack, push a frame that pretends to call the
+     *
+     * <p>Clear function invocation stack, push a frame that pretends to call the
      * method under test. We push variables for our method onto the
-     * pseudo-callers stack, so our method can pop them from there.
+     * pseudo-callers stack, so our method can pop them from there.</p>
+     *
+     * @param mainMethod the method under test
      */
     public void prepareStack(Method mainMethod) {
         stackFrame.clear();
@@ -167,12 +209,15 @@ public final class SymbolicEnvironment {
     }
 
     /**
-     * @return method is instrumented. It is neither native nor declared by an
-     * ignored JDK class, etc.
+     * Returns whether the method is instrumented.
+     *
+     * @param method the method
+     * @return true if instrumented, false otherwise
      */
     private static boolean isInstrumented(Method method) {
-        if (Modifier.isNative(method.getModifiers()))
+        if (Modifier.isNative(method.getModifiers())) {
             return false;
+        }
 
         String declClass = method.getDeclaringClass().getCanonicalName();
         return !MainConfig.get().isIgnored(declClass);

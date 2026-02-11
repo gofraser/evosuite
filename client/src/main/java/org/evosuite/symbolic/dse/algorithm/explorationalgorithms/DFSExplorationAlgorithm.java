@@ -22,11 +22,11 @@ package org.evosuite.symbolic.dse.algorithm.explorationalgorithms;
 import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.symbolic.dse.DSETestCase;
 import org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithm;
-import org.evosuite.symbolic.dse.algorithm.strategies.implementations.CachingStrategies.CounterExampleCache;
-import org.evosuite.symbolic.dse.algorithm.strategies.implementations.KeepSearchingCriteriaStrategies.TestCasesPendingStrategy;
-import org.evosuite.symbolic.dse.algorithm.strategies.implementations.PathExtensionStrategies.RevertedExpandExecutionStrategy;
-import org.evosuite.symbolic.dse.algorithm.strategies.implementations.TestCaseBuildingStrategies.DefaultTestCaseBuildingStrategy;
-import org.evosuite.symbolic.dse.algorithm.strategies.implementations.TestCaseSelectionStrategies.TopTestCaseSelectionStrategy;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.caching.CounterExampleCache;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.keepsearching.TestCasesPendingStrategy;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.pathextension.RevertedExpandExecutionStrategy;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.testcasebuilding.DefaultTestCaseBuildingStrategy;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.testcaseselection.TopTestCaseSelectionStrategy;
 import org.evosuite.testcase.TestCase;
 
 import java.util.LinkedList;
@@ -35,24 +35,30 @@ import java.util.Queue;
 /**
  * Classic DFS exploration algorithm.
  * See Baldoni et.al., A Survey of Symbolic Execution Techniques for more info.
- * <p>
- * We model it as a decremental score on each tests that is created so we maintain it's order in the
- * {@link java.util.PriorityQueue} in {@link org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithm}. This strongly
- * depends on the order that {@link org.evosuite.symbolic.dse.algorithm.strategies.implementations.PathExtensionStrategies.DFSStrategy} creates them.
- * <p>
- * In case a path condition diverges, it's score is automatically 0 so it's explored at the end of the process.
+ *
+ * <p>We model it as a decremental score on each tests that is created so we maintain it's order in the
+ * {@link java.util.PriorityQueue} in {@link org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithm}.
+ * This strongly depends on the order that {@link RevertedExpandExecutionStrategy} creates them.
+ *
+ * <p>In case a path condition diverges, it's score is automatically 0 so it's explored at the end of the process.
  *
  * @author Ignacio Lebrero
  */
 public class DFSExplorationAlgorithm extends ExplorationAlgorithm {
 
+    /**
+     * Constructor.
+     *
+     * @param statistics a {@link org.evosuite.symbolic.dse.DSEStatistics} object.
+     * @param showProgress a boolean.
+     */
     public DFSExplorationAlgorithm(DSEStatistics statistics, boolean showProgress) {
         super(statistics, showProgress);
 
-        /** Strategies */
+        /* Strategies */
         setCachingStrategy(new CounterExampleCache());
 
-        /**
+        /*
          * Note (ilebrero): Not sure why is not working so far, reverted generational search expansion
          *                  algorithm should suffice for now.
          */
@@ -66,9 +72,9 @@ public class DFSExplorationAlgorithm extends ExplorationAlgorithm {
 
     /**
      * The DFS uses a simple queue for ordering the test cases as they are created. This strongly depends on the order
-     * given by {@link org.evosuite.symbolic.dse.algorithm.strategies.implementations.PathExtensionStrategies.DFSStrategy}.
+     * given by {@link RevertedExpandExecutionStrategy}.
      *
-     * @return
+     * @return the work list queue.
      */
     @Override
     protected Queue<DSETestCase> createWorkList() {
@@ -78,13 +84,13 @@ public class DFSExplorationAlgorithm extends ExplorationAlgorithm {
     /**
      * Returns the current position in the DFS exploration.
      *
-     * @param newTestCase
-     * @param hasPathConditionDiverged
-     * @return
+     * @param newTestCase the new test case.
+     * @param hasPathConditionDiverged true if path condition diverged.
+     * @return the test score.
      */
     @Override
     protected double getTestScore(TestCase newTestCase, boolean hasPathConditionDiverged) {
-        /** Not relevant for DFS, the order is implicitly given by the construction of the path conditions */
+        /* Not relevant for DFS, the order is implicitly given by the construction of the path conditions */
         return 0;
     }
 }

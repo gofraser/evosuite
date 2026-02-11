@@ -33,37 +33,59 @@ import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 import java.util.ArrayList;
 import java.util.Collections;
 
+/**
+ * Symbolic function implementation for String.lastIndexOf.
+ *
+ * @author galeotti
+ */
 public abstract class LastIndexOf extends SymbolicFunction {
 
     private static final String LAST_INDEX_OF = "lastIndexOf";
 
+    /**
+     * Constructs a LastIndexOf.
+     *
+     * @param env  the symbolic environment
+     * @param desc the method descriptor
+     */
     public LastIndexOf(SymbolicEnvironment env, String desc) {
         super(env, Types.JAVA_LANG_STRING, LAST_INDEX_OF, desc);
     }
 
-    public final static class LastIndexOf_C extends LastIndexOf {
+    /**
+     * Symbolic function implementation for String.lastIndexOf(int).
+     */
+    public static final class LastIndexOf_C extends LastIndexOf {
 
+        /**
+         * Constructs a LastIndexOf_C.
+         *
+         * @param env the symbolic environment
+         */
         public LastIndexOf_C(SymbolicEnvironment env) {
             super(env, Types.INT_TO_INT_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
-            String conc_left = (String) this.getConcReceiver();
-            ReferenceConstant symb_left = this.getSymbReceiver();
+            String concLeft = (String) this.getConcReceiver();
+            ReferenceConstant symbLeft = this.getSymbReceiver();
 
-            StringValue left_expr = env.heap
+            StringValue leftExpr = env.heap
                     .getField(Types.JAVA_LANG_STRING,
-                            SymbolicHeap.$STRING_VALUE, conc_left, symb_left,
-                            conc_left);
+                            SymbolicHeap.$STRING_VALUE, concLeft, symbLeft,
+                            concLeft);
 
-            IntegerValue right_expr = this.getSymbIntegerArgument(0);
+            IntegerValue rightExpr = this.getSymbIntegerArgument(0);
             int res = this.getConcIntRetVal();
-            if (left_expr.containsSymbolicVariable()
-                    || right_expr.containsSymbolicVariable()) {
+            if (leftExpr.containsSymbolicVariable()
+                    || rightExpr.containsSymbolicVariable()) {
                 StringBinaryToIntegerExpression strBExpr = new StringBinaryToIntegerExpression(
-                        left_expr, Operator.LASTINDEXOFC, right_expr, (long) res);
+                        leftExpr, Operator.LASTINDEXOFC, rightExpr, (long) res);
 
                 return strBExpr;
             }
@@ -72,32 +94,43 @@ public abstract class LastIndexOf extends SymbolicFunction {
         }
     }
 
-    public final static class LastIndexOf_CI extends LastIndexOf {
+    /**
+     * Symbolic function implementation for String.lastIndexOf(int, int).
+     */
+    public static final class LastIndexOf_CI extends LastIndexOf {
 
+        /**
+         * Constructs a LastIndexOf_CI.
+         *
+         * @param env the symbolic environment
+         */
         public LastIndexOf_CI(SymbolicEnvironment env) {
             super(env, Types.INT_INT_TO_INT_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
-            String conc_left = (String) this.getConcReceiver();
-            ReferenceConstant symb_left = this.getSymbReceiver();
+            String concLeft = (String) this.getConcReceiver();
+            ReferenceConstant symbLeft = this.getSymbReceiver();
 
-            StringValue left_expr = env.heap
+            StringValue leftExpr = env.heap
                     .getField(Types.JAVA_LANG_STRING,
-                            SymbolicHeap.$STRING_VALUE, conc_left, symb_left,
-                            conc_left);
+                            SymbolicHeap.$STRING_VALUE, concLeft, symbLeft,
+                            concLeft);
 
-            IntegerValue right_expr = this.getSymbIntegerArgument(0);
+            IntegerValue rightExpr = this.getSymbIntegerArgument(0);
             IntegerValue fromIndexExpr = this.getSymbIntegerArgument(1);
 
             int res = this.getConcIntRetVal();
-            if (left_expr.containsSymbolicVariable()
-                    || right_expr.containsSymbolicVariable()
+            if (leftExpr.containsSymbolicVariable()
+                    || rightExpr.containsSymbolicVariable()
                     || fromIndexExpr.containsSymbolicVariable()) {
                 StringMultipleToIntegerExpression strBExpr = new StringMultipleToIntegerExpression(
-                        left_expr, Operator.LASTINDEXOFCI, right_expr,
+                        leftExpr, Operator.LASTINDEXOFCI, rightExpr,
                         new ArrayList<>(Collections
                                 .singletonList(fromIndexExpr)),
                         (long) res);
@@ -109,36 +142,47 @@ public abstract class LastIndexOf extends SymbolicFunction {
         }
     }
 
-    public final static class LastIndexOf_S extends LastIndexOf {
+    /**
+     * Symbolic function implementation for String.lastIndexOf(String).
+     */
+    public static final class LastIndexOf_S extends LastIndexOf {
 
+        /**
+         * Constructs a LastIndexOf_S.
+         *
+         * @param env the symbolic environment
+         */
         public LastIndexOf_S(SymbolicEnvironment env) {
             super(env, Types.STR_TO_INT_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
-            String conc_left = (String) this.getConcReceiver();
-            ReferenceConstant symb_left = this.getSymbReceiver();
+            String concLeft = (String) this.getConcReceiver();
+            ReferenceConstant symbLeft = this.getSymbReceiver();
 
-            StringValue left_expr = env.heap
+            StringValue leftExpr = env.heap
                     .getField(Types.JAVA_LANG_STRING,
-                            SymbolicHeap.$STRING_VALUE, conc_left, symb_left,
-                            conc_left);
+                            SymbolicHeap.$STRING_VALUE, concLeft, symbLeft,
+                            concLeft);
 
-            String conc_right = (String) this.getConcArgument(0);
-            ReferenceConstant symb_right = (ReferenceConstant) this
+            String concRight = (String) this.getConcArgument(0);
+            ReferenceConstant symbRight = (ReferenceConstant) this
                     .getSymbArgument(0);
 
-            StringValue right_expr = env.heap.getField(Types.JAVA_LANG_STRING,
-                    SymbolicHeap.$STRING_VALUE, conc_right, symb_right,
-                    conc_right);
+            StringValue rightExpr = env.heap.getField(Types.JAVA_LANG_STRING,
+                    SymbolicHeap.$STRING_VALUE, concRight, symbRight,
+                    concRight);
 
             int res = this.getConcIntRetVal();
-            if (left_expr.containsSymbolicVariable()
-                    || right_expr.containsSymbolicVariable()) {
+            if (leftExpr.containsSymbolicVariable()
+                    || rightExpr.containsSymbolicVariable()) {
                 StringBinaryToIntegerExpression strBExpr = new StringBinaryToIntegerExpression(
-                        left_expr, Operator.LASTINDEXOFS, right_expr, (long) res);
+                        leftExpr, Operator.LASTINDEXOFS, rightExpr, (long) res);
 
                 return strBExpr;
             }
@@ -148,41 +192,52 @@ public abstract class LastIndexOf extends SymbolicFunction {
 
     }
 
-    public final static class LastIndexOf_SI extends LastIndexOf {
+    /**
+     * Symbolic function implementation for String.lastIndexOf(String, int).
+     */
+    public static final class LastIndexOf_SI extends LastIndexOf {
 
+        /**
+         * Constructs a LastIndexOf_SI.
+         *
+         * @param env the symbolic environment
+         */
         public LastIndexOf_SI(SymbolicEnvironment env) {
             super(env, Types.STR_INT_TO_INT_DESCRIPTOR);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Object executeFunction() {
 
-            String conc_left = (String) this.getConcReceiver();
-            ReferenceConstant symb_left = this.getSymbReceiver();
+            String concLeft = (String) this.getConcReceiver();
+            ReferenceConstant symbLeft = this.getSymbReceiver();
 
-            StringValue left_expr = env.heap
+            StringValue leftExpr = env.heap
                     .getField(Types.JAVA_LANG_STRING,
-                            SymbolicHeap.$STRING_VALUE, conc_left, symb_left,
-                            conc_left);
+                            SymbolicHeap.$STRING_VALUE, concLeft, symbLeft,
+                            concLeft);
 
-            String conc_right = (String) this.getConcArgument(0);
-            ReferenceExpression symb_right = this.getSymbArgument(0);
+            String concRight = (String) this.getConcArgument(0);
+            ReferenceExpression symbRight = this.getSymbArgument(0);
             IntegerValue fromIndexExpr = this.getSymbIntegerArgument(1);
 
             int res = this.getConcIntRetVal();
 
-            if (symb_right instanceof ReferenceConstant) {
-                ReferenceConstant symb_non_null_right = (ReferenceConstant) symb_right;
-                StringValue right_expr = env.heap.getField(
+            if (symbRight instanceof ReferenceConstant) {
+                ReferenceConstant symbNonNullRight = (ReferenceConstant) symbRight;
+                StringValue rightExpr = env.heap.getField(
                         Types.JAVA_LANG_STRING, SymbolicHeap.$STRING_VALUE,
-                        conc_right, symb_non_null_right, conc_right);
+                        concRight, symbNonNullRight, concRight);
 
-                if (left_expr.containsSymbolicVariable()
-                        || right_expr.containsSymbolicVariable()
+                if (leftExpr.containsSymbolicVariable()
+                        || rightExpr.containsSymbolicVariable()
                         || fromIndexExpr.containsSymbolicVariable()) {
 
                     StringMultipleToIntegerExpression strBExpr = new StringMultipleToIntegerExpression(
-                            left_expr, Operator.LASTINDEXOFSI, right_expr,
+                            leftExpr, Operator.LASTINDEXOFSI, rightExpr,
                             new ArrayList<>(Collections
                                     .singletonList(fromIndexExpr)),
                             (long) res);

@@ -45,10 +45,10 @@ import java.util.*;
 public abstract class SolverUtils {
 
     /**
-     * solves a given query (i.e. list of constraints).
+     * Solves a given query (i.e. list of constraints).
      *
-     * @param query
-     * @return
+     * @param query the list of constraints to solve
+     * @return the solver result, or null if an error occurred
      */
     public static SolverResult solveQuery(List<Constraint<?>> query) {
         Solver solver = SolverFactory.getInstance().buildNewSolver();
@@ -56,7 +56,8 @@ public abstract class SolverUtils {
 
         try {
             solverResult = solver.solve(query);
-        } catch (SolverTimeoutException | SolverParseException | SolverEmptyQueryException | SolverErrorException | IOException e) {
+        } catch (SolverTimeoutException | SolverParseException | SolverEmptyQueryException | SolverErrorException
+                 | IOException e) {
             // TODO: see how we are going to handle this later on.
             // TODO: add statistics about this.
             solverResult = null;
@@ -68,8 +69,8 @@ public abstract class SolverUtils {
     /**
      * Creates boundaries for the SMT query variables.
      *
-     * @param query
-     * @return
+     * @param query the list of constraints forming the query
+     * @return a collection of boundary constraints
      */
     public static Collection<? extends Constraint<?>> createBoundsForQueryVariables(List<Constraint<?>> query) {
         Set<Variable<?>> variables = new HashSet<>();
@@ -99,9 +100,9 @@ public abstract class SolverUtils {
             } else if (variable instanceof StringVariable) {
                 // skip
             } else if (variable instanceof ArrayVariable) {
-				// skip
-			} else if (variable instanceof ClassReferenceVariable) {
-				//skip
+                // skip
+            } else if (variable instanceof ClassReferenceVariable) {
+                // skip
             } else {
                 throw new UnsupportedOperationException(
                         "Unknown variable type " + variable.getClass().getName());
@@ -112,10 +113,10 @@ public abstract class SolverUtils {
     }
 
     /**
-     * Creates a Solver query give a branch condition
+     * Creates a Solver query give a branch condition.
      *
-     * @param pc
-     * @return
+     * @param pc the path condition
+     * @return a list of constraints
      */
     public static List<Constraint<?>> buildQuery(PathCondition pc) {
         List<Constraint<?>> query = new LinkedList<>();
@@ -126,16 +127,16 @@ public abstract class SolverUtils {
         }
 
         // Compute cone of influence reduction
-        List<Constraint<?>> simplified_query = reduce(query);
-        return simplified_query;
+        List<Constraint<?>> simplifiedQuery = reduce(query);
+        return simplifiedQuery;
     }
 
     /**
-     * Creates a Solver query give a branch condition
+     * Creates a Solver query give a branch condition.
      *
-     * @param pc
-     * @param conditionIndexToNegate
-     * @return
+     * @param pc                     the path condition
+     * @param conditionIndexToNegate the index of the condition to negate
+     * @return a list of constraints
      */
     public static List<Constraint<?>> buildQueryNegatingIthCondition(PathCondition pc, int conditionIndexToNegate) {
         List<Constraint<?>> query = new LinkedList<>();
@@ -151,16 +152,16 @@ public abstract class SolverUtils {
         query.add(negation);
 
         // Compute cone of influence reduction
-        List<Constraint<?>> simplified_query = reduce(query);
-        return simplified_query;
+        List<Constraint<?>> simplifiedQuery = reduce(query);
+        return simplifiedQuery;
     }
 
     /**
      * Apply cone of influence reduction to constraints with respect to the last
-     * constraint in the list
+     * constraint in the list.
      *
-     * @param constraints
-     * @return
+     * @param constraints the list of constraints
+     * @return the reduced list of constraints
      */
     private static List<Constraint<?>> reduce(List<Constraint<?>> constraints) {
 
@@ -168,8 +169,9 @@ public abstract class SolverUtils {
         Set<Variable<?>> dependencies = getVariables(target);
 
         LinkedList<Constraint<?>> coi = new LinkedList<>();
-        if (dependencies.size() <= 0)
+        if (dependencies.size() <= 0) {
             return coi;
+        }
 
         coi.add(target);
 
@@ -188,10 +190,10 @@ public abstract class SolverUtils {
     }
 
     /**
-     * Determine the set of variable referenced by this constraint
+     * Determine the set of variable referenced by this constraint.
      *
-     * @param constraint
-     * @return
+     * @param constraint the constraint
+     * @return a set of variables
      */
     private static Set<Variable<?>> getVariables(Constraint<?> constraint) {
         Set<Variable<?>> variables = new HashSet<>();
@@ -201,7 +203,7 @@ public abstract class SolverUtils {
     }
 
     /**
-     * Recursively determine constraints in expression
+     * Recursively determine constraints in expression.
      *
      * @param expr      a {@link org.evosuite.symbolic.expr.Expression} object.
      * @param variables a {@link java.util.Set} object.

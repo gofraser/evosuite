@@ -19,8 +19,8 @@
  */
 package org.evosuite.symbolic.expr.reftype;
 
-import org.objectweb.asm.Type;
 import org.evosuite.symbolic.expr.Variable;
+import org.objectweb.asm.Type;
 
 import java.util.Collections;
 import java.util.Set;
@@ -31,6 +31,8 @@ import java.util.Set;
  * @author Ignacio Lebrero
  */
 public abstract class ReferenceTypeConstant extends ReferenceTypeExpression {
+
+    private static final long serialVersionUID = -1234567890123456789L;
 
     public ReferenceTypeConstant(Type concreteClass, int referenceTypeId) {
         super(concreteClass, 1, false, referenceTypeId);

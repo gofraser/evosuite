@@ -33,23 +33,28 @@ public final class NullReferenceConstant extends ReferenceConstant {
 
     private static final long serialVersionUID = 8675423326479140020L;
 
-	/**
-	 * There should be only one instance of this object
-	 */
+    /**
+     * There should be only one instance of this object.
+     */
     private static NullReferenceConstant instance;
 
-    public synchronized static NullReferenceConstant getInstance() {
-    	if (instance == null) {
-    		instance = new NullReferenceConstant();
-		}
+    /**
+     * Returns the singleton instance of {@link NullReferenceConstant}.
+     *
+     * @return the singleton instance
+     */
+    public static synchronized NullReferenceConstant getInstance() {
+        if (instance == null) {
+            instance = new NullReferenceConstant();
+        }
 
-    	return instance;
-	}
+        return instance;
+    }
 
-	@Override
-	public <K, V> K accept(ExpressionVisitor<K, V> v, V arg) {
-		return v.visit(this, arg);
-	}
+    @Override
+    public <K, V> K accept(ExpressionVisitor<K, V> v, V arg) {
+        return v.visit(this, arg);
+    }
 
     private NullReferenceConstant() {
         super(Type.getType(Object.class), NULL_INSTANCE_ID);
