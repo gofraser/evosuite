@@ -59,6 +59,19 @@ public class URLUtil {
         }
     }
 
+    /**
+     * Replacement for {@link URL#set(String, String, int, String, String, String, String, String)} that uses reflection.
+     *
+     * @param url       the URL to update
+     * @param protocol  the protocol
+     * @param host      the host
+     * @param port      the port
+     * @param authority the authority
+     * @param userInfo  the user info
+     * @param path      the path
+     * @param query     the query
+     * @param ref       the reference
+     */
     public static void set(URL url, String protocol, String host, int port,
                            String authority, String userInfo, String path,
                            String query, String ref) {
@@ -70,6 +83,12 @@ public class URLUtil {
         }
     }
 
+    /**
+     * Gets the URLStreamHandler of the given URL via reflection.
+     *
+     * @param url the URL
+     * @return the handler, or null if not found
+     */
     public static URLStreamHandler getHandler(URL url) {
         try {
             return (URLStreamHandler) handlerField.get(url);
@@ -79,6 +98,12 @@ public class URLUtil {
         }
     }
 
+    /**
+     * Sets the URLStreamHandler of the given URL via reflection.
+     *
+     * @param url     the URL
+     * @param handler the handler to set
+     */
     public static void setHandler(URL url, URLStreamHandler handler) {
         try {
             handlerField.set(url, handler);
@@ -87,6 +112,12 @@ public class URLUtil {
         }
     }
 
+    /**
+     * Sets the hostAddress field of the given URL via reflection.
+     *
+     * @param url         the URL
+     * @param hostAddress the address to set
+     */
     public static void setHostAddress(URL url, InetAddress hostAddress) {
         try {
             hostAddressField.set(url, hostAddress);
@@ -95,6 +126,12 @@ public class URLUtil {
         }
     }
 
+    /**
+     * Gets the hostAddress field of the given URL via reflection.
+     *
+     * @param url the URL
+     * @return the host address, or null if not found
+     */
     public static InetAddress getHostAddress(URL url) {
         try {
             return (InetAddress) hostAddressField.get(url);

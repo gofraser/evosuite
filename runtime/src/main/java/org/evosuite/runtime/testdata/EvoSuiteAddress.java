@@ -33,7 +33,13 @@ public abstract class EvoSuiteAddress implements Serializable {
     private final String host;
     private final int port;
 
-
+    /**
+     * Creates a new EvoSuiteAddress with the given host and port.
+     *
+     * @param host the host name or IP address
+     * @param port the port number
+     * @throws IllegalArgumentException if host is null or port is invalid
+     */
     public EvoSuiteAddress(String host, int port) throws IllegalArgumentException {
         super();
         /*

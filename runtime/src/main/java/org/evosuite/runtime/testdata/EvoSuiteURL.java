@@ -28,6 +28,12 @@ public class EvoSuiteURL {
 
     private final String url;
 
+    /**
+     * Creates a new EvoSuiteURL with the given URL string.
+     *
+     * @param url the URL string
+     * @throws IllegalArgumentException if url is null or empty
+     */
     public EvoSuiteURL(String url) throws IllegalArgumentException {
         this.url = url;
 

@@ -61,6 +61,11 @@ public class Inet4AddressUtil {
         }
     }
 
+    /**
+     * Creates a new instance of {@link Inet4Address} using its default constructor.
+     *
+     * @return a new Inet4Address instance, or null if creation fails
+     */
     public static Inet4Address createNewInstance() {
         try {
             return Inet4Address.class.newInstance();
@@ -70,6 +75,13 @@ public class Inet4AddressUtil {
         return null;
     }
 
+    /**
+     * Creates a new instance of {@link Inet4Address} with the given host and byte array address.
+     *
+     * @param host the host name
+     * @param addr the raw IP address
+     * @return a new Inet4Address instance, or null if creation fails
+     */
     public static Inet4Address createNewInstance(String host, byte[] addr) {
         try {
             return constructorStringByteArray.newInstance(host, addr);

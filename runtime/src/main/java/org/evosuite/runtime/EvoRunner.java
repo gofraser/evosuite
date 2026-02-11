@@ -61,6 +61,12 @@ public class EvoRunner extends BlockJUnit4ClassRunner {
      */
     public static boolean useClassLoader = true;
 
+    /**
+     * Initializes the EvoRunner for the given test class.
+     *
+     * @param klass the test class
+     * @throws InitializationError if there's an error during initialization
+     */
     public EvoRunner(Class<?> klass)
             throws InitializationError {
         /*

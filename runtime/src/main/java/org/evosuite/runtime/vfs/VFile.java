@@ -34,6 +34,12 @@ public class VFile extends FSObject {
      */
     private final List<Byte> data;
 
+    /**
+     * Creates a new VFile with the given path and parent folder.
+     *
+     * @param path   the path of the file
+     * @param parent the parent folder
+     */
     public VFile(String path, VFolder parent) {
         super(path, parent);
 
@@ -41,6 +47,9 @@ public class VFile extends FSObject {
         data = new ArrayList<>(1024);
     }
 
+    /**
+     * Erases all data contained in this file.
+     */
     public void eraseData() {
         data.clear();
     }
@@ -91,6 +100,14 @@ public class VFile extends FSObject {
         return data.get(position) & 0xFF;
     }
 
+    /**
+     * Writes bytes to the end of the file.
+     *
+     * @param b   the byte array to write
+     * @param off the start offset in the data
+     * @param len the number of bytes to write
+     * @return the number of bytes actually written
+     */
     public synchronized int writeBytes(byte[] b, int off, int len) {
         return writeBytes(data.size(), b, off, len);
     }

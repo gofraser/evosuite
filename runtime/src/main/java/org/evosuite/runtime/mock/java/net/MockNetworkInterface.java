@@ -40,6 +40,12 @@ public class MockNetworkInterface implements StaticReplacementMock {
         return NetworkInterface.class.getName();
     }
 
+    /**
+     * Replacement for {@link NetworkInterface#getInetAddresses()}.
+     *
+     * @param ni the network interface
+     * @return an Enumeration of the InetAddresses bound to this interface
+     */
     public static Enumeration<InetAddress> getInetAddresses(final NetworkInterface ni) {
 
         class Enumerator implements Enumeration<InetAddress> {
@@ -66,6 +72,12 @@ public class MockNetworkInterface implements StaticReplacementMock {
         return new Enumerator();
     }
 
+    /**
+     * Replacement for {@link NetworkInterface#getInterfaceAddresses()}.
+     *
+     * @param ni the network interface
+     * @return a list of the InterfaceAddresses of this interface
+     */
     public static List<InterfaceAddress> getInterfaceAddresses(NetworkInterface ni) {
         /*
          * TODO: bit cumbersome to mock, and never used in SF110
@@ -73,6 +85,12 @@ public class MockNetworkInterface implements StaticReplacementMock {
         throw new RuntimeException("Not supported method by EvoSuite");
     }
 
+    /**
+     * Replacement for {@link NetworkInterface#getSubInterfaces()}.
+     *
+     * @param ni the network interface
+     * @return an Enumeration of the sub-interfaces of this interface
+     */
     public static Enumeration<NetworkInterface> getSubInterfaces(NetworkInterface ni) {
         // No sub-interface
         class SubInterfaces implements Enumeration<NetworkInterface> {
@@ -135,6 +153,13 @@ public class MockNetworkInterface implements StaticReplacementMock {
 
     // ---- static in NetworkInterface -------
 
+    /**
+     * Replacement for {@link NetworkInterface#getByName(String)}.
+     *
+     * @param name the name of the network interface
+     * @return the NetworkInterface instance, or null if not found
+     * @throws SocketException if an I/O error occurs
+     */
     public static NetworkInterface getByName(String name) throws SocketException {
         if (name == null) {
             throw new NullPointerException();
@@ -146,6 +171,13 @@ public class MockNetworkInterface implements StaticReplacementMock {
         return state.getNetworkInterface();
     }
 
+    /**
+     * Replacement for {@link NetworkInterface#getByIndex(int)}.
+     *
+     * @param index the index of the network interface
+     * @return the NetworkInterface instance, or null if not found
+     * @throws SocketException if an I/O error occurs
+     */
     public static NetworkInterface getByIndex(int index) throws SocketException {
         if (index < 0) {
             throw new IllegalArgumentException("Interface index can't be negative");
@@ -159,6 +191,13 @@ public class MockNetworkInterface implements StaticReplacementMock {
         return null;
     }
 
+    /**
+     * Replacement for {@link NetworkInterface#getByInetAddress(InetAddress)}.
+     *
+     * @param addr the InetAddress to search for
+     * @return the NetworkInterface instance, or null if not found
+     * @throws SocketException if an I/O error occurs
+     */
     public static NetworkInterface getByInetAddress(InetAddress addr) throws SocketException {
         if (addr == null) {
             throw new NullPointerException();
@@ -176,6 +215,12 @@ public class MockNetworkInterface implements StaticReplacementMock {
         return null;
     }
 
+    /**
+     * Replacement for {@link NetworkInterface#getNetworkInterfaces()}.
+     *
+     * @return an Enumeration of all network interfaces
+     * @throws SocketException if an I/O error occurs
+     */
     public static Enumeration<NetworkInterface> getNetworkInterfaces()
             throws SocketException {
 

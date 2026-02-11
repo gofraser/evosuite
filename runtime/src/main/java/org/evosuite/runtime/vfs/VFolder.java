@@ -32,6 +32,12 @@ public class VFolder extends FSObject {
 
     private final List<FSObject> children;
 
+    /**
+     * Creates a new VFolder with the given path and parent.
+     *
+     * @param path   the path of the folder
+     * @param parent the parent folder
+     */
     public VFolder(String path, VFolder parent) {
         super(path, parent);
 
@@ -47,14 +53,31 @@ public class VFolder extends FSObject {
         return super.delete();
     }
 
+    /**
+     * Checks whether this folder is the root folder.
+     *
+     * @return true if this is the root folder
+     */
     public boolean isRoot() {
         return parent == null && path == null;
     }
 
+    /**
+     * Adds a child object to this folder.
+     *
+     * @param child the child object to add
+     */
     public void addChild(FSObject child) {
         children.add(child);
     }
 
+    /**
+     * Removes a child object from this folder by name.
+     *
+     * @param name the name of the child object to remove
+     * @return true if the child was successfully removed
+     * @throws IllegalArgumentException if the name is null or empty
+     */
     public boolean removeChild(String name) throws IllegalArgumentException {
 
         if (name == null || name.isEmpty()) {

@@ -109,6 +109,12 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock {
     }
     */
 
+    /**
+     * Creates an unconnected datagram socket with the specified DatagramSocketImpl.
+     *
+     * @param impl an instance of a DatagramSocketImpl the subclass wishes to use on the DatagramSocket.
+     * @throws SocketException if there is an error in the underlying protocol, such as a UDP error.
+     */
     protected MockDatagramSocket(DatagramSocketImpl impl) throws SocketException {
         /*
             note: we need to pass to the super(impl) constructor a non-null reference.
@@ -126,6 +132,11 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock {
         createImpl();
     }
 
+    /**
+     * Constructs a datagram socket and binds it to any available port on the local host machine.
+     *
+     * @throws SocketException if the socket could not be opened, or the socket could not bind to the specified local port.
+     */
     public MockDatagramSocket() throws SocketException {
         super(new EvoDatagramSocketImpl());
 
@@ -525,6 +536,12 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock {
         }
     }
 
+    /**
+     * Sets the datagram socket implementation factory for the application.
+     *
+     * @param fac the desired factory
+     * @throws IOException if an I/O error occurs when setting the factory
+     */
     public static synchronized void setDatagramSocketImplFactory(DatagramSocketImplFactory fac)
             throws IOException {
         //setting a custom factory is too risky

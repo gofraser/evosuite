@@ -67,6 +67,9 @@ public class GuiSupport {
         setHeadless(true);
     }
 
+    /**
+     * Initializes the GUI support, ensuring fonts are loaded and file system is accessible.
+     */
     public static void initialize() {
 
         /*

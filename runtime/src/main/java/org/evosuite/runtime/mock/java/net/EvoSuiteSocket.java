@@ -65,6 +65,9 @@ public class EvoSuiteSocket extends MockSocketImpl {
      */
     protected boolean stream;
 
+    /**
+     * Creates an unconnected EvoSuiteSocket.
+     */
     public EvoSuiteSocket() {
         options = new ConcurrentHashMap<>();
         initOptions();
@@ -72,6 +75,11 @@ public class EvoSuiteSocket extends MockSocketImpl {
         isBound = false;
     }
 
+    /**
+     * Creates an unconnected EvoSuiteSocket with a proxy.
+     *
+     * @param proxy the proxy to use
+     */
     public EvoSuiteSocket(Proxy proxy) {
         this();
         SocketAddress a = proxy.address();

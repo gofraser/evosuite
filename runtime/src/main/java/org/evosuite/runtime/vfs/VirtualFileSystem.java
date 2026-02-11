@@ -164,12 +164,24 @@ public final class VirtualFileSystem {
         return MSecurityManager.getRealTmpFile();
     }
 
+    /**
+     * Throws a simulated IOException if the given path is marked to throw one.
+     *
+     * @param path the path to check
+     * @throws IOException if the path is marked to throw an IOException
+     */
     public void throwSimuledIOExceptionIfNeeded(String path) throws IOException {
         if (isClassSupposedToThrowIOException(path)) {
             throw new IOException("Simulated IOException");
         }
     }
 
+    /**
+     * Checks whether the given path is supposed to throw an IOException.
+     *
+     * @param path the path to check
+     * @return true if the path is marked to throw an IOException
+     */
     public boolean isClassSupposedToThrowIOException(String path) {
         return shouldAllThrowIOException || classesThatShouldThrowIOException.contains(path);
     }
@@ -291,6 +303,12 @@ public final class VirtualFileSystem {
         return java.lang.System.getProperty("java.io.tmpdir");
     }
 
+    /**
+     * Checks whether a VFS object exists at the given path.
+     *
+     * @param rawPath the path to check
+     * @return true if the object exists
+     */
     public boolean exists(String rawPath) {
         return findFSObject(rawPath) != null;
     }
@@ -332,6 +350,12 @@ public final class VirtualFileSystem {
         return parent;
     }
 
+    /**
+     * Deletes the VFS object at the given path.
+     *
+     * @param rawPath the path of the object to delete
+     * @return true if the object was successfully deleted
+     */
     public boolean deleteFSObject(String rawPath) {
         FSObject obj = findFSObject(rawPath);
         if (obj == null || !obj.isWritePermission()) {
@@ -340,6 +364,12 @@ public final class VirtualFileSystem {
         return obj.delete();
     }
 
+    /**
+     * Creates a new file at the given path.
+     *
+     * @param rawPath the path of the file to create
+     * @return true if the file was successfully created
+     */
     public boolean createFile(String rawPath) {
         return createFile(rawPath, false);
     }

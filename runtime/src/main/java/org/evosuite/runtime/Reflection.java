@@ -99,6 +99,12 @@ public class Reflection {
         return sortArrayInPlace(ReflectionUtils.getDeclaredConstructors(clazz));
     }
 
+    /**
+     * Replacement for {@link Class#getModifiers()} that handles mocked final classes.
+     *
+     * @param clazz the class to get modifiers for
+     * @return the class modifiers
+     */
     public static int getModifiers(Class<?> clazz) {
         int modifier = clazz.getModifiers();
         if (RemoveFinalClassAdapter.finalClasses.contains(clazz.getCanonicalName())) {
@@ -107,6 +113,14 @@ public class Reflection {
         return modifier;
     }
 
+    /**
+     * Use reflection to set the value of a field, handling primitive types.
+     *
+     * @param field        the field to set
+     * @param sourceObject the object containing the field (null for static fields)
+     * @param value        the value to set
+     * @throws IllegalAccessException if the field is not accessible
+     */
     public static void setField(Field field, Object sourceObject, Object value) throws IllegalAccessException {
         if (field.getType().equals(int.class)) {
             field.setInt(sourceObject, getIntValue(value));

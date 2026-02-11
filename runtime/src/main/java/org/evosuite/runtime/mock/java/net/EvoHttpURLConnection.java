@@ -100,6 +100,12 @@ public class EvoHttpURLConnection extends HttpURLConnection {
         }
     }
 
+    /**
+     * Returns an input stream that reads from this open connection.
+     *
+     * @return the input stream
+     * @throws IOException if an I/O error occurs while creating the input stream
+     */
     public InputStream getInputStream() throws IOException {
         connect();
 

@@ -29,6 +29,9 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 
+/**
+ * Custom {@link TestInstanceFactory} for JUnit 5 to support EvoSuite features.
+ */
 public class EvoRunnerJUnit5 implements TestInstanceFactory {
     private static final Logger logger = LoggerFactory.getLogger(EvoRunnerJUnit5.class);
 
@@ -49,6 +52,11 @@ public class EvoRunnerJUnit5 implements TestInstanceFactory {
 
     private final EvoClassLoader evoClassLoader = null;
 
+    /**
+     * Creates a new EvoRunnerJUnit5 for the given test class.
+     *
+     * @param testClass the test class to run
+     */
     public EvoRunnerJUnit5(Class<?> testClass) {
         EvoRunnerParameters ep = testClass.getAnnotation(EvoRunnerParameters.class);
 

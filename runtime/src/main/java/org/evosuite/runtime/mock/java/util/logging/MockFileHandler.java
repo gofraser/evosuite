@@ -69,11 +69,24 @@ public class MockFileHandler extends FileHandler implements OverrideMock {
 
     //---- constructors -------
 
+    /**
+     * Constructs a default MockFileHandler.
+     *
+     * @throws IOException       if there are IO problems opening the files.
+     * @throws SecurityException if a security manager exists and if the caller does not have LoggingPermission("control")).
+     */
     public MockFileHandler() throws IOException, SecurityException {
         super(MSecurityManager.FILE_HANDLER_NAME_PATTERN, true); //we have to create one file
         VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(null);
     }
 
+    /**
+     * Initialize a MockFileHandler to write to the given filename.
+     *
+     * @param pattern the name of the output file
+     * @throws IOException       if there are IO problems opening the files.
+     * @throws SecurityException if a security manager exists and if the caller does not have LoggingPermission("control")).
+     */
     public MockFileHandler(String pattern) throws IOException, SecurityException {
         this();
         if (pattern.length() < 1) {
@@ -81,6 +94,14 @@ public class MockFileHandler extends FileHandler implements OverrideMock {
         }
     }
 
+    /**
+     * Initialize a MockFileHandler to write to the given filename, with optional append.
+     *
+     * @param pattern the name of the output file
+     * @param append  specifies append mode
+     * @throws IOException       if there are IO problems opening the files.
+     * @throws SecurityException if a security manager exists and if the caller does not have LoggingPermission("control")).
+     */
     public MockFileHandler(String pattern, boolean append) throws IOException, SecurityException {
         this();
         if (pattern.length() < 1) {
@@ -88,6 +109,15 @@ public class MockFileHandler extends FileHandler implements OverrideMock {
         }
     }
 
+    /**
+     * Initialize a MockFileHandler to write to a set of files with optional append.
+     *
+     * @param pattern the pattern for naming the output file
+     * @param limit   the maximum number of bytes to write to any one file
+     * @param count   the number of files to use
+     * @throws IOException       if there are IO problems opening the files.
+     * @throws SecurityException if a security manager exists and if the caller does not have LoggingPermission("control")).
+     */
     public MockFileHandler(String pattern, int limit, int count)
             throws IOException, SecurityException {
         this();
@@ -96,6 +126,16 @@ public class MockFileHandler extends FileHandler implements OverrideMock {
         }
     }
 
+    /**
+     * Initialize a MockFileHandler to write to a set of files with optional append.
+     *
+     * @param pattern the pattern for naming the output file
+     * @param limit   the maximum number of bytes to write to any one file
+     * @param count   the number of files to use
+     * @param append  specifies append mode
+     * @throws IOException       if there are IO problems opening the files.
+     * @throws SecurityException if a security manager exists and if the caller does not have LoggingPermission("control")).
+     */
     public MockFileHandler(String pattern, int limit, int count, boolean append)
             throws IOException, SecurityException {
         this();

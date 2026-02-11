@@ -37,6 +37,13 @@ import java.util.Objects;
  */
 public class InitializingListenerUtils {
 
+    /**
+     * Scans a directory for scaffolding classes to initialize.
+     *
+     * @param dir the directory to scan
+     * @return a list of class names found
+     * @throws IllegalArgumentException if the directory is invalid
+     */
     public static List<String> scanClassesToInit(File dir) throws IllegalArgumentException {
         Objects.requireNonNull(dir);
         if (!dir.exists()) {
@@ -67,6 +74,12 @@ public class InitializingListenerUtils {
         return list;
     }
 
+    /**
+     * Converts a resource path to a class name.
+     *
+     * @param resource the resource path
+     * @return the class name
+     */
     public static String getClassNameFromResourcePath(String resource) {
         if (resource == null || resource.isEmpty()) {
             return resource;

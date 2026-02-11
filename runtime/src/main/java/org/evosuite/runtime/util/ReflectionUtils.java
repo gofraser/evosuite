@@ -31,6 +31,12 @@ public class ReflectionUtils {
 
     protected static final Logger logger = LoggerFactory.getLogger(ReflectionUtils.class);
 
+    /**
+     * Gets all declared classes of the given class, handling NoClassDefFoundError.
+     *
+     * @param clazz the class to analyze
+     * @return an array of declared classes
+     */
     public static Class<?>[] getDeclaredClasses(Class<?> clazz) {
         try {
             return clazz.getDeclaredClasses();
@@ -41,6 +47,12 @@ public class ReflectionUtils {
         }
     }
 
+    /**
+     * Gets all public classes of the given class, handling NoClassDefFoundError.
+     *
+     * @param clazz the class to analyze
+     * @return an array of public classes
+     */
     public static Class<?>[] getClasses(Class<?> clazz) {
         try {
             return clazz.getClasses();
@@ -51,6 +63,12 @@ public class ReflectionUtils {
         }
     }
 
+    /**
+     * Gets all declared constructors of the given class, handling NoClassDefFoundError.
+     *
+     * @param clazz the class to analyze
+     * @return an array of declared constructors
+     */
     public static Constructor<?>[] getDeclaredConstructors(Class<?> clazz) {
         try {
             return clazz.getDeclaredConstructors();
@@ -61,6 +79,12 @@ public class ReflectionUtils {
         }
     }
 
+    /**
+     * Gets all public constructors of the given class, handling NoClassDefFoundError.
+     *
+     * @param clazz the class to analyze
+     * @return an array of public constructors
+     */
     public static Constructor<?>[] getConstructors(Class<?> clazz) {
         try {
             return clazz.getConstructors();
@@ -71,6 +95,12 @@ public class ReflectionUtils {
         }
     }
 
+    /**
+     * Gets all interfaces implemented by the given class, handling NoClassDefFoundError.
+     *
+     * @param clazz the class to analyze
+     * @return an array of interfaces
+     */
     public static Class<?>[] getInterfaces(Class<?> clazz) {
         try {
             return clazz.getInterfaces();
@@ -81,6 +111,12 @@ public class ReflectionUtils {
         }
     }
 
+    /**
+     * Gets all declared methods of the given class, handling NoClassDefFoundError.
+     *
+     * @param clazz the class to analyze
+     * @return an array of declared methods
+     */
     public static Method[] getDeclaredMethods(Class<?> clazz) {
         try {
             return clazz.getDeclaredMethods();
@@ -92,6 +128,12 @@ public class ReflectionUtils {
         }
     }
 
+    /**
+     * Gets all public methods of the given class, handling NoClassDefFoundError.
+     *
+     * @param clazz the class to analyze
+     * @return an array of public methods
+     */
     public static Method[] getMethods(Class<?> clazz) {
         try {
             return clazz.getMethods();
@@ -102,6 +144,12 @@ public class ReflectionUtils {
         }
     }
 
+    /**
+     * Gets all declared fields of the given class, handling NoClassDefFoundError.
+     *
+     * @param clazz the class to analyze
+     * @return an array of declared fields
+     */
     public static Field[] getDeclaredFields(Class<?> clazz) {
         try {
             return clazz.getDeclaredFields();
@@ -113,6 +161,13 @@ public class ReflectionUtils {
         }
     }
 
+    /**
+     * Gets a specific declared field of the given class, handling NoClassDefFoundError and NoSuchFieldException.
+     *
+     * @param clazz     the class to analyze
+     * @param fieldName the name of the field
+     * @return the declared field, or null if not found
+     */
     public static Field getDeclaredField(Class<?> clazz, String fieldName) {
         try {
             return clazz.getDeclaredField(fieldName);
@@ -123,6 +178,12 @@ public class ReflectionUtils {
         }
     }
 
+    /**
+     * Gets all public fields of the given class, handling NoClassDefFoundError.
+     *
+     * @param clazz the class to analyze
+     * @return an array of public fields
+     */
     public static Field[] getFields(Class<?> clazz) {
         try {
             return clazz.getFields();

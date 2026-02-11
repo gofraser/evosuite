@@ -36,6 +36,9 @@ public class MockPreferences implements StaticReplacementMock {
 
     private static PreferencesImpl systemRoot = new PreferencesImpl(null, "");
 
+    /**
+     * Resets all preferences by removing the user and system root nodes.
+     */
     public static void resetPreferences() {
         try {
             userRoot.removeNodeSpi();

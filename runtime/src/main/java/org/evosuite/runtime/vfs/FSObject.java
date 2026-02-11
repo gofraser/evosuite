@@ -55,6 +55,12 @@ public abstract class FSObject {
 
     protected volatile long lastModified;
 
+    /**
+     * Creates a new FSObject with the given path and parent folder.
+     *
+     * @param path   the path of the object
+     * @param parent the parent folder
+     */
     public FSObject(String path, VFolder parent) {
         readPermission = true;
         writePermission = true;
@@ -85,6 +91,12 @@ public abstract class FSObject {
                 && givenPath.endsWith(":") && !File.separator.equals("/");
     }
 
+    /**
+     * Renames this object to a new path.
+     *
+     * @param newPath the new path
+     * @return true if the rename was successful
+     */
     public boolean rename(String newPath) {
 
         if (!isWritePermission() || !parent.isWritePermission()) {
@@ -96,16 +108,31 @@ public abstract class FSObject {
         return true;
     }
 
+    /**
+     * Deletes this object from its parent folder and marks it as deleted.
+     *
+     * @return true if the object was successfully deleted
+     */
     public boolean delete() {
         parent.removeChild(getName());
         deleted = true;
         return deleted;
     }
 
+    /**
+     * Checks whether this object is a folder.
+     *
+     * @return true if this object is a folder
+     */
     public boolean isFolder() {
         return this instanceof VFolder;
     }
 
+    /**
+     * Returns the name of this object.
+     *
+     * @return the name of the object
+     */
     public String getName() {
         if (path == null) {
             return null;
@@ -118,6 +145,12 @@ public abstract class FSObject {
         }
     }
 
+    /**
+     * Normalizes the given raw path.
+     *
+     * @param rawPath the raw path to normalize
+     * @return the normalized path
+     */
     public String normalizePath(String rawPath) {
         if (rawPath == null) {
             return null;

@@ -32,17 +32,52 @@ import java.lang.annotation.RetentionPolicy;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface EvoRunnerParameters {
 
+    /**
+     * Should JVM non-determinism (e.g., time, random) be mocked.
+     *
+     * @return true if non-determinism should be mocked
+     */
     boolean mockJVMNonDeterminism() default false;
 
+    /**
+     * Should a virtual file system be used.
+     *
+     * @return true if VFS should be used
+     */
     boolean useVFS() default false;
 
+    /**
+     * Should a virtual network be used.
+     *
+     * @return true if VNET should be used
+     */
     boolean useVNET() default false;
 
+    /**
+     * Should the static state be reset after each test.
+     *
+     * @return true if static state should be reset
+     */
     boolean resetStaticState() default false;
 
+    /**
+     * Should a separate class loader be used for each test.
+     *
+     * @return true if separate class loader should be used
+     */
     boolean separateClassLoader() default false;
 
+    /**
+     * Should JEE support be enabled.
+     *
+     * @return true if JEE support should be enabled
+     */
     boolean useJEE() default false;
 
+    /**
+     * Should the GUI be mocked.
+     *
+     * @return true if GUI should be mocked
+     */
     boolean mockGUI() default false;
 }

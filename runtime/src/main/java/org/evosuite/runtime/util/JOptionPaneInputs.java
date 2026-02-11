@@ -53,6 +53,11 @@ public class JOptionPaneInputs {
 
     private static JOptionPaneInputs instance = null;
 
+    /**
+     * Gets the singleton instance of this class.
+     *
+     * @return the singleton instance
+     */
     public static synchronized JOptionPaneInputs getInstance() {
         if (instance == null) {
             instance = new JOptionPaneInputs();
@@ -88,14 +93,29 @@ public class JOptionPaneInputs {
         getInstance().enqueueInputString0(data);
     }
 
+    /**
+     * Enqueues a yes/no/cancel selection.
+     *
+     * @param selection the selection to enqueue
+     */
     public static void enqueueYesNoCancelSelection(int selection) {
         getInstance().enqueueYesNoCancelSelection0(selection);
     }
 
+    /**
+     * Enqueues a yes/no selection.
+     *
+     * @param selection the selection to enqueue
+     */
     public static void enqueueYesNoSelection(int selection) {
         getInstance().enqueueYesNoSelection0(selection);
     }
 
+    /**
+     * Enqueues an option selection.
+     *
+     * @param selection the selection to enqueue
+     */
     public static void enqueueOptionSelection(int selection) {
         getInstance().enqueueOptionSelection0(selection);
     }
@@ -104,6 +124,11 @@ public class JOptionPaneInputs {
         this.optionSelections.add(selection);
     }
 
+    /**
+     * Enqueues an ok/cancel selection.
+     *
+     * @param selection the selection to enqueue
+     */
     public static void enqueueOkCancelSelection(int selection) {
         getInstance().enqueueOkCancelSelection0(selection);
     }
@@ -226,10 +251,21 @@ public class JOptionPaneInputs {
 
     private final LinkedList<Integer> yesNoCancelSelections = new LinkedList<>();
 
+    /**
+     * Checks if a yes/no/cancel selection is enqueued.
+     *
+     * @return true if a selection is enqueued
+     */
     public boolean containsYesNoCancelSelection() {
         return !yesNoCancelSelections.isEmpty();
     }
 
+    /**
+     * Dequeues a yes/no/cancel selection.
+     *
+     * @return the dequeued selection
+     * @throws IllegalStateException if the queue is empty
+     */
     public int dequeueYesNoCancelSelection() {
         if (yesNoCancelSelections.isEmpty()) {
             throw new IllegalStateException(
@@ -242,11 +278,22 @@ public class JOptionPaneInputs {
 
     private final LinkedList<Integer> optionSelections = new LinkedList<>();
 
+    /**
+     * Checks if a yes/no selection is enqueued.
+     *
+     * @return true if a selection is enqueued
+     */
     public boolean containsYesNoSelection() {
         return !yesNoSelections.isEmpty();
 
     }
 
+    /**
+     * Dequeues a yes/no selection.
+     *
+     * @return the dequeued selection
+     * @throws IllegalStateException if the queue is empty
+     */
     public int dequeueYesNoSelection() {
         if (yesNoSelections.isEmpty()) {
             throw new IllegalStateException(
@@ -257,11 +304,22 @@ public class JOptionPaneInputs {
 
     private final LinkedList<Integer> okCancelSelections = new LinkedList<>();
 
+    /**
+     * Checks if an ok/cancel selection is enqueued.
+     *
+     * @return true if a selection is enqueued
+     */
     public boolean containsOkCancelSelection() {
         return !okCancelSelections.isEmpty();
 
     }
 
+    /**
+     * Dequeues an ok/cancel selection.
+     *
+     * @return the dequeued selection
+     * @throws IllegalStateException if the queue is empty
+     */
     public int dequeueOkCancelSelection() {
         if (okCancelSelections.isEmpty()) {
             throw new IllegalStateException(
@@ -270,6 +328,12 @@ public class JOptionPaneInputs {
         return okCancelSelections.poll();
     }
 
+    /**
+     * Dequeues an option selection.
+     *
+     * @return the dequeued selection
+     * @throws IllegalStateException if the queue is empty
+     */
     public int dequeueOptionSelection() {
         if (optionSelections.isEmpty()) {
             throw new IllegalStateException(
@@ -278,6 +342,11 @@ public class JOptionPaneInputs {
         return optionSelections.poll();
     }
 
+    /**
+     * Checks if an option selection is enqueued.
+     *
+     * @return true if a selection is enqueued
+     */
     public boolean containsOptionSelection() {
         return !optionSelections.isEmpty();
     }

@@ -46,6 +46,9 @@ public class MockURL implements StaticReplacementMock {
     private static Map<String, URLStreamHandler> handlers = new ConcurrentHashMap<>();
     private static final Object streamHandlerLock = new Object();
 
+    /**
+     * Initializes the static state of MockURL.
+     */
     public static void initStaticState() {
         factory = null;
         handlers.clear();
@@ -63,6 +66,11 @@ public class MockURL implements StaticReplacementMock {
         }
     }
 
+    /**
+     * Provide a valid URL example for the ftp protocol.
+     *
+     * @return a valid ftp URL
+     */
     public static URL getFtpExample() {
         try {
             return URL("ftp://ftp.someFakeButWellFormedURL.org/fooExample");
@@ -72,6 +80,11 @@ public class MockURL implements StaticReplacementMock {
         }
     }
 
+    /**
+     * Provide a valid URL example for the file protocol.
+     *
+     * @return a valid file URL
+     */
     public static URL getFileExample() {
         try {
             return URL("file://some/fake/but/wellformed/url");
@@ -83,22 +96,56 @@ public class MockURL implements StaticReplacementMock {
 
     // -----  constructors ------------
 
+    /**
+     * Mocked constructor for {@link URL#URL(String)}.
+     *
+     * @param spec the URL specification
+     * @return the new URL
+     * @throws MalformedURLException if the URL is invalid
+     */
     @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(String spec) throws MalformedURLException {
         return URL(null, spec);
     }
 
+    /**
+     * Mocked constructor for {@link URL#URL(URL, String)}.
+     *
+     * @param context the context URL
+     * @param spec    the URL specification
+     * @return the new URL
+     * @throws MalformedURLException if the URL is invalid
+     */
     @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(URL context, String spec) throws MalformedURLException {
         return URL(context, spec, null);
     }
 
+    /**
+     * Mocked constructor for {@link URL#URL(String, String, String)}.
+     *
+     * @param protocol the protocol
+     * @param host     the host
+     * @param file     the file
+     * @return the new URL
+     * @throws MalformedURLException if the URL is invalid
+     */
     @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(String protocol, String host, String file)
             throws MalformedURLException {
         return URL(protocol, host, -1, file);
     }
 
+    /**
+     * Mocked constructor for {@link URL#URL(String, String, int, String)}.
+     *
+     * @param protocol the protocol
+     * @param host     the host
+     * @param port     the port
+     * @param file     the file
+     * @return the new URL
+     * @throws MalformedURLException if the URL is invalid
+     */
     @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(String protocol, String host, int port, String file)
             throws MalformedURLException {
@@ -222,18 +269,42 @@ public class MockURL implements StaticReplacementMock {
 
     // ---------------------
 
+    /**
+     * Replacement for {@link URL#getQuery()}.
+     *
+     * @param url the URL
+     * @return the query part of the URL
+     */
     public static String getQuery(URL url) {
         return url.getQuery();
     }
 
+    /**
+     * Replacement for {@link URL#getPath()}.
+     *
+     * @param url the URL
+     * @return the path part of the URL
+     */
     public static String getPath(URL url) {
         return url.getPath();
     }
 
+    /**
+     * Replacement for {@link URL#getUserInfo()}.
+     *
+     * @param url the URL
+     * @return the user info part of the URL
+     */
     public static String getUserInfo(URL url) {
         return url.getUserInfo();
     }
 
+    /**
+     * Replacement for {@link URL#getAuthority()}.
+     *
+     * @param url the URL
+     * @return the authority part of the URL
+     */
     public static String getAuthority(URL url) {
         return url.getAuthority();
     }

@@ -34,6 +34,11 @@ import java.util.List;
  */
 public class EnvironmentDataList {
 
+    /**
+     * Returns a list of classes representing mocked environmental data.
+     *
+     * @return a list of environmental data classes
+     */
     public static List<Class<?>> getListOfClasses() {
         List<Class<?>> classes = new ArrayList<>();
 

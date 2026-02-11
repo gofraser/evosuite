@@ -44,6 +44,12 @@ public class JarPathing {
 
     private static final String PATHING_JAR_PREFIX = "EvoSuite_pathingJar";
 
+    /**
+     * Checks if the given classpath sequence contains a pathing jar.
+     *
+     * @param sequence the classpath sequence to check
+     * @return true if a pathing jar is found
+     */
     public static boolean containsAPathingJar(String sequence) {
         for (String token : sequence.split(File.pathSeparator)) {
             if (isPathingJar(token)) {
@@ -53,6 +59,13 @@ public class JarPathing {
         return false;
     }
 
+    /**
+     * Checks if the given path represents a pathing jar.
+     *
+     * @param path the path to check
+     * @return true if it's a pathing jar
+     * @throws IllegalArgumentException if the path contains multiple elements
+     */
     public static boolean isPathingJar(String path) throws IllegalArgumentException {
 
         if (path.contains(File.pathSeparator)) {
@@ -62,6 +75,12 @@ public class JarPathing {
         return path != null && path.contains(PATHING_JAR_PREFIX) && path.endsWith(".jar");
     }
 
+    /**
+     * Expands all pathing jars in the given classpath sequence.
+     *
+     * @param sequence the classpath sequence to expand
+     * @return the expanded classpath sequence
+     */
     public static String expandPathingJars(String sequence) {
         List<String> list = new ArrayList<>();
         for (String token : sequence.split(File.pathSeparator)) {
@@ -74,6 +93,13 @@ public class JarPathing {
         return String.join(File.pathSeparator, list);
     }
 
+    /**
+     * Extracts the classpath from the manifest of a pathing jar.
+     *
+     * @param pathingJar the path to the pathing jar
+     * @return the extracted classpath
+     * @throws IllegalArgumentException if the jar is invalid or doesn't exist
+     */
     public static String extractCPFromPathingJar(String pathingJar) throws IllegalArgumentException {
         Inputs.checkNull(pathingJar);
         if (!isPathingJar(pathingJar)) {

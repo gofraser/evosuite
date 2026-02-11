@@ -100,6 +100,11 @@ public class System {
         }
     }
 
+    /**
+     * Checks if any system property was written during the current execution.
+     *
+     * @return true if any property was written, false otherwise
+     */
     public static boolean wasAnyPropertyWritten() {
         return needToRestoreProperties;
     }
@@ -108,6 +113,12 @@ public class System {
         return systemProperties.contains(property);
     }
 
+    /**
+     * Handles property permissions, tracking writes and potentially triggering property restoration.
+     *
+     * @param perm the property permission to handle
+     * @return true if the permission is handled successfully
+     */
     public static boolean handlePropertyPermission(PropertyPermission perm) {
         /*
          * we allow both writing and reading any properties. But, if SUT writes anything, then we need
@@ -157,6 +168,11 @@ public class System {
         return true;
     }
 
+    /**
+     * Returns a copy of all system properties that have been read during the current execution.
+     *
+     * @return a set of property names
+     */
     public static Set<String> getAllPropertiesReadSoFar() {
         Set<String> copy;
 
@@ -228,10 +244,21 @@ public class System {
 
     private static final Map<Integer, Integer> hashKeys = new HashMap<>();
 
+    /**
+     * Registers an object to ensure it has a stable mocked identity hash code.
+     *
+     * @param o the object to register
+     */
     public static void registerObjectForIdentityHashCode(Object o) {
         identityHashCode(o);
     }
 
+    /**
+     * Replacement for {@link java.lang.System#identityHashCode(Object)}.
+     *
+     * @param o the object for which to get the identity hash code
+     * @return the mocked identity hash code
+     */
     public static int identityHashCode(Object o) {
         if (o == null) {
             return 0;
@@ -247,6 +274,13 @@ public class System {
         }
     }
 
+    /**
+     * Replacement for {@link Object#toString()} that uses the stable mocked identity hash code.
+     *
+     * @param o the object to get the string representation for
+     * @return the string representation
+     * @throws NullPointerException if the object is null
+     */
     public static String toString(Object o) {
         if (o == null) {
             throw new NullPointerException();

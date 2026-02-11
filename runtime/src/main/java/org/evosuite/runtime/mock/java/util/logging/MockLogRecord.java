@@ -28,6 +28,12 @@ import java.util.logging.LogRecord;
  */
 public class MockLogRecord extends LogRecord implements OverrideMock {
 
+    /**
+     * Constructs a MockLogRecord with the given level and message values.
+     *
+     * @param level a logging level value
+     * @param msg   the raw non-localized logging message (may be null)
+     */
     public MockLogRecord(Level level, String msg) {
         super(level, msg);
         setMillis(org.evosuite.runtime.System.currentTimeMillis());

@@ -119,6 +119,9 @@ public class RuntimeSettings {
         return mockJVMNonDeterminism || useVFS || useVNET || mockGUI;
     }
 
+    /**
+     * Deactivates all mocking features (JVM, GUI, VFS, VNET).
+     */
     public static void deactivateAllMocking() {
         mockJVMNonDeterminism = false;
         mockGUI = false;
@@ -127,6 +130,9 @@ public class RuntimeSettings {
         assert !isUsingAnyMocking();
     }
 
+    /**
+     * Activates all mocking features (JVM, GUI, VFS, VNET).
+     */
     public static void activateAllMocking() {
         mockJVMNonDeterminism = true;
         mockGUI = true;

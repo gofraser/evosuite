@@ -229,28 +229,98 @@ public class PrivateAccess {
         TODO likely need one method per number of inputs
      */
 
+    /**
+     * Use reflection to call a method with no parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName)
             throws Throwable {
         return callMethod(klass, instance, methodName, new Object[0], new Class<?>[0]);
     }
 
+    /**
+     * Use reflection to call a method with one parameter.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param input      the input parameter
+     * @param type       the type of the input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object input, Class<?> type)
             throws Throwable {
         return callMethod(klass, instance, methodName, new Object[]{input}, new Class<?>[]{type});
     }
 
+    /**
+     * Use reflection to call a method with two parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1)
             throws Throwable {
         return callMethod(klass, instance, methodName, new Object[]{i0, i1}, new Class<?>[]{t0, t1});
     }
 
+    /**
+     * Use reflection to call a method with three parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2)
             throws Throwable {
         return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2}, new Class<?>[]{t0, t1, t2});
     }
 
+    /**
+     * Use reflection to call a method with four parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3)
             throws Throwable {
@@ -258,6 +328,26 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3});
     }
 
+    /**
+     * Use reflection to call a method with five parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4)
@@ -266,6 +356,28 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4});
     }
 
+    /**
+     * Use reflection to call a method with six parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5)
@@ -274,6 +386,30 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5});
     }
 
+    /**
+     * Use reflection to call a method with seven parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6)
@@ -282,6 +418,32 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6});
     }
 
+    /**
+     * Use reflection to call a method with eight parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -291,6 +453,34 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7});
     }
 
+    /**
+     * Use reflection to call a method with nine parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -300,6 +490,36 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8});
     }
 
+    /**
+     * Use reflection to call a method with ten parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -309,6 +529,38 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9});
     }
 
+    /**
+     * Use reflection to call a method with eleven parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param i10        the eleventh input parameter
+     * @param t10        the type of the eleventh input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -319,6 +571,40 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10});
     }
 
+    /**
+     * Use reflection to call a method with twelve parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param i10        the eleventh input parameter
+     * @param t10        the type of the eleventh input parameter
+     * @param i11        the twelfth input parameter
+     * @param t11        the type of the twelfth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -329,6 +615,42 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11});
     }
 
+    /**
+     * Use reflection to call a method with thirteen parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param i10        the eleventh input parameter
+     * @param t10        the type of the eleventh input parameter
+     * @param i11        the twelfth input parameter
+     * @param t11        the type of the twelfth input parameter
+     * @param i12        the thirteenth input parameter
+     * @param t12        the type of the thirteenth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -340,6 +662,44 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12});
     }
 
+    /**
+     * Use reflection to call a method with fourteen parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param i10        the eleventh input parameter
+     * @param t10        the type of the eleventh input parameter
+     * @param i11        the twelfth input parameter
+     * @param t11        the type of the twelfth input parameter
+     * @param i12        the thirteenth input parameter
+     * @param t12        the type of the thirteenth input parameter
+     * @param i13        the fourteenth input parameter
+     * @param t13        the type of the fourteenth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -352,6 +712,46 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13});
     }
 
+    /**
+     * Use reflection to call a method with fifteen parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param i10        the eleventh input parameter
+     * @param t10        the type of the eleventh input parameter
+     * @param i11        the twelfth input parameter
+     * @param t11        the type of the twelfth input parameter
+     * @param i12        the thirteenth input parameter
+     * @param t12        the type of the thirteenth input parameter
+     * @param i13        the fourteenth input parameter
+     * @param t13        the type of the fourteenth input parameter
+     * @param i14        the fifteenth input parameter
+     * @param t14        the type of the fifteenth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -364,6 +764,48 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14});
     }
 
+    /**
+     * Use reflection to call a method with sixteen parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param i10        the eleventh input parameter
+     * @param t10        the type of the eleventh input parameter
+     * @param i11        the twelfth input parameter
+     * @param t11        the type of the twelfth input parameter
+     * @param i12        the thirteenth input parameter
+     * @param t12        the type of the thirteenth input parameter
+     * @param i13        the fourteenth input parameter
+     * @param t13        the type of the fourteenth input parameter
+     * @param i14        the fifteenth input parameter
+     * @param t14        the type of the fifteenth input parameter
+     * @param i15        the sixteenth input parameter
+     * @param t15        the type of the sixteenth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -376,6 +818,50 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15});
     }
 
+    /**
+     * Use reflection to call a method with seventeen parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param i10        the eleventh input parameter
+     * @param t10        the type of the eleventh input parameter
+     * @param i11        the twelfth input parameter
+     * @param t11        the type of the twelfth input parameter
+     * @param i12        the thirteenth input parameter
+     * @param t12        the type of the thirteenth input parameter
+     * @param i13        the fourteenth input parameter
+     * @param t13        the type of the fourteenth input parameter
+     * @param i14        the fifteenth input parameter
+     * @param t14        the type of the fifteenth input parameter
+     * @param i15        the sixteenth input parameter
+     * @param t15        the type of the sixteenth input parameter
+     * @param i16        the seventeenth input parameter
+     * @param t16        the type of the seventeenth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -389,6 +875,52 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16});
     }
 
+    /**
+     * Use reflection to call a method with eighteen parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param i10        the eleventh input parameter
+     * @param t10        the type of the eleventh input parameter
+     * @param i11        the twelfth input parameter
+     * @param t11        the type of the twelfth input parameter
+     * @param i12        the thirteenth input parameter
+     * @param t12        the type of the thirteenth input parameter
+     * @param i13        the fourteenth input parameter
+     * @param t13        the type of the fourteenth input parameter
+     * @param i14        the fifteenth input parameter
+     * @param t14        the type of the fifteenth input parameter
+     * @param i15        the sixteenth input parameter
+     * @param t15        the type of the sixteenth input parameter
+     * @param i16        the seventeenth input parameter
+     * @param t16        the type of the seventeenth input parameter
+     * @param i17        the eighteenth input parameter
+     * @param t17        the type of the eighteenth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -402,6 +934,54 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17});
     }
 
+    /**
+     * Use reflection to call a method with nineteen parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param i10        the eleventh input parameter
+     * @param t10        the type of the eleventh input parameter
+     * @param i11        the twelfth input parameter
+     * @param t11        the type of the twelfth input parameter
+     * @param i12        the thirteenth input parameter
+     * @param t12        the type of the thirteenth input parameter
+     * @param i13        the fourteenth input parameter
+     * @param t13        the type of the fourteenth input parameter
+     * @param i14        the fifteenth input parameter
+     * @param t14        the type of the fifteenth input parameter
+     * @param i15        the sixteenth input parameter
+     * @param t15        the type of the sixteenth input parameter
+     * @param i16        the seventeenth input parameter
+     * @param t16        the type of the seventeenth input parameter
+     * @param i17        the eighteenth input parameter
+     * @param t17        the type of the eighteenth input parameter
+     * @param i18        the nineteenth input parameter
+     * @param t18        the type of the nineteenth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -415,6 +995,56 @@ public class PrivateAccess {
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18});
     }
 
+    /**
+     * Use reflection to call a method with twenty parameters.
+     *
+     * @param klass      the class containing the method
+     * @param instance   the instance to call the method on (null for static methods)
+     * @param methodName the name of the method
+     * @param i0         the first input parameter
+     * @param t0         the type of the first input parameter
+     * @param i1         the second input parameter
+     * @param t1         the type of the second input parameter
+     * @param i2         the third input parameter
+     * @param t2         the type of the third input parameter
+     * @param i3         the fourth input parameter
+     * @param t3         the type of the fourth input parameter
+     * @param i4         the fifth input parameter
+     * @param t4         the type of the fifth input parameter
+     * @param i5         the sixth input parameter
+     * @param t5         the type of the sixth input parameter
+     * @param i6         the seventh input parameter
+     * @param t6         the type of the seventh input parameter
+     * @param i7         the eighth input parameter
+     * @param t7         the type of the eighth input parameter
+     * @param i8         the ninth input parameter
+     * @param t8         the type of the ninth input parameter
+     * @param i9         the tenth input parameter
+     * @param t9         the type of the tenth input parameter
+     * @param i10        the eleventh input parameter
+     * @param t10        the type of the eleventh input parameter
+     * @param i11        the twelfth input parameter
+     * @param t11        the type of the twelfth input parameter
+     * @param i12        the thirteenth input parameter
+     * @param t12        the type of the thirteenth input parameter
+     * @param i13        the fourteenth input parameter
+     * @param t13        the type of the fourteenth input parameter
+     * @param i14        the fifteenth input parameter
+     * @param t14        the type of the fifteenth input parameter
+     * @param i15        the sixteenth input parameter
+     * @param t15        the type of the sixteenth input parameter
+     * @param i16        the seventeenth input parameter
+     * @param t16        the type of the seventeenth input parameter
+     * @param i17        the eighteenth input parameter
+     * @param t17        the type of the eighteenth input parameter
+     * @param i18        the nineteenth input parameter
+     * @param t18        the type of the nineteenth input parameter
+     * @param i19        the twentieth input parameter
+     * @param t19        the type of the twentieth input parameter
+     * @param <T>        the class type
+     * @return the result of the method call
+     * @throws Throwable if the method call fails
+     */
     public static <T> Object callMethod(Class<T> klass, T instance, String methodName, Object i0, Class<?> t0,
                                         Object i1, Class<?> t1, Object i2, Class<?> t2, Object i3, Class<?> t3,
                                         Object i4, Class<?> t4, Object i5, Class<?> t5, Object i6, Class<?> t6,
@@ -424,13 +1054,19 @@ public class PrivateAccess {
                                         Object i16, Class<?> t16, Object i17, Class<?> t17, Object i18, Class<?> t18,
                                         Object i19, Class<?> t19)
             throws Throwable {
-        return callMethod(klass, instance, methodName,
-                new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16, i17, i18, i19},
+        return callMethod(klass, instance, methodName, new Object[]{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11,
+                i12, i13, i14, i15, i16, i17, i18, i19},
                 new Class<?>[]{t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17,
                         t18, t19});
     }
 
 
+    /**
+     * Returns the reflection Method object for the callMethod with the given number of parameters.
+     *
+     * @param nparameters the number of parameters the target method has
+     * @return the reflection Method object, or null if it cannot be found or the number of parameters is unsupported
+     */
     public static Method getCallMethod(int nparameters) {
         int max = 20; //TODO might consider have more
         if (nparameters < 0 || nparameters > max) {

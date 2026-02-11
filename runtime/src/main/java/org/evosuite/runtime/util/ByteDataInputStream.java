@@ -36,6 +36,12 @@ public class ByteDataInputStream extends InputStream {
     private final AtomicInteger pos;
     private volatile boolean closed;
 
+    /**
+     * Creates a new ByteDataInputStream with the given byte data.
+     *
+     * @param data the byte data to read from
+     * @throws IllegalArgumentException if data is null
+     */
     public ByteDataInputStream(byte[] data) throws IllegalArgumentException {
         if (data == null) {
             throw new IllegalArgumentException("Null input");

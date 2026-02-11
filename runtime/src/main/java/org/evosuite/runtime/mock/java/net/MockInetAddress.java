@@ -145,11 +145,26 @@ public class MockInetAddress implements StaticReplacementMock {
 
     //------ static methods in mocked ---------
 
+    /**
+     * Replacement for {@link InetAddress#getByAddress(byte[])}.
+     *
+     * @param addr the raw IP address
+     * @return the InetAddress instance
+     * @throws UnknownHostException if the address length is invalid
+     */
     public static InetAddress getByAddress(byte[] addr)
             throws UnknownHostException {
         return getByAddress(null, addr);
     }
 
+    /**
+     * Replacement for {@link InetAddress#getByAddress(String, byte[])}.
+     *
+     * @param host the name of the host
+     * @param addr the raw IP address
+     * @return the InetAddress instance
+     * @throws UnknownHostException if the address length is invalid
+     */
     public static InetAddress getByAddress(String host, byte[] addr)
             throws UnknownHostException {
 
@@ -166,11 +181,25 @@ public class MockInetAddress implements StaticReplacementMock {
         throw new UnknownHostException("Not IPv4: " + Arrays.toString(addr));
     }
 
+    /**
+     * Replacement for {@link InetAddress#getByName(String)}.
+     *
+     * @param host the name of the host
+     * @return the InetAddress instance
+     * @throws UnknownHostException if the host could not be resolved
+     */
     public static InetAddress getByName(String host)
             throws UnknownHostException {
         return getAllByName(host)[0];
     }
 
+    /**
+     * Replacement for {@link InetAddress#getAllByName(String)}.
+     *
+     * @param host the name of the host
+     * @return an array of all InetAddress instances for the host
+     * @throws UnknownHostException if the host could not be resolved
+     */
     public static InetAddress[] getAllByName(String host)
             throws UnknownHostException {
 
@@ -205,10 +234,21 @@ public class MockInetAddress implements StaticReplacementMock {
         return ret;
     }
 
+    /**
+     * Replacement for {@link InetAddress#getLoopbackAddress()}.
+     *
+     * @return the loopback InetAddress instance
+     */
     public static InetAddress getLoopbackAddress() {
         return getFirstValid(true);
     }
 
+    /**
+     * Replacement for {@link InetAddress#getLocalHost()}.
+     *
+     * @return the local host InetAddress instance
+     * @throws UnknownHostException if the local host could not be resolved
+     */
     public static InetAddress getLocalHost() throws UnknownHostException {
         /*
          * for simplicity, just return the first address, and fall back
@@ -245,6 +285,11 @@ public class MockInetAddress implements StaticReplacementMock {
 
     // ------- package level ----------
 
+    /**
+     * Returns an InetAddress representing any local address.
+     *
+     * @return the any local address instance
+     */
     public static InetAddress anyLocalAddress() {
 
         /*

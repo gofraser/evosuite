@@ -58,6 +58,9 @@ public class MockSocket extends Socket implements OverrideMock {
      * constructor code by reflection, as they have side-effects we cannot avoid.
      */
 
+    /**
+     * Creates an unconnected socket, with the system-default type of SocketImpl.
+     */
     public MockSocket() {
         super();
         if (!MockFramework.isEnabled()) {
@@ -66,6 +69,11 @@ public class MockSocket extends Socket implements OverrideMock {
         setImpl();
     }
 
+    /**
+     * Creates an unconnected socket, specifying the type of proxy, if any, that should be used regardless of any other settings.
+     *
+     * @param proxy the Proxy object through which the connection will be made
+     */
     public MockSocket(Proxy proxy) {
         // Create a copy of Proxy as a security measure
         if (proxy == null) {
@@ -95,6 +103,12 @@ public class MockSocket extends Socket implements OverrideMock {
         }
     }
 
+    /**
+     * Creates an unconnected Socket with a user-specified SocketImpl.
+     *
+     * @param impl an instance of a SocketImpl the subclass wishes to use on the Socket.
+     * @throws SocketException if there is an error in the underlying protocol, such as a TCP error.
+     */
     protected MockSocket(MockSocketImpl impl) throws SocketException {
         super(impl);
         if (!MockFramework.isEnabled()) {
@@ -106,6 +120,14 @@ public class MockSocket extends Socket implements OverrideMock {
         }
     }
 
+    /**
+     * Creates a stream socket and connects it to the specified port number on the named host.
+     *
+     * @param host the host name, or null for the loopback address.
+     * @param port the port number.
+     * @throws UnknownHostException if the IP address of the host could not be determined.
+     * @throws IOException          if an I/O error occurs when creating the socket.
+     */
     public MockSocket(String host, int port) throws UnknownHostException, IOException {
         this(host != null ? new MockInetSocketAddress(host, port) :
                         new MockInetSocketAddress(MockInetAddress.getByName(null), port),
@@ -694,6 +716,12 @@ public class MockSocket extends Socket implements OverrideMock {
 
     //private static SocketImplFactory factory = null;
 
+    /**
+     * Sets the socket implementation factory for the application.
+     *
+     * @param fac the desired factory
+     * @throws IOException if an I/O error occurs when setting the factory
+     */
     public static synchronized void setSocketImplFactory(SocketImplFactory fac) throws IOException {
 
         /*
