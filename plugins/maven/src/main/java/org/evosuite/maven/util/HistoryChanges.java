@@ -48,6 +48,13 @@ import java.util.Map;
  */
 public class HistoryChanges {
 
+    /**
+     * Keeps track of which files have changed since the last execution of EvoSuite.
+     *
+     * @param basedir the base directory of the project
+     * @param files   the list of files to track
+     * @throws Exception if an error occurs during tracking
+     */
     public static void keepTrack(String basedir, List<File> files) throws Exception {
 
         File dotEvoSuite = new File(basedir + File.separator + Properties.CTG_DIR);

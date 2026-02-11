@@ -25,6 +25,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Utility class for file operations, such as scanning directories.
+ */
 public class FileUtils {
 
     /**

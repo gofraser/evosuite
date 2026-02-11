@@ -71,6 +71,14 @@ public class EvoSuiteRunner {
 
     private Process process;
 
+    /**
+     * Initializes the EvoSuiteRunner with the necessary Maven components.
+     *
+     * @param logger         the Maven logger
+     * @param artifacts      the list of artifacts
+     * @param projectBuilder the project builder
+     * @param repoSession    the repository system session
+     */
     public EvoSuiteRunner(Log logger, List<Artifact> artifacts,
                           ProjectBuilder projectBuilder, RepositorySystemSession repoSession) {
         super();
@@ -80,6 +88,9 @@ public class EvoSuiteRunner {
         this.repoSession = repoSession;
     }
 
+    /**
+     * Registers a shutdown hook to ensure the EvoSuite process is destroyed when the JVM exits.
+     */
     public void registerShutDownHook() {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
