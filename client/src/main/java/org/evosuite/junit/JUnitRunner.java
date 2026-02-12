@@ -57,6 +57,9 @@ public class JUnitRunner {
         this.junitClass = junitClass;
     }
 
+    /**
+     * Executes the JUnit tests using the configured test format (JUnit 4 or 5).
+     */
     public void run() {
 
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT4) {

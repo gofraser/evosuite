@@ -84,6 +84,12 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
 
     public static final int MAX_CHARS = 70;
 
+    /**
+     * Initializes the strategy with test cases and execution results to generate goal-based test names.
+     *
+     * @param testCases list of test cases
+     * @param results list of execution results
+     */
     public CoverageGoalTestNameGenerationStrategy(List<TestCase> testCases, List<ExecutionResult> results) {
         addGoalsNotIncludedInTargetCriteria(results);
         Map<TestCase, Set<TestFitnessFunction>> testToGoals = initializeCoverageMapFromResults(results);

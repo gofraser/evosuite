@@ -129,6 +129,13 @@ public class Scaffolding {
         return builder.toString();
     }
 
+    /**
+     * Generates the scaffolding file name for the given test name.
+     *
+     * @param testName the name of the test
+     * @return the name of the scaffolding file
+     * @throws IllegalArgumentException if the test name is null or empty
+     */
     public static String getFileName(String testName) throws IllegalArgumentException {
         if (testName == null || testName.trim().isEmpty()) {
             throw new IllegalArgumentException("Empty test name");

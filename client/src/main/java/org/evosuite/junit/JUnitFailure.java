@@ -30,6 +30,15 @@ import java.util.List;
  */
 public class JUnitFailure {
 
+    /**
+     * Initializes a JUnitFailure with the provided failure details.
+     *
+     * @param message failure message
+     * @param exceptionClassName name of the exception class
+     * @param descriptionMethodName name of the method description
+     * @param isAssertionError true if the failure is an assertion error
+     * @param trace stack trace of the failure
+     */
     public JUnitFailure(String message, String exceptionClassName,
                         String descriptionMethodName, boolean isAssertionError, String trace) {
         super();
