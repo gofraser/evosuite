@@ -403,7 +403,7 @@ public abstract class DefUseExecutionTraceAnalyzer {
     public static void printFinishCalls(ExecutionTrace trace) {
         for (MethodCall call : trace.getMethodCalls()) {
             System.out.println("Found MethodCall for: " + call.methodName + " on object "
-                    + call.callingObjectID);
+                    + call.callingObjectId);
             System.out.println("#passed branches: " + call.branchTrace.size());
             for (int i = 0; i < call.defuseCounterTrace.size(); i++) {
                 System.out.println(i + ". at Branch " + call.branchTrace.get(i)
