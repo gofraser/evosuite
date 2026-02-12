@@ -339,10 +339,15 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         ois.defaultReadObject();
 
         mutantId = ois.readInt();
-        this.mutation = MutationPool.getInstance(TestGenerationContext.getInstance()
-                .getClassLoaderForSUT()).getMutant(mutantId);
+        MutationPool pool = MutationPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT());
+        this.mutation = pool.getMutant(mutantId);
         if (this.mutation == null) {
-            logger.warn("mutation id not found {} while deserializing; leaving mutation null", mutantId);
+            if (pool.getMutantCounter() == 0) {
+                logger.debug("mutation id not found {} while deserializing; leaving mutation null (empty pool)", mutantId);
+            } else {
+                logger.warn("mutation id not found {} while deserializing; leaving mutation null", mutantId);
+            }
         } else {
             if (mutationClassName == null) {
                 mutationClassName = mutation.getClassName();
