@@ -56,6 +56,11 @@ public class FailingTestSet {
 
     private static int violationCount = 0;
 
+    /**
+     * Adds a failing test to the set of violations.
+     *
+     * @param violation a {@link org.evosuite.contracts.ContractViolation} object.
+     */
     public static void addFailingTest(ContractViolation violation) {
         violationCount++;
         if (!hasViolation(violation)) {
@@ -117,6 +122,11 @@ public class FailingTestSet {
         return Collections.unmodifiableCollection(violations);
     }
 
+    /**
+     * Gets the list of failing test cases derived from the violations.
+     *
+     * @return a {@link java.util.List} of {@link org.evosuite.testcase.TestCase} objects.
+     */
     public static List<TestCase> getFailingTests() {
         List<TestCase> tests = new ArrayList<>();
         ContractChecker.setActive(false);
@@ -181,17 +191,28 @@ public class FailingTestSet {
         return false;
     }
 
+    /**
+     * Updates the class loader for all stored violations.
+     *
+     * @param classLoader the new {@link java.lang.ClassLoader} to use.
+     */
     public static void changeClassLoader(ClassLoader classLoader) {
         for (ContractViolation violation : violations) {
             violation.changeClassLoader(classLoader);
         }
     }
 
+    /**
+     * Clears all recorded violations and resets the count.
+     */
     public static void clear() {
         violations.clear();
         violationCount = 0;
     }
 
+    /**
+     * Sends the statistics of contract violations to the client node.
+     */
     public static void sendStatistics() {
         if (!Properties.NEW_STATISTICS) {
             return;
