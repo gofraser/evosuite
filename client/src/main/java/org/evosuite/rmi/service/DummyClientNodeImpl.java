@@ -65,8 +65,7 @@ public class DummyClientNodeImpl<T extends Chromosome<T>> extends ClientNodeImpl
 
     @Override
     public void trackOutputVariable(RuntimeVariable name, Object value) {
-        // TODO Auto-generated method stub
-
+        fallbackSetOutputVariable(name, value);
     }
 
     @Override

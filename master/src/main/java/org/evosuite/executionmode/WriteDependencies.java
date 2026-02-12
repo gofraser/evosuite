@@ -48,6 +48,14 @@ public class WriteDependencies {
         return new Option(NAME, true, "write the dependencies of a target class to file");
     }
 
+    /**
+     * Executes the dependency writing mode.
+     *
+     * @param options the command line options
+     * @param javaOpts the java options
+     * @param line the command line
+     * @return null
+     */
     public static Object execute(Options options, List<String> javaOpts, CommandLine line) {
         if (line.hasOption("class")) {
             writeDependencies(line.getOptionValue(NAME), line.getOptionValue("class"), javaOpts);
@@ -68,6 +76,7 @@ public class WriteDependencies {
         String cp = classpathInfo.projectClasspath;
 
         ExternalProcessGroupHandler handler = ExecutionModeUtils.createSingleClientHandler();
+        handler.setAllowDoneAsFinished(true);
         int port = ExecutionModeUtils.openServer(handler);
         List<String> cmdLine = new ArrayList<>();
         cmdLine.add(JavaExecCmdUtil.getJavaBinExecutablePath(true)/*EvoSuite.JAVA_CMD*/);

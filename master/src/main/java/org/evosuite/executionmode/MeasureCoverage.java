@@ -26,6 +26,7 @@ import org.evosuite.*;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.instrumentation.BytecodeInstrumentation;
 import org.evosuite.rmi.MasterServices;
+import org.evosuite.rmi.service.MasterNodeLocal;
 import org.evosuite.rmi.service.ClientNodeRemote;
 import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.statistics.SearchStatistics;
@@ -37,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -50,6 +52,14 @@ public class MeasureCoverage {
         return new Option(NAME, "measure coverage on existing test cases");
     }
 
+    /**
+     * Executes the coverage measurement mode.
+     *
+     * @param options the command line options
+     * @param javaOpts the java options
+     * @param line the command line
+     * @return the search statistics instance
+     */
     public static Object execute(Options options, List<String> javaOpts,
                                  CommandLine line) {
         if (line.hasOption("class")) {
@@ -98,6 +108,7 @@ public class MeasureCoverage {
         String projectCP = classpathInfo.projectClasspath;
 
         ExternalProcessGroupHandler handler = ExecutionModeUtils.createSingleClientHandler();
+        handler.setAllowDoneAsFinished(true);
         int port = ExecutionModeUtils.openServer(handler);
         List<String> cmdLine = new ArrayList<>();
         cmdLine.add(JavaExecCmdUtil.getJavaBinExecutablePath(true)/*EvoSuite.JAVA_CMD*/);
@@ -139,8 +150,17 @@ public class MeasureCoverage {
         if (handler.startProcess(newArgs)) {
             Set<ClientNodeRemote> clients = null;
             try {
-                clients = new CopyOnWriteArraySet<>(MasterServices.getInstance().getMasterNode()
-                        .getClientsOnceAllConnected(10000).values());
+                MasterNodeLocal master = MasterServices.getInstance().getMasterNode();
+                if (master == null) {
+                    logger.error("Master node is not available");
+                } else {
+                    Map<String, ClientNodeRemote> clientMap = master.getClientsOnceAllConnected(10000);
+                    if (clientMap == null) {
+                        logger.error("Not possible to access to clients");
+                    } else {
+                        clients = new CopyOnWriteArraySet<>(clientMap.values());
+                    }
+                }
             } catch (InterruptedException e) {
                 // ignored
             }

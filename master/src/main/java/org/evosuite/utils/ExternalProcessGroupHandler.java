@@ -28,6 +28,7 @@ import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.runtime.sandbox.Sandbox;
+import org.evosuite.statistics.SearchStatistics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.*;
@@ -73,6 +74,12 @@ public class ExternalProcessGroupHandler {
     protected String baseDir = System.getProperty("user.dir");
 
     private final String[] hsErrFiles;
+
+    /**
+     * For execution modes that do not require test generation results,
+     * allow DONE to be treated as terminal to avoid waiting for FINISHED.
+     */
+    private boolean allowDoneAsFinished = false;
 
     public ExternalProcessGroupHandler() {
         this(1);
@@ -134,6 +141,10 @@ public class ExternalProcessGroupHandler {
      */
     public void setBaseDir(String baseDir) {
         this.baseDir = baseDir;
+    }
+
+    public void setAllowDoneAsFinished(boolean allow) {
+        this.allowDoneAsFinished = allow;
     }
 
     /**
@@ -227,6 +238,11 @@ public class ExternalProcessGroupHandler {
         return builder.toString();
     }
 
+    /**
+     * Returns a string representation of the states of all processes in the group.
+     *
+     * @return a string describing the states of the processes
+     */
     public String getProcessStates() {
         if (processGroup == null) {
             return "null";
@@ -722,6 +738,13 @@ public class ExternalProcessGroupHandler {
                                 + " is already finished.");
                         finished = true;
                     }
+                    if (!finished) {
+                        /*
+                         * Grace period: clients can legitimately finish right after the wait timeout,
+                         * especially under load. Re-check state briefly before declaring a timeout.
+                         */
+                        finished = waitForClientStateToComplete(entry.getKey(), 5_000L);
+                    }
                 } else {
                     finished = true;
                 }
@@ -779,36 +802,50 @@ public class ExternalProcessGroupHandler {
 
     private boolean waitUntilFinishedWithTimeout(ClientNodeRemote client, long timeoutMs, String clientId)
             throws RemoteException {
-        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, "ClientWait-" + clientId);
-            t.setDaemon(true);
-            return t;
-        });
-        try {
-            java.util.concurrent.Future<Boolean> result = executor.submit(() -> client.waitUntilFinished(timeoutMs));
-            return result.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
-        } catch (java.util.concurrent.TimeoutException e) {
-            logger.error("Timeout while waiting for client " + clientId + " to finish.");
-            return false;
-        } catch (java.util.concurrent.ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof ConnectException) {
-                throw (ConnectException) cause;
+        final long deadline = System.currentTimeMillis() + timeoutMs;
+        final long pollMs = 250L;
+        while (System.currentTimeMillis() < deadline) {
+            ClientState state = MasterServices.getInstance().getMasterNode().getCurrentState(clientId);
+            if (state == ClientState.FINISHED) {
+                return true;
             }
-            if (cause instanceof RemoteException) {
-                throw (RemoteException) cause;
+            if (clientRunningOnThread != null && !clientRunningOnThread.isAlive()) {
+                return true;
             }
-            if (cause instanceof InterruptedException) {
+            if (allowDoneAsFinished && state == ClientState.DONE) {
+                return true;
+            }
+            if (state == ClientState.DONE) {
+                SearchStatistics stats = SearchStatistics.getInstance(clientId);
+                if (!stats.getTestGenerationResults().isEmpty() && stats.hasEssentialOutputVariables()) {
+                    return true;
+                }
+            }
+            try {
+                Thread.sleep(pollMs);
+            } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return false;
             }
-            logger.warn("Failed to wait for client " + clientId + " to finish.", e);
-            return false;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        } finally {
-            executor.shutdownNow();
         }
+        logger.error("Timeout while waiting for client " + clientId + " to finish.");
+        return false;
+    }
+
+    private boolean waitForClientStateToComplete(String clientId, long graceMs) {
+        final long deadline = System.currentTimeMillis() + graceMs;
+        while (System.currentTimeMillis() < deadline) {
+            ClientState state = MasterServices.getInstance().getMasterNode().getCurrentState(clientId);
+            if (state == ClientState.DONE || state == ClientState.FINISHED) {
+                return true;
+            }
+            try {
+                Thread.sleep(250);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
     }
 }

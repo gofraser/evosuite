@@ -48,6 +48,14 @@ public class PrintStats {
         return new Option(NAME, "print class information (coverable goals)");
     }
 
+    /**
+     * Executes the statistics printing mode.
+     *
+     * @param options the command line options
+     * @param javaOpts the java options
+     * @param line the command line
+     * @return null
+     */
     public static Object execute(Options options, List<String> javaOpts,
                                  CommandLine line) {
         if (line.hasOption("class")) {
@@ -67,6 +75,7 @@ public class PrintStats {
         String cp = classpathInfo.projectClasspath;
 
         ExternalProcessGroupHandler handler = ExecutionModeUtils.createSingleClientHandler();
+        handler.setAllowDoneAsFinished(true);
         int port = ExecutionModeUtils.openServer(handler);
         List<String> cmdLine = new ArrayList<>();
         cmdLine.add(JavaExecCmdUtil.getJavaBinExecutablePath(true)/*EvoSuite.JAVA_CMD*/);

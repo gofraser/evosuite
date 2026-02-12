@@ -235,7 +235,13 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         TimeController.getInstance().updateState(state);
 
         try {
-            masterNode.evosuite_informChangeOfStateInClient(clientRmiIdentifier, state, information);
+            if (ensureMasterNode()) {
+                masterNode.evosuite_informChangeOfStateInClient(clientRmiIdentifier, state, information);
+            } else if (Properties.CLIENT_ON_THREAD) {
+                logger.debug("Master node is not available; skipping changeState notification");
+            } else {
+                logger.warn("Master node is not available; skipping changeState notification");
+            }
         } catch (RemoteException e) {
             logger.error("Cannot inform master of change of state", e);
         }
@@ -254,6 +260,14 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         logger.info("Sending current best individual to master process");
 
         try {
+            if (!ensureMasterNode()) {
+                if (Properties.CLIENT_ON_THREAD) {
+                    fallbackCurrentIndividual(individual);
+                    return;
+                }
+                logger.warn("Master node is not available; skipping updateStatistics");
+                return;
+            }
             masterNode.evosuite_collectStatistics(clientRmiIdentifier, individual);
         } catch (RemoteException e) {
             logger.error("Cannot inform master of change of state", e);
@@ -266,6 +280,33 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         logger.info("Flushing output variables to master process");
 
         try {
+            List<OutputVariable> vars = new ArrayList<>();
+            outputVariableQueue.drainTo(vars);
+            for (OutputVariable ov : vars) {
+                if (!ensureMasterNode()) {
+                    if (Properties.CLIENT_ON_THREAD) {
+                        fallbackSetOutputVariable(ov.variable, ov.value);
+                        continue;
+                    }
+                    logger.warn("Master node is not available; skipping statistics flush on class change");
+                    break;
+                }
+                try {
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
+                } catch (RemoteException e) {
+                    logger.error("Error when exporting statistics: " + ov.variable + "=" + ov.value, e);
+                    break;
+                }
+            }
+
+            if (!ensureMasterNode()) {
+                if (Properties.CLIENT_ON_THREAD) {
+                    fallbackWriteStatisticsForAnalysis();
+                    return;
+                }
+                logger.warn("Master node is not available; skipping flushStatisticsForClassChange");
+                return;
+            }
             masterNode.evosuite_flushStatisticsForClassChange(clientRmiIdentifier);
         } catch (RemoteException e) {
             logger.error("Cannot inform master of change of state", e);
@@ -277,6 +318,14 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         logger.info("Updating property '" + propertyName + "' with value '" + value + "' on master process");
 
         try {
+            if (!ensureMasterNode()) {
+                if (Properties.CLIENT_ON_THREAD) {
+                    Properties.getInstance().setValue(propertyName, value);
+                    return;
+                }
+                logger.warn("Master node is not available; skipping updateProperty for " + propertyName);
+                return;
+            }
             masterNode.evosuite_updateProperty(clientRmiIdentifier, propertyName, value);
         } catch (RemoteException | IllegalArgumentException | IllegalAccessException | NoSuchParameterException e) {
             logger.error("Cannot inform master of change of state", e);
@@ -291,6 +340,18 @@ public class ClientNodeImpl<T extends Chromosome<T>>
          * As this code might be called from unsafe blocks, we just put the values
          * on a queue, and have a privileged thread doing the RMI connection to master
          */
+        if (Properties.CLIENT_ON_THREAD) {
+            // Always update local statistics to avoid relying on RMI in same JVM
+            fallbackSetOutputVariable(variable, value);
+            if (ensureMasterNode()) {
+                try {
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, variable, value);
+                } catch (RemoteException e) {
+                    logger.warn("Failed to export statistics directly; continuing with local statistics", e);
+                }
+            }
+            return;
+        }
         outputVariableQueue.offer(new OutputVariable(variable, value));
     }
 
@@ -337,12 +398,22 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     }
 
     public void stop() {
+        logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client stop() begin");
         if (statisticsThread != null) {
+            logger.info(ClientProcess.getPrettyPrintIdentifier() + "Stopping statisticsThread");
             statisticsThread.interrupt();
             List<OutputVariable> vars = new ArrayList<>();
             outputVariableQueue.drainTo(vars);
             for (OutputVariable ov : vars) {
                 try {
+                    if (!ensureMasterNode()) {
+                        if (Properties.CLIENT_ON_THREAD) {
+                            fallbackSetOutputVariable(ov.variable, ov.value);
+                            continue;
+                        }
+                        logger.warn("Master node is not available; skipping statistics flush on stop");
+                        break;
+                    }
                     masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
                 } catch (RemoteException e) {
                     logger.error("Error when exporting statistics: " + ov.variable + "=" + ov.value, e);
@@ -351,6 +422,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             }
 
             try {
+                logger.info(ClientProcess.getPrettyPrintIdentifier() + "Waiting for statisticsThread to join");
                 statisticsThread.join(3000);
             } catch (InterruptedException e) {
                 logger.error("Failed to stop statisticsThread in time");
@@ -358,9 +430,12 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             statisticsThread = null;
         }
 
+        logger.info(ClientProcess.getPrettyPrintIdentifier() + "Shutting down search executor");
         searchExecutor.shutdownNow();
 
+        logger.info(ClientProcess.getPrettyPrintIdentifier() + "Changing state to FINISHED");
         changeState(ClientState.FINISHED);
+        logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client stop() end");
     }
 
     @Override
@@ -378,6 +453,14 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                         OutputVariable ov = null;
                         try {
                             ov = outputVariableQueue.take(); //this is blocking
+                            if (!ensureMasterNode()) {
+                                if (Properties.CLIENT_ON_THREAD) {
+                                    fallbackSetOutputVariable(ov.variable, ov.value);
+                                    continue;
+                                }
+                                logger.warn("Master node is not available; stopping statistics sender thread");
+                                break;
+                            }
                             masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
                         } catch (InterruptedException e) {
                             break;
@@ -397,6 +480,61 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             return false;
         }
         return true;
+    }
+
+    private boolean ensureMasterNode() {
+        if (masterNode != null) {
+            return true;
+        }
+        if (registry == null) {
+            return false;
+        }
+        try {
+            masterNode = (MasterNodeRemote) registry.lookup(MasterNodeRemote.RMI_SERVICE_NAME);
+            return masterNode != null;
+        } catch (Exception e) {
+            logger.warn("Failed to resolve master node from registry", e);
+            return false;
+        }
+    }
+
+    protected void fallbackSetOutputVariable(RuntimeVariable variable, Object value) {
+        try {
+            Class<?> statsClass = Class.forName("org.evosuite.statistics.SearchStatistics");
+            Object stats = statsClass.getMethod("getInstance", String.class)
+                    .invoke(null, clientRmiIdentifier);
+            statsClass.getMethod("setOutputVariable", RuntimeVariable.class, Object.class)
+                    .invoke(stats, variable, value);
+        } catch (ClassNotFoundException e) {
+            // statistics not available on this classpath (e.g., client-only tests)
+            logger.debug("SearchStatistics not available for fallback output variable");
+        } catch (Throwable t) {
+            logger.warn("Failed to set output variable via fallback", t);
+        }
+    }
+
+    private void fallbackCurrentIndividual(T individual) {
+        try {
+            Class<?> statsClass = Class.forName("org.evosuite.statistics.SearchStatistics");
+            Object stats = statsClass.getMethod("getInstance", String.class)
+                    .invoke(null, clientRmiIdentifier);
+            statsClass.getMethod("currentIndividual", Chromosome.class)
+                    .invoke(stats, individual);
+        } catch (Throwable t) {
+            logger.warn("Failed to record individual via fallback", t);
+        }
+    }
+
+    private void fallbackWriteStatisticsForAnalysis() {
+        try {
+            Class<?> statsClass = Class.forName("org.evosuite.statistics.SearchStatistics");
+            Object stats = statsClass.getMethod("getInstance", String.class)
+                    .invoke(null, clientRmiIdentifier);
+            statsClass.getMethod("writeStatisticsForAnalysis")
+                    .invoke(stats);
+        } catch (Throwable t) {
+            logger.warn("Failed to write statistics via fallback", t);
+        }
     }
 
     public String getClientRmiIdentifier() {

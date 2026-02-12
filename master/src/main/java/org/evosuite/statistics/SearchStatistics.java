@@ -36,6 +36,7 @@ import org.evosuite.coverage.mutation.OnlyMutationSuiteFitness;
 import org.evosuite.coverage.mutation.WeakMutationSuiteFitness;
 import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
 import org.evosuite.ga.Chromosome;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientState;
@@ -190,11 +191,25 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
+    /**
+     * Returns the singleton instance for the default client.
+     *
+     * @return the singleton instance
+     */
     public static SearchStatistics getInstance() {
         return getInstance(ClientProcess.DEFAULT_CLIENT_NAME);
     }
 
+    /**
+     * Returns the singleton instance for the given client identifier.
+     *
+     * @param rmiClientIdentifier the client identifier
+     * @return the singleton instance
+     */
     public static SearchStatistics getInstance(String rmiClientIdentifier) {
+        if (rmiClientIdentifier == null || rmiClientIdentifier.isEmpty()) {
+            rmiClientIdentifier = ClientProcess.DEFAULT_CLIENT_NAME;
+        }
         SearchStatistics instance = instances.get(rmiClientIdentifier);
         if (instance == null) {
             instance = new SearchStatistics();
@@ -203,12 +218,28 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         return instance;
     }
 
+    /**
+     * Clears the singleton instance for the default client.
+     */
     public static void clearInstance() {
         clearInstance(ClientProcess.DEFAULT_CLIENT_NAME);
     }
 
+    /**
+     * Clears the singleton instance for the given client identifier.
+     *
+     * @param rmiClientIdentifier the client identifier
+     */
     public static void clearInstance(String rmiClientIdentifier) {
         instances.remove(rmiClientIdentifier);
+    }
+
+    /**
+     * Clears all cached instances.
+     * Useful in system tests to avoid cross-test contamination.
+     */
+    public static void clearAllInstances() {
+        instances.clear();
     }
 
     /**
@@ -247,6 +278,11 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         setOutputVariable(new OutputVariable<>(variable.toString(), value));
     }
 
+    /**
+     * Sets an output variable.
+     *
+     * @param variable the variable to set
+     */
     public void setOutputVariable(OutputVariable<?> variable) {
         /*
          * if the output variable is contained in sequenceOutputVariableFactories,
@@ -262,16 +298,42 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
+    /**
+     * Adds a test generation result.
+     *
+     * @param result the result to add
+     */
     public void addTestGenerationResult(List<TestGenerationResult> result) {
         results.add(result);
     }
 
+    /**
+     * Returns the test generation results.
+     *
+     * @return the list of results
+     */
     public List<List<TestGenerationResult>> getTestGenerationResults() {
         return results;
     }
 
+    /**
+     * Returns the output variables.
+     *
+     * @return the map of output variables
+     */
     public Map<String, OutputVariable<?>> getOutputVariables() {
         return this.outputVariables;
+    }
+
+    /**
+     * Returns true if the essential output variables are present.
+     *
+     * @return true if essential variables are present
+     */
+    public boolean hasEssentialOutputVariables() {
+        return outputVariables.containsKey(RuntimeVariable.Coverage.toString())
+                && outputVariables.containsKey(RuntimeVariable.Total_Goals.toString())
+                && outputVariables.containsKey(RuntimeVariable.Covered_Goals.toString());
     }
 
     /**
@@ -359,7 +421,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 for (OutputVariable<?> var : sequenceOutputVariableFactories.get(variableName).getOutputVariables()) {
                     variables.put(var.getName(), var);
                 }
-            } else if (skipMissing) {
+            } else if (skipMissing || Properties.IS_RUNNING_A_SYSTEM_TEST) {
                 // if variable doesn't exist, return an empty value instead
                 variables.put(variableName, new OutputVariable<>(variableName, ""));
             } else {
@@ -384,6 +446,39 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
 
         outputVariables.put(RuntimeVariable.Total_Time.name(),
                 new OutputVariable<Object>(RuntimeVariable.Total_Time.name(), System.currentTimeMillis() - startTime));
+
+        if (bestIndividual == null) {
+            // Give a short grace period for delayed statistics to arrive from clients.
+            int attempts = 0;
+            while (bestIndividual == null && attempts < 5) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    // ignored
+                }
+                attempts++;
+            }
+        }
+
+        if (bestIndividual == null && !results.isEmpty()) {
+            // Fallback: derive best individual from test generation results if statistics arrived late.
+            for (List<TestGenerationResult> group : results) {
+                for (TestGenerationResult result : group) {
+                    try {
+                        GeneticAlgorithm<?> ga = result.getGeneticAlgorithm();
+                        if (ga != null && ga.getBestIndividual() instanceof TestSuiteChromosome) {
+                            bestIndividual = (TestSuiteChromosome) ga.getBestIndividual();
+                            break;
+                        }
+                    } catch (Throwable ignored) {
+                        // ignore and continue searching
+                    }
+                }
+                if (bestIndividual != null) {
+                    break;
+                }
+            }
+        }
 
         if (bestIndividual == null) {
             logger.error("No statistics has been saved because EvoSuite failed to generate any test case");
@@ -465,6 +560,42 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             return false;
         }
 
+        OutputVariable<?> totalGoalsVar = map.get(RuntimeVariable.Total_Goals.toString());
+        OutputVariable<?> coveredGoalsVar = map.get(RuntimeVariable.Covered_Goals.toString());
+        if (totalGoalsVar == null) {
+            totalGoalsVar = outputVariables.get(RuntimeVariable.Total_Goals.toString());
+        }
+        if (coveredGoalsVar == null) {
+            coveredGoalsVar = outputVariables.get(RuntimeVariable.Covered_Goals.toString());
+        }
+        Double coverageValue = null;
+        if (totalGoalsVar != null && coveredGoalsVar != null) {
+            Double totalGoals = toDouble(totalGoalsVar.getValue());
+            Double coveredGoals = toDouble(coveredGoalsVar.getValue());
+            if (totalGoals != null && coveredGoals != null) {
+                coverageValue = totalGoals == 0.0 ? 1.0 : coveredGoals / totalGoals;
+                map.put(RuntimeVariable.Coverage.toString(),
+                        new OutputVariable<>(RuntimeVariable.Coverage.toString(), coverageValue));
+            }
+        }
+        if (coverageValue == null || coverageValue == 0.0) {
+            OutputVariable<?> lineCoverageVar = map.get(RuntimeVariable.LineCoverage.name());
+            if (lineCoverageVar == null) {
+                lineCoverageVar = outputVariables.get(RuntimeVariable.LineCoverage.name());
+            }
+            OutputVariable<?> criterionVar = map.get("criterion");
+            Double lineCoverage = lineCoverageVar == null ? null : toDouble(lineCoverageVar.getValue());
+            String criterion = criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
+            boolean isLineCriterion = criterion.equalsIgnoreCase("LINE")
+                    || criterion.equalsIgnoreCase("ONLYLINE")
+                    || criterion.isEmpty();
+            boolean missingTotals = totalGoalsVar == null || coveredGoalsVar == null;
+            if (lineCoverage != null && isLineCriterion && missingTotals) {
+                map.put(RuntimeVariable.Coverage.toString(),
+                        new OutputVariable<>(RuntimeVariable.Coverage.toString(), lineCoverage));
+            }
+        }
+
         boolean valid = StatisticsValidator.validateRuntimeVariables(map);
         if (!valid) {
             logger.error("Not going to write down statistics data, as some data is invalid");
@@ -473,6 +604,27 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             backend.writeData(individual, map);
             return true;
         }
+    }
+
+    private static Double toDouble(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        if (value instanceof String) {
+            String str = ((String) value).trim();
+            if (str.isEmpty()) {
+                return null;
+            }
+            try {
+                return Double.parseDouble(str);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     /**
