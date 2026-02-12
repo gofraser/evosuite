@@ -626,11 +626,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         GenericClass<?> selectedClass = CastClassManager.getInstance().selectCastClass((TypeVariable<?>) type,
                 recursionLevel < Properties.MAX_GENERIC_DEPTH - 1,
                 typeMap);
-
-        if (selectedClass == null) {
-            throw new ConstructionFailedException("Unable to instantiate "
-                    + this);
-        }
         logger.debug("Getting instantiation of type variable {}: {}", this, selectedClass);
         Map<TypeVariable<?>, Type> extendedMap = new HashMap<>(
                 typeMap);

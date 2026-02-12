@@ -183,12 +183,22 @@ public class GenericTypeInference extends TestVisitor {
         logger.info("Resulting map: " + parameterTypeMap);
         for (TypeVariable<?> typeVar : parameterTypeMap.keySet()) {
             Type actualType = parameterTypeMap.get(typeVar);
-            if (typeMap.containsKey(typeVar)) {
+            TypeVariable<?> mappedVar = typeVar;
+            if (!typeMap.containsKey(mappedVar)) {
+                for (TypeVariable<?> existing : typeMap.keySet()) {
+                    if (existing.getName().equals(typeVar.getName())
+                            && existing.getGenericDeclaration().equals(typeVar.getGenericDeclaration())) {
+                        mappedVar = existing;
+                        break;
+                    }
+                }
+            }
+            if (typeMap.containsKey(mappedVar)) {
                 logger.info("Variable is in map: " + typeVar);
-                Type currentType = typeMap.get(typeVar);
+                Type currentType = typeMap.get(mappedVar);
                 if (currentType == null
                         || TypeUtils.isAssignable(actualType, currentType)) {
-                    typeMap.put(typeVar, actualType);
+                    typeMap.put(mappedVar, actualType);
                 } else {
                     logger.info("Not assignable: " + typeVar + " with bounds "
                             + Arrays.asList(typeVar.getBounds()) + " and current type "
@@ -227,7 +237,7 @@ public class GenericTypeInference extends TestVisitor {
             for (TypeVariable<?> var : typeMap.keySet()) {
                 typeMap.put(var, null);
             }
-            Type[] parameterTypes = constructor.getGenericParameterTypes(); //.getParameterTypes();
+            Type[] parameterTypes = constructor.getConstructor().getGenericParameterTypes();
             List<VariableReference> parameterValues = constructorStatement.getParameterReferences();
             determineVariablesFromParameters(parameterValues, parameterTypes, typeMap);
 
@@ -242,7 +252,7 @@ public class GenericTypeInference extends TestVisitor {
                     }
 
                     logger.info("Found relevant statement: " + ms.getCode());
-                    parameterTypes = ms.getMethod().getGenericParameterTypes();
+                    parameterTypes = ms.getMethod().getMethod().getGenericParameterTypes();
                     parameterValues = ms.getParameterReferences();
                     determineVariablesFromParameters(parameterValues, parameterTypes,
                             typeMap);

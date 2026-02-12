@@ -51,6 +51,42 @@ public class GenericClassUtils {
             return false;
         }
 
+        /*
+         * Handle raw type assignments where EvoSuite has synthesized type variables
+         * (eg, ArrayList<E>) for a raw field (eg, ArrayList). In such cases we
+         * should allow assignment based on raw type compatibility only.
+         *
+         * This keeps strict generic checks when the SUT actually declares concrete
+         * type arguments (eg, ArrayList<String>), but avoids rejecting valid raw
+         * assignments (eg, ArrayList<Object> -> ArrayList<E>).
+         */
+        if (lhsType instanceof ParameterizedType) {
+            ParameterizedType lhsParam = (ParameterizedType) lhsType;
+            boolean allTypeVars = true;
+            for (Type t : lhsParam.getActualTypeArguments()) {
+                if (!(t instanceof TypeVariable)) {
+                    allTypeVars = false;
+                    break;
+                }
+            }
+            if (allTypeVars) {
+                Type lhsRaw = lhsParam.getRawType();
+                Class<?> lhsRawClass = (lhsRaw instanceof Class) ? (Class<?>) lhsRaw : null;
+                Class<?> rhsRawClass = null;
+                if (rhsType instanceof Class) {
+                    rhsRawClass = (Class<?>) rhsType;
+                } else if (rhsType instanceof ParameterizedType) {
+                    Type rhsRaw = ((ParameterizedType) rhsType).getRawType();
+                    if (rhsRaw instanceof Class) {
+                        rhsRawClass = (Class<?>) rhsRaw;
+                    }
+                }
+                if (lhsRawClass != null && rhsRawClass != null) {
+                    return lhsRawClass.isAssignableFrom(rhsRawClass);
+                }
+            }
+        }
+
         try {
             return TypeUtils.isAssignable(rhsType, lhsType);
         } catch (Throwable e) {
