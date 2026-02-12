@@ -35,6 +35,11 @@ public class MutationInfo implements Serializable {
 
     private final String replacement;
 
+    /**
+     * Creates a new MutationInfo instance from the given Mutation object.
+     *
+     * @param m the mutation to create info for
+     */
     public MutationInfo(Mutation m) {
         this.className = m.getClassName();
         this.methodName = m.getMethodName();
@@ -42,6 +47,15 @@ public class MutationInfo implements Serializable {
         this.replacement = m.getDescription();
     }
 
+    /**
+     * Creates a new MutationInfo instance with the specified class name, method name, line number, and replacement
+     * description.
+     *
+     * @param className   the name of the class containing the mutation
+     * @param methodName  the name of the method containing the mutation
+     * @param lineNo      the line number of the mutation
+     * @param replacement the description of the mutation replacement
+     */
     public MutationInfo(String className, String methodName, int lineNo,
                         String replacement) {
         this.className = className;

@@ -35,6 +35,12 @@ public class BranchInfo implements Serializable {
 
     private final boolean truthValue;
 
+    /**
+     * Creates a new BranchInfo instance from the given Branch object and truth value.
+     *
+     * @param branch     the branch to create info for
+     * @param truthValue the truth value of the branch execution
+     */
     public BranchInfo(Branch branch, boolean truthValue) {
         this.className = branch.getClassName();
         this.methodName = branch.getMethodName();
@@ -42,6 +48,14 @@ public class BranchInfo implements Serializable {
         this.truthValue = truthValue;
     }
 
+    /**
+     * Creates a new BranchInfo instance with the specified class name, method name, line number, and truth value.
+     *
+     * @param className  the name of the class containing the branch
+     * @param methodName the name of the method containing the branch
+     * @param lineNo     the line number of the branch instruction
+     * @param truthValue the truth value of the branch execution
+     */
     public BranchInfo(String className, String methodName, int lineNo,
                       boolean truthValue) {
         this.className = className;
