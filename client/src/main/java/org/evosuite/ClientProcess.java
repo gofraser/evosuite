@@ -51,9 +51,9 @@ public class ClientProcess {
 
     private static final Logger logger = LoggerFactory.getLogger(ClientProcess.class);
 
-    public final static String CLIENT_PREFIX = "Client-";
+    public static final String CLIENT_PREFIX = "Client-";
 
-    public final static String DEFAULT_CLIENT_NAME = CLIENT_PREFIX + "0";
+    public static final String DEFAULT_CLIENT_NAME = CLIENT_PREFIX + "0";
 
     private static String identifier;
 
@@ -76,7 +76,8 @@ public class ClientProcess {
         Sandbox.setCheckForInitialization(Properties.SANDBOX);
         MockFramework.enable();
 
-        if (TestSuiteWriterUtils.needToUseAgent() && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
+        if (TestSuiteWriterUtils.needToUseAgent() && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
+                || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
             initializeToolJar();
         }
 
@@ -110,6 +111,9 @@ public class ClientProcess {
         SpawnProcessKeepAliveChecker.getInstance().unRegister();
     }
 
+    /**
+     * Initialize the tool jar for the client process.
+     */
     private void initializeToolJar() {
 
         ClassPathHacker.initializeToolJar();
@@ -128,9 +132,9 @@ public class ClientProcess {
          */
 
         /*
-        	TODO: tmp disabled to understand what the hack is happening on Jenkins.
-        	however, it does not seem necessary any more, after quite a few refactoring/changes
-        	in how agents are used (but don't know why...)
+            TODO: tmp disabled to understand what the hack is happening on Jenkins.
+            however, it does not seem necessary any more, after quite a few refactoring/changes
+            in how agents are used (but don't know why...)
          */
         //AgentLoader.loadAgent();
     }
@@ -214,6 +218,7 @@ public class ClientProcess {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
+                logger.debug("Interrupted while sleeping: " + e.getMessage());
             }
 
             if (!onThread) {
