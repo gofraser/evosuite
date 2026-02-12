@@ -60,6 +60,11 @@ public class JUnitResult {
     private Class<?> junitClass;
 
 
+    /**
+     * Initializes a new JUnitResult with the given name.
+     *
+     * @param name the name of the test
+     */
     public JUnitResult(String name) {
         this.successful = true;
         this.name = name;
@@ -68,6 +73,12 @@ public class JUnitResult {
     }
 
 
+    /**
+     * Initializes a new JUnitResult with the given name and JUnit class.
+     *
+     * @param name the name of the test
+     * @param junitClass the JUnit class
+     */
     public JUnitResult(String name, Class<?> junitClass) {
         this.successful = true;
         this.name = name;

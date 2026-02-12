@@ -81,6 +81,12 @@ public class JUnitResultBuilder {
         return junitResult;
     }
 
+    /**
+     * Builds a JUnitResult from a list of test execution results.
+     *
+     * @param results list of pairs containing test identifiers and execution results
+     * @return the built JUnitResult
+     */
     public JUnitResult build(List<Pair<TestIdentifier, TestExecutionResult>> results) {
         boolean wasSuccessful = results.stream().map(Pair::getRight)
                 .noneMatch(r -> r.getStatus() != TestExecutionResult.Status.SUCCESSFUL);

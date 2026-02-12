@@ -30,6 +30,11 @@ public class StaticStateResetter extends BaseRule {
 
     private final String[] classNames;
 
+    /**
+     * Initializes the StaticStateResetter with the specified classes to reset.
+     *
+     * @param classesToReset the classes to reset
+     */
     public StaticStateResetter(String... classesToReset) {
         classNames = Arrays.copyOf(classesToReset, classesToReset.length);
         org.evosuite.Properties.RESET_STATIC_FIELDS = true;

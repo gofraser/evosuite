@@ -32,6 +32,12 @@ import java.io.File;
  */
 public class CoverageReportGenerator {
 
+    /**
+     * Writes the coverage matrix to a file for the specified criterion.
+     *
+     * @param coverage the coverage matrix
+     * @param criterion the coverage criterion
+     */
     public static void writeCoverage(boolean[][] coverage, Properties.Criterion criterion) {
 
         StringBuilder suite = new StringBuilder();

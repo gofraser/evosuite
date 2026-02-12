@@ -71,6 +71,14 @@ public class DetermineSUT {
         }
     }
 
+    /**
+     * Determines the name of the System Under Test (SUT) from the given target class and classpath.
+     *
+     * @param fullyQualifiedTargetClass the fully qualified name of the target class
+     * @param targetClassPath the classpath where the target class is located
+     * @return the name of the SUT
+     * @throws NoJUnitClassException if no JUnit class is found
+     */
     public String getSUTName(String fullyQualifiedTargetClass, String targetClassPath)
             throws NoJUnitClassException {
         this.targetName = fullyQualifiedTargetClass;
@@ -111,6 +119,15 @@ public class DetermineSUT {
         return sortedNames.get(0);
     }
 
+    /**
+     * Identifies classes called by the target class to find potential SUT candidates.
+     *
+     * @param fullyQualifiedTargetClass the fully qualified name of the target class
+     * @param targetClasses a set of potential target classes
+     * @return a set of called classes
+     * @throws ClassNotFoundException if a class cannot be found
+     * @throws NoJUnitClassException if no JUnit class is found
+     */
     public Set<String> determineCalledClasses(String fullyQualifiedTargetClass,
                                               Set<String> targetClasses) throws ClassNotFoundException,
             NoJUnitClassException {

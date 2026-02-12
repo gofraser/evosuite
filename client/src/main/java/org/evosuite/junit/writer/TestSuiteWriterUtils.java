@@ -67,6 +67,12 @@ public class TestSuiteWriterUtils {
     }
 
 
+    /**
+     * Checks if the execution results indicate the use of mocks.
+     *
+     * @param results list of execution results
+     * @return true if mocks are used
+     */
     public static boolean doesUseMocks(List<ExecutionResult> results) {
         for (ExecutionResult er : results) {
             for (Statement st : er.test) {
@@ -78,6 +84,12 @@ public class TestSuiteWriterUtils {
         return false;
     }
 
+    /**
+     * Checks if any of the execution results encountered a security exception.
+     *
+     * @param results list of execution results
+     * @return true if any security exception occurred
+     */
     public static boolean hasAnySecurityException(List<ExecutionResult> results) {
         for (ExecutionResult result : results) {
             if (result.hasSecurityException()) {
@@ -96,6 +108,13 @@ public class TestSuiteWriterUtils {
         return false;
     }
 
+    /**
+     * Determines the name of a test case based on its position or carved name.
+     *
+     * @param tests list of test cases
+     * @param position position of the test in the list
+     * @return the name of the test
+     */
     public static String getNameOfTest(List<TestCase> tests, int position) {
 
         TestCase test = tests.get(position);
@@ -112,6 +131,12 @@ public class TestSuiteWriterUtils {
         return testName;
     }
 
+    /**
+     * Merges properties read during execution from all results.
+     *
+     * @param results list of execution results
+     * @return a set of merged properties
+     */
     public static Set<String> mergeProperties(List<ExecutionResult> results) {
         if (results == null) {
             return null;
@@ -126,6 +151,12 @@ public class TestSuiteWriterUtils {
         return set;
     }
 
+    /**
+     * Determines if system properties should be reset based on execution results.
+     *
+     * @param results list of execution results
+     * @return true if properties should be reset
+     */
     public static boolean shouldResetProperties(List<ExecutionResult> results) {
         /*
          * Note: we need to reset the properties even if the SUT only read them. Reason is
@@ -160,6 +191,11 @@ public class TestSuiteWriterUtils {
         return dirname;
     }
 
+    /**
+     * Retrieves the appropriate unit test adapter based on the configured output format.
+     *
+     * @return the unit test adapter
+     */
     public static UnitTestAdapter getAdapter() {
         if (Properties.TEST_FORMAT == OutputFormat.JUNIT3) {
             return new JUnit3TestAdapter();
