@@ -35,10 +35,20 @@ public class SuiteFitnessEvaluationListener implements SearchListener<TestChromo
 
     private final List<TestSuiteFitnessFunction> fitnessFunctions;
 
+    /**
+     * Initializes the listener with the given list of fitness functions.
+     *
+     * @param fitnessFunctions the list of fitness functions
+     */
     public SuiteFitnessEvaluationListener(List<TestSuiteFitnessFunction> fitnessFunctions) {
         this.fitnessFunctions = new ArrayList<>(fitnessFunctions);
     }
 
+    /**
+     * Copy constructor.
+     *
+     * @param that the listener to copy from
+     */
     public SuiteFitnessEvaluationListener(SuiteFitnessEvaluationListener that) {
         this(that.fitnessFunctions);
     }
@@ -49,6 +59,12 @@ public class SuiteFitnessEvaluationListener implements SearchListener<TestChromo
         return suite;
     }
 
+    /**
+     * Creates a test suite from the algorithm's population and calculates its fitness.
+     *
+     * @param algorithm the genetic algorithm instance
+     * @return the test suite chromosome with calculated fitness
+     */
     public TestSuiteChromosome getSuiteWithFitness(GeneticAlgorithm<TestChromosome> algorithm) {
         List<TestChromosome> population = algorithm.getPopulation();
         TestSuiteChromosome suite = createMergedSolution(population);
