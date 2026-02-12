@@ -132,8 +132,15 @@ public class TestSuiteGeneratorHelper {
             ClientServices.track(RuntimeVariable.Gradient_Branches_Covered, coveredGradientBranchCount);
         }
         if (Properties.BRANCH_COMPARISON_TYPES) {
-            int cmp_intzero = 0, cmp_intint = 0, cmp_refref = 0, cmp_refnull = 0;
-            int bc_lcmp = 0, bc_fcmpl = 0, bc_fcmpg = 0, bc_dcmpl = 0, bc_dcmpg = 0;
+            int cmpIntZero = 0;
+            int cmpIntInt = 0;
+            int cmpRefRef = 0;
+            int cmpRefNull = 0;
+            int bcLcmp = 0;
+            int bcFcmpl = 0;
+            int bcFcmpg = 0;
+            int bcDcmpl = 0;
+            int bcDcmpg = 0;
             for (Branch b : BranchPool
                     .getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                     .getAllBranches()) {
@@ -144,19 +151,22 @@ public class TestSuiteGeneratorHelper {
                 }
                 switch (previousOpcode) {
                     case Opcodes.LCMP:
-                        bc_lcmp++;
+                        bcLcmp++;
                         break;
                     case Opcodes.FCMPL:
-                        bc_fcmpl++;
+                        bcFcmpl++;
                         break;
                     case Opcodes.FCMPG:
-                        bc_fcmpg++;
+                        bcFcmpg++;
                         break;
                     case Opcodes.DCMPL:
-                        bc_dcmpl++;
+                        bcDcmpl++;
                         break;
                     case Opcodes.DCMPG:
-                        bc_dcmpg++;
+                        bcDcmpg++;
+                        break;
+                    default:
+                        // No comparison bytecode
                         break;
                 }
                 switch (branchOpCode) {
@@ -167,7 +177,7 @@ public class TestSuiteGeneratorHelper {
                     case Opcodes.IFGE:
                     case Opcodes.IFGT:
                     case Opcodes.IFLE:
-                        cmp_intzero++;
+                        cmpIntZero++;
                         break;
                     // copmpare int with int
                     case Opcodes.IF_ICMPEQ:
@@ -176,31 +186,34 @@ public class TestSuiteGeneratorHelper {
                     case Opcodes.IF_ICMPGE:
                     case Opcodes.IF_ICMPGT:
                     case Opcodes.IF_ICMPLE:
-                        cmp_intint++;
+                        cmpIntInt++;
                         break;
                     // copmpare reference with reference
                     case Opcodes.IF_ACMPEQ:
                     case Opcodes.IF_ACMPNE:
-                        cmp_refref++;
+                        cmpRefRef++;
                         break;
                     // compare reference with null
                     case Opcodes.IFNULL:
                     case Opcodes.IFNONNULL:
-                        cmp_refnull++;
+                        cmpRefNull++;
+                        break;
+                    default:
+                        // No branch opcode
                         break;
 
                 }
             }
-            ClientServices.track(RuntimeVariable.Cmp_IntZero, cmp_intzero);
-            ClientServices.track(RuntimeVariable.Cmp_IntInt, cmp_intint);
-            ClientServices.track(RuntimeVariable.Cmp_RefRef, cmp_refref);
-            ClientServices.track(RuntimeVariable.Cmp_RefNull, cmp_refnull);
+            ClientServices.track(RuntimeVariable.Cmp_IntZero, cmpIntZero);
+            ClientServices.track(RuntimeVariable.Cmp_IntInt, cmpIntInt);
+            ClientServices.track(RuntimeVariable.Cmp_RefRef, cmpRefRef);
+            ClientServices.track(RuntimeVariable.Cmp_RefNull, cmpRefNull);
 
-            ClientServices.track(RuntimeVariable.BC_lcmp, bc_lcmp);
-            ClientServices.track(RuntimeVariable.BC_fcmpl, bc_fcmpl);
-            ClientServices.track(RuntimeVariable.BC_fcmpg, bc_fcmpg);
-            ClientServices.track(RuntimeVariable.BC_dcmpl, bc_dcmpl);
-            ClientServices.track(RuntimeVariable.BC_dcmpg, bc_dcmpg);
+            ClientServices.track(RuntimeVariable.BC_lcmp, bcLcmp);
+            ClientServices.track(RuntimeVariable.BC_fcmpl, bcFcmpl);
+            ClientServices.track(RuntimeVariable.BC_fcmpg, bcFcmpg);
+            ClientServices.track(RuntimeVariable.BC_dcmpl, bcDcmpl);
+            ClientServices.track(RuntimeVariable.BC_dcmpg, bcDcmpg);
 
             RuntimeVariable[] bytecodeVarsCovered = new RuntimeVariable[]{RuntimeVariable.Covered_lcmp,
                     RuntimeVariable.Covered_fcmpl, RuntimeVariable.Covered_fcmpg,
@@ -269,6 +282,11 @@ public class TestSuiteGeneratorHelper {
         }
     }
 
+    /**
+     * Add assertions to the generated test suite.
+     *
+     * @param tests the test suite to add assertions to
+     */
     public static void addAssertions(TestSuiteChromosome tests) {
         AssertionGenerator asserter;
         ContractChecker.setActive(false);
@@ -277,12 +295,14 @@ public class TestSuiteGeneratorHelper {
             asserter = new SimpleMutationAssertionGenerator();
         } else if (Properties.ASSERTION_STRATEGY == AssertionStrategy.ALL) {
             asserter = new CompleteAssertionGenerator();
-        } else
+        } else {
             asserter = new UnitAssertionGenerator();
+        }
 
         asserter.addAssertions(tests);
 
-        if (Properties.FILTER_ASSERTIONS)
+        if (Properties.FILTER_ASSERTIONS) {
             asserter.filterFailingAssertions(tests);
+        }
     }
 }

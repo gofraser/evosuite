@@ -54,7 +54,6 @@ import org.evosuite.testcarver.extraction.CarvingManager;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
-import org.evosuite.utils.ArrayUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,6 +62,8 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
+ * Context for test generation.
+ *
  * @author Gordon Fraser
  */
 public class TestGenerationContext {
@@ -73,22 +74,22 @@ public class TestGenerationContext {
 
     /**
      * This is the classloader that does the instrumentation - it needs to be
-     * used by all test code
+     * used by all test code.
      */
     private InstrumentingClassLoader classLoader;
 
     /**
-     * The classloader used to load this class
+     * The classloader used to load this class.
      */
     private final ClassLoader originalClassLoader;
 
     /**
-     * To avoid duplicate analyses we cache the cluster generator
+     * To avoid duplicate analyses we cache the cluster generator.
      */
     private TestClusterGenerator testClusterGenerator;
 
     /**
-     * Private singleton constructor
+     * Private singleton constructor.
      */
     private TestGenerationContext() {
         originalClassLoader = this.getClass().getClassLoader();
@@ -102,33 +103,46 @@ public class TestGenerationContext {
     /**
      * This is pretty important if the SUT use classloader of the running
      * thread. If we do not set this up, we will end up with cast exceptions.
-     *
      * <p>
-     * Note, an example in which this happens is in
-     *
-     * <p>
-     * org.dom4j.bean.BeanAttribute
-     *
-     * <p>
-     * in SF100 project 62_dom4j
+     * Note, an example in which this happens is in org.dom4j.bean.BeanAttribute
+     * in SF100 project 62_dom4j.
+     * </p>
      */
     public void goingToExecuteSUTCode() {
 
         Thread.currentThread().setContextClassLoader(classLoader);
     }
 
+    /**
+     * Restore the original class loader.
+     */
     public void doneWithExecutingSUTCode() {
         Thread.currentThread().setContextClassLoader(originalClassLoader);
     }
 
+    /**
+     * Get the class loader for the system under test.
+     *
+     * @return the class loader for the SUT
+     */
     public InstrumentingClassLoader getClassLoaderForSUT() {
         return classLoader;
     }
 
+    /**
+     * Get the test cluster generator.
+     *
+     * @return the test cluster generator
+     */
     public TestClusterGenerator getTestClusterGenerator() {
         return testClusterGenerator;
     }
 
+    /**
+     * Set the test cluster generator.
+     *
+     * @param generator the test cluster generator to set
+     */
     public void setTestClusterGenerator(TestClusterGenerator generator) {
         testClusterGenerator = generator;
     }

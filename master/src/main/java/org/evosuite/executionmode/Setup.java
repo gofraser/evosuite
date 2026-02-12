@@ -39,6 +39,13 @@ public class Setup {
         return new Option(NAME, true, "Create evosuite-files with property file");
     }
 
+    /**
+     * Executes the setup mode.
+     *
+     * @param javaOpts the java options
+     * @param line the command line
+     * @return null
+     */
     public static Object execute(List<String> javaOpts, CommandLine line) {
         boolean inheritanceTree = line.hasOption("inheritanceTree");
         setup(line.getOptionValue("setup"), line.getArgs(), javaOpts, inheritanceTree);

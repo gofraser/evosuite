@@ -215,6 +215,13 @@ public class CommandLineParameters {
         return options;
     }
 
+    /**
+     * Handles the seed parameter if present in the command line.
+     *
+     * @param javaOpts the java options to update
+     * @param line the command line arguments
+     * @throws NullPointerException if any argument is null
+     */
     public static void handleSeed(List<String> javaOpts, CommandLine line) throws NullPointerException {
         if (line.hasOption("seed")) {
             /*
@@ -258,6 +265,11 @@ public class CommandLineParameters {
         }
     }
 
+    /**
+     * Handles the classpath parameters in the command line.
+     *
+     * @param line the command line arguments
+     */
     public static void handleClassPath(CommandLine line) {
 
         String dcp = null;
@@ -303,6 +315,12 @@ public class CommandLineParameters {
         }
     }
 
+    /**
+     * Handles JVM options in the command line.
+     *
+     * @param javaOpts the java options to update
+     * @param line the command line arguments
+     */
     public static void handleJVMOptions(List<String> javaOpts, CommandLine line) {
         /*
          * NOTE: JVM arguments will not be passed over from the master to the client. So for -Xmx, we need to use "mem"

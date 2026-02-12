@@ -58,6 +58,11 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
 
     private final Map<String, ClientStateInformation> clientStateInformation;
 
+    /**
+     * Constructs a {@link MasterNodeImpl} with the given RMI registry.
+     *
+     * @param registry the RMI registry
+     */
     public MasterNodeImpl(Registry registry) {
         clients = new ConcurrentHashMap<>();
         clientStates = new ConcurrentHashMap<>();

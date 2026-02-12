@@ -43,6 +43,11 @@ public class ListParameters {
         return new Option(NAME, "list all the parameters that can be set with -D");
     }
 
+    /**
+     * Lists all available parameters and their default values to the console.
+     *
+     * @return null
+     */
     public static Object execute() {
 
         List<Row> rows = new ArrayList<>();

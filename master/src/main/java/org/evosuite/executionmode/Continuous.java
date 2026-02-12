@@ -42,12 +42,25 @@ public class Continuous {
 
     public static final String NAME = "continuous";
 
+    /**
+     * Returns the command line option for continuous test generation.
+     *
+     * @return the command line option
+     */
     public static Option getOption() {
         String description = "Run Continuous Test Generation (CTG).";
         description += " Valid values are: " + Arrays.toString(Command.values());
         return new Option(NAME, true, description);
     }
 
+    /**
+     * Executes the continuous test generation mode.
+     *
+     * @param options the command line options
+     * @param javaOpts the java options
+     * @param line the command line
+     * @return null
+     */
     public static Object execute(Options options, List<String> javaOpts, CommandLine line) {
 
         String opt = line.getOptionValue(NAME);

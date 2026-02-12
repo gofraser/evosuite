@@ -99,20 +99,20 @@ public class TimeController {
     }
 
     /**
-     * Execute the given runnable synchronously, but issue a warning if it takes too long
+     * Execute the given runnable synchronously, but issue a warning if it takes too long.
      *
-     * @param runnable
+     * @param runnable the runnable to execute
      * @param name         of the operation (will be used in the log)
-     * @param warn_time_ms max time allowed for this operation before issuing a warning
+     * @param warnTimeMs max time allowed for this operation before issuing a warning
      */
-    public static void execute(Runnable runnable, String name, long warn_time_ms) {
+    public static void execute(Runnable runnable, String name, long warnTimeMs) {
         Inputs.checkNull(runnable, name);
 
         long start = java.lang.System.currentTimeMillis();
         runnable.run();
         long delta = java.lang.System.currentTimeMillis() - start;
 
-        if (delta > warn_time_ms) {
+        if (delta > warnTimeMs) {
             logger.warn("Operation '{}' took too long: {}ms", name, delta);
         }
     }
@@ -144,15 +144,21 @@ public class TimeController {
     }
 
     /**
-     * Get the singleton reference
+     * Get the singleton reference.
      *
-     * @return
+     * @return the singleton instance of TimeController
      */
     public static TimeController getInstance() {
         return singleton;
     }
 
 
+    /**
+     * Update the current state of the client.
+     *
+     * @param newState the new state to transition to
+     * @throws IllegalArgumentException if the transition is invalid
+     */
     public synchronized void updateState(ClientState newState) throws IllegalArgumentException {
         Inputs.checkNull(newState);
 
@@ -182,11 +188,13 @@ public class TimeController {
                 long left = timeoutInMs - elapsed;
                 if (left < -(0.1 * timeoutInMs)) {
                     //just check if phase went over by more than 10%...
-                    logger.warn("Phase " + state + " lasted too long, " + (-left / 1000) + " seconds more than allowed.");
+                    logger.warn("Phase " + state + " lasted too long, " + (-left / 1000)
+                            + " seconds more than allowed.");
                 }
                 if (Properties.REUSE_LEFTOVER_TIME) {
                     timeLeftFromPreviousPhases += left;
-                    logger.info("Time left from previous phases: {}/{} -> {}, {}", left, timeoutInMs, timeLeftFromPreviousPhases, getLeftTimeBeforeEnd());
+                    logger.info("Time left from previous phases: {}/{} -> {}, {}",
+                            left, timeoutInMs, timeLeftFromPreviousPhases, getLeftTimeBeforeEnd());
                 }
             }
 
@@ -209,6 +217,11 @@ public class TimeController {
         }
     }
 
+    /**
+     * Get the search budget in seconds.
+     *
+     * @return the search budget in seconds
+     */
     public static int getSearchBudgetInSeconds() {
         if (Properties.STOPPING_CONDITION == StoppingCondition.MAXTIME) {
             return (int) Properties.SEARCH_BUDGET;
@@ -217,6 +230,11 @@ public class TimeController {
         }
     }
 
+    /**
+     * Calculate for how long the client will run in seconds.
+     *
+     * @return the total expected runtime in seconds
+     */
     public int calculateForHowLongClientWillRunInSeconds() {
         int time = Properties.EXTRA_TIMEOUT;
 
@@ -236,7 +254,8 @@ public class TimeController {
         if (Properties.JUNIT_TESTS) {
             time += Properties.WRITE_JUNIT_TIMEOUT;
             if (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE || (
-                    Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL && ClassPathHacker.isJunitCheckAvailable())) {
+                    Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL
+                            && ClassPathHacker.isJunitCheckAvailable())) {
                 time += Properties.JUNIT_CHECK_TIMEOUT;
             }
         }
@@ -250,16 +269,27 @@ public class TimeController {
      * also on how maximum long a test case can be left run
      * before trying to kill its threads if timeout.
      *
-     * @return
+     * @return true if there is still time to execute a test case, false otherwise
      */
     public synchronized boolean hasTimeToExecuteATestCase() {
         return isThereStillTimeInThisPhase(Properties.TIMEOUT);
     }
 
+    /**
+     * Check if there is still time left in the current phase.
+     *
+     * @return true if there is still time, false otherwise
+     */
     public synchronized boolean isThereStillTimeInThisPhase() {
         return isThereStillTimeInThisPhase(1);
     }
 
+    /**
+     * Check if there is at least the given number of milliseconds left in the current phase.
+     *
+     * @param ms the number of milliseconds to check for
+     * @return true if there is still at least ms left, false otherwise
+     */
     public synchronized boolean isThereStillTimeInThisPhase(long ms) {
 
         if (state.equals(ClientState.NOT_STARTED)) {
@@ -288,6 +318,11 @@ public class TimeController {
         return true;
     }
 
+    /**
+     * Get the remaining time before the client should terminate.
+     *
+     * @return the remaining time in milliseconds
+     */
     private long getLeftTimeBeforeEnd() {
         long timeSinceStart = System.currentTimeMillis() - clientStartTime;
         long totalTimeLimit = 1000 * calculateForHowLongClientWillRunInSeconds();

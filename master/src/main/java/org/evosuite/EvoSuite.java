@@ -61,6 +61,13 @@ public class EvoSuite {
         LoggingUtils.loadLogbackForEvoSuite();
     }
 
+    /**
+     * Generates an inheritance tree for the given classpath.
+     *
+     * @param cp the classpath
+     * @return the absolute path to the generated inheritance tree file
+     * @throws IOException if an I/O error occurs
+     */
     public static String generateInheritanceTree(String cp) throws IOException {
         LoggingUtils.getEvoLogger().info("* Analyzing classpath (generating inheritance tree)");
         List<String> cpList = Arrays.asList(cp.split(File.pathSeparator));
@@ -73,6 +80,11 @@ public class EvoSuite {
         return outputFile.getAbsolutePath();
     }
 
+    /**
+     * Returns true if there are legacy targets in the output directory.
+     *
+     * @return true if legacy targets are present
+     */
     public static boolean hasLegacyTargets() {
         File directory = new File(Properties.OUTPUT_DIR);
         if (!directory.exists()) {
@@ -108,6 +120,9 @@ public class EvoSuite {
     }
 
     private void setupProperties() {
+        if (Properties.IS_RUNNING_A_SYSTEM_TEST) {
+            return;
+        }
         if (base_dir_path.isEmpty()) {
             Properties.getInstanceSilent();
         } else {

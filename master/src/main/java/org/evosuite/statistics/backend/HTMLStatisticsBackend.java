@@ -121,6 +121,12 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
         FileIOUtils.writeFile(report.toString(), file);
     }
 
+    /**
+     * Copies a file from a source URL to a destination file.
+     *
+     * @param src  the source URL
+     * @param dest the destination file
+     */
     public static void copyFile(URL src, File dest) {
         try {
             InputStream in;
@@ -138,6 +144,11 @@ public class HTMLStatisticsBackend implements StatisticsBackend {
         }
     }
 
+    /**
+     * Copies a resource file to the report directory.
+     *
+     * @param name the name of the resource file
+     */
     public static void copyFile(String name) {
         URL systemResource = ClassLoader.getSystemResource("report/" + name);
         logger.debug("Copying from resource: " + systemResource);

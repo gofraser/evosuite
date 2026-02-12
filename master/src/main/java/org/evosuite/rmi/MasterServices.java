@@ -63,11 +63,22 @@ public class MasterServices {
     }
 
 
+    /**
+     * Returns the singleton instance of {@link MasterServices}.
+     *
+     * @return the singleton instance
+     */
     public static MasterServices getInstance() {
         return instance;
     }
 
 
+    /**
+     * Starts the RMI registry.
+     *
+     * @return true if started
+     * @throws IllegalStateException if already running
+     */
     public boolean startRegistry() throws IllegalStateException {
 
         if (registry != null) {
@@ -150,6 +161,11 @@ public class MasterServices {
         return registryPort;
     }
 
+    /**
+     * Registers the RMI services.
+     *
+     * @throws RemoteException if registration fails
+     */
     public void registerServices() throws RemoteException {
         masterNode = new MasterNodeImpl(registry);
         MasterNodeRemote stub = (MasterNodeRemote) UtilsRMI.exportObject(masterNode);
@@ -157,10 +173,18 @@ public class MasterServices {
     }
 
 
+    /**
+     * Returns the local master node.
+     *
+     * @return the master node
+     */
     public MasterNodeLocal getMasterNode() {
         return masterNode;
     }
 
+    /**
+     * Stops the RMI services and the registry.
+     */
     public void stopServices() {
         if (masterNode != null) {
             try {

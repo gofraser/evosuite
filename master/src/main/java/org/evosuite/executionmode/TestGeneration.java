@@ -60,6 +60,14 @@ public class TestGeneration {
 
     private static final Logger logger = LoggerFactory.getLogger(TestGeneration.class);
 
+    /**
+     * Executes the test generation mode.
+     *
+     * @param options the command line options
+     * @param javaOpts the java options
+     * @param line the command line
+     * @return the test generation results
+     */
     public static List<List<TestGenerationResult>> executeTestGeneration(Options options, List<String> javaOpts,
                                                                          CommandLine line) {
 
@@ -123,6 +131,11 @@ public class TestGeneration {
         return results;
     }
 
+    /**
+     * Returns the available options for test generation.
+     *
+     * @return an array of options
+     */
     public static Option[] getOptions() {
         return new Option[]{
                 new Option("generateSuite", "use whole suite generation."),

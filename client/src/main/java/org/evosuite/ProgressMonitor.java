@@ -30,11 +30,10 @@ import org.evosuite.rmi.service.ClientStateInformation;
 import java.io.Serializable;
 
 /**
- * <p>
- * ProgressMonitor class.
- * </p>
+ * Monitor the progress of the search and notify the client node about state changes.
  *
  * @author gordon
+ * @param <T> The type of Chromosome being evolved.
  */
 public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<T>, Serializable {
 
@@ -49,6 +48,9 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
     protected int iteration;
     protected ClientState state;
 
+    /**
+     * Default constructor.
+     */
     public ProgressMonitor() {
         stoppingCondition = null;
         max = 1;
@@ -59,6 +61,11 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
         state = ClientState.INITIALIZATION;
     }
 
+    /**
+     * Copy constructor.
+     *
+     * @param that the ProgressMonitor to copy from.
+     */
     public ProgressMonitor(ProgressMonitor<T> that) {
         this.stoppingCondition = that.stoppingCondition.clone();
         this.max = that.max;
@@ -70,11 +77,9 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
     }
 
     /**
-     * <p>
-     * updateStatus
-     * </p>
+     * Update the progress status and notify the client node.
      *
-     * @param percent a int.
+     * @param percent the current progress as a percentage.
      */
     public void updateStatus(int percent) {
         ClientState state = ClientState.SEARCH;
@@ -82,7 +87,8 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
         information.setCoverage(currentCoverage);
         information.setProgress(percent);
         information.setIteration(iteration);
-        //LoggingUtils.getEvoLogger().info("Setting to: "+state.getNumPhase()+": "+information.getCoverage()+"/"+information.getProgress());
+        // LoggingUtils.getEvoLogger().info("Setting to: "+state.getNumPhase()+": "
+        // +information.getCoverage()+"/"+information.getProgress());
         ClientServices.getInstance().getClientNode().changeState(state, information);
         lastProgress = percent;
         lastCoverage = currentCoverage;
@@ -103,8 +109,9 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         for (StoppingCondition<T> cond : algorithm.getStoppingConditions()) {
-            if (cond.getLimit() == 0) // No ZeroStoppingCondition
+            if (cond.getLimit() == 0) { // No ZeroStoppingCondition
                 continue;
+            }
             stoppingCondition = cond;
             max = stoppingCondition.getLimit();
             break;
@@ -153,8 +160,9 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
     public void fitnessEvaluation(T individual) {
         int current = (int) ((int) (100 * stoppingCondition.getCurrentValue()) / max);
         currentCoverage = (int) Math.floor(individual.getCoverage() * 100);
-        if (currentCoverage > lastCoverage || current > lastProgress)
+        if (currentCoverage > lastCoverage || current > lastProgress) {
             updateStatus(current);
+        }
     }
 
     /* (non-Javadoc)

@@ -31,6 +31,12 @@ public class Help {
         return new Option(NAME, "print this message");
     }
 
+    /**
+     * Prints the help message to the console.
+     *
+     * @param options the command line options
+     * @return null
+     */
     public static Object execute(Options options) {
         HelpFormatter formatter = HelpFormatter.builder().get();
         try {

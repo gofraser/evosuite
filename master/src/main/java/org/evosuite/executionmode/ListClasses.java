@@ -44,6 +44,13 @@ public class ListClasses {
         return new Option(NAME, "list the testable classes found in the specified classpath/prefix");
     }
 
+    /**
+     * Executes the class listing mode.
+     *
+     * @param options the command line options
+     * @param line the command line
+     * @return null
+     */
     public static Object execute(Options options, CommandLine line) {
         if (line.hasOption("prefix")) {
             listClassesPrefix(line.getOptionValue("prefix"));

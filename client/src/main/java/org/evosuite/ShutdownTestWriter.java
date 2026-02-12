@@ -60,8 +60,9 @@ public class ShutdownTestWriter<T extends Chromosome<T>> extends StoppingConditi
         LoggingUtils.getEvoLogger().info("\n* User requested search stop");
 
         // If this is the second Ctrl+C the user _really_ wants to stop...
-        if (interrupted)
+        if (interrupted) {
             System.exit(0);
+        }
         interrupted = true;
     }
 
@@ -74,11 +75,9 @@ public class ShutdownTestWriter<T extends Chromosome<T>> extends StoppingConditi
     }
 
     /**
-     * <p>
-     * isInterrupted
-     * </p>
+     * Check if the search has been interrupted.
      *
-     * @return a boolean.
+     * @return true if search was interrupted, false otherwise
      */
     public static boolean isInterrupted() {
         return interrupted;
