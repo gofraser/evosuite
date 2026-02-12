@@ -42,6 +42,12 @@ public class BranchNoveltyFunction extends NoveltyFunction<TestChromosome> {
 
     private final Set<String> branchlessMethods = new LinkedHashSet<>();
 
+    /**
+     * Initializes the novelty function by collecting uninstrumented branches and branchless methods.
+     *
+     * <p>It retrieves the BranchPool using the SUT classloader and populates the set of branches
+     * and branchless methods to be used for distance calculation.
+     */
     public BranchNoveltyFunction() {
         ClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
         BranchPool branchPool = BranchPool.getInstance(classLoader);
