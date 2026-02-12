@@ -72,9 +72,9 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
      * {@inheritDoc}
      */
     @Override
-    public void branchPassed(int branch, int bytecode_id, double true_distance, double false_distance) {
+    public void branchPassed(int branch, int bytecodeId, double trueDistance, double falseDistance) {
         copyOnWrite();
-        trace.branchPassed(branch, bytecode_id, true_distance, false_distance);
+        trace.branchPassed(branch, bytecodeId, trueDistance, falseDistance);
     }
 
     /*
@@ -94,7 +94,7 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 
     /**
      * <p>
-     * copyOnWrite
+     * copyOnWrite.
      * </p>
      */
     public void copyOnWrite() {
@@ -116,9 +116,9 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
      * {@inheritDoc}
      */
     @Override
-    public void definitionPassed(Object object, Object caller, int defID) {
+    public void definitionPassed(Object object, Object caller, int defId) {
         copyOnWrite();
-        trace.definitionPassed(object, caller, defID);
+        trace.definitionPassed(object, caller, defId);
     }
 
     /*
@@ -724,9 +724,9 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
      * {@inheritDoc}
      */
     @Override
-    public void usePassed(Object object, Object caller, int useID) {
+    public void usePassed(Object object, Object caller, int useId) {
         copyOnWrite();
-        trace.usePassed(object, caller, useID);
+        trace.usePassed(object, caller, useId);
     }
 
     /*

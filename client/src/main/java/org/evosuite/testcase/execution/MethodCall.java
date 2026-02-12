@@ -36,7 +36,7 @@ public class MethodCall implements Cloneable {
     public List<Double> falseDistanceTrace;
     public List<Integer> defuseCounterTrace;
     public int methodId;
-    public int callingObjectID;
+    public int callingObjectId;
     public int callDepth;
 
     /**
@@ -45,11 +45,11 @@ public class MethodCall implements Cloneable {
      * @param className       a {@link java.lang.String} object.
      * @param methodName      a {@link java.lang.String} object.
      * @param methodId        a int.
-     * @param callingObjectID a int.
+     * @param callingObjectId a int.
      * @param callDepth       a int.
      */
     public MethodCall(String className, String methodName, int methodId,
-                      int callingObjectID, int callDepth) {
+                      int callingObjectId, int callDepth) {
         this.className = className;
         this.methodName = methodName;
         lineTrace = new ArrayList<>();
@@ -58,7 +58,7 @@ public class MethodCall implements Cloneable {
         falseDistanceTrace = new ArrayList<>();
         defuseCounterTrace = new ArrayList<>();
         this.methodId = methodId;
-        this.callingObjectID = callingObjectID;
+        this.callingObjectId = callingObjectId;
         this.callDepth = callDepth;
     }
 
@@ -95,7 +95,7 @@ public class MethodCall implements Cloneable {
     }
 
     /**
-     * <p>explain</p>
+     * <p>explain.</p>
      *
      * @return a {@link java.lang.String} object.
      */
@@ -160,7 +160,7 @@ public class MethodCall implements Cloneable {
     @Override
     public MethodCall clone() {
         MethodCall copy = new MethodCall(className, methodName, methodId,
-                callingObjectID, callDepth);
+                callingObjectId, callDepth);
         copy.lineTrace = new ArrayList<>(lineTrace);
         copy.branchTrace = new ArrayList<>(branchTrace);
         copy.trueDistanceTrace = new ArrayList<>(trueDistanceTrace);

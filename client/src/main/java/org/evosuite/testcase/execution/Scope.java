@@ -36,6 +36,9 @@ import java.util.Map.Entry;
  */
 public class Scope {
 
+    /**
+     * Map of variable references to their current values.
+     */
     private final Map<VariableReference, Object> pool;
 
     /**
@@ -75,8 +78,7 @@ public class Scope {
                     idx++;
                 }
                 arrayRef.setLengths(lengths);
-            } else
-                 {
+            } else {
                 arrayRef.setArrayLength(0);
             }
         }

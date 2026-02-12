@@ -40,7 +40,7 @@ public abstract class ExecutionObserver {
     protected static TestCase currentTest = null;
 
     /**
-     * Constant <code>WRAPPER_TYPES</code>
+     * Constant <code>WRAPPER_TYPES</code>.
      */
     protected static final Set<Class<?>> WRAPPER_TYPES = new HashSet<>(
             Arrays.asList(Boolean.class, Character.class, Byte.class, Short.class,
@@ -49,7 +49,7 @@ public abstract class ExecutionObserver {
 
     /**
      * <p>
-     * isWrapperType
+     * isWrapperType.
      * </p>
      *
      * @param clazz a {@link java.lang.Class} object.

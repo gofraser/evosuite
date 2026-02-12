@@ -44,12 +44,12 @@ import java.util.concurrent.*;
 /**
  * <p>
  * The test case executor manages thread creation/deletion to execute a test
- * case
+ * case.
  * </p>
  *
  * <p>
  * WARNING: never give "privileged" rights in MSecurityManager to any of the
- * threads generated here
+ * threads generated here.
  * </p>
  *
  * @author Gordon Fraser
@@ -87,12 +87,12 @@ public class TestCaseExecutor implements ThreadFactory {
     private final Set<Thread> stalledThreads = new HashSet<>();
 
     /**
-     * Constant <code>timeExecuted=0</code>
+     * Constant <code>timeExecuted=0</code>.
      */
     private static long timeExecuted = 0;
 
     /**
-     * Constant <code>testsExecuted=0</code>
+     * Constant <code>testsExecuted=0</code>.
      */
     private static int testsExecuted = 0;
 
@@ -114,12 +114,9 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>instance</code>.
-     * </p>
+     * <p>Getter for the field <code>instance</code>.</p>
      *
-     * @return a {@link org.evosuite.testcase.execution.TestCaseExecutor}
-     * object.
+     * @return a {@link org.evosuite.testcase.execution.TestCaseExecutor} object.
      */
     public static synchronized TestCaseExecutor getInstance() {
         if (instance == null) {
@@ -165,7 +162,7 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * <p>
-     * setup
+     * setup.
      * </p>
      */
     public void setup() {
@@ -174,7 +171,7 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * <p>
-     * pullDown
+     * pullDown.
      * </p>
      */
     public static void pullDown() {
@@ -188,7 +185,7 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * <p>
-     * initExecutor
+     * initExecutor.
      * </p>
      */
     public static void initExecutor() {
@@ -204,7 +201,7 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * <p>
-     * addObserver
+     * addObserver.
      * </p>
      *
      * @param observer a {@link org.evosuite.testcase.execution.ExecutionObserver}
@@ -219,7 +216,7 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * <p>
-     * removeObserver
+     * removeObserver.
      * </p>
      *
      * @param observer a {@link org.evosuite.testcase.execution.ExecutionObserver}
@@ -234,7 +231,7 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * <p>
-     * newObservers
+     * newObservers.
      * </p>
      */
     public void newObservers() {
@@ -397,8 +394,11 @@ public class TestCaseExecutor implements ThreadFactory {
             try {
                 handler.getLastTask().get(Properties.SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e2) {
+                // Ignore
             } catch (ExecutionException e2) {
+                // Ignore
             } catch (TimeoutException e2) {
+                // Ignore
             }
             // task.cancel(true);
 
@@ -511,9 +511,7 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
-     * <p>
-     * getNumStalledThreads
-     * </p>
+     * <p>getNumStalledThreads.</p>
      *
      * @return a int.
      */

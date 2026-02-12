@@ -41,14 +41,14 @@ import java.util.List;
  */
 class ClassReInitializeExecutor {
 
-    private final static Logger logger = LoggerFactory.getLogger(ClassReInitializeExecutor.class);
+    private static final Logger logger = LoggerFactory.getLogger(ClassReInitializeExecutor.class);
 
     private static final ClassReInitializeExecutor instance = new ClassReInitializeExecutor();
 
     private ClassReInitializeExecutor() {
     }
 
-    public synchronized static ClassReInitializeExecutor getInstance() {
+    public static synchronized ClassReInitializeExecutor getInstance() {
         return instance;
     }
 

@@ -129,7 +129,7 @@ public class ExecutionResult implements Cloneable {
 
     /**
      * <p>
-     * Copy the input map data into internal structures
+     * Copy the input map data into internal structures.
      * </p>
      *
      * @param data a {@link java.util.Map} object. It has a mapping from test
@@ -143,7 +143,7 @@ public class ExecutionResult implements Cloneable {
 
     /**
      * <p>
-     * getFirstPositionOfThrownException
+     * getFirstPositionOfThrownException.
      * </p>
      *
      * @return a {@link java.lang.Integer} object.
@@ -156,7 +156,7 @@ public class ExecutionResult implements Cloneable {
 
     /**
      * <p>
-     * reportNewThrownException
+     * reportNewThrownException.
      * </p>
      *
      * @param position a {@link java.lang.Integer} object.
@@ -168,7 +168,7 @@ public class ExecutionResult implements Cloneable {
 
     /**
      * <p>
-     * getPositionsWhereExceptionsWereThrown
+     * getPositionsWhereExceptionsWereThrown.
      * </p>
      *
      * @return a {@link java.util.Set} object.
@@ -179,7 +179,7 @@ public class ExecutionResult implements Cloneable {
 
     /**
      * <p>
-     * getAllThrownExceptions
+     * getAllThrownExceptions.
      * </p>
      *
      * @return a {@link java.util.Collection} object.
@@ -190,7 +190,7 @@ public class ExecutionResult implements Cloneable {
 
     /**
      * <p>
-     * isThereAnExceptionAtPosition
+     * isThereAnExceptionAtPosition.
      * </p>
      *
      * @param position a {@link java.lang.Integer} object.
@@ -202,7 +202,7 @@ public class ExecutionResult implements Cloneable {
 
     /**
      * <p>
-     * noThrownExceptions
+     * noThrownExceptions.
      * </p>
      *
      * @return a boolean.
@@ -213,7 +213,7 @@ public class ExecutionResult implements Cloneable {
 
     /**
      * <p>
-     * getExceptionThrownAtPosition
+     * getExceptionThrownAtPosition.
      * </p>
      *
      * @param position a {@link java.lang.Integer} object.
@@ -225,7 +225,7 @@ public class ExecutionResult implements Cloneable {
 
     /**
      * <p>
-     * getNumberOfThrownExceptions
+     * getNumberOfThrownExceptions.
      * </p>
      *
      * @return a int.
@@ -346,7 +346,8 @@ public class ExecutionResult implements Cloneable {
         for (int i : exceptions.keySet()) {
             Throwable t = exceptions.get(i);
             // Exceptions can be placed at test.size(), e.g. for timeouts
-            assert i >= 0 && i <= test.size() : "Exception " + t + " at position " + i + " in test of length " + test.size() + ": " + test.toCode(exceptions);
+            assert i >= 0 && i <= test.size() : "Exception " + t
+                    + " at position " + i + " in test of length " + test.size() + ": " + test.toCode(exceptions);
             if (i >= test.size()) {
                 continue;
             }
@@ -492,6 +493,11 @@ public class ExecutionResult implements Cloneable {
         return explicitExceptions;
     }
 
+    /**
+     * Set the map of explicit exceptions.
+     *
+     * @param explicitExceptions a {@link java.util.Map} object.
+     */
     public void setExplicitExceptions(Map<Integer, Boolean> explicitExceptions) {
         if (explicitExceptions != null) {
             this.explicitExceptions = explicitExceptions;

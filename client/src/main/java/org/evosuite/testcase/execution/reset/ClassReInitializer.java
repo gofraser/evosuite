@@ -52,10 +52,18 @@ public class ClassReInitializer {
 
     private static ClassReInitializer instance = null;
 
+    /**
+     * Reset the singleton instance.
+     */
     public static void resetSingleton() {
         instance = null;
     }
 
+    /**
+     * <p>Getter for the field <code>instance</code>.</p>
+     *
+     * @return a {@link org.evosuite.testcase.execution.reset.ClassReInitializer} object.
+     */
     public static ClassReInitializer getInstance() {
         if (instance == null) {
             instance = new ClassReInitializer();
@@ -151,7 +159,7 @@ public class ClassReInitializer {
         } else {
 
             // second, re-initialize classes
-            if (reset_all_observed_classes) {
+            if (resetAllObservedClasses) {
                 ClassReInitializeExecutor.getInstance().resetClasses(initializedClasses);
             } else {
                 // reset only classes that were "observed" to have some
@@ -183,7 +191,7 @@ public class ClassReInitializer {
         }
     }
 
-    private boolean reset_all_observed_classes = false;
+    private boolean resetAllObservedClasses = false;
 
     /**
      * Indicates if we should re-initialize all observed classes of only those
@@ -192,7 +200,7 @@ public class ClassReInitializer {
      * @param reInitializeAllClasses whether to re-initialize all classes.
      */
     public void setReInitializeAllClasses(boolean reInitializeAllClasses) {
-        reset_all_observed_classes = reInitializeAllClasses;
+        resetAllObservedClasses = reInitializeAllClasses;
     }
 
     /**

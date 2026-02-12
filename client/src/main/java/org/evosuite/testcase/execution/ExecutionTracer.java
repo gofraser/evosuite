@@ -53,7 +53,7 @@ public class ExecutionTracer {
      */
     private boolean killSwitch = false;
 
-    private int num_statements = 0;
+    private int numStatements = 0;
 
     private ExecutionTrace trace;
 
@@ -67,9 +67,7 @@ public class ExecutionTracer {
     private static volatile Thread currentThread = null;
 
     /**
-     * <p>
-     * setThread
-     * </p>
+     * <p>setThread.</p>
      *
      * @param thread a {@link java.lang.Thread} object.
      */
@@ -78,9 +76,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * disable
-     * </p>
+     * <p>disable.</p>
      */
     public static void disable() {
         ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
@@ -88,9 +84,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * enable
-     * </p>
+     * <p>enable.</p>
      */
     public static void enable() {
         ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
@@ -98,9 +92,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * isEnabled
-     * </p>
+     * <p>isEnabled.</p>
      *
      * @return a boolean.
      */
@@ -110,9 +102,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * Setter for the field <code>killSwitch</code>.
-     * </p>
+     * <p>Setter for the field <code>killSwitch</code>.</p>
      *
      * @param value a boolean.
      */
@@ -122,9 +112,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * Setter for the field <code>checkCallerThread</code>.
-     * </p>
+     * <p>Setter for the field <code>checkCallerThread</code>.</p>
      *
      * @param checkCallerThread a boolean.
      */
@@ -133,9 +121,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * enable context instrumentation
-     * </p>
+     * <p>enable context instrumentation.</p>
      */
     public static void enableContext() {
         logger.info("enable context and trace instrumentation");
@@ -143,9 +129,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * disable context instrumentation
-     * </p>
+     * <p>disable context instrumentation.</p>
      */
     public static void disableContext() {
         logger.info("disable context and trace instrumentation");
@@ -153,18 +137,14 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * disableTraceCalls
-     * </p>
+     * <p>disableTraceCalls.</p>
      */
     public static void disableTraceCalls() {
         ExecutionTraceImpl.disableTraceCalls();
     }
 
     /**
-     * <p>
-     * enableTraceCalls
-     * </p>
+     * <p>enableTraceCalls.</p>
      */
     public static void enableTraceCalls() {
         ExecutionTraceImpl.enableTraceCalls();
@@ -175,9 +155,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * getExecutionTracer
-     * </p>
+     * <p>getExecutionTracer.</p>
      *
      * @return a {@link org.evosuite.testcase.execution.ExecutionTracer} object.
      */
@@ -194,7 +172,7 @@ public class ExecutionTracer {
     public void clear() {
         trace = new ExecutionTraceProxy();
         BooleanHelper.clearStack();
-        num_statements = 0;
+        numStatements = 0;
     }
 
     /**
@@ -422,9 +400,9 @@ public class ExecutionTracer {
      * @param val         a int.
      * @param opcode      a int.
      * @param branch      a int.
-     * @param bytecode_id a int.
+     * @param bytecodeId a int.
      */
-    public static void passedBranch(int val, int opcode, int branch, int bytecode_id) {
+    public static void passedBranch(int val, int opcode, int branch, int bytecodeId) {
 
         ExecutionTracer tracer = getExecutionTracer();
         // logger.info("passedBranch val="+val+", opcode="+opcode+", branch="+branch+", bytecode_id="+bytecode_id);
@@ -440,41 +418,42 @@ public class ExecutionTracer {
 
         ConstantPoolManager.getInstance().addDynamicConstant(val);
 
-        // logger.trace("Called passedBranch1 with opcode "+AbstractVisitor.OPCODES[opcode]+" and val "+val+" in branch "+branch);
-        double distance_true = 0.0;
-        double distance_false = 0.0;
+        // logger.trace("Called passedBranch1 with opcode " + AbstractVisitor.OPCODES[opcode] 
+        // + " and val " + val + " in branch " + branch);
+        double distanceTrue = 0.0;
+        double distanceFalse = 0.0;
         switch (opcode) {
             case Opcodes.IFEQ:
-                distance_true = Math.abs((double) val); // The greater abs is, the
+                distanceTrue = Math.abs((double) val); // The greater abs is, the
                 // further away from 0
-                distance_false = distance_true == 0 ? 1.0 : 0.0; // Anything but 0
+                distanceFalse = distanceTrue == 0 ? 1.0 : 0.0; // Anything but 0
                 // is good
                 break;
             case Opcodes.IFNE:
-                distance_false = Math.abs((double) val); // The greater abs is, the
+                distanceFalse = Math.abs((double) val); // The greater abs is, the
                 // further away from 0
-                distance_true = distance_false == 0 ? 1.0 : 0.0; // Anything but 0
+                distanceTrue = distanceFalse == 0 ? 1.0 : 0.0; // Anything but 0
                 // leads to NE
                 break;
             case Opcodes.IFLT:
-                distance_true = val >= 0 ? val + 1.0 : 0.0; // The greater, the
+                distanceTrue = val >= 0 ? val + 1.0 : 0.0; // The greater, the
                 // further away from < 0
-                distance_false = val < 0 ? 0.0 - val + 1.0 : 0.0; // The smaller,
+                distanceFalse = val < 0 ? 0.0 - val + 1.0 : 0.0; // The smaller,
                 // the further
                 // away from < 0
                 break;
             case Opcodes.IFGT:
-                distance_true = val <= 0 ? 0.0 - val + 1.0 : 0.0;
-                distance_false = val > 0 ? val + 1.0 : 0.0;
+                distanceTrue = val <= 0 ? 0.0 - val + 1.0 : 0.0;
+                distanceFalse = val > 0 ? val + 1.0 : 0.0;
                 break;
             case Opcodes.IFGE:
-                distance_true = val < 0 ? 0.0 - val + 1.0 : 0.0;
-                distance_false = val >= 0 ? val + 1.0 : 0.0;
+                distanceTrue = val < 0 ? 0.0 - val + 1.0 : 0.0;
+                distanceFalse = val >= 0 ? val + 1.0 : 0.0;
                 break;
             case Opcodes.IFLE:
-                distance_true = val > 0 ? val + 1.0 : 0.0; // The greater, the
+                distanceTrue = val > 0 ? val + 1.0 : 0.0; // The greater, the
                 // further away from < 0
-                distance_false = val <= 0 ? 0.0 - val + 1.0 : 0.0; // The smaller,
+                distanceFalse = val <= 0 ? 0.0 - val + 1.0 : 0.0; // The smaller,
                 // the further
                 // away from < 0
                 break;
@@ -486,9 +465,15 @@ public class ExecutionTracer {
         // logger.trace("1 Branch distance false: " + distance_false);
 
         // Add current branch to control trace
-        tracer.trace.branchPassed(branch, bytecode_id, distance_true, distance_false);
+        tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
     }
 
+    /**
+     * Called by instrumented code each time a static field is written to.
+     *
+     * @param classNameWithDots the class name
+     * @param fieldName the field name
+     */
     public static void passedPutStatic(String classNameWithDots, String fieldName) {
         ExecutionTracer tracer = getExecutionTracer();
         if (tracer.disabled) {
@@ -515,13 +500,13 @@ public class ExecutionTracer {
         final String classNameWithDots = className.replace('/', '.');
 
         ExecutionTracer tracer = getExecutionTracer();
-//        if (tracer.disabled)
-//            return;
-//
-//        if (isThreadNeqCurrentThread())
-//            return;
-//
-//        checkTimeout();
+        //        if (tracer.disabled)
+        //            return;
+        //
+        //        if (isThreadNeqCurrentThread())
+        //            return;
+        //
+        //        checkTimeout();
 
         tracer.trace.classInitialized(classNameWithDots);
 
@@ -555,10 +540,10 @@ public class ExecutionTracer {
      * @param val2        a int.
      * @param opcode      a int.
      * @param branch      a int.
-     * @param bytecode_id a int.
+     * @param bytecodeId a int.
      */
     public static void passedBranch(int val1, int val2, int opcode, int branch,
-                                    int bytecode_id) {
+                                    int bytecodeId) {
         ExecutionTracer tracer = getExecutionTracer();
         if (tracer.disabled) {
             return;
@@ -576,43 +561,43 @@ public class ExecutionTracer {
         /* logger.trace("Called passedBranch2 with opcode "
                 + AbstractVisitor.OPCODES[opcode] + ", val1=" + val1 + ", val2=" + val2
                 + " in branch " + branch); */
-        double distance_true = 0;
-        double distance_false = 0;
+        double distanceTrue = 0;
+        double distanceFalse = 0;
         switch (opcode) {
             // Problem is that the JVM is a stack machine
             // x < 5 gets compiled to a val2 > val1,
             // because operators are on the stack in reverse order
             case Opcodes.IF_ICMPEQ:
                 // The greater the difference, the further away
-                distance_true = Math.abs((double) val1 - (double) val2);
+                distanceTrue = Math.abs((double) val1 - (double) val2);
                 // Anything but 0 is good
-                distance_false = distance_true == 0 ? 1.0 : 0.0;
+                distanceFalse = distanceTrue == 0 ? 1.0 : 0.0;
                 break;
             case Opcodes.IF_ICMPNE:
                 // The greater abs is, the further away from 0
-                distance_false = Math.abs((double) val1 - (double) val2);
+                distanceFalse = Math.abs((double) val1 - (double) val2);
                 // Anything but 0 leads to NE
-                distance_true = distance_false == 0 ? 1.0 : 0.0;
+                distanceTrue = distanceFalse == 0 ? 1.0 : 0.0;
                 break;
             case Opcodes.IF_ICMPLT:
                 // val1 >= val2?
-                distance_true = val1 >= val2 ? (double) val1 - (double) val2 + 1.0 : 0.0;
-                distance_false = val1 < val2 ? (double) val2 - (double) val1 + 1.0 : 0.0;
+                distanceTrue = val1 >= val2 ? (double) val1 - (double) val2 + 1.0 : 0.0;
+                distanceFalse = val1 < val2 ? (double) val2 - (double) val1 + 1.0 : 0.0;
                 break;
             case Opcodes.IF_ICMPGE:
                 // val1 < val2?
-                distance_true = val1 < val2 ? (double) val2 - (double) val1 + 1.0 : 0.0;
-                distance_false = val1 >= val2 ? (double) val1 - (double) val2 + 1.0 : 0.0;
+                distanceTrue = val1 < val2 ? (double) val2 - (double) val1 + 1.0 : 0.0;
+                distanceFalse = val1 >= val2 ? (double) val1 - (double) val2 + 1.0 : 0.0;
                 break;
             case Opcodes.IF_ICMPGT:
                 // val1 <= val2?
-                distance_true = val1 <= val2 ? (double) val2 - (double) val1 + 1.0 : 0.0;
-                distance_false = val1 > val2 ? (double) val1 - (double) val2 + 1.0 : 0.0;
+                distanceTrue = val1 <= val2 ? (double) val2 - (double) val1 + 1.0 : 0.0;
+                distanceFalse = val1 > val2 ? (double) val1 - (double) val2 + 1.0 : 0.0;
                 break;
             case Opcodes.IF_ICMPLE:
                 // val1 > val2?
-                distance_true = val1 > val2 ? (double) val1 - (double) val2 + 1.0 : 0.0;
-                distance_false = val1 <= val2 ? (double) val2 - (double) val1 + 1.0 : 0.0;
+                distanceTrue = val1 > val2 ? (double) val1 - (double) val2 + 1.0 : 0.0;
+                distanceFalse = val1 <= val2 ? (double) val2 - (double) val1 + 1.0 : 0.0;
                 break;
             default:
                 logger.error("Unknown opcode: " + opcode);
@@ -621,7 +606,7 @@ public class ExecutionTracer {
         // logger.trace("2 Branch distance false: " + distance_false);
 
         // Add current branch to control trace
-        tracer.trace.branchPassed(branch, bytecode_id, distance_true, distance_false);
+        tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
         // tracer.trace.branchPassed(branch, distance_true, distance_false);
 
     }
@@ -633,10 +618,10 @@ public class ExecutionTracer {
      * @param val2        a {@link java.lang.Object} object.
      * @param opcode      a int.
      * @param branch      a int.
-     * @param bytecode_id a int.
+     * @param bytecodeId a int.
      */
     public static void passedBranch(Object val1, Object val2, int opcode, int branch,
-                                    int bytecode_id) {
+                                    int bytecodeId) {
         ExecutionTracer tracer = getExecutionTracer();
         if (tracer.disabled) {
             return;
@@ -648,23 +633,26 @@ public class ExecutionTracer {
 
         checkTimeout();
 
-        double distance_true = 0;
-        double distance_false = 0;
+        double distanceTrue = 0;
+        double distanceFalse = 0;
         // logger.warn("Disabling tracer: passedBranch with 2 Objects");
 
         switch (opcode) {
             case Opcodes.IF_ACMPEQ:
-                distance_true = val1 == val2 ? 0.0 : 1.0;
+                distanceTrue = val1 == val2 ? 0.0 : 1.0;
                 break;
             case Opcodes.IF_ACMPNE:
-                distance_true = val1 != val2 ? 0.0 : 1.0;
+                distanceTrue = val1 != val2 ? 0.0 : 1.0;
+                break;
+            default:
+                // default case added
                 break;
         }
 
-        distance_false = distance_true == 0 ? 1.0 : 0.0;
+        distanceFalse = distanceTrue == 0 ? 1.0 : 0.0;
 
         // Add current branch to control trace
-        tracer.trace.branchPassed(branch, bytecode_id, distance_true, distance_false);
+        tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
     }
 
     /**
@@ -673,9 +661,9 @@ public class ExecutionTracer {
      * @param val         a {@link java.lang.Object} object.
      * @param opcode      a int.
      * @param branch      a int.
-     * @param bytecode_id a int.
+     * @param bytecodeId a int.
      */
-    public static void passedBranch(Object val, int opcode, int branch, int bytecode_id) {
+    public static void passedBranch(Object val, int opcode, int branch, int bytecodeId) {
         ExecutionTracer tracer = getExecutionTracer();
         if (tracer.disabled) {
             return;
@@ -687,26 +675,26 @@ public class ExecutionTracer {
 
         checkTimeout();
 
-        double distance_true = 0;
-        double distance_false = 0;
+        double distanceTrue = 0;
+        double distanceFalse = 0;
         switch (opcode) {
             case Opcodes.IFNULL:
-                distance_true = val == null ? 0.0 : 1.0;
+                distanceTrue = val == null ? 0.0 : 1.0;
                 break;
             case Opcodes.IFNONNULL:
-                distance_true = val == null ? 1.0 : 0.0;
+                distanceTrue = val == null ? 1.0 : 0.0;
                 break;
             default:
                 logger.error("Warning: encountered opcode " + opcode);
         }
-        distance_false = distance_true == 0 ? 1.0 : 0.0;
+        distanceFalse = distanceTrue == 0 ? 1.0 : 0.0;
         // enable();
 
         // logger.trace("Branch distance true: " + distance_true);
         // logger.trace("Branch distance false: " + distance_false);
 
         // Add current branch to control trace
-        tracer.trace.branchPassed(branch, bytecode_id, distance_true, distance_false);
+        tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
     }
 
     /**
@@ -714,16 +702,16 @@ public class ExecutionTracer {
      * Definition).
      *
      * @param caller a {@link java.lang.Object} object.
-     * @param defID  a int.
+     * @param defId  a int.
      */
-    public static void passedDefinition(Object object, Object caller, int defID) {
+    public static void passedDefinition(Object object, Object caller, int defId) {
         if (isThreadNeqCurrentThread()) {
             return;
         }
 
         ExecutionTracer tracer = getExecutionTracer();
         if (!tracer.disabled) {
-            tracer.trace.definitionPassed(object, caller, defID);
+            tracer.trace.definitionPassed(object, caller, defId);
         }
     }
 
@@ -731,9 +719,9 @@ public class ExecutionTracer {
      * Called by instrumented code each time a variable is read from (a Use).
      *
      * @param caller a {@link java.lang.Object} object.
-     * @param useID  a int.
+     * @param useId  a int.
      */
-    public static void passedUse(Object object, Object caller, int useID) {
+    public static void passedUse(Object object, Object caller, int useId) {
 
         ExecutionTracer tracer = getExecutionTracer();
         if (tracer.disabled) {
@@ -744,17 +732,17 @@ public class ExecutionTracer {
             return;
         }
 
-        tracer.trace.usePassed(object, caller, useID);
+        tracer.trace.usePassed(object, caller, useId);
     }
 
     /**
      * Called by instrumented code each time a field method call is passed.
      *
-     * <p>
-     * Since it was not clear whether the field method call constitutes a
+     * <p>Since it was not clear whether the field method call constitutes a
      * definition or a use when the instrumentation was initially added this
-     * method will redirect the call accordingly.
+     * method will redirect the call accordingly.</p>
      *
+     * @param callee the callee
      * @param caller the caller.
      * @param defuseId the def-use ID.
      */
@@ -774,8 +762,7 @@ public class ExecutionTracer {
         } else if (DefUsePool.isKnownAsUse(defuseId)) {
             Use passedUse = DefUsePool.getUseByDefUseId(defuseId);
             passedUse(callee, caller, passedUse.getUseId());
-        } else
-             {
+        } else {
             throw new EvosuiteError(
                     "instrumentation called passedFieldMethodCall with invalid defuseId: "
                             + defuseId + ", known IDs: " + DefUsePool.getDefUseCounter());
@@ -783,9 +770,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * passedMutation
-     * </p>
+     * <p>passedMutation.</p>
      *
      * @param distance   a double.
      * @param mutationId a int.
@@ -806,9 +791,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * exceptionThrown
-     * </p>
+     * <p>exceptionThrown.</p>
      *
      * @param exception  a {@link java.lang.Object} object.
      * @param className  a {@link java.lang.String} object.
@@ -832,9 +815,7 @@ public class ExecutionTracer {
     }
 
     /**
-     * <p>
-     * statementExecuted
-     * </p>
+     * <p>statementExecuted.</p>
      */
     public static void statementExecuted() {
         ExecutionTracer tracer = getExecutionTracer();
@@ -848,18 +829,16 @@ public class ExecutionTracer {
 
         checkTimeout();
 
-        tracer.num_statements++;
+        tracer.numStatements++;
     }
 
     /**
-     * <p>
-     * getNumStatementsExecuted
-     * </p>
+     * <p>getNumStatementsExecuted.</p>
      *
      * @return a int.
      */
     public int getNumStatementsExecuted() {
-        return num_statements;
+        return numStatements;
     }
 
     private ExecutionTracer() {

@@ -192,7 +192,7 @@ public class TestRunnable implements InterfaceTestRunnable {
             }
 
             executeStatements(result, out, num);
-        } catch (ThreadDeath e) {// can't stop these guys
+        } catch (ThreadDeath e) { // can't stop these guys
             logger.info("Found error in " + test.toCode(), e);
             throw e; // this needs to be propagated
         } catch (TimeoutException | TestCaseExecutor.TimeoutExceeded e) {
@@ -223,7 +223,8 @@ public class TestRunnable implements InterfaceTestRunnable {
             }
 
             logger.error("Suppressed/ignored exception during test case execution on class "
-                    + Properties.TARGET_CLASS + ": " + e.getMessage(), e);
+                    + Properties.TARGET_CLASS + ": "
+                    + e.getMessage(), e);
         } finally {
             if (!Properties.PRINT_TO_SYSTEM) {
                 LoggingUtils.restorePreviousOutAndErrStream();
@@ -326,8 +327,9 @@ public class TestRunnable implements InterfaceTestRunnable {
                 // --------------------------------------------------------
 
                 /*
-                 * If an exception is thrown, we stop the execution of the test case, because the internal state could be corrupted, and not
-                 * possible to verify the behavior of any following function call. Predicate should be true by default
+                 * If an exception is thrown, we stop the execution of the test case, because the
+                 * internal state could be corrupted, and not possible to verify the behavior of
+                 * any following function call. Predicate should be true by default
                  */
                 if (Properties.BREAK_ON_EXCEPTION
                         || exceptionThrown instanceof SystemExitException) {
