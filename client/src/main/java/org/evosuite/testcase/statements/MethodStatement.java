@@ -235,12 +235,21 @@ public class MethodStatement extends EntityWithParametersStatement {
                             if (inputs[i] == null && method.getMethod().getParameterTypes()[i].isPrimitive()) {
                                 throw new CodeUnderTestException(new NullPointerException());
                             }
-                            if (inputs[i] != null && !TypeUtils.isAssignable(inputs[i].getClass(), exactParameterTypes[i])) {
-                                // TODO: This used to be a check of the declared type, but the problem is that
-                                //       Generic types are not updated during execution, so this may fail:
-                                //!parameterVar.isAssignableTo(exactParameterTypes[i])) {
-                                throw new CodeUnderTestException(
-                                        new UncompilableCodeException("Cannot assign " + parameterVar.getVariableClass().getName() + " to " + exactParameterTypes[i]));
+                            if (inputs[i] != null) {
+                                boolean assignable;
+                                try {
+                                    assignable = TypeUtils.isAssignable(inputs[i].getClass(), exactParameterTypes[i]);
+                                } catch (IllegalStateException e) {
+                                    // Fallback for wildcard captures that TypeUtils cannot handle.
+                                    assignable = method.getMethod().getParameterTypes()[i].isAssignableFrom(inputs[i].getClass());
+                                }
+                                if (!assignable) {
+                                    // TODO: This used to be a check of the declared type, but the problem is that
+                                    //       Generic types are not updated during execution, so this may fail:
+                                    //!parameterVar.isAssignableTo(exactParameterTypes[i])) {
+                                    throw new CodeUnderTestException(
+                                            new UncompilableCodeException("Cannot assign " + parameterVar.getVariableClass().getName() + " to " + exactParameterTypes[i]));
+                                }
                             }
                         }
 
@@ -274,9 +283,19 @@ public class MethodStatement extends EntityWithParametersStatement {
                     }
 
                     // This should be checked as the test code emulation of Evosuite is incomplete
-                    if(ret != null && !TypeUtils.isAssignable(ret.getClass(), retval.getType())) {
-                        throw new CodeUnderTestException(
-                                new UncompilableCodeException("variable and return value type does not match"));
+                    if (ret != null) {
+                        boolean assignable;
+                        try {
+                            assignable = TypeUtils.isAssignable(ret.getClass(), retval.getType());
+                        } catch (IllegalStateException e) {
+                            // Fallback for wildcard captures that TypeUtils cannot handle.
+                            Class<?> rawReturnType = method.getMethod().getReturnType();
+                            assignable = rawReturnType.isAssignableFrom(ret.getClass());
+                        }
+                        if (!assignable) {
+                            throw new CodeUnderTestException(
+                                    new UncompilableCodeException("variable and return value type does not match"));
+                        }
                     }
 
                     try {

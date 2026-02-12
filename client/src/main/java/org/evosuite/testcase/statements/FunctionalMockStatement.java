@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.statements;
 
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
@@ -47,6 +48,7 @@ import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericClassUtils;
 import org.mockito.MockSettings;
 import org.mockito.Mockito;
+import org.mockito.MockMakers;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.stubbing.OngoingStubbing;
 import org.slf4j.Logger;
@@ -577,7 +579,48 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     protected MockSettings createMockSettings() {
-        return withSettings().invocationListeners(listener);
+        MockSettings settings = withSettings().invocationListeners(listener);
+        if (shouldForceSubclassMockMaker()) {
+            settings = settings.mockMaker(MockMakers.SUBCLASS);
+        }
+        return settings;
+    }
+
+    private MockSettings createSubclassMockSettings() {
+        return withSettings().invocationListeners(listener).mockMaker(MockMakers.SUBCLASS);
+    }
+
+    private static boolean shouldForceSubclassMockMaker() {
+        int major = getJavaMajorVersion();
+        if (major >= 25) {
+            // Default to subclass mock maker on Java 25+ unless explicitly overridden.
+            return !Boolean.getBoolean("evosuite.mockito.inline");
+        }
+        return false;
+    }
+
+    private static int getJavaMajorVersion() {
+        try {
+            String version = SystemUtils.JAVA_VERSION;
+            if (version == null || version.isEmpty()) {
+                return 0;
+            }
+            String[] parts = version.split("\\.");
+            return Integer.parseInt(parts[0]);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private static boolean isMockitoPluginInitFailure(Throwable t) {
+        if (!(t instanceof IllegalStateException)) {
+            return false;
+        }
+        String msg = t.getMessage();
+        if (msg == null) {
+            return false;
+        }
+        return msg.contains("MockMaker") || msg.contains("Mockito is unable to load");
     }
 
     @Override
@@ -601,7 +644,17 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                     try {
                         logger.debug("Mockito: create mock for {}", targetClass);
 
-                        ret = mock(targetClass.getRawClass(), createMockSettings());
+                        MockSettings settings = createMockSettings();
+                        try {
+                            ret = mock(targetClass.getRawClass(), settings);
+                        } catch (IllegalStateException e) {
+                            if (!shouldForceSubclassMockMaker() && isMockitoPluginInitFailure(e)) {
+                                logger.warn("Mockito plugin init failed, retrying with subclass mock maker for {}", targetClass);
+                                ret = mock(targetClass.getRawClass(), createSubclassMockSettings());
+                            } else {
+                                throw e;
+                            }
+                        }
                         //ret = mockCreator.invoke(null,targetClass,withSettings().invocationListeners(listener));
 
                         //execute all "when" statements
@@ -727,6 +780,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                     } catch (java.lang.NoClassDefFoundError e) {
                         AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass + " due to failed class initialization: " + e.getMessage());
                         return; //or should throw an exception?
+                    } catch (IllegalStateException e) {
+                        AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass + " due to ISE: " + e.getMessage());
+                        throw new CodeUnderTestException(e);
                     } catch (MockitoException | IllegalAccessException | IllegalAccessError | IllegalArgumentException e) {
                         // FIXME: Happens for reasons I don't understand. By throwing a CodeUnderTestException EvoSuite
                         // will just ignore that mocking statement and continue, instead of crashing
