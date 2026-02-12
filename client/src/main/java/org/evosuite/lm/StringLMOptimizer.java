@@ -39,6 +39,12 @@ public class StringLMOptimizer {
 
     ValueMinimizer.Minimization objective;
 
+    /**
+     * Constructor.
+     *
+     * @param constantValue the constant value to optimize.
+     * @param objective the minimization objective.
+     */
     public StringLMOptimizer(ConstantValue constantValue, ValueMinimizer.Minimization objective) {
         // this.statement = originalStatement;
         this.constantValue = constantValue;
@@ -57,8 +63,10 @@ public class StringLMOptimizer {
     /**
      * Attempt to generate a more readable replacement for the original string.
      * Uses a 1+1 EA to mutate the string with random suffixes generated from the language model. If a mutation
-     * yields a greater score according to the model (almost inevitable) AND doesn't result in a reduction in the objective
-     * value, the mutated string becomes the new value.
+     * yields a greater score according to the model (almost inevitable) AND doesn't result in a reduction in the
+     * objective value, the mutated string becomes the new value.
+     *
+     * @return the optimized string.
      */
     public String optimize() {
         LanguageModelSearch search = new LanguageModel11EA(constantValue, objective);

@@ -45,6 +45,12 @@ public class LanguageModelGA extends LanguageModelSearch {
     private static final Logger logger = LoggerFactory.getLogger(LanguageModelGA.class);
 
 
+    /**
+     * Constructor.
+     *
+     * @param constantValue the constant value to optimize.
+     * @param objective the minimization objective.
+     */
     public LanguageModelGA(ConstantValue constantValue, ValueMinimizer.Minimization objective) {
         super(objective, constantValue);
 
@@ -134,8 +140,9 @@ public class LanguageModelGA extends LanguageModelSearch {
         //mutation
         for (int mutant = 0; mutant < population.size(); mutant++) {
             if (Randomness.nextDouble() < MUTATION_RATE) {
-                if (newPopulation.add(mutate(select(newPopulation))))
+                if (newPopulation.add(mutate(select(newPopulation)))) {
                     numMutants++;
+                }
             }
         }
 
@@ -180,7 +187,9 @@ public class LanguageModelGA extends LanguageModelSearch {
         }
 
 
-        logger.debug("Finished a GA generation. Created {} mutants, performed {} crossovers and preserved {} elites on a population of {} (-{},+{}) New pop: {}",
+        logger.debug(
+                "Finished a GA generation. Created {} mutants, performed {} crossovers and preserved "
+                        + "{} elites on a population of {} (-{},+{}) New pop: {}",
                 numMutants,
                 numCrossovers,
                 numElites,
@@ -193,6 +202,13 @@ public class LanguageModelGA extends LanguageModelSearch {
 
     }
 
+    /**
+     * Finds the best chromosome in the population.
+     *
+     * @param population the population to search.
+     * @param best the current best chromosome.
+     * @return the best chromosome found.
+     */
     protected Chromosome getBest(HashSet<Chromosome> population, Chromosome best) {
 
         for (Chromosome individual : population) {
@@ -231,14 +247,17 @@ public class LanguageModelGA extends LanguageModelSearch {
                 }
 
             } catch (EvaluationBudgetExpendedException e) {
-                //For now, we just ignore the exception. At this stage, the generation failed, but there might be chromosomes
-                // that made it into the new population.
-                //At the next iteration of the loop, we'll see if any of those were any better than the current best individual.
+                //For now, we just ignore the exception. At this stage, the generation failed,
+                // but there might be chromosomes that made it into the new population.
+                //At the next iteration of the loop, we'll see if any of those were any better
+                // than the current best individual.
                 logger.debug("Couldn't finish a generation, ran out of evaluations.");
             }
 
 
-            logger.debug("LM GA: Generation {} of {}. Population size is {} (previously {}). Best fitness is [{}], fitness: {}",
+            logger.debug(
+                    "LM GA: Generation {} of {}. Population size is {} (previously {}). "
+                            + "Best fitness is [{}], fitness: {}",
                     generation,
                     GENERATIONS,
                     newPopulation.size(),
@@ -262,6 +281,13 @@ public class LanguageModelGA extends LanguageModelSearch {
         return best.getValue();
     }
 
+    /**
+     * Performs crossover between two parents.
+     *
+     * @param parent1 the first parent.
+     * @param parent2 the second parent.
+     * @return a list of offspring.
+     */
     protected List<? extends Chromosome> crossover(Chromosome parent1, Chromosome parent2) {
 
         String p1 = parent1.getValue();
@@ -283,4 +309,3 @@ public class LanguageModelGA extends LanguageModelSearch {
 
 
 }
-
