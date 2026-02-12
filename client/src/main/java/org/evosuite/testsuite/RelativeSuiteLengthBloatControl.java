@@ -44,12 +44,20 @@ public class RelativeSuiteLengthBloatControl<T extends Chromosome<T>> implements
 
     protected double bestFitness;
 
+    /**
+     * Default constructor. Initializes the bloat control with default values.
+     */
     public RelativeSuiteLengthBloatControl() {
         currentMax = 0;
         bestFitness = Double.MAX_VALUE; // FIXXME: Assuming
         // minimizing fitness!
     }
 
+    /**
+     * Copy constructor.
+     *
+     * @param that the instance to copy.
+     */
     public RelativeSuiteLengthBloatControl(final RelativeSuiteLengthBloatControl<?> that) {
         this.currentMax = that.currentMax;
         this.bestFitness = that.bestFitness;

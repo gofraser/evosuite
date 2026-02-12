@@ -64,26 +64,45 @@ public final class TestSuiteChromosome
         secondaryObjectives.add(objective);
     }
 
+    /**
+     * Returns the number of secondary objectives.
+     *
+     * @return the size of the secondary objectives list.
+     */
     public static int getSecondaryObjectivesSize() {
         return secondaryObjectives.size();
     }
 
+    /**
+     * Checks if the first secondary objective is enabled.
+     *
+     * @return true if the first secondary objective is enabled.
+     */
     public static boolean isFirstSecondaryObjectiveEnabled() {
         return secondaryObjIndex == 0;
     }
 
+    /**
+     * Disables the first secondary objective.
+     */
     public static void disableFirstSecondaryObjective() {
         if (secondaryObjIndex != 1) {
             secondaryObjIndex = 1;
         }
     }
 
+    /**
+     * Enables the first secondary objective.
+     */
     public static void enableFirstSecondaryObjective() {
         if (secondaryObjIndex != 0) {
             secondaryObjIndex = 0;
         }
     }
 
+    /**
+     * Reverses the order of secondary objectives.
+     */
     public static void reverseSecondaryObjective() {
         Collections.reverse(secondaryObjectives);
     }
@@ -97,6 +116,9 @@ public final class TestSuiteChromosome
         secondaryObjectives.remove(objective);
     }
 
+    /**
+     * Removes all secondary objectives.
+     */
     public static void removeAllSecondaryObjectives() {
         secondaryObjectives.clear();
     }
@@ -158,6 +180,9 @@ public final class TestSuiteChromosome
     }
 
 
+    /**
+     * Clears the mutation history of all tests in the test suite.
+     */
     public void clearMutationHistory() {
         tests.forEach(t -> t.getMutationHistory().clear());
     }
@@ -224,6 +249,11 @@ public final class TestSuiteChromosome
         return goals;
     }
 
+    /**
+     * Removes a covered goal from all tests in the test suite.
+     *
+     * @param f the fitness function representing the goal to remove.
+     */
     public void removeCoveredGoal(TestFitnessFunction f) {
         tests.forEach(t -> t.getTestCase().removeCoveredGoal(f));
     }

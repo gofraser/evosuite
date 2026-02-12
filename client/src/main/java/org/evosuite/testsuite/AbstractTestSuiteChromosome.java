@@ -119,6 +119,11 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
         this.setChanged(true);
     }
 
+    /**
+     * Removes a test from the chromosome.
+     *
+     * @param test the test to be removed.
+     */
     public void deleteTest(E test) {
         boolean changed = tests.remove(test);
         if (changed) {
@@ -320,16 +325,31 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
         return tests;
     }
 
+    /**
+     * Replaces the current tests with a new list of tests.
+     *
+     * @param newTests the new list of tests to replace the existing ones.
+     */
     public void replaceTests(List<E> newTests) {
         tests.clear();
         tests.addAll(newTests);
     }
 
+    /**
+     * Replaces the current tests with a new list of test chromosomes.
+     *
+     * @param newTests the new list of test chromosomes to replace the existing ones.
+     */
     public void replaceWithTestChromosomes(List<TestChromosome> newTests) {
         tests.clear();
         addTestChromosomes(newTests);
     }
 
+    /**
+     * Retrieves the last execution results for all test chromosomes.
+     *
+     * @return a list of the last execution results.
+     */
     public List<ExecutionResult> getLastExecutionResults() {
         return tests.stream()
                 .map(E::getLastExecutionResult)
