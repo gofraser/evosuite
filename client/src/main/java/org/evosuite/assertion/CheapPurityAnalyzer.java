@@ -68,6 +68,12 @@ public class CheapPurityAnalyzer {
         return instance;
     }
 
+    /**
+     * Gets the list of pure methods for a given class.
+     *
+     * @param className the name of the class
+     * @return a list of pure method names with descriptors
+     */
     public List<String> getPureMethods(String className) {
         ArrayList<String> list = new ArrayList<>();
         for (MethodEntry m : methodEntries) {
@@ -414,6 +420,13 @@ public class CheapPurityAnalyzer {
         }
     }
 
+    /**
+     * Adds a method to the analysis.
+     *
+     * @param className        the class name
+     * @param methodName       the method name
+     * @param methodDescriptor the method descriptor
+     */
     public void addMethod(String className, String methodName,
                           String methodDescriptor) {
         MethodEntry entry = new MethodEntry(className, methodName,
@@ -421,6 +434,13 @@ public class CheapPurityAnalyzer {
         methodEntries.add(entry);
     }
 
+    /**
+     * Marks a method as updating a field.
+     *
+     * @param className  the class name
+     * @param methodName the method name
+     * @param descriptor the method descriptor
+     */
     public void addUpdatesFieldMethod(String className, String methodName,
                                       String descriptor) {
         String classNameWithDots = className.replace('/', '.');
@@ -434,6 +454,16 @@ public class CheapPurityAnalyzer {
     private final Map<MethodEntry, Set<MethodEntry>> specialCalls = new HashMap<>();
     private final Map<MethodEntry, Set<MethodEntry>> interfaceCalls = new HashMap<>();
 
+    /**
+     * Adds a static method call dependency.
+     *
+     * @param sourceClassName  the calling class name
+     * @param sourceMethodName the calling method name
+     * @param sourceDescriptor the calling method descriptor
+     * @param targetClassName  the called class name
+     * @param targetMethodName the called method name
+     * @param targetDescriptor the called method descriptor
+     */
     public void addStaticCall(String sourceClassName, String sourceMethodName,
                               String sourceDescriptor, String targetClassName,
                               String targetMethodName, String targetDescriptor) {
@@ -444,6 +474,16 @@ public class CheapPurityAnalyzer {
 
     }
 
+    /**
+     * Adds a virtual method call dependency.
+     *
+     * @param sourceClassName  the calling class name
+     * @param sourceMethodName the calling method name
+     * @param sourceDescriptor the calling method descriptor
+     * @param targetClassName  the called class name
+     * @param targetMethodName the called method name
+     * @param targetDescriptor the called method descriptor
+     */
     public void addVirtualCall(String sourceClassName, String sourceMethodName,
                                String sourceDescriptor, String targetClassName,
                                String targetMethodName, String targetDescriptor) {
@@ -454,6 +494,16 @@ public class CheapPurityAnalyzer {
 
     }
 
+    /**
+     * Adds an interface method call dependency.
+     *
+     * @param sourceClassName  the calling class name
+     * @param sourceMethodName the calling method name
+     * @param sourceDescriptor the calling method descriptor
+     * @param targetClassName  the called class name
+     * @param targetMethodName the called method name
+     * @param targetDescriptor the called method descriptor
+     */
     public void addInterfaceCall(String sourceClassName,
                                  String sourceMethodName, String sourceDescriptor,
                                  String targetClassName, String targetMethodName,
@@ -480,6 +530,16 @@ public class CheapPurityAnalyzer {
         calls.get(sourceEntry).add(targetEntry);
     }
 
+    /**
+     * Adds a special method call dependency.
+     *
+     * @param sourceClassName  the calling class name
+     * @param sourceMethodName the calling method name
+     * @param sourceDescriptor the calling method descriptor
+     * @param targetClassName  the called class name
+     * @param targetMethodName the called method name
+     * @param targetDescriptor the called method descriptor
+     */
     public void addSpecialCall(String sourceClassName, String sourceMethodName,
                                String sourceDescriptor, String targetClassName,
                                String targetMethodName, String targetDescriptor) {
@@ -493,6 +553,13 @@ public class CheapPurityAnalyzer {
 
     private final Set<MethodEntry> methodsWithBodies = new HashSet<>();
 
+    /**
+     * Adds an interface method definition.
+     *
+     * @param className        the class name
+     * @param methodName       the method name
+     * @param methodDescriptor the method descriptor
+     */
     public void addInterfaceMethod(String className, String methodName,
                                    String methodDescriptor) {
         MethodEntry entry = new MethodEntry(className, methodName,
@@ -500,6 +567,13 @@ public class CheapPurityAnalyzer {
         interfaceMethodEntries.add(entry);
     }
 
+    /**
+     * Adds a method that has a body.
+     *
+     * @param className        the class name
+     * @param methodName       the method name
+     * @param methodDescriptor the method descriptor
+     */
     public void addMethodWithBody(String className, String methodName,
                                   String methodDescriptor) {
         MethodEntry entry = new MethodEntry(className, methodName,

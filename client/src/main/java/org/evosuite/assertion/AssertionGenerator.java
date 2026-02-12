@@ -167,6 +167,11 @@ public abstract class AssertionGenerator {
         }
     }
 
+    /**
+     * Filters out failing assertions from the list of test cases.
+     *
+     * @param testCases the list of test cases to filter
+     */
     public void filterFailingAssertions(List<TestCase> testCases) {
         List<TestCase> tests = new ArrayList<>(testCases);
         for (TestCase test : tests) {
@@ -180,6 +185,11 @@ public abstract class AssertionGenerator {
         }
     }
 
+    /**
+     * Filters out failing assertions from the test suite chromosome.
+     *
+     * @param testSuite the test suite chromosome to filter
+     */
     public void filterFailingAssertions(TestSuiteChromosome testSuite) {
         List<TestChromosome> tests = testSuite.getTestChromosomes();
         for (TestChromosome test : tests) {
@@ -222,7 +232,8 @@ public abstract class AssertionGenerator {
             Properties.getInitializedTargetClass();
 
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Mutants,
-                    MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter());
+                    MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                            .getMutantCounter());
 
             for (TestChromosome test : suite.getTestChromosomes()) {
                 DefaultTestCase dtest = (DefaultTestCase) test.getTestCase();

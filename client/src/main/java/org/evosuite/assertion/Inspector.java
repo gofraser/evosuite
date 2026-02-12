@@ -212,6 +212,11 @@ public class Inspector implements Serializable {
         }
     }
 
+    /**
+     * Updates the class loader for the inspected method.
+     *
+     * @param loader the new class loader
+     */
     public void changeClassLoader(ClassLoader loader) {
 
         try {

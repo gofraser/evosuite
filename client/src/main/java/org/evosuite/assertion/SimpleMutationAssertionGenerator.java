@@ -68,9 +68,12 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
             }
 
             // If at 50% of the time we have only done X% of the tests, then don't minimise
-            if (!timeIsShort && TimeController.getInstance().getPhasePercentage() > Properties.ASSERTION_MINIMIZATION_FALLBACK_TIME) {
+            if (!timeIsShort && TimeController.getInstance().getPhasePercentage()
+                    > Properties.ASSERTION_MINIMIZATION_FALLBACK_TIME) {
                 if (numTest < Properties.ASSERTION_MINIMIZATION_FALLBACK * suite.size()) {
-                    logger.warn("Assertion minimization is taking too long ({}% of time used, but only {}/{} tests minimized), falling back to using all assertions",
+                    logger.warn("Assertion minimization is taking too long "
+                                    + "({}% of time used, but only {}/{} tests minimized), "
+                                    + "falling back to using all assertions",
                             TimeController.getInstance().getPhasePercentage(), numTest, suite.size());
                     timeIsShort = true;
                 }

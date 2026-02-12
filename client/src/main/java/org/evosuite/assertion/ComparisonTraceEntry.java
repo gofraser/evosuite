@@ -49,6 +49,13 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         this.var = var;
     }
 
+    /**
+     * Checks if two objects are equal, handling nulls and floating point precision.
+     *
+     * @param a first object
+     * @param b second object
+     * @return true if equal
+     */
     public static boolean equals(Object a, Object b) {
         if (a == null) {
             return b == null;
