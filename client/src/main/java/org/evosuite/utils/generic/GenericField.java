@@ -44,18 +44,36 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
 
     private transient Field field;
 
+    /**
+     * Constructor.
+     *
+     * @param field the field
+     * @param owner the owner class
+     */
     public GenericField(Field field, GenericClass<?> owner) {
         super(GenericClassFactory.get(owner));
         this.field = field;
         field.setAccessible(true);
     }
 
+    /**
+     * Constructor.
+     *
+     * @param field the field
+     * @param owner the owner class
+     */
     public GenericField(Field field, Class<?> owner) {
         super(GenericClassFactory.get(owner));
         this.field = field;
         field.setAccessible(true);
     }
 
+    /**
+     * Constructor.
+     *
+     * @param field the field
+     * @param owner the owner type
+     */
     public GenericField(Field field, Type owner) {
         super(GenericClassFactory.get(owner));
         this.field = field;
@@ -141,6 +159,11 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         return field.getGenericType();
     }
 
+    /**
+     * Returns the exact type of the field.
+     *
+     * @return the exact type
+     */
     public Type getFieldType() {
         return GenericTypeReflector.getExactFieldType(field, owner.getType());
         //      try {
@@ -151,6 +174,11 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         // }
     }
 
+    /**
+     * Returns the generic type of the field.
+     *
+     * @return the generic type
+     */
     public Type getGenericFieldType() {
         return field.getGenericType();
     }

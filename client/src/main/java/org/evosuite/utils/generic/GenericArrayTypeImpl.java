@@ -32,6 +32,12 @@ public class GenericArrayTypeImpl implements GenericArrayType {
         return Array.newInstance(componentType, 0).getClass();
     }
 
+    /**
+     * Creates an array type with the given component type.
+     *
+     * @param componentType the component type
+     * @return the array type
+     */
     public static Type createArrayType(Type componentType) {
         if (componentType instanceof Class) {
             return createArrayType((Class<?>) componentType);

@@ -31,6 +31,12 @@ public class WildcardTypeImpl implements WildcardType {
     private Type[] upperBounds;
     private Type[] lowerBounds;
 
+    /**
+     * Constructor.
+     *
+     * @param upperBounds the upper bounds
+     * @param lowerBounds the lower bounds
+     */
     public WildcardTypeImpl(Type[] upperBounds, Type[] lowerBounds) {
         if (upperBounds.length == 0) {
             throw new IllegalArgumentException(

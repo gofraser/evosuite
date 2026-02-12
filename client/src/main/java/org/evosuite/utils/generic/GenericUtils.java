@@ -40,6 +40,13 @@ public class GenericUtils {
      */
     public static final String NONNULL = "Nonnull";
 
+    /**
+     * Checks if the type is assignable to the type variable.
+     *
+     * @param type         the type
+     * @param typeVariable the type variable
+     * @return true if assignable
+     */
     public static boolean isAssignable(Type type, TypeVariable<?> typeVariable) {
         boolean isAssignable = true;
         for (Type boundType : typeVariable.getBounds()) {
@@ -57,6 +64,12 @@ public class GenericUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(GenericUtils.class);
 
+    /**
+     * Returns a string representation of the type variable map sorted by keys and values.
+     *
+     * @param map the map
+     * @return the string representation
+     */
     public static String stableTypeVariableMapToString(Map<TypeVariable<?>, Type> map) {
         if (map == null) {
             return "null";
@@ -76,8 +89,8 @@ public class GenericUtils {
             }
             Entry<TypeVariable<?>, Type> entry = entries.get(i);
             builder.append(typeVariableDisplay(entry.getKey()))
-                   .append("=")
-                   .append(typeValueDisplay(entry.getValue()));
+                    .append("=")
+                    .append(typeValueDisplay(entry.getValue()));
         }
         builder.append("}");
         return builder.toString();
@@ -119,6 +132,13 @@ public class GenericUtils {
         return String.valueOf(value);
     }
 
+    /**
+     * Replaces type variables in the target type using the provided map.
+     *
+     * @param targetType the target type
+     * @param typeMap    the map of type variables to types
+     * @return the type with replaced variables
+     */
     public static Type replaceTypeVariables(Type targetType,
                                             Map<TypeVariable<?>, Type> typeMap) {
         Type returnType = targetType;
@@ -133,6 +153,12 @@ public class GenericUtils {
         return returnType;
     }
 
+    /**
+     * Replaces type variables with wildcards in the target type.
+     *
+     * @param targetType the target type
+     * @return the type with wildcards
+     */
     public static Type replaceTypeVariablesWithWildcards(Type targetType) {
         if (targetType instanceof TypeVariable) {
             TypeVariable<?> typeVariable = (TypeVariable<?>) targetType;
@@ -154,6 +180,14 @@ public class GenericUtils {
         return targetType;
     }
 
+    /**
+     * Replaces a specific type variable with the given type in the target type.
+     *
+     * @param targetType   the target type
+     * @param variable     the type variable to replace
+     * @param variableType the replacement type
+     * @return the new type
+     */
     public static Type replaceTypeVariable(Type targetType, TypeVariable<?> variable,
                                            Type variableType) {
         if (targetType instanceof Class<?>) {
@@ -235,6 +269,13 @@ public class GenericUtils {
         }
     }
 
+    /**
+     * Returns a map of matching type parameters between two generic array types.
+     *
+     * @param p1 the first generic array type
+     * @param p2 the second generic array type
+     * @return the map of matching type parameters
+     */
     public Map<TypeVariable<?>, Type> getMatchingTypeParameters(GenericArrayType p1,
                                                                 GenericArrayType p2) {
         if (p1.getGenericComponentType() instanceof ParameterizedType
