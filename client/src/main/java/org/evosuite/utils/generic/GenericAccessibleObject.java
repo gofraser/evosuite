@@ -467,6 +467,11 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         }
     }
 
+    /**
+     * Sets the type parameters.
+     *
+     * @param parameterTypes the type parameters
+     */
     public void setTypeParameters(List<GenericClass<?>> parameterTypes) {
         typeVariables.clear();
         for (GenericClass<?> parameter : parameterTypes) {

@@ -45,6 +45,13 @@ public class VarMap {
         map.put(variable, value);
     }
 
+    /**
+     * Adds all variables and values to the map.
+     *
+     * @param variables the variables
+     * @param values    the values
+     * @throws IllegalArgumentException if lengths mismatch
+     */
     public void addAll(TypeVariable<?>[] variables, Type[] values) throws IllegalArgumentException {
         Inputs.checkNull(variables, values);
         if (variables.length != values.length) {
@@ -56,6 +63,12 @@ public class VarMap {
         }
     }
 
+    /**
+     * Adds all variables from the given map.
+     *
+     * @param variables the variables map
+     * @throws IllegalArgumentException if null
+     */
     public void addAll(Map<TypeVariable<?>, GenericClass<?>> variables) throws IllegalArgumentException {
         Inputs.checkNull(variables);
         for (Entry<TypeVariable<?>, GenericClass<?>> entry : variables.entrySet()) {
@@ -64,6 +77,13 @@ public class VarMap {
     }
 
 
+    /**
+     * Maps the type using the current variable map.
+     *
+     * @param type the type to map
+     * @return the mapped type
+     * @throws IllegalArgumentException if type is null
+     */
     public Type map(Type type) throws IllegalArgumentException {
         Inputs.checkNull(type);
 
@@ -105,6 +125,13 @@ public class VarMap {
         }
     }
 
+    /**
+     * Maps the array of types using the current variable map.
+     *
+     * @param types the types to map
+     * @return the mapped types
+     * @throws IllegalArgumentException if types is null
+     */
     public Type[] map(Type[] types) throws IllegalArgumentException {
         Inputs.checkNull(types);
         Type[] result = new Type[types.length];

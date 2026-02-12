@@ -200,6 +200,11 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         return constructor.getGenericParameterTypes().length;
     }
 
+    /**
+     * Returns the parameter types of the constructor.
+     *
+     * @return the parameter types
+     */
     public Type[] getParameterTypes() {
         Type[] types = getExactParameterTypes(constructor, owner.getType());
         Type[] rawTypes = constructor.getParameterTypes();

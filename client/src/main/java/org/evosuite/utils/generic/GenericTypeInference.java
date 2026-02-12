@@ -48,6 +48,11 @@ public class GenericTypeInference extends TestVisitor {
 
     private TestCase test;
 
+    /**
+     * Infers types for the given test case.
+     *
+     * @param test the test case
+     */
     public void inferTypes(TestCase test) {
         this.test = test;
         logger.debug("Inferring generic types");

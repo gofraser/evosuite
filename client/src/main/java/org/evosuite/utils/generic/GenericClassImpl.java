@@ -172,6 +172,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         this.rawClass = clazz;
     }
 
+    /**
+     * Copy constructor.
+     *
+     * @param copy the object to copy
+     */
     public GenericClassImpl(GenericClassImpl copy) {
         this.type = copy.type;
         this.rawClass = copy.rawClass;
@@ -397,6 +402,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         // return true;
     }
 
+    /**
+     * Returns the boxed type of this class.
+     *
+     * @return the boxed type
+     */
     public Class<?> getBoxedType() {
         if (isPrimitive()) {
             if (rawClass.equals(int.class)) {
@@ -435,6 +445,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return rawClass.getName();
     }
 
+    /**
+     * Returns the component class of this array class.
+     *
+     * @return the component class
+     */
     public GenericClass<?> getComponentClass() {
         if (type instanceof GenericArrayType) {
             GenericArrayType arrayType = (GenericArrayType) type;
@@ -468,6 +483,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return GenericTypeReflector.getArrayComponentType(type);
     }
 
+    /**
+     * Returns the generic bounds of this class.
+     *
+     * @return the generic bounds
+     */
     public Collection<GenericClass<?>> getGenericBounds() {
 
         Set<GenericClass<?>> bounds = new LinkedHashSet<>();
@@ -534,6 +554,15 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return getGenericInstantiation(typeMap, 0);
     }
 
+    /**
+     * Instantiate type variables using map, and anything not contained in the
+     * map randomly.
+     *
+     * @param typeMap        the type map
+     * @param recursionLevel the recursion level
+     * @return the generic class
+     * @throws ConstructionFailedException if construction fails
+     */
     public GenericClass<?> getGenericInstantiation(Map<TypeVariable<?>, Type> typeMap,
                                                    int recursionLevel)
             throws ConstructionFailedException {
@@ -672,12 +701,23 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return selectedClass.getGenericInstantiation(new HashMap<>(), recursionLevel + 1);
     }
 
+    /**
+     * Sets the type.
+     *
+     * @param type the type
+     * @return this
+     */
     @Override
     public GenericClass<?> setType(Type type) {
         this.type = type;
         return this;
     }
 
+    /**
+     * Returns the list of interfaces implemented by this class.
+     *
+     * @return the list of interfaces
+     */
     public List<GenericClass<?>> getInterfaces() {
         List<GenericClass<?>> ret = new ArrayList<>();
         for (Class<?> intf : rawClass.getInterfaces()) {
@@ -902,6 +942,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return name;
     }
 
+    /**
+     * Returns the super class of this class.
+     *
+     * @return the super class
+     */
     public GenericClassImpl getSuperClass() {
         Type superType = GenericTypeReflector.getExactSuperType(type, rawClass.getSuperclass());
         if (superType == null) {
@@ -934,6 +979,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
     private Map<TypeVariable<?>, Type> typeVariableMap = null;
 
+    /**
+     * Returns the type variable map.
+     *
+     * @return the type variable map
+     */
     public Map<TypeVariable<?>, Type> getTypeVariableMap() {
         if (typeVariableMap == null) {
             //logger.debug("Getting type variable map for " + type);
@@ -1009,6 +1059,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return typeVariables;
     }
 
+    /**
+     * Returns the unboxed type of this class.
+     *
+     * @return the unboxed type
+     */
     public Class<?> getUnboxedType() {
         if (isWrapperType()) {
             if (rawClass.equals(Integer.class)) {
@@ -1036,6 +1091,12 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return rawClass;
     }
 
+    /**
+     * Returns a new GenericClass with the given component class.
+     *
+     * @param componentClass the component class
+     * @return the new GenericClass
+     */
     public GenericClass<?> getWithComponentClass(GenericClass<?> componentClass) {
         if (type instanceof GenericArrayType) {
             return new GenericClassImpl(
@@ -1046,6 +1107,12 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
     }
 
+    /**
+     * Returns a new GenericClass with the given generic parameter types.
+     *
+     * @param parameters the generic parameter types
+     * @return the new GenericClass
+     */
     public GenericClass<?> getWithGenericParameterTypes(List<GenericClassImpl> parameters) {
         Type[] typeArray = new Type[parameters.size()];
         for (int i = 0; i < parameters.size(); i++) {
@@ -1059,6 +1126,12 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return new GenericClassImpl(new ParameterizedTypeImpl(rawClass, typeArray, ownerType));
     }
 
+    /**
+     * Returns a new GenericClass with the given owner type.
+     *
+     * @param ownerClass the owner class
+     * @return the new GenericClass
+     */
     public GenericClass<?> getWithOwnerType(GenericClass<?> ownerClass) {
         if (type instanceof ParameterizedType) {
             ParameterizedType currentType = (ParameterizedType) type;
@@ -1157,6 +1230,12 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return exactClass;
     }
 
+    /**
+     * Returns a new GenericClass with the given parameter types.
+     *
+     * @param parameters the parameter types
+     * @return the new GenericClass
+     */
     public GenericClass<?> getWithParameterTypes(List<Type> parameters) {
         Type[] typeArray = new Type[parameters.size()];
         for (int i = 0; i < parameters.size(); i++) {
@@ -1169,6 +1248,12 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return new GenericClassImpl(new ParameterizedTypeImpl(rawClass, typeArray, ownerType));
     }
 
+    /**
+     * Returns a new GenericClass with the given parameter types.
+     *
+     * @param parameters the parameter types
+     * @return the new GenericClass
+     */
     public GenericClass<?> getWithParameterTypes(Type[] parameters) {
         Type ownerType = null;
         if (type instanceof ParameterizedType) {
@@ -1178,6 +1263,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                 new ParameterizedTypeImpl(rawClass, parameters, ownerType));
     }
 
+    /**
+     * Returns a new GenericClass with wildcard types.
+     *
+     * @return the new GenericClass
+     */
     public GenericClass<?> getWithWildcardTypes() {
         Type ownerType = GenericTypeReflector.addWildcardParameters(rawClass);
         return new GenericClassImpl(ownerType);
@@ -1198,20 +1288,20 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     }
 
     /**
-     * Determine if this class is a subclass of superType.
+     * Checks if this class has the given generic super type.
      *
      * @param superType the super type
-     * @return boolean
+     * @return true if it has the super type
      */
     public boolean hasGenericSuperType(GenericClass superType) {
         return GenericTypeReflector.isSuperType(superType.getType(), type);
     }
 
     /**
-     * Determine if this class is a subclass of superType.
+     * Checks if this class has the given generic super type.
      *
      * @param superType the super type
-     * @return boolean
+     * @return true if it has the super type
      */
     public boolean hasGenericSuperType(Type superType) {
         return GenericTypeReflector.isSuperType(superType, type);
@@ -1230,6 +1320,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return result;
     }
 
+    /**
+     * Checks if this class has an owner type.
+     *
+     * @return true if it has an owner type
+     */
     public boolean hasOwnerType() {
         if (type instanceof ParameterizedType) {
             return ((ParameterizedType) type).getOwnerType() != null;
@@ -1238,6 +1333,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
     }
 
+    /**
+     * Checks if this class has type variables.
+     *
+     * @return true if it has type variables
+     */
     public boolean hasTypeVariables() {
         if (isParameterizedType()) {
             return hasTypeVariables((ParameterizedType) type);
@@ -1260,6 +1360,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return false;
     }
 
+    /**
+     * Checks if this class has wildcard or type variables.
+     *
+     * @return true if it has wildcard or type variables
+     */
     public boolean hasWildcardOrTypeVariables() {
         if (isTypeVariable() || isWildcardType()) {
             return true;
@@ -1296,6 +1401,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return false;
     }
 
+    /**
+     * Checks if this class has wildcard types.
+     *
+     * @return true if it has wildcard types
+     */
     public boolean hasWildcardTypes() {
         if (isParameterizedType()) {
             return hasWildcardType((ParameterizedType) type);
@@ -1397,6 +1507,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return rawClass.isEnum();
     }
 
+    /**
+     * Checks if this class is a generic array.
+     *
+     * @return true if it is a generic array
+     */
     public boolean isGenericArray() {
         GenericClassImpl componentClass = new GenericClassImpl(rawClass.getComponentType());
         return componentClass.hasWildcardOrTypeVariables();

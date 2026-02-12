@@ -124,6 +124,11 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         return getParameterTypes();
     }
 
+    /**
+     * Returns the list of parameter classes.
+     *
+     * @return the list of parameter classes
+     */
     public List<GenericClass<?>> getParameterClasses() {
         List<GenericClass<?>> classes = new ArrayList<>();
         for (Type type : getParameterTypes()) {
@@ -236,6 +241,11 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         return Modifier.isStatic(method.getModifiers());
     }
 
+    /**
+     * Checks if the method is overloaded.
+     *
+     * @return true if overloaded
+     */
     public boolean isOverloaded() {
         String methodName = getName();
         Class<?> declaringClass = method.getDeclaringClass();
