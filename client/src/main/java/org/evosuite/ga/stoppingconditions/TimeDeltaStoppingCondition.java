@@ -51,6 +51,9 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
 
     private static final Logger logger = LoggerFactory.getLogger(TimeDeltaStoppingCondition.class);
 
+    /**
+     * Default constructor.
+     */
     public TimeDeltaStoppingCondition() {
         startTime = 0L;
         lastImprovement = 0L;
@@ -58,6 +61,11 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         lastFitness = 0.0;
     }
 
+    /**
+     * Copy constructor.
+     *
+     * @param that the condition to copy from
+     */
     public TimeDeltaStoppingCondition(TimeDeltaStoppingCondition<?> that) {
         this.startTime = that.startTime;
         this.lastFitness = that.lastFitness;
@@ -84,6 +92,9 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         lastGeneration = 0L;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
         double currentBestFitness = algorithm.getBestIndividual().getFitness();
@@ -101,10 +112,6 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         lastGeneration = System.currentTimeMillis();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#getCurrentValue()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -113,10 +120,6 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         long currentTime = System.currentTimeMillis();
         return (int) ((currentTime - startTime) / 1000);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#isFinished()
-     */
 
     /**
      * {@inheritDoc}
@@ -151,10 +154,6 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#reset()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -164,10 +163,6 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
             startTime = System.currentTimeMillis();
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#setLimit(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -186,6 +181,9 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         return Properties.GLOBAL_TIMEOUT;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void forceCurrentValue(long value) {
         // TODO Auto-generated method stub

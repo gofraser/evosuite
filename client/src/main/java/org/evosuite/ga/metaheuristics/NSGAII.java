@@ -36,8 +36,6 @@ import java.util.List;
 
 /**
  * NSGA-II implementation.
- *
- * @author José Campos
  *    <pre>
  * {@code
  * @article{Deb:2002, author = {Deb, K. and Pratap, A. and Agarwal, S. and Meyarivan, T.},
@@ -58,6 +56,8 @@ import java.util.List;
  * address = {Piscataway, NJ, USA}}
  * }
  *    </pre>
+ *
+ * @author José Campos
  */
 public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     private static final long serialVersionUID = 146182080947267628L;

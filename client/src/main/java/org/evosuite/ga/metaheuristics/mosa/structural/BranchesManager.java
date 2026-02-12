@@ -77,6 +77,10 @@ public class BranchesManager extends StructuralGoalManager {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void calculateFitness(TestChromosome c, GeneticAlgorithm<TestChromosome> ga) {
         // run the test
         TestCase test = c.getTestCase();

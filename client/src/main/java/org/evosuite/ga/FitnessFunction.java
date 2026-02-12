@@ -88,7 +88,7 @@ public abstract class FitnessFunction<T extends Chromosome<T>> implements Serial
     }
 
     /**
-     * Do we need to maximize, or minimize this function?
+     * Do we need to maximize, or minimize this function.
      *
      * @return a boolean.
      */

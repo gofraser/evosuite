@@ -26,6 +26,8 @@ import java.io.Serializable;
 import java.util.Arrays;
 
 /**
+ * Feature vector for MAP-Elites.
+ *
  * @author Felix Prasse
  */
 public final class FeatureVector implements Serializable {
@@ -109,6 +111,12 @@ public final class FeatureVector implements Serializable {
 
     private final Entry[] features;
 
+    /**
+     * Constructor.
+     *
+     * @param inspectors inspectors
+     * @param instance instance
+     */
     public FeatureVector(final Inspector[] inspectors, final Object instance) {
         this.features = new Entry[inspectors.length];
 
@@ -122,6 +130,12 @@ public final class FeatureVector implements Serializable {
         return Arrays.hashCode(this.features);
     }
 
+    /**
+     * Checks equality.
+     *
+     * @param other other feature vector
+     * @return true if equal
+     */
     public boolean equals(FeatureVector other) {
         return Arrays.equals(this.features, other.features);
     }
@@ -154,6 +168,12 @@ public final class FeatureVector implements Serializable {
         return 1.0;
     }
 
+    /**
+     * Gets the possibility count.
+     *
+     * @param inspectors inspectors
+     * @return count
+     */
     public static double getPossibilityCount(final Inspector[] inspectors) {
         return Arrays
                 .stream(inspectors)

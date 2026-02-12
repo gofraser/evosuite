@@ -37,8 +37,6 @@ import static java.util.Comparator.comparing;
 
 /**
  * SPEA2 implementation.
- *
- * @author José Campos
  * <pre>
  * {@code
  * @techreport{ZLT:2001, author = {E. Zitzler and M. Laumanns and L. Thiele},
@@ -49,6 +47,8 @@ import static java.util.Comparator.comparing;
  * number = {103}}
  * }
  * </pre>
+ *
+ * @author José Campos
  */
 public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
@@ -238,7 +238,10 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             // If archive is too small, the best dominated individuals in the previous
             // archive and population are copied to the new archive
             populationCopy.sort(new StrengthFitnessComparator());
-            int remain = (union.size() < Properties.POPULATION ? union.size() : Properties.POPULATION) - tmpPopulation.size();
+            int remain = (union.size() < Properties.POPULATION
+                    ? union.size()
+                    : Properties.POPULATION)
+                    - tmpPopulation.size();
             for (int i = 0; i < remain; i++) {
                 tmpPopulation.add(populationCopy.get(i));
             }

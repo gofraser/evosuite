@@ -31,8 +31,12 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
+/**
+ * Novelty Search algorithm implementation.
+ */
 public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
 
     private static final Logger logger = LoggerFactory.getLogger(NoveltySearch.class);
@@ -41,6 +45,11 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
     private NoveltyFunction<TestChromosome> noveltyFunction;
     private final NoveltyFitnessFunction noveltyFitnessFunction = new NoveltyFitnessFunction();
 
+    /**
+     * Constructor.
+     *
+     * @param factory the chromosome factory
+     */
     public NoveltySearch(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
 
@@ -48,6 +57,11 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
         addFitnessFunction(noveltyFitnessFunction);
     }
 
+    /**
+     * Sets the novelty function.
+     *
+     * @param function the novelty function to set
+     */
     public void setNoveltyFunction(NoveltyFunction<TestChromosome> function) {
         this.noveltyFunction = function;
     }
@@ -70,6 +84,9 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
         this.sortPopulation();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void initializePopulation() {
         notifySearchStarted();
@@ -83,6 +100,9 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
         this.notifyIteration();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected void evolve() {
 
@@ -140,6 +160,9 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
         currentIteration++;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void generateSolution() {
 
@@ -167,11 +190,17 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
     private static class NoveltyFitnessFunction extends FitnessFunction<TestChromosome> {
         private static final long serialVersionUID = -2919343715691060010L;
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public double getFitness(TestChromosome individual) {
             return individual.getFitness(this);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public boolean isMaximizationFunction() {
             return true;

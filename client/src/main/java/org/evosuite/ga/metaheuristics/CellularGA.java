@@ -60,6 +60,12 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     private static final double DELTA = 0.000000001;
 
 
+    /**
+     * Constructor.
+     *
+     * @param model the CGA model
+     * @param factory the chromosome factory
+     */
     public CellularGA(Properties.CgaModels model, ChromosomeFactory<T> factory) {
 
         super(factory);
@@ -326,7 +332,7 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * setReplacementFunction.
+     * Sets the replacement function.
      *
      * @param replacementFunction a {@link org.evosuite.ga.ReplacementFunction} object.
      */
@@ -335,7 +341,7 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * getReplacementFunction.
+     * Gets the replacement function.
      *
      * @return a {@link org.evosuite.ga.ReplacementFunction} object.
      */

@@ -42,6 +42,13 @@ public class MuLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(MuLambdaEA.class);
 
+    /**
+     * Constructor.
+     *
+     * @param factory the chromosome factory
+     * @param mu the population size
+     * @param lambda the offspring size
+     */
     public MuLambdaEA(ChromosomeFactory<T> factory, int mu, int lambda) {
         super(factory, mu, lambda);
         if (lambda < mu) {

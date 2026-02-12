@@ -31,6 +31,8 @@ import java.io.Serializable;
 import java.util.Arrays;
 
 /**
+ * Observer for test results.
+ *
  * @author Felix Prasse
  */
 public class TestResultObserver extends ExecutionObserver implements Serializable {
@@ -41,6 +43,9 @@ public class TestResultObserver extends ExecutionObserver implements Serializabl
 
     private final Class<?> targetClass;
 
+    /**
+     * Constructor.
+     */
     public TestResultObserver() {
         this.targetClass = Properties.getInitializedTargetClass();
 
@@ -51,10 +56,20 @@ public class TestResultObserver extends ExecutionObserver implements Serializabl
         Arrays.sort(this.inspectors, (a, b) -> a.getMethodCall().compareTo(b.getMethodCall()));
     }
 
+    /**
+     * Gets the possibility count.
+     *
+     * @return the possibility count
+     */
     public double getPossibilityCount() {
         return FeatureVector.getPossibilityCount(this.inspectors);
     }
 
+    /**
+     * Gets the feature vector length.
+     *
+     * @return the length
+     */
     public int getFeatureVectorLength() {
         return this.inspectors.length;
     }

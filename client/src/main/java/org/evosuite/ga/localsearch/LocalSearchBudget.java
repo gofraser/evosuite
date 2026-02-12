@@ -56,12 +56,19 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
 
     protected GeneticAlgorithm<?> ga = null;
 
-    // Private constructor because of singleton type
+    /**
+     * Private constructor because of singleton type.
+     */
     private LocalSearchBudget() {
 
     }
 
-    // Singleton accessor
+    /**
+     * Singleton accessor.
+     *
+     * @param <T> the type of chromosome
+     * @return the singleton instance
+     */
     @SuppressWarnings("unchecked")
     public static <T extends Chromosome<T>> LocalSearchBudget<T> getInstance() {
         if (instance == null) {

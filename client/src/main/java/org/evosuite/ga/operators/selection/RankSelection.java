@@ -36,6 +36,7 @@ public class RankSelection<T extends Chromosome<T>> extends SelectionFunction<T>
     private static final long serialVersionUID = 7849303009915557682L;
 
     public RankSelection() {
+        // empty constructor
     }
 
     public RankSelection(RankSelection<?> other) {
@@ -59,6 +60,12 @@ public class RankSelection<T extends Chromosome<T>> extends SelectionFunction<T>
         return RankSelection.getIdx(population);
     }
 
+    /**
+     * Calculates the index.
+     *
+     * @param list the list
+     * @return the index
+     */
     public static int getIdx(final List<?> list) {
         double r = Randomness.nextDouble();
         double d = Properties.RANK_BIAS

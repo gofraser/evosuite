@@ -102,6 +102,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
     }
 
+    /**
+     * Sets the adapter.
+     *
+     * @param adapter the adapter
+     */
     public void setAdapter(final MOSATestSuiteAdapter adapter) {
         Objects.requireNonNull(adapter);
         if (this.adapter == null) {
@@ -378,6 +383,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         return Archive.getArchiveInstance().getNumberOfCoveredTargets();
     }
 
+    /**
+     * Adds an uncovered goal to the archive.
+     *
+     * @param goal the goal
+     */
     protected void addUncoveredGoal(TestFitnessFunction goal) {
         Archive.getArchiveInstance().addTarget(goal);
     }
@@ -484,6 +494,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         return this.getNonDominatedSolutions(this.population);
     }
 
+    /**
+     * Applies local search.
+     *
+     * @param testSuite the test suite
+     */
     protected void applyLocalSearch(final TestSuiteChromosome testSuite) {
         adapter.applyLocalSearch(testSuite);
     }

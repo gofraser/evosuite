@@ -1,19 +1,19 @@
 /*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
- * <p>
+ *
  * This file is part of EvoSuite.
- * <p>
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation, either version 3.0 of the License, or
  * (at your option) any later version.
- * <p>
+ *
  * EvoSuite is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -26,29 +26,32 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Construction of a grid and the neighbourhood models.
+ * Neighbourhood for Cellular GA.
  *
  * @author Nasser Albunian
  */
-public class Neighbourhood<T extends Chromosome<T>> implements NeighbourModels<T>, Serializable {
+public class Neighbourhood<T extends Chromosome<T>> implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 5337299330999120790L;
 
     /**
-     * The population size.
-     **/
+     * Enumeration of relative position.
+     */
+    enum Positions {
+        N, S, E, W, NW, SW, NE, SE
+    }
+
     private final int populationSize;
 
-    /**
-     * An array that represents the grid.
-     **/
-    int[][] neighbour;
+    private final int[][] neighbour;
+
+    private final int columns;
 
     /**
-     * Number of chromosomes per one row of a grid.
-     **/
-    int columns;
-
+     * Constructor.
+     *
+     * @param populationSize size of the population
+     */
     public Neighbourhood(int populationSize) {
 
         this.populationSize = populationSize;

@@ -31,6 +31,11 @@ public class BinomialMutation extends MutationDistribution {
 
     private final Set<Integer> bitsToBeModified;
 
+    /**
+     * Constructor.
+     *
+     * @param sizeOfDistribution size of the distribution
+     */
     public BinomialMutation(int sizeOfDistribution) {
         int numBits = howManyBits(sizeOfDistribution, 1.0 / (double) sizeOfDistribution);
         this.bitsToBeModified = new LinkedHashSet<>();

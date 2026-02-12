@@ -52,6 +52,11 @@ public class BranchFitnessGraph implements Serializable {
 
     protected Set<TestFitnessFunction> rootBranches = new HashSet<>();
 
+    /**
+     * Constructor.
+     *
+     * @param goals the set of fitness goals
+     */
     public BranchFitnessGraph(Set<TestFitnessFunction> goals) {
         goals.forEach(g -> graph.addVertex(g));
 
@@ -155,16 +160,33 @@ public class BranchFitnessGraph implements Serializable {
         return null;
     }
 
+    /**
+     * Gets the root branches.
+     *
+     * @return the set of root branches
+     */
     public Set<TestFitnessFunction> getRootBranches() {
         return this.rootBranches;
     }
 
+    /**
+     * Gets the structural children of a parent fitness function.
+     *
+     * @param parent the parent fitness function
+     * @return the set of structural children
+     */
     public Set<TestFitnessFunction> getStructuralChildren(TestFitnessFunction parent) {
         return this.graph.outgoingEdgesOf(parent).stream()
                 .map(DependencyEdge::getTarget)
                 .collect(toSet());
     }
 
+    /**
+     * Gets the structural parents of a parent fitness function.
+     *
+     * @param parent the parent fitness function
+     * @return the set of structural parents
+     */
     public Set<TestFitnessFunction> getStructuralParents(TestFitnessFunction parent) {
         return this.graph.incomingEdgesOf(parent).stream()
                 .map(DependencyEdge::getSource)

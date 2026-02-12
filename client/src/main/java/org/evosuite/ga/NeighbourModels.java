@@ -22,7 +22,7 @@ package org.evosuite.ga;
 import java.util.List;
 
 /**
- * An interface that defines the four neighbourhood models used with the cGA
+ * An interface that defines the four neighbourhood models used with the cGA.
  *
  * @author Nasser Albunian
  */

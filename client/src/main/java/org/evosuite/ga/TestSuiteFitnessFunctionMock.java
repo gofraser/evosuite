@@ -32,7 +32,9 @@ public class TestSuiteFitnessFunctionMock
     private static final long serialVersionUID = 7438166177586343112L;
 
     /**
-     * {@inheritDoc}
+     * Constructor.
+     *
+     * @param wrapped the wrapped fitness function
      */
     public TestSuiteFitnessFunctionMock(final FitnessFunction<TestChromosome> wrapped) {
         super(wrapped);

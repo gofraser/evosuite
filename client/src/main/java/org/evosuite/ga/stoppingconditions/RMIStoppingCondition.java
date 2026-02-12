@@ -39,6 +39,12 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
         // empty default constructor
     }
 
+    /**
+     * Returns the singleton instance of RMIStoppingCondition.
+     *
+     * @param <T> the type of chromosome
+     * @return the singleton instance
+     */
     @SuppressWarnings("unchecked")
     public static <T extends Chromosome<T>> RMIStoppingCondition<T> getInstance() {
         if (instance == null) {
@@ -62,12 +68,15 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
         throw new UnsupportedOperationException("cannot clone singleton");
     }
 
+    /**
+     * Stops the search.
+     */
     public void stop() {
         isStopped = true;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#searchStarted(org.evosuite.ga.GeneticAlgorithm)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
@@ -75,8 +84,8 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#iteration(org.evosuite.ga.GeneticAlgorithm)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
@@ -84,8 +93,8 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#searchFinished(org.evosuite.ga.GeneticAlgorithm)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
@@ -93,8 +102,8 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#fitnessEvaluation(org.evosuite.ga.Chromosome)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public void fitnessEvaluation(T individual) {
@@ -102,8 +111,8 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#modification(org.evosuite.ga.Chromosome)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public void modification(T individual) {
@@ -111,8 +120,8 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#forceCurrentValue(long)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public void forceCurrentValue(long value) {
@@ -120,8 +129,8 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#getCurrentValue()
+    /**
+     * {@inheritDoc}
      */
     @Override
     public long getCurrentValue() {
@@ -129,8 +138,8 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
         return 0;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#getLimit()
+    /**
+     * {@inheritDoc}
      */
     @Override
     public long getLimit() {
@@ -138,24 +147,24 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
         return 0;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#isFinished()
+    /**
+     * {@inheritDoc}
      */
     @Override
     public boolean isFinished() {
         return isStopped;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#reset()
+    /**
+     * {@inheritDoc}
      */
     @Override
     public void reset() {
         isStopped = false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#setLimit(long)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public void setLimit(long limit) {
@@ -163,8 +172,8 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
 
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#toString()
+    /**
+     * {@inheritDoc}
      */
     @Override
     public String toString() {

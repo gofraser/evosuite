@@ -54,9 +54,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * <p>
-     * keepOffspring
-     * </p>
+     * Decides whether to keep the offspring.
      *
      * @param parent1    a {@link org.evosuite.ga.Chromosome} object.
      * @param parent2    a {@link org.evosuite.ga.Chromosome} object.
@@ -255,14 +253,15 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                 sortPopulation();
                 double bestFitnessAfterEvolution = getBestFitness();
 
-                if (getFitnessFunction().isMaximizationFunction())
+                if (getFitnessFunction().isMaximizationFunction()) {
                     assert (bestFitnessAfterEvolution >= (bestFitnessBeforeEvolution
-                            - DELTA)) : "best fitness before evolve()/sortPopulation() was: " + bestFitnessBeforeEvolution
-                            + ", now best fitness is " + bestFitnessAfterEvolution;
-                else
+                            - DELTA)) : "best fitness before evolve()/sortPopulation() was: "
+                            + bestFitnessBeforeEvolution + ", now best fitness is " + bestFitnessAfterEvolution;
+                } else {
                     assert (bestFitnessAfterEvolution <= (bestFitnessBeforeEvolution
-                            + DELTA)) : "best fitness before evolve()/sortPopulation() was: " + bestFitnessBeforeEvolution
-                            + ", now best fitness is " + bestFitnessAfterEvolution;
+                            + DELTA)) : "best fitness before evolve()/sortPopulation() was: "
+                            + bestFitnessBeforeEvolution + ", now best fitness is " + bestFitnessAfterEvolution;
+                }
             }
 
             {
@@ -270,14 +269,15 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                 applyLocalSearch();
                 double bestFitnessAfterLocalSearch = getBestFitness();
 
-                if (getFitnessFunction().isMaximizationFunction())
+                if (getFitnessFunction().isMaximizationFunction()) {
                     assert (bestFitnessAfterLocalSearch >= (bestFitnessBeforeLocalSearch
-                            - DELTA)) : "best fitness before applyLocalSearch() was: " + bestFitnessBeforeLocalSearch
-                            + ", now best fitness is " + bestFitnessAfterLocalSearch;
-                else
+                            - DELTA)) : "best fitness before applyLocalSearch() was: "
+                            + bestFitnessBeforeLocalSearch + ", now best fitness is " + bestFitnessAfterLocalSearch;
+                } else {
                     assert (bestFitnessAfterLocalSearch <= (bestFitnessBeforeLocalSearch
-                            + DELTA)) : "best fitness before applyLocalSearch() was: " + bestFitnessBeforeLocalSearch
-                            + ", now best fitness is " + bestFitnessAfterLocalSearch;
+                            + DELTA)) : "best fitness before applyLocalSearch() was: "
+                            + bestFitnessBeforeLocalSearch + ", now best fitness is " + bestFitnessAfterLocalSearch;
+                }
             }
 
             /*
@@ -293,12 +293,13 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
             double newFitness = getBestFitness();
 
-            if (getFitnessFunction().isMaximizationFunction())
+            if (getFitnessFunction().isMaximizationFunction()) {
                 assert (newFitness >= (bestFitness - DELTA)) : "best fitness was: " + bestFitness
                         + ", now best fitness is " + newFitness;
-            else
+            } else {
                 assert (newFitness <= (bestFitness + DELTA)) : "best fitness was: " + bestFitness
                         + ", now best fitness is " + newFitness;
+            }
             bestFitness = newFitness;
 
             if (Double.compare(bestFitness, lastBestFitness) == 0) {
@@ -331,7 +332,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * setReplacementFunction.
+     * Sets the replacement function.
      *
      * @param replacementFunction a {@link org.evosuite.ga.ReplacementFunction} object.
      */
@@ -340,9 +341,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     }
 
     /**
-     * <p>
-     * getReplacementFunction
-     * </p>
+     * Gets the replacement function.
      *
      * @return a {@link org.evosuite.ga.ReplacementFunction} object.
      */
