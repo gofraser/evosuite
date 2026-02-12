@@ -45,6 +45,14 @@ public class PathFinderDFSIterator<E> implements Iterator<E> {
         this(g, startingVertex, reversed, false);
     }
 
+    /**
+     * Constructor.
+     *
+     * @param g the graph
+     * @param startingVertex the starting vertex
+     * @param reversed whether to traverse in reverse
+     * @param visitAllPaths whether to visit all paths
+     */
     public PathFinderDFSIterator(Graph<E> g, E startingVertex, boolean reversed, boolean visitAllPaths) {
         if (!reversed) {
             this.stack.push(g.getNeighbors(startingVertex).iterator());

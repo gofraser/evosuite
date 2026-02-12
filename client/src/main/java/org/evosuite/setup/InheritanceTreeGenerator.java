@@ -349,6 +349,12 @@ public class InheritanceTreeGenerator {
     private static final Pattern ANONYMOUS_MATCHER1 = Pattern.compile(".*\\$\\d+.*$");
     private static final Pattern ANONYMOUS_MATCHER2 = Pattern.compile(".*\\.\\d+.*$");
 
+    /**
+     * Check if a ClassNode can be used.
+     *
+     * @param cn the ClassNode to check
+     * @return true if the ClassNode can be used
+     */
     public static boolean canUse(ClassNode cn) {
 
         if ((cn.access & Opcodes.ACC_PRIVATE) == Opcodes.ACC_PRIVATE) {
@@ -495,6 +501,11 @@ public class InheritanceTreeGenerator {
         }
     }
 
+    /**
+     * Read JDK data from resources.
+     *
+     * @return the JDK inheritance tree
+     */
     public static InheritanceTree readJDKData() {
         XStream xstream = new XStream();
         XStream.setupDefaultSecurity(xstream);
@@ -505,6 +516,7 @@ public class InheritanceTreeGenerator {
                 .getResourceAsStream(primaryFileName);
 
         if (inheritance != null) {
+            logger.info("Loaded JDK inheritance tree from resource: {}", primaryFileName);
             return (InheritanceTree) xstream.fromXML(inheritance);
         }
 
@@ -514,6 +526,7 @@ public class InheritanceTreeGenerator {
         if (inheritance != null) {
             logger.warn("Found no version-specific JDK inheritance tree for this JVM; falling back to {}",
                     fallbackFileName);
+            logger.info("Loaded JDK inheritance tree from resource: {}", fallbackFileName);
             return (InheritanceTree) xstream.fromXML(inheritance);
         }
 
@@ -521,6 +534,13 @@ public class InheritanceTreeGenerator {
         return null;
     }
 
+    /**
+     * Read an inheritance tree from a file.
+     *
+     * @param fileName the file name
+     * @return the inheritance tree
+     * @throws IOException if an error occurs
+     */
     public static InheritanceTree readInheritanceTree(String fileName) throws IOException {
         XStream xstream = new XStream();
         XStream.setupDefaultSecurity(xstream);
@@ -529,6 +549,13 @@ public class InheritanceTreeGenerator {
         return (InheritanceTree) xstream.fromXML(inheritance);
     }
 
+    /**
+     * Read an uncompressed inheritance tree from a file.
+     *
+     * @param fileName the file name
+     * @return the inheritance tree
+     * @throws IOException if an error occurs
+     */
     public static InheritanceTree readUncompressedInheritanceTree(String fileName)
             throws IOException {
         XStream xstream = new XStream();
@@ -539,6 +566,13 @@ public class InheritanceTreeGenerator {
         }
     }
 
+    /**
+     * Write an inheritance tree to a file.
+     *
+     * @param tree the inheritance tree to write
+     * @param file the file to write to
+     * @throws IOException if an error occurs
+     */
     public static void writeInheritanceTree(InheritanceTree tree, File file) throws IOException {
         XStream xstream = new XStream();
         XStream.setupDefaultSecurity(xstream);
@@ -549,6 +583,11 @@ public class InheritanceTreeGenerator {
     }
 
 
+    /**
+     * Get all resources from the current classpath.
+     *
+     * @return the collection of resources
+     */
     public static Collection<String> getAllResources() {
         Collection<String> retval = getResources(System.getProperty("java.class.path", "."));
         String boot = System.getProperty("sun.boot.class.path");
@@ -587,6 +626,12 @@ public class InheritanceTreeGenerator {
         return retval;
     }
 
+    /**
+     * Create a shaded copy of the JDK inheritance tree.
+     *
+     * @param sourceFileName the source file name
+     * @param targetFileName the target file name
+     */
     private static void makeShadedCopy(String sourceFileName, String targetFileName) {
 
         String content;
@@ -611,15 +656,21 @@ public class InheritanceTreeGenerator {
         }
     }
 
-    /*
-        usage example from command line:
-
-        java -cp master/target/evosuite-master-0.1.1-SNAPSHOT-jar-minimal.jar \
-             org.evosuite.setup.InheritanceTreeGenerator
-
-        Run this once per target JDK LTS (8/11/17/21/25) to generate:
-        client/src/main/resources/JDK_inheritance_<LTS>.xml
-        client/src/main/resources/JDK_inheritance_<LTS>_shaded.xml
+    /**
+     * Usage example from command line:
+     *
+     * <p>
+     * java -cp master/target/evosuite-master-0.1.1-SNAPSHOT-jar-minimal.jar \
+     *      org.evosuite.setup.InheritanceTreeGenerator
+     * </p>
+     *
+     * <p>
+     * Run this once per target JDK LTS (8/11/17/21/25) to generate:
+     * client/src/main/resources/JDK_inheritance_&lt;LTS&gt;.xml
+     * client/src/main/resources/JDK_inheritance_&lt;LTS&gt;_shaded.xml
+     * </p>
+     *
+     * @param args command line arguments
      */
     public static void main(String[] args) {
         generateJDKCluster(args);

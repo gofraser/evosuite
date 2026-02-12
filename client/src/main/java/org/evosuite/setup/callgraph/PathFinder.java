@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
+ * Path finder for graphs.
+ *
  * @author mattia
  */
 public class PathFinder {
@@ -32,8 +34,11 @@ public class PathFinder {
     }
 
     /**
+     * Get paths starting from a vertex.
+     * <p>
      * if startingVertex is not included in the graph, returns an empty collection.
      * XXX should it throws an exception?
+     * </p>
      *
      * @param g the graph
      * @param startingVertex the starting vertex
@@ -51,6 +56,14 @@ public class PathFinder {
         return dfs.getPaths();
     }
 
+    /**
+     * Get reverse paths starting from a vertex.
+     *
+     * @param g the graph
+     * @param startingVertex the starting vertex
+     * @param <E> type of vertices
+     * @return set of paths
+     */
     public static <E> Set<List<E>> getReversePaths(Graph<E> g, E startingVertex) {
         if (!g.containsVertex(startingVertex)) {
             return new HashSet<>();

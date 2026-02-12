@@ -81,10 +81,22 @@ public class TestClusterGenerator {
 
     // -------- public methods -----------------
 
+    /**
+     * Constructor.
+     *
+     * @param tree the inheritance tree to use
+     */
     public TestClusterGenerator(InheritanceTree tree) {
         inheritanceTree = tree;
     }
 
+    /**
+     * Generate the test cluster from the call graph.
+     *
+     * @param callGraph the call graph to use
+     * @throws RuntimeException if an error occurs
+     * @throws ClassNotFoundException if a class is not found
+     */
     public void generateCluster(CallGraph callGraph) throws RuntimeException, ClassNotFoundException {
 
         TestCluster.setInheritanceTree(inheritanceTree);
@@ -951,7 +963,8 @@ public class TestClusterGenerator {
                             + org.objectweb.asm.Type.getMethodDescriptor(method));
                     // TODO: Generic methods cause some troubles, but
                     //                    if (method.getTypeParameters().length > 0) {
-                    //                        logger.info("Type parameters in methods are not handled yet, skipping " + method);
+                    //                        logger.info("Type parameters in methods are not handled yet, skipping "
+                    //                                + method);
                     //                        continue;
                     //                    }
                     GenericMethod genericMethod = new GenericMethod(method, clazz);

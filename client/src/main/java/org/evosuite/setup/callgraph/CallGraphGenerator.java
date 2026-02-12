@@ -42,6 +42,12 @@ public class CallGraphGenerator {
 
     private static final Logger logger = LoggerFactory.getLogger(CallGraphGenerator.class);
 
+    /**
+     * Analyze the given class and generate a call graph.
+     *
+     * @param className the class name
+     * @return the call graph
+     */
     public static CallGraph analyze(String className) {
         ClassNode targetClass = DependencyAnalysis.getClassNode(className);
         CallGraph callgraph = new CallGraph(className);
@@ -54,6 +60,13 @@ public class CallGraphGenerator {
         return callgraph;
     }
 
+    /**
+     * Analyze other classes and add them to the call graph.
+     *
+     * @param callgraph the call graph
+     * @param className the class name
+     * @return the call graph
+     */
     public static CallGraph analyzeOtherClasses(CallGraph callgraph, String className) {
         ClassNode targetClass = DependencyAnalysis.getClassNode(className);
 
@@ -201,6 +214,12 @@ public class CallGraphGenerator {
         }
     }
 
+    /**
+     * Update the call graph with inheritance information.
+     *
+     * @param callGraph the call graph
+     * @param inheritanceTree the inheritance tree
+     */
     public static void update(CallGraph callGraph, InheritanceTree inheritanceTree) {
         logger.info("Updating call tree ");
 

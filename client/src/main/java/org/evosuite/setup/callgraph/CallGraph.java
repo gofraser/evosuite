@@ -58,20 +58,40 @@ public class CallGraph implements Iterable<CallGraphEntry> {
 
     private final Set<CallContext> publicMethods = Collections.synchronizedSet(new LinkedHashSet<>());
 
+    /**
+     * Constructor.
+     *
+     * @param className the name of the class
+     */
     public CallGraph(String className) {
         this.className = className;
     }
 
+    /**
+     * Get the reverse call graph.
+     *
+     * @return the graph
+     */
     public ReverseCallGraph getGraph() {
         return graph;
     }
 
+    /**
+     * Remove classes from the graph.
+     *
+     * @param vertexes the vertices to remove
+     */
     public void removeClasses(Collection<CallGraphEntry> vertexes) {
         for (CallGraphEntry vertex : vertexes) {
             graph.removeVertex(vertex);
         }
     }
 
+    /**
+     * Remove a class from the graph.
+     *
+     * @param vertex the vertex to remove
+     */
     public void removeClass(CallGraphEntry vertex) {
         graph.removeVertex(vertex);
     }
@@ -110,6 +130,10 @@ public class CallGraph implements Iterable<CallGraphEntry> {
     }
 
     /**
+     * Check if the method is in the callgraph.
+     *
+     * @param classname the class name
+     * @param methodName the method name
      * @return true if the method is in the callgraph.
      */
     public boolean hasMethod(String classname, String methodName) {
@@ -117,6 +141,12 @@ public class CallGraph implements Iterable<CallGraphEntry> {
     }
 
     /**
+     * Check if the call is in the callgraph.
+     *
+     * @param owner the owner class
+     * @param methodName the method name
+     * @param targetClass the target class
+     * @param targetMethod the target method
      * @return true if the call is in the callgraph.
      */
     public boolean hasCall(String owner, String methodName, String targetClass,
@@ -130,8 +160,12 @@ public class CallGraph implements Iterable<CallGraphEntry> {
     }
 
     /**
+     * Get calls exiting from the method, empty set if the call is not in the graph.
+     *
+     * @param owner the owner class
+     * @param methodName the method name
      * @return calls exiting from the method, empty set if the call is not in
-     * the graph.
+     *     the graph.
      */
     public Set<CallGraphEntry> getCallsFrom(String owner, String methodName) {
         CallGraphEntry call = new CallGraphEntry(owner, methodName);
@@ -224,6 +258,8 @@ public class CallGraph implements Iterable<CallGraphEntry> {
     }
 
     /**
+     * Get the class name.
+     *
      * @return the className
      */
     public String getClassName() {
@@ -305,6 +341,8 @@ public class CallGraph implements Iterable<CallGraphEntry> {
     }
 
     /**
+     * Get a copy of the current vertex set.
+     *
      * @return a copy of the current vertexset
      */
     public Set<CallGraphEntry> getViewOfCurrentMethods() {
@@ -312,6 +350,8 @@ public class CallGraph implements Iterable<CallGraphEntry> {
     }
 
     /**
+     * Get the set of class names.
+     *
      * @return set of class names.
      */
     public Set<String> getClasses() {
