@@ -39,6 +39,14 @@ public class TestSuiteSerialization {
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteSerialization.class);
 
 
+    /**
+     * Serializes a list of test suites to the specified target file.
+     *
+     * @param list   the list of test suites to save.
+     * @param target the file to save the tests to.
+     * @return true if the tests were saved successfully, false otherwise.
+     * @throws IllegalArgumentException if list or target is null.
+     */
     public static boolean saveTests(List<TestSuiteChromosome> list, File target) throws IllegalArgumentException {
         Inputs.checkNull(list, target);
 
@@ -64,6 +72,14 @@ public class TestSuiteSerialization {
         return true;
     }
 
+    /**
+     * Serializes a single test suite to the specified target file.
+     *
+     * @param ts     the test suite to save.
+     * @param target the file to save the test suite to.
+     * @return true if the test suite was saved successfully, false otherwise.
+     * @throws IllegalArgumentException if an error occurs.
+     */
     public static boolean saveTests(TestSuiteChromosome ts, File target) throws IllegalArgumentException {
         File parent = target.getParentFile();
         if (!parent.exists()) {
@@ -86,6 +102,15 @@ public class TestSuiteSerialization {
     }
 
 
+    /**
+     * Serializes a list of test suites to a file within the specified folder.
+     *
+     * @param ts       the list of test suites to save.
+     * @param folder   the folder where the file should be created.
+     * @param fileName the name of the file.
+     * @return true if the tests were saved successfully, false otherwise.
+     * @throws IllegalArgumentException if ts, folder, or fileName is null.
+     */
     public static boolean saveTests(List<TestSuiteChromosome> ts, File folder, String fileName)
             throws IllegalArgumentException {
         Inputs.checkNull(ts, folder, fileName);
@@ -98,16 +123,38 @@ public class TestSuiteSerialization {
         return saveTests(ts, target);
     }
 
+    /**
+     * Loads tests from a file within the specified folder.
+     *
+     * @param folder   the folder containing the file.
+     * @param fileName the name of the file.
+     * @return a list of loaded test chromosomes.
+     * @throws IllegalArgumentException if folder or fileName is null.
+     */
     public static List<TestChromosome> loadTests(File folder, String fileName) throws IllegalArgumentException {
         Inputs.checkNull(folder, fileName);
         File target = new File(folder, fileName);
         return loadTests(target);
     }
 
+    /**
+     * Loads tests from the file at the specified path.
+     *
+     * @param target the path to the file.
+     * @return a list of loaded test chromosomes.
+     * @throws IllegalArgumentException if the path is null.
+     */
     public static List<TestChromosome> loadTests(String target) throws IllegalArgumentException {
         return loadTests(new File(target));
     }
 
+    /**
+     * Loads tests from the specified file.
+     *
+     * @param target the file to load tests from.
+     * @return a list of loaded test chromosomes.
+     * @throws IllegalArgumentException if target is null.
+     */
     public static List<TestChromosome> loadTests(File target) throws IllegalArgumentException {
         Inputs.checkNull(target);
 
