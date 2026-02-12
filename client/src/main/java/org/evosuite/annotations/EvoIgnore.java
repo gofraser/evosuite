@@ -27,8 +27,8 @@ import java.lang.annotation.Target;
 
 /**
  * Annotation to indicate that an element should be ignored by EvoSuite.
- * <p>
- * This annotation is processed at source level. Use it to mark methods, constructors,
+ *
+ * <p>This annotation is processed at source level. Use it to mark methods, constructors,
  * fields, or parameters that should be excluded from test generation or analysis.
  */
 @Documented

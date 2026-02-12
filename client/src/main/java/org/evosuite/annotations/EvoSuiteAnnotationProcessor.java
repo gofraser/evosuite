@@ -19,7 +19,6 @@
  */
 package org.evosuite.annotations;
 
-
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -30,8 +29,8 @@ import java.util.Set;
 
 /**
  * Annotation processor for {@link EvoIgnore}.
- * <p>
- * This processor is responsible for handling elements annotated with {@code @EvoIgnore}.
+ *
+ * <p>This processor is responsible for handling elements annotated with {@code @EvoIgnore}.
  * Currently, it serves as a placeholder for future implementation of source-level processing.
  */
 @SupportedAnnotationTypes({"org.evosuite.annotations.EvoIgnore"})
