@@ -263,9 +263,20 @@ final class ExecutionModeUtils {
         // Module access flags needed for Java 9+ to allow reflective access
         addOpen(cmdLine, "java.base/java.util=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.lang=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.lang.invoke=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.lang.reflect=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.io=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.nio=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.net=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.security=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.util.regex=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.util.concurrent=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt=ALL-UNNAMED");
+        // Internal JDK packages sometimes used by legacy dependencies
+        addOpen(cmdLine, "java.base/sun.nio.ch=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/sun.security.util=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/sun.net=ALL-UNNAMED");
+        addOpen(cmdLine, "jdk.unsupported/sun.misc=ALL-UNNAMED");
     }
 
     /**
