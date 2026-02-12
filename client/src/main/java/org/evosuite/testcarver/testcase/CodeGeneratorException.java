@@ -36,6 +36,14 @@ public class CodeGeneratorException extends RuntimeException {
         super(e);
     }
 
+    /**
+     * Checks if the given expression is true, otherwise throws a CodeGeneratorException.
+     *
+     * @param expr    the expression to check
+     * @param msg     the error message format string
+     * @param msgArgs the arguments for the error message
+     * @throws CodeGeneratorException if the expression is false
+     */
     public static void check(final boolean expr, final String msg, final Object... msgArgs)
             throws CodeGeneratorException {
         if (!expr) {
@@ -46,6 +54,14 @@ public class CodeGeneratorException extends RuntimeException {
     }
 
 
+    /**
+     * Propagates an error by logging it and throwing a CodeGeneratorException.
+     *
+     * @param t       the throwable to propagate (optional)
+     * @param msg     the error message format string
+     * @param msgArgs the arguments for the error message
+     * @throws CodeGeneratorException always
+     */
     public static void propagateError(final Throwable t, final String msg, final Object... msgArgs)
             throws CodeGeneratorException {
         final String finalMsg = String.format(msg, msgArgs);
@@ -59,6 +75,13 @@ public class CodeGeneratorException extends RuntimeException {
         throw new CodeGeneratorException(finalMsg);
     }
 
+    /**
+     * Propagates an error by logging it and throwing a CodeGeneratorException.
+     *
+     * @param msg     the error message format string
+     * @param msgArgs the arguments for the error message
+     * @throws CodeGeneratorException always
+     */
     public static void propagateError(final String msg, final Object... msgArgs)
             throws CodeGeneratorException {
         propagateError(null, msg, msgArgs);

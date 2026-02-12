@@ -57,6 +57,12 @@ public final class Instrumenter {
     }
 
 
+    /**
+     * Instruments the given class node.
+     *
+     * @param className the name of the class
+     * @param cn        the class node to instrument
+     */
     public void instrument(final String className, final ClassNode cn) {
         if (!TransformerUtil.isClassConsideredForInstrumentation(className)) {
             logger.debug("Class {} has not been instrumented because its name is on the blacklist", className);
@@ -66,11 +72,20 @@ public final class Instrumenter {
         try {
             this.transformClassNode(cn, className);
         } catch (final Throwable t) {
-            logger.error("An error occurred while instrumenting class {} -> returning unmodified version", className, t);
+            logger.error("An error occurred while instrumenting class {} -> returning unmodified version",
+                    className, t);
         }
 
     }
 
+    /**
+     * Instruments the given class file buffer.
+     *
+     * @param className       the name of the class
+     * @param classfileBuffer the byte array of the class file
+     * @return the instrumented byte array
+     * @throws IllegalClassFormatException if the class format is illegal
+     */
     public byte[] instrument(final String className, final byte[] classfileBuffer) throws IllegalClassFormatException {
         logger.debug("Start instrumenting class {}", className);
 
@@ -93,7 +108,8 @@ public final class Instrumenter {
             return cw.toByteArray();
 
         } catch (final Throwable t) {
-            logger.error("An error occurred while instrumenting class {} -> returning unmodified version", className, t);
+            logger.error("An error occurred while instrumenting class {} -> returning unmodified version",
+                    className, t);
             return classfileBuffer;
         }
     }
@@ -139,6 +155,12 @@ public final class Instrumenter {
         methodNode.instructions.insert(ins, instructions);
     }
 
+    /**
+     * Transforms the given class node for instrumentation.
+     *
+     * @param cn                the class node
+     * @param internalClassName the internal name of the class
+     */
     @SuppressWarnings("unchecked")
     public void transformClassNode(ClassNode cn, final String internalClassName) {
         if (!TransformerUtil.isClassConsideredForInstrumentation(internalClassName)) {
@@ -159,8 +181,9 @@ public final class Instrumenter {
         }
 
         String packageName = internalClassName.replace('/', '.');
-        if (packageName.contains("."))
+        if (packageName.contains(".")) {
             packageName = packageName.substring(0, packageName.lastIndexOf('.'));
+        }
 
 
         // ASM has some problem with the access of inner classes
@@ -192,12 +215,12 @@ public final class Instrumenter {
                 logger.info("Using protected/default class because package name matches");
             }
         }
-		/*
-		if(	(cn.access & Opcodes.ACC_PUBLIC) == 0 && (cn.access & Opcodes.ACC_PROTECTED) == 0)
-		{
-			return;
-		}
-		*/
+        /*
+        if(    (cn.access & Opcodes.ACC_PUBLIC) == 0 && (cn.access & Opcodes.ACC_PROTECTED) == 0)
+        {
+            return;
+        }
+        */
 
         final ArrayList<MethodNode> wrappedMethods = new ArrayList<>();
         MethodNode methodNode;
@@ -206,10 +229,10 @@ public final class Instrumenter {
             methodNode = node;
 
             // consider only public methods which are not abstract or native
-            if (!TransformerUtil.isPrivate(methodNode.access) &&
-                    !TransformerUtil.isAbstract(methodNode.access) &&
-                    !TransformerUtil.isNative(methodNode.access) &&
-                    !methodNode.name.equals("<clinit>")) {
+            if (!TransformerUtil.isPrivate(methodNode.access)
+                    && !TransformerUtil.isAbstract(methodNode.access)
+                    && !TransformerUtil.isNative(methodNode.access)
+                    && !methodNode.name.equals("<clinit>")) {
                 if (!TransformerUtil.isPublic(methodNode.access)) {
                     //if(!Properties.CLASS_PREFIX.equals(packageName)) {
                     transformWrapperCalls(methodNode);
@@ -240,8 +263,9 @@ public final class Instrumenter {
         cn.accept(tcv);
     }
 
-
-    private void instrumentGETXXXFieldAccesses(final ClassNode cn, final String internalClassName, final MethodNode methodNode) {
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    private void instrumentGETXXXFieldAccesses(final ClassNode cn, final String internalClassName,
+                                               final MethodNode methodNode) {
         final InsnList instructions = methodNode.instructions;
 
         AbstractInsnNode ins = null;
@@ -281,8 +305,9 @@ public final class Instrumenter {
                             // -> Call
                             // w
                         }
-                    } else
+                    } else {
                         il.add(new InsnNode(Opcodes.ACONST_NULL));
+                    }
 
                     il.add(new LdcInsnNode(this.captureId));
                     il.add(new LdcInsnNode(fieldIns.owner));
@@ -303,8 +328,9 @@ public final class Instrumenter {
         }
     }
 
-
-    private void instrumentPUTXXXFieldAccesses(final ClassNode cn, final String internalClassName, final MethodNode methodNode) {
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    private void instrumentPUTXXXFieldAccesses(final ClassNode cn, final String internalClassName,
+                                               final MethodNode methodNode) {
         final InsnList instructions = methodNode.instructions;
 
         AbstractInsnNode ins = null;
@@ -355,8 +381,9 @@ public final class Instrumenter {
                             // PUTFIELD
                             // v
                         }
-                    } else
+                    } else {
                         il.add(new InsnNode(Opcodes.ACONST_NULL));
+                    }
 
                     il.add(new LdcInsnNode(this.captureId));
                     il.add(new LdcInsnNode(fieldIns.owner));
@@ -380,13 +407,15 @@ public final class Instrumenter {
     }
 
 
-    private void instrumentMethod(final ClassNode cn, final String internalClassName, final MethodNode methodNode, final List<MethodNode> wrappedMethods) {
+    private void instrumentMethod(final ClassNode cn, final String internalClassName,
+                                  final MethodNode methodNode, final List<MethodNode> wrappedMethods) {
         wrappedMethods.add(this.wrapMethod(cn, internalClassName, methodNode));
         this.captureId++;
     }
 
 
-    private InsnList addCaptureCall(final boolean isStatic, final String internalClassName, final String methodName, final String methodDesc, final Type[] argTypes) {
+    private InsnList addCaptureCall(final boolean isStatic, final String internalClassName,
+                                    final String methodName, final String methodDesc, final Type[] argTypes) {
         // construction of
         //   Capturer.capture(final Object receiver, final String methodName, final Object[] methodParams)
         // call
@@ -458,7 +487,8 @@ public final class Instrumenter {
     }
 
 
-    private void addCaptureEnableStatement(final String className, final MethodNode mn, final InsnList il, final int returnValueVar) {
+    private void addCaptureEnableStatement(final String className, final MethodNode mn,
+                                           final InsnList il, final int returnValueVar) {
         il.add(new LdcInsnNode(this.captureId));
 
 
@@ -508,12 +538,14 @@ public final class Instrumenter {
      * }
      * }
      *
-     * @param classNode
-     * @param className
-     * @param methodNode
+     * @param classNode the class node
+     * @param className the name of the class
+     * @param methodNode the method node
+     * @return the wrapped method node
      */
     @SuppressWarnings("unchecked")
-    private MethodNode wrapMethod(final ClassNode classNode, final String className, final MethodNode methodNode) {
+    private MethodNode wrapMethod(final ClassNode classNode, final String className,
+                                  final MethodNode methodNode) {
         methodNode.maxStack += 4;
 
         // create wrapper for original method
@@ -619,7 +651,9 @@ public final class Instrumenter {
         // --- L0
         wInstructions.add(l0);
 
-        wInstructions.add(this.addCaptureCall(TransformerUtil.isStatic(methodNode.access), className, wrappingMethodNode.name, wrappingMethodNode.desc, Type.getArgumentTypes(methodNode.desc)));
+        wInstructions.add(this.addCaptureCall(TransformerUtil.isStatic(methodNode.access),
+                className, wrappingMethodNode.name, wrappingMethodNode.desc,
+                Type.getArgumentTypes(methodNode.desc)));
 
         // --- construct call to wrapped methode
 
@@ -711,7 +745,9 @@ public final class Instrumenter {
 
             wInstructions.add(l2);
 
-            wInstructions.add(new FrameNode(Opcodes.F_FULL, 2, new Object[]{className, this.getInternalName(returnType)}, 1, new Object[]{"java/lang/Throwable"}));
+            wInstructions.add(new FrameNode(Opcodes.F_FULL, 2,
+                    new Object[]{className, this.getInternalName(returnType)}, 1,
+                    new Object[]{"java/lang/Throwable"}));
             wInstructions.add(new VarInsnNode(Opcodes.ASTORE, --var));
 
             this.addCaptureEnableStatement(className, methodNode, wInstructions, varReturnValue);
@@ -747,7 +783,8 @@ public final class Instrumenter {
                         if (wrapperClass.getName().equals(ownerName)) {
                             if (methodInsnNode.getOpcode() == Opcodes.INVOKESTATIC) {
                                 logger.debug("Replacing call " + methodInsnNode.name);
-                                methodInsnNode.owner = PackageInfo.getEvoSuitePackageWithSlash() + "/testcarver/wrapper/" + methodInsnNode.owner;
+                                methodInsnNode.owner = PackageInfo.getEvoSuitePackageWithSlash()
+                                        + "/testcarver/wrapper/" + methodInsnNode.owner;
                             }
                             Type[] parameterTypes = Type.getArgumentTypes(methodInsnNode.desc);
                             try {
@@ -782,6 +819,8 @@ public final class Instrumenter {
                                         case Type.SHORT:
                                             parameterClasses[pos++] = short.class;
                                             break;
+                                        default:
+                                            break;
                                     }
                                 }
                                 Method method = wrapperClass.getMethod(methodInsnNode.name, parameterClasses);
@@ -792,16 +831,20 @@ public final class Instrumenter {
                                         Type returnType = Type.getReturnType(methodInsnNode.desc);
                                         Type[] newargs = new Type[args.length + 1];
                                         newargs[0] = Type.getObjectType(methodInsnNode.owner);
-                                        for (int i = 0; i < args.length; i++)
+                                        for (int i = 0; i < args.length; i++) {
                                             newargs[i + 1] = args[i];
+                                        }
                                         methodInsnNode.desc = Type.getMethodDescriptor(returnType, newargs);
-                                        methodInsnNode.owner = PackageInfo.getEvoSuitePackageWithSlash() + "/testcarver/wrapper/" + methodInsnNode.owner;
+                                        methodInsnNode.owner = PackageInfo.getEvoSuitePackageWithSlash()
+                                                + "/testcarver/wrapper/" + methodInsnNode.owner;
                                     } else {
                                         methodInsnNode.name += "_final";
                                     }
-                                    logger.debug("Method is final: " + methodInsnNode.owner + "." + methodInsnNode.name);
+                                    logger.debug("Method is final: " + methodInsnNode.owner + "."
+                                            + methodInsnNode.name);
                                 } else {
-                                    logger.debug("Method is not final: " + methodInsnNode.owner + "." + methodInsnNode.name);
+                                    logger.debug("Method is not final: " + methodInsnNode.owner + "."
+                                            + methodInsnNode.name);
                                 }
                             } catch (Exception e) {
                                 logger.warn("Error while instrumenting: " + e);
@@ -810,15 +853,15 @@ public final class Instrumenter {
                             break;
                         }
                     }
-                    //				} else if(methodInsnNode.name.equals("getTime")) {
-                    //					if(methodInsnNode.owner.equals("java/util/Calendar")) {
-                    //						logger.debug("Replacing call "+methodInsnNode.name);
-                    //						methodInsnNode.owner = "org/evosuite/testcarver/wrapper/java/util/Calendar";
-                    //						methodInsnNode.name = "getTime";
-                    //						methodInsnNode.desc = "(Ljava/util/Calendar;)Ljava/util/Date;";
-                    //						methodInsnNode.setOpcode(Opcodes.INVOKESTATIC);
-                    //					}
-                    //				}
+                    //                    if(methodInsnNode.owner.equals("java/util/Calendar")) {
+                    //                        logger.debug("Replacing call "+methodInsnNode.name);
+                    //                        methodInsnNode.owner =
+                    //                                "org/evosuite/testcarver/wrapper/java/util/Calendar";
+                    //                        methodInsnNode.name = "getTime";
+                    //                        methodInsnNode.desc = "(Ljava/util/Calendar;)Ljava/util/Date;";
+                    //                        methodInsnNode.setOpcode(Opcodes.INVOKESTATIC);
+                    //                    }
+                    //                }
                 }
             } else if (insn.getOpcode() == Opcodes.NEW || insn.getOpcode() == Opcodes.CHECKCAST) {
                 TypeInsnNode typeInsnNode = (TypeInsnNode) insn;
@@ -828,7 +871,8 @@ public final class Instrumenter {
                 for (Class<?> wrapperClass : wrapperClasses) {
                     if (wrapperClass.getName().equals(name)) {
                         logger.debug("Replacing new " + name);
-                        typeInsnNode.desc = PackageInfo.getEvoSuitePackageWithSlash() + "/testcarver/wrapper/" + generatedType.getInternalName();
+                        typeInsnNode.desc = PackageInfo.getEvoSuitePackageWithSlash()
+                                + "/testcarver/wrapper/" + generatedType.getInternalName();
                         break;
                     }
                 }

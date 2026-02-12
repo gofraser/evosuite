@@ -63,57 +63,63 @@ public final class Capturer {
 
     @Deprecated
     public static void postProcess() {
-		/*
-		if(! Capturer.isCapturing())
-		{
-			if(! logs.isEmpty())
-			{
-				try
-				{
-		//					   LOG.info("Saving captured log to {}", DEFAULT_SAVE_LOC);
-		//					   final File targetFile = new File(DEFAULT_SAVE_LOC);
-		//					   Capturer.save(new FileOutputStream(targetFile));
+        /*
+        if(! Capturer.isCapturing())
+        {
+            if(! logs.isEmpty())
+            {
+                try
+                {
+        //                       LOG.info("Saving captured log to {}", DEFAULT_SAVE_LOC);
+        //                       final File targetFile = new File(DEFAULT_SAVE_LOC);
+        //                       Capturer.save(new FileOutputStream(targetFile));
 
-					   PostProcessor.init();
+                       PostProcessor.init();
 
-					   final ArrayList<String>     pkgNames    = new ArrayList<String>();
-					   final ArrayList<Class<?>[]> obsClasses = new ArrayList<Class<?>[]>();
+                       final ArrayList<String>     pkgNames    = new ArrayList<String>();
+                       final ArrayList<Class<?>[]> obsClasses = new ArrayList<Class<?>[]>();
 
-					   int searchIndex;
-					   for(String[] classNames : Capturer.classesToBeObserved)
-					   {
-						   searchIndex = classNames[0].lastIndexOf('.');
-						   if(searchIndex > -1)
-						   {
-							   pkgNames.add(classNames[0].substring(0, searchIndex));  
-						   }
-						   else
-						   {
-							   pkgNames.add("");
-						   }
+                       int searchIndex;
+                       for(String[] classNames : Capturer.classesToBeObserved)
+                       {
+                           searchIndex = classNames[0].lastIndexOf('.');
+                           if(searchIndex > -1)
+                           {
+                               pkgNames.add(classNames[0].substring(0, searchIndex));
+                           }
+                           else
+                           {
+                               pkgNames.add("");
+                           }
 
-						   final Class<?> [] clazzes = new Class<?>[classNames.length];
-						   for(int j = 0; j < classNames.length; j++)
-						   {
-							   clazzes[j] = Class.forName(classNames[j]);
-						   }
-						   obsClasses.add(clazzes);
-					   }
+                           final Class<?> [] clazzes = new Class<?>[classNames.length];
+                           for(int j = 0; j < classNames.length; j++)
+                           {
+                               clazzes[j] = Class.forName(classNames[j]);
+                           }
+                           obsClasses.add(clazzes);
+                       }
 
 
-					   PostProcessor.process(logs, pkgNames, obsClasses);
+                       PostProcessor.process(logs, pkgNames, obsClasses);
 
-					   Capturer.clear();
-				}
-				catch(final Exception e)
-				{
-					logger.error("an error occurred while post proccessin", e);
-				}
-			}
-		}
-		 */
+                       Capturer.clear();
+                }
+                catch(final Exception e)
+                {
+                    logger.error("an error occurred while post proccessin", e);
+                }
+            }
+        }
+         */
     }
 
+    /**
+     * Saves the captured logs to the given output stream.
+     *
+     * @param out the output stream to save to
+     * @throws IOException if an I/O error occurs
+     */
     public static void save(final OutputStream out) throws IOException {
         if (out == null) {
             throw new NullPointerException("given OutputStream must not be null");
@@ -126,6 +132,11 @@ public final class Capturer {
         out.close();
     }
 
+    /**
+     * Loads captured logs from the given input stream.
+     *
+     * @param in the input stream to load from
+     */
     @SuppressWarnings("unchecked")
     public static void load(final InputStream in) {
         if (in == null) {
@@ -138,6 +149,9 @@ public final class Capturer {
         logs.addAll((ArrayList<CaptureLog>) xstream.fromXML(in));
     }
 
+    /**
+     * Clears all captured logs and registry.
+     */
     public static void clear() {
         currentLog = null;
         logs.clear();
@@ -147,6 +161,9 @@ public final class Capturer {
         FieldRegistry.clear();
     }
 
+    /**
+     * Starts the capture process.
+     */
     public static void startCapture() {
         logger.info("Starting Capturer...");
 
@@ -163,6 +180,11 @@ public final class Capturer {
 
     }
 
+    /**
+     * Starts the capture process for the specified classes.
+     *
+     * @param classesToBeObservedString a whitespace-separated string of class names
+     */
     public static void startCapture(final String classesToBeObservedString) {
         if (classesToBeObservedString == null) {
             final String msg = "no arguments specified";
@@ -184,6 +206,11 @@ public final class Capturer {
         Capturer.startCapture(args);
     }
 
+    /**
+     * Starts the capture process for the specified list of classes.
+     *
+     * @param classesToBeObserved the list of class names to observe
+     */
     public static void startCapture(final List<String> classesToBeObserved) {
         logger.info("Starting Capturer...");
 
@@ -191,15 +218,15 @@ public final class Capturer {
             throw new IllegalStateException("Capture has already been started");
         }
 
-		/*
-		 * TODO need refactoring
-		 * 
-		if(! isShutdownHookAdded)
-		{
-			initShutdownHook();
-			isShutdownHookAdded = true;
-		}
-		 */
+        /*
+         * TODO need refactoring
+         *
+        if(! isShutdownHookAdded)
+        {
+            initShutdownHook();
+            isShutdownHookAdded = true;
+        }
+         */
         currentLog = new CaptureLog();
         isCaptureStarted = true;
 
@@ -215,6 +242,11 @@ public final class Capturer {
         logger.info("Capturer has been started successfully");
     }
 
+    /**
+     * Stops the capture process and returns the final capture log.
+     *
+     * @return the final capture log, or null if capture was not started
+     */
     public static CaptureLog stopCapture() {
         logger.info("Stopping Capturer...");
 
@@ -237,18 +269,37 @@ public final class Capturer {
         return null;
     }
 
+    /**
+     * Checks if the capture process is currently active.
+     *
+     * @return true if capturing, false otherwise
+     */
     public static boolean isCapturing() {
         return isCaptureStarted;
     }
 
+    /**
+     * Sets the capturing state.
+     *
+     * @param isCapturing true to enable capturing, false to disable
+     */
     public static void setCapturing(final boolean isCapturing) {
         Capturer.isCaptureStarted = isCapturing;
     }
 
+    /**
+     * Captures a method call.
+     *
+     * @param captureId the capture ID
+     * @param receiver the receiver object
+     * @param methodName the name of the method
+     * @param methodDesc the descriptor of the method
+     * @param methodParams the parameters of the method
+     */
     public static void capture(final int captureId, final Object receiver,
                                final String methodName, final String methodDesc, final Object[] methodParams) {
         if (receiver != null && receiver.getClass().getName().contains("Person")) {
-             logger.error("CAPTURED call on Person: " + methodName);
+            logger.error("CAPTURED call on Person: " + methodName);
         }
         try {
             if (isCapturing()) {
@@ -256,15 +307,17 @@ public final class Capturer {
                 setCapturing(false);
 
                 if (logger.isDebugEnabled()) {
-                    logger.debug("Method call captured:  captureId={} receiver={} type={} method={} methodDesc={} params={}",
+                    logger.debug("Method call captured:  captureId={} receiver={} type={} method={} "
+                                    + "methodDesc={} params={}",
                             captureId, System.identityHashCode(receiver),
                             receiver.getClass().getName(), methodName,
                             methodDesc, Arrays.toString(methodParams));
                 }
 
                 currentLog.log(captureId, receiver, methodName, methodDesc, methodParams);
-                if (TimeController.getInstance().isThereStillTimeInThisPhase())
+                if (TimeController.getInstance().isThereStillTimeInThisPhase()) {
                     setCapturing(true);
+                }
                 //}
             }
         } catch (Throwable t) {
@@ -273,11 +326,23 @@ public final class Capturer {
         }
     }
 
+    /**
+     * Returns a clone of the list of capture logs.
+     *
+     * @return the list of capture logs
+     */
     @SuppressWarnings("unchecked")
     public static List<CaptureLog> getCaptureLogs() {
         return (List<CaptureLog>) logs.clone();
     }
 
+    /**
+     * Enables capture for a specific method end.
+     *
+     * @param captureId the capture ID
+     * @param receiver the receiver object
+     * @param returnValue the return value of the method
+     */
     public static void enable(final int captureId, final Object receiver,
                               final Object returnValue) {
         try {

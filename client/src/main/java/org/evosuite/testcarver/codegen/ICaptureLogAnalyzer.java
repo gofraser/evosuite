@@ -22,5 +22,13 @@ package org.evosuite.testcarver.codegen;
 import org.evosuite.testcarver.capture.CaptureLog;
 
 public interface ICaptureLogAnalyzer {
-    void analyze(final CaptureLog log, @SuppressWarnings("rawtypes") ICodeGenerator generator, final Class<?>... observedClasses);
+    /**
+     * Analyzes the given capture log and generates code.
+     *
+     * @param log             the capture log
+     * @param generator       the code generator
+     * @param observedClasses the observed classes
+     */
+    void analyze(final CaptureLog log, @SuppressWarnings("rawtypes") ICodeGenerator generator,
+                 final Class<?>... observedClasses);
 }

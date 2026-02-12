@@ -33,6 +33,9 @@ import org.objectweb.asm.Type;
 public final class TestCarvingExecutionObserver extends ExecutionObserver {
     private int captureId;
 
+    /**
+     * Creates a new TestCarvingExecutionObserver.
+     */
     public TestCarvingExecutionObserver() {
         // We can't know the max captureId calculated in the test carving related
         // instrumentation. However, we know the captureId starts with Integer.MIN_VALUE.
@@ -63,7 +66,8 @@ public final class TestCarvingExecutionObserver extends ExecutionObserver {
                 final FieldReference fieldRef = (FieldReference) left;
                 final GenericField field = fieldRef.getField();
 
-                FieldRegistry.notifyModification(field.isStatic() ? null : scope.getObject(fieldRef.getSource()), this.captureId,
+                FieldRegistry.notifyModification(
+                        field.isStatic() ? null : scope.getObject(fieldRef.getSource()), this.captureId,
                         Type.getInternalName(field.getDeclaringClass()),
                         field.getName(),
                         Type.getDescriptor(field.getField().getType()));
@@ -74,7 +78,8 @@ public final class TestCarvingExecutionObserver extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope)
+     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope)
      */
     @Override
     public void beforeStatement(Statement statement, Scope scope) {

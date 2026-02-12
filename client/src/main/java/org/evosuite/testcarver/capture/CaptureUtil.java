@@ -25,9 +25,18 @@ import org.objectweb.asm.Type;
 
 public final class CaptureUtil {
 
+    /**
+     * Private constructor to prevent instantiation.
+     */
     private CaptureUtil() {
     }
 
+    /**
+     * Loads a class given its internal name.
+     *
+     * @param internalClassName the internal name of the class
+     * @return the loaded Class object
+     */
     public static Class<?> loadClass(final String internalClassName) {
         final String className = ResourceList.getClassNameFromResourcePath(internalClassName);
 
@@ -38,6 +47,12 @@ public final class CaptureUtil {
         }
     }
 
+    /**
+     * Returns the Class object corresponding to the given descriptor.
+     *
+     * @param desc the type descriptor
+     * @return the corresponding Class object
+     */
     public static Class<?> getClassFromDesc(final String desc) {
         final Type type = Type.getType(desc);
         if (type.equals(Type.BOOLEAN_TYPE)) {

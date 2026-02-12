@@ -28,14 +28,32 @@ public class CaptureLogAnalyzerException extends RuntimeException {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CaptureLogAnalyzerException.class);
 
+    /**
+     * Constructs a new exception with the specified message.
+     *
+     * @param msg the message
+     */
     public CaptureLogAnalyzerException(final String msg) {
         super(msg);
     }
 
+    /**
+     * Constructs a new exception with the specified cause.
+     *
+     * @param e the cause
+     */
     public CaptureLogAnalyzerException(final Throwable e) {
         super(e);
     }
 
+    /**
+     * Checks an expression and throws an exception if it is false.
+     *
+     * @param expr    the expression to check
+     * @param msg     the error message format string
+     * @param msgArgs the error message arguments
+     * @throws CaptureLogAnalyzerException if the expression is false
+     */
     public static void check(final boolean expr, final String msg, final Object... msgArgs)
             throws CaptureLogAnalyzerException {
         if (!expr) {
@@ -46,6 +64,14 @@ public class CaptureLogAnalyzerException extends RuntimeException {
     }
 
 
+    /**
+     * Propagates an error by throwing a new exception.
+     *
+     * @param t       the original throwable
+     * @param msg     the error message format string
+     * @param msgArgs the error message arguments
+     * @throws CaptureLogAnalyzerException always
+     */
     public static void propagateError(final Throwable t, final String msg, final Object... msgArgs)
             throws CaptureLogAnalyzerException {
         final String finalMsg = String.format(msg, msgArgs);

@@ -33,7 +33,8 @@ public final class FieldRegistry {
     private static final Map<String, ReferenceQueue<?>> classRefQueueMapping = new LinkedHashMap<>();
     private static final Map<String, List<MyWeakRef<?>>> classInstanceMapping = new LinkedHashMap<>();
 
-    private static final Map<Integer, Map<String, WeakReference<?>>> instanceRecentFieldValuesMapping = new LinkedHashMap<>();
+    private static final Map<Integer, Map<String, WeakReference<?>>> instanceRecentFieldValuesMapping =
+            new LinkedHashMap<>();
 
     private static final Map<String, Map<String, Field>> classFieldsMapping = new LinkedHashMap<>();
 
@@ -47,10 +48,18 @@ public final class FieldRegistry {
 
     public static ClassLoader carvingClassLoader = null;
 
+    /**
+     * Private constructor to prevent instantiation.
+     */
     private FieldRegistry() {
     }
 
-    synchronized public static void register(final Object instance) {
+    /**
+     * Registers an object instance for field observation.
+     *
+     * @param instance the object instance to register
+     */
+    public static synchronized void register(final Object instance) {
         if (!Capturer.isCapturing()) {
             return;
         }
@@ -76,80 +85,15 @@ public final class FieldRegistry {
                 collectAccessibleFields(observedFields, clazz, null);
 
                 //if (observedFields.isEmpty()) {
-                //	logger.debug("Class {} has no observable fields", clazz);
-                //	classFieldsMapping.put(internalClassName, Collections.EMPTY_MAP);
+                //    logger.debug("Class {} has no observable fields", clazz);
+                //    classFieldsMapping.put(internalClassName, Collections.EMPTY_MAP);
                 //} else {
-                //	classFieldsMapping.put(internalClassName, observedFields);
+                //    classFieldsMapping.put(internalClassName, observedFields);
                 //}
             }
         } catch (Throwable t) {
             logger.debug("ARgh");
         }
-
-//		if (!observedFields.isEmpty()) {
-//			List<MyWeakRef<?>> instances = classInstanceMapping.get(internalClassName);
-//			ReferenceQueue<?> refQueue = classRefQueueMapping.get(internalClassName);
-//			if (instances == null) {
-//				instances = new ArrayList<MyWeakRef<?>>();
-//				refQueue = new ReferenceQueue();
-//				classInstanceMapping.put(internalClassName, instances);
-//				classRefQueueMapping.put(internalClassName, refQueue);
-//			}
-//			instances.add(new MyWeakRef(instance, refQueue));
-
-        // determine current field values
-
-//			final Map<String, WeakReference<?>> fieldValues = new LinkedHashMap<String, WeakReference<?>>();
-//
-//			Field f;
-//			Object v;
-//			for (Map.Entry<String, Field> entry : observedFields.entrySet()) {
-//				try {
-//					f = entry.getValue();
-//					if (Modifier.isStatic(f.getModifiers())) {
-//						v = f.get(null);
-//						fieldValues.put(entry.getKey(), new WeakReference(v));
-//
-//						// TODO remove final fields from map of observed fields
-//						if (v != null) {
-//							// as PUTFIELD only access public (and protected) fields we can also add a corresponding GETFIELD entry to the log
-//							// to know the instances stored in the static fields
-//
-//							final Object receiver = instance instanceof Class ? instance
-//							        : instance.getClass();
-//
-//							Capturer.capture(captureId, receiver, CaptureLog.GETSTATIC,
-//							                 Type.getDescriptor(f.getType()),
-//							                 new Object[] { f.getName() });
-//							Capturer.enable(captureId, receiver, v);
-//
-//							CLASSES.add((Class<?>) receiver);
-//
-//							// TODO proper capture id handling
-//							captureId--;
-//						}
-//					} else {
-//						// we can't collect instance field values from the class itself
-//						if (!(instance instanceof Class)) {
-//							fieldValues.put(entry.getKey(),
-//							                new WeakReference(f.get(instance)));
-//						}
-//					}
-//				} catch (final Exception e) {
-//					logger.error("class={} field={} fieldOwner={} instance={}",
-//					             new Object[] { internalClassName, entry.getKey(),
-//					                     entry.getValue().getDeclaringClass().getName(),
-//					                     instance });
-//
-//					logger.error("an error occurred while determining current field values",
-//					             e);
-//					throw new RuntimeException(e); // TODO better exception type
-//				}
-//			}
-//
-//			instanceRecentFieldValuesMapping.put(System.identityHashCode(instance),
-//			                                     fieldValues);
-//		}
     }
 
     private static Map<String, Field> collectAccessibleFields(Map<String, Field> accessibleFields,
@@ -165,7 +109,8 @@ public final class FieldRegistry {
                 try {
                     int modifier = f.getModifiers();
                     if (Modifier.isPublic(modifier)
-                            || (Modifier.isProtected(modifier) && (childPackage == null || childPackage.equals(clazz.getPackage())))) {
+                            || (Modifier.isProtected(modifier)
+                            && (childPackage == null || childPackage.equals(clazz.getPackage())))) {
                         f.setAccessible(true);
                         currentAccessibleFields.put(f.getName(), f);
                         logger.debug("Field {} is accessible", f.getName());
@@ -175,19 +120,20 @@ public final class FieldRegistry {
                 } catch (Throwable t) {
                     logger.error("Exception caught while looking at field {}: {}", f.getName(), t.toString());
                 }
-                //			if(! Modifier.isPrivate(modifier) )
-                //			{
-                //			    f.setAccessible(true);
-                //				accessibleFields.put(f.getName(), f);
-                //			}
+                //            if(! Modifier.isPrivate(modifier) )
+                //            {
+                //                f.setAccessible(true);
+                //                accessibleFields.put(f.getName(), f);
+                //            }
             }
         } catch (Throwable t) {
-            logger.error("Exception caught while collecting fields from class {}: {}", clazz.getCanonicalName(), t.toString());
+            logger.error("Exception caught while collecting fields from class {}: {}",
+                    clazz.getCanonicalName(), t.toString());
         }
 
         logger.debug("Looking at fields of superclass {}", clazz.getSuperclass().getCanonicalName());
-        Map<String, Field> superFieldMap = collectAccessibleFields(accessibleFields, clazz.getSuperclass(),
-                clazz.getPackage());
+        Map<String, Field> superFieldMap = collectAccessibleFields(accessibleFields,
+                clazz.getSuperclass(), clazz.getPackage());
         currentAccessibleFields.putAll(superFieldMap);
         classFieldsMapping.put(clazz.getName().replace('.', '/'), currentAccessibleFields);
         logger.debug("Storing {} field(s) for {}: {}", currentAccessibleFields.size(),
@@ -217,8 +163,18 @@ public final class FieldRegistry {
         }
     }
 
-    synchronized public static void notifyModification(Object receiver, final int captureId,
-                                                       final String internalClassName, final String fieldName, final String desc) {
+    /**
+     * Notifies the registry about a field modification.
+     *
+     * @param receiver          the object whose field is modified
+     * @param captureId         the ID of the capture operation
+     * @param internalClassName the internal name of the class
+     * @param fieldName         the name of the field
+     * @param desc              the descriptor of the field
+     */
+    public static synchronized void notifyModification(Object receiver, final int captureId,
+                                                       final String internalClassName, final String fieldName,
+                                                       final String desc) {
         cleanUpReferences(internalClassName);
 
         if (!Capturer.isCapturing()) {
@@ -283,67 +239,6 @@ public final class FieldRegistry {
                             CaptureLog.RETURN_TYPE_VOID);
 
                 }
-//				
-//								if (instance instanceof Class) {
-//									// TODO error?
-//									final WeakReference<?> recentRef = recentFieldValues.get(fieldName);
-//									final Object recentValue = recentRef.get();
-//
-//									if ((recentValue != currentValue)
-//									        || (recentValue != null && !recentValue.equals(currentValue))) {
-//										Capturer.capture(captureId, instance,
-//										                 CaptureLog.PUTSTATIC, desc,
-//										                 new Object[] { fieldName,
-//										                         currentValue });
-//										Capturer.enable(captureId, instance,
-//										                CaptureLog.RETURN_TYPE_VOID);
-//
-//										// as PUTFIELD only access public fields we can also add a corresponding GETFIELD entry to the log
-//										Capturer.capture(captureId + 1, instance,
-//										                 CaptureLog.GETSTATIC, desc,
-//										                 new Object[] { fieldName });
-//										Capturer.enable(captureId + 1, instance,
-//										                currentValue);
-//
-//										break; // there can only be on field access at a time
-//									}
-//								} else {
-//									final WeakReference<?> recentRef = recentFieldValues.get(fieldName);
-//									final Object recentValue = recentRef.get();
-//
-//									if (recentValue != currentValue) //|| (recentValue != null && ! recentValue.equals(currentValue)))
-//									{
-//										Capturer.capture(captureId, instance,
-//										                 CaptureLog.PUTFIELD, desc,
-//										                 new Object[] { fieldName,
-//										                         currentValue });
-//										Capturer.enable(captureId, instance,
-//										                CaptureLog.RETURN_TYPE_VOID);
-//
-//										// as PUTFIELD only access public fields we can also add a corresponding GETFIELD entry to the log
-//										Capturer.capture(captureId + 1, instance,
-//										                 CaptureLog.GETFIELD, desc,
-//										                 new Object[] { fieldName });
-//										Capturer.enable(captureId + 1, instance,
-//										                currentValue);
-//
-//										break; // there can only be on field access at a time
-//									}
-//								}
-//
-//							} catch (final Exception e) {
-//								logger.error("an error occurred while comparing field values for class {}",
-//								             internalClassName, e);
-//								throw new RuntimeException(e); // TODO better exception type
-//							}
-//
-//						}
-                //}
-                //}
-//			}
-//		} else {
-//			logger.debug("No observed fields for class {}  [MODIFY]", internalClassName);
-//		}
             }
         } catch (final Throwable e) {
             logger.error("an error occurred while comparing field values for class {}",
@@ -368,15 +263,6 @@ public final class FieldRegistry {
             if (Modifier.isStatic(observedFields.get(fieldName).getModifiers())) {
                 register(clazz);
             }
-
-//			if (observedFields.isEmpty()) {
-//				logger.debug("Class {} has no observable fields", internalClassName);
-//				classFieldsMapping.put(internalClassName, Collections.EMPTY_MAP);
-//			} else {
-//				logger.debug("Setting field map for class "+internalClassName +" to "+observedFields);
-//				classFieldsMapping.put(internalClassName, observedFields);
-//			}
-
         } catch (ClassNotFoundException e) {
             logger.info("Error loading class " + internalClassName + ": " + e);
         } catch (Throwable e) {
@@ -386,15 +272,26 @@ public final class FieldRegistry {
             for (StackTraceElement elem : e.getStackTrace()) {
                 logger.debug(elem.toString());
             }
-            if (e.getCause() != null)
+            if (e.getCause() != null) {
                 for (StackTraceElement elem : e.getCause().getStackTrace()) {
                     logger.debug(elem.toString());
                 }
+            }
         }
     }
 
-    synchronized public static void notifyReadAccess(Object receiver, final int captureId,
-                                                     final String internalClassName, final String fieldName, final String desc) {
+    /**
+     * Notifies the registry about a field read access.
+     *
+     * @param receiver          the object whose field is read
+     * @param captureId         the ID of the capture operation
+     * @param internalClassName the internal name of the class
+     * @param fieldName         the name of the field
+     * @param desc              the descriptor of the field
+     */
+    public static synchronized void notifyReadAccess(Object receiver, final int captureId,
+                                                     final String internalClassName, final String fieldName,
+                                                     final String desc) {
         cleanUpReferences(internalClassName);
 
         if (!Capturer.isCapturing()) {
@@ -444,7 +341,8 @@ public final class FieldRegistry {
 
                 currentValue = targetField.get(receiver);
             }
-            logger.debug("Notify read access {}, {}, {}", internalClassName, fieldName, receiver == null ? "null" : receiver.getClass());
+            logger.debug("Notify read access {}, {}, {}", internalClassName, fieldName,
+                    receiver == null ? "null" : receiver.getClass());
 
             if (receiver instanceof Class) {
                 Capturer.capture(captureId, receiver,
@@ -470,7 +368,10 @@ public final class FieldRegistry {
         }
     }
 
-    synchronized public static void clear() {
+    /**
+     * Clears all registered objects and field mappings.
+     */
+    public static synchronized void clear() {
         classInstanceMapping.clear();
         classFieldsMapping.clear();
         instanceRecentFieldValuesMapping.clear();
@@ -479,12 +380,21 @@ public final class FieldRegistry {
         captureId = Integer.MAX_VALUE;
     }
 
-    synchronized public static void restoreForegoingGETSTATIC() {
+    /**
+     * Restores the state of static fields that were accessed before.
+     */
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    public static synchronized void restoreForegoingGETSTATIC() {
         for (Class<?> c : CLASSES) {
             register(c);
         }
     }
 
+    /**
+     * Returns a string representation of the class fields mapping.
+     *
+     * @return a string containing the class field mappings
+     */
     public static String classFieldsMappinString() {
         final StringBuilder builder = new StringBuilder();
 
@@ -499,16 +409,23 @@ public final class FieldRegistry {
             for (Map.Entry<String, Field> entry2 : fieldMap.entrySet()) {
                 fieldModifiers = entry2.getValue().getModifiers();
 
-                builder.append(c).append('.').append(entry2.getKey()).append(" public="
-                        + Modifier.isPublic(fieldModifiers)).append(" private="
-                        + Modifier.isPrivate(fieldModifiers)).append(" protected="
-                        + Modifier.isProtected(fieldModifiers)).append('\n');
+                builder.append(c).append('.').append(entry2.getKey())
+                        .append(" public=").append(Modifier.isPublic(fieldModifiers))
+                        .append(" private=").append(Modifier.isPrivate(fieldModifiers))
+                        .append(" protected=").append(Modifier.isProtected(fieldModifiers))
+                        .append('\n');
             }
         }
 
         return builder.toString();
     }
 
+    /**
+     * Checks whether an object is already registered.
+     *
+     * @param obj the object to check
+     * @return true if the object is registered, false otherwise
+     */
     public static boolean isKnownObject(Object obj) {
         return registeredObjects.contains(obj);
     }
@@ -516,6 +433,12 @@ public final class FieldRegistry {
     public static class MyWeakRef<T> extends WeakReference<T> {
         public final int oid;
 
+        /**
+         * Creates a new MyWeakRef.
+         *
+         * @param referent the object referent
+         * @param q        the reference queue
+         */
         public MyWeakRef(T referent, ReferenceQueue<? super T> q) {
             super(referent, q);
 

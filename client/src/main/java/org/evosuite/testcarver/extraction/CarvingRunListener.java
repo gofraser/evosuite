@@ -43,7 +43,7 @@ public class CarvingRunListener extends RunListener {
 
     private final Map<Class<?>, List<TestCase>> carvedTests = new LinkedHashMap<>();
 
-    private final static Logger logger = LoggerFactory.getLogger(CarvingRunListener.class);
+    private static final Logger logger = LoggerFactory.getLogger(CarvingRunListener.class);
 
     public Map<Class<?>, List<TestCase>> getTestCases() {
         return carvedTests;
@@ -65,7 +65,8 @@ public class CarvingRunListener extends RunListener {
     public void testFinished(Description description) throws Exception {
         final CaptureLog log = Capturer.stopCapture();
         if (TimeController.getInstance().isThereStillTimeInThisPhase()) {
-            LoggingUtils.getEvoLogger().info(" - Carving test {}.{}", description.getClassName(), description.getMethodName());
+            LoggingUtils.getEvoLogger().info(" - Carving test {}.{}", description.getClassName(),
+                    description.getMethodName());
             this.processLog(description, log);
         }
         Capturer.clear();
@@ -97,12 +98,15 @@ public class CarvingRunListener extends RunListener {
                 if (BytecodeInstrumentation.checkIfCanInstrument(className)) {
                     logger.info("Instrumentable: " + className);
                     try {
-                        Class<?> clazz = Class.forName(className, true, TestGenerationContext.getInstance().getClassLoaderForSUT());
+                        Class<?> clazz = Class.forName(className, true,
+                                TestGenerationContext.getInstance().getClassLoaderForSUT());
                         if (TestUsageChecker.canUse(clazz) && !clazz.isArray()) {
-                            if (!targetClasses.contains(clazz))
+                            if (!targetClasses.contains(clazz)) {
                                 targetClasses.add(clazz);
-                        } else
+                            }
+                        } else {
                             logger.info("Cannot access" + className);
+                        }
                     } catch (ClassNotFoundException e) {
                         logger.info("Error loading class " + className + ": " + e);
                     }
@@ -117,9 +121,9 @@ public class CarvingRunListener extends RunListener {
 
 
     /**
-     * Creates TestCase out of the captured log
+     * Creates TestCase out of the captured log.
      *
-     * @param description
+     * @param description the test description
      * @param log         log captured from test execution
      */
     private void processLog(Description description, final CaptureLog log) {
@@ -131,8 +135,9 @@ public class CarvingRunListener extends RunListener {
             logger.debug("Current observed class: {}", targetClass.getName());
             Class<?>[] targetClasses = new Class<?>[1];
             targetClasses[0] = targetClass;
-            if (!carvedTests.containsKey(targetClass))
+            if (!carvedTests.containsKey(targetClass)) {
                 carvedTests.put(targetClass, new ArrayList<>());
+            }
 
             analyzer.analyze(log, codeGen, targetClasses);
 
