@@ -45,12 +45,25 @@ public class Failure implements Serializable {
 
     private final int lineNo;
 
+    /**
+     * Creates a new Failure instance from a contract violation.
+     *
+     * @param violation the contract violation to create the failure from
+     */
     public Failure(ContractViolation violation) {
         this.className = Properties.TARGET_CLASS;
         this.lineNo = violation.getPosition();
         initializeFromContractViolation(violation);
     }
 
+    /**
+     * Creates a new Failure instance from a throwable exception, its position in the test case, and the test case
+     * itself.
+     *
+     * @param t        the throwable that caused the failure
+     * @param position the position in the test case where the failure occurred
+     * @param test     the test case in which the failure occurred
+     */
     public Failure(Throwable t, int position, TestCase test) {
         this.className = Properties.TARGET_CLASS;
         this.methodName = getMethodName(test, position);

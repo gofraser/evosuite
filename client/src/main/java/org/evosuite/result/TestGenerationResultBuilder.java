@@ -46,6 +46,13 @@ import java.util.Set;
 
 public class TestGenerationResultBuilder {
 
+    /**
+     * Builds a test generation result indicating an error.
+     *
+     * @param errorMessage the error message describing the failure
+     * @param <T>          the type of chromosome
+     * @return the test generation result with error status
+     */
     public static <T extends Chromosome<T>> TestGenerationResult<T> buildErrorResult(String errorMessage) {
         TestGenerationResultImpl<T> result = new TestGenerationResultImpl<T>();
         result.setStatus(Status.ERROR);
@@ -56,6 +63,12 @@ public class TestGenerationResultBuilder {
         return result;
     }
 
+    /**
+     * Builds a test generation result indicating a timeout.
+     *
+     * @param <T> the type of chromosome
+     * @return the test generation result with timeout status
+     */
     public static <T extends Chromosome<T>> TestGenerationResult<T> buildTimeoutResult() {
         TestGenerationResultImpl<T> result = new TestGenerationResultImpl<T>();
         result.setStatus(Status.TIMEOUT);
@@ -65,6 +78,12 @@ public class TestGenerationResultBuilder {
         return result;
     }
 
+    /**
+     * Builds a test generation result indicating success.
+     *
+     * @param <T> the type of chromosome
+     * @return the test generation result with success status
+     */
     public static <T extends Chromosome<T>> TestGenerationResult<T> buildSuccessResult() {
         TestGenerationResultImpl<T> result = new TestGenerationResultImpl<>();
         result.setStatus(Status.SUCCESS);
@@ -80,6 +99,11 @@ public class TestGenerationResultBuilder {
         resetTestData();
     }
 
+    /**
+     * Returns the singleton instance of the TestGenerationResultBuilder.
+     *
+     * @return the singleton instance
+     */
     public static TestGenerationResultBuilder getInstance() {
         if (instance == null) {
             instance = new TestGenerationResultBuilder();
@@ -179,6 +203,15 @@ public class TestGenerationResultBuilder {
 
     private final LinkedHashMap<FitnessFunction<?>, Double> targetCoverages = new LinkedHashMap<>();
 
+    /**
+     * Sets the test case information for a specific test method.
+     *
+     * @param name     the name of the test method
+     * @param code     the source code of the test method
+     * @param testCase the EvoSuite test case object
+     * @param comment  any comments associated with the test
+     * @param result   the execution result of the test case
+     */
     public void setTestCase(String name, String code, TestCase testCase, String comment, ExecutionResult result) {
         testCode.put(name, code);
         testCases.put(name, testCase);
@@ -233,10 +266,20 @@ public class TestGenerationResultBuilder {
         uncoveredMutants.removeAll(mutationCoverage);
     }
 
+    /**
+     * Sets the source code of the entire test suite.
+     *
+     * @param code the test suite source code
+     */
     public void setTestSuiteCode(String code) {
         this.code = code;
     }
 
+    /**
+     * Sets the genetic algorithm instance used during test generation.
+     *
+     * @param ga the genetic algorithm instance
+     */
     public void setGeneticAlgorithm(GeneticAlgorithm<?> ga) {
         this.ga = ga;
         // Only gather coverage values if the population has been initialized.
@@ -247,6 +290,11 @@ public class TestGenerationResultBuilder {
         }
     }
 
+    /**
+     * Sets the DSE algorithm instance used during test generation.
+     *
+     * @param dse the DSE algorithm instance
+     */
     public void setDSEAlgorithm(ExplorationAlgorithmBase dse) {
         this.dse = dse;
         for (Map.Entry<FitnessFunction<TestSuiteChromosome>, Double> e : dse.getGeneratedTestSuite()
