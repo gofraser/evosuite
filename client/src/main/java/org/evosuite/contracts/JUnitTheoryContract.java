@@ -40,6 +40,13 @@ public class JUnitTheoryContract extends Contract {
 
     private Object theoryReceiver;
 
+    /**
+     * Creates a new JUnitTheoryContract.
+     *
+     * @param theoryMethod a {@link org.evosuite.utils.generic.GenericMethod} object.
+     * @throws java.lang.InstantiationException if the declaring class cannot be instantiated.
+     * @throws java.lang.IllegalAccessException if the declaring class or constructor is not accessible.
+     */
     public JUnitTheoryContract(GenericMethod theoryMethod) throws InstantiationException, IllegalAccessException {
         this.theoryMethod = theoryMethod;
         this.theoryReceiver = theoryMethod.getDeclaringClass().newInstance();

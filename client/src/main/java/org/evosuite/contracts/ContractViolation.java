@@ -112,10 +112,21 @@ public class ContractViolation {
         return statement.getPosition();
     }
 
+    /**
+     * Gets the exception associated with the violation.
+     *
+     * @return a {@link java.lang.Throwable} object, or null if no exception occurred.
+     */
     public Throwable getException() {
         return exception;
     }
 
+    /**
+     * Checks if the violation exception is of the specified type.
+     *
+     * @param throwableClass a {@link java.lang.Class} of the throwable to check against.
+     * @return true if the exception matches the given type.
+     */
     public boolean isExceptionOfType(Class<?> throwableClass) {
         if (exception == null) {
             return false;
@@ -128,6 +139,12 @@ public class ContractViolation {
         }
     }
 
+    /**
+     * Checks if the violation resulted from a specific method call or constructor.
+     *
+     * @param methodName the name of the method to check against.
+     * @return true if the violation resulted from the specified method.
+     */
     public boolean resultsFromMethod(String methodName) {
         if (statement instanceof MethodStatement) {
             MethodStatement ms = (MethodStatement) statement;
@@ -262,6 +279,11 @@ public class ContractViolation {
                 + " with exception " + exception;
     }
 
+    /**
+     * Updates the class loader for the test case and contract involved in the violation.
+     *
+     * @param classLoader the new {@link java.lang.ClassLoader} to use.
+     */
     public void changeClassLoader(ClassLoader classLoader) {
         ((DefaultTestCase) test).changeClassLoader(classLoader);
         contract.changeClassLoader(classLoader);
