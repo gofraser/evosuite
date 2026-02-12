@@ -242,6 +242,13 @@ public abstract class ArrayUtil {
         return lengths;
     }
 
+    /**
+     * Build the string representation of an array access with indices.
+     *
+     * @param arrayName the name of the array
+     * @param indices   the indices to access
+     * @return the array access string
+     */
     public static String buildArrayIndexName(String arrayName, List<Integer> indices) {
         String result = arrayName;
         for (int index : indices) {
@@ -286,6 +293,12 @@ public abstract class ArrayUtil {
     }
 
 
+    /**
+     * Create a shallow copy of an array.
+     *
+     * @param originalArray the array to copy
+     * @return the copy
+     */
     public static Object createArrayCopy(Object originalArray) {
         int length = Array.getLength(originalArray);
         Object copyArr = Array.newInstance(originalArray.getClass().getComponentType(), length);
@@ -302,6 +315,11 @@ public abstract class ArrayUtil {
         private final int[] currentPositions;
         private boolean hasNext;
 
+        /**
+         * Constructor.
+         *
+         * @param array the array to iterate over
+         */
         public MultiDimensionalArrayIterator(Object array) {
             this.hasNext = true;
             this.lengths = ArrayUtil.getArrayLengths(array);

@@ -307,6 +307,12 @@ public class LoggingUtils {
         return isOK;
     }
 
+    /**
+     * Change the logback configuration file.
+     *
+     * @param resourceFilePath the path to the new configuration file
+     * @return true if successful, false otherwise
+     */
     public static boolean changeLogbackFile(String resourceFilePath) {
         Inputs.checkNull(resourceFilePath);
         if (!resourceFilePath.endsWith(".xml")) {

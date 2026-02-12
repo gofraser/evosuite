@@ -54,11 +54,22 @@ public class SpawnProcessKeepAliveChecker {
     private volatile Thread serverThread;
     private volatile Thread clientThread;
 
+    /**
+     * Return the singleton instance.
+     *
+     * @return the singleton instance
+     */
     public static SpawnProcessKeepAliveChecker getInstance() {
         return instance;
     }
 
 
+    /**
+     * Start the server.
+     *
+     * @return the port the server is listening on
+     * @throws IllegalStateException if the server is already running
+     */
     public int startServer() throws IllegalStateException {
 
         if (server != null || serverThread != null) {
@@ -96,6 +107,9 @@ public class SpawnProcessKeepAliveChecker {
         return port;
     }
 
+    /**
+     * Stop the server.
+     */
     public void stopServer() {
         logger.info("Stopping spawn process manager");
         try {
@@ -113,6 +127,12 @@ public class SpawnProcessKeepAliveChecker {
         }
     }
 
+    /**
+     * Connect to the remote server to confirm this process is still alive.
+     *
+     * @param port the port to connect to
+     * @throws IllegalStateException if already registered
+     */
     public void registerToRemoteServerAndDieIfFails(final int port) throws IllegalStateException {
         if (clientThread != null) {
             throw new IllegalStateException("Already registered");
@@ -163,6 +183,9 @@ public class SpawnProcessKeepAliveChecker {
         clientThread.start();
     }
 
+    /**
+     * Stop the keep-alive checks.
+     */
     public void unRegister() {
         if (clientThread != null) {
             clientThread.interrupt();
