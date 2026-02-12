@@ -22,29 +22,54 @@ package org.evosuite.ga.metaheuristics.mapelites;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 
+/**
+ * Wrapper for fitness functions.
+ */
 public class FitnessFunctionWrapper {
     /**
-     * Counter for Feedback-Directed Sampling
+     * Counter for Feedback-Directed Sampling.
      *
-     * @see https://arxiv.org/pdf/1901.01541.pdf
+     * @see <a href="https://arxiv.org/pdf/1901.01541.pdf">Reference Paper</a>
      */
     private final Counter counter;
     private final TestFitnessFunction fitnessFunction;
 
+    /**
+     * Constructor.
+     *
+     * @param fitnessFunction the fitness function
+     */
     public FitnessFunctionWrapper(TestFitnessFunction fitnessFunction) {
         super();
         this.fitnessFunction = fitnessFunction;
         this.counter = new Counter();
     }
 
+    /**
+     * Gets the fitness of an individual.
+     *
+     * @param individual the individual
+     * @return the fitness
+     */
     public double getFitness(TestChromosome individual) {
         return this.fitnessFunction.getFitness(individual);
     }
 
+    /**
+     * Checks if the individual covers the target.
+     *
+     * @param individual the individual
+     * @return true if covered
+     */
     public boolean isCovered(TestChromosome individual) {
         return this.fitnessFunction.isCovered(individual);
     }
 
+    /**
+     * Gets the counter.
+     *
+     * @return the counter
+     */
     public Counter getCounter() {
         return this.counter;
     }

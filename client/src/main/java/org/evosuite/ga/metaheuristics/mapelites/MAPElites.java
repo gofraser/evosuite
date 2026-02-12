@@ -28,7 +28,6 @@ import org.evosuite.ga.operators.crossover.CrossOverFunction;
 import org.evosuite.ga.operators.crossover.SinglePointCrossOver;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
-import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.TestCaseExecutor;
@@ -46,18 +45,13 @@ import static java.util.Collections.reverseOrder;
 import static java.util.Comparator.comparing;
 
 /**
- * MAP-Elites implementation
- *
- * <p>
- * <b>Reference: </b> Mouret, Jean-Baptiste, and Jeff Clune. "Illuminating search spaces by mapping
- * elites." arXiv preprint arXiv:1504.04909 (2015).
- * </p>
+ * Implementation of the MAP-Elites algorithm.
  *
  * @author Felix Prasse
  */
 public class MAPElites extends GeneticAlgorithm<TestChromosome> {
     /**
-     * Serial version UID
+     * Serial version UID.
      */
     private static final long serialVersionUID = 1L;
 
@@ -76,6 +70,11 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
 
     private final CrossOverFunction<TestChromosome> crossoverFunction = new SinglePointCrossOver<>();
 
+    /**
+     * Constructor.
+     *
+     * @param factory the chromosome factory
+     */
     public MAPElites(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
         this.bestIndividuals = new LinkedList<>();
@@ -88,6 +87,11 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
         this.populationMap = new LinkedHashMap<>();
     }
 
+    /**
+     * Adds fitness functions.
+     *
+     * @param functions list of fitness functions
+     */
     public void addTestFitnessFunctions(List<TestFitnessFunction> functions) {
         for (TestFitnessFunction function : functions) {
             this.populationMap.put(new FitnessFunctionWrapper(function), new LinkedHashMap<>());
@@ -96,7 +100,7 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Mutate one branch on average
+     * Mutate one branch on average.
      *
      * @return The chromosomes to be mutated
      */
@@ -124,7 +128,7 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
 
 
     /**
-     * Mutate every branch
+     * Mutate every branch.
      *
      * @return The chromosomes to be mutated
      */
@@ -148,7 +152,7 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Mutate exactly one branch and one chromosome
+     * Mutate exactly one branch and one chromosome.
      *
      * @return The chromosomes to be mutated
      */
@@ -236,11 +240,11 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
 
     /**
      * Method used to mutate an offspring.
-     * <p>
-     * Copied from AbstractMOSA
      *
-     * @param offspring
-     * @param parent
+     * <p>Copied from AbstractMOSA
+     *
+     * @param offspring the offspring
+     * @param parent the parent
      */
     private void mutate(TestChromosome offspring, TestChromosome parent) {
         offspring.mutate();

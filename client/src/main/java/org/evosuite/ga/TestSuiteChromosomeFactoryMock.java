@@ -32,7 +32,9 @@ public class TestSuiteChromosomeFactoryMock
     private static final long serialVersionUID = 8395282399919895283L;
 
     /**
-     * {@inheritDoc}
+     * Constructor.
+     *
+     * @param wrapped the wrapped chromosome factory
      */
     public TestSuiteChromosomeFactoryMock(final ChromosomeFactory<TestChromosome> wrapped) {
         super(wrapped);

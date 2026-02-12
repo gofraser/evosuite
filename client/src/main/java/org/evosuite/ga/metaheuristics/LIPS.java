@@ -49,8 +49,8 @@ import java.util.stream.Collectors;
 /**
  * Implementation of the LIPS (Linearly Independent Path based Search) described in:
  *
- * <p>[1] S. Scalabrino, G. Grano, D. Di Nucci, R. Oliveto, A. De Lucia. "Search-Based Testing of Procedural
- * Programs: Iterative Single-Target or Multi-target Approach?".
+ * <p>[1] S. Scalabrino, G. Grano, D. Di Nucci, R. Oliveto, A. De Lucia. "Search-Based Testing of
+ * Procedural Programs: Iterative Single-Target or Multi-target Approach?".
  * International Symposium on Search Based Software Engineering (SSBSE 2016).
  *
  * @author Annibale Panichella
@@ -62,7 +62,8 @@ public class LIPS extends GeneticAlgorithm<TestChromosome> {
     private static final Logger logger = LoggerFactory.getLogger(LIPS.class);
 
     /**
-     * Map used to store the covered test goals (keys of the map) and the corresponding covering test cases (values of the map).
+     * Map used to store the covered test goals (keys of the map) and the corresponding covering
+     * test cases (values of the map).
      **/
     protected Map<TestFitnessFunction, TestChromosome> archive = new HashMap<>();
 

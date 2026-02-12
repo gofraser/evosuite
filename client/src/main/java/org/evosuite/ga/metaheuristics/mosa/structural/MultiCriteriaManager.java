@@ -294,7 +294,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
     }
 
     /**
-     * This methods derive the dependencies between {@link org.evosuite.coverage.mutation.StrongMutationTestFitness} and branches.
+     * This methods derive the dependencies between {@link StrongMutationTestFitness} and branches.
      * Therefore, it is used to update 'this.dependencies'
      */
     private void addDependenciesForStrongMutation() {
@@ -365,7 +365,8 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * goals (as given by {@link MultiCriteriaManager#getCurrentGoals()} and the population of the
      * archive.
      *
-     * @param c the chromosome whose fitness to calculate (must be a {@link TestChromosome})
+     * @param c  the chromosome whose fitness to calculate (must be a {@link TestChromosome})
+     * @param ga the genetic algorithm
      */
     @Override
     public void calculateFitness(TestChromosome c, GeneticAlgorithm<TestChromosome> ga) {
@@ -377,7 +378,8 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
 
         // If the test failed to execute properly, or if the test does not cover anything,
         // it means none of the current gaols could be reached.
-        if (result.hasTimeout() || result.hasTestException() || result.getTrace().getCoveredLines().isEmpty()) {
+        if (result.hasTimeout() || result.hasTestException()
+                || result.getTrace().getCoveredLines().isEmpty()) {
             currentGoals.forEach(f -> c.setFitness(f, Double.MAX_VALUE)); // assume minimization
             return;
         }
@@ -497,8 +499,9 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
             }
 
             Class<?> exceptionClass = ExceptionCoverageHelper.getExceptionClass(result, i);
-            String methodIdentifier = ExceptionCoverageHelper.getMethodIdentifier(result, i); //eg name+descriptor
-            boolean sutException = ExceptionCoverageHelper.isSutException(result, i); // was the exception originated by a direct call on the SUT?
+            String methodIdentifier = ExceptionCoverageHelper.getMethodIdentifier(result, i); // eg name+descriptor
+            // was the exception originated by a direct call on the SUT?
+            boolean sutException = ExceptionCoverageHelper.isSutException(result, i);
 
             /*
              * We only consider exceptions that were thrown by calling directly the SUT (not the other
@@ -512,14 +515,19 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
                 /*
                  * Add goal to list of fitness functions to solve
                  */
-                ExceptionCoverageTestFitness goal = new ExceptionCoverageTestFitness(Properties.TARGET_CLASS,
-                        methodIdentifier, exceptionClass, type);
+                ExceptionCoverageTestFitness goal = new ExceptionCoverageTestFitness(
+                        Properties.TARGET_CLASS, methodIdentifier, exceptionClass, type);
                 coveredExceptions.add(goal);
             }
         }
         return coveredExceptions;
     }
 
+    /**
+     * Returns the control dependency graph for branches.
+     *
+     * @return the branch fitness graph
+     */
     public BranchFitnessGraph getControlDependenciesForBranches() {
         Set<TestFitnessFunction> setOfBranches = new LinkedHashSet<>();
         this.dependencies = new LinkedHashMap<>();

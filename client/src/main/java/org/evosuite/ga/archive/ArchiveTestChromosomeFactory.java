@@ -44,6 +44,9 @@ public class ArchiveTestChromosomeFactory implements ChromosomeFactory<TestChrom
      */
     private List<TestChromosome> seededTests;
 
+    /**
+     * Constructor.
+     */
     public ArchiveTestChromosomeFactory() {
         if (Properties.CTG_SEEDS_FILE_IN != null) {
             //This does happen in CTG

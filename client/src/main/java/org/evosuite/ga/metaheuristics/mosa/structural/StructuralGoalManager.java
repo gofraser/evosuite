@@ -43,11 +43,11 @@ public abstract class StructuralGoalManager implements Serializable {
     /**
      * Set of goals currently used as objectives.
      *
-     * <p>The idea is to consider only those gaols that are independent from any other targets. That
-     * is, the gaols that
+     * <p>The idea is to consider only those goals that are independent from any other targets. That
+     * is, the goals that
      * <ol>
      *     <li>are free of control dependencies, or</li>
-     *     <li>only have direct control dependencies to already covered gaols.</li>
+     *     <li>only have direct control dependencies to already covered goals.</li>
      * </ol>
      *
      * <p>Each goal is encoded by a corresponding fitness function, which returns an optimal fitness
@@ -79,7 +79,7 @@ public abstract class StructuralGoalManager implements Serializable {
      * Update the set of covered goals and the set of current goals (actual objectives).
      *
      * @param c a TestChromosome
-     * @return covered goals along with the corresponding test case
+     * @param ga the genetic algorithm
      */
     public abstract void calculateFitness(TestChromosome c,
                                           GeneticAlgorithm<TestChromosome> ga);

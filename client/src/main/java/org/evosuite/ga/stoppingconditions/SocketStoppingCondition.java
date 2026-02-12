@@ -49,6 +49,12 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
         // singleton pattern
     }
 
+    /**
+     * Returns the singleton instance of SocketStoppingCondition.
+     *
+     * @param <T> the type of chromosome
+     * @return the singleton instance
+     */
     @SuppressWarnings("unchecked")
     public static <T extends Chromosome<T>> SocketStoppingCondition<T> getInstance() {
         if (instance == null) {
@@ -101,10 +107,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
         t.start();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#searchStarted(org.evosuite.ga.GeneticAlgorithm)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -113,10 +115,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
         // TODO Auto-generated method stub
 
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#iteration(org.evosuite.ga.GeneticAlgorithm)
-     */
 
     /**
      * {@inheritDoc}
@@ -127,10 +125,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#searchFinished(org.evosuite.ga.GeneticAlgorithm)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -139,10 +133,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
         // TODO Auto-generated method stub
 
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#fitnessEvaluation(org.evosuite.ga.Chromosome)
-     */
 
     /**
      * {@inheritDoc}
@@ -153,10 +143,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#modification(org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -165,10 +151,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
         // TODO Auto-generated method stub
 
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#forceCurrentValue(long)
-     */
 
     /**
      * {@inheritDoc}
@@ -179,10 +161,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#getCurrentValue()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -191,10 +169,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
         // TODO Auto-generated method stub
         return 0;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#getLimit()
-     */
 
     /**
      * {@inheritDoc}
@@ -205,10 +179,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
         return 0;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#isFinished()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -217,10 +187,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
         return interrupted;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#reset()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -228,10 +194,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
     public void reset() {
         interrupted = false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#setLimit(long)
-     */
 
     /**
      * {@inheritDoc}

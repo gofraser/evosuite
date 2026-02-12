@@ -25,6 +25,13 @@ public abstract class NoveltyFunction<T extends Chromosome<T>> {
 
     public abstract double getDistance(T individual1, T individual2);
 
+    /**
+     * Calculates the novelty of an individual.
+     *
+     * @param individual the individual
+     * @param population the population
+     * @return the novelty
+     */
     public double getNovelty(T individual, Collection<T> population) {
         double distance = population.stream()
                 .filter(other -> other != individual)

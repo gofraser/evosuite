@@ -35,6 +35,13 @@ public class AdapteeListener implements SearchListener<TestChromosome> {
     private final boolean notifyEvaluation;
     private final boolean notifyMutation;
 
+    /**
+     * Constructor.
+     *
+     * @param adapter the adapter algorithm
+     * @param notifyEvaluation whether to notify evaluation
+     * @param notifyMutation whether to notify mutation
+     */
     public AdapteeListener(GeneticAlgorithm<TestSuiteChromosome> adapter, boolean notifyEvaluation,
                            boolean notifyMutation) {
         this.adapter = Objects.requireNonNull(adapter);
@@ -42,26 +49,43 @@ public class AdapteeListener implements SearchListener<TestChromosome> {
         this.notifyMutation = notifyMutation;
     }
 
+    /**
+     * Constructor.
+     *
+     * @param adapter the adapter algorithm
+     */
     public AdapteeListener(GeneticAlgorithm<TestSuiteChromosome> adapter) {
         this(adapter, false, false);
     }
 
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void searchStarted(GeneticAlgorithm<TestChromosome> algorithm) {
         adapter.notifySearchStarted();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void iteration(GeneticAlgorithm<TestChromosome> algorithm) {
         adapter.notifyIteration();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void searchFinished(GeneticAlgorithm<TestChromosome> algorithm) {
         adapter.notifySearchFinished();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void fitnessEvaluation(TestChromosome individual) {
         // The adapter throws currently a exception when notifying a evaluation
@@ -70,6 +94,9 @@ public class AdapteeListener implements SearchListener<TestChromosome> {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void modification(TestChromosome individual) {
         // The adapter throws currently a exception when notifying a mutation

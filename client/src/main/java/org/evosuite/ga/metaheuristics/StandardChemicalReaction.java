@@ -583,7 +583,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
      * Returns the current amount of energy in the system.
      *
      * @return the energy
-     * @return a double.
      */
     private double getCurrentAmountOfEnergy() {
         double energy = this.buffer;
