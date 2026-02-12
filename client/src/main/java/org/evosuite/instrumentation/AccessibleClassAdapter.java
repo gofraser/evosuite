@@ -31,8 +31,8 @@ import org.objectweb.asm.Opcodes;
  * Turn protected / default access rights to public access rights. This was
  * necessary because EvoSuite is not in the same package as the UUT, but the
  * tests will reside in the same package.
- * <p>
- * However, this does not hold now, as all methods can actually be called through reflection
+ *
+ * <p>However, this does not hold now, as all methods can actually be called through reflection.
  *
  * @author Gordon Fraser
  */
@@ -51,8 +51,9 @@ public class AccessibleClassAdapter extends ClassVisitor {
         super(Opcodes.ASM9, cv);
         className = ResourceList.getClassNameFromResourcePath(className);
         String packageName = "";
-        if (className.contains("."))
+        if (className.contains(".")) {
             packageName = className.substring(0, className.lastIndexOf('.'));
+        }
         if (!packageName.equals(Properties.CLASS_PREFIX)) {
             exclude = true;
         }
@@ -60,8 +61,8 @@ public class AccessibleClassAdapter extends ClassVisitor {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Change subclasses to public
+     *
+     * <p>Change subclasses to public.
      */
     @Override
     public void visit(int version, int access, String name, String signature,
@@ -76,8 +77,8 @@ public class AccessibleClassAdapter extends ClassVisitor {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Change fields to public
+     *
+     * <p>Change fields to public.
      */
     @Override
     public FieldVisitor visitField(int access, String name, String desc,
@@ -94,8 +95,8 @@ public class AccessibleClassAdapter extends ClassVisitor {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Change methods to public
+     *
+     * <p>Change methods to public.
      */
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc,
@@ -111,12 +112,10 @@ public class AccessibleClassAdapter extends ClassVisitor {
         return mv;
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.ClassAdapter#visitInnerClass(java.lang.String, java.lang.String, java.lang.String, int)
-     */
-
     /**
      * {@inheritDoc}
+     *
+     * <p>Change inner classes to public.
      */
     @Override
     public void visitInnerClass(String name, String outerName, String innerName,

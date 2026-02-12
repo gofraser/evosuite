@@ -28,14 +28,16 @@ import org.objectweb.asm.tree.MethodNode;
 
 /**
  * This transformer inserts calls to the put function before a Boolean
- * predicate
+ * predicate.
  */
 public class BooleanDistanceTransformer extends MethodNodeTransformer {
 
     private final BooleanTestabilityTransformation booleanTestabilityTransformation;
 
     /**
-     * @param booleanTestabilityTransformation
+     * Constructor for BooleanDistanceTransformer.
+     *
+     * @param booleanTestabilityTransformation the boolean testability transformation.
      */
     public BooleanDistanceTransformer(
             BooleanTestabilityTransformation booleanTestabilityTransformation) {
@@ -43,7 +45,8 @@ public class BooleanDistanceTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformJumpInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.JumpInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformJumpInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.JumpInsnNode)
      */
     @Override
     protected AbstractInsnNode transformJumpInsnNode(MethodNode mn,

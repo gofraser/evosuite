@@ -44,7 +44,7 @@ import java.util.List;
  */
 public class ErrorConditionMethodAdapter extends GeneratorAdapter {
 
-    protected final static Logger logger = LoggerFactory.getLogger(ErrorConditionMethodAdapter.class);
+    protected static final Logger logger = LoggerFactory.getLogger(ErrorConditionMethodAdapter.class);
 
     private final String className;
 
@@ -80,31 +80,41 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
 
     private void initErrorBranchInstrumenters() {
         instrumentation = new ArrayList<>();
-        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.ARRAY))
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.ARRAY)) {
             instrumentation.add(new ArrayInstrumentation(this));
+        }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.LIST)) {
             instrumentation.add(new ListInstrumentation(this));
             instrumentation.add(new LinkedListInstrumentation(this));
         }
-        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.CAST))
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.CAST)) {
             instrumentation.add(new CastErrorInstrumentation(this));
-        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.DEQUE))
+        }
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.DEQUE)) {
             instrumentation.add(new DequeInstrumentation(this));
-        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.DIVISIONBYZERO))
+        }
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.DIVISIONBYZERO)) {
             instrumentation.add(new DivisionByZeroInstrumentation(this));
-        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.LINKEDHASHSET))
+        }
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.LINKEDHASHSET)) {
             instrumentation.add(new LinkedHashSetInstrumentation(this));
+        }
         // instrumentation.add(new ListInstrumentation(this));
-        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.NPE))
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.NPE)) {
             instrumentation.add(new NullPointerExceptionInstrumentation(this));
-        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.OVERFLOW))
+        }
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.OVERFLOW)) {
             instrumentation.add(new OverflowInstrumentation(this));
-        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.QUEUE))
+        }
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.QUEUE)) {
             instrumentation.add(new QueueInstrumentation(this));
-        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.STACK))
+        }
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.STACK)) {
             instrumentation.add(new StackInstrumentation(this));
-        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.VECTOR))
+        }
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.VECTOR)) {
             instrumentation.add(new VectorInstrumentation(this));
+        }
     }
 
 
@@ -113,18 +123,24 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
     @Override
     public void visitLabel(Label label) {
         if (label instanceof AnnotatedLabel) {
-            AnnotatedLabel aLabel = (AnnotatedLabel) label;
-            inInstrumentation = aLabel.isStartTag();
+            AnnotatedLabel alabel = (AnnotatedLabel) label;
+            inInstrumentation = alabel.isStartTag();
         }
         super.visitLabel(label);
     }
 
+    /**
+     * Tag branch.
+     */
     public void tagBranch() {
         Label dummyTag = new AnnotatedLabel(false, true);
         // dummyTag.info = Boolean.TRUE;
         super.visitLabel(dummyTag);
     }
 
+    /**
+     * Tag branch exit.
+     */
     public void tagBranchExit() {
         Label dummyTag = new AnnotatedLabel(false, false);
         // dummyTag.info = Boolean.FALSE;
@@ -238,37 +254,37 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         }
         super.visitMultiANewArrayInsn(descriptor, numDimensions);
     }
-	
-	/*
-	public Frame currentFrame = null;
-	
-	@Override
-	public void visitFrame(int type, int nLocal, Object[] local, int nStack,
-			Object[] stack) {
-		super.visitFrame(type, nLocal, local, nStack, stack);
-		// this.currentFrame = frames[numFrame++];
-	}
-	
-	
-	protected int numFrame = 0;
-	
-	protected Frame[] frames;
 
-	@Override
-	public void visitCode() {
-		MethodNode mn = (MethodNode) mv;
-		try {
-			Analyzer a = new Analyzer(new ThisInterpreter());
-			a.analyze(className, mn);
-			frames = a.getFrames();
-			logger.info("Computed frames: "+frames.length);
-		} catch (Exception e) {
-			logger.info("Error during frame analysis: "+e);
-			frames = new Frame[0];
-		}
-		super.visitCode();
-	}
-	*/
+    /*
+    public Frame currentFrame = null;
+
+    @Override
+    public void visitFrame(int type, int nLocal, Object[] local, int nStack,
+            Object[] stack) {
+        super.visitFrame(type, nLocal, local, nStack, stack);
+        // this.currentFrame = frames[numFrame++];
+    }
+
+
+    protected int numFrame = 0;
+
+    protected Frame[] frames;
+
+    @Override
+    public void visitCode() {
+        MethodNode mn = (MethodNode) mv;
+        try {
+            Analyzer a = new Analyzer(new ThisInterpreter());
+            a.analyze(className, mn);
+            frames = a.getFrames();
+            logger.info("Computed frames: "+frames.length);
+        } catch (Exception e) {
+            logger.info("Error during frame analysis: "+e);
+            frames = new Frame[0];
+        }
+        super.visitCode();
+    }
+    */
 
     /* (non-Javadoc)
      * @see org.objectweb.asm.MethodVisitor#visitEnd()

@@ -41,6 +41,13 @@ public class RegexDistance {
         return RegexDistanceUtils.getNonMatchingRegexInstance(regex);
     }
 
+    /**
+     * Get the distance between a string and a regular expression.
+     *
+     * @param arg   the string to check.
+     * @param regex the regular expression to match against.
+     * @return the distance.
+     */
     public static int getDistance(String arg, String regex) {
         try {
             return RegexDistanceUtils.getStandardDistance(arg, regex);

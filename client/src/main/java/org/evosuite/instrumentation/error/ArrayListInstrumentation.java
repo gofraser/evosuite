@@ -31,7 +31,8 @@ public class ArrayListInstrumentation extends ErrorBranchInstrumenter {
 
     private static final String LISTNAME = ArrayList.class.getCanonicalName().replace('.', '/');
 
-    private final List<String> indexListMethods = Arrays.asList("get", "set", "add", "remove", "listIterator", "addAll");
+    private final List<String> indexListMethods = Arrays.asList("get", "set", "add", "remove",
+            "listIterator", "addAll");
 
     // Missing:
     // removeRange
@@ -46,10 +47,12 @@ public class ArrayListInstrumentation extends ErrorBranchInstrumenter {
         if (owner.equals(LISTNAME)) {
             if (indexListMethods.contains(name)) {
                 Type[] args = Type.getArgumentTypes(desc);
-                if (args.length == 0)
+                if (args.length == 0) {
                     return;
-                if (!args[0].equals(Type.INT_TYPE))
+                }
+                if (!args[0].equals(Type.INT_TYPE)) {
                     return;
+                }
 
                 Map<Integer, Integer> tempVariables = getMethodCallee(desc);
                 tagBranchStart();

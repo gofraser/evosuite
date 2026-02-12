@@ -47,7 +47,9 @@ public class DeleteStatement implements MutationOperator {
     public static final String NAME = "DeleteStatement";
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(
+     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String,
+     * org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**
@@ -66,9 +68,9 @@ public class DeleteStatement implements MutationOperator {
         InsnList mutation = new InsnList();
         logger.debug("Mutation deletestatement for statement " + node.name + node.desc);
         for (Type argType : Type.getArgumentTypes(node.desc)) {
-            if (argType.getSize() == 0)
+            if (argType.getSize() == 0) {
                 logger.debug("Ignoring parameter of type " + argType);
-            else if (argType.getSize() == 2) {
+            } else if (argType.getSize() == 2) {
                 mutation.insert(new InsnNode(Opcodes.POP2));
                 logger.debug("Deleting parameter of 2 type " + argType);
             } else {
@@ -86,7 +88,8 @@ public class DeleteStatement implements MutationOperator {
         mutation.add(MutationUtils.getDefault(returnType));
 
         // insert mutation into pool
-        Mutation mutationObject = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).addMutation(className,
+        MutationPool pool = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
+        Mutation mutationObject = pool.addMutation(className,
                 methodName,
                 NAME + " "
                         + node.name
@@ -100,7 +103,8 @@ public class DeleteStatement implements MutationOperator {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
+     * org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**

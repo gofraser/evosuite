@@ -67,7 +67,8 @@ public class NegateCondition implements MutationOperator {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode,
+     * java.lang.String, java.lang.String, org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**
@@ -85,7 +86,8 @@ public class NegateCondition implements MutationOperator {
         // insert mutation into bytecode with conditional
         JumpInsnNode mutation = new JumpInsnNode(getOpposite(node.getOpcode()), target);
         // insert mutation into pool
-        Mutation mutationObject = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).addMutation(className,
+        MutationPool pool = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
+        Mutation mutationObject = pool.addMutation(className,
                 methodName,
                 NAME,
                 instruction,
@@ -101,7 +103,8 @@ public class NegateCondition implements MutationOperator {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
+     * org.evosuite.cfg.BytecodeInstruction)
      */
 
     /**

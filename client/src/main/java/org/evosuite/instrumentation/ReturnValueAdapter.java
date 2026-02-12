@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Instrument classes to trace return values
+ * Instrument classes to trace return values.
  *
  * @author Gordon Fraser
  */

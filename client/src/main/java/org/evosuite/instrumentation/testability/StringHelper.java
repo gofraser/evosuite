@@ -34,7 +34,7 @@ public class StringHelper {
 
     /**
      * <p>
-     * editDistance
+     * editDistance.
      * </p>
      *
      * @param s a {@link java.lang.String} object.
@@ -42,26 +42,26 @@ public class StringHelper {
      * @return a int.
      */
     public static int editDistance(String s, String t) {
-        //if (s == null || t == null) {
-        //	throw new IllegalArgumentException("Strings must not be null");
-        //}
+        // if (s == null || t == null) {
+        //     throw new IllegalArgumentException("Strings must not be null");
+        // }
 
-		/*
-		    The difference between this impl. and the previous is that, rather
-		     than creating and retaining a matrix of size s.length()+1 by t.length()+1,
-		     we maintain two single-dimensional arrays of length s.length()+1.  The first, d,
-		     is the 'current working' distance array that maintains the newest distance cost
-		     counts as we iterate through the characters of String s.  Each time we increment
-		     the index of String t we are comparing, d is copied to p, the second int[].  Doing so
-		     allows us to retain the previous cost counts as required by the algorithm (taking
-		     the minimum of the cost count to the left, up one, and diagonally up and to the left
-		     of the current cost count being calculated).  (Note that the arrays aren't really
-		     copied anymore, just switched...this is clearly much better than cloning an array
-		     or doing a System.arraycopy() each time  through the outer loop.)
+        /*
+            The difference between this impl. and the previous is that, rather
+             than creating and retaining a matrix of size s.length()+1 by t.length()+1,
+             we maintain two single-dimensional arrays of length s.length()+1.  The first, d,
+             is the 'current working' distance array that maintains the newest distance cost
+             counts as we iterate through the characters of String s.  Each time we increment
+             the index of String t we are comparing, d is copied to p, the second int[].  Doing so
+             allows us to retain the previous cost counts as required by the algorithm (taking
+             the minimum of the cost count to the left, up one, and diagonally up and to the left
+             of the current cost count being calculated).  (Note that the arrays aren't really
+             copied anymore, just switched...this is clearly much better than cloning an array
+             or doing a System.arraycopy() each time  through the outer loop.)
 
-		     Effectively, the difference between the two implementations is this one does not
-		     cause an out of memory condition when calculating the LD over two very large strings.
-		 */
+             Effectively, the difference between the two implementations is this one does not
+             cause an out of memory condition when calculating the LD over two very large strings.
+         */
 
         int n = s.length(); // length of s
         int m = t.length(); // length of t
@@ -74,13 +74,13 @@ public class StringHelper {
 
         int[] p = new int[n + 1]; //'previous' cost array, horizontally
         int[] d = new int[n + 1]; // cost array, horizontally
-        int[] _d; //placeholder to assist in swapping p and d
+        int[] td; //placeholder to assist in swapping p and d
 
         // indexes into strings s and t
         int i; // iterates through s
         int j; // iterates through t
 
-        char t_j; // jth character of t
+        char tj; // jth character of t
 
         int cost; // cost
 
@@ -89,19 +89,19 @@ public class StringHelper {
         }
 
         for (j = 1; j <= m; j++) {
-            t_j = t.charAt(j - 1);
+            tj = t.charAt(j - 1);
             d[0] = j;
 
             for (i = 1; i <= n; i++) {
-                cost = s.charAt(i - 1) == t_j ? 0 : 1;
+                cost = s.charAt(i - 1) == tj ? 0 : 1;
                 // minimum of cell to the left+1, to the top+1, diagonally left and up +cost
                 d[i] = Math.min(Math.min(d[i - 1] + 1, p[i] + 1), p[i - 1] + cost);
             }
 
             // copy current distance counts to 'previous row' distance counts
-            _d = p;
+            td = p;
             p = d;
-            d = _d;
+            d = td;
         }
 
         // our last action in the above loop was to switch d and p, so p now
@@ -116,13 +116,14 @@ public class StringHelper {
 
     /**
      * <p>
-     * StringEquals
+     * StringEquals.
      * </p>
      *
      * @param first  a {@link java.lang.String} object.
      * @param second a {@link java.lang.Object} object.
      * @return a int.
      */
+    @SuppressWarnings("checkstyle:methodname")
     public static int StringEquals(String first, Object second) {
         if (first == null) {
             throw new NullPointerException(
@@ -146,6 +147,14 @@ public class StringHelper {
         }
     }
 
+    /**
+     * Returns the character distance between two strings for equality.
+     *
+     * @param first  a {@link java.lang.String} object.
+     * @param second a {@link java.lang.Object} object.
+     * @return a double.
+     */
+    @SuppressWarnings("checkstyle:methodname")
     public static double StringEqualsCharacterDistance(String first, Object second) {
         if (first == null) {
             throw new IllegalArgumentException(
@@ -169,6 +178,14 @@ public class StringHelper {
         }
     }
 
+    /**
+     * Checks if a string matches a regex.
+     *
+     * @param str the string to check.
+     * @param regex the regex to match against.
+     * @return a int.
+     */
+    @SuppressWarnings("checkstyle:methodname")
     public static int StringMatches(String str, String regex) {
         int distance = RegexDistance.getDistance(str, regex);
 
@@ -182,12 +199,21 @@ public class StringHelper {
             }
         }
 
-        if (distance > 0)
+        if (distance > 0) {
             return -distance;
-        else
+        } else {
             return BooleanHelper.K;
+        }
     }
 
+    /**
+     * Checks if an input matches a regex.
+     *
+     * @param regex the regex to match against.
+     * @param input the input to check.
+     * @return a int.
+     */
+    @SuppressWarnings("checkstyle:methodname")
     public static int StringMatchRegex(String regex, CharSequence input) {
         int distance = RegexDistance.getDistance(input.toString(), regex);
 
@@ -201,12 +227,20 @@ public class StringHelper {
             }
         }
 
-        if (distance > 0)
+        if (distance > 0) {
             return -distance;
-        else
+        } else {
             return BooleanHelper.K;
+        }
     }
 
+    /**
+     * Checks if a matcher matches.
+     *
+     * @param matcher the matcher to check.
+     * @return a int.
+     */
+    @SuppressWarnings("checkstyle:methodname")
     public static int StringMatchRegex(Matcher matcher) {
         Pattern pattern = matcher.pattern();
         String regex = pattern.pattern();
@@ -227,19 +261,20 @@ public class StringHelper {
                 }
             }
 
-            if (distance > 0)
+            if (distance > 0) {
                 return -distance;
-            else
+            } else {
                 return BooleanHelper.K;
+            }
         } catch (Throwable t) {
-            t.printStackTrace();
+            // If reflective access is blocked (e.g., missing --add-opens), fall back to matches().
             return matcher.matches() ? 1 : -1;
         }
     }
 
     /**
      * <p>
-     * getDistanceBasedOnLeftAlignment
+     * getDistanceBasedOnLeftAlignment.
      * </p>
      *
      * @param a a {@link java.lang.String} object.
@@ -265,6 +300,13 @@ public class StringHelper {
 
     }
 
+    /**
+     * Returns the distance based on left alignment character distance.
+     *
+     * @param a a {@link java.lang.String} object.
+     * @param b a {@link java.lang.String} object.
+     * @return a double.
+     */
     public static double getDistanceBasedOnLeftAlignmentCharacterDistance(String a,
                                                                           String b) {
         if (a == b) {
@@ -295,13 +337,14 @@ public class StringHelper {
 
     /**
      * <p>
-     * StringEqualsIgnoreCase
+     * StringEqualsIgnoreCase.
      * </p>
      *
      * @param first  a {@link java.lang.String} object.
      * @param second a {@link java.lang.String} object.
      * @return a int.
      */
+    @SuppressWarnings("checkstyle:methodname")
     public static int StringEqualsIgnoreCase(String first, String second) {
         if (first == null) {
             throw new NullPointerException(
@@ -321,7 +364,7 @@ public class StringHelper {
 
     /**
      * <p>
-     * StringStartsWith
+     * StringStartsWith.
      * </p>
      *
      * @param value  a {@link java.lang.String} object.
@@ -329,6 +372,7 @@ public class StringHelper {
      * @param start  a int.
      * @return a int.
      */
+    @SuppressWarnings("checkstyle:methodname")
     public static int StringStartsWith(String value, String prefix, int start) {
         int len = Math.min(prefix.length(), value.length());
         ConstantPoolManager.getInstance().addDynamicConstant(prefix + value);
@@ -337,13 +381,14 @@ public class StringHelper {
 
     /**
      * <p>
-     * StringEndsWith
+     * StringEndsWith.
      * </p>
      *
      * @param value  a {@link java.lang.String} object.
      * @param suffix a {@link java.lang.String} object.
      * @return a int.
      */
+    @SuppressWarnings("checkstyle:methodname")
     public static int StringEndsWith(String value, String suffix) {
         int len = Math.min(suffix.length(), value.length());
         String val1 = value.substring(value.length() - len);
@@ -353,12 +398,13 @@ public class StringHelper {
 
     /**
      * <p>
-     * StringIsEmpty
+     * StringIsEmpty.
      * </p>
      *
      * @param value a {@link java.lang.String} object.
      * @return a int.
      */
+    @SuppressWarnings("checkstyle:methodname")
     public static int StringIsEmpty(String value) {
         int len = value.length();
         if (len == 0) {
@@ -370,7 +416,7 @@ public class StringHelper {
 
     /**
      * <p>
-     * StringRegionMatches
+     * StringRegionMatches.
      * </p>
      *
      * @param value      a {@link java.lang.String} object.
@@ -381,11 +427,13 @@ public class StringHelper {
      * @param ignoreCase a boolean.
      * @return a int.
      */
+    @SuppressWarnings("checkstyle:methodname")
     public static int StringRegionMatches(String value, boolean ignoreCase,
                                           int thisStart, String string, int start, int length) {
 
-        if (value == null || string == null)
+        if (value == null || string == null) {
             throw new NullPointerException();
+        }
 
         if (start < 0 || string.length() - start < length) {
             return -BooleanHelper.K;
@@ -423,6 +471,17 @@ public class StringHelper {
                 s2.substring(start, Math.min(length + start, s2.length())));
     }
 
+    /**
+     * Checks if two string regions match.
+     *
+     * @param value the string to check.
+     * @param thisStart the start index in the current string.
+     * @param string the other string.
+     * @param start the start index in the other string.
+     * @param length the length of the region to match.
+     * @return a int.
+     */
+    @SuppressWarnings("checkstyle:methodname")
     public static int StringRegionMatches(String value, int thisStart, String string,
                                           int start, int length) {
         return StringRegionMatches(value, false, thisStart, string, start, length);

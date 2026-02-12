@@ -93,6 +93,8 @@ public class ReplaceComparisonOperator implements MutationOperator {
                 return "= null";
             case Opcodes.IFNONNULL:
                 return "!= null";
+            default:
+                break;
         }
         throw new RuntimeException("Unknown opcode: " + opcode);
     }
@@ -102,7 +104,8 @@ public class ReplaceComparisonOperator implements MutationOperator {
     private static final int FALSE = -2;
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode,
+     * java.lang.String, java.lang.String, org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**
@@ -123,40 +126,45 @@ public class ReplaceComparisonOperator implements MutationOperator {
                 // insert mutation into bytecode with conditional
                 JumpInsnNode mutation = new JumpInsnNode(op, target);
                 // insert mutation into pool
-                Mutation mutationObject = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).addMutation(className,
-                        methodName,
-                        NAME + " "
-                                + getOp(node.getOpcode())
-                                + " -> "
-                                + getOp(op),
-                        instruction,
-                        mutation,
-                        getInfectionDistance(node.getOpcode(),
-                                op));
+                Mutation mutationObject = MutationPool.getInstance(
+                        TestGenerationContext.getInstance().getClassLoaderForSUT())
+                        .addMutation(className,
+                                methodName,
+                                NAME + " "
+                                        + getOp(node.getOpcode())
+                                        + " -> "
+                                        + getOp(op),
+                                instruction,
+                                mutation,
+                                getInfectionDistance(node.getOpcode(),
+                                        op));
                 mutations.add(mutationObject);
             } else {
                 // Replace relational operator with TRUE/FALSE
 
                 InsnList mutation = new InsnList();
-                if (opcodesInt.contains(node.getOpcode()))
+                if (opcodesInt.contains(node.getOpcode())) {
                     mutation.add(new InsnNode(Opcodes.POP));
-                else
+                } else {
                     mutation.add(new InsnNode(Opcodes.POP2));
+                }
                 if (op == TRUE) {
                     mutation.add(new LdcInsnNode(1));
                 } else {
                     mutation.add(new LdcInsnNode(0));
                 }
                 mutation.add(new JumpInsnNode(Opcodes.IFNE, target));
-                Mutation mutationObject = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).addMutation(className,
-                        methodName,
-                        NAME + " "
-                                + getOp(node.getOpcode())
-                                + " -> " + op,
-                        instruction,
-                        mutation,
-                        getInfectionDistance(node.getOpcode(),
-                                op));
+                Mutation mutationObject = MutationPool.getInstance(
+                        TestGenerationContext.getInstance().getClassLoaderForSUT())
+                        .addMutation(className,
+                                methodName,
+                                NAME + " "
+                                        + getOp(node.getOpcode())
+                                        + " -> " + op,
+                                instruction,
+                                mutation,
+                                getInfectionDistance(node.getOpcode(),
+                                        op));
                 mutations.add(mutationObject);
             }
         }
@@ -165,7 +173,7 @@ public class ReplaceComparisonOperator implements MutationOperator {
     }
 
     /**
-     * <p>getInfectionDistance</p>
+     * <p>getInfectionDistance.</p>
      *
      * @param opcodeOrig a int.
      * @param opcodeNew  a int.
@@ -249,7 +257,10 @@ public class ReplaceComparisonOperator implements MutationOperator {
                         return val < 0 ? 1.0 : 0.0;
                     case FALSE:
                         return val < 0 ? 0.0 : 1.0;
+                    default:
+                        break;
                 }
+                break;
             case Opcodes.IF_ICMPLE:
                 switch (opcodeNew) {
                     case Opcodes.IF_ICMPLT:
@@ -270,8 +281,11 @@ public class ReplaceComparisonOperator implements MutationOperator {
                         return val <= 0 ? 1.0 : 0.0;
                     case FALSE:
                         return val <= 0 ? 0.0 : 1.0;
+                    default:
+                        break;
 
                 }
+                break;
             case Opcodes.IF_ICMPGT:
                 switch (opcodeNew) {
                     case Opcodes.IF_ICMPGE:
@@ -293,7 +307,10 @@ public class ReplaceComparisonOperator implements MutationOperator {
                         return val > 0 ? 1.0 : 0.0;
                     case FALSE:
                         return val > 0 ? 0.0 : 1.0;
+                    default:
+                        break;
                 }
+                break;
             case Opcodes.IF_ICMPGE:
                 switch (opcodeNew) {
                     case Opcodes.IF_ICMPGT:
@@ -314,7 +331,10 @@ public class ReplaceComparisonOperator implements MutationOperator {
                         return val >= 0 ? 1.0 : 0.0;
                     case FALSE:
                         return val >= 0 ? 0.0 : 1.0;
+                    default:
+                        break;
                 }
+                break;
             case Opcodes.IF_ICMPEQ:
                 switch (opcodeNew) {
                     case Opcodes.IF_ICMPLT:
@@ -334,7 +354,10 @@ public class ReplaceComparisonOperator implements MutationOperator {
                         return val == 0 ? 1.0 : 0.0;
                     case FALSE:
                         return val == 0 ? 0.0 : 1.0;
+                    default:
+                        break;
                 }
+                break;
             case Opcodes.IF_ICMPNE:
                 switch (opcodeNew) {
                     case Opcodes.IF_ICMPEQ:
@@ -353,13 +376,19 @@ public class ReplaceComparisonOperator implements MutationOperator {
                         return val != 0 ? 1.0 : 0.0;
                     case FALSE:
                         return val != 0 ? 0.0 : 1.0;
+                    default:
+                        break;
                 }
+                break;
+            default:
+                break;
         }
-        throw new RuntimeException("Unknown operator replacement: " + opcodeOrig + " -> " + opcodeNew);
+        throw new RuntimeException("Unknown operator replacement: " + opcodeOrig + " -> "
+                + opcodeNew);
     }
 
     /**
-     * <p>getInfectionDistance</p>
+     * <p>getInfectionDistance.</p>
      *
      * @param left       a int.
      * @param right      a int.
@@ -374,7 +403,7 @@ public class ReplaceComparisonOperator implements MutationOperator {
     }
 
     /**
-     * <p>getInfectionDistance</p>
+     * <p>getInfectionDistance.</p>
      *
      * @param intVal     a int.
      * @param opcodeOrig a int.
@@ -388,11 +417,11 @@ public class ReplaceComparisonOperator implements MutationOperator {
 
     private Set<Integer> getOperators(int opcode, boolean isBoolean) {
         Set<Integer> replacement = new HashSet<>();
-        if (opcodesReference.contains(opcode))
+        if (opcodesReference.contains(opcode)) {
             replacement.addAll(opcodesReference);
-        else if (opcodesNull.contains(opcode))
+        } else if (opcodesNull.contains(opcode)) {
             replacement.addAll(opcodesNull);
-        else if (opcodesInt.contains(opcode)) {
+        } else if (opcodesInt.contains(opcode)) {
             if (isBoolean) {
                 replacement.add(getBooleanIntReplacement(opcode));
             } else {
@@ -427,6 +456,8 @@ public class ReplaceComparisonOperator implements MutationOperator {
                 return Opcodes.IFLT;
             case Opcodes.IFLT:
                 return Opcodes.IFGE;
+            default:
+                break;
         }
         throw new RuntimeException("Illegal opcode received: " + opcode);
     }
@@ -448,6 +479,8 @@ public class ReplaceComparisonOperator implements MutationOperator {
                 return Opcodes.IF_ICMPLT;
             case Opcodes.IF_ICMPLT:
                 return Opcodes.IF_ICMPGE;
+            default:
+                break;
         }
         throw new RuntimeException("Illegal opcode received: " + opcode);
     }
@@ -492,6 +525,8 @@ public class ReplaceComparisonOperator implements MutationOperator {
                 replacement.add(Opcodes.IFNE);
                 // False
                 replacement.add(FALSE);
+                break;
+            default:
                 break;
         }
         return replacement;
@@ -538,12 +573,15 @@ public class ReplaceComparisonOperator implements MutationOperator {
                 // False
                 replacement.add(FALSE);
                 break;
+            default:
+                break;
         }
         return replacement;
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
+     * org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**

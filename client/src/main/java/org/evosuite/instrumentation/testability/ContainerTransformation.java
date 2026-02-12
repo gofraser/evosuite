@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 
 /**
@@ -54,7 +53,7 @@ public class ContainerTransformation {
     }
 
     /**
-     * <p>transform</p>
+     * <p>transform.</p>
      *
      * @return a {@link org.objectweb.asm.tree.ClassNode} object.
      */
@@ -71,9 +70,9 @@ public class ContainerTransformation {
     }
 
     /**
-     * Replace boolean-returning method calls on Collection classes
+     * Replace boolean-returning method calls on Collection classes.
      *
-     * @param mn
+     * @param mn the method node to transform.
      */
     @SuppressWarnings("unchecked")
     public boolean transformMethod(MethodNode mn) {

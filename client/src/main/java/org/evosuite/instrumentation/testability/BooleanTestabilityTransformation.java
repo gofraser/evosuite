@@ -48,8 +48,8 @@ import java.util.Map;
 
 /**
  * Transform everything Boolean to ints.
- * <p>
- * This transformation replaces: - TRUE/FALSE with +K/-K - IFEQ/IFNE with
+ *
+ * <p>This transformation replaces: - TRUE/FALSE with +K/-K - IFEQ/IFNE with
  * IFLE/IFGT - Signatures in fields and calls - Inserts calls to remember
  * distance of last boolean calculation - Inserts calls to recall distance of
  * last boolean calculation when Boolean is used
@@ -76,6 +76,7 @@ public class BooleanTestabilityTransformation {
      * </p>
      *
      * @param cn a {@link org.objectweb.asm.tree.ClassNode} object.
+     * @param classLoader a {@link java.lang.ClassLoader} object.
      */
     public BooleanTestabilityTransformation(ClassNode cn, ClassLoader classLoader) {
         this.cn = cn;
@@ -83,6 +84,12 @@ public class BooleanTestabilityTransformation {
         this.classLoader = classLoader;
     }
 
+    /**
+     * Get the frame for the given node.
+     *
+     * @param node the node to get the frame for.
+     * @return the frame for the given node.
+     */
     public Frame getFrame(AbstractInsnNode node) {
         if (currentFrames == null) {
             return null;
@@ -91,7 +98,7 @@ public class BooleanTestabilityTransformation {
     }
 
     /**
-     * Transform all methods and fields
+     * Transform all methods and fields.
      *
      * @return a {@link org.objectweb.asm.tree.ClassNode} object.
      */
@@ -101,8 +108,9 @@ public class BooleanTestabilityTransformation {
         processMethods();
         clearIntermediateResults();
         if (className.equals(Properties.TARGET_CLASS)
-                || className.startsWith(Properties.TARGET_CLASS + "$"))
+                || className.startsWith(Properties.TARGET_CLASS + "$")) {
             TransformationStatistics.writeStatistics(className);
+        }
 
         return cn;
     }
@@ -110,8 +118,9 @@ public class BooleanTestabilityTransformation {
     private void clearIntermediateResults() {
         List<MethodNode> methodNodes = cn.methods;
         for (MethodNode mn : methodNodes) {
-            if ((mn.access & Opcodes.ACC_NATIVE) == Opcodes.ACC_NATIVE)
+            if ((mn.access & Opcodes.ACC_NATIVE) == Opcodes.ACC_NATIVE) {
                 continue;
+            }
             GraphPool.clearAll(className, mn.name + mn.desc);
             BytecodeInstructionPool.clearAll(className, mn.name + mn.desc);
             BranchPool.getInstance(classLoader).clear(className, mn.name + mn.desc);
@@ -119,7 +128,7 @@ public class BooleanTestabilityTransformation {
     }
 
     /**
-     * Handle transformation of fields defined in this class
+     * Handle transformation of fields defined in this class.
      */
     private void processFields() {
         List<FieldNode> fields = cn.fields;
@@ -130,21 +139,23 @@ public class BooleanTestabilityTransformation {
                         field.desc);
                 logger.info("Transforming field " + field.name + " from " + field.desc
                         + " to " + newDesc);
-                if (!newDesc.equals(field.desc))
+                if (!newDesc.equals(field.desc)) {
                     TransformationStatistics.transformBooleanField();
+                }
                 field.desc = newDesc;
             }
         }
     }
 
     /**
-     * Handle transformation of methods defined in this class
+     * Handle transformation of methods defined in this class.
      */
     private void processMethods() {
         List<MethodNode> methodNodes = cn.methods;
         for (MethodNode mn : methodNodes) {
-            if ((mn.access & Opcodes.ACC_NATIVE) == Opcodes.ACC_NATIVE)
+            if ((mn.access & Opcodes.ACC_NATIVE) == Opcodes.ACC_NATIVE) {
                 continue;
+            }
             if (DescriptorMapping.getInstance().isTransformedMethod(className, mn.name,
                     mn.desc)) {
                 logger.info("Transforming signature of method " + mn.name + mn.desc);
@@ -157,7 +168,7 @@ public class BooleanTestabilityTransformation {
 
     /**
      * <p>
-     * getOriginalNameDesc
+     * getOriginalNameDesc.
      * </p>
      *
      * @param className  a {@link java.lang.String} object.
@@ -181,7 +192,7 @@ public class BooleanTestabilityTransformation {
 
     /**
      * <p>
-     * getOriginalDesc
+     * getOriginalDesc.
      * </p>
      *
      * @param className  a {@link java.lang.String} object.
@@ -202,7 +213,7 @@ public class BooleanTestabilityTransformation {
 
     /**
      * <p>
-     * hasTransformedParameters
+     * hasTransformedParameters.
      * </p>
      *
      * @param className  a {@link java.lang.String} object.
@@ -215,8 +226,9 @@ public class BooleanTestabilityTransformation {
         String key = className.replace('.', '/') + "/" + methodName + desc;
         if (DescriptorMapping.getInstance().originalDesc.containsKey(key)) {
             for (Type type : Type.getArgumentTypes(DescriptorMapping.getInstance().originalDesc.get(key))) {
-                if (type.equals(Type.BOOLEAN_TYPE))
+                if (type.equals(Type.BOOLEAN_TYPE)) {
                     return true;
+                }
             }
         }
 
@@ -225,7 +237,7 @@ public class BooleanTestabilityTransformation {
 
     /**
      * <p>
-     * isTransformedField
+     * isTransformedField.
      * </p>
      *
      * @param className a {@link java.lang.String} object.
@@ -240,11 +252,11 @@ public class BooleanTestabilityTransformation {
     }
 
     /**
-     * Insert a call to the isNull helper function
+     * Insert a call to the isNull helper function.
      *
-     * @param opcode
-     * @param position
-     * @param list
+     * @param opcode the opcode of the instruction.
+     * @param position the position to insert at.
+     * @param list the instruction list to insert into.
      */
     public void insertPushNull(int opcode, JumpInsnNode position, InsnList list) {
         int branchId = getBranchID(currentMethodNode, position);
@@ -269,11 +281,11 @@ public class BooleanTestabilityTransformation {
     }
 
     /**
-     * Insert a call to the reference equality check helper function
+     * Insert a call to the reference equality check helper function.
      *
-     * @param opcode
-     * @param position
-     * @param list
+     * @param opcode the opcode of the instruction.
+     * @param position the position to insert at.
+     * @param list the instruction list to insert into.
      */
     public void insertPushEquals(int opcode, JumpInsnNode position, InsnList list) {
         MethodInsnNode equalCheck = new MethodInsnNode(Opcodes.INVOKESTATIC,
@@ -352,11 +364,11 @@ public class BooleanTestabilityTransformation {
     }
 
     /**
-     * Insert a call to the distance function for unary comparison
+     * Insert a call to the distance function for unary comparison.
      *
-     * @param opcode
-     * @param position
-     * @param list
+     * @param opcode the opcode of the instruction.
+     * @param position the position to insert at.
+     * @param list the instruction list to insert into.
      */
     public void insertPush(int opcode, JumpInsnNode position, InsnList list) {
         list.insertBefore(position, new InsnNode(Opcodes.DUP));
@@ -373,11 +385,11 @@ public class BooleanTestabilityTransformation {
     }
 
     /**
-     * Insert a call to the distance function for binary comparison
+     * Insert a call to the distance function for binary comparison.
      *
-     * @param opcode
-     * @param position
-     * @param list
+     * @param opcode the opcode of the instruction.
+     * @param position the position to insert at.
+     * @param list the instruction list to insert into.
      */
     public void insertPush2(int opcode, JumpInsnNode position, InsnList list) {
         list.insertBefore(position, new InsnNode(Opcodes.DUP2));
@@ -398,10 +410,10 @@ public class BooleanTestabilityTransformation {
 
     /**
      * Insert a call that takes a boolean from the stack, and returns the
-     * appropriate distance
+     * appropriate distance.
      *
-     * @param position
-     * @param list
+     * @param position the position to insert at.
+     * @param list the instruction list to insert into.
      */
     public void insertGet(AbstractInsnNode position, InsnList list) {
         logger.info("Inserting get call");
@@ -416,10 +428,10 @@ public class BooleanTestabilityTransformation {
 
     /**
      * Insert a call that takes a boolean from the stack, and returns the
-     * appropriate distance
+     * appropriate distance.
      *
-     * @param position
-     * @param list
+     * @param position the position to insert at.
+     * @param list the instruction list to insert into.
      */
     public void insertGetBefore(AbstractInsnNode position, InsnList list) {
         logger.info("Inserting get call before");
@@ -444,6 +456,14 @@ public class BooleanTestabilityTransformation {
         list.insertBefore(position, get);
     }
 
+    /**
+     * Check if a boolean is on the stack at the given position.
+     *
+     * @param mn the method node.
+     * @param node the instruction node.
+     * @param position the position on the stack.
+     * @return true if a boolean is on the stack.
+     */
     public boolean isBooleanOnStack(MethodNode mn, AbstractInsnNode node, int position) {
         if (currentFrames == null || !currentFrames.containsKey(node)) {
             logger.info("Trying to access frame out of scope");
@@ -453,22 +473,30 @@ public class BooleanTestabilityTransformation {
         return frame.getStack(frame.getStackSize() - 1 - position) == BooleanValueInterpreter.BOOLEAN_VALUE;
     }
 
+    /**
+     * Check if a variable is a boolean.
+     *
+     * @param var the variable index.
+     * @param mn the method node.
+     * @return true if the variable is a boolean.
+     */
     public boolean isBooleanVariable(int var, MethodNode mn) {
         for (Object o : mn.localVariables) {
             LocalVariableNode vn = (LocalVariableNode) o;
-            if (vn.index == var)
+            if (vn.index == var) {
                 return Type.getType(vn.desc).equals(Type.BOOLEAN_TYPE);
+            }
         }
         return false;
     }
 
     /**
      * This helper function determines whether the boolean on the stack at the
-     * current position will be stored in a Boolean variable
+     * current position will be stored in a Boolean variable.
      *
-     * @param position
-     * @param mn
-     * @return
+     * @param position the current position.
+     * @param mn the current method node.
+     * @return true if the boolean will be stored in a boolean variable.
      */
     public boolean isBooleanAssignment(AbstractInsnNode position, MethodNode mn) {
         AbstractInsnNode node = position.getNext();
@@ -476,19 +504,29 @@ public class BooleanTestabilityTransformation {
         boolean done = false;
         while (!done) {
             Boolean result = checkFieldAssignment(node);
-            if (result != null) return result;
+            if (result != null) {
+                return result;
+            }
 
             result = checkVariableAssignment(node, mn);
-            if (result != null) return result;
+            if (result != null) {
+                return result;
+            }
 
             result = checkReturn(node, mn);
-            if (result != null) return result;
+            if (result != null) {
+                return result;
+            }
 
             result = checkArrayAssignment(node, position);
-            if (result != null) return result;
+            if (result != null) {
+                return result;
+            }
 
             result = checkMethodParameter(node);
-            if (result != null) return result;
+            if (result != null) {
+                return result;
+            }
 
             if (isControlFlowOrConstant(node)) {
                 logger.info("Continuing search");
@@ -498,10 +536,11 @@ public class BooleanTestabilityTransformation {
 
                 return false;
             }
-            if (node != mn.instructions.getLast())
+            if (node != mn.instructions.getLast()) {
                 node = node.getNext();
-            else
+            } else {
                 done = true;
+            }
         }
 
         return false;
@@ -592,8 +631,9 @@ public class BooleanTestabilityTransformation {
     }
 
     private void generateCDG(MethodNode mn) {
-        if (BytecodeInstructionPool.getInstance(classLoader).hasMethod(className, mn.name + mn.desc))
+        if (BytecodeInstructionPool.getInstance(classLoader).hasMethod(className, mn.name + mn.desc)) {
             return;
+        }
 
         BytecodeInstructionPool.getInstance(classLoader).registerMethodNode(mn,
                 className,
@@ -618,12 +658,12 @@ public class BooleanTestabilityTransformation {
 
     /**
      * Determine if the signature of the given method needs to be transformed,
-     * and transform if necessary
+     * and transform if necessary.
      *
-     * @param owner
-     * @param name
-     * @param desc
-     * @return
+     * @param owner the owner of the method.
+     * @param name the name of the method.
+     * @param desc the descriptor of the method.
+     * @return the transformed descriptor.
      */
     public String transformMethodDescriptor(String owner, String name, String desc) {
         return DescriptorMapping.getInstance().getMethodDesc(owner, name, desc);
@@ -631,12 +671,12 @@ public class BooleanTestabilityTransformation {
 
     /**
      * Determine if the signature of the given field needs to be transformed,
-     * and transform if necessary
+     * and transform if necessary.
      *
-     * @param owner
-     * @param name
-     * @param desc
-     * @return
+     * @param owner the owner of the field.
+     * @param name the name of the field.
+     * @param desc the descriptor of the field.
+     * @return the transformed descriptor.
      */
     public String transformFieldDescriptor(String owner, String name, String desc) {
         return DescriptorMapping.getInstance().getFieldDesc(owner, name, desc);
@@ -648,11 +688,13 @@ public class BooleanTestabilityTransformation {
         String newDesc = DescriptorMapping.getInstance().getMethodDesc(className,
                 mn.name, mn.desc);
         if (Type.getReturnType(mn.desc) == Type.BOOLEAN_TYPE
-                && Type.getReturnType(newDesc) == Type.INT_TYPE)
+                && Type.getReturnType(newDesc) == Type.INT_TYPE) {
             TransformationStatistics.transformBooleanReturnValue();
+        }
         if (Arrays.asList(Type.getArgumentTypes(mn.desc)).contains(Type.BOOLEAN_TYPE)
-                && !Arrays.asList(Type.getArgumentTypes(newDesc)).contains(Type.BOOLEAN_TYPE))
+                && !Arrays.asList(Type.getArgumentTypes(newDesc)).contains(Type.BOOLEAN_TYPE)) {
             TransformationStatistics.transformBooleanParameter();
+        }
         String newName = DescriptorMapping.getInstance().getMethodName(className,
                 mn.name, mn.desc);
         logger.info("Changing method descriptor from "
@@ -686,9 +728,9 @@ public class BooleanTestabilityTransformation {
     }
 
     /**
-     * Apply testability transformation to an individual method
+     * Apply testability transformation to an individual method.
      *
-     * @param mn
+     * @param mn the method to transform.
      */
     private void transformMethod(MethodNode mn) {
         logger.info("Transforming method " + mn.name + mn.desc);
@@ -696,8 +738,9 @@ public class BooleanTestabilityTransformation {
         //currentCFG = GraphPool.getActualCFG(className, mn.name + mn.desc);
 
         // TODO: Skipping interfaces for now, but will need to handle Booleans in interfaces!
-        if ((mn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT)
+        if ((mn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT) {
             return;
+        }
 
         String origDesc = getOriginalDesc(className, mn.name, mn.desc);
         logger.info("Analyzing " + mn.name + " for TT, signature " + origDesc + "/"
@@ -739,7 +782,7 @@ public class BooleanTestabilityTransformation {
             // TODO: Handle error
         }
 
-        //		BytecodeInstructionPool.reRegisterMethodNode(mn, className, mn.name + mn.desc);
+        // BytecodeInstructionPool.reRegisterMethodNode(mn, className, mn.name + mn.desc);
         // Replace all bitwise operators
         logger.info("Transforming Boolean bitwise operators");
         new BitwiseOperatorTransformer(this).transform(mn);
@@ -773,9 +816,9 @@ public class BooleanTestabilityTransformation {
         logger.info("Transforming Boolean return values");
         new BooleanReturnTransformer(this).transform(mn);
 
-        //		GraphPool.clear(className, mn.name + mn.desc);
-        //		BytecodeInstructionPool.clear(className, mn.name + mn.desc);
-        //		BranchPool.clear(className, mn.name + mn.desc);
+        // GraphPool.clear(className, mn.name + mn.desc);
+        // BytecodeInstructionPool.clear(className, mn.name + mn.desc);
+        // BranchPool.clear(className, mn.name + mn.desc);
 
         // Actually this should be done automatically by the ClassWriter...
         // +2 because we might do a DUP2

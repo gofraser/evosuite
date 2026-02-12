@@ -20,7 +20,6 @@
 package org.evosuite.instrumentation.error;
 
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -31,7 +30,8 @@ public class LinkedListInstrumentation extends ErrorBranchInstrumenter {
 
     private static final String LISTNAME = LinkedList.class.getCanonicalName().replace('.', '/');
 
-    private final List<String> emptyListMethods = Arrays.asList("getFirst", "getLast", "removeFirst", "removeLast", "element", "pop");
+    private final List<String> emptyListMethods = Arrays.asList("getFirst", "getLast", "removeFirst",
+            "removeLast", "element", "pop");
 
     public LinkedListInstrumentation(ErrorConditionMethodAdapter mv) {
         super(mv);

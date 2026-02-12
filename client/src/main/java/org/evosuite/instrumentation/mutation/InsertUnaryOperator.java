@@ -50,7 +50,9 @@ public class InsertUnaryOperator implements MutationOperator {
     public static final String NAME = "InsertUnaryOp";
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#apply(
+     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String,
+     * org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**
@@ -73,7 +75,8 @@ public class InsertUnaryOperator implements MutationOperator {
 
                 // insert mutation into bytecode with conditional
                 mutation.add(new VarInsnNode(node.getOpcode(), node.var));
-                if (node.getOpcode() == Opcodes.ILOAD && frame.getLocal(node.var) == BooleanValueInterpreter.BOOLEAN_VALUE) {
+                if (node.getOpcode() == Opcodes.ILOAD
+                        && frame.getLocal(node.var) == BooleanValueInterpreter.BOOLEAN_VALUE) {
                     mutation.add(new InsnNode(Opcodes.ICONST_1));
                     mutation.add(new InsnNode(Opcodes.IXOR));
                 } else {
@@ -81,10 +84,11 @@ public class InsertUnaryOperator implements MutationOperator {
                 }
                 mutationCode.add(mutation);
 
-                if (!mn.localVariables.isEmpty())
+                if (!mn.localVariables.isEmpty()) {
                     descriptions.add("Negation of " + MutationUtils.getName(mn, node));
-                else
+                } else {
                     descriptions.add("Negation");
+                }
 
                 if (node.getOpcode() == Opcodes.ILOAD) {
                     if (frame.getStack(frame.getStackSize() - 1) != BooleanValueInterpreter.BOOLEAN_VALUE) {
@@ -92,20 +96,22 @@ public class InsertUnaryOperator implements MutationOperator {
                         mutation.add(new VarInsnNode(node.getOpcode(), node.var));
                         mutation.add(new InsnNode(Opcodes.ICONST_1));
                         mutation.add(new InsnNode(Opcodes.IADD));
-                        if (!mn.localVariables.isEmpty())
+                        if (!mn.localVariables.isEmpty()) {
                             descriptions.add("IINC 1 " + MutationUtils.getName(mn, node));
-                        else
+                        } else {
                             descriptions.add("IINC 1");
+                        }
                         mutationCode.add(mutation);
 
                         mutation = new InsnList();
                         mutation.add(new VarInsnNode(node.getOpcode(), node.var));
                         mutation.add(new InsnNode(Opcodes.ICONST_M1));
                         mutation.add(new InsnNode(Opcodes.IADD));
-                        if (!mn.localVariables.isEmpty())
+                        if (!mn.localVariables.isEmpty()) {
                             descriptions.add("IINC -1 " + MutationUtils.getName(mn, node));
-                        else
+                        } else {
                             descriptions.add("IINC -1");
+                        }
                         mutationCode.add(mutation);
                     }
                 }
@@ -150,7 +156,8 @@ public class InsertUnaryOperator implements MutationOperator {
         int i = 0;
         for (InsnList mutation : mutationCode) {
             // insert mutation into pool
-            Mutation mutationObject = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).addMutation(className,
+            MutationPool pool = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
+            Mutation mutationObject = pool.addMutation(className,
                     methodName,
                     NAME + " "
                             + descriptions.get(i++),
@@ -164,7 +171,8 @@ public class InsertUnaryOperator implements MutationOperator {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
+     * org.evosuite.cfg.BytecodeInstruction)
      */
 
     /**
@@ -189,9 +197,11 @@ public class InsertUnaryOperator implements MutationOperator {
                         || type == Type.INT_TYPE) {
                     return true;
                 }
+                break;
             default:
-                return false;
+                break;
         }
+        return false;
     }
 
     private int getNegation(Type type) {

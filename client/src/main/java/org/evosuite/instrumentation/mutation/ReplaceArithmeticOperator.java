@@ -90,12 +90,16 @@ public class ReplaceArithmeticOperator implements MutationOperator {
             case Opcodes.FREM:
             case Opcodes.DREM:
                 return "%";
+            default:
+                break;
         }
         throw new RuntimeException("Unknown opcode: " + opcode);
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(
+     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String,
+     * org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**
@@ -114,7 +118,9 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
             InsnNode mutation = new InsnNode(opcode);
             // insert mutation into pool
-            Mutation mutationObject = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).addMutation(className,
+            MutationPool pool = MutationPool.getInstance(
+                    TestGenerationContext.getInstance().getClassLoaderForSUT());
+            Mutation mutationObject = pool.addMutation(className,
                     methodName,
                     NAME + " "
                             + getOp(node.getOpcode())
@@ -135,21 +141,22 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     private Set<Integer> getMutations(int opcode) {
         Set<Integer> replacement = new HashSet<>();
-        if (opcodesInt.contains(opcode))
+        if (opcodesInt.contains(opcode)) {
             replacement.addAll(opcodesInt);
-        else if (opcodesLong.contains(opcode))
+        } else if (opcodesLong.contains(opcode)) {
             replacement.addAll(opcodesLong);
-        else if (opcodesFloat.contains(opcode))
+        } else if (opcodesFloat.contains(opcode)) {
             replacement.addAll(opcodesFloat);
-        else if (opcodesDouble.contains(opcode))
+        } else if (opcodesDouble.contains(opcode)) {
             replacement.addAll(opcodesDouble);
+        }
 
         replacement.remove(opcode);
         return replacement;
     }
 
     /**
-     * <p>getInfectionDistance</p>
+     * <p>getInfectionDistance.</p>
      *
      * @param opcodeOrig a int.
      * @param opcodeNew  a int.
@@ -168,9 +175,9 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                     PackageInfo.getNameWithSlash(ReplaceArithmeticOperator.class),
                     "getInfectionDistanceInt", "(IIII)D", false));
         } else if (opcodesLong.contains(opcodeOrig)) {
-            distance.add(new VarInsnNode(Opcodes.LSTORE, localVar));
-            distance.add(new InsnNode(Opcodes.DUP2));
-            distance.add(new VarInsnNode(Opcodes.LLOAD, localVar));
+            distance.add(new InsnNode(Opcodes.DUP2_X2));
+            distance.add(new InsnNode(Opcodes.POP2));
+            distance.add(new InsnNode(Opcodes.DUP2_X2));
             distance.add(new InsnNode(Opcodes.DUP2_X2));
             distance.add(new LdcInsnNode(opcodeOrig));
             distance.add(new LdcInsnNode(opcodeNew));
@@ -187,9 +194,9 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                     PackageInfo.getNameWithSlash(ReplaceArithmeticOperator.class),
                     "getInfectionDistanceFloat", "(FFII)D", false));
         } else if (opcodesDouble.contains(opcodeOrig)) {
-            distance.add(new VarInsnNode(Opcodes.DSTORE, localVar));
-            distance.add(new InsnNode(Opcodes.DUP2));
-            distance.add(new VarInsnNode(Opcodes.DLOAD, localVar));
+            distance.add(new InsnNode(Opcodes.DUP2_X2));
+            distance.add(new InsnNode(Opcodes.POP2));
+            distance.add(new InsnNode(Opcodes.DUP2_X2));
             distance.add(new InsnNode(Opcodes.DUP2_X2));
             distance.add(new LdcInsnNode(opcodeOrig));
             distance.add(new LdcInsnNode(opcodeNew));
@@ -219,7 +226,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
     }
 
     /**
-     * <p>getInfectionDistanceInt</p>
+     * <p>getInfectionDistanceInt.</p>
      *
      * @param x          a int.
      * @param y          a int.
@@ -238,7 +245,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
     }
 
     /**
-     * <p>getInfectionDistanceLong</p>
+     * <p>getInfectionDistanceLong.</p>
      *
      * @param x          a long.
      * @param y          a long.
@@ -257,7 +264,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
     }
 
     /**
-     * <p>getInfectionDistanceFloat</p>
+     * <p>getInfectionDistanceFloat.</p>
      *
      * @param x          a float.
      * @param y          a float.
@@ -276,7 +283,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
     }
 
     /**
-     * <p>getInfectionDistanceDouble</p>
+     * <p>getInfectionDistanceDouble.</p>
      *
      * @param x          a double.
      * @param y          a double.
@@ -295,7 +302,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
     }
 
     /**
-     * <p>calculate</p>
+     * <p>calculate.</p>
      *
      * @param x      a int.
      * @param y      a int.
@@ -314,12 +321,14 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                 return x / y;
             case Opcodes.IREM:
                 return x % y;
+            default:
+                break;
         }
         throw new RuntimeException("Unknown integer opcode: " + opcode);
     }
 
     /**
-     * <p>calculate</p>
+     * <p>calculate.</p>
      *
      * @param x      a long.
      * @param y      a long.
@@ -338,12 +347,14 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                 return x / y;
             case Opcodes.LREM:
                 return x % y;
+            default:
+                break;
         }
         throw new RuntimeException("Unknown long opcode: " + opcode);
     }
 
     /**
-     * <p>calculate</p>
+     * <p>calculate.</p>
      *
      * @param x      a float.
      * @param y      a float.
@@ -362,12 +373,14 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                 return x / y;
             case Opcodes.FREM:
                 return x % y;
+            default:
+                break;
         }
         throw new RuntimeException("Unknown float opcode: " + opcode);
     }
 
     /**
-     * <p>calculate</p>
+     * <p>calculate.</p>
      *
      * @param x      a double.
      * @param y      a double.
@@ -386,12 +399,15 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                 return x / y;
             case Opcodes.DREM:
                 return x % y;
+            default:
+                break;
         }
         throw new RuntimeException("Unknown double opcode: " + opcode);
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
+     * org.evosuite.cfg.BytecodeInstruction)
      */
 
     /**
@@ -401,12 +417,14 @@ public class ReplaceArithmeticOperator implements MutationOperator {
     public boolean isApplicable(BytecodeInstruction instruction) {
         AbstractInsnNode node = instruction.getASMNode();
         int opcode = node.getOpcode();
-        if (opcodesInt.contains(opcode))
+        if (opcodesInt.contains(opcode)) {
             return true;
-        else if (opcodesLong.contains(opcode))
+        } else if (opcodesLong.contains(opcode)) {
             return true;
-        else if (opcodesFloat.contains(opcode))
+        } else if (opcodesFloat.contains(opcode)) {
             return true;
-        else return opcodesDouble.contains(opcode);
+        } else {
+            return opcodesDouble.contains(opcode);
+        }
     }
 }

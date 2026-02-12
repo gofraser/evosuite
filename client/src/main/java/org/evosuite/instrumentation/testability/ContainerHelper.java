@@ -62,35 +62,35 @@ public class ContainerHelper {
             TestCluster.getInstance().addCastClassForContainer(o1.getClass());
         }
         int matching = 0;
-        double min_distance = Double.MAX_VALUE;
+        double minDistance = Double.MAX_VALUE;
         for (Object o2 : c) {
-            if (o2 == o1 || (o2 != null && o2.equals(o1)))
+            if (o2 == o1 || (o2 != null && o2.equals(o1))) {
                 matching++;
-            else {
+            } else {
                 if (o2 != null && o1 != null) {
                     if (o2.getClass().equals(o1.getClass())) {
                         if (o1 instanceof Number) {
                             Number n1 = (Number) o1;
                             Number n2 = (Number) o2;
-                            min_distance = Math.min(min_distance,
+                            minDistance = Math.min(minDistance,
                                     Math.abs(n1.doubleValue()
                                             - n2.doubleValue()));
                         } else if (o2 instanceof String) {
                             ConstantPoolManager.getInstance().addDynamicConstant(o1);
-                            min_distance = Math.min(min_distance,
+                            minDistance = Math.min(minDistance,
                                     StringHelper.editDistance((String) o1, (String) o2));
                         }
                     }
                 }
             }
         }
-        if (matching > 0)
+        if (matching > 0) {
             return matching;
-        else {
-            if (min_distance == Double.MAX_VALUE)
+        } else {
+            if (minDistance == Double.MAX_VALUE) {
                 return -c.size() - 1;
-            else {
-                return -1 * (int) Math.ceil(BooleanHelper.K * min_distance / (min_distance + 1.0));
+            } else {
+                return -1 * (int) Math.ceil(BooleanHelper.K * minDistance / (minDistance + 1.0));
             }
 
         }
@@ -106,8 +106,9 @@ public class ContainerHelper {
     public static int collectionContainsAll(Collection<?> c, Collection<?> c2) {
         int mismatch = 0;
         for (Object o : c2) {
-            if (!c.contains(o))
+            if (!c.contains(o)) {
                 mismatch++;
+            }
         }
         return mismatch > 0 ? -mismatch : c2.size() + 1;
     }
@@ -120,8 +121,9 @@ public class ContainerHelper {
      * @return a int.
      */
     public static int mapContainsKey(Map<?, ?> m, Object o1) {
-        if (o1 != null)
+        if (o1 != null) {
             TestCluster.getInstance().addCastClassForContainer(o1.getClass());
+        }
 
         return collectionContains(m.keySet(), o1);
     }
@@ -134,8 +136,9 @@ public class ContainerHelper {
      * @return a int.
      */
     public static int mapContainsValue(Map<?, ?> m, Object o1) {
-        if (o1 != null)
+        if (o1 != null) {
             TestCluster.getInstance().addCastClassForContainer(o1.getClass());
+        }
 
         return collectionContains(m.values(), o1);
     }

@@ -41,6 +41,12 @@ public class ErrorBranchInstrumenter {
         this.methodName = mv.getMethodName();
     }
 
+    /**
+     * Get the callee of a method.
+     *
+     * @param desc the method descriptor.
+     * @return a map of parameter indices to local variable indices.
+     */
     public Map<Integer, Integer> getMethodCallee(String desc) {
         Type[] args = Type.getArgumentTypes(desc);
         Map<Integer, Integer> to = new HashMap<>();
@@ -54,6 +60,12 @@ public class ErrorBranchInstrumenter {
         return to;
     }
 
+    /**
+     * Restore the parameters of a method.
+     *
+     * @param to   the map of parameter indices to local variable indices.
+     * @param desc the method descriptor.
+     */
     public void restoreMethodParameters(Map<Integer, Integer> to, String desc) {
         Type[] args = Type.getArgumentTypes(desc);
 
@@ -62,31 +74,79 @@ public class ErrorBranchInstrumenter {
         }
     }
 
+    /**
+     * Visit a method instruction.
+     *
+     * @param opcode the opcode.
+     * @param owner  the owner class.
+     * @param name   the method name.
+     * @param desc   the method descriptor.
+     */
     public void visitMethodInsn(int opcode, String owner, String name, String desc) {
         throw new RuntimeException("This method should not be called since ASM5 API is used");
     }
 
 
+    /**
+     * Visit a method instruction.
+     *
+     * @param opcode the opcode.
+     * @param owner  the owner class.
+     * @param name   the method name.
+     * @param desc   the method descriptor.
+     * @param itf    whether the owner is an interface.
+     */
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
 
     }
 
+    /**
+     * Visit a field instruction.
+     *
+     * @param opcode the opcode.
+     * @param owner  the owner class.
+     * @param name   the field name.
+     * @param desc   the field descriptor.
+     */
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
 
     }
 
+    /**
+     * Visit a type instruction.
+     *
+     * @param opcode the opcode.
+     * @param type   the type.
+     */
     public void visitTypeInsn(int opcode, String type) {
 
     }
 
+    /**
+     * Visit an instruction.
+     *
+     * @param opcode the opcode.
+     */
     public void visitInsn(int opcode) {
 
     }
 
+    /**
+     * Visit an integer instruction.
+     *
+     * @param opcode  the opcode.
+     * @param operand the operand.
+     */
     public void visitIntInsn(int opcode,
                              int operand) {
     }
 
+    /**
+     * Visit a multi-array instruction.
+     *
+     * @param descriptor    the array descriptor.
+     * @param numDimensions the number of dimensions.
+     */
     public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
 
     }

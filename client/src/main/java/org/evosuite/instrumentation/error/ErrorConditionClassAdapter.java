@@ -55,7 +55,8 @@ public class ErrorConditionClassAdapter extends ClassVisitor {
     }
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.ClassVisitor#visitMethod(int, java.lang.String, java.lang.String, java.lang.String, java.lang.String[])
+     * @see org.objectweb.asm.ClassVisitor#visitMethod(int, java.lang.String,
+     * java.lang.String, java.lang.String, java.lang.String[])
      */
 
     /**
@@ -65,11 +66,14 @@ public class ErrorConditionClassAdapter extends ClassVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc,
                                      String signature, String[] exceptions) {
         MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-        if (name.equals("<clinit>"))
+        if (name.equals("<clinit>")) {
             return mv;
+        }
 
-        if (!DependencyAnalysis.shouldInstrument(ResourceList.getClassNameFromResourcePath(className), name + desc))
+        if (!DependencyAnalysis.shouldInstrument(ResourceList.getClassNameFromResourcePath(className),
+                name + desc)) {
             return mv;
+        }
 
         logger.info("Applying error transformation to " + className + ", method " + name
                 + desc);

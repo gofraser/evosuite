@@ -30,7 +30,7 @@ import org.objectweb.asm.tree.*;
 public class MethodNodeTransformer {
 
     /**
-     * <p>transform</p>
+     * <p>transform.</p>
      *
      * @param mn a {@link org.objectweb.asm.tree.MethodNode} object.
      */
@@ -72,7 +72,7 @@ public class MethodNodeTransformer {
     }
 
     /**
-     * <p>transformMethodInsnNode</p>
+     * <p>transformMethodInsnNode.</p>
      *
      * @param mn         a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param methodNode a {@link org.objectweb.asm.tree.MethodInsnNode} object.
@@ -84,7 +84,7 @@ public class MethodNodeTransformer {
     }
 
     /**
-     * <p>transformVarInsnNode</p>
+     * <p>transformVarInsnNode.</p>
      *
      * @param mn      a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param varNode a {@link org.objectweb.asm.tree.VarInsnNode} object.
@@ -95,7 +95,7 @@ public class MethodNodeTransformer {
     }
 
     /**
-     * <p>transformFieldInsnNode</p>
+     * <p>transformFieldInsnNode.</p>
      *
      * @param mn        a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param fieldNode a {@link org.objectweb.asm.tree.FieldInsnNode} object.
@@ -107,7 +107,7 @@ public class MethodNodeTransformer {
     }
 
     /**
-     * <p>transformInsnNode</p>
+     * <p>transformInsnNode.</p>
      *
      * @param mn       a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param insnNode a {@link org.objectweb.asm.tree.InsnNode} object.
@@ -118,7 +118,7 @@ public class MethodNodeTransformer {
     }
 
     /**
-     * <p>transformTypeInsnNode</p>
+     * <p>transformTypeInsnNode.</p>
      *
      * @param mn       a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param typeNode a {@link org.objectweb.asm.tree.TypeInsnNode} object.
@@ -129,7 +129,7 @@ public class MethodNodeTransformer {
     }
 
     /**
-     * <p>transformJumpInsnNode</p>
+     * <p>transformJumpInsnNode.</p>
      *
      * @param mn       a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param jumpNode a {@link org.objectweb.asm.tree.JumpInsnNode} object.
@@ -140,7 +140,7 @@ public class MethodNodeTransformer {
     }
 
     /**
-     * <p>transformLabelNode</p>
+     * <p>transformLabelNode.</p>
      *
      * @param mn        a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param labelNode a {@link org.objectweb.asm.tree.LabelNode} object.
@@ -151,7 +151,7 @@ public class MethodNodeTransformer {
     }
 
     /**
-     * <p>transformIntInsnNode</p>
+     * <p>transformIntInsnNode.</p>
      *
      * @param mn          a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param intInsnNode a {@link org.objectweb.asm.tree.IntInsnNode} object.
@@ -162,7 +162,7 @@ public class MethodNodeTransformer {
     }
 
     /**
-     * <p>transformMultiANewArrayInsnNode</p>
+     * <p>transformMultiANewArrayInsnNode.</p>
      *
      * @param mn            a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param arrayInsnNode a {@link org.objectweb.asm.tree.MultiANewArrayInsnNode} object.

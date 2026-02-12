@@ -55,7 +55,9 @@ public class ReplaceVariable implements MutationOperator {
     public static final String NAME = "ReplaceVariable";
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#apply(
+     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String,
+     * org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**
@@ -87,7 +89,9 @@ public class ReplaceVariable implements MutationOperator {
                 }
 
                 // insert mutation into pool
-                Mutation mutationObject = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).addMutation(className,
+                MutationPool pool = MutationPool.getInstance(
+                        TestGenerationContext.getInstance().getClassLoaderForSUT());
+                Mutation mutationObject = pool.addMutation(className,
                         methodName,
                         NAME + " "
                                 + origName
@@ -128,7 +132,7 @@ public class ReplaceVariable implements MutationOperator {
 
     /**
      * <p>
-     * getInfectionDistance
+     * getInfectionDistance.
      * </p>
      *
      * @param type     a {@link org.objectweb.asm.Type} object.
@@ -146,23 +150,26 @@ public class ReplaceVariable implements MutationOperator {
             VarInsnNode node = (VarInsnNode) original;
             distance.add(new VarInsnNode(node.getOpcode(), node.var));
             if (type.getDescriptor().startsWith("L")
-                    || type.getDescriptor().startsWith("["))
+                    || type.getDescriptor().startsWith("[")) {
                 MutationUtils.addReferenceDistanceCheck(distance, type, mutant);
-            else
+            } else {
                 MutationUtils.addPrimitiveDistanceCheck(distance, type, mutant);
+            }
 
         } else if (original instanceof FieldInsnNode) {
-            if (original.getOpcode() == Opcodes.GETFIELD)
+            if (original.getOpcode() == Opcodes.GETFIELD) {
                 distance.add(new InsnNode(Opcodes.DUP)); //make sure to re-load this for GETFIELD
+            }
 
             FieldInsnNode node = (FieldInsnNode) original;
             distance.add(new FieldInsnNode(node.getOpcode(), node.owner, node.name,
                     node.desc));
             if (type.getDescriptor().startsWith("L")
-                    || type.getDescriptor().startsWith("["))
+                    || type.getDescriptor().startsWith("[")) {
                 MutationUtils.addReferenceDistanceCheck(distance, type, mutant);
-            else
+            } else {
                 MutationUtils.addPrimitiveDistanceCheck(distance, type, mutant);
+            }
 
         } else if (original instanceof IincInsnNode) {
             distance.add(Mutation.getDefaultInfectionDistance());
@@ -171,10 +178,13 @@ public class ReplaceVariable implements MutationOperator {
     }
 
     /**
-     * Retrieve the set of variables that have the same type and are in scope
+     * Retrieve the set of variables that have the same type and are in scope.
      *
-     * @param node
-     * @return
+     * @param mn the method node.
+     * @param className the class name.
+     * @param node the instruction node.
+     * @param frame the analysis frame.
+     * @return a map of replacements.
      */
     private Map<String, InsnList> getReplacements(MethodNode mn, String className,
                                                   AbstractInsnNode node, Frame frame) {
@@ -195,7 +205,7 @@ public class ReplaceVariable implements MutationOperator {
                 variables.putAll(getLocalReplacements(mn, origVar.desc, node, frame));
                 variables.putAll(getFieldReplacements(mn, className, origVar.desc, node));
             } catch (VariableNotFoundException e) {
-                logger.debug("Could not find variable, not replacing it: " + var.var);
+                logger.debug("Could find variable, not replacing it: " + var.var);
                 for (final LocalVariableNode n : mn.localVariables) {
                     logger.debug(n.index + ": " + n.name);
                 }
@@ -216,11 +226,9 @@ public class ReplaceVariable implements MutationOperator {
 
                 variables.putAll(getLocalReplacementsInc(mn, origVar.desc, incNode, frame));
             } catch (VariableNotFoundException e) {
-                logger.debug("Could not find variable, not replacing it: " + incNode.var);
+                logger.debug("Could find variable, not replacing it: " + incNode.var);
             }
 
-        } else {
-            //throw new RuntimeException("Unknown type: " + node);
         }
 
         return variables;
@@ -231,21 +239,22 @@ public class ReplaceVariable implements MutationOperator {
         Map<String, InsnList> replacements = new HashMap<>();
 
         //if (desc.equals("I"))
-        //	return replacements;
+        //  return replacements;
 
         int otherNum = -1;
         if (node instanceof VarInsnNode) {
-            VarInsnNode vNode = (VarInsnNode) node;
-            otherNum = vNode.var;
+            VarInsnNode vnode = (VarInsnNode) node;
+            otherNum = vnode.var;
         }
-        if (otherNum == -1)
+        if (otherNum == -1) {
             return replacements;
+        }
 
         int currentId = mn.instructions.indexOf(node);
         logger.debug("Looking for replacements at position " + currentId + " of variable "
                 + otherNum + " of type " + desc);
 
-        //	return replacements;
+        //  return replacements;
 
         for (Object v : mn.localVariables) {
             LocalVariableNode localVar = (LocalVariableNode) v;
@@ -253,17 +262,22 @@ public class ReplaceVariable implements MutationOperator {
             int endId = mn.instructions.indexOf(localVar.end);
             logger.debug("Checking local variable " + localVar.name + " of type "
                     + localVar.desc + " at index " + localVar.index);
-            if (!localVar.desc.equals(desc))
+            if (!localVar.desc.equals(desc)) {
                 logger.debug("- Types do not match");
-            if (localVar.index == otherNum)
+            }
+            if (localVar.index == otherNum) {
                 logger.debug("- Replacement = original");
-            if (currentId < startId)
+            }
+            if (currentId < startId) {
                 logger.debug("- Out of scope (start)");
-            if (currentId > endId)
+            }
+            if (currentId > endId) {
                 logger.debug("- Out of scope (end)");
+            }
             BasicValue newValue = (BasicValue) frame.getLocal(localVar.index);
-            if (newValue == BasicValue.UNINITIALIZED_VALUE)
+            if (newValue == BasicValue.UNINITIALIZED_VALUE) {
                 logger.debug("- Not initialized");
+            }
 
             if (localVar.desc.equals(desc) && localVar.index != otherNum
                     && currentId >= startId && currentId <= endId
@@ -298,17 +312,22 @@ public class ReplaceVariable implements MutationOperator {
             int endId = mn.instructions.indexOf(localVar.end);
             logger.debug("Checking local variable " + localVar.name + " of type "
                     + localVar.desc + " at index " + localVar.index);
-            if (!localVar.desc.equals(desc))
+            if (!localVar.desc.equals(desc)) {
                 logger.debug("- Types do not match: " + localVar.name);
-            if (localVar.index == otherNum)
+            }
+            if (localVar.index == otherNum) {
                 logger.debug("- Replacement = original " + localVar.name);
-            if (currentId < startId)
+            }
+            if (currentId < startId) {
                 logger.debug("- Out of scope (start) " + localVar.name);
-            if (currentId > endId)
+            }
+            if (currentId > endId) {
                 logger.debug("- Out of scope (end) " + localVar.name);
+            }
             BasicValue newValue = (BasicValue) frame.getLocal(localVar.index);
-            if (newValue == BasicValue.UNINITIALIZED_VALUE)
+            if (newValue == BasicValue.UNINITIALIZED_VALUE) {
                 logger.debug("- Not initialized");
+            }
 
             if (localVar.desc.equals(desc) && localVar.index != otherNum
                     && currentId >= startId && currentId <= endId
@@ -337,8 +356,8 @@ public class ReplaceVariable implements MutationOperator {
 
         String otherName = "";
         if (node instanceof FieldInsnNode) {
-            FieldInsnNode fNode = (FieldInsnNode) node;
-            otherName = fNode.name;
+            FieldInsnNode fnode = (FieldInsnNode) node;
+            otherName = fnode.name;
         }
         try {
             logger.debug("Checking class " + className);
@@ -348,17 +367,20 @@ public class ReplaceVariable implements MutationOperator {
             for (Field field : TestClusterUtils.getFields(clazz)) {
                 // We have to use a special version of canUse to avoid
                 // that we access the CUT before it is fully initialised
-                if (!canUse(field))
+                if (!canUse(field)) {
                     continue;
+                }
 
                 Type type = Type.getType(field.getType());
                 logger.debug("Checking replacement field variable " + field.getName());
 
-                if (field.getName().equals(otherName))
+                if (field.getName().equals(otherName)) {
                     continue;
+                }
 
-                if (isStatic && !(Modifier.isStatic(field.getModifiers())))
+                if (isStatic && !(Modifier.isStatic(field.getModifiers()))) {
                     continue;
+                }
 
                 if (type.getDescriptor().equals(desc)) {
                     logger.debug("Adding replacement field variable " + field.getName());
@@ -368,11 +390,11 @@ public class ReplaceVariable implements MutationOperator {
                     }
 
                     // new fieldinsnnode
-                    if (Modifier.isStatic(field.getModifiers()))
+                    if (Modifier.isStatic(field.getModifiers())) {
                         list.add(new FieldInsnNode(Opcodes.GETSTATIC,
                                 className.replace('.', '/'), field.getName(),
                                 type.getDescriptor()));
-                    else {
+                    } else {
                         list.add(new VarInsnNode(Opcodes.ALOAD, 0)); // this
                         list.add(new FieldInsnNode(Opcodes.GETFIELD,
                                 className.replace('.', '/'), field.getName(),
@@ -394,18 +416,20 @@ public class ReplaceVariable implements MutationOperator {
 
     /**
      * This replicates TestUsageChecker.canUse but we need to avoid that
-     * we try to access Properties.getTargetClassAndDontInitialise
+     * we try to access Properties.getTargetClassAndDontInitialise.
      *
-     * @param f
-     * @return
+     * @param f the field to check.
+     * @return true if the field can be used.
      */
     public static boolean canUse(Field f) {
 
-        if (f.getDeclaringClass().equals(java.lang.Object.class))
+        if (f.getDeclaringClass().equals(java.lang.Object.class)) {
             return false;// handled here to avoid printing reasons
+        }
 
-        if (f.getDeclaringClass().equals(java.lang.Thread.class))
+        if (f.getDeclaringClass().equals(java.lang.Thread.class)) {
             return false;// handled here to avoid printing reasons
+        }
 
         if (f.isSynthetic()) {
             logger.debug("Skipping synthetic field " + f.getName());
@@ -444,7 +468,8 @@ public class ReplaceVariable implements MutationOperator {
         return false;
     }
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
+     * org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**

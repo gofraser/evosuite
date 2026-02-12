@@ -48,7 +48,9 @@ public class DeleteField implements MutationOperator {
     public static final String NAME = "DeleteField";
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#apply(
+     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String,
+     * org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**
@@ -71,7 +73,8 @@ public class DeleteField implements MutationOperator {
         }
         mutation.add(MutationUtils.getDefault(fieldType));
         // insert mutation into pool
-        Mutation mutationObject = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).addMutation(className,
+        MutationPool pool = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
+        Mutation mutationObject = pool.addMutation(className,
                 methodName,
                 NAME + " " + node.name
                         + node.desc,
@@ -86,7 +89,7 @@ public class DeleteField implements MutationOperator {
 
     /**
      * <p>
-     * getInfectionDistance
+     * getInfectionDistance.
      * </p>
      *
      * @param original a {@link org.objectweb.asm.tree.FieldInsnNode} object.
@@ -96,8 +99,9 @@ public class DeleteField implements MutationOperator {
     public InsnList getInfectionDistance(FieldInsnNode original, InsnList mutant) {
         InsnList distance = new InsnList();
 
-        if (original.getOpcode() == Opcodes.GETFIELD)
+        if (original.getOpcode() == Opcodes.GETFIELD) {
             distance.add(new InsnNode(Opcodes.DUP)); //make sure to re-load this for GETFIELD
+        }
 
         distance.add(new FieldInsnNode(original.getOpcode(), original.owner,
                 original.name, original.desc));
@@ -113,7 +117,8 @@ public class DeleteField implements MutationOperator {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
+     * org.evosuite.cfg.BytecodeInstruction)
      */
 
     /**

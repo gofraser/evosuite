@@ -30,14 +30,16 @@ import org.objectweb.asm.tree.MethodNode;
 
 /**
  * If a method needs to return a Boolean and not an int, then we need to
- * transform the int back to a Boolean
+ * transform the int back to a Boolean.
  */
 public class BooleanReturnTransformer extends MethodNodeTransformer {
 
     private final BooleanTestabilityTransformation booleanTestabilityTransformation;
 
     /**
-     * @param booleanTestabilityTransformation
+     * Constructor for BooleanReturnTransformer.
+     *
+     * @param booleanTestabilityTransformation the boolean testability transformation.
      */
     public BooleanReturnTransformer(
             BooleanTestabilityTransformation booleanTestabilityTransformation) {
@@ -45,7 +47,8 @@ public class BooleanReturnTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.InsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.InsnNode)
      */
     @Override
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
@@ -56,7 +59,8 @@ public class BooleanReturnTransformer extends MethodNodeTransformer {
         }
 
         if (insnNode.getOpcode() == Opcodes.IRETURN) {
-            BooleanTestabilityTransformation.logger.debug("Inserting conversion before IRETURN of " + this.booleanTestabilityTransformation.className + "."
+            BooleanTestabilityTransformation.logger.debug("Inserting conversion before IRETURN of "
+                    + this.booleanTestabilityTransformation.className + "."
                     + mn.name);
             // If this function cannot be transformed, add a call to convert the value to a proper Boolean
             MethodInsnNode n = new MethodInsnNode(Opcodes.INVOKESTATIC,

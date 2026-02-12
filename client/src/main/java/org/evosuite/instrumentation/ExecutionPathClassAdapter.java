@@ -33,7 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Take care of all instrumentation that is necessary to trace executions
+ * Take care of all instrumentation that is necessary to trace executions.
  *
  * @author Gordon Fraser
  */
@@ -50,12 +50,12 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
     private static final Logger logger = LoggerFactory.getLogger(ExecutionPathClassAdapter.class);
 
     /**
-     * Skip methods on enums - at least some
+     * Skip methods on enums - at least some.
      */
     private boolean isEnum = false;
 
     /**
-     * Skip default constructors on anonymous classes
+     * Skip default constructors on anonymous classes.
      */
     private boolean isAnonymous = false;
 
@@ -72,10 +72,6 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
         this.className = ResourceList.getClassNameFromResourcePath(className);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.ClassAdapter#visit(int, int, java.lang.String, java.lang.String, java.lang.String, java.lang.String[])
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -83,18 +79,13 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
     public void visit(int version, int access, String name, String signature,
                       String superName, String[] interfaces) {
         super.visit(version, access, name, signature, superName, interfaces);
-        if (superName.equals("java/lang/Enum"))
+        if (superName.equals("java/lang/Enum")) {
             isEnum = true;
-        if (TestClusterUtils.isAnonymousClass(name))
+        }
+        if (TestClusterUtils.isAnonymousClass(name)) {
             isAnonymous = true;
+        }
     }
-
-    /*
-     * Set default access rights to public access rights
-     *
-     * @see org.objectweb.asm.ClassAdapter#visitMethod(int, java.lang.String,
-     * java.lang.String, java.lang.String, java.lang.String[])
-     */
 
     /**
      * {@inheritDoc}
@@ -110,14 +101,17 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
                 || (methodAccess & Opcodes.ACC_BRIDGE) > 0) {
             return mv;
         }
-        if (name.equals("<clinit>"))
+        if (name.equals("<clinit>")) {
             return mv;
+        }
 
-        if (name.equals(ClassResetter.STATIC_RESET))
+        if (name.equals(ClassResetter.STATIC_RESET)) {
             return mv;
+        }
 
-        if (!DependencyAnalysis.shouldInstrument(className, name + descriptor))
+        if (!DependencyAnalysis.shouldInstrument(className, name + descriptor)) {
             return mv;
+        }
 
         if (isEnum && (name.equals("valueOf") || name.equals("values"))) {
             return mv;

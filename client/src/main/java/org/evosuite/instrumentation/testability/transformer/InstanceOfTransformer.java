@@ -26,11 +26,12 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 /**
- * Replace instanceof operation with helper that puts int on the stack
+ * Replace instanceof operation with helper that puts int on the stack.
  */
 public class InstanceOfTransformer extends MethodNodeTransformer {
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformTypeInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.TypeInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformTypeInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.TypeInsnNode)
      */
     @Override
     protected AbstractInsnNode transformTypeInsnNode(MethodNode mn,

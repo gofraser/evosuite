@@ -28,7 +28,7 @@ import java.util.Map;
 
 public class LinkedHashSetInstrumentation extends ErrorBranchInstrumenter {
 
-    private final String SETNAME = LinkedHashSet.class.getCanonicalName().replace('.', '/');
+    private final String setName = LinkedHashSet.class.getCanonicalName().replace('.', '/');
 
     private final List<String> emptyListMethods = Arrays.asList("first", "last");
 
@@ -39,13 +39,13 @@ public class LinkedHashSetInstrumentation extends ErrorBranchInstrumenter {
     @Override
     public void visitMethodInsn(int opcode, String owner, String name,
                                 String desc, boolean itf) {
-        if (owner.equals(SETNAME)) {
+        if (owner.equals(setName)) {
             if (emptyListMethods.contains(name)) {
                 // empty
                 Map<Integer, Integer> tempVariables = getMethodCallee(desc);
 
                 tagBranchStart();
-                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, SETNAME,
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, setName,
                         "isEmpty", "()Z", false);
                 insertBranchWithoutTag(Opcodes.IFLE, "java/util/NoSuchElementException");
                 tagBranchEnd();

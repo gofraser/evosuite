@@ -33,7 +33,7 @@ import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
 /**
  * Adds a call to ExecutionTracer.passedClassInitializationMethod() when
- * the <clinit> method begins its execution.
+ * the &lt;clinit&gt; method begins its execution.
  *
  * @author Juan Galeotti
  */
@@ -46,11 +46,11 @@ public class ExitClassInitMethodAdapter extends MethodVisitor {
     private Label endingTryLabel;
 
     /**
-     * <p>Constructor for PutStaticMethodAdapter.</p>
+     * <p>Constructor for ExitClassInitMethodAdapter.</p>
      *
-     * @param mv          a {@link org.objectweb.asm.MethodVisitor} object.
      * @param className   a {@link java.lang.String} object.
-     * @param finalFields a {@link java.util.List} object.
+     * @param methodName  a {@link java.lang.String} object.
+     * @param mv          a {@link org.objectweb.asm.MethodVisitor} object.
      */
     public ExitClassInitMethodAdapter(String className, String methodName,
                                       MethodVisitor mv) {

@@ -64,7 +64,9 @@ public class ReplaceBitwiseOperator implements MutationOperator {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(
+     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String,
+     * org.evosuite.graphs.cfg.BytecodeInstruction)
      */
 
     /**
@@ -82,21 +84,24 @@ public class ReplaceBitwiseOperator implements MutationOperator {
 
         List<Mutation> mutations = new LinkedList<>();
         Set<Integer> replacement = new HashSet<>();
-        if (opcodesInt.contains(node.getOpcode()))
+        if (opcodesInt.contains(node.getOpcode())) {
             replacement.addAll(opcodesInt);
-        else if (opcodesIntShift.contains(node.getOpcode()))
+        } else if (opcodesIntShift.contains(node.getOpcode())) {
             replacement.addAll(opcodesIntShift);
-        else if (opcodesLong.contains(node.getOpcode()))
+        } else if (opcodesLong.contains(node.getOpcode())) {
             replacement.addAll(opcodesLong);
-        else if (opcodesLongShift.contains(node.getOpcode()))
+        } else if (opcodesLongShift.contains(node.getOpcode())) {
             replacement.addAll(opcodesLongShift);
+        }
         replacement.remove(node.getOpcode());
 
         for (int opcode : replacement) {
 
             InsnNode mutation = new InsnNode(opcode);
             // insert mutation into pool
-            Mutation mutationObject = MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).addMutation(className,
+            MutationPool pool = MutationPool.getInstance(
+                    TestGenerationContext.getInstance().getClassLoaderForSUT());
+            Mutation mutationObject = pool.addMutation(className,
                     methodName,
                     NAME + " "
                             + getOp(node.getOpcode())
@@ -141,12 +146,14 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                 return ">>> I";
             case Opcodes.LUSHR:
                 return ">>> L";
+            default:
+                break;
         }
         throw new RuntimeException("Unknown opcode: " + opcode);
     }
 
     /**
-     * <p>getInfectionDistance</p>
+     * <p>getInfectionDistance.</p>
      *
      * @param opcodeOrig a int.
      * @param opcodeNew  a int.
@@ -203,7 +210,7 @@ public class ReplaceBitwiseOperator implements MutationOperator {
     }
 
     /**
-     * <p>getInfectionDistanceInt</p>
+     * <p>getInfectionDistanceInt.</p>
      *
      * @param x          a int.
      * @param y          a int.
@@ -220,9 +227,10 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                 assert (origValue != newValue);
 
                 return 0.0;
-            } else
+            } else {
                 // TODO x >= 0?
                 return y != 0 && x > 0 ? x + 1.0 : 1.0;
+            }
         }
         int origValue = calculate(x, y, opcodeOrig);
         int newValue = calculate(x, y, opcodeNew);
@@ -230,7 +238,7 @@ public class ReplaceBitwiseOperator implements MutationOperator {
     }
 
     /**
-     * <p>getInfectionDistanceLong</p>
+     * <p>getInfectionDistanceLong.</p>
      *
      * @param x          a long.
      * @param y          a int.
@@ -247,8 +255,9 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                 assert (origValue != newValue);
 
                 return 0.0;
-            } else
+            } else {
                 return y != 0 && x > 0 ? x + 1.0 : 1.0;
+            }
         }
         long origValue = calculate(x, y, opcodeOrig);
         long newValue = calculate(x, y, opcodeNew);
@@ -256,7 +265,7 @@ public class ReplaceBitwiseOperator implements MutationOperator {
     }
 
     /**
-     * <p>getInfectionDistanceLong</p>
+     * <p>getInfectionDistanceLong.</p>
      *
      * @param x          a long.
      * @param y          a long.
@@ -273,7 +282,7 @@ public class ReplaceBitwiseOperator implements MutationOperator {
     }
 
     /**
-     * <p>calculate</p>
+     * <p>calculate.</p>
      *
      * @param x      a int.
      * @param y      a int.
@@ -294,12 +303,14 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                 return x >> y;
             case Opcodes.IUSHR:
                 return x >>> y;
+            default:
+                break;
         }
         throw new RuntimeException("Unknown integer opcode: " + opcode);
     }
 
     /**
-     * <p>calculate</p>
+     * <p>calculate.</p>
      *
      * @param x      a long.
      * @param y      a long.
@@ -312,7 +323,7 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                 return x & y;
             case Opcodes.LOR:
                 return x | y;
-            case Opcodes.LXOR:
+            case Opcodes.IXOR:
                 return x ^ y;
             case Opcodes.LSHL:
                 return x << y;
@@ -320,12 +331,15 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                 return x >> y;
             case Opcodes.LUSHR:
                 return x >>> y;
+            default:
+                break;
         }
         throw new RuntimeException("Unknown long opcode: " + opcode);
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(org.evosuite.cfg.BytecodeInstruction)
+     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
+     * org.evosuite.cfg.BytecodeInstruction)
      */
 
     /**
@@ -335,12 +349,14 @@ public class ReplaceBitwiseOperator implements MutationOperator {
     public boolean isApplicable(BytecodeInstruction instruction) {
         AbstractInsnNode node = instruction.getASMNode();
         int opcode = node.getOpcode();
-        if (opcodesInt.contains(opcode))
+        if (opcodesInt.contains(opcode)) {
             return true;
-        else if (opcodesIntShift.contains(opcode))
+        } else if (opcodesIntShift.contains(opcode)) {
             return true;
-        else if (opcodesLong.contains(opcode))
+        } else if (opcodesLong.contains(opcode)) {
             return true;
-        else return opcodesLongShift.contains(opcode);
+        } else {
+            return opcodesLongShift.contains(opcode);
+        }
     }
 }

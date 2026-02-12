@@ -27,7 +27,7 @@ import org.objectweb.asm.tree.*;
 
 /**
  * This transformer inserts calls to the get function when a Boolean is put
- * on the stack
+ * on the stack.
  */
 public class BooleanDefinitionTransformer extends MethodNodeTransformer {
 
@@ -38,7 +38,9 @@ public class BooleanDefinitionTransformer extends MethodNodeTransformer {
     private final BooleanTestabilityTransformation booleanTestabilityTransformation;
 
     /**
-     * @param booleanTestabilityTransformation
+     * Constructor for BooleanDefinitionTransformer.
+     *
+     * @param booleanTestabilityTransformation the boolean testability transformation.
      */
     public BooleanDefinitionTransformer(
             BooleanTestabilityTransformation booleanTestabilityTransformation) {
@@ -46,7 +48,8 @@ public class BooleanDefinitionTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.InsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.InsnNode)
      */
     @Override
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
@@ -59,16 +62,17 @@ public class BooleanDefinitionTransformer extends MethodNodeTransformer {
                 && this.booleanTestabilityTransformation.isBooleanAssignment(insnNode, mn)) {
             TransformationStatistics.insertedGet();
             this.booleanTestabilityTransformation.insertGet(insnNode, mn.instructions);
-            //} else if (insnNode.getOpcode() == Opcodes.IRETURN
-            //        && isBooleanAssignment(insnNode, mn)) {
-            //	TransformationStatistics.insertedGet();
-            //	insertGetBefore(insnNode, mn.instructions);
+            // } else if (insnNode.getOpcode() == Opcodes.IRETURN
+            //         && isBooleanAssignment(insnNode, mn)) {
+            //     TransformationStatistics.insertedGet();
+            //     insertGetBefore(insnNode, mn.instructions);
         }
         return insnNode;
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformVarInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.VarInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformVarInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.VarInsnNode)
      */
     @Override
     protected AbstractInsnNode transformVarInsnNode(MethodNode mn, VarInsnNode varNode) {
@@ -84,13 +88,15 @@ public class BooleanDefinitionTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformFieldInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.FieldInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformFieldInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.FieldInsnNode)
      */
     @Override
     protected AbstractInsnNode transformFieldInsnNode(MethodNode mn,
                                                       FieldInsnNode fieldNode) {
         // This handles the else branch for field assignments
-        if (DescriptorMapping.getInstance().isTransformedOrBooleanField(this.booleanTestabilityTransformation.className,
+        if (DescriptorMapping.getInstance().isTransformedOrBooleanField(
+                this.booleanTestabilityTransformation.className,
                 fieldNode.name,
                 fieldNode.desc)) {
             if (fieldNode.getNext() instanceof FieldInsnNode) {

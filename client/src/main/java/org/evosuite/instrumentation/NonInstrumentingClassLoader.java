@@ -33,14 +33,14 @@ public class NonInstrumentingClassLoader extends InstrumentingClassLoader {
         super();
     }
 
-	/*
-	public NonInstrumentingClassLoader(ClassLoader parent) {
-		super(parent);
-		setClassAssertionStatus(Properties.TARGET_CLASS, true);
-		classLoader = parent; //NonInstrumentingClassLoader.class.getClassLoader();
+    /*
+    public NonInstrumentingClassLoader(ClassLoader parent) {
+        super(parent);
+        setClassAssertionStatus(Properties.TARGET_CLASS, true);
+        classLoader = parent; //NonInstrumentingClassLoader.class.getClassLoader();
 
-	}
-	*/
+    }
+    */
 
     @Override
     protected byte[] getTransformedBytes(String className, InputStream is) throws IOException {

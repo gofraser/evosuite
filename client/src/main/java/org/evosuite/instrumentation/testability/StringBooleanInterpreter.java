@@ -38,9 +38,9 @@ import java.util.List;
 public class StringBooleanInterpreter extends BasicInterpreter {
 
     /**
-     * Constant <code>STRING_BOOLEAN</code>
+     * Constant <code>STRING_BOOLEAN</code>.
      */
-    public final static BasicValue STRING_BOOLEAN = new BasicValue(null);
+    public static final BasicValue STRING_BOOLEAN = new BasicValue(null);
 
     public StringBooleanInterpreter() {
         super(Opcodes.ASM9);
@@ -48,7 +48,8 @@ public class StringBooleanInterpreter extends BasicInterpreter {
 
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#naryOperation(org.objectweb.asm.tree.AbstractInsnNode, java.util.List)
+     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#naryOperation(
+     * org.objectweb.asm.tree.AbstractInsnNode, java.util.List)
      */
 
     /**
@@ -56,10 +57,12 @@ public class StringBooleanInterpreter extends BasicInterpreter {
      */
     @Override
     public BasicValue naryOperation(AbstractInsnNode insn,
-                                    @SuppressWarnings("rawtypes") List values) throws AnalyzerException {
+                                    @SuppressWarnings("rawtypes") List values)
+            throws AnalyzerException {
         if (insn.getOpcode() == Opcodes.INVOKESTATIC) {
             MethodInsnNode mn = (MethodInsnNode) insn;
-            if (mn.owner.equals(Type.getInternalName(StringHelper.class))
+            String helperName = Type.getInternalName(StringHelper.class);
+            if (mn.owner.equals(helperName)
                     && mn.name.startsWith("String")) {
                 return STRING_BOOLEAN;
             }

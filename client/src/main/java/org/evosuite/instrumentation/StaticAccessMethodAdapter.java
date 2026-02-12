@@ -84,12 +84,13 @@ public class StaticAccessMethodAdapter extends MethodVisitor {
 
                 super.visitLdcInsn(classNameWithDots);
                 super.visitLdcInsn(name);
-                if (opcode == Opcodes.PUTSTATIC)
+                if (opcode == Opcodes.PUTSTATIC) {
                     super.visitMethodInsn(INVOKESTATIC, executionTracerClassName, PASSED_PUT_STATIC,
                             executionTracerDescriptor, false);
-                else
+                } else {
                     super.visitMethodInsn(INVOKESTATIC, executionTracerClassName, PASSED_GET_STATIC,
                             executionTracerDescriptor, false);
+                }
             }
         }
         super.visitFieldInsn(opcode, owner, name, desc);

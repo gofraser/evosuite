@@ -148,6 +148,8 @@ public class OverflowInstrumentation extends ErrorBranchInstrumenter {
 
                 insertBranchWithoutException(Opcodes.IFGE);
                 break;
+            default:
+                break;
         }
 
     }

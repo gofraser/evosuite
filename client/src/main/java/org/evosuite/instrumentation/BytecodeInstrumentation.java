@@ -52,7 +52,7 @@ import java.io.StringWriter;
 
 /**
  * The bytecode transformer - transforms bytecode depending on package and
- * whether it is the class under test
+ * whether it is the class under test.
  *
  * @author Gordon Fraser
  */
@@ -85,7 +85,7 @@ public class BytecodeInstrumentation {
     }
 
     /**
-     * Check if we can instrument the given class
+     * Check if we can instrument the given class.
      *
      * @param className a {@link java.lang.String} object.
      * @return a boolean.
@@ -112,26 +112,32 @@ public class BytecodeInstrumentation {
 
     /**
      * <p>
-     * shouldTransform
+     * shouldTransform.
      * </p>
      *
      * @param className a {@link java.lang.String} object.
      * @return a boolean.
      */
     public boolean shouldTransform(String className) {
-        if (!Properties.TT)
+        if (!Properties.TT) {
             return false;
+        }
         switch (Properties.TT_SCOPE) {
             case ALL:
                 logger.info("Allowing transformation of " + className);
                 return true;
             case TARGET:
-                if (className.equals(Properties.TARGET_CLASS) || className.startsWith(Properties.TARGET_CLASS + "$"))
+                if (className.equals(Properties.TARGET_CLASS) || className.startsWith(Properties.TARGET_CLASS + "$")) {
                     return true;
+                }
                 break;
             case PREFIX:
-                if (className.startsWith(Properties.PROJECT_PREFIX))
+                if (className.startsWith(Properties.PROJECT_PREFIX)) {
                     return true;
+                }
+                break;
+            default:
+                break;
 
         }
         logger.info("Preventing transformation of " + className);
@@ -145,7 +151,7 @@ public class BytecodeInstrumentation {
 
     /**
      * <p>
-     * transformBytes
+     * transformBytes.
      * </p>
      *
      * @param classLoader a {@link java.lang.ClassLoader} object.
@@ -157,8 +163,9 @@ public class BytecodeInstrumentation {
 
         int readFlags = ClassReader.SKIP_FRAMES;
 
-        if (Properties.INSTRUMENTATION_SKIP_DEBUG)
+        if (Properties.INSTRUMENTATION_SKIP_DEBUG) {
             readFlags |= ClassReader.SKIP_DEBUG;
+        }
 
         String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
 
@@ -187,7 +194,8 @@ public class BytecodeInstrumentation {
         cv = createAdapterChain(cv, className, classNameWithDots, classLoader);
 
         if (shouldApplyTestabilityTransformation(classNameWithDots)) {
-             return applyTestabilityTransformation(reader, cv, writer, className, classNameWithDots, classLoader, readFlags);
+            return applyTestabilityTransformation(reader, cv, writer, className, classNameWithDots,
+                    classLoader, readFlags);
         } else {
             reader.accept(cv, readFlags);
         }
@@ -195,7 +203,8 @@ public class BytecodeInstrumentation {
         return writer.toByteArray();
     }
 
-    private ClassVisitor createAdapterChain(ClassVisitor cv, String className, String classNameWithDots, ClassLoader classLoader) {
+    private ClassVisitor createAdapterChain(ClassVisitor cv, String className, String classNameWithDots,
+                                            ClassLoader classLoader) {
         if (Properties.RESET_STATIC_FIELDS) {
             cv = new StaticAccessClassAdapter(cv, className);
         }
@@ -254,7 +263,8 @@ public class BytecodeInstrumentation {
         return cv;
     }
 
-    private ClassVisitor addNonTargetTransformationAdapters(ClassVisitor cv, String className, String classNameWithDots, ClassLoader classLoader) {
+    private ClassVisitor addNonTargetTransformationAdapters(ClassVisitor cv, String className,
+                                                            String classNameWithDots, ClassLoader classLoader) {
         cv = new NonTargetClassAdapter(cv, className);
 
         if (Properties.MAKE_ACCESSIBLE) {
@@ -279,8 +289,9 @@ public class BytecodeInstrumentation {
          * avoid problems in serialising the class, as reading Master will not do instrumentation.
          * The serialVersionUID HAS to be the same as the un-instrumented class
          */
-        if (RuntimeSettings.applyUIDTransformation)
+        if (RuntimeSettings.applyUIDTransformation) {
             cv = new SerialVersionUIDAdder(cv);
+        }
         return cv;
     }
 
@@ -298,15 +309,18 @@ public class BytecodeInstrumentation {
         return false;
     }
 
-    private byte[] applyTestabilityTransformation(ClassReader reader, ClassVisitor cv, ClassWriter writer, String className, String classNameWithDots, ClassLoader classLoader, int readFlags) {
+    private byte[] applyTestabilityTransformation(ClassReader reader, ClassVisitor cv, ClassWriter writer,
+                                                  String className, String classNameWithDots,
+                                                  ClassLoader classLoader, int readFlags) {
         ClassNode cn = new AnnotatedClassNode();
         reader.accept(cn, readFlags);
         logger.info("Starting transformation of " + className);
 
         if (Properties.STRING_REPLACEMENT) {
             StringTransformation st = new StringTransformation(cn);
-            if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots))
+            if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots)) {
                 cn = st.transform();
+            }
         }
 
         ComparisonTransformation cmp = new ComparisonTransformation(cn);
@@ -360,7 +374,7 @@ public class BytecodeInstrumentation {
     /**
      * Adds the instrumentation to deal with re-iniatilizing classes: adding
      * __STATIC_RESET() methods, inserting callbacks for PUTSTATIC and GETSTATIC
-     * instructions
+     * instructions.
      *
      * @param className a {@link java.lang.String} object.
      * @param cv a {@link org.objectweb.asm.ClassVisitor} object.

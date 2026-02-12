@@ -34,21 +34,21 @@ import org.objectweb.asm.tree.analysis.BasicValue;
 import java.util.List;
 
 /**
- * An interpreter that determines which values are real Booleans
+ * An interpreter that determines which values are real Booleans.
  *
  * @author Gordon Fraser
  */
 public class BooleanValueInterpreter extends BasicInterpreter {
 
     /**
-     * Constant <code>BOOLEAN_VALUE</code>
+     * Constant <code>BOOLEAN_VALUE</code>.
      */
-    public final static BasicValue BOOLEAN_VALUE = new BasicValue(Type.BOOLEAN_TYPE);
+    public static final BasicValue BOOLEAN_VALUE = new BasicValue(Type.BOOLEAN_TYPE);
 
     /**
-     * Constant <code>BOOLEAN_ARRAY</code>
+     * Constant <code>BOOLEAN_ARRAY</code>.
      */
-    public final static BasicValue BOOLEAN_ARRAY = new BasicValue(Type.getType("[Z"));
+    public static final BasicValue BOOLEAN_ARRAY = new BasicValue(Type.getType("[Z"));
 
     private final boolean isStatic;
 
@@ -61,7 +61,7 @@ public class BooleanValueInterpreter extends BasicInterpreter {
      * @param isStatic a boolean.
      */
     public BooleanValueInterpreter(String desc, boolean isStatic) {
-        super(ASM7);
+        super(ASM9);
         this.types = Type.getArgumentTypes(desc);
         this.isStatic = isStatic;
     }
@@ -78,15 +78,18 @@ public class BooleanValueInterpreter extends BasicInterpreter {
             case Type.BOOLEAN:
                 return BOOLEAN_VALUE;
             case Type.ARRAY:
-                if (type.getElementType() == Type.BOOLEAN_TYPE)
+                if (type.getElementType() == Type.BOOLEAN_TYPE) {
                     return BOOLEAN_ARRAY;
+                }
+                // fall through
             default:
                 return super.newValue(type);
         }
     }
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#unaryOperation(org.objectweb.asm.tree.AbstractInsnNode, org.objectweb.asm.tree.analysis.BasicValue)
+     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#unaryOperation(org.objectweb.asm.tree.AbstractInsnNode,
+     * org.objectweb.asm.tree.analysis.BasicValue)
      */
 
     /**
@@ -101,8 +104,9 @@ public class BooleanValueInterpreter extends BasicInterpreter {
             FieldInsnNode fieldNode = (FieldInsnNode) insn;
             if (BooleanTestabilityTransformation.isTransformedField(fieldNode.owner,
                     fieldNode.name,
-                    fieldNode.desc))
+                    fieldNode.desc)) {
                 return BOOLEAN_VALUE;
+            }
         }
         return super.unaryOperation(insn, value);
     }
@@ -124,15 +128,17 @@ public class BooleanValueInterpreter extends BasicInterpreter {
             FieldInsnNode fieldNode = (FieldInsnNode) insn;
             if (BooleanTestabilityTransformation.isTransformedField(fieldNode.owner,
                     fieldNode.name,
-                    fieldNode.desc))
+                    fieldNode.desc)) {
                 return BOOLEAN_VALUE;
+            }
 
         }
         return super.newOperation(insn);
     }
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#binaryOperation(org.objectweb.asm.tree.AbstractInsnNode, org.objectweb.asm.tree.analysis.BasicValue, org.objectweb.asm.tree.analysis.BasicValue)
+     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#binaryOperation(org.objectweb.asm.tree.AbstractInsnNode,
+     * org.objectweb.asm.tree.analysis.BasicValue, org.objectweb.asm.tree.analysis.BasicValue)
      */
 
     /**
@@ -146,14 +152,19 @@ public class BooleanValueInterpreter extends BasicInterpreter {
             case BALOAD:
             case CALOAD:
             case SALOAD:
-                if (value1 == BOOLEAN_ARRAY)
+                if (value1 == BOOLEAN_ARRAY) {
                     return BOOLEAN_VALUE;
+                }
+                break;
+            default:
+                break;
         }
         return super.binaryOperation(insn, value1, value2);
     }
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#copyOperation(org.objectweb.asm.tree.AbstractInsnNode, org.objectweb.asm.tree.analysis.BasicValue)
+     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#copyOperation(org.objectweb.asm.tree.AbstractInsnNode,
+     * org.objectweb.asm.tree.analysis.BasicValue)
      */
 
     /**
@@ -182,10 +193,10 @@ public class BooleanValueInterpreter extends BasicInterpreter {
     }
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#naryOperation(org.objectweb.asm.tree.AbstractInsnNode, java.util.List)
+     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#naryOperation(org.objectweb.asm.tree.AbstractInsnNode,
+     * java.util.List)
      */
     @SuppressWarnings("rawtypes")
-    /** {@inheritDoc} */
     @Override
     public BasicValue naryOperation(AbstractInsnNode insn, List values)
             throws AnalyzerException {
@@ -202,7 +213,8 @@ public class BooleanValueInterpreter extends BasicInterpreter {
     }
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#merge(org.objectweb.asm.tree.analysis.BasicValue, org.objectweb.asm.tree.analysis.BasicValue)
+     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#merge(org.objectweb.asm.tree.analysis.BasicValue,
+     * org.objectweb.asm.tree.analysis.BasicValue)
      */
 
     /**
@@ -210,12 +222,13 @@ public class BooleanValueInterpreter extends BasicInterpreter {
      */
     @Override
     public BasicValue merge(BasicValue v, BasicValue w) {
-        if (v == BOOLEAN_VALUE && w == BasicValue.INT_VALUE)
+        if (v == BOOLEAN_VALUE && w == BasicValue.INT_VALUE) {
             return BasicValue.INT_VALUE;
-        else if (w == BOOLEAN_VALUE && v == BasicValue.INT_VALUE)
+        } else if (w == BOOLEAN_VALUE && v == BasicValue.INT_VALUE) {
             return BasicValue.INT_VALUE;
-        else
+        } else {
             return super.merge(v, w);
+        }
     }
 
 }

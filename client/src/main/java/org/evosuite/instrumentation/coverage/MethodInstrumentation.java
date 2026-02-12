@@ -24,7 +24,7 @@ import org.objectweb.asm.tree.MethodNode;
 
 /**
  * An interface which criteria (like defUse, concurrency, LCSAJs) can use to
- * instrument the code of methods
+ * instrument the code of methods.
  *
  * @author Sebastian Steenbuck
  */
@@ -32,7 +32,7 @@ public interface MethodInstrumentation {
 
     /**
      * <p>
-     * analyze
+     * analyze.
      * </p>
      *
      * @param classLoader the class loader used to resolve classes
@@ -50,7 +50,7 @@ public interface MethodInstrumentation {
 
     /**
      * If this method returns true, the analyze method is also called on public
-     * static void main() methods
+     * static void main() methods.
      *
      * @return true if this instrumentation should also be applied to public static void main() methods.
      */
@@ -58,7 +58,7 @@ public interface MethodInstrumentation {
 
     /**
      * if this method returns true the analyze method is also called on methods
-     * which are excluded in CFGMethodAdapter.EXCLUDE
+     * which are excluded in CFGMethodAdapter.EXCLUDE.
      *
      * @return true if this instrumentation should also be applied to methods that are usually excluded.
      */

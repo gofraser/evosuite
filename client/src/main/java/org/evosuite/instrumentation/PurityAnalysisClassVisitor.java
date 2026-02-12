@@ -36,11 +36,21 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
 
     private final CheapPurityAnalyzer purityAnalyzer;
 
+    /**
+     * Entry for a method.
+     */
     public static class MethodEntry {
         private final String className;
         private final String methodName;
         private final String descriptor;
 
+        /**
+         * Constructor for MethodEntry.
+         *
+         * @param className the name of the class.
+         * @param methodName the name of the method.
+         * @param descriptor the descriptor.
+         */
         public MethodEntry(String className, String methodName,
                            String descriptor) {
             this.className = className;
@@ -50,11 +60,13 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
 
         @Override
         public boolean equals(Object o) {
-            if (o == null)
+            if (o == null) {
                 return false;
+            }
 
-            if (!o.getClass().equals(MethodEntry.class))
+            if (!o.getClass().equals(MethodEntry.class)) {
                 return false;
+            }
 
             MethodEntry that = (MethodEntry) o;
 
@@ -71,7 +83,7 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
     }
 
     private final String className;
-    private final HashMap<MethodEntry, PurityAnalysisMethodVisitor> method_adapters = new HashMap<>();
+    private final HashMap<MethodEntry, PurityAnalysisMethodVisitor> methodAdapters = new HashMap<>();
 
     /**
      * <p>
@@ -80,6 +92,7 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
      *
      * @param visitor   a {@link org.objectweb.asm.ClassVisitor} object.
      * @param className a {@link java.lang.String} object.
+     * @param purityAnalyzer a {@link CheapPurityAnalyzer} object.
      */
     public PurityAnalysisClassVisitor(ClassVisitor visitor, String className,
                                       CheapPurityAnalyzer purityAnalyzer) {
@@ -96,7 +109,7 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
                                      String descriptor, String signature, String[] exceptions) {
 
 
-        if (visitingInterface == true) {
+        if (visitingInterface) {
             purityAnalyzer.addInterfaceMethod(className.replace('/', '.'),
                     name, descriptor);
         } else {
@@ -116,17 +129,17 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
         PurityAnalysisMethodVisitor purityAnalysisMethodVisitor = new PurityAnalysisMethodVisitor(
                 className, name, descriptor, mv, purityAnalyzer);
         MethodEntry methodEntry = new MethodEntry(className, name, descriptor);
-        this.method_adapters.put(methodEntry, purityAnalysisMethodVisitor);
+        this.methodAdapters.put(methodEntry, purityAnalysisMethodVisitor);
         return purityAnalysisMethodVisitor;
     }
 
     @Override
     public void visitEnd() {
-        for (MethodEntry method_entry : this.method_adapters.keySet()) {
+        for (MethodEntry methodEntry : this.methodAdapters.keySet()) {
 
-            if (this.method_adapters.get(method_entry).updatesField()) {
-                purityAnalyzer.addUpdatesFieldMethod(method_entry.className,
-                        method_entry.methodName, method_entry.descriptor);
+            if (this.methodAdapters.get(methodEntry).updatesField()) {
+                purityAnalyzer.addUpdatesFieldMethod(methodEntry.className,
+                        methodEntry.methodName, methodEntry.descriptor);
             }
         }
     }

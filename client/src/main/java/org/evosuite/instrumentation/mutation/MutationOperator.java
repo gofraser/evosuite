@@ -36,7 +36,7 @@ import java.util.List;
 public interface MutationOperator {
 
     /**
-     * Insert the mutation into the bytecode
+     * Insert the mutation into the bytecode.
      *
      * @param mn          a {@link org.objectweb.asm.tree.MethodNode} object.
      * @param className   a {@link java.lang.String} object.
@@ -49,7 +49,7 @@ public interface MutationOperator {
                          BytecodeInstruction instruction, Frame frame);
 
     /**
-     * Check if the mutation operator is applicable to the instruction
+     * Check if the mutation operator is applicable to the instruction.
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a boolean.

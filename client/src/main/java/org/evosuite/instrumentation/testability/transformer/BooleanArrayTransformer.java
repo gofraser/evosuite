@@ -25,11 +25,12 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 /**
- * Make sure arrays of booleans are also transformed
+ * Make sure arrays of booleans are also transformed.
  */
 public class BooleanArrayTransformer extends MethodNodeTransformer {
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformIntInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.IntInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformIntInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.IntInsnNode)
      */
     @Override
     protected AbstractInsnNode transformIntInsnNode(MethodNode mn,
@@ -41,7 +42,8 @@ public class BooleanArrayTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformMultiANewArrayInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.MultiANewArrayInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformMultiANewArrayInsnNode(
+     * org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.MultiANewArrayInsnNode)
      */
     @Override
     protected AbstractInsnNode transformMultiANewArrayInsnNode(MethodNode mn,
@@ -52,16 +54,18 @@ public class BooleanArrayTransformer extends MethodNodeTransformer {
             newDesc.append("[");
             t = t.getElementType();
         }
-        if (t.equals(Type.BOOLEAN_TYPE))
+        if (t.equals(Type.BOOLEAN_TYPE)) {
             newDesc.append("I");
-        else
+        } else {
             newDesc.append(t.getDescriptor());
+        }
         arrayInsnNode.desc = newDesc.toString();
         return arrayInsnNode;
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformTypeInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.TypeInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformTypeInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.TypeInsnNode)
      */
     @Override
     protected AbstractInsnNode transformTypeInsnNode(MethodNode mn,
@@ -74,10 +78,11 @@ public class BooleanArrayTransformer extends MethodNodeTransformer {
         }
         String d = typeNode.desc.substring(pos);
         BooleanTestabilityTransformation.logger.info("Unfolded arrays to: " + d);
-        if (d.equals("Z"))
+        if (d.equals("Z")) {
             newDesc.append("I");
-        else
+        } else {
             newDesc.append(d);
+        }
         typeNode.desc = newDesc.toString();
         return typeNode;
     }

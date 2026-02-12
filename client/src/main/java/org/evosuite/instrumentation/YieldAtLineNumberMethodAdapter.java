@@ -55,8 +55,9 @@ public class YieldAtLineNumberMethodAdapter extends MethodVisitor {
         super(Opcodes.ASM9, mv);
         this.className = className;
         this.methodName = methodName;
-        if (!methodName.equals("<init>"))
+        if (!methodName.equals("<init>")) {
             hadInvokeSpecial = true;
+        }
     }
 
     /**
@@ -66,11 +67,13 @@ public class YieldAtLineNumberMethodAdapter extends MethodVisitor {
     public void visitLineNumber(int line, Label start) {
         super.visitLineNumber(line, start);
 
-        if (methodName.equals("<clinit>"))
+        if (methodName.equals("<clinit>")) {
             return;
+        }
 
-        if (!hadInvokeSpecial)
+        if (!hadInvokeSpecial) {
             return;
+        }
 
         mv.visitMethodInsn(Opcodes.INVOKESTATIC,
                 PackageInfo.getNameWithSlash(ExecutionTracer.class),
@@ -87,8 +90,9 @@ public class YieldAtLineNumberMethodAdapter extends MethodVisitor {
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
         if (opcode == Opcodes.INVOKESPECIAL) {
-            if (methodName.equals("<init>"))
+            if (methodName.equals("<init>")) {
                 hadInvokeSpecial = true;
+            }
         }
         super.visitMethodInsn(opcode, owner, name, desc, itf);
     }

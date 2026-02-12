@@ -28,14 +28,16 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 /**
- * Replace signatures of all calls/field accesses on Booleans
+ * Replace signatures of all calls/field accesses on Booleans.
  */
 public class BooleanCallsTransformer extends MethodNodeTransformer {
 
     private final BooleanTestabilityTransformation booleanTestabilityTransformation;
 
     /**
-     * @param booleanTestabilityTransformation
+     * Constructor for BooleanCallsTransformer.
+     *
+     * @param booleanTestabilityTransformation the boolean testability transformation.
      */
     public BooleanCallsTransformer(
             BooleanTestabilityTransformation booleanTestabilityTransformation) {
@@ -43,13 +45,15 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformMethodInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.MethodInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformMethodInsnNode(
+     * org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.MethodInsnNode)
      */
     @Override
     protected AbstractInsnNode transformMethodInsnNode(MethodNode mn,
                                                        MethodInsnNode methodNode) {
-        if (methodNode.owner.equals(Type.getInternalName(BooleanHelper.class)))
+        if (methodNode.owner.equals(Type.getInternalName(BooleanHelper.class))) {
             return methodNode;
+        }
 
         methodNode.desc = this.booleanTestabilityTransformation.transformMethodDescriptor(methodNode.owner,
                 methodNode.name, methodNode.desc);
@@ -78,7 +82,8 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
 
                     if (numOfPushs == 0) {
                         AbstractInsnNode prev = methodNode.getPrevious();
-                        boolean isConstantBoolean = prev != null && (prev.getOpcode() == Opcodes.ICONST_1 || prev.getOpcode() == Opcodes.ICONST_0);
+                        boolean isConstantBoolean = prev != null && (prev.getOpcode() == Opcodes.ICONST_1
+                                || prev.getOpcode() == Opcodes.ICONST_0);
 
                         if (!isConstantBoolean) {
                             //the boolean parameter is the last parameter
@@ -139,8 +144,8 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
 
     private void addPushParameter(InsnList insnList, Type type) {
         if (isPrimitiveOrWrapper(type)) {
-             String desc = Type.getMethodDescriptor(Type.VOID_TYPE, type == Type.BOOLEAN_TYPE ? Type.INT_TYPE : type);
-             insnList.add(new MethodInsnNode(
+            String desc = Type.getMethodDescriptor(Type.VOID_TYPE, type == Type.BOOLEAN_TYPE ? Type.INT_TYPE : type);
+            insnList.add(new MethodInsnNode(
                     Opcodes.INVOKESTATIC,
                     Type.getInternalName(BooleanHelper.class),
                     "pushParameter",
@@ -160,15 +165,23 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
         String desc = Type.getMethodDescriptor(type);
         boolean objectNeedCast = false;
 
-        if (type == Type.BOOLEAN_TYPE) methodName = "popParameterBooleanFromInt";
-        else if (type == Type.CHAR_TYPE) methodName = "popParameterChar";
-        else if (type == Type.BYTE_TYPE) methodName = "popParameterByte";
-        else if (type == Type.SHORT_TYPE) methodName = "popParameterShort";
-        else if (type == Type.INT_TYPE) methodName = "popParameterInt";
-        else if (type == Type.FLOAT_TYPE) methodName = "popParameterFloat";
-        else if (type == Type.LONG_TYPE) methodName = "popParameterLong";
-        else if (type == Type.DOUBLE_TYPE) methodName = "popParameterDouble";
-        else {
+        if (type == Type.BOOLEAN_TYPE) {
+            methodName = "popParameterBooleanFromInt";
+        } else if (type == Type.CHAR_TYPE) {
+            methodName = "popParameterChar";
+        } else if (type == Type.BYTE_TYPE) {
+            methodName = "popParameterByte";
+        } else if (type == Type.SHORT_TYPE) {
+            methodName = "popParameterShort";
+        } else if (type == Type.INT_TYPE) {
+            methodName = "popParameterInt";
+        } else if (type == Type.FLOAT_TYPE) {
+            methodName = "popParameterFloat";
+        } else if (type == Type.LONG_TYPE) {
+            methodName = "popParameterLong";
+        } else if (type == Type.DOUBLE_TYPE) {
+            methodName = "popParameterDouble";
+        } else {
             methodName = "popParameterObject";
             desc = Type.getMethodDescriptor(Type.getType(Object.class));
             objectNeedCast = true;
@@ -181,7 +194,7 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
                 desc));
 
         if (objectNeedCast) {
-             insnList.add(new TypeInsnNode(
+            insnList.add(new TypeInsnNode(
                     Opcodes.CHECKCAST,
                     type.getInternalName()));
         }
@@ -195,7 +208,8 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformFieldInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.FieldInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformFieldInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.FieldInsnNode)
      */
     @Override
     protected AbstractInsnNode transformFieldInsnNode(MethodNode mn,

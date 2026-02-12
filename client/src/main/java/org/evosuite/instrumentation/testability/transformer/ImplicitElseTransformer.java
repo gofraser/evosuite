@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Expand ifs without else
+ * Expand ifs without else.
  */
 public class ImplicitElseTransformer extends MethodNodeTransformer {
 
@@ -42,7 +42,9 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
     private final BooleanTestabilityTransformation booleanTestabilityTransformation;
 
     /**
-     * @param booleanTestabilityTransformation
+     * Constructor for ImplicitElseTransformer.
+     *
+     * @param booleanTestabilityTransformation the boolean testability transformation.
      */
     public ImplicitElseTransformer(
             BooleanTestabilityTransformation booleanTestabilityTransformation) {
@@ -51,7 +53,7 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
 
     private final Set<ControlDependency> addedNodes = new HashSet<>();
 
-    /*** Keep track of inserted PUTFIELDs */
+    /*** Keep track of inserted PUTFIELDs. */
     private final Set<AbstractInsnNode> addedInsns = new HashSet<>();
 
     @SuppressWarnings("unchecked")
@@ -77,8 +79,9 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
                 if (local.index == var.var) {
                     int start = mn.instructions.indexOf(local.start);
                     int end = mn.instructions.indexOf(local.end);
-                    if (current >= start && current <= end)
+                    if (current >= start && current <= end) {
                         return true;
+                    }
                 }
             }
         }
@@ -90,8 +93,9 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
                                   ControlDependenceGraph cdg, MethodNode mn, FieldInsnNode varNode,
                                   BytecodeInstruction parentLevel) {
 
-        if (addedNodes.contains(dependency))
+        if (addedNodes.contains(dependency)) {
             return;
+        }
 
         // Get the basic blocks reachable if the dependency would evaluate different
         Set<BasicBlock> blocks = cdg.getAlternativeBlocks(dependency);
@@ -99,9 +103,10 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
 
         Set<ControlDependency> dependencies = dependency.getBranch().getInstruction().getControlDependencies();
         for (ControlDependency dep : dependencies) {
-            if (!addedNodes.contains(dep) && dep != dependency)
+            if (!addedNodes.contains(dep) && dep != dependency) {
                 handleDependency(dep, cdg, mn, varNode,
                         dependency.getBranch().getInstruction());
+            }
         }
 
         boolean hasAssignment = false;
@@ -201,27 +206,30 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
 
     private void registerInstruction(MethodNode mn, AbstractInsnNode oldValue,
                                      AbstractInsnNode newValue) {
-        BytecodeInstruction oldInstruction = BytecodeInstructionPool.getInstance(this.booleanTestabilityTransformation.classLoader).getInstruction(this.booleanTestabilityTransformation.className,
-                mn.name
-                        + mn.desc,
-                oldValue);
-        BytecodeInstruction instruction = BytecodeInstructionFactory.createBytecodeInstruction(this.booleanTestabilityTransformation.classLoader,
+        BytecodeInstruction oldInstruction = BytecodeInstructionPool.getInstance(
+                this.booleanTestabilityTransformation.classLoader).getInstruction(
                 this.booleanTestabilityTransformation.className,
-                mn.name
-                        + mn.desc,
+                mn.name + mn.desc,
+                oldValue);
+        BytecodeInstruction instruction = BytecodeInstructionFactory.createBytecodeInstruction(
+                this.booleanTestabilityTransformation.classLoader,
+                this.booleanTestabilityTransformation.className,
+                mn.name + mn.desc,
                 oldInstruction.getInstructionId(),
                 0,
                 newValue);
         instruction.setBasicBlock(oldInstruction.getBasicBlock());
-        BytecodeInstructionPool.getInstance(this.booleanTestabilityTransformation.classLoader).registerInstruction(instruction);
+        BytecodeInstructionPool.getInstance(this.booleanTestabilityTransformation.classLoader).registerInstruction(
+                instruction);
     }
 
     private void handleDependency(ControlDependency dependency,
                                   ControlDependenceGraph cdg, MethodNode mn, VarInsnNode varNode,
                                   BytecodeInstruction parentLevel) {
 
-        if (addedNodes.contains(dependency))
+        if (addedNodes.contains(dependency)) {
             return;
+        }
 
         // Get the basic blocks reachable if the dependency would evaluate different
         Set<BasicBlock> blocks = cdg.getAlternativeBlocks(dependency);
@@ -229,9 +237,10 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
 
         Set<ControlDependency> dependencies = dependency.getBranch().getInstruction().getControlDependencies();
         for (ControlDependency dep : dependencies) {
-            if (!addedNodes.contains(dep) && dep != dependency)
+            if (!addedNodes.contains(dep) && dep != dependency) {
                 handleDependency(dep, cdg, mn, varNode,
                         dependency.getBranch().getInstruction());
+            }
         }
 
         boolean hasAssignment = false;
@@ -302,7 +311,8 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformFieldInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.FieldInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformFieldInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.FieldInsnNode)
      */
     @SuppressWarnings("unchecked")
     @Override
@@ -314,8 +324,9 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
                 fieldNode.name,
                 fieldNode.desc)) {
 
-            if (addedInsns.contains(fieldNode))
+            if (addedInsns.contains(fieldNode)) {
                 return fieldNode;
+            }
 
             // Can only handle cases where the field owner is loaded directly before the field
             // TODO: We could pop the top of the stack and DUP the owner, but would need to take care
@@ -325,8 +336,9 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
                 while (previous instanceof LineNumberNode
                         || previous instanceof FrameNode
                         || previous.getOpcode() == Opcodes.ICONST_0
-                        || previous.getOpcode() == Opcodes.ICONST_1)
+                        || previous.getOpcode() == Opcodes.ICONST_1) {
                     previous = previous.getPrevious();
+                }
                 if (previous.getOpcode() != Opcodes.ALOAD) {
                     BooleanTestabilityTransformation.logger.info("Can't handle case of " + previous);
                     return fieldNode;
@@ -340,27 +352,27 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
             BooleanTestabilityTransformation.logger.info("Handling PUTFIELD case!");
 
             // Check if ICONST_0 or ICONST_1 are on the stack
-            ControlDependenceGraph cdg = GraphPool.getInstance(this.booleanTestabilityTransformation.classLoader).getCDG(this.booleanTestabilityTransformation.className.replace("/",
-                            "."),
-                    mn.name
-                            + mn.desc);
+            ControlDependenceGraph cdg = GraphPool.getInstance(this.booleanTestabilityTransformation.classLoader)
+                    .getCDG(this.booleanTestabilityTransformation.className.replace("/", "."),
+                    mn.name + mn.desc);
             int index = mn.instructions.indexOf(fieldNode);
             BooleanTestabilityTransformation.logger.info("Getting bytecode instruction for " + fieldNode.name + "/"
                     + ((FieldInsnNode) mn.instructions.get(index)).name);
 
             // Removed expensive loop here
 
-            BytecodeInstruction insn = BytecodeInstructionPool.getInstance(this.booleanTestabilityTransformation.classLoader).getInstruction(this.booleanTestabilityTransformation.className.replace("/",
-                            "."),
-                    mn.name
-                            + mn.desc,
+            BytecodeInstruction insn = BytecodeInstructionPool.getInstance(
+                    this.booleanTestabilityTransformation.classLoader).getInstruction(
+                    this.booleanTestabilityTransformation.className.replace("/", "."),
+                    mn.name + mn.desc,
                     index);
-            if (insn == null)
-                insn = BytecodeInstructionPool.getInstance(this.booleanTestabilityTransformation.classLoader).getInstruction(this.booleanTestabilityTransformation.className.replace("/",
-                                "."),
-                        mn.name
-                                + mn.desc,
+            if (insn == null) {
+                insn = BytecodeInstructionPool.getInstance(
+                        this.booleanTestabilityTransformation.classLoader).getInstruction(
+                        this.booleanTestabilityTransformation.className.replace("/", "."),
+                        mn.name + mn.desc,
                         fieldNode);
+            }
             //varNode);
             if (insn == null) {
                 // TODO: Find out why
@@ -369,9 +381,9 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
             }
             if (insn.getASMNode().getOpcode() != fieldNode.getOpcode()) {
                 BooleanTestabilityTransformation.logger.info("Found wrong bytecode instruction at this index!");
-                BytecodeInstructionPool.getInstance(this.booleanTestabilityTransformation.classLoader).getInstruction(this.booleanTestabilityTransformation.className,
-                        mn.name
-                                + mn.desc,
+                BytecodeInstructionPool.getInstance(this.booleanTestabilityTransformation.classLoader).getInstruction(
+                        this.booleanTestabilityTransformation.className,
+                        mn.name + mn.desc,
                         fieldNode);
             }
             if (insn.getBasicBlock() == null) {
@@ -383,15 +395,17 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
                     + dependencies.size() + " control dependencies");
 
             for (ControlDependency dep : dependencies) {
-                if (!addedNodes.contains(dep))
+                if (!addedNodes.contains(dep)) {
                     handleDependency(dep, cdg, mn, fieldNode, insn);
+                }
             }
         }
         return fieldNode;
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformVarInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.VarInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformVarInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.VarInsnNode)
      */
     @Override
     protected AbstractInsnNode transformVarInsnNode(MethodNode mn, VarInsnNode varNode) {
@@ -399,15 +413,14 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
                 && this.booleanTestabilityTransformation.isBooleanVariable(varNode.var, mn)) {
 
             // Check if ICONST_0 or ICONST_1 are on the stack
-            ControlDependenceGraph cdg = GraphPool.getInstance(this.booleanTestabilityTransformation.classLoader).getCDG(this.booleanTestabilityTransformation.className.replace("/",
-                            "."),
-                    mn.name
-                            + mn.desc);
+            ControlDependenceGraph cdg = GraphPool.getInstance(this.booleanTestabilityTransformation.classLoader)
+                    .getCDG(this.booleanTestabilityTransformation.className.replace("/", "."),
+                    mn.name + mn.desc);
             int index = mn.instructions.indexOf(varNode);
-            BytecodeInstruction insn = BytecodeInstructionPool.getInstance(this.booleanTestabilityTransformation.classLoader).getInstruction(this.booleanTestabilityTransformation.className.replace("/",
-                            "."),
-                    mn.name
-                            + mn.desc,
+            BytecodeInstruction insn = BytecodeInstructionPool.getInstance(
+                    this.booleanTestabilityTransformation.classLoader).getInstruction(
+                    this.booleanTestabilityTransformation.className.replace("/", "."),
+                    mn.name + mn.desc,
                     index);
             //varNode);
             if (insn == null) {
@@ -417,9 +430,10 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
             }
             if (insn.getASMNode().getOpcode() != varNode.getOpcode()) {
                 BooleanTestabilityTransformation.logger.info("Found wrong bytecode instruction at this index!");
-                insn = BytecodeInstructionPool.getInstance(this.booleanTestabilityTransformation.classLoader).getInstruction(this.booleanTestabilityTransformation.className,
-                        mn.name
-                                + mn.desc,
+                insn = BytecodeInstructionPool.getInstance(
+                        this.booleanTestabilityTransformation.classLoader).getInstruction(
+                        this.booleanTestabilityTransformation.className,
+                        mn.name + mn.desc,
                         varNode);
                 if (insn == null) {
                     // TODO: Debug this on org.exolab.jms.net.uri.URI
@@ -432,8 +446,9 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
                     + dependencies.size() + " control dependencies");
 
             for (ControlDependency dep : dependencies) {
-                if (!addedNodes.contains(dep))
+                if (!addedNodes.contains(dep)) {
                     handleDependency(dep, cdg, mn, varNode, insn);
+                }
             }
         }
         return varNode;

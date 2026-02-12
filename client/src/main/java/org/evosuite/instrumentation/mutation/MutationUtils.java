@@ -108,8 +108,9 @@ public class MutationUtils {
             int endId = mn.instructions.indexOf(localVar.end);
             logger.debug("Checking " + localVar.index + " in scope " + startId + " - "
                     + endId);
-            if (currentId >= startId && currentId <= endId && localVar.index == index)
+            if (currentId >= startId && currentId <= endId && localVar.index == index) {
                 return localVar;
+            }
         }
 
         throw new VariableNotFoundException("Could not find local variable " + index
@@ -135,8 +136,9 @@ public class MutationUtils {
                 next = max + Type.getType(var.desc).getSize();
             }
         }
-        if (next == 0)
+        if (next == 0) {
             next = getNextIndexFromLoad(mn);
+        }
         return next;
     }
 
@@ -175,6 +177,8 @@ public class MutationUtils {
                     case Opcodes.LASTORE:
                         index = Math.max(index, varIndex + 2);
                         break;
+                    default:
+                        break;
                 }
             }
         }
@@ -184,7 +188,7 @@ public class MutationUtils {
 
     /**
      * <p>
-     * copy
+     * copy.
      * </p>
      *
      * @param orig a {@link org.objectweb.asm.tree.InsnList} object.
@@ -203,8 +207,9 @@ public class MutationUtils {
                 FieldInsnNode fn = (FieldInsnNode) node;
                 copy.add(new FieldInsnNode(fn.getOpcode(), fn.owner, fn.name, fn.desc));
             } else if (node instanceof InsnNode) {
-                if (node.getOpcode() != Opcodes.POP)
+                if (node.getOpcode() != Opcodes.POP) {
                     copy.add(new InsnNode(node.getOpcode()));
+                }
             } else if (node instanceof LdcInsnNode) {
                 copy.add(new LdcInsnNode(((LdcInsnNode) node).cst));
             } else {
@@ -274,7 +279,7 @@ public class MutationUtils {
 
     /**
      * <p>
-     * getDistance
+     * getDistance.
      * </p>
      *
      * @param val1 a double.
@@ -287,7 +292,7 @@ public class MutationUtils {
 
     /**
      * <p>
-     * getDistance
+     * getDistance.
      * </p>
      *
      * @param obj1 a {@link java.lang.Object} object.
@@ -295,15 +300,16 @@ public class MutationUtils {
      * @return a double.
      */
     public static double getDistance(Object obj1, Object obj2) {
-        if (obj1 == obj2)
+        if (obj1 == obj2) {
             return 1.0;
-        else
+        } else {
             return 0.0;
+        }
     }
 
     /**
      * <p>
-     * addPrimitiveDistanceCheck
+     * addPrimitiveDistanceCheck.
      * </p>
      *
      * @param distance a {@link org.objectweb.asm.tree.InsnList} object.
@@ -322,7 +328,7 @@ public class MutationUtils {
 
     /**
      * <p>
-     * addReferenceDistanceCheck
+     * addReferenceDistanceCheck.
      * </p>
      *
      * @param distance a {@link org.objectweb.asm.tree.InsnList} object.

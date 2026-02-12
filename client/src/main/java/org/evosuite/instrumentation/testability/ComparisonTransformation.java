@@ -44,7 +44,7 @@ public class ComparisonTransformation {
     }
 
     /**
-     * <p>transform</p>
+     * <p>transform.</p>
      *
      * @return a {@link org.objectweb.asm.tree.ClassNode} object.
      */
@@ -56,7 +56,7 @@ public class ComparisonTransformation {
     }
 
     /**
-     * <p>transformMethod</p>
+     * <p>transformMethod.</p>
      *
      * @param mn a {@link org.objectweb.asm.tree.MethodNode} object.
      */

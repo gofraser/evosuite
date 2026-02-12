@@ -97,11 +97,13 @@ public class DefUseInstrumentation implements MethodInstrumentation {
                         isValidDU = DefUsePool.addAsFieldMethodCall(v);
                     } else {
                         // keep track of uses
-                        if (v.isUse())
+                        if (v.isUse()) {
                             isValidDU = DefUsePool.addAsUse(v);
+                        }
                         // keep track of definitions
-                        if (v.isDefinition())
+                        if (v.isDefinition()) {
                             isValidDU = DefUsePool.addAsDefinition(v) || isValidDU;
+                        }
                     }
                     if (isValidDU) {
                         boolean staticContext = v.isStaticDefUse()
@@ -111,22 +113,23 @@ public class DefUseInstrumentation implements MethodInstrumentation {
                                 className,
                                 methodName,
                                 mn);
-                        if (instrumentation == null)
+                        if (instrumentation == null) {
                             throw new IllegalStateException("error instrumenting node "
                                     + v.toString());
+                        }
 
-                        if (v.isMethodCallOfField())
+                        if (v.isMethodCallOfField()) {
                             mn.instructions.insertBefore(v.getASMNode(), instrumentation);
-                        else if (v.isArrayStoreInstruction())
+                        } else if (v.isArrayStoreInstruction()) {
                             mn.instructions.insertBefore(v.getSourceOfArrayReference().getASMNode(), instrumentation);
-
+                        } else if (v.isUse()) {
                             // Loading of an array is already handled by ALOAD
                             // AILOAD would only be needed if we define DU pairs on
                             // array indices
-                        else if (v.isUse())
                             mn.instructions.insert(v.getASMNode(), instrumentation);
-                        else
+                        } else {
                             mn.instructions.insertBefore(v.getASMNode(), instrumentation);
+                        }
                     }
                 }
             }
@@ -134,7 +137,14 @@ public class DefUseInstrumentation implements MethodInstrumentation {
     }
 
     /**
-     * Creates the instrumentation needed to track defs and uses
+     * Creates the instrumentation needed to track defs and uses.
+     *
+     * @param v the instruction.
+     * @param staticContext true if the context is static.
+     * @param className the class name.
+     * @param methodName the method name.
+     * @param mn the method node.
+     * @return the instrumentation list.
      */
     private InsnList getInstrumentation(BytecodeInstruction v, boolean staticContext,
                                         String className, String methodName, MethodNode mn) {
@@ -164,7 +174,8 @@ public class DefUseInstrumentation implements MethodInstrumentation {
             addCallingObjectInstrumentation(staticContext, instrumentation);
             instrumentation.add(new LdcInsnNode(DefUsePool.getDefCounter()));
             instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.testcase.execution.ExecutionTracer.class), "passedDefinition",
+                    PackageInfo.getNameWithSlash(org.evosuite.testcase.execution.ExecutionTracer.class),
+                    "passedDefinition",
                     "(Ljava/lang/Object;Ljava/lang/Object;I)V"));
         }
 
@@ -227,14 +238,16 @@ public class DefUseInstrumentation implements MethodInstrumentation {
         int max = 0;
         if (variables != null) {
             for (LocalVariableNode node : variables) {
-                if (node.index > max)
+                if (node.index > max) {
                     max = node.index;
+                }
             }
         }
         return max + 1;
     }
 
-    private InsnList getMethodInstrumentation(BytecodeInstruction call, boolean staticContext, InsnList instrumentation, MethodNode mn) {
+    private InsnList getMethodInstrumentation(BytecodeInstruction call, boolean staticContext,
+                                              InsnList instrumentation, MethodNode mn) {
 
 
         String descriptor = call.getMethodCallDescriptor();
@@ -274,7 +287,9 @@ public class DefUseInstrumentation implements MethodInstrumentation {
     /*
      * (non-Javadoc)
      *
-     * @see org.evosuite.cfg.MethodInstrumentation#executeOnExcludedMethods ()
+     * @see org.evosuite.cfg.MethodInstrumentation#analyze(org.objectweb
+     * .asm.tree.MethodNode, org.jgrapht.Graph, java.lang.String,
+     * java.lang.String)
      */
 
     /**
@@ -284,12 +299,6 @@ public class DefUseInstrumentation implements MethodInstrumentation {
     public boolean executeOnExcludedMethods() {
         return false;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.cfg.MethodInstrumentation#executeOnMainMethod()
-     */
 
     /**
      * {@inheritDoc}

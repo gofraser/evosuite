@@ -38,7 +38,7 @@ import java.util.Stack;
 public class BooleanHelper {
 
     /**
-     * Constant <code>K=Integer.MAX_VALUE - 2</code>
+     * Constant <code>K=Integer.MAX_VALUE - 2</code>.
      */
     public static final int K = Integer.MAX_VALUE - 2;
     //public static final int K = 1000;
@@ -51,7 +51,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * clearStack
+     * clearStack.
      * </p>
      */
     public static void clearStack() {
@@ -59,7 +59,7 @@ public class BooleanHelper {
     }
 
     /**
-     * Helper function that is called instead of Object.equals
+     * Helper function that is called instead of Object.equals.
      *
      * @param obj1 a {@link java.lang.Object} object.
      * @param obj2 a {@link java.lang.Object} object.
@@ -71,7 +71,7 @@ public class BooleanHelper {
 
 
     /**
-     * Keep track of the distance for this predicate
+     * Keep track of the distance for this predicate.
      *
      * @param branchId a int.
      * @param distance a int.
@@ -81,7 +81,7 @@ public class BooleanHelper {
     }
 
     /**
-     * Retrieve the distance of a predicate with its given approximation level
+     * Retrieve the distance of a predicate with its given approximation level.
      *
      * @param branchId           a int.
      * @param approximationLevel a int.
@@ -98,22 +98,24 @@ public class BooleanHelper {
         double val = (1.0 + normalize(distance)) / Math.pow(2.0, approximationLevel);
 
         int d = (int) Math.ceil(K * val);
-        if (d == 0)
+        if (d == 0) {
             d = 1;
-        if (value <= 0)
+        }
+        if (value <= 0) {
             d = -d;
+        }
 
         return d;
     }
 
     /**
-     * FIXME: the use of this function needs to be clarified
+     * FIXME: the use of this function needs to be clarified.
      *
-     * @param distance
-     * @return
+     * @param distance the distance to normalize.
+     * @return the normalized distance.
      */
     public static double normalize(int distance) {
-        //		double k = K;
+        // double k = K;
         double k = Properties.MAX_INT;
         double d = distance;
         return d / (d + 0.5 * k);
@@ -121,7 +123,7 @@ public class BooleanHelper {
     }
 
     /**
-     * Replacement function for double comparison
+     * Replacement function for double comparison.
      *
      * @param d1 a double.
      * @param d2 a double.
@@ -141,6 +143,13 @@ public class BooleanHelper {
         }
     }
 
+    /**
+     * Replacement function for double comparison.
+     *
+     * @param d1 a double.
+     * @param d2 a double.
+     * @return a int.
+     */
     public static int doubleSubL(double d1, double d2) {
         if (d1 == d2) {
             ConstantPoolManager.getInstance().addDynamicConstant(d1);
@@ -163,11 +172,12 @@ public class BooleanHelper {
 
         double diff = d1 - d2;
         double diff2 = diff / (1.0 + Math.abs(diff));
-        //			int d3 = (int) Math.round(Integer.MAX_VALUE * diff2);
+        // int d3 = (int) Math.round(Integer.MAX_VALUE * diff2);
         int d3 = (int) (diff2 < 0 ? Math.floor(Integer.MAX_VALUE * diff2)
                 : Math.ceil(Integer.MAX_VALUE * diff2));
-        if (d3 == 0)
+        if (d3 == 0) {
             d3 = (int) Math.signum(diff);
+        }
 
         ConstantPoolManager.getInstance().addDynamicConstant(d1);
         ConstantPoolManager.getInstance().addDynamicConstant(d2);
@@ -175,7 +185,7 @@ public class BooleanHelper {
     }
 
     /**
-     * Replacement function for float comparison
+     * Replacement function for float comparison.
      *
      * @param f1 a float.
      * @param f2 a float.
@@ -195,6 +205,13 @@ public class BooleanHelper {
         }
     }
 
+    /**
+     * Replacement function for float comparison.
+     *
+     * @param f1 a float.
+     * @param f2 a float.
+     * @return a int.
+     */
     public static int floatSubL(float f1, float f2) {
         if (f1 == f2) {
             ConstantPoolManager.getInstance().addDynamicConstant(f1);
@@ -216,8 +233,9 @@ public class BooleanHelper {
         double diff = (double) f1 - (double) f2;
         double diff2 = Math.signum(diff) * Math.abs(diff) / (1.0F + Math.abs(diff));
         int d3 = (int) Math.ceil(Integer.MAX_VALUE * diff2);
-        if (d3 == 0)
+        if (d3 == 0) {
             d3 = (int) Math.signum(diff);
+        }
         ConstantPoolManager.getInstance().addDynamicConstant(f1);
         ConstantPoolManager.getInstance().addDynamicConstant(f2);
         return d3;
@@ -226,7 +244,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * intSub
+     * intSub.
      * </p>
      *
      * @param a a int.
@@ -235,15 +253,16 @@ public class BooleanHelper {
      */
     public static int intSub(int a, int b) {
         long sub = (long) a - (long) b;
-        if (sub < -K)
+        if (sub < -K) {
             return -K;
-        else if (sub > K)
+        } else if (sub > K) {
             return K;
+        }
         return (int) sub;
     }
 
     /**
-     * Replacement function for long comparison
+     * Replacement function for long comparison.
      *
      * @param l1 a long.
      * @param l2 a long.
@@ -265,7 +284,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * fromDouble
+     * fromDouble.
      * </p>
      *
      * @param d a double.
@@ -274,16 +293,16 @@ public class BooleanHelper {
     @Deprecated
     public static int fromDouble(double d) {
         //logger.info("Converting double " + d);
-		/*
-		if (d > Integer.MAX_VALUE)
-			return Integer.MAX_VALUE;
-		else if (d < Integer.MIN_VALUE)
-			return Integer.MIN_VALUE;
-		else 
-		*/
-        if (d == 0.0)
+        /*
+        if (d > Integer.MAX_VALUE)
+            return Integer.MAX_VALUE;
+        else if (d < Integer.MIN_VALUE)
+            return Integer.MIN_VALUE;
+        else
+        */
+        if (d == 0.0) {
             return 0;
-        else {
+        } else {
             double d2 = Math.signum(d) * Math.abs(d) / (1.0 + Math.abs(d));
             //logger.info(" -> " + d2);
             int d3 = (int) Math.round(Integer.MAX_VALUE * d2);
@@ -294,7 +313,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * fromFloat
+     * fromFloat.
      * </p>
      *
      * @param d a float.
@@ -303,15 +322,15 @@ public class BooleanHelper {
     @Deprecated
     public static int fromFloat(float d) {
         //logger.info("Converting float " + d);
-		/*
-		if (d > Integer.MAX_VALUE)
-			return Integer.MAX_VALUE;
-		else if (d < Integer.MIN_VALUE)
-			return Integer.MIN_VALUE;
-		else */
-        if (d == 0.0f)
+        /*
+        if (d > Integer.MAX_VALUE)
+            return Integer.MAX_VALUE;
+        else if (d < Integer.MIN_VALUE)
+            return Integer.MIN_VALUE;
+        else */
+        if (d == 0.0f) {
             return 0;
-        else {
+        } else {
             float d2 = Math.signum(d) * Math.abs(d) / (1f + Math.abs(d));
             //logger.info(" ->" + d2);
             int d3 = Math.round(Integer.MAX_VALUE * d2);
@@ -322,7 +341,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * fromLong
+     * fromLong.
      * </p>
      *
      * @param d a long.
@@ -330,16 +349,17 @@ public class BooleanHelper {
      */
     @Deprecated
     public static int fromLong(long d) {
-		/*
-		if (d > Integer.MAX_VALUE)
-			return Integer.MAX_VALUE;
-		else if (d < Integer.MIN_VALUE)
-			return Integer.MIN_VALUE;
-			*/
+        /*
+        if (d > Integer.MAX_VALUE)
+            return Integer.MAX_VALUE;
+        else if (d < Integer.MIN_VALUE)
+            return Integer.MIN_VALUE;
+            */
         //else
-        //	return (int) d;
-        if (d == 0L)
+        //  return (int) d;
+        if (d == 0L) {
             return 0;
+        }
         double d2 = Math.signum(d) * Math.abs(d) / (1L + Math.abs(d));
         int d3 = (int) Math.round(Integer.MAX_VALUE * d2);
         return d3;
@@ -347,22 +367,23 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * booleanToInt
+     * booleanToInt.
      * </p>
      *
      * @param b a boolean.
      * @return a int.
      */
     public static int booleanToInt(boolean b) {
-        if (b)
+        if (b) {
             return TRUE;
-        else
+        } else {
             return FALSE;
+        }
     }
 
     /**
      * <p>
-     * intToBoolean
+     * intToBoolean.
      * </p>
      *
      * @param x a int.
@@ -374,7 +395,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * min
+     * min.
      * </p>
      *
      * @param a a int.
@@ -383,15 +404,16 @@ public class BooleanHelper {
      * @return a int.
      */
     public static int min(int a, int b, int c) {
-        if (a < b)
+        if (a < b) {
             return Math.min(a, c);
-        else
+        } else {
             return Math.min(b, c);
+        }
     }
 
     /**
      * <p>
-     * compareBoolean
+     * compareBoolean.
      * </p>
      *
      * @param a a int.
@@ -399,15 +421,16 @@ public class BooleanHelper {
      * @return a int.
      */
     public static int compareBoolean(int a, int b) {
-        if ((a > 0 && b > 0) || (a <= 0 && b <= 0))
+        if ((a > 0 && b > 0) || (a <= 0 && b <= 0)) {
             return Math.abs(a - b);
-        else
+        } else {
             return -1 * Math.abs(a - b);
+        }
     }
 
     /**
      * <p>
-     * editDistance_old
+     * editDistance_old.
      * </p>
      *
      * @param s a {@link java.lang.String} object.
@@ -420,8 +443,8 @@ public class BooleanHelper {
         int m; // length of t
         int i; // iterates through s
         int j; // iterates through t
-        char s_i; // ith character of s
-        char t_j; // jth character of t
+        char si; // ith character of s
+        char tj; // jth character of t
         int cost; // cost
 
         int k = 127;
@@ -452,20 +475,20 @@ public class BooleanHelper {
 
         for (i = 1; i <= n; i++) {
 
-            s_i = s.charAt(i - 1);
+            si = s.charAt(i - 1);
 
             // Step 4
 
             for (j = 1; j <= m; j++) {
 
-                t_j = t.charAt(j - 1);
+                tj = t.charAt(j - 1);
 
                 // Step 5
 
-                if (s_i == t_j) {
+                if (si == tj) {
                     cost = 0;
                 } else {
-                    //					cost = 127/4 + 3 * Math.abs(s_i - t_j)/4;
+                    // cost = 127/4 + 3 * Math.abs(si - tj)/4;
                     cost = 127;
                 }
 
@@ -485,57 +508,61 @@ public class BooleanHelper {
 
     /**
      * Replacement function for the Java instanceof instruction, which returns a
-     * distance integer
+     * distance integer.
      *
      * @param o a {@link java.lang.Object} object.
      * @param c a {@link java.lang.Class} object.
      * @return a int.
      */
     public static int instanceOf(Object o, Class<?> c) {
-        if (o == null)
+        if (o == null) {
             return FALSE;
+        }
         return c.isAssignableFrom(o.getClass()) ? TRUE : FALSE;
     }
 
     /**
      * Replacement function for the Java IFNULL instruction, returning a
-     * distance integer
+     * distance integer.
      *
-     * @param o
-     * @param opcode
-     * @param opcode a int.
+     * @param o      the object to check.
+     * @param opcode the opcode of the instruction.
      * @return a int.
      */
     public static int isNull(Object o, int opcode) {
-        if (opcode == Opcodes.IFNULL)
+        if (opcode == Opcodes.IFNULL) {
             return o == null ? TRUE : FALSE;
-        else
+        } else {
             return o != null ? TRUE : FALSE;
+        }
     }
 
     /**
      * <p>
-     * IOR
+     * IOR.
      * </p>
      *
      * @param a a int.
      * @param b a int.
      * @return a int.
      */
+    @SuppressWarnings("checkstyle:methodname")
     public static int IOR(int a, int b) {
         int ret = 0;
         if (a > 0 || b > 0) {
             // True
 
             ret = a;
-            if (b > 0 && b < a)
+            if (b > 0 && b < a) {
                 ret = b;
+            }
         } else {
             // False
 
             ret = a;
-            if (b > a)
+            if (b > a) {
                 ret = b;
+            }
         }
 
         return ret;
@@ -543,26 +570,28 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * IAND
+     * IAND.
      * </p>
      *
      * @param a a int.
      * @param b a int.
      * @return a int.
      */
+    @SuppressWarnings("checkstyle:methodname")
     public static int IAND(int a, int b) {
         return Math.min(a, b);
     }
 
     /**
      * <p>
-     * IXOR
+     * IXOR.
      * </p>
      *
      * @param a a int.
      * @param b a int.
      * @return a int.
      */
+    @SuppressWarnings("checkstyle:methodname")
     public static int IXOR(int a, int b) {
         int ret = 0;
         if (a > 0 && b <= 0) {
@@ -580,7 +609,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * isEqual
+     * isEqual.
      * </p>
      *
      * @param o1     a {@link java.lang.Object} object.
@@ -589,10 +618,11 @@ public class BooleanHelper {
      * @return a int.
      */
     public static int isEqual(Object o1, Object o2, int opcode) {
-        if (opcode == Opcodes.IF_ACMPEQ)
+        if (opcode == Opcodes.IF_ACMPEQ) {
             return o1 == o2 ? K : -K;
-        else
+        } else {
             return o1 != o2 ? K : -K;
+        }
     }
 
     private static final Stack<Object> parametersObject = new Stack<>();
@@ -607,7 +637,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameterBooleanFromInt
+     * popParameterBooleanFromInt.
      * </p>
      *
      * @return a boolean.
@@ -620,22 +650,23 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameterIntFromBoolean
+     * popParameterIntFromBoolean.
      * </p>
      *
      * @return a int.
      */
     public static int popParameterIntFromBoolean() {
         boolean i = parametersBoolean.pop();
-        if (i)
+        if (i) {
             return K;
-        else
+        } else {
             return -K;
+        }
     }
 
     /**
      * <p>
-     * popParameterBoolean
+     * popParameterBoolean.
      * </p>
      *
      * @return a boolean.
@@ -646,7 +677,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameterChar
+     * popParameterChar.
      * </p>
      *
      * @return a char.
@@ -657,7 +688,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameterByte
+     * popParameterByte.
      * </p>
      *
      * @return a byte.
@@ -668,7 +699,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameterShort
+     * popParameterShort.
      * </p>
      *
      * @return a short.
@@ -679,7 +710,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameterInt
+     * popParameterInt.
      * </p>
      *
      * @return a int.
@@ -690,7 +721,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameterFloat
+     * popParameterFloat.
      * </p>
      *
      * @return a float.
@@ -701,7 +732,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameterLong
+     * popParameterLong.
      * </p>
      *
      * @return a long.
@@ -712,7 +743,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameterDouble
+     * popParameterDouble.
      * </p>
      *
      * @return a double.
@@ -723,7 +754,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameterObject
+     * popParameterObject.
      * </p>
      *
      * @return a {@link java.lang.Object} object.
@@ -734,7 +765,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * popParameter
+     * popParameter.
      * </p>
      *
      * @param o a {@link java.lang.Object} object.
@@ -746,7 +777,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * pushParameter
+     * pushParameter.
      * </p>
      *
      * @param o a boolean.
@@ -757,7 +788,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * pushParameter
+     * pushParameter.
      * </p>
      *
      * @param o a char.
@@ -768,7 +799,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * pushParameter
+     * pushParameter.
      * </p>
      *
      * @param o a byte.
@@ -779,7 +810,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * pushParameter
+     * pushParameter.
      * </p>
      *
      * @param o a short.
@@ -790,7 +821,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * pushParameter
+     * pushParameter.
      * </p>
      *
      * @param o a int.
@@ -801,7 +832,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * pushParameter
+     * pushParameter.
      * </p>
      *
      * @param o a float.
@@ -812,7 +843,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * pushParameter
+     * pushParameter.
      * </p>
      *
      * @param o a long.
@@ -823,7 +854,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * pushParameter
+     * pushParameter.
      * </p>
      *
      * @param o a double.
@@ -834,7 +865,7 @@ public class BooleanHelper {
 
     /**
      * <p>
-     * pushParameter
+     * pushParameter.
      * </p>
      *
      * @param o a {@link java.lang.Object} object.

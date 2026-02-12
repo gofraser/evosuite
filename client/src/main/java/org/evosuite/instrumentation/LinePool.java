@@ -23,92 +23,101 @@ package org.evosuite.instrumentation;
 import java.util.*;
 
 /**
- * Keep track of the lines of code in a class
+ * Keep track of the lines of code in a class.
  *
  * @author Gordon Fraser
  */
 public class LinePool {
 
     /**
-     * Map class names to methods to sets of line numbers
+     * Map class names to methods to sets of line numbers.
      */
     private static final Map<String, Map<String, Set<Integer>>> lineMap = new LinkedHashMap<>();
 
     /**
-     * Insert line into map for class
+     * Insert line into map for class.
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      * @param lineNo     a int.
      */
     public static void addLine(String className, String methodName, int lineNo) {
-        if (!lineMap.containsKey(className))
+        if (!lineMap.containsKey(className)) {
             lineMap.put(className, new LinkedHashMap<>());
+        }
 
-        if (!lineMap.get(className).containsKey(methodName))
+        if (!lineMap.get(className).containsKey(methodName)) {
             lineMap.get(className).put(methodName, new LinkedHashSet<>());
+        }
 
         lineMap.get(className).get(methodName).add(lineNo);
     }
 
     /**
-     * Retrieve set of lines
+     * Retrieve set of lines.
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      * @return a {@link java.util.Set} object.
      */
     public static Set<Integer> getLines(String className, String methodName) {
-        if (lineMap.containsKey(className))
-            if (lineMap.get(className).containsKey(methodName))
+        if (lineMap.containsKey(className)) {
+            if (lineMap.get(className).containsKey(methodName)) {
                 return lineMap.get(className).get(methodName);
+            }
+        }
 
         return new HashSet<>();
     }
 
     /**
-     * Retrieve all lines in a class
+     * Retrieve all lines in a class.
      *
      * @param className a {@link java.lang.String} object.
      * @return a {@link java.util.Set} object.
      */
     public static Set<Integer> getLines(String className) {
         Set<Integer> lines = new LinkedHashSet<>();
-        if (lineMap.containsKey(className))
-            for (Set<Integer> methodLines : lineMap.get(className).values())
+        if (lineMap.containsKey(className)) {
+            for (Set<Integer> methodLines : lineMap.get(className).values()) {
                 lines.addAll(methodLines);
+            }
+        }
         return lines;
     }
 
     /**
-     * Retrieve all lines in the pool
+     * Retrieve all lines in the pool.
      *
      * @return a {@link java.util.Set} object.
      */
     public static Set<Integer> getAllLines() {
         Set<Integer> lines = new LinkedHashSet<>();
-        for (String className : lineMap.keySet())
-            for (Set<Integer> methodLines : lineMap.get(className).values())
+        for (String className : lineMap.keySet()) {
+            for (Set<Integer> methodLines : lineMap.get(className).values()) {
                 lines.addAll(methodLines);
+            }
+        }
         return lines;
     }
 
     /**
-     * Retrieve all lines in the pool
+     * Retrieve all lines in the pool.
      *
      * @return a {@link java.util.Set} object.
      */
     public static int getNumLines() {
         int num = 0;
-        for (String className : lineMap.keySet())
+        for (String className : lineMap.keySet()) {
             num += lineMap.get(className).size();
+        }
 
         return num;
     }
 
     /**
      * Returns a Set containing all classes for which this pool knows lines
-     * for as Strings
+     * for as Strings.
      *
      * @return a {@link java.util.Set} object.
      */
@@ -116,17 +125,32 @@ public class LinePool {
         return new HashSet<>(lineMap.keySet());
     }
 
+    /**
+     * Get the known methods for a given class.
+     *
+     * @param className the name of the class.
+     * @return a set of method names.
+     */
     public static Set<String> getKnownMethodsFor(String className) {
-        if (!lineMap.containsKey(className))
+        if (!lineMap.containsKey(className)) {
             return new HashSet<>();
-        else
+        } else {
             return lineMap.get(className).keySet();
+        }
     }
 
+    /**
+     * Remove a class from the pool.
+     *
+     * @param className the name of the class.
+     */
     public static void removeClass(String className) {
         lineMap.remove(className);
     }
 
+    /**
+     * Reset the line pool.
+     */
     public static void reset() {
         lineMap.clear();
     }

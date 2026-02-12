@@ -51,10 +51,12 @@ public class ListInstrumentation extends ErrorBranchInstrumenter {
 
             if (isStrict || isLoose) {
                 Type[] args = Type.getArgumentTypes(desc);
-                if (args.length == 0)
+                if (args.length == 0) {
                     return;
-                if (!args[0].equals(Type.INT_TYPE))
+                }
+                if (!args[0].equals(Type.INT_TYPE)) {
                     return;
+                }
 
                 Map<Integer, Integer> tempVariables = getMethodCallee(desc);
                 tagBranchStart();

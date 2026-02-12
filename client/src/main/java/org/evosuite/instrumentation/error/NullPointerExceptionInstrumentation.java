@@ -35,8 +35,8 @@ public class NullPointerExceptionInstrumentation extends ErrorBranchInstrumenter
                                 String desc, boolean itf) {
 
         // If non-static, add a null check
-        if (opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE ||
-                (opcode == Opcodes.INVOKESPECIAL && !name.equals("<init>"))) {
+        if (opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE
+                || (opcode == Opcodes.INVOKESPECIAL && !name.equals("<init>"))) {
 
             Map<Integer, Integer> tempVariables = getMethodCallee(desc);
             insertBranch(Opcodes.IFNONNULL, "java/lang/NullPointerException");

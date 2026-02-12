@@ -67,8 +67,9 @@ public class LineNumberMethodAdapter extends MethodVisitor {
         fullMethodName = methodName + desc;
         this.className = className;
         this.methodName = methodName;
-        if (!methodName.equals("<init>"))
+        if (!methodName.equals("<init>")) {
             hadInvokeSpecial = true;
+        }
     }
 
     private void addLineNumberInstrumentation(int line) {
@@ -89,8 +90,9 @@ public class LineNumberMethodAdapter extends MethodVisitor {
         super.visitLineNumber(line, start);
         currentLine = line;
 
-        if (methodName.equals("<clinit>"))
+        if (methodName.equals("<clinit>")) {
             return;
+        }
 
         if (!hadInvokeSpecial) {
             skippedLines.add(line);

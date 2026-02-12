@@ -45,7 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class InstrumentingClassLoader extends ClassLoader {
 
-    private final static Logger logger = LoggerFactory.getLogger(InstrumentingClassLoader.class);
+    private static final Logger logger = LoggerFactory.getLogger(InstrumentingClassLoader.class);
 
     private final BytecodeInstrumentation instrumentation;
     private final Map<String, Class<?>> classes = new ConcurrentHashMap<>();
@@ -74,11 +74,24 @@ public class InstrumentingClassLoader extends ClassLoader {
         this.instrumentation = instrumentation;
     }
 
+    /**
+     * Returns a view of the instrumented classes.
+     *
+     * @return a {@link java.util.List} object.
+     */
     public List<String> getViewOfInstrumentedClasses() {
         return new ArrayList<>(classes.keySet());
     }
 
 
+    /**
+     * Load a class from a file.
+     *
+     * @param fullyQualifiedTargetClass the name of the class.
+     * @param fileName the name of the file.
+     * @return the class object.
+     * @throws ClassNotFoundException if the class cannot be found.
+     */
     public Class<?> loadClassFromFile(String fullyQualifiedTargetClass, String fileName) throws ClassNotFoundException {
 
         String className = fullyQualifiedTargetClass.replace('.', '/');
@@ -152,7 +165,8 @@ public class InstrumentingClassLoader extends ClassLoader {
     private Class<?> instrumentClass(String fullyQualifiedTargetClass) throws ClassNotFoundException {
         String className = fullyQualifiedTargetClass.replace('.', '/');
 
-        try (InputStream is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(fullyQualifiedTargetClass)) {
+        try (InputStream is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getClassAsStream(fullyQualifiedTargetClass)) {
             if (is == null) {
                 throw new ClassNotFoundException("Class '" + className + ".class"
                         + "' should be in target project, but could not be found!");
@@ -188,7 +202,7 @@ public class InstrumentingClassLoader extends ClassLoader {
     }
 
     /**
-     * Before a new class is defined, we need to create a package definition for it
+     * Before a new class is defined, we need to create a package definition for it.
      *
      * @param className a {@link java.lang.String} object.
      */

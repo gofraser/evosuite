@@ -36,7 +36,7 @@ import java.util.Map;
 public class ObjectCallAdapter extends MethodVisitor {
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(ObjectCallAdapter.class);
 

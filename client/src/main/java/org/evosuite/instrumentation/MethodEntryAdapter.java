@@ -28,7 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Instrument classes to keep track of method entry and exit
+ * Instrument classes to keep track of method entry and exit.
  *
  * @author Gordon Fraser
  */
@@ -66,8 +66,9 @@ public class MethodEntryAdapter extends AdviceAdapter {
     @Override
     public void onMethodEnter() {
 
-        if (methodName.equals("<clinit>"))
+        if (methodName.equals("<clinit>")) {
             return; // FIXXME: Should we call super.onMethodEnter() here?
+        }
 
         mv.visitLdcInsn(className);
         mv.visitLdcInsn(fullMethodName);

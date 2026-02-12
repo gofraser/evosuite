@@ -28,12 +28,12 @@ import org.objectweb.asm.Opcodes;
  * It collects bytecode instructions for further purity analysis in the
  * <code>CheapPurityAnalyzer</code> class:
  * <ul>
- * 	<li>PUTSTATIC</li>
- * 	<li>PUTFIELD</li>
- * 	<li>INVOKESTATIC</li>
- * 	<li>INVOKESPECIAL</li>
- * 	<li>INVOKEINTERFACE</li>
- * 	<li>INVOKEVIRTUAL</li>
+ *     <li>PUTSTATIC</li>
+ *     <li>PUTFIELD</li>
+ *     <li>INVOKESTATIC</li>
+ *     <li>INVOKESPECIAL</li>
+ *     <li>INVOKEINTERFACE</li>
+ *     <li>INVOKEVIRTUAL</li>
  * </ul>
  * This class only reads the existing bytecode.
  *
@@ -92,7 +92,8 @@ public class PurityAnalysisMethodVisitor extends MethodVisitor {
                                 String desc, boolean itf) {
 
         String targetClassName = owner.replace('/', '.');
-        if (targetClassName.equals(org.evosuite.runtime.Random.class.getCanonicalName()) || !BytecodeInstrumentation.checkIfEvoSuitePackage(targetClassName)) {
+        if (targetClassName.equals(org.evosuite.runtime.Random.class.getCanonicalName())
+                || !BytecodeInstrumentation.checkIfEvoSuitePackage(targetClassName)) {
             //Only ignore EvoSuite callbacks
             if (opcode == Opcodes.INVOKESTATIC) {
                 this.purityAnalyzer.addStaticCall(classNameWithDots,

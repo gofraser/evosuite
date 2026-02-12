@@ -97,7 +97,8 @@ public class MutationInstrumentation implements MethodInstrumentation {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MethodInstrumentation#analyze(org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, int)
+     * @see org.evosuite.instrumentation.coverage.MethodInstrumentation#analyze(
+     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, int)
      */
 
     /**
@@ -108,14 +109,16 @@ public class MutationInstrumentation implements MethodInstrumentation {
     public void analyze(ClassLoader classLoader, MethodNode mn, String className,
                         String methodName, int access) {
 
-        if (methodName.startsWith("<clinit>"))
+        if (methodName.startsWith("<clinit>")) {
             return;
+        }
 
-        if (methodName.startsWith(ClassResetter.STATIC_RESET))
+        if (methodName.startsWith(ClassResetter.STATIC_RESET)) {
             return;
+        }
 
-        RawControlFlowGraph graph = GraphPool.getInstance(classLoader).getRawCFG(className,
-                methodName);
+        RawControlFlowGraph graph = GraphPool.getInstance(classLoader)
+                .getRawCFG(className, methodName);
 
         // Optimization: Create a map for fast lookup of BytecodeInstructions by their ASM nodes
         Map<AbstractInsnNode, BytecodeInstruction> instructionMap = new HashMap<>();
@@ -148,8 +151,8 @@ public class MutationInstrumentation implements MethodInstrumentation {
             if (in instanceof LabelNode) {
                 LabelNode labelNode = (LabelNode) in;
                 if (labelNode.getLabel() instanceof AnnotatedLabel) {
-                    AnnotatedLabel aLabel = (AnnotatedLabel) labelNode.getLabel();
-                    inInstrumentation = aLabel.isStartTag();
+                    AnnotatedLabel alabel = (AnnotatedLabel) labelNode.getLabel();
+                    inInstrumentation = alabel.isStartTag();
                 }
             }
 
@@ -166,8 +169,10 @@ public class MutationInstrumentation implements MethodInstrumentation {
                     }
                     MethodInsnNode cn = (MethodInsnNode) in;
                     Set<String> superClasses = new HashSet<>();
-                    if (DependencyAnalysis.getInheritanceTree() != null && DependencyAnalysis.getInheritanceTree().hasClass(className))
+                    if (DependencyAnalysis.getInheritanceTree() != null
+                            && DependencyAnalysis.getInheritanceTree().hasClass(className)) {
                         superClasses.addAll(DependencyAnalysis.getInheritanceTree().getSuperclasses(className));
+                    }
                     superClasses.add(className);
                     String classNameWithDots = ResourceList.getClassNameFromResourcePath(cn.owner);
                     if (superClasses.contains(classNameWithDots)) {
@@ -241,7 +246,7 @@ public class MutationInstrumentation implements MethodInstrumentation {
 
     /**
      * <p>
-     * addInstrumentation
+     * addInstrumentation.
      * </p>
      *
      * @param mn        a {@link org.objectweb.asm.tree.MethodNode} object.

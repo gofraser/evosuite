@@ -58,8 +58,9 @@ public class DescriptorMapping {
      * @return a {@link DescriptorMapping} object.
      */
     public static DescriptorMapping getInstance() {
-        if (instance == null)
+        if (instance == null) {
             instance = new DescriptorMapping();
+        }
 
         return instance;
     }
@@ -71,7 +72,7 @@ public class DescriptorMapping {
     private final Map<String, String> nameMapping = new HashMap<>();
 
     /**
-     * <p>shouldTransform</p>
+     * <p>shouldTransform.</p>
      *
      * @param classNameUnknown a {@link java.lang.String} object.
      * @return a boolean.
@@ -85,12 +86,17 @@ public class DescriptorMapping {
                 return true;
             case TARGET:
                 if (className.equals(Properties.TARGET_CLASS)
-                        || className.startsWith(Properties.TARGET_CLASS + "$"))
+                        || className.startsWith(Properties.TARGET_CLASS + "$")) {
                     return true;
+                }
                 break;
             case PREFIX:
-                if (className.startsWith(Properties.PROJECT_PREFIX))
+                if (className.startsWith(Properties.PROJECT_PREFIX)) {
                     return true;
+                }
+                break;
+            default:
+                break;
 
         }
         return false;
@@ -98,7 +104,7 @@ public class DescriptorMapping {
     }
 
     /**
-     * <p>isTransformedMethod</p>
+     * <p>isTransformedMethod.</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -108,14 +114,14 @@ public class DescriptorMapping {
     public boolean isTransformedMethod(String className, String methodName, String desc) {
         logger.info("Initiating transformation of " + methodName);
         getMethodDesc(className, methodName, desc);
-        //		return originalDesc.containsKey(className.replace('.', '/') + "/" + methodName
-        //		        + desc);
+        // return originalDesc.containsKey(className.replace('.', '/') + "/" + methodName
+        //         + desc);
         return descriptorMapping.containsKey(className.replace('.', '/') + "/"
                 + methodName + desc);
     }
 
     /**
-     * <p>hasTransformedArguments</p>
+     * <p>hasTransformedArguments.</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -132,15 +138,16 @@ public class DescriptorMapping {
             String newDesc = originalDesc.get(className.replace('.', '/') + "/"
                     + methodName + desc);
             for (Type type : Type.getArgumentTypes(newDesc)) {
-                if (type.equals(Type.BOOLEAN_TYPE))
+                if (type.equals(Type.BOOLEAN_TYPE)) {
                     return true;
+                }
             }
             return false;
         }
     }
 
     /**
-     * <p>isTransformedField</p>
+     * <p>isTransformedField.</p>
      *
      * @param className a {@link java.lang.String} object.
      * @param fieldName a {@link java.lang.String} object.
@@ -154,7 +161,7 @@ public class DescriptorMapping {
     }
 
     /**
-     * <p>isTransformedOrBooleanMethod</p>
+     * <p>isTransformedOrBooleanMethod.</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -164,8 +171,8 @@ public class DescriptorMapping {
     public boolean isTransformedOrBooleanMethod(String className, String methodName,
                                                 String desc) {
         logger.info("Checking method: " + className + "." + methodName + desc);
-        String new_desc = getMethodDesc(className, methodName, desc);
-        logger.info("Transformed desc is " + new_desc);
+        String newDesc = getMethodDesc(className, methodName, desc);
+        logger.info("Transformed desc is " + newDesc);
         String name = className.replace('.', '/') + "/" + methodName + desc;
         if (originalDesc.containsKey(name)) {
             logger.info("Desc is already transformed");
@@ -187,7 +194,7 @@ public class DescriptorMapping {
     }
 
     /**
-     * <p>isTransformedOrBooleanReturnMethod</p>
+     * <p>isTransformedOrBooleanReturnMethod.</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -196,12 +203,13 @@ public class DescriptorMapping {
      */
     public boolean isTransformedOrBooleanReturnMethod(String className,
                                                       String methodName, String desc) {
-        if (isStringReplacement(className, methodName))
+        if (isStringReplacement(className, methodName)) {
             return true;
+        }
 
         logger.info("Checking method: " + className + "." + methodName + desc);
-        String new_desc = getMethodDesc(className, methodName, desc);
-        logger.info("Transformed desc is " + new_desc);
+        String newDesc = getMethodDesc(className, methodName, desc);
+        logger.info("Transformed desc is " + newDesc);
         String name = className.replace('.', '/') + "/" + methodName + desc;
         if (originalDesc.containsKey(name)) {
             return Type.getReturnType(originalDesc.get(name)).equals(Type.BOOLEAN_TYPE);
@@ -211,7 +219,7 @@ public class DescriptorMapping {
     }
 
     /**
-     * <p>isTransformedOrBooleanField</p>
+     * <p>isTransformedOrBooleanField.</p>
      *
      * @param className a {@link java.lang.String} object.
      * @param fieldName a {@link java.lang.String} object.
@@ -221,8 +229,8 @@ public class DescriptorMapping {
     public boolean isTransformedOrBooleanField(String className, String fieldName,
                                                String desc) {
         logger.info("Checking field: " + className + "." + fieldName + desc);
-        String new_desc = getFieldDesc(className, fieldName, desc);
-        logger.info("Transformed desc is " + new_desc);
+        String newDesc = getFieldDesc(className, fieldName, desc);
+        logger.info("Transformed desc is " + newDesc);
         String name = className.replace('.', '/') + "/" + fieldName + desc;
         if (originalDesc.containsKey(name)) {
             logger.info("Desc is already transformed");
@@ -231,7 +239,7 @@ public class DescriptorMapping {
     }
 
     /**
-     * <p>isBooleanMethod</p>
+     * <p>isBooleanMethod.</p>
      *
      * @param desc a {@link java.lang.String} object.
      * @return a boolean.
@@ -249,19 +257,22 @@ public class DescriptorMapping {
         Type type = Type.getReturnType(desc);
         if (type.equals(Type.BOOLEAN_TYPE)) {
             return true;
-        } else return type.getDescriptor().equals("[Z");
+        } else {
+            return type.getDescriptor().equals("[Z");
+        }
     }
 
     /**
-     * <p>hasBooleanParameters</p>
+     * <p>hasBooleanParameters.</p>
      *
      * @param desc a {@link java.lang.String} object.
      * @return a boolean.
      */
     public boolean hasBooleanParameters(String desc) {
         for (Type t : Type.getArgumentTypes(desc)) {
-            if (t.equals(Type.BOOLEAN_TYPE))
+            if (t.equals(Type.BOOLEAN_TYPE)) {
                 return true;
+            }
         }
 
         return false;
@@ -274,16 +285,23 @@ public class DescriptorMapping {
         switch (Properties.TT_SCOPE) {
             case ALL:
                 if (!classNameWithDots.startsWith("java")
-                        && !classNameWithDots.startsWith("sun"))
+                        && !classNameWithDots.startsWith("sun")) {
                     return true;
+                }
+                // fall through
             case TARGET:
                 if (classNameWithDots.equals(Properties.TARGET_CLASS)
-                        || classNameWithDots.startsWith(Properties.TARGET_CLASS + "$"))
+                        || classNameWithDots.startsWith(Properties.TARGET_CLASS + "$")) {
                     return true;
+                }
                 break;
             case PREFIX:
-                if (classNameWithDots.startsWith(Properties.PROJECT_PREFIX))
+                if (classNameWithDots.startsWith(Properties.PROJECT_PREFIX)) {
                     return true;
+                }
+                break;
+            default:
+                break;
 
         }
         return false;
@@ -305,24 +323,25 @@ public class DescriptorMapping {
 
         while (!parents.isEmpty()) {
             String name = parents.poll();
-            if (name == null)
+            if (name == null) {
                 continue;
+            }
 
             visited.add(name);
             logger.info("Visiting class " + name + " while looking for source of "
                     + className + "." + methodName);
             ClassReader reader;
             try {
-                reader = new ClassReader(ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(name));
+                reader = new ClassReader(ResourceList.getInstance(
+                        TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(name));
                 ClassNode parent = new ClassNode();
                 reader.accept(parent, ClassReader.EXPAND_FRAMES);
 
                 boolean isInside = isInside(parent.name);
 
-                //boolean isInside = parent.name.startsWith(Properties.PROJECT_PREFIX.replace(".",
-                //                                                                            "/"))
-                //        || (!Properties.TARGET_CLASS_PREFIX.isEmpty() && parent.name.startsWith(Properties.TARGET_CLASS_PREFIX.replace(".",
-                //				                                                                                                                       "/")));
+                // boolean isInside = parent.name.startsWith(Properties.PROJECT_PREFIX.replace(".", "/"))
+                //        || (!Properties.TARGET_CLASS_PREFIX.isEmpty()
+                //            && parent.name.startsWith(Properties.TARGET_CLASS_PREFIX.replace(".", "/")));
 
                 logger.info("Checking " + parent.name);
                 for (Object o : parent.methods) {
@@ -366,15 +385,17 @@ public class DescriptorMapping {
 
         while (!parents.isEmpty()) {
             String name = parents.poll();
-            if (name == null)
+            if (name == null) {
                 continue;
+            }
 
             visited.add(name);
             logger.info("Visiting class " + name + " while looking for name clashes of "
                     + className + "." + methodName + transformedDesc);
             ClassReader reader;
             try {
-                reader = new ClassReader(ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(name));
+                reader = new ClassReader(ResourceList.getInstance(
+                        TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(name));
                 ClassNode parent = new ClassNode();
                 reader.accept(parent, ClassReader.EXPAND_FRAMES);
 
@@ -390,8 +411,9 @@ public class DescriptorMapping {
                     //logger.info("Checking " + parent.name + "." + mn2.name + mn2.desc);
                     if (mn2.name.equals(methodName) && mn2.desc.equals(transformedDesc)) {
                         logger.info("Method " + methodName + " has conflicting method");
-                        if (methodName.equals("<init>"))
+                        if (methodName.equals("<init>")) {
                             return null; // TODO: This should be a bit nicer
+                        }
                         return methodName + "_transformed" + (id++);
                     }
                 }
@@ -421,8 +443,9 @@ public class DescriptorMapping {
 
         while (!parents.isEmpty()) {
             String name = parents.poll();
-            if (name == null)
+            if (name == null) {
                 continue;
+            }
 
             visited.add(name);
             logger.info("Checking class " + name
@@ -430,24 +453,23 @@ public class DescriptorMapping {
 
             ClassReader reader;
             try {
-                reader = new ClassReader(ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(name));
+                reader = new ClassReader(ResourceList.getInstance(
+                        TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(name));
                 ClassNode parent = new ClassNode();
                 reader.accept(parent, ClassReader.EXPAND_FRAMES);
 
                 boolean isInside = isInside(parent.name);
 
-                //				boolean isInside = parent.name.startsWith(Properties.PROJECT_PREFIX.replace(".",
-                //				                                                                            "/"))
-                //				        | parent.name.startsWith(Properties.TARGET_CLASS_PREFIX.replace(".",
-                //				                                                                        "/"));
+                // boolean isInside = parent.name.startsWith(Properties.PROJECT_PREFIX.replace(".", "/"))
+                //         | parent.name.startsWith(Properties.TARGET_CLASS_PREFIX.replace(".", "/"));
 
                 for (Object o : parent.fields) {
                     FieldNode mn2 = (FieldNode) o;
                     if (mn2.name.equals(fieldName) && mn2.desc.equals(desc)) {
-                        //if ((mn2.access & Opcodes.ACC_SYNTHETIC) == Opcodes.ACC_SYNTHETIC) {
-                        //	logger.info("Not transforming synthetic field " + mn2.name);
-                        //	return true;
-                        //}
+                        // if ((mn2.access & Opcodes.ACC_SYNTHETIC) == Opcodes.ACC_SYNTHETIC) {
+                        //     logger.info("Not transforming synthetic field " + mn2.name);
+                        //     return true;
+                        // }
                         if (!isInside) {
                             logger.info("Field " + name
                                     + " was defined outside the test package - "
@@ -481,30 +503,30 @@ public class DescriptorMapping {
     }
 
     private String transformMethodDescriptor(String desc) {
-        String new_desc = "(";
+        StringBuilder newDesc = new StringBuilder("(");
 
         Type[] types = Type.getArgumentTypes(desc);
         for (Type type : types) {
             if (type.equals(Type.BOOLEAN_TYPE)) {
-                new_desc += "I";
+                newDesc.append("I");
             } else if (type.getDescriptor().equals("[Z")) {
-                new_desc += "[I";
+                newDesc.append("[I");
             } else {
-                new_desc += type.getDescriptor();
+                newDesc.append(type.getDescriptor());
             }
         }
-        new_desc += ")";
+        newDesc.append(")");
 
         Type type = Type.getReturnType(desc);
         if (type.equals(Type.BOOLEAN_TYPE)) {
-            new_desc += "I";
+            newDesc.append("I");
         } else if (type.getDescriptor().equals("[Z")) {
-            new_desc += "[I";
+            newDesc.append("[I");
         } else {
-            new_desc += type.getDescriptor();
+            newDesc.append(type.getDescriptor());
         }
 
-        return new_desc;
+        return newDesc.toString();
     }
 
     private String transformFieldDescriptor(String className, String desc) {
@@ -514,19 +536,20 @@ public class DescriptorMapping {
         logger.info("Transforming field instruction " + desc);
         if (isBooleanField(desc)) {
             // TODO: Check if this is actually transformed or not
-            if (desc.equals("Z"))
+            if (desc.equals("Z")) {
                 return "I";
-            else if (desc.equals("[Z"))
+            } else if (desc.equals("[Z")) {
                 return "[I";
-            else
+            } else {
                 return desc;
+            }
         } else {
             return desc;
         }
     }
 
     /**
-     * <p>getMethodName</p>
+     * <p>getMethodName.</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -544,15 +567,16 @@ public class DescriptorMapping {
             getMethodDesc(className, methodName, desc);
             return nameMapping.get(old);
         } else {
-            if (nameMapping.containsKey(old))
+            if (nameMapping.containsKey(old)) {
                 return nameMapping.get(old);
-            else
+            } else {
                 return methodName;
+            }
         }
     }
 
     /**
-     * <p>getMethodDesc</p>
+     * <p>getMethodDesc.</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -581,8 +605,8 @@ public class DescriptorMapping {
                     if (newName != null) {
                         descriptorMapping.put(old, newDesc);
                         nameMapping.put(old, newName);
-                        //nameMapping.put(className + "." + methodName + newDesc,
-                        //                newName);
+                        // nameMapping.put(className + "." + methodName + newDesc,
+                        //                 newName);
                         logger.info("Keeping transformation from " + old + " to "
                                 + descriptorMapping.get(old) + " with new name "
                                 + newName);
@@ -608,7 +632,7 @@ public class DescriptorMapping {
     }
 
     /**
-     * <p>getFieldDesc</p>
+     * <p>getFieldDesc.</p>
      *
      * @param className a {@link java.lang.String} object.
      * @param fieldName a {@link java.lang.String} object.
@@ -660,7 +684,7 @@ public class DescriptorMapping {
     }
 
     /**
-     * <p>getOriginalDescriptor</p>
+     * <p>getOriginalDescriptor.</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -681,7 +705,7 @@ public class DescriptorMapping {
     }
 
     /**
-     * <p>getOriginalTypes</p>
+     * <p>getOriginalTypes.</p>
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -690,9 +714,10 @@ public class DescriptorMapping {
      */
     public Type[] getOriginalTypes(String className, String methodName, String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;
-        if (originalDesc.containsKey(key))
+        if (originalDesc.containsKey(key)) {
             return org.objectweb.asm.Type.getArgumentTypes(originalDesc.get(key));
-        else
+        } else {
             return org.objectweb.asm.Type.getArgumentTypes(desc);
+        }
     }
 }

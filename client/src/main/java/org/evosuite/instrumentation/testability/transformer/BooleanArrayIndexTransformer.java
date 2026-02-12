@@ -31,7 +31,7 @@ import org.objectweb.asm.tree.analysis.Frame;
 import java.util.Map;
 
 /**
- * Make sure array accesses of boolean arrays are also transformed
+ * Make sure array accesses of boolean arrays are also transformed.
  */
 public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
     private final Map<AbstractInsnNode, Frame> frames;
@@ -42,7 +42,8 @@ public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.InsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.InsnNode)
      */
     @Override
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
@@ -52,7 +53,9 @@ public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
 
         if (insnNode.getOpcode() == Opcodes.BALOAD) {
             Frame current = frames.get(insnNode);
-            if (current == null) return insnNode;
+            if (current == null) {
+                return insnNode;
+            }
             int size = current.getStackSize();
             if (current.getStack(size - 2) == BooleanArrayInterpreter.INT_ARRAY) {
                 BooleanTestabilityTransformation.logger.info("Array is of boolean type, changing BALOAD to IALOAD");
@@ -63,7 +66,9 @@ public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
             }
         } else if (insnNode.getOpcode() == Opcodes.BASTORE) {
             Frame current = frames.get(insnNode);
-            if (current == null) return insnNode;
+            if (current == null) {
+                return insnNode;
+            }
             int size = current.getStackSize();
             if (current.getStack(size - 3) == BooleanArrayInterpreter.INT_ARRAY) {
                 BooleanTestabilityTransformation.logger.info("Array is of boolean type, changing BASTORE to IASTORE");
@@ -77,17 +82,21 @@ public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformTypeInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.TypeInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformTypeInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.TypeInsnNode)
      */
     @Override
     protected AbstractInsnNode transformTypeInsnNode(MethodNode mn,
                                                      TypeInsnNode typeNode) {
-        if (frames == null)
+        if (frames == null) {
             return typeNode;
+        }
 
         if (typeNode.getOpcode() == Opcodes.CHECKCAST) {
             Frame current = frames.get(typeNode);
-            if (current == null) return typeNode;
+            if (current == null) {
+                return typeNode;
+            }
             int size = current.getStackSize();
             if (current.getStack(size - 1) == BooleanArrayInterpreter.INT_ARRAY) {
                 BooleanTestabilityTransformation.logger.info("Array is of boolean type, changing CHECKCAST to [I");

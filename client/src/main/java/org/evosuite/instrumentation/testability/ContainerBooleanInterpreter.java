@@ -38,12 +38,13 @@ import java.util.List;
 public class ContainerBooleanInterpreter extends BasicInterpreter {
 
     /**
-     * Constant <code>CONTAINER_BOOLEAN</code>
+     * Constant <code>CONTAINER_BOOLEAN</code>.
      */
-    public final static BasicValue CONTAINER_BOOLEAN = new BasicValue(null);
+    public static final BasicValue CONTAINER_BOOLEAN = new BasicValue(null);
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#naryOperation(org.objectweb.asm.tree.AbstractInsnNode, java.util.List)
+     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#naryOperation(
+     * org.objectweb.asm.tree.AbstractInsnNode, java.util.List)
      */
 
     /**
@@ -51,10 +52,12 @@ public class ContainerBooleanInterpreter extends BasicInterpreter {
      */
     @Override
     public BasicValue naryOperation(AbstractInsnNode insn,
-                                    @SuppressWarnings("rawtypes") List values) throws AnalyzerException {
+                                    @SuppressWarnings("rawtypes") List values)
+            throws AnalyzerException {
         if (insn.getOpcode() == Opcodes.INVOKESTATIC) {
             MethodInsnNode mn = (MethodInsnNode) insn;
-            if (mn.owner.equals(Type.getInternalName(ContainerHelper.class))
+            String helperName = Type.getInternalName(ContainerHelper.class);
+            if (mn.owner.equals(helperName)
                     && (mn.name.startsWith("collection") || mn.name.startsWith("map"))) {
                 return CONTAINER_BOOLEAN;
             }

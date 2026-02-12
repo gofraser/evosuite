@@ -37,7 +37,7 @@ import java.util.Set;
  */
 public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
 
-    protected final static Logger logger = LoggerFactory.getLogger(ExceptionTransformationMethodAdapter.class);
+    protected static final Logger logger = LoggerFactory.getLogger(ExceptionTransformationMethodAdapter.class);
 
     private final String className;
 
@@ -45,6 +45,15 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
 
     private final MethodVisitor next;
 
+    /**
+     * Constructor for ExceptionTransformationMethodAdapter.
+     *
+     * @param mv the method visitor.
+     * @param className the name of the class.
+     * @param methodName the name of the method.
+     * @param access the access flags.
+     * @param desc the descriptor.
+     */
     public ExceptionTransformationMethodAdapter(MethodVisitor mv, String className,
                                                 String methodName, int access, String desc) {
         super(Opcodes.ASM9, mv, access, methodName, desc);
@@ -56,17 +65,21 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
         next = mv;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
 
-        if (!ExceptionTransformationClassAdapter.methodExceptionMap.containsKey(owner) ||
-                !ExceptionTransformationClassAdapter.methodExceptionMap.get(owner).containsKey(name + desc)) {
+        if (!ExceptionTransformationClassAdapter.methodExceptionMap.containsKey(owner)
+                || !ExceptionTransformationClassAdapter.methodExceptionMap.get(owner).containsKey(name + desc)) {
             logger.debug("Method {} does not throw exceptions", name);
             super.visitMethodInsn(opcode, owner, name, desc, itf);
             return;
         }
 
-        Set<Type> declaredExceptions = ExceptionTransformationClassAdapter.methodExceptionMap.get(owner).get(name + desc);
+        Set<Type> declaredExceptions = ExceptionTransformationClassAdapter.methodExceptionMap.get(owner)
+                .get(name + desc);
 
         // No instrumentation if the method doesn't throw anything
         if (declaredExceptions.isEmpty()) {
@@ -194,6 +207,9 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
     private final List<TryCatchBlock> tryCatchBlocks = new LinkedList<>();
     private final List<TryCatchBlock> instrumentedTryCatchBlocks = new LinkedList<>();
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void visitTryCatchBlock(Label start, Label end, Label handler,
                                    String type) {
@@ -205,16 +221,11 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
     /* (non-Javadoc)
      * @see org.objectweb.asm.MethodVisitor#visitEnd()
      */
-    /** {@inheritDoc} */
-//    @Override
-//    public void visitEnd() {
-//        MethodNode mn = (MethodNode) mv;
-//        mn.accept(next);
-//    }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.commons.LocalVariablesSorter#visitMaxs(int, int)
-     */
+    // @Override
+    // public void visitEnd() {
+    //     MethodNode mn = (MethodNode) mv;
+    //     mn.accept(next);
+    // }
 
     /**
      * {@inheritDoc}
@@ -224,12 +235,18 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
         super.visitMaxs(maxStack + 1, maxLocals);
     }
 
+    /**
+     * Tag branch.
+     */
     public void tagBranch() {
         Label dummyTag = new AnnotatedLabel(false, true);
         // dummyTag.info = Boolean.TRUE;
         super.visitLabel(dummyTag);
     }
 
+    /**
+     * Tag branch exit.
+     */
     public void tagBranchExit() {
         Label dummyTag = new AnnotatedLabel(false, false);
         // dummyTag.info = Boolean.FALSE;

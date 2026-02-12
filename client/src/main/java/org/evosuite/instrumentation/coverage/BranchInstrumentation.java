@@ -48,7 +48,7 @@ import java.util.Map;
 public class BranchInstrumentation implements MethodInstrumentation {
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(BranchInstrumentation.class);
 
@@ -93,14 +93,15 @@ public class BranchInstrumentation implements MethodInstrumentation {
                     if (in.getPrevious() instanceof LabelNode) {
                         LabelNode label = (LabelNode) in.getPrevious();
                         if (label.getLabel() instanceof AnnotatedLabel) {
-                            AnnotatedLabel aLabel = (AnnotatedLabel) label.getLabel();
-                            if (aLabel.isStartTag()) {
-                                if (!aLabel.shouldIgnore()) {
+                            AnnotatedLabel alabel = (AnnotatedLabel) label.getLabel();
+                            if (alabel.isStartTag()) {
+                                if (!alabel.shouldIgnore()) {
                                     logger.debug("Found artificial branch: " + v);
                                     Branch b = BranchPool.getInstance(classLoader).getBranchForInstruction(v);
                                     b.setInstrumented(true);
-                                    if (aLabel.shouldIgnoreFalse())
+                                    if (alabel.shouldIgnoreFalse()) {
                                         b.setIgnoreFalse(true);
+                                    }
                                 } else {
                                     continue;
                                 }
@@ -122,27 +123,31 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     /**
      * <p>
-     * getInstrumentation
+     * getInstrumentation.
      * </p>
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     protected InsnList getInstrumentation(BytecodeInstruction instruction) {
-        if (instruction == null)
+        if (instruction == null) {
             throw new IllegalArgumentException("null given");
-        if (!instruction.isActualBranch())
+        }
+        if (!instruction.isActualBranch()) {
             throw new IllegalArgumentException("branch instruction expected");
-        if (!BranchPool.getInstance(classLoader).isKnownAsNormalBranchInstruction(instruction))
+        }
+        if (!BranchPool.getInstance(classLoader).isKnownAsNormalBranchInstruction(instruction)) {
             throw new IllegalArgumentException(
                     "expect given instruction to be known by the BranchPool as a normal branch instruction");
+        }
 
         int opcode = instruction.getASMNode().getOpcode();
         int instructionId = instruction.getInstructionId();
         int branchId = BranchPool.getInstance(classLoader).getActualBranchIdForNormalBranchInstruction(instruction);
-        if (branchId < 0)
+        if (branchId < 0) {
             throw new IllegalStateException(
                     "expect BranchPool to know branchId for all branch instructions");
+        }
 
         InsnList instrumentation = new InsnList();
 
@@ -180,29 +185,33 @@ public class BranchInstrumentation implements MethodInstrumentation {
                 addPassedBranchCall(instrumentation, opcode, branchId, instructionId,
                         "(Ljava/lang/Object;III)V");
                 break;
+            default:
+                break;
         }
         return instrumentation;
     }
 
-    private void addPassedBranchCall(InsnList instrumentation, int opcode, int branchId, int instructionId, String descriptor) {
+    private void addPassedBranchCall(InsnList instrumentation, int opcode, int branchId, int instructionId,
+                                     String descriptor) {
         instrumentation.add(new LdcInsnNode(opcode));
         instrumentation.add(new LdcInsnNode(branchId));
         instrumentation.add(new LdcInsnNode(instructionId));
-        instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, EXECUTION_TRACER, "passedBranch", descriptor, false));
+        instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC, EXECUTION_TRACER, "passedBranch",
+                descriptor, false));
     }
 
     /**
      * Creates the instrumentation for switch statements as follows:
-     * <p>
-     * For each case <key>: in the switch, two calls to the ExecutionTracer are
+     *
+     * <p>For each case &lt;key&gt;: in the switch, two calls to the ExecutionTracer are
      * added to the instrumentation, indicating whether the case is hit directly
      * or not. This is done by addInstrumentationForSwitchCases().
-     * <p>
-     * Additionally in order to trace the execution of the default: case of the
+     *
+     * <p>Additionally in order to trace the execution of the default: case of the
      * switch, the following instrumentation is added using
      * addDefaultCaseInstrumentation():
-     * <p>
-     * A new switch, holding the same <key>s as the original switch we want to
+     *
+     * <p>A new switch, holding the same &lt;key&gt;s as the original switch we want to
      * cover. All cases point to a label after which a call to the
      * ExecutionTracer is added, indicating that the default case was not hit
      * directly. Symmetrically the new switch has a default case: holding a call
@@ -218,8 +227,9 @@ public class BranchInstrumentation implements MethodInstrumentation {
                                                 String className, String methodName) {
         InsnList instrumentation = new InsnList();
 
-        if (!v.isSwitch())
+        if (!v.isSwitch()) {
             throw new IllegalArgumentException("switch instruction expected");
+        }
 
         addInstrumentationForDefaultSwitchCase(v, instrumentation);
 
@@ -229,7 +239,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
     }
 
     /**
-     * For each actual case <key>: of a switch this method adds instrumentation
+     * For each actual case &lt;key&gt;: of a switch this method adds instrumentation
      * for the Branch corresponding to that case to the given instruction list.
      *
      * @param v               a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -240,18 +250,21 @@ public class BranchInstrumentation implements MethodInstrumentation {
     protected void addInstrumentationForSwitchCases(BytecodeInstruction v,
                                                     InsnList instrumentation, String className, String methodName) {
 
-        if (!v.isSwitch())
+        if (!v.isSwitch()) {
             throw new IllegalArgumentException("switch instruction expected");
+        }
 
         List<Branch> caseBranches = BranchPool.getInstance(classLoader).getCaseBranchesForSwitch(v);
 
-        if (caseBranches == null || caseBranches.isEmpty())
+        if (caseBranches == null || caseBranches.isEmpty()) {
             throw new IllegalStateException(
                     "expect BranchPool to know at least one Branch for each switch instruction");
+        }
 
         for (Branch targetCaseBranch : caseBranches) {
-            if (targetCaseBranch.isDefaultCase())
+            if (targetCaseBranch.isDefaultCase()) {
                 continue; // handled elsewhere
+            }
 
             Integer targetCaseValue = targetCaseBranch.getTargetCaseValue();
             Integer targetCaseBranchId = targetCaseBranch.getActualBranchId();
@@ -268,7 +281,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     /**
      * <p>
-     * addInstrumentationForDefaultSwitchCase
+     * addInstrumentationForDefaultSwitchCase.
      * </p>
      *
      * @param v               a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -277,17 +290,19 @@ public class BranchInstrumentation implements MethodInstrumentation {
     protected void addInstrumentationForDefaultSwitchCase(BytecodeInstruction v,
                                                           InsnList instrumentation) {
 
-        if (v.isTableSwitch())
+        if (v.isTableSwitch()) {
             addInstrumentationForDefaultTableswitchCase(v, instrumentation);
+        }
 
-        if (v.isLookupSwitch())
+        if (v.isLookupSwitch()) {
             addInstrumentationForDefaultLookupswitchCase(v, instrumentation);
+        }
 
     }
 
     /**
      * <p>
-     * addInstrumentationForDefaultTableswitchCase
+     * addInstrumentationForDefaultTableswitchCase.
      * </p>
      *
      * @param v               a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -296,8 +311,9 @@ public class BranchInstrumentation implements MethodInstrumentation {
     protected void addInstrumentationForDefaultTableswitchCase(BytecodeInstruction v,
                                                                InsnList instrumentation) {
 
-        if (!v.isTableSwitch())
+        if (!v.isTableSwitch()) {
             throw new IllegalArgumentException("tableswitch instruction expected");
+        }
 
         // setup instructions
 
@@ -309,8 +325,9 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
         int keySize = (toInstrument.max - toInstrument.min) + 1;
         LabelNode[] caseLabels = new LabelNode[keySize];
-        for (int i = 0; i < keySize; i++)
+        for (int i = 0; i < keySize; i++) {
             caseLabels[i] = caseLabel;
+        }
 
         TableSwitchInsnNode mySwitch = new TableSwitchInsnNode(toInstrument.min,
                 toInstrument.max, defaultLabel, caseLabels);
@@ -323,7 +340,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     /**
      * <p>
-     * addInstrumentationForDefaultLookupswitchCase
+     * addInstrumentationForDefaultLookupswitchCase.
      * </p>
      *
      * @param v               a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -332,8 +349,9 @@ public class BranchInstrumentation implements MethodInstrumentation {
     protected void addInstrumentationForDefaultLookupswitchCase(BytecodeInstruction v,
                                                                 InsnList instrumentation) {
 
-        if (!v.isLookupSwitch())
+        if (!v.isLookupSwitch()) {
             throw new IllegalArgumentException("lookup switch expected");
+        }
 
         // setup instructions
         LookupSwitchInsnNode toInstrument = (LookupSwitchInsnNode) v.getASMNode();
@@ -361,7 +379,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     /**
      * <p>
-     * addDefaultCaseInstrumentation
+     * addDefaultCaseInstrumentation.
      * </p>
      *
      * @param v               a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -372,7 +390,8 @@ public class BranchInstrumentation implements MethodInstrumentation {
      * @param endLabel        a {@link org.objectweb.asm.tree.LabelNode} object.
      */
     protected void addDefaultCaseInstrumentation(BytecodeInstruction v,
-                                                 InsnList instrumentation, AbstractInsnNode mySwitch, LabelNode defaultLabel,
+                                                 InsnList instrumentation, AbstractInsnNode mySwitch,
+                                                 LabelNode defaultLabel,
                                                  LabelNode caseLabel, LabelNode endLabel) {
 
         int defaultCaseBranchId = BranchPool.getInstance(classLoader).getDefaultBranchForSwitch(v).getActualBranchId();
@@ -398,7 +417,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     /**
      * <p>
-     * addDefaultCaseCoveredCall
+     * addDefaultCaseCoveredCall.
      * </p>
      *
      * @param v                   a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -419,7 +438,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     /**
      * <p>
-     * addDefaultCaseNotCoveredCall
+     * addDefaultCaseNotCoveredCall.
      * </p>
      *
      * @param v                   a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -437,14 +456,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
                 EXECUTION_TRACER, "passedBranch", "(IIII)V", false));
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.cfg.MethodInstrumentation#executeOnExcludedMethods
-     * ()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -452,13 +463,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
     public boolean executeOnExcludedMethods() {
         return false;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.cfg.MethodInstrumentation#executeOnMainMethod()
-     */
 
     /**
      * {@inheritDoc}

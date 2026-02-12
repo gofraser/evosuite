@@ -68,28 +68,28 @@ public class TransformationStatistics {
     }
 
     /**
-     * <p>reset</p>
+     * <p>reset.</p>
      */
     public static void reset() {
         stats.remove();
     }
 
     /**
-     * IFEQ -> IFLE / IFNE -> IFGT
+     * IFEQ -&gt; IFLE / IFNE -&gt; IFGT.
      */
     public static void transformedBooleanComparison() {
         stats.get().transformedBooleanComparison++;
     }
 
     /**
-     * Insertion of getPredicate
+     * Insertion of getPredicate.
      */
     public static void insertedGet() {
         stats.get().insertedGet++;
     }
 
     /**
-     * Insertion of pushDistance
+     * Insertion of pushDistance.
      *
      * @param opcode a int.
      */
@@ -125,91 +125,91 @@ public class TransformationStatistics {
     }
 
     /**
-     * LCMPL, DCMPL, FCMPL
+     * LCMPL, DCMPL, FCMPL.
      */
     public static void transformedComparison() {
         stats.get().transformedComparison++;
     }
 
     /**
-     * Added implicit else
+     * Added implicit else.
      */
     public static void transformedImplicitElse() {
         stats.get().transformedImplicitElse++;
     }
 
     /**
-     * InstanceOf
+     * InstanceOf.
      */
     public static void transformInstanceOf() {
         stats.get().transformedInstanceOf++;
     }
 
     /**
-     * Return value was boolean
+     * Return value was boolean.
      */
     public static void transformBooleanReturnValue() {
         stats.get().transformedBooleanReturn++;
     }
 
     /**
-     * Parameter value was boolean
+     * Parameter value was boolean.
      */
     public static void transformBooleanParameter() {
         stats.get().transformedBooleanParameter++;
     }
 
     /**
-     * Field was boolean
+     * Field was boolean.
      */
     public static void transformBooleanField() {
         stats.get().transformedBooleanField++;
     }
 
     /**
-     * Parameter value was boolean
+     * Parameter value was boolean.
      */
     public static void transformBackToBooleanParameter() {
         stats.get().transformedBackToBooleanParameter++;
     }
 
     /**
-     * Field was boolean
+     * Field was boolean.
      */
     public static void transformBackToBooleanField() {
         stats.get().transformedBackToBooleanField++;
     }
 
     /**
-     * Method contains boolean in signature, but can't be transformed
+     * Method contains boolean in signature, but can't be transformed.
      */
     public static void foundUntransformableMethod() {
         stats.get().untransformableMethod++;
     }
 
     /**
-     * String.equals or similar
+     * String.equals or similar.
      */
     public static void transformedStringComparison() {
         stats.get().transformedStringComparison++;
     }
 
     /**
-     * Container.isEmpty or similar
+     * Container.isEmpty or similar.
      */
     public static void transformedContainerComparison() {
         stats.get().transformedContainerComparison++;
     }
 
     /**
-     * Bitwise AND, OR, XOR
+     * Bitwise AND, OR, XOR.
      */
     public static void transformedBitwise() {
         stats.get().transformedBitwise++;
     }
 
     /**
-     * <p>writeStatistics</p>
+     * <p>writeStatistics.</p>
      *
      * @param className a {@link java.lang.String} object.
      */
@@ -219,8 +219,11 @@ public class TransformationStatistics {
         boolean needHeader = !logfile.exists();
 
         try (BufferedWriter out = new BufferedWriter(new FileWriter(logfile, true))) {
-            if (needHeader)
-                out.write("ClassName,BooleanComparison,Get,Push0,Push1,PushRef,PushNull,Comparison,ImplicitElse,InstanceOf,BooleanReturn,BooleanParameter,BooleanField,BackToBooleanParameter,BackToBooleanField,UntransformableMethod,StringComparison,ContainerComparison,Bitwise\n");
+            if (needHeader) {
+                out.write("ClassName,BooleanComparison,Get,Push0,Push1,PushRef,PushNull,Comparison,ImplicitElse,"
+                        + "InstanceOf,BooleanReturn,BooleanParameter,BooleanField,BackToBooleanParameter,"
+                        + "BackToBooleanField,UntransformableMethod,StringComparison,ContainerComparison,Bitwise\n");
+            }
 
             Stats s = stats.get();
 

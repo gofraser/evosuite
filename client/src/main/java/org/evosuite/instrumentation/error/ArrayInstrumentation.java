@@ -52,24 +52,25 @@ public class ArrayInstrumentation extends ErrorBranchInstrumenter {
                 || opcode == Opcodes.FASTORE || opcode == Opcodes.DASTORE) {
 
             int loc = 0;
-            if (opcode == Opcodes.IASTORE)
+            if (opcode == Opcodes.IASTORE) {
                 loc = mv.newLocal(Type.INT_TYPE);
-            else if (opcode == Opcodes.BASTORE)
+            } else if (opcode == Opcodes.BASTORE) {
                 loc = mv.newLocal(Type.BYTE_TYPE);
-            else if (opcode == Opcodes.CASTORE)
+            } else if (opcode == Opcodes.CASTORE) {
                 loc = mv.newLocal(Type.CHAR_TYPE);
-            else if (opcode == Opcodes.SASTORE)
+            } else if (opcode == Opcodes.SASTORE) {
                 loc = mv.newLocal(Type.SHORT_TYPE);
-            else if (opcode == Opcodes.AASTORE)
+            } else if (opcode == Opcodes.AASTORE) {
                 loc = mv.newLocal(Type.getType(Object.class));
-            else if (opcode == Opcodes.LASTORE)
+            } else if (opcode == Opcodes.LASTORE) {
                 loc = mv.newLocal(Type.LONG_TYPE);
-            else if (opcode == Opcodes.FASTORE)
+            } else if (opcode == Opcodes.FASTORE) {
                 loc = mv.newLocal(Type.FLOAT_TYPE);
-            else if (opcode == Opcodes.DASTORE)
+            } else if (opcode == Opcodes.DASTORE) {
                 loc = mv.newLocal(Type.DOUBLE_TYPE);
-            else
+            } else {
                 throw new RuntimeException("Unknown type");
+            }
             mv.storeLocal(loc);
 
             mv.visitInsn(Opcodes.DUP);

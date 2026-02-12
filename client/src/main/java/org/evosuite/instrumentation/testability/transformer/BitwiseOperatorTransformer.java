@@ -30,14 +30,16 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
 /**
- * Make sure bitwise operations on transformed Booleans are still valid
+ * Make sure bitwise operations on transformed Booleans are still valid.
  */
 public class BitwiseOperatorTransformer extends MethodNodeTransformer {
 
     private final BooleanTestabilityTransformation booleanTestabilityTransformation;
 
     /**
-     * @param booleanTestabilityTransformation
+     * Constructor for BitwiseOperatorTransformer.
+     *
+     * @param booleanTestabilityTransformation the boolean testability transformation.
      */
     public BitwiseOperatorTransformer(
             BooleanTestabilityTransformation booleanTestabilityTransformation) {
@@ -45,7 +47,8 @@ public class BitwiseOperatorTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.InsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.InsnNode)
      */
     @Override
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {

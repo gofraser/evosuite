@@ -38,21 +38,29 @@ import java.util.Set;
  */
 public class ExceptionTransformationClassAdapter extends ClassVisitor {
 
-    private final static Logger logger = LoggerFactory.getLogger(ExceptionTransformationClassAdapter.class);
+    private static final Logger logger = LoggerFactory.getLogger(ExceptionTransformationClassAdapter.class);
 
     private final String className;
 
     public static Map<String, Map<String, Set<Type>>> methodExceptionMap = new LinkedHashMap<>();
 
+    /**
+     * Constructor for ExceptionTransformationClassAdapter.
+     *
+     * @param cv the class visitor.
+     * @param className the name of the class.
+     */
     public ExceptionTransformationClassAdapter(ClassVisitor cv, String className) {
         super(Opcodes.ASM9, cv);
         this.className = className;
-        if (!methodExceptionMap.containsKey(className))
+        if (!methodExceptionMap.containsKey(className)) {
             methodExceptionMap.put(className, new LinkedHashMap<>());
+        }
     }
 
     /* (non-Javadoc)
-     * @see org.objectweb.asm.ClassVisitor#visitMethod(int, java.lang.String, java.lang.String, java.lang.String, java.lang.String[])
+     * @see org.objectweb.asm.ClassVisitor#visitMethod(int, java.lang.String, java.lang.String,
+     * java.lang.String, java.lang.String[])
      */
 
     /**
@@ -62,14 +70,17 @@ public class ExceptionTransformationClassAdapter extends ClassVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc,
                                      String signature, String[] exceptions) {
         MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-        if (name.equals("<clinit>"))
+        if (name.equals("<clinit>")) {
             return mv;
+        }
 
-        if (name.equals(ClassResetter.STATIC_RESET))
+        if (name.equals(ClassResetter.STATIC_RESET)) {
             return mv;
+        }
 
-        if (!DependencyAnalysis.shouldInstrument(ResourceList.getClassNameFromResourcePath(className), name + desc))
+        if (!DependencyAnalysis.shouldInstrument(ResourceList.getClassNameFromResourcePath(className), name + desc)) {
             return mv;
+        }
 
         logger.info("Applying exception transformation to " + className + ", method " + name
                 + desc);

@@ -30,7 +30,7 @@ import java.util.List;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
 /**
- * This visitor inserts a callback to at the exit of each <clinit>() method
+ * This visitor inserts a callback to at the exit of each &lt;clinit&gt;() method
  * (i.e. after class initialization has ended). If the class has no static
  * fields, no callback is inserted.
  *
@@ -53,12 +53,12 @@ public class EndOfClassInitializerVisitor extends ClassVisitor {
 
         /**
          * <p>
-         * Constructor for PutStaticMethodAdapter.
+         * Constructor for EndOfClassInitializerMethodVisitor.
          * </p>
          *
-         * @param mv          a {@link org.objectweb.asm.MethodVisitor} object.
          * @param className   a {@link java.lang.String} object.
-         * @param finalFields a {@link java.util.List} object.
+         * @param methodName  a {@link java.lang.String} object.
+         * @param mv          a {@link org.objectweb.asm.MethodVisitor} object.
          */
         public EndOfClassInitializerMethodVisitor(String className, String methodName, MethodVisitor mv) {
             super(Opcodes.ASM9, mv);

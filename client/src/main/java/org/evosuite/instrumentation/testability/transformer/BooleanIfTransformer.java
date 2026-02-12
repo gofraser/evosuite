@@ -25,11 +25,11 @@ import org.evosuite.instrumentation.testability.BooleanTestabilityTransformation
 import org.evosuite.instrumentation.testability.DescriptorMapping;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.objectweb.asm.tree.analysis.Frame;
 
 /**
- * Transform IFEQ/IFNE to IFLE/IFGT for transformed Boolean variables
+ * Transform IFEQ/IFNE to IFLE/IFGT for transformed Boolean variables.
  */
 public class BooleanIfTransformer extends MethodNodeTransformer {
 
@@ -37,7 +37,9 @@ public class BooleanIfTransformer extends MethodNodeTransformer {
     private final BooleanTestabilityTransformation booleanTestabilityTransformation;
 
     /**
-     * @param booleanTestabilityTransformation
+     * Constructor for BooleanIfTransformer.
+     *
+     * @param booleanTestabilityTransformation the boolean testability transformation.
      */
     public BooleanIfTransformer(
             BooleanTestabilityTransformation booleanTestabilityTransformation) {
@@ -45,7 +47,8 @@ public class BooleanIfTransformer extends MethodNodeTransformer {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformJumpInsnNode(org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.JumpInsnNode)
+     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformJumpInsnNode(org.objectweb.asm.tree.MethodNode,
+     * org.objectweb.asm.tree.JumpInsnNode)
      */
     @Override
     protected AbstractInsnNode transformJumpInsnNode(MethodNode mn,
@@ -76,7 +79,8 @@ public class BooleanIfTransformer extends MethodNodeTransformer {
                 AbstractInsnNode insn = jumpNode.getPrevious();
                 if (insn instanceof MethodInsnNode) {
                     MethodInsnNode mi = (MethodInsnNode) insn;
-                    if (Type.getReturnType(BooleanTestabilityTransformation.getOriginalDesc(mi.owner, mi.name, mi.desc)) == Type.BOOLEAN_TYPE) {
+                    if (Type.getReturnType(BooleanTestabilityTransformation.getOriginalDesc(mi.owner,
+                            mi.name, mi.desc)) == Type.BOOLEAN_TYPE) {
                         // BooleanTestabilityTransformation.logger.info("Changing IFEQ");
                         jumpNode.setOpcode(Opcodes.IFLE);
                     }

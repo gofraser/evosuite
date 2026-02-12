@@ -32,7 +32,8 @@ public class DequeInstrumentation extends ErrorBranchInstrumenter {
             BlockingDeque.class.getCanonicalName().replace('.', '/'),
             ArrayDeque.class.getCanonicalName().replace('.', '/'));
 
-    private final List<String> emptyListMethods = Arrays.asList("getFirst", "getLast", "removeFirst", "removeLast", "pop");
+    private final List<String> emptyListMethods = Arrays.asList("getFirst", "getLast", "removeFirst",
+            "removeLast", "pop");
 
     public DequeInstrumentation(ErrorConditionMethodAdapter mv) {
         super(mv);

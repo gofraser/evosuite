@@ -62,7 +62,7 @@ public class StringTransformation {
 
     /**
      * <p>
-     * transform
+     * transform.
      * </p>
      *
      * @return a {@link org.objectweb.asm.tree.ClassNode} object.
@@ -78,9 +78,9 @@ public class StringTransformation {
     }
 
     /**
-     * Replace boolean-returning method calls on String classes
+     * Replace boolean-returning method calls on String classes.
      *
-     * @param mn
+     * @param mn the method node to transform.
      */
     private boolean transformStrings(MethodNode mn) {
         logger.info("Current method: " + mn.name);
@@ -238,7 +238,9 @@ public class StringTransformation {
     }
 
     private static boolean isStringMethod(AbstractInsnNode node) {
-        if (node == null) return false;
+        if (node == null) {
+            return false;
+        }
         if (node.getOpcode() == Opcodes.INVOKESTATIC) {
             MethodInsnNode methodInsnNode = (MethodInsnNode) node;
             return methodInsnNode.owner.equals(Type.getInternalName(StringHelper.class))
@@ -249,7 +251,7 @@ public class StringTransformation {
 
     /**
      * <p>
-     * transformMethod
+     * transformMethod.
      * </p>
      *
      * @param mn a {@link org.objectweb.asm.tree.MethodNode} object.

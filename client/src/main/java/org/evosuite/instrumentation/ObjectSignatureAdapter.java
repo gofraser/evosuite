@@ -42,7 +42,7 @@ import java.util.Map;
 public class ObjectSignatureAdapter extends ClassVisitor {
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(ObjectSignatureAdapter.class);
 
@@ -79,8 +79,9 @@ public class ObjectSignatureAdapter extends ClassVisitor {
             for (String line : lines) {
                 line = line.trim();
                 // Skip comments
-                if (line.startsWith("#"))
+                if (line.startsWith("#")) {
                     continue;
+                }
 
                 String[] parameters = line.split(",");
                 if (parameters.length == 2) {

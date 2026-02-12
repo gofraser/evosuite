@@ -43,7 +43,8 @@ public class PrintBytecodeTransformer implements ClassFileTransformer {
     private static final String target_class = Properties.TARGET_CLASS;
 
     /* (non-Javadoc)
-     * @see java.lang.instrument.ClassFileTransformer#transform(java.lang.ClassLoader, java.lang.String, java.lang.Class, java.security.ProtectionDomain, byte[])
+     * @see java.lang.instrument.ClassFileTransformer#transform(java.lang.ClassLoader, java.lang.String,
+     * java.lang.Class, java.security.ProtectionDomain, byte[])
      */
 
     /**
@@ -63,7 +64,7 @@ public class PrintBytecodeTransformer implements ClassFileTransformer {
 
                 ClassVisitor cv = writer;
                 if (classNameWithDots.equals(target_class) || (classNameWithDots.startsWith(target_class + "$"))) {
-//				if (classNameWithDots.startsWith(Properties.PROJECT_PREFIX)) {
+                    // if (classNameWithDots.startsWith(Properties.PROJECT_PREFIX)) {
                     cv = new TraceClassVisitor(cv, new PrintWriter(System.out));
                 }
                 reader.accept(cv, ClassReader.SKIP_FRAMES);
