@@ -95,6 +95,12 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     protected ClientNodeImpl() {
     }
 
+    /**
+     * Creates a new client node instance.
+     *
+     * @param registry   the RMI registry to use
+     * @param identifier the unique identifier for this client
+     */
     public ClientNodeImpl(Registry registry, String identifier) {
         this.registry = registry;
         state = ClientState.NOT_STARTED;
@@ -397,6 +403,9 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     }
 
+    /**
+     * Stops the client node, terminating the statistics thread and the search executor.
+     */
     public void stop() {
         logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client stop() begin");
         if (statisticsThread != null) {

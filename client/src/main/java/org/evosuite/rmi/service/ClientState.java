@@ -87,6 +87,11 @@ public enum ClientState {
         return maxProgress;
     }
 
+    /**
+     * Calculates the progress of the current phase.
+     *
+     * @return the progress of the current phase
+     */
     public int getPhaseProgress() {
         int divisor = maxProgress - startProgress;
         if (divisor == 0) {

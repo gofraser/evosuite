@@ -56,6 +56,12 @@ public class ClientServices<T extends Chromosome<T>> {
         return (ClientServices<T>) instance;
     }
 
+    /**
+     * Registers the client services with the RMI registry using the provided identifier.
+     *
+     * @param identifier the unique identifier for this client
+     * @return true if registration was successful, false otherwise
+     */
     public boolean registerServices(String identifier) {
 
         UtilsRMI.ensureRegistryOnLoopbackAddress();
@@ -77,6 +83,9 @@ public class ClientServices<T extends Chromosome<T>> {
         return clientNode;
     }
 
+    /**
+     * Stops the client services and unexports the RMI object.
+     */
     public void stopServices() {
         if (clientNode != null) {
             clientNode.stop();
