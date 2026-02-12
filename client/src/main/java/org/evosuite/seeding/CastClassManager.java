@@ -191,6 +191,15 @@ public class CastClassManager {
         }
     }
 
+    /**
+     * Selects a cast class for a type variable.
+     *
+     * @param typeVariable     the type variable to resolve
+     * @param allowRecursion   whether recursive types are allowed
+     * @param ownerVariableMap the mapping of type variables
+     * @return the selected cast class
+     * @throws ConstructionFailedException if no assignable class is found
+     */
     public GenericClass<?> selectCastClass(final TypeVariable<?> typeVariable, final boolean allowRecursion,
                                            final Map<TypeVariable<?>, Type> ownerVariableMap)
             throws ConstructionFailedException {
@@ -248,6 +257,15 @@ public class CastClassManager {
         return selectClass(assignableClasses);
     }
 
+    /**
+     * Selects a cast class for a wildcard type.
+     *
+     * @param wildcardType     the wildcard type to resolve
+     * @param allowRecursion   whether recursive types are allowed
+     * @param ownerVariableMap the mapping of type variables
+     * @return the selected cast class
+     * @throws ConstructionFailedException if no assignable class is found
+     */
     public GenericClass<?> selectCastClass(final WildcardType wildcardType, final boolean allowRecursion,
                                            Map<TypeVariable<?>, Type> ownerVariableMap)
             throws ConstructionFailedException {
@@ -422,7 +440,8 @@ public class CastClassManager {
      * @param satisfiesBoundaries predicate to decide whether a {@link GenericClass} is assignable.
      * @return The assignable candidate bounds with at least one type variable.
      */
-    private Set<Class<?>> onlyAssignableAllowTypeVariables(Set<Pair<GenericClass<?>, Class<?>>> candidateBounds,
+    private Set<Class<?>> onlyAssignableAllowTypeVariables(
+            Set<Pair<GenericClass<?>, Class<?>>> candidateBounds,
             Predicate<Pair<GenericClass<?>, Class<?>>> satisfiesBoundaries) {
         return candidateBounds.stream() //
                 .filter(p -> p.getLeft().hasTypeVariables()) //
@@ -438,8 +457,8 @@ public class CastClassManager {
      * @param candidateBounds the set of candidate bounds.
      * @return The candidate bounds without type variables.
      */
-    private Set<Pair<GenericClass<?>, Class<?>>> onlyAssignableForbidTypeVariables(Set<Pair<GenericClass<?>,
-            Class<?>>> candidateBounds) {
+    private Set<Pair<GenericClass<?>, Class<?>>> onlyAssignableForbidTypeVariables(
+            Set<Pair<GenericClass<?>, Class<?>>> candidateBounds) {
         return candidateBounds.stream() //
                 .filter(p -> !p.getLeft().hasTypeVariables()) //
                 .collect(Collectors.toSet());
@@ -464,7 +483,8 @@ public class CastClassManager {
         // Filter what classes from the TestCluster can be assigned to the wildcard type
         Set<Class<?>> assignableClassesFromTestCluster = getAssignableClassesFromTestCluster(isAssignableToWildcard);
         final Set<Class<?>> assignableClasses = new LinkedHashSet<>(assignableClassesFromTestCluster);
-        logger.debug("Found {} assignable classes from test cluster for wildcard", assignableClassesFromTestCluster.size());
+        logger.debug("Found {} assignable classes from test cluster for wildcard",
+                assignableClassesFromTestCluster.size());
 
         // Filter from the value set of the type variable map.
         Set<? extends Class<?>> assignableTypeVariables =

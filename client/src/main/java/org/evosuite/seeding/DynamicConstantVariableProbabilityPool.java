@@ -40,6 +40,9 @@ public class DynamicConstantVariableProbabilityPool implements ConstantPool {
 
     private final RandomAccessQueue<Float> floatPool = new FrequencyBasedRandomAccessQueue<>();
 
+    /**
+     * Initializes the dynamic constant pool with variable probabilities.
+     */
     public DynamicConstantVariableProbabilityPool() {
         /*
          * all pools HAVE to be non-empty

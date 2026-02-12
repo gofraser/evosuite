@@ -34,6 +34,11 @@ public class FrequencyBasedPool<T> {
 
     private int numConstants = 0;
 
+    /**
+     * Adds a constant to the pool.
+     *
+     * @param value the constant to add
+     */
     public void addConstant(T value) {
         numConstants++;
         if (!constants.containsKey(value)) {
@@ -43,6 +48,11 @@ public class FrequencyBasedPool<T> {
         }
     }
 
+    /**
+     * Removes a constant from the pool.
+     *
+     * @param value the constant to remove
+     */
     public void removeConstant(T value) {
         if (constants.containsKey(value)) {
             int num = constants.get(value);
@@ -59,6 +69,11 @@ public class FrequencyBasedPool<T> {
     }
 
 
+    /**
+     * Gets a random constant from the pool based on frequency.
+     *
+     * @return the selected constant
+     */
     public T getRandomConstant() {
         //special case
         if (numConstants == 0) {

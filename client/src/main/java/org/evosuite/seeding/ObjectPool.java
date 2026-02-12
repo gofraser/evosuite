@@ -162,6 +162,9 @@ public class ObjectPool implements Serializable {
         return null;
     }
 
+    /**
+     * Removes tests containing inaccessible elements.
+     */
     protected void filterUnaccessibleTests() {
         for (Set<TestCase> testSet : pool.values()) {
             Iterator<TestCase> testIterator = testSet.iterator();
@@ -234,6 +237,11 @@ public class ObjectPool implements Serializable {
         return pool;
     }
 
+    /**
+     * Writes the object pool to a file.
+     *
+     * @param fileName the name of the file
+     */
     public void writePool(String fileName) {
         try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(fileName))) {
             out.writeObject(this);

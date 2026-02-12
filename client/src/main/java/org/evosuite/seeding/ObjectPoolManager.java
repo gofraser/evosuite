@@ -39,6 +39,11 @@ public class ObjectPoolManager extends ObjectPool {
         initialisePool();
     }
 
+    /**
+     * Gets the singleton instance.
+     *
+     * @return the singleton instance
+     */
     public static ObjectPoolManager getInstance() {
         if (instance == null) {
             synchronized (ObjectPoolManager.class) {
@@ -50,6 +55,11 @@ public class ObjectPoolManager extends ObjectPool {
         return instance;
     }
 
+    /**
+     * Adds an object pool.
+     *
+     * @param pool the object pool to add
+     */
     public void addPool(ObjectPool pool) {
         for (GenericClass<?> clazz : pool.getClasses()) {
             Set<TestCase> tests = pool.getSequences(clazz);
@@ -61,6 +71,9 @@ public class ObjectPoolManager extends ObjectPool {
         }
     }
 
+    /**
+     * Initialises the object pool from files or carving.
+     */
     public void initialisePool() {
         if (!Properties.OBJECT_POOLS.isEmpty()) {
             String[] poolFiles = Properties.OBJECT_POOLS.split(File.pathSeparator);
@@ -100,6 +113,9 @@ public class ObjectPoolManager extends ObjectPool {
         }
     }
 
+    /**
+     * Resets the object pool.
+     */
     public void reset() {
         pool.clear();
         synchronized (ObjectPoolManager.class) {

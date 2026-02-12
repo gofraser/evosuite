@@ -43,6 +43,9 @@ public class DynamicConstantPool implements ConstantPool {
 
     private final RandomAccessQueue<Float> floatPool = new DefaultRandomAccessQueue<>();
 
+    /**
+     * Initializes the dynamic constant pool.
+     */
     public DynamicConstantPool() {
         /*
          * all pools HAVE to be non-empty

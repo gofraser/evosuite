@@ -53,6 +53,9 @@ public class StaticConstantPool implements ConstantPool {
 
     private final Set<Float> floatPool = Collections.synchronizedSet(new LinkedHashSet<>());
 
+    /**
+     * Initializes the static constant pool.
+     */
     public StaticConstantPool() {
         /*
          * all pools HAVE to be non-empty
@@ -93,6 +96,11 @@ public class StaticConstantPool implements ConstantPool {
         return Randomness.choice(stringPool);
     }
 
+    /**
+     * Returns a random type.
+     *
+     * @return a {@link org.objectweb.asm.Type} object.
+     */
     @Override
     public Type getRandomType() {
         return Randomness.choice(typePool);

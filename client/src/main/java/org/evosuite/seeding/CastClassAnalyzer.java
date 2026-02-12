@@ -39,6 +39,12 @@ public class CastClassAnalyzer {
 
     private final Map<Type, Integer> castClassMap = new HashMap<>();
 
+    /**
+     * Analyzes a class to find cast types.
+     *
+     * @param className the name of the class to analyze
+     * @return a map of cast types and their depth
+     */
     public Map<Type, Integer> analyze(String className) {
         ClassNode targetClass = DependencyAnalysis.getClassNode(className);
 
@@ -111,6 +117,12 @@ public class CastClassAnalyzer {
 
     }
 
+    /**
+     * Handles a class node.
+     *
+     * @param targetClass the class node
+     * @param depth       the recursion depth
+     */
     @SuppressWarnings("unchecked")
     public void handle(ClassNode targetClass, int depth) {
         handleClassSignature(targetClass);
@@ -122,6 +134,13 @@ public class CastClassAnalyzer {
         }
     }
 
+    /**
+     * Handles a specific method in a class node.
+     *
+     * @param targetClass the class node
+     * @param methodName  the method name
+     * @param depth       the recursion depth
+     */
     @SuppressWarnings("unchecked")
     public void handle(ClassNode targetClass, String methodName, int depth) {
         handleClassSignature(targetClass);
@@ -133,6 +152,13 @@ public class CastClassAnalyzer {
         }
     }
 
+    /**
+     * Handles a specific method in a class by name.
+     *
+     * @param className  the class name
+     * @param methodName the method name
+     * @param depth      the recursion depth
+     */
     public void handle(String className, String methodName, int depth) {
         ClassNode cn = DependencyAnalysis.getClassNode(className);
         if (cn == null) {
