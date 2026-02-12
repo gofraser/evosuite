@@ -33,6 +33,8 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericMethod;
 import org.objectweb.asm.Type;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
@@ -47,6 +49,7 @@ import java.util.stream.Collectors;
 public class MethodStatement extends EntityWithParametersStatement {
 
     private static final long serialVersionUID = 6134126797102983073L;
+    private static final Logger logger = LoggerFactory.getLogger(MethodStatement.class);
 
     /**
      * The method that is being called.
@@ -119,6 +122,13 @@ public class MethodStatement extends EntityWithParametersStatement {
                             method.getDeclaringClass().getCanonicalName() +
                             "." + method.getName());
         }
+        if (callee != null && !callee.isAssignableTo(method.getOwnerType())) {
+            logger.debug("Skipping incompatible callee {} for method {}.{}",
+                    callee.getVariableClass().getCanonicalName(),
+                    method.getDeclaringClass().getCanonicalName(),
+                    method.getName());
+            return;
+        }
         if (parameters == null) {
             throw new IllegalArgumentException("Parameter list cannot be null for method " +
                     method.getDeclaringClass().getCanonicalName() +
@@ -189,6 +199,23 @@ public class MethodStatement extends EntityWithParametersStatement {
      */
     public void setCallee(VariableReference callee) {
         if (!isStatic()) {
+            if (callee != null && !callee.isAssignableTo(method.getOwnerType())) {
+                StringBuilder context = new StringBuilder();
+                try {
+                    context.append(" at statement ").append(getPosition());
+                    TestCase tc = getTestCase();
+                    if (tc != null) {
+                        context.append(" in test:\n").append(tc.toCode());
+                    }
+                } catch (Throwable t) {
+                    // best-effort context only
+                }
+                throw new IllegalArgumentException(
+                        "Incompatible callee type " + callee.getVariableClass().getCanonicalName()
+                                + " for method " + method.getDeclaringClass().getCanonicalName()
+                                + "." + method.getName()
+                                + context);
+            }
             this.callee = callee;
         }
     }
@@ -408,6 +435,13 @@ public class MethodStatement extends EntityWithParametersStatement {
 
         if (isInstanceMethod()) {
             if (callee.equals(oldVar)) {
+                if (newVar != null && !newVar.isAssignableTo(method.getOwnerType())) {
+                    logger.debug("Skipping incompatible callee {} for method {}.{}",
+                            newVar.getVariableClass().getCanonicalName(),
+                            method.getDeclaringClass().getCanonicalName(),
+                            method.getName());
+                    return;
+                }
                 callee = newVar;
             } else
                  {
@@ -642,6 +676,10 @@ public class MethodStatement extends EntityWithParametersStatement {
                     getPosition());
             objects.remove(callee);
             objects = objects.stream().filter(var -> !(test.getStatement(var.getStPosition()) instanceof FunctionalMockStatement))
+                    .collect(Collectors.toList());
+            // Keep only candidates compatible with the method's declaring type
+            objects = objects.stream()
+                    .filter(var -> var.isAssignableTo(method.getOwnerType()))
                     .collect(Collectors.toList());
 
             if (!objects.isEmpty()) {

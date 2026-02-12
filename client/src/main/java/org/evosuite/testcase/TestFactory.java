@@ -1911,8 +1911,19 @@ public class TestFactory {
                             }
                         }
                     } else {
-                        s.replace(var, Randomness.choice(alternatives));
-                        changed = true;
+                        List<VariableReference> candidates = alternatives;
+                        if (s instanceof MethodStatement) {
+                            MethodStatement ms = (MethodStatement) s;
+                            if (ms.getCallee() == var) {
+                                candidates = alternatives.stream()
+                                        .filter(r -> r.isAssignableTo(ms.getMethod().getMethod().getDeclaringClass()))
+                                        .collect(Collectors.toList());
+                            }
+                        }
+                        if (!candidates.isEmpty()) {
+                            s.replace(var, Randomness.choice(candidates));
+                            changed = true;
+                        }
                     }
                 }
             }
@@ -2047,10 +2058,17 @@ public class TestFactory {
                 GenericMethod method = (GenericMethod) call;
                 if (method.hasTypeParameters()) {
                     try {
-                        call = method.getGenericInstantiation(GenericClassFactory.get(returnType));
+                        call = method.getGenericInstantiationFromReturnValue(GenericClassFactory.get(returnType));
                     } catch (ConstructionFailedException e) {
                         continue;
                     }
+                }
+                // Sanity check: owner type must be compatible with declaring class
+                GenericMethod instantiated = (GenericMethod) call;
+                GenericClass<?> ownerClass = GenericClassFactory.get(instantiated.getOwnerType());
+                Class<?> declaringClass = instantiated.getMethod().getDeclaringClass();
+                if (!ownerClass.isAssignableTo(declaringClass)) {
+                    continue;
                 }
                 if (!((GenericMethod) call).getReturnType().equals(returnType)) {
                     continue;

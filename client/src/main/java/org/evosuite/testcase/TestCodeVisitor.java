@@ -1484,7 +1484,6 @@ public class TestCodeVisitor extends TestVisitor {
             callee_str += getClassName(method.getMethod().getDeclaringClass());
         } else {
             VariableReference callee = statement.getCallee();
-
             if (callee instanceof ConstantValue) {
                 Class<?> declaringClass = method.getMethod().getDeclaringClass();
                 Class<?> calleeClass = callee.getVariableClass();
@@ -1513,8 +1512,14 @@ public class TestCodeVisitor extends TestVisitor {
                         callee.getVariableClass().getDeclaredMethod(method.getName(), method.getRawParameterTypes());
                         callee_str += getVariableName(callee);
                     } catch (NoSuchMethodException e) {
-                        // If not we need to cast to the subtype
-                        callee_str += "((" + getTypeName(method.getMethod().getDeclaringClass()) + ") " + getVariableName(callee) + ")";
+                        // If not we need to cast to the subtype. If callee is unrelated, cast via Object to keep code compilable.
+                        Class<?> declaringClass = method.getMethod().getDeclaringClass();
+                        Class<?> calleeClass = callee.getVariableClass();
+                        if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
+                            callee_str += "((" + getTypeName(declaringClass) + ")(Object)" + getVariableName(callee) + ")";
+                        } else {
+                            callee_str += "((" + getTypeName(declaringClass) + ") " + getVariableName(callee) + ")";
+                        }
                         // TODO: Here we could check if this is actually possible
                         // ...but what would we do?
                         // if(!ClassUtils.getAllSuperclasses(method.getMethod().getDeclaringClass()).contains(callee.getVariableClass())) {

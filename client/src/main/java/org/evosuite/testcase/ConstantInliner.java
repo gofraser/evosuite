@@ -168,6 +168,15 @@ public class ConstantInliner extends ExecutionObserver {
                 }
                 Object object = var.getObject(scope);
 
+                if (statement instanceof MethodStatement) {
+                    MethodStatement ms = (MethodStatement) statement;
+                    if (var.equals(ms.getCallee())) {
+                        // Never inline callees: it can create invalid receiver types
+                        // and does not bring meaningful simplification.
+                        continue;
+                    }
+                }
+
                 if (var.isPrimitive()) {
                     ConstantValue value = new ConstantValue(test, var.getGenericClass());
                     value.setValue(object);
