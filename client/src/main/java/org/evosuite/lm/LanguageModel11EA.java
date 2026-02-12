@@ -32,6 +32,12 @@ public class LanguageModel11EA extends LanguageModelSearch {
     protected static Logger logger = LoggerFactory.getLogger(LanguageModel11EA.class);
 
 
+    /**
+     * Constructor.
+     *
+     * @param statement the constant value to optimize.
+     * @param objective the minimization objective.
+     */
     public LanguageModel11EA(ConstantValue statement, ValueMinimizer.Minimization objective) {
         super(objective, statement);
     }
@@ -54,8 +60,9 @@ public class LanguageModel11EA extends LanguageModelSearch {
             double currentStringScore = best.getFitness();
 
             Chromosome mutant = mutate(best);
-            if (!mutant.isEvaluated())
+            if (!mutant.isEvaluated()) {
                 mutant.setFitness(evaluate(mutant));
+            }
 
             if (mutant.compareTo(best) > 0) {
                 best = mutant;
@@ -65,12 +72,14 @@ public class LanguageModel11EA extends LanguageModelSearch {
 
 
 
-/*        logger.info(String.format("LanguageModel: Produced a new string '%s' with score %f, old string was '%s' with score %f",
+        /*
+        logger.info(String.format(
+                "LanguageModel: Produced a new string '%s' with score %f, old string was '%s' with score %f",
                 best.getValue(),
                 thisStringScore,
                 startPoint,
                 originalStringScore));
-*/
+        */
         return best.getValue();
     }
 

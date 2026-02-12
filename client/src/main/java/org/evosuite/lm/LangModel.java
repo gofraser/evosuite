@@ -23,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -43,22 +42,22 @@ public class LangModel {
     /**
      * Probability of a unigram occurring.
      */
-    private final Map<String, Double> unigram_probs = new HashMap<>();
+    private final Map<String, Double> unigramProbs = new HashMap<>();
     /**
      * Unigram backoff probabilities (used in bigram probability estimation).
      */
-    private final Map<String, Double> unigram_backoff_probs = new HashMap<>();
+    private final Map<String, Double> unigramBackoffProbs = new HashMap<>();
     /**
      * Probability that Unigram2 follows Unigram1, where each key is of the form "Unigram1 Unigram2".
      */
-    private final Map<String, Double> bigram_probs = new HashMap<>();
+    private final Map<String, Double> bigramProbs = new HashMap<>();
 
     //Sentinel unigram values:
     public static final String START_OF_STRING = "<s>";
     public static final String END_OF_STRING = "</s>";
     public static final String START_NEW_WORD = "<w>";
 
-    private double unknown_char_prob = 0;
+    private double unknownCharProb = 0;
 
 
     // Hashes to store most probable next characters in bigram
@@ -66,15 +65,15 @@ public class LangModel {
      * Mapping of the nth most likely unigrams to follow each unigram.
      * Encoded as: <code>(unigram)(n)> -> (unigram)</code>
      */
-    private final HashMap<String, String> context_char = new HashMap<>();
+    private final HashMap<String, String> contextChar = new HashMap<>();
     /**
      * Mapping of the probability of the nth most likely unigram to follow each unigram.
      * Encoded as: <code>(unigram)(n)> -> (log_probability)</code>
      */
-    private final HashMap<String, Double> context_prob = new HashMap<>();
+    private final HashMap<String, Double> contextProb = new HashMap<>();
 
     // Maximum number of characters to predict for each bigram
-    int predicted_chars = 10;
+    int predictedChars = 10;
 
     // Constructors
     // Read in data from language model to be manipulated later
@@ -91,7 +90,7 @@ public class LangModel {
 
         // Flag to indicate length of n-grams currently being read (0 == read
         // nothing)
-        int ngram_len = 0; //size of the n-grams we're reading (i.e. ngram_len = 5 implies 5-grams).
+        int ngramLen = 0; //size of the n-grams we're reading (i.e. ngram_len = 5 implies 5-grams).
 
         InputStream fstream = LangModel.class.getClassLoader().getResourceAsStream(lmFileName);
         // FileInputStream fstream = new FileInputStream(lmFileName);
@@ -100,60 +99,60 @@ public class LangModel {
         BufferedReader br = new BufferedReader(new InputStreamReader(in));
         String strLine;
 
-        double highest_unigram_prob = 0;
+        double highestUnigramProb = 0;
 
         // Read file line by line
         while ((strLine = br.readLine()) != null) {
-            Pattern ngram_len_p = Pattern.compile("(\\d+)-grams:");
-            Matcher match_ngram_len = ngram_len_p.matcher(strLine);
+            Pattern ngramLenP = Pattern.compile("(\\d+)-grams:");
+            Matcher matchNgramLen = ngramLenP.matcher(strLine);
             //does line match (\d+)-grams: ?
-            if (match_ngram_len.find()) {
-                ngram_len = Integer.parseInt(match_ngram_len.group(1));
+            if (matchNgramLen.find()) {
+                ngramLen = Integer.parseInt(matchNgramLen.group(1));
 
-            } else if (ngram_len == 1) {
+            } else if (ngramLen == 1) {
                 //We're looking at unigrams;
-                Pattern unigram_p = Pattern
+                Pattern unigramPattern = Pattern
                         .compile("([-0-9\\.]+)\\s*(\\S+)\\s*([-0-9\\.]+)");
                 // Match with <floating point number> <one or more chars> <floating point number>
                 //                        |                   |                 +------ backoff probability
                 //                        |                   +------------------------ unigram
                 //                        +-------------------------------------------- unigram probability
-                Matcher match_unigram = unigram_p.matcher(strLine);
-                if (match_unigram.find()) {
+                Matcher matchUnigram = unigramPattern.matcher(strLine);
+                if (matchUnigram.find()) {
 
-                    double unigram_prob = Double.parseDouble(match_unigram
+                    double unigramProb = Double.parseDouble(matchUnigram
                             .group(1));
-                    String unigram = match_unigram.group(2);
-                    double unigram_backoff_prob = Double
-                            .parseDouble(match_unigram.group(3));
+                    String unigram = matchUnigram.group(2);
+                    double unigramBackoffProb = Double
+                            .parseDouble(matchUnigram.group(3));
 
-                    unigram_probs.put(unigram, unigram_prob);
-                    unigram_backoff_probs.put(unigram, unigram_backoff_prob);
+                    unigramProbs.put(unigram, unigramProb);
+                    unigramBackoffProbs.put(unigram, unigramBackoffProb);
 
-                    if (unigram_prob < unknown_char_prob) {
-                        unknown_char_prob = unigram_prob;
+                    if (unigramProb < unknownCharProb) {
+                        unknownCharProb = unigramProb;
                     } // if
-                    if (unigram_prob > highest_unigram_prob) {
-                        highest_unigram_prob = unigram_prob;
+                    if (unigramProb > highestUnigramProb) {
+                        highestUnigramProb = unigramProb;
                     } //if
 
                 } // if
 
-            } else if (ngram_len == 2) {
-                Pattern bigram_p = Pattern.compile("([-0-9\\.]+)\\s*(\\S+) (\\S+)");
+            } else if (ngramLen == 2) {
+                Pattern bigramPattern = Pattern.compile("([-0-9\\.]+)\\s*(\\S+) (\\S+)");
                 //Match line with <floating point number> <one or more chars> <one or more chars>
                 //                            |                   |                    +---- end char of bigram
                 //                            |                   +------------------------- start char of bigram
                 //                            +--------------------------------------------- bigram probability
-                Matcher match_bigram = bigram_p.matcher(strLine);
-                if (match_bigram.find()) {
-                    double bigram_prob = Double.parseDouble(match_bigram
+                Matcher matchBigram = bigramPattern.matcher(strLine);
+                if (matchBigram.find()) {
+                    double bigramProb = Double.parseDouble(matchBigram
                             .group(1));
-                    String bigram_start = match_bigram.group(2);
-                    String bigram_end = match_bigram.group(3);
-                    String bigram = bigram_start + " " + bigram_end;
+                    String bigramStart = matchBigram.group(2);
+                    String bigramEnd = matchBigram.group(3);
+                    String bigram = bigramStart + " " + bigramEnd;
 
-                    bigram_probs.put(bigram, bigram_prob);
+                    bigramProbs.put(bigram, bigramProb);
 
                 } // if
 
@@ -162,33 +161,33 @@ public class LangModel {
         // Close the input stream
         in.close();
 
-        ValueComparator bvc = new ValueComparator(bigram_probs);
-        TreeMap<String, Double> sorted_bigram_probs = new TreeMap<>(
+        ValueComparator bvc = new ValueComparator(bigramProbs);
+        TreeMap<String, Double> sortedBigramProbs = new TreeMap<>(
                 bvc);
 
         //Store bigrams sorted by probability:
-        sorted_bigram_probs.putAll(bigram_probs);
+        sortedBigramProbs.putAll(bigramProbs);
 
         // Regular expressions setup
-        Pattern context_p = Pattern.compile("(\\S+) (\\S+)");
+        Pattern contextPattern = Pattern.compile("(\\S+) (\\S+)");
 
         //Go through each bigram in order (most likely first) and build a
         // table of the predicted_chars most likely characters to follow each character.
-        for (Map.Entry<String, Double> entry : sorted_bigram_probs.entrySet()) {
-            Matcher match_context = context_p.matcher(entry.getKey());
-            if (match_context.find()) {
-                String pre = match_context.group(1);
-                String middle = match_context.group(2);
+        for (Map.Entry<String, Double> entry : sortedBigramProbs.entrySet()) {
+            Matcher matchContext = contextPattern.matcher(entry.getKey());
+            if (matchContext.find()) {
+                String pre = matchContext.group(1);
+                String middle = matchContext.group(2);
 
                 // Add to hash (do this by starting counter at 0 and then
                 // testing hash and
                 // filling first empty slot. If no empty slot found then value
                 // is not stored.
-                for (int c = 0; c < predicted_chars; c++) {
+                for (int c = 0; c < predictedChars; c++) {
                     String key = pre + c;
-                    if (!context_char.containsKey(key)) {
-                        context_char.put(key, middle);
-                        context_prob.put(key, entry.getValue());
+                    if (!contextChar.containsKey(key)) {
+                        contextChar.put(key, middle);
+                        contextProb.put(key, entry.getValue());
                         break;
                     } // if
                 } // for
@@ -215,13 +214,13 @@ public class LangModel {
      * Splits a string into bigrams and calculates the language model score.
      * For each bigram, it looks up the probability. The score is the geometric mean
      * of the probability of each bigram in the string according to the model.
-     * <p>
-     * If a given bigram isn't in the model, unigrams are used to estimate the probability
-     * of the bigram instead
+     *
+     * <p>If a given bigram isn't in the model, unigrams are used to estimate the probability
+     * of the bigram instead.
      *
      * @param str     String for which to compute the score
      * @param verbose whether to print information
-     * @return
+     * @return the language model score
      */
     public double score(String str, boolean verbose) {
 
@@ -229,30 +228,30 @@ public class LangModel {
             logger.debug("String is {}", str);
         } // if
 
-        double log_prob = 0;
+        double logProb = 0;
 
         // Get length of string
-        int no_chars = str.length();
+        int numChars = str.length();
 
         // Break string down into bigrams
-        for (int i = -1; i < (no_chars - 1); i++) {
-            String first_char;
-            String second_char;
+        for (int i = -1; i < (numChars - 1); i++) {
+            String firstChar;
+            String secondChar;
             if (i == -1) {
-                first_char = "<s>";
-                second_char = str.substring(0, 1);
+                firstChar = "<s>";
+                secondChar = str.substring(0, 1);
             } else {
-                first_char = str.substring(i, i + 1);
-                second_char = str.substring(i + 1, i + 2);
+                firstChar = str.substring(i, i + 1);
+                secondChar = str.substring(i + 1, i + 2);
             } // if/else
 
-            if (first_char.equals(" ")) {
-                first_char = "<w>";
+            if (firstChar.equals(" ")) {
+                firstChar = "<w>";
             } // if
-            if (second_char.equals(" ")) {
-                second_char = "<w>";
+            if (secondChar.equals(" ")) {
+                secondChar = "<w>";
             } // if
-            String bigram = first_char + " " + second_char;
+            String bigram = firstChar + " " + secondChar;
 
             if (verbose) {
                 logger.debug("Bigram is {}", bigram);
@@ -260,38 +259,38 @@ public class LangModel {
 
             // Get negative log likelihood for each bigram
             // (Either get directly or estimate using backoff)
-            if (bigram_probs.containsKey(bigram)) {
+            if (bigramProbs.containsKey(bigram)) {
                 // Get direct bigram probabilities
-                double bigram_prob = bigram_probs.get(bigram);
-                log_prob = log_prob + bigram_prob;
+                double bigramProb = bigramProbs.get(bigram);
+                logProb = logProb + bigramProb;
                 if (verbose) {
-                    logger.debug("Direct bigram prob: {}\n", Math.pow(10, bigram_prob));
+                    logger.debug("Direct bigram prob: {}\n", Math.pow(10, bigramProb));
                 } // if
-            } else if (unigram_probs.containsKey(second_char) && unigram_backoff_probs.containsKey(first_char)) {
+            } else if (unigramProbs.containsKey(secondChar) && unigramBackoffProbs.containsKey(firstChar)) {
 
                 // Otherwise split into unigrams and do backoff
-                double unigram_backoff_prob = unigram_backoff_probs
-                        .get(first_char);
-                log_prob = log_prob + unigram_backoff_prob;
+                double unigramBackoffProb = unigramBackoffProbs
+                        .get(firstChar);
+                logProb = logProb + unigramBackoffProb;
                 // logger.debug("Unigram ("+first_char+") backoff prob: "+unigram_backoff_prob);
 
 
-                double unigram_prob = unigram_probs.get(second_char);
-                log_prob = log_prob + unigram_prob;
+                double unigramProb = unigramProbs.get(secondChar);
+                logProb = logProb + unigramProb;
 
                 if (verbose) {
-                    double bigram_prob = unigram_backoff_prob + unigram_prob;
+                    double bigramProb = unigramBackoffProb + unigramProb;
                     logger.debug("Inferred bigram prob: {} (formed from unigram probs {}: {} and {}: {})\n",
-                            Math.pow(10, bigram_prob),
-                            first_char, Math.pow(10, unigram_backoff_prob),
-                            second_char, Math.pow(10, unigram_prob));
+                            Math.pow(10, bigramProb),
+                            firstChar, Math.pow(10, unigramBackoffProb),
+                            secondChar, Math.pow(10, unigramProb));
                 } // if
             } else {
                 //Note: we don't penalise strings containing weird (non-printable) characters.
                 //If we hit one (this block), just do nothing.
                 //throw new RuntimeException("Language Model can't give predictions for bigram " + bigram);
 
-                log_prob += unknown_char_prob;
+                logProb += unknownCharProb;
 
             }
 
@@ -300,14 +299,17 @@ public class LangModel {
         // Convert log probs to probs and take geometric mean
         //TODO: if none of the chars are accepted bigrams or unigrams this function used to return 1.0...
         //did averaging the prob (rather than exponentiating the average log-prob) break anything?
-        double avg_prob = Math.pow(10, log_prob / ((double) no_chars));
+        double avgProb = Math.pow(10, logProb / ((double) numChars));
 
-        return avg_prob;
+        return avgProb;
 
     } // score
 
     /**
      * Convenience method for {@link #score(String, boolean)} with verbose flag set to false.
+     *
+     * @param str the string to score
+     * @return the score
      */
     public double score(String str) {
 
@@ -316,6 +318,10 @@ public class LangModel {
     } // score
 
     /**
+     * Returns the nth most likely character to follow pre.
+     *
+     * @param pre the preceding character
+     * @param n the rank of likelihood (0 for most likely)
      * @return the nth most likely character to follow pre
      */
     public String predict_char(String pre, int n) {
@@ -326,15 +332,18 @@ public class LangModel {
 
         String key = pre + n;
 
-        if (n < 0 || n > predicted_chars) {
+        if (n < 0 || n > predictedChars) {
             return null;
         } else {
-            return context_char.get(key);
+            return contextChar.get(key);
         } // if/else
 
     } // predict_char
 
     /**
+     * Returns the nth most likely character that a string will start with.
+     *
+     * @param n the rank of likelihood
      * @return the nth most likely character that a string will start with
      */
     public String predict_char(int n) {
@@ -347,11 +356,13 @@ public class LangModel {
      * Method which returns the probability of the nth most likely character, given a
      * preceeding character (pre). Use in combination with the predict_char methods.
      *
+     * @param pre the preceding character
+     * @param n the rank of likelihood
      * @return the probability of the nth character that is most likely to appear
      */
     public double predict_char_prob(String pre, int n) {
 
-        if (n < 0 || n > predicted_chars) {
+        if (n < 0 || n > predictedChars) {
             return 0;
         }
 
@@ -360,7 +371,7 @@ public class LangModel {
         }
 
         String key = pre + n;
-        Double prob = context_prob.get(key);
+        Double prob = contextProb.get(key);
 
         if (prob != null) {
             prob = Math.pow(10, prob);
@@ -374,8 +385,9 @@ public class LangModel {
     /**
      * Method which returns the probability of the nth most likley character at
      * the start of a sentence.
-     * N.B. Simply calls predict_char_prob/2 with preceeding char set to "<s>".
+     * N.B. Simply calls predict_char_prob/2 with preceeding char set to "&lt;s&gt;".
      *
+     * @param n the rank of likelihood
      * @return the probability associated with the nth most likely character to start a sentence
      */
     public double predict_char_prob(int n) {
@@ -384,43 +396,26 @@ public class LangModel {
 
     } // predict_char_prob
 
+    /**
+     * Checks if the character is a magic character (start/end of string or new word).
+     *
+     * @param character the character to check
+     * @return true if magic, false otherwise
+     */
     public boolean isMagicChar(String character) {
 
         return character.equals(START_NEW_WORD) || character.equals(END_OF_STRING) || character.equals(START_OF_STRING);
     }
 
+    /**
+     * Checks if the character indicates the end of a sentence.
+     *
+     * @param character the character to check
+     * @return true if end of sentence, false otherwise
+     */
     public boolean isEndOfSentence(String character) {
         return character.equals(END_OF_STRING);
     }
 
 
 } // LangModel
-
-/**
- * Compares values based on their values in an associated Map.
- */
-class ValueComparator implements Comparator<String> {
-
-    Map<String, Double> base;
-
-    /**
-     * Create a new comparator using a mapping of probabilities.
-     * The comparator will use the attached probabilities to return the
-     * ordering for two Strings.
-     *
-     * @param base a mapping of probabilities for strings.
-     */
-    public ValueComparator(Map<String, Double> base) {
-        this.base = base;
-    }
-
-    // Note: this comparator imposes orderings that are inconsistent with
-    // equals.
-    public int compare(String a, String b) {
-        if (base.get(a) >= base.get(b)) {
-            return -1;
-        } else {
-            return 1;
-        } // returning 0 would merge keys
-    }
-}

@@ -48,6 +48,11 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
         MAX_EVALUATIONS = Properties.LM_ITERATIONS;
     }
 
+    /**
+     * Returns the number of evaluations performed.
+     *
+     * @return the number of evaluations.
+     */
     public int getEvaluations() {
         return evaluations;
     }
@@ -55,6 +60,12 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
     private int evaluations = 0;
 
 
+    /**
+     * Constructor.
+     *
+     * @param objective the minimization objective.
+     * @param constantValue the constant value.
+     */
     public LanguageModelSearch(ValueMinimizer.Minimization objective, ConstantValue constantValue) {
         try {
             this.languageModel = new LangModel(Properties.LM_SRC);
@@ -68,6 +79,12 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
         this.constantValue = constantValue;
     }
 
+    /**
+     * Mutates the input string randomly.
+     *
+     * @param input the string to mutate.
+     * @return the mutated string.
+     */
     public static String mutateRandom(final String input) {
 
         if (input == null || input.length() == 0) {
@@ -83,12 +100,14 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
         assert tailSize >= 0;
 
         int replacementSize = 1;
-        if (tailSize > 1)
+        if (tailSize > 1) {
             replacementSize = Randomness.nextInt(1, tailSize);
+        }
 
         String replacementString = "";
-        for (int i = 0; i < replacementSize; i++)
+        for (int i = 0; i < replacementSize; i++) {
             replacementString += (char) Randomness.nextInt(' ', '~' + 1);
+        }
 
         output += replacementString;
 
@@ -98,6 +117,12 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
         return output;
     }
 
+    /**
+     * Mutates the input string using EvoSuite's mutation strategy.
+     *
+     * @param input the string to mutate.
+     * @return the mutated string.
+     */
     public static String mutateEvoSuite(final String input) {
 
         char[] array = input.toCharArray();
@@ -115,6 +140,12 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
         return String.valueOf(array);
     }
 
+    /**
+     * Mutates the input string based on the configured mutation type.
+     *
+     * @param input the string to mutate.
+     * @return the mutated string.
+     */
     public String mutate(final String input) {
         if (Properties.LM_MUTATION_TYPE == MutationType.LANGMODEL) {
             return mutateLangModel(input);
@@ -129,6 +160,10 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
 
     /**
      * Build a random string that is at most maxStringLength characters long.
+     *
+     * @param maxStringLength maximum length of the string.
+     * @param previousChar the preceding character context.
+     * @return a generated random string.
      */
     public String generateRandomStringFromModel(int maxStringLength, String previousChar) {
         //Start the string with a random choice from the 10 most likely characters to start a string:
@@ -167,8 +202,9 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
             }
 
 
-            if (!languageModel.isEndOfSentence(nextChar))
+            if (!languageModel.isEndOfSentence(nextChar)) {
                 newString += nextChar;
+            }
 
             previousChar = nextChar;
 
@@ -177,11 +213,20 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
         return newString;
     }
 
+    /**
+     * Generates a random string from the model with an exact target length.
+     *
+     * @param targetStringLength the desired length.
+     * @param previousChar the preceding character context.
+     * @return the generated string.
+     */
     public String generateRandomStringFromModelWithExactLength(int targetStringLength, String previousChar) {
         String newString = generateRandomStringFromModel(targetStringLength, previousChar);
 
         while (newString.length() < targetStringLength) {
-            newString += generateRandomStringFromModel(targetStringLength - newString.length(), newString.charAt(newString.length() - 1) + "");
+            newString += generateRandomStringFromModel(
+                    targetStringLength - newString.length(),
+                    newString.charAt(newString.length() - 1) + "");
         }
 
         assert newString.length() == targetStringLength;
@@ -189,10 +234,22 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
         return newString;
     }
 
+    /**
+     * Generates a random string from the model with an exact target length.
+     *
+     * @param targetStringLength the desired length.
+     * @return the generated string.
+     */
     public String generateRandomStringFromModelWithExactLength(int targetStringLength) {
         return generateRandomStringFromModelWithExactLength(targetStringLength, null);
     }
 
+    /**
+     * Generates a random string from the model.
+     *
+     * @param maxStringLength the maximum length.
+     * @return the generated string.
+     */
     public String generateRandomStringFromModel(int maxStringLength) {
         return generateRandomStringFromModel(maxStringLength, null);
     }
@@ -204,6 +261,9 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
      * gets the character preceeding it
      * gets a character the language model predicts to follow that prefix
      * replaces the character with the predicted character
+     *
+     * @param input the input string.
+     * @return the mutated string.
      */
     public String mutateLangModel(final String input) {
 
@@ -233,7 +293,8 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
         // output = "abc" at this point
         String output = input.substring(0, startPoint);
 
-        String replacementChunk = generateRandomStringFromModelWithExactLength(remainingLength, "" + input.charAt(startPoint));
+        String replacementChunk = generateRandomStringFromModelWithExactLength(
+                remainingLength, "" + input.charAt(startPoint));
 
 
         output += replacementChunk;
@@ -245,8 +306,11 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
 
 
     /**
-     * @param individual
+     * Evaluates the fitness of a chromosome.
+     *
+     * @param individual the chromosome to evaluate.
      * @return the language model score of the string, plus 1 if it does not affect the coverage goal.
+     * @throws EvaluationBudgetExpendedException if the evaluation budget is exceeded.
      */
     protected double evaluate(Chromosome individual) throws EvaluationBudgetExpendedException {
         if (isBudgetExpended()) {
@@ -289,82 +353,5 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
 
     protected void resetEvaluationCounter() {
         evaluations = 0;
-    }
-}
-
-class Chromosome implements Comparable<Chromosome>, Cloneable {
-    private String value;
-    private double fitness = -1;
-    private boolean isEvaluated = false;
-
-    public Chromosome(String value) {
-        this.value = value;
-    }
-
-    public String getValue() {
-        return value;
-    }
-
-    public void setValue(String value) {
-        if (this.value.equals(value)) {
-            return;
-        }
-
-        this.value = value;
-        this.isEvaluated = false;
-    }
-
-    public double getFitness() {
-        return fitness;
-    }
-
-    public void setFitness(double fitness) {
-        this.fitness = fitness;
-        this.isEvaluated = true;
-    }
-
-    public boolean isEvaluated() {
-        return isEvaluated;
-    }
-
-    public Chromosome clone() {
-        Chromosome other = new Chromosome(this.getValue());
-        other.setFitness(this.getFitness());
-        other.isEvaluated = this.isEvaluated();
-        return other;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        Chromosome that = (Chromosome) o;
-
-        //Don't care about fitness or evaluation status:
-
-        return value.equals(that.value);
-    }
-
-    @Override
-    public int hashCode() {
-        int result;
-        long temp;
-        result = value.hashCode();
-        return result;
-            /*temp = Double.doubleToLongBits(fitness);
-            result = 31 * result + (int) (temp ^ (temp >>> 32));
-            result = 31 * result + (isEvaluated ? 1 : 0);
-            return result;*/
-    }
-
-    @Override
-    public int compareTo(Chromosome o) {
-        if (o == null) {
-            return 1;
-        }
-
-        return Double.compare(this.getFitness(), o.getFitness());
-
     }
 }
