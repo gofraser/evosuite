@@ -75,6 +75,13 @@ public class VarMap {
             if (map.containsKey(type)) {
                 return map.get(type);
             } else {
+                for (Entry<TypeVariable<?>, Type> entry : map.entrySet()) {
+                    TypeVariable<?> key = entry.getKey();
+                    if (key.getName().equals(((TypeVariable<?>) type).getName())
+                            && key.getGenericDeclaration().equals(((TypeVariable<?>) type).getGenericDeclaration())) {
+                        return entry.getValue();
+                    }
+                }
                 //FIXME: (wrong) tmp workaround, as WildcardTypeImpl does crash EvoSuite
                 //return Object.class;
                 // TODO: Bounds should be mapped, but might be recursive so we just use unbounded for now
