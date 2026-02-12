@@ -44,8 +44,12 @@ import java.util.stream.Collectors;
 import static java.util.stream.Collectors.toCollection;
 
 /**
- * For a given system under test (SUT), the test cluster defines the set of available classes,
+ * Test cluster definition for a given system under test (SUT).
+ *
+ * <p>
+ * The test cluster defines the set of available classes,
  * their constructors, methods and fields.
+ * </p>
  *
  * @author Gordon Fraser
  */
@@ -115,6 +119,9 @@ public class TestCluster {
         return instance;
     }
 
+    /**
+     * Reset the test cluster.
+     */
     public static void reset() {
         analyzedClasses.clear();
         testMethods.clear();
@@ -157,7 +164,8 @@ public class TestCluster {
         generatorCache.clear();
     }
 
-    private void validateGenerators(Set<GenericAccessibleObject<?>> generators, Set<GenericClass<?>> removed, Set<GenericClass<?>> toRemove) {
+    private void validateGenerators(Set<GenericAccessibleObject<?>> generators, Set<GenericClass<?>> removed,
+                                    Set<GenericClass<?>> toRemove) {
         for (GenericAccessibleObject<?> gao : generators) {
             GenericClass<?> owner = gao.getOwnerClass();
             if (removed.contains(owner)) {
@@ -279,6 +287,11 @@ public class TestCluster {
 
     }
 
+    /**
+     * Invalidate the generator cache for a given class.
+     *
+     * @param klass the class to invalidate the cache for
+     */
     public void invalidateGeneratorCache(GenericClass<?> klass) {
         generatorCache.keySet().removeIf(clazz -> clazz.isAssignableFrom(klass));
     }
@@ -433,19 +446,22 @@ public class TestCluster {
                         logger.debug("5. current instantiated generator: {}", generator);
                         try {
 
-                            if ((generator.isMethod() || generator.isField()) && clazz.isParameterizedType() && GenericClassUtils.isMissingTypeParameters(generator.getGenericGeneratedType())) {
+                            if ((generator.isMethod() || generator.isField()) && clazz.isParameterizedType()
+                                    && GenericClassUtils.isMissingTypeParameters(generator.getGenericGeneratedType())) {
                                 logger.debug("No type parameters present in generator for {}: {}", clazz, generator);
                                 continue;
                             }
 
                             // Set owner type parameters from new return type
-                            GenericAccessibleObject<?> newGenerator = generator.copyWithOwnerFromReturnType(instantiatedGeneratorClazz);
+                            GenericAccessibleObject<?> newGenerator = generator.copyWithOwnerFromReturnType(
+                                    instantiatedGeneratorClazz);
 
                             boolean hadTypeParameters = false;
 
                             // Instantiate potential further type variables based on type variables of return type
                             if (newGenerator.getOwnerClass().hasWildcardOrTypeVariables()) {
-                                logger.debug("Instantiating type parameters of owner type: {}", newGenerator.getOwnerClass());
+                                logger.debug("Instantiating type parameters of owner type: {}",
+                                        newGenerator.getOwnerClass());
                                 GenericClass<?> concreteClass = newGenerator.getOwnerClass()
                                         .getGenericInstantiation(clazz.getTypeVariableMap());
                                 newGenerator = newGenerator.copyWithNewOwner(concreteClass);
@@ -472,13 +488,17 @@ public class TestCluster {
                             }
 
                             logger.debug("Current generator: {}", newGenerator);
-                            if ((!hadTypeParameters && generatorClazz.equals(clazz)) || clazz.isAssignableFrom(newGenerator.getGeneratedType())) {
-                                logger.debug("Got new generator: {} which generated: {}", newGenerator, newGenerator.getGeneratedClass());
-                                logger.debug("{} vs {}", (!hadTypeParameters && generatorClazz.equals(clazz)), clazz.isAssignableFrom(newGenerator.getGeneratedType()));
-                                if(Properties.DEBUG && !clazz.hasTypeVariables()) {
+                            if ((!hadTypeParameters && generatorClazz.equals(clazz))
+                                    || clazz.isAssignableFrom(newGenerator.getGeneratedType())) {
+                                logger.debug("Got new generator: {} which generated: {}", newGenerator,
+                                        newGenerator.getGeneratedClass());
+                                logger.debug("{} vs {}", (!hadTypeParameters && generatorClazz.equals(clazz)),
+                                        clazz.isAssignableFrom(newGenerator.getGeneratedType()));
+                                if (Properties.DEBUG && !clazz.hasTypeVariables()) {
                                     logger.warn("{} has no type variables", clazz);
-                                    if(!newGenerator.getGeneratedClass().canBeInstantiatedTo(clazz)) {
-                                        logger.error("{} cannot be assigned to {}", newGenerator.getGeneratedClass(), clazz);
+                                    if (!newGenerator.getGeneratedClass().canBeInstantiatedTo(clazz)) {
+                                        logger.error("{} cannot be assigned to {}",
+                                                newGenerator.getGeneratedClass(), clazz);
                                         throw new Error("should not happen");
                                     }
                                 }
@@ -505,11 +525,11 @@ public class TestCluster {
                     // There are cases where this might lead to relevant cast classes not being included
                     // but in manycases it will pull in large numbers of useless dependencies.
                     // Commented out for now, until we find a case where the problem can be properly studied.
-//                } else {
-//                    logger.debug("4. generator {} CANNOT be instantiated to {}", generatorClazz, clazz);
-//                    for(GenericClass boundClass : generatorClazz.getGenericBounds()) {
-//                        CastClassManager.getInstance().addCastClass(boundClass, 0);
-//                    }
+                    //                } else {
+                    //                    logger.debug("4. generator {} CANNOT be instantiated to {}", generatorClazz, clazz);
+                    //                    for(GenericClass boundClass : generatorClazz.getGenericBounds()) {
+                    //                        CastClassManager.getInstance().addCastClass(boundClass, 0);
+                    //                    }
                 }
             }
             logger.debug("Found generators for {}: {}", clazz, targetGenerators.size());
@@ -632,6 +652,8 @@ public class TestCluster {
     }
 
     /**
+     * Get the set of analyzed classes.
+     *
      * @return the analyzedClasses
      * @deprecated This field is deprecated and should not be used. It is maintained for backward compatibility.
      */
@@ -692,6 +714,13 @@ public class TestCluster {
 
     /**
      * Get modifiers for special cases.
+     *
+     * @param clazz the class to get calls for
+     * @return the set of calls
+     * @throws ConstructionFailedException if construction fails
+     */
+    /**
+     * Get calls for special cases (Collection, Map, Number).
      *
      * @param clazz the class to get calls for
      * @return the set of calls
@@ -910,7 +939,7 @@ public class TestCluster {
      * FIXME: This is a workaround for a bug where Integer is not contained in
      * the generatorCache, but there is a key. No idea how it comes to place
      *
-     * @param clazz
+     * @param clazz the class to add a numeric constructor for
      */
     private void addNumericConstructor(GenericClass<?> clazz) {
         if (!generatorCache.containsKey(clazz)) {
@@ -1042,8 +1071,9 @@ public class TestCluster {
      * @throws ConstructionFailedException if construction fails
      */
     public GenericAccessibleObject<?> getRandomGenerator(GenericClass<?> clazz,
-                                                         Set<GenericAccessibleObject<?>> excluded, TestCase test, int position,
-                                                         VariableReference generatorRefToExclude, int recursionDepth) throws ConstructionFailedException {
+                                                         Set<GenericAccessibleObject<?>> excluded, TestCase test,
+                                                         int position, VariableReference generatorRefToExclude,
+                                                         int recursionDepth) throws ConstructionFailedException {
 
         logger.debug("Getting random generator for " + clazz);
 
@@ -1053,7 +1083,8 @@ public class TestCluster {
             GenericClass<?> concreteClass = clazz.getGenericInstantiation();
             if (!concreteClass.equals(clazz)) {
                 logger.debug("Target class is generic: " + clazz + ", getting instantiation " + concreteClass);
-                return getRandomGenerator(concreteClass, excluded, test, position, generatorRefToExclude, recursionDepth);
+                return getRandomGenerator(concreteClass, excluded, test, position, generatorRefToExclude,
+                        recursionDepth);
             }
         }
 
@@ -1096,13 +1127,13 @@ public class TestCluster {
                 }
             }
 
-            Set<GenericAccessibleObject<?>> candidatesWithNoTypeParameters = candidates.stream().
-                    filter(p -> !p.hasTypeParameters()).
-                    collect(Collectors.toCollection(LinkedHashSet::new));
+            Set<GenericAccessibleObject<?>> candidatesWithNoTypeParameters = candidates.stream()
+                    .filter(p -> !p.hasTypeParameters())
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
 
-            if(!candidatesWithNoTypeParameters.isEmpty()) {
+            if (!candidatesWithNoTypeParameters.isEmpty()) {
                 generator = Randomness.choice(candidatesWithNoTypeParameters);
-            }else{
+            } else {
                 generator = Randomness.choice(candidates);
             }
             logger.debug("Chosen generator: " + generator);
@@ -1129,7 +1160,7 @@ public class TestCluster {
      * Randomly select a generator for an Object.class instance
      *
      * @return a generator of type GenericAccessibleObject<?> or <code>null</code>
-     * @throws ConstructionFailedException
+     * @throws ConstructionFailedException if construction fails
      */
     public GenericAccessibleObject<?> getRandomObjectGenerator()
             throws ConstructionFailedException {
@@ -1273,7 +1304,9 @@ public class TestCluster {
             candidateTestMethods = sortCalls(candidateTestMethods);
         }
 
-        GenericAccessibleObject<?> choice = Properties.SORT_CALLS ? ListUtil.selectRankBiased(candidateTestMethods) : Randomness.choice(candidateTestMethods);
+        GenericAccessibleObject<?> choice = Properties.SORT_CALLS
+                ? ListUtil.selectRankBiased(candidateTestMethods)
+                : Randomness.choice(candidateTestMethods);
         logger.debug("Chosen call: " + choice);
         if (choice.getOwnerClass().hasWildcardOrTypeVariables()) {
             GenericClass<?> concreteClass = choice.getOwnerClass().getGenericInstantiation();

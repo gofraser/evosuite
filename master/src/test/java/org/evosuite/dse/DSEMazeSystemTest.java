@@ -97,7 +97,7 @@ public class DSEMazeSystemTest extends SystemTestBase {
         EvoSuite evosuite = new EvoSuite();
         String targetClass = MazeClientArrays.class.getCanonicalName();
         Properties.TARGET_CLASS = targetClass;
-        Properties.SELECTED_DSE_ARRAYS_MEMORY_MODEL_VERSION = Properties.DSE_ARRAYS_MEMORY_MODEL_VERSION.LAZY_VARIABLES;
+        Properties.SELECTED_DseArraysMemoryModelVersion = Properties.DseArraysMemoryModelVersion.LAZY_VARIABLES;
 
         String[] command = new String[]{"-generateSuiteUsingDSE", "-class", targetClass};
 
@@ -119,7 +119,7 @@ public class DSEMazeSystemTest extends SystemTestBase {
         EvoSuite evosuite = new EvoSuite();
         String targetClass = MazeClientArrays.class.getCanonicalName();
         Properties.TARGET_CLASS = targetClass;
-        Properties.SELECTED_DSE_ARRAYS_MEMORY_MODEL_VERSION = Properties.DSE_ARRAYS_MEMORY_MODEL_VERSION.SELECT_STORE_EXPRESSIONS;
+        Properties.SELECTED_DseArraysMemoryModelVersion = Properties.DseArraysMemoryModelVersion.SELECT_STORE_EXPRESSIONS;
 
         String[] command = new String[]{"-generateSuiteUsingDSE", "-class", targetClass};
 

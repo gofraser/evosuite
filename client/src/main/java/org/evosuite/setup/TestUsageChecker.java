@@ -47,6 +47,12 @@ public class TestUsageChecker {
 
     private static final Logger logger = LoggerFactory.getLogger(TestUsageChecker.class);
 
+    /**
+     * Determine if a constructor can be used for testing.
+     *
+     * @param c the constructor to check
+     * @return true if the constructor can be used
+     */
     public static boolean canUse(Constructor<?> c) {
 
         if (c.isSynthetic()) {
@@ -115,6 +121,12 @@ public class TestUsageChecker {
         return false;
     }
 
+    /**
+     * Determine if a type can be used for testing.
+     *
+     * @param t the type to check
+     * @return true if the type can be used
+     */
     public static boolean canUse(java.lang.reflect.Type t) {
         if (t instanceof Class<?>) {
             return canUse((Class<?>) t);
@@ -131,6 +143,12 @@ public class TestUsageChecker {
         return true;
     }
 
+    /**
+     * Determine if a class can be used for testing.
+     *
+     * @param c the class to check
+     * @return true if the class can be used
+     */
     public static boolean canUse(Class<?> c) {
         //if (Throwable.class.isAssignableFrom(c))
         //    return false;
@@ -150,8 +168,11 @@ public class TestUsageChecker {
                 }
             } catch (java.lang.ArrayStoreException e) {
                 // https://bugs.java.com/view_bug.do?bug_id=JDK-7183985
-                AtMostOnceLogger.warn(LoggingUtils.getEvoLogger(), "ArrayStoreException caught while handling class " + c.getName());
-                AtMostOnceLogger.warn(LoggingUtils.getEvoLogger(), "This is likely due to a missing dependency used as annotation: https://bugs.java.com/view_bug.do?bug_id=JDK-7183985");
+                AtMostOnceLogger.warn(LoggingUtils.getEvoLogger(),
+                        "ArrayStoreException caught while handling class " + c.getName());
+                AtMostOnceLogger.warn(LoggingUtils.getEvoLogger(),
+                        "This is likely due to a missing dependency used as annotation: "
+                                + "https://bugs.java.com/view_bug.do?bug_id=JDK-7183985");
                 return false;
             }
         }
@@ -208,7 +229,8 @@ public class TestUsageChecker {
         // TODO: This should be unnecessary if Java reflection works...
         // This is inefficient
         if (TestClusterUtils.isAnonymousClass(c.getName())) {
-            String message = c + " looks like an anonymous class, ignoring it (although reflection says " + c.isAnonymousClass() + ") " + c.getSimpleName();
+            String message = c + " looks like an anonymous class, ignoring it (although reflection says "
+                    + c.isAnonymousClass() + ") " + c.getSimpleName();
             AtMostOnceLogger.warn(logger, message);
             return false;
         }
@@ -230,10 +252,23 @@ public class TestUsageChecker {
         return false;
     }
 
+    /**
+     * Determine if a field can be used for testing.
+     *
+     * @param f the field to check
+     * @return true if the field can be used
+     */
     public static boolean canUse(Field f) {
         return canUse(f, f.getDeclaringClass());
     }
 
+    /**
+     * Determine if a field can be used for testing.
+     *
+     * @param f the field to check
+     * @param ownerClass the class that owns the field
+     * @return true if the field can be used
+     */
     public static boolean canUse(Field f, Class<?> ownerClass) {
 
         // TODO we could enable some methods from Object, like getClass
@@ -303,10 +338,23 @@ public class TestUsageChecker {
         return false;
     }
 
+    /**
+     * Determine if a method can be used for testing.
+     *
+     * @param m the method to check
+     * @return true if the method can be used
+     */
     public static boolean canUse(Method m) {
         return canUse(m, m.getDeclaringClass());
     }
 
+    /**
+     * Determine if a method can be used for testing.
+     *
+     * @param m the method to check
+     * @param ownerClass the class that owns the method
+     * @return true if the method can be used
+     */
     public static boolean canUse(Method m, Class<?> ownerClass) {
 
         final MethodNameMatcher matcher = new MethodNameMatcher();
@@ -335,7 +383,8 @@ public class TestUsageChecker {
             }
         }
 
-        if (m.isAnnotationPresent(Test.class) || m.isAnnotationPresent(Before.class) || m.isAnnotationPresent(BeforeClass.class)
+        if (m.isAnnotationPresent(Test.class) || m.isAnnotationPresent(Before.class)
+                || m.isAnnotationPresent(BeforeClass.class)
                 || m.isAnnotationPresent(After.class) || m.isAnnotationPresent(AfterClass.class)) {
             logger.debug("Excluding test method " + m.getName());
             return false;
@@ -365,7 +414,8 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (!m.getReturnType().equals(String.class) && (!canUse(m.getReturnType()) || !canUse(m.getGenericReturnType()))) {
+        if (!m.getReturnType().equals(String.class) && (!canUse(m.getReturnType())
+                || !canUse(m.getGenericReturnType()))) {
             return false;
         }
 
@@ -401,7 +451,8 @@ public class TestUsageChecker {
             if (!m.getDeclaringClass().equals(targetClass)) {
                 return false;
             } else {
-                if (GraphPool.getInstance(ownerClass.getClassLoader()).getActualCFG(Properties.TARGET_CLASS, m.getName() + Type.getMethodDescriptor(m)) == null) {
+                if (GraphPool.getInstance(ownerClass.getClassLoader()).getActualCFG(Properties.TARGET_CLASS,
+                        m.getName() + Type.getMethodDescriptor(m)) == null) {
                     // Don't cover generated hashCode
                     // TODO: This should work via annotations
                     return false;
@@ -440,7 +491,8 @@ public class TestUsageChecker {
         if(m.getTypeParameters().length > 0) {
             logger.debug("Cannot handle generic methods at this point");
             if(m.getDeclaringClass().equals(Properties.getTargetClass())) {
-                LoggingUtils.getEvoLogger().info("* Skipping method "+m.getName()+": generic methods are not handled yet");
+                LoggingUtils.getEvoLogger().info("* Skipping method " + m.getName()
+                        + ": generic methods are not handled yet");
             }
             return false;
         }
@@ -551,6 +603,13 @@ public class TestUsageChecker {
         return false;
     }
 
+    /**
+     * Check if a class is included in a list of packages.
+     *
+     * @param className the class name to check
+     * @param classList the list of package prefixes
+     * @return true if the class is included in the list
+     */
     private static boolean isClassIncludedInPackage(String className, List<String> classList) {
         String result = classList.stream()
                 .filter(class1 -> className.startsWith(class1))

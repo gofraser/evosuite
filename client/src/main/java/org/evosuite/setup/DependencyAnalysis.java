@@ -46,7 +46,7 @@ import java.io.InputStream;
 import java.util.*;
 
 /**
- * This class performs static analysis before everything else initializes
+ * This class performs static analysis before everything else initializes.
  *
  * @author Gordon Fraser
  */
@@ -81,6 +81,11 @@ public class DependencyAnalysis {
         return inheritanceTree;
     }
 
+    /**
+     * Initialize the inheritance tree from the classpath.
+     *
+     * @param classPath the classpath to use
+     */
     public static void initInheritanceTree(List<String> classPath) {
         if (inheritanceTree == null) {
             logger.debug("Calculate inheritance hierarchy");
@@ -91,6 +96,11 @@ public class DependencyAnalysis {
         InheritanceTreeGenerator.gatherStatistics(inheritanceTree);
     }
 
+    /**
+     * Initialize the call graph for a given class.
+     *
+     * @param className the class to analyze
+     */
     public static void initCallGraph(String className) {
         logger.debug("Calculate call tree");
         CallGraph callGraph = CallGraphGenerator.analyze(className);
@@ -112,6 +122,13 @@ public class DependencyAnalysis {
 
     }
 
+    /**
+     * Analyze a class.
+     *
+     * @param className the class to analyze
+     * @throws RuntimeException if an error occurs
+     * @throws ClassNotFoundException if the class is not found
+     */
     private static void analyze(String className) throws RuntimeException,
             ClassNotFoundException {
 
@@ -165,7 +182,8 @@ public class DependencyAnalysis {
 
         initInheritanceTree(classPath);
 
-        targetClasses = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getAllClasses(target, false);
+        targetClasses = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getAllClasses(target, false);
         for (String className : targetClasses) {
             Properties.TARGET_CLASS = className;
             initCallGraph(className);
@@ -175,6 +193,11 @@ public class DependencyAnalysis {
         return targetClasses;
     }
 
+    /**
+     * Load all classes in the call graph.
+     *
+     * @param callGraph the call graph to use
+     */
     private static void loadCallTreeClasses(CallGraph callGraph) {
         for (String className : callGraph.getClasses()) {
             if (className.startsWith(Properties.TARGET_CLASS + "$")) {
@@ -234,7 +257,8 @@ public class DependencyAnalysis {
     // TODO implement something that takes parameters using properties -
     // generalize this method.
     public static boolean isTargetProject(String className) {
-        if (!className.startsWith(Properties.PROJECT_PREFIX) && (Properties.TARGET_CLASS_PREFIX.isEmpty() || !className.startsWith(Properties.TARGET_CLASS_PREFIX))) {
+        if (!className.startsWith(Properties.PROJECT_PREFIX) && (Properties.TARGET_CLASS_PREFIX.isEmpty()
+                || !className.startsWith(Properties.TARGET_CLASS_PREFIX))) {
             return false;
         }
 
@@ -318,6 +342,12 @@ public class DependencyAnalysis {
         return false;
     }
 
+    /**
+     * Get the ClassNode for a given class.
+     *
+     * @param className the class name
+     * @return the ClassNode
+     */
     public static ClassNode getClassNode(String className) {
         if (!classCache.containsKey(className)) {
             try {
@@ -331,13 +361,26 @@ public class DependencyAnalysis {
 
     }
 
+    /**
+     * Get all loaded ClassNodes.
+     *
+     * @return the collection of ClassNodes
+     */
     public static Collection<ClassNode> getAllClassNodes() {
         return classCache.values();
     }
 
+    /**
+     * Load a ClassNode from a class name.
+     *
+     * @param className the class name
+     * @return the ClassNode
+     * @throws IOException if an error occurs
+     */
     private static ClassNode loadClassNode(String className) throws IOException {
 
-        InputStream classStream = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(className);
+        InputStream classStream = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getClassAsStream(className);
         if (classStream == null) {
             // This used to throw an IOException that leads to null being
             // returned, so for now we're just returning null directly
@@ -360,10 +403,15 @@ public class DependencyAnalysis {
 
     private static void gatherStatistics() {
         ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Predicates, BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchCounter());
+                .trackOutputVariable(RuntimeVariable.Predicates,
+                        BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                                .getBranchCounter());
         ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Instrumented_Predicates, BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumArtificialBranches());
-        int numBranches = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchCounter() * 2;
+                .trackOutputVariable(RuntimeVariable.Instrumented_Predicates,
+                        BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                                .getNumArtificialBranches());
+        int numBranches = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getBranchCounter() * 2;
         ClientServices
                 .getInstance()
                 .getClientNode()
@@ -372,18 +420,22 @@ public class DependencyAnalysis {
                 .getInstance()
                 .getClientNode()
                 .trackOutputVariable(RuntimeVariable.Total_Branches_Real,
-                        ((BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchCounter()
-                                - BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumArtificialBranches())) * 2);
+                        ((BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                                .getBranchCounter()
+                                - BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                                .getNumArtificialBranches())) * 2);
         ClientServices
                 .getInstance()
                 .getClientNode()
                 .trackOutputVariable(RuntimeVariable.Total_Branches_Instrumented,
-                        (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumArtificialBranches() * 2));
+                        (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                                .getNumArtificialBranches() * 2));
         ClientServices
                 .getInstance()
                 .getClientNode()
                 .trackOutputVariable(RuntimeVariable.Branchless_Methods,
-                        BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranchlessMethods().size());
+                        BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                                .getBranchlessMethods().size());
         ClientServices
                 .getInstance()
                 .getClientNode()
@@ -413,7 +465,8 @@ public class DependencyAnalysis {
                             .getInstance()
                             .getClientNode()
                             .trackOutputVariable(RuntimeVariable.Mutants,
-                                    MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter());
+                                    MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                                            .getMutantCounter());
                     break;
 
                 default:

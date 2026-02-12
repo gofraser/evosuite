@@ -55,6 +55,8 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /**
+ * Generator for the test cluster.
+ *
  * @author Gordon Fraser
  */
 public class TestClusterGenerator {
@@ -133,19 +135,28 @@ public class TestClusterGenerator {
         gatherStatistics();
     }
 
+    /**
+     * Add new dependencies to the test cluster.
+     *
+     * @param rawTypes the types to add
+     */
     public void addNewDependencies(Collection<Class<?>> rawTypes) {
 
         Inputs.checkNull(rawTypes);
 
         Set<String> blackList = new LinkedHashSet<>(SetupConstants.BLACKLIST_EVOSUITE_PRIMITIVES);
 
-        rawTypes.stream().forEach(c -> dependencies.add(new DependencyPair(0, GenericClassFactory.get(c).getRawClass())));
+        rawTypes.stream().forEach(
+                c -> dependencies.add(new DependencyPair(0, GenericClassFactory.get(c).getRawClass())));
 
         resolveDependencies(blackList);
     }
 
     // -----------------------------------------------------------------------------
 
+    /**
+     * Handle special cases for the test cluster.
+     */
     private void handleSpecialCases() {
 
         if (Properties.P_REFLECTION_ON_PRIVATE > 0 && Properties.REFLECTION_START_PERCENT < 1) {
@@ -188,7 +199,8 @@ public class TestClusterGenerator {
     private void handleCastClasses() {
         Set<String> blackList = new LinkedHashSet<>(SetupConstants.PRIMITIVE_TYPES);
         Set<GenericClass<?>> existingCastClasses = new LinkedHashSet<>(CastClassManager.getInstance().getCastClasses());
-        logger.info("Handling cast classes. Found " + existingCastClasses.size() + " existing classes in CastClassManager.");
+        logger.info("Handling cast classes. Found " + existingCastClasses.size()
+                + " existing classes in CastClassManager.");
         for (GenericClass<?> clazz : existingCastClasses) {
             logger.info("Adding existing cast class as dependency: " + clazz.getClassName());
             addCastClassDependencyIfAccessible(clazz.getClassName(), blackList);
@@ -261,7 +273,7 @@ public class TestClusterGenerator {
     }
 
     /**
-     * Continue adding generators for classes that are needed
+     * Continue adding generators for classes that are needed.
      */
     private void resolveDependencies(Set<String> blackList) {
 
@@ -322,9 +334,11 @@ public class TestClusterGenerator {
     }
 
     /**
-     * All public methods defined directly in the SUT should be covered
+     * All public methods defined directly in the SUT should be covered.
+     *
      * <p>
      * TODO: What if we use instrument_parent?
+     * </p>
      */
     @SuppressWarnings("unchecked")
     private void initializeTargetMethods() throws RuntimeException, ClassNotFoundException {
@@ -340,7 +354,8 @@ public class TestClusterGenerator {
         }
         targetClasses.add(targetClass);
         addDeclaredClasses(targetClasses, targetClass);
-        if ((!targetClass.isInterface() && Modifier.isAbstract(targetClass.getModifiers())) || isInterfaceWithDefaultMethods(targetClass)) {
+        if ((!targetClass.isInterface() && Modifier.isAbstract(targetClass.getModifiers()))
+                || isInterfaceWithDefaultMethods(targetClass)) {
             logger.info("SUT is an abstract class");
 
             Set<Class<?>> subclasses = ConcreteClassAnalyzer.getInstance().getConcreteClasses(targetClass,
@@ -418,8 +433,9 @@ public class TestClusterGenerator {
                     String orig = name;
                     name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getName(), "<init>",
                             org.objectweb.asm.Type.getConstructorDescriptor(constructor));
-                    if (!orig.equals(name))
+                    if (!orig.equals(name)) {
                         logger.info("TT name: " + orig + " -> " + name);
+                    }
 
                 }
 
@@ -449,8 +465,9 @@ public class TestClusterGenerator {
                     String orig = name;
                     name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getName(), method.getName(),
                             org.objectweb.asm.Type.getMethodDescriptor(method));
-                    if (!orig.equals(name))
+                    if (!orig.equals(name)) {
                         logger.info("TT name: " + orig + " -> " + name);
+                    }
                 }
 
                 if (TestUsageChecker.canUse(method, clazz)) {
@@ -558,7 +575,8 @@ public class TestClusterGenerator {
                                 && !(field.getType().isPrimitive())
                                 // changing final strings also doesn't make much sense
                                 && !(Modifier.isFinal(field.getModifiers()) && field.getType().equals(String.class))
-                                //static fields lead to just too many problems... although this could be set as a parameter
+                                // static fields lead to just too many problems...
+                                // although this could be set as a parameter
                                 && !Modifier.isStatic(field.getModifiers())
                         ) {
                             GenericField genericField = new GenericField(field, clazz);
@@ -608,13 +626,15 @@ public class TestClusterGenerator {
                     continue;
                 }
 
-                if (!TestUsageChecker.canUse(clazz))
+                if (!TestUsageChecker.canUse(clazz)) {
                     continue;
+                }
 
                 Set<String> fields = staticFields.get(className);
                 for (Field field : TestClusterUtils.getFields(clazz)) {
-                    if (!TestUsageChecker.canUse(field, clazz))
+                    if (!TestUsageChecker.canUse(field, clazz)) {
                         continue;
+                    }
 
                     if (fields.contains(field.getName())) {
                         if (!isFinalField(field)) {
@@ -622,7 +642,8 @@ public class TestClusterGenerator {
                             // cluster.addTestCall(new GenericField(field, clazz));
                             // Count static field as modifier of SUT, not as test call:
                             GenericField genericField = new GenericField(field, clazz);
-                            cluster.addModifier(GenericClassFactory.get(Properties.getTargetClassAndDontInitialise()), genericField);
+                            cluster.addModifier(GenericClassFactory.get(Properties.getTargetClassAndDontInitialise()),
+                                    genericField);
                         }
                     }
                 }
@@ -635,22 +656,26 @@ public class TestClusterGenerator {
             for (MethodIdentifier methodId : methodIdentifiers) {
 
                 Class<?> clazz = TestClusterUtils.getClass(methodId.getClassName());
-                if (clazz == null)
+                if (clazz == null) {
                     continue;
+                }
 
-                if (!TestUsageChecker.canUse(clazz))
+                if (!TestUsageChecker.canUse(clazz)) {
                     continue;
+                }
 
                 Method method = TestClusterUtils.getMethod(clazz, methodId.getMethodName(), methodId.getDesc());
 
-                if (method == null)
+                if (method == null) {
                     continue;
+                }
 
                 GenericMethod genericMethod = new GenericMethod(method, clazz);
 
                 // Setting static fields is a modifier of a SUT
                 // cluster.addTestCall(genericMethod);
-                cluster.addModifier(GenericClassFactory.get(Properties.getTargetClassAndDontInitialise()), genericMethod);
+                cluster.addModifier(GenericClassFactory.get(Properties.getTargetClassAndDontInitialise()),
+                        genericMethod);
 
             }
         }
@@ -659,13 +684,16 @@ public class TestClusterGenerator {
     }
 
     /**
-     * This method returns is a given field is final or not.
+     * Determine if a given field is final or not.
+     *
+     * <p>
      * Since we might have removed the <code>final</code> modifier
      * during our instrumentation, we also check the list of those
      * static fields we have modified during the instrumentation.
+     * </p>
      *
      * @param field field to check
-     * @return
+     * @return true if the field is final
      */
     public static boolean isFinalField(Field field) {
         if (Properties.RESET_STATIC_FINAL_FIELDS) {
@@ -878,8 +906,9 @@ public class TestClusterGenerator {
                     String orig = name;
                     name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getClassName(), "<init>",
                             org.objectweb.asm.Type.getConstructorDescriptor(constructor));
-                    if (!orig.equals(name))
+                    if (!orig.equals(name)) {
                         logger.info("TT name: " + orig + " -> " + name);
+                    }
 
                 }
 
@@ -912,18 +941,19 @@ public class TestClusterGenerator {
                     String orig = name;
                     name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getClassName(), method.getName(),
                             org.objectweb.asm.Type.getMethodDescriptor(method));
-                    if (!orig.equals(name))
+                    if (!orig.equals(name)) {
                         logger.info("TT name: " + orig + " -> " + name);
+                    }
                 }
 
                 if (TestUsageChecker.canUse(method, clazz.getRawClass()) && !method.getName().equals("hashCode")) {
                     logger.debug("Adding method " + clazz.getClassName() + "." + method.getName()
                             + org.objectweb.asm.Type.getMethodDescriptor(method));
                     // TODO: Generic methods cause some troubles, but
-//                    if (method.getTypeParameters().length > 0) {
-//                        logger.info("Type parameters in methods are not handled yet, skipping " + method);
-//                        continue;
-//                    }
+                    //                    if (method.getTypeParameters().length > 0) {
+                    //                        logger.info("Type parameters in methods are not handled yet, skipping " + method);
+                    //                        continue;
+                    //                    }
                     GenericMethod genericMethod = new GenericMethod(method, clazz);
                     try {
                         addDependencies(genericMethod, recursionLevel + 1);
@@ -938,7 +968,8 @@ public class TestClusterGenerator {
                         GenericClass<?> retClass = GenericClassFactory.get(method.getReturnType());
 
                         // Only use as generator if its not any of the types with special treatment
-                        if (!retClass.isPrimitive() && !retClass.isVoid() && !retClass.isObject() && !retClass.isString()) {
+                        if (!retClass.isPrimitive() && !retClass.isVoid() && !retClass.isObject()
+                                && !retClass.isString()) {
                             cluster.addGenerator(retClass, // .getWithWildcardTypes(),
                                     genericMethod);
                         }
@@ -1042,9 +1073,9 @@ public class TestClusterGenerator {
     }
 
     /**
-     * Update
+     * Update the container classes.
      *
-     * @param clazz
+     * @param clazz the class to add
      */
     private void addCastClassForContainer(Class<?> clazz) {
         if (concreteCastClasses.contains(clazz)) {

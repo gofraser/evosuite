@@ -137,7 +137,7 @@ public final class SymbolicHeap {
     public SymbolicHeap() {
         this.symbolicArrays = SymbolicHeapArraySectionFactory
                 .getInstance()
-                .getSymbolicHeapArraySection(Properties.SELECTED_DSE_ARRAYS_MEMORY_MODEL_VERSION);
+                .getSymbolicHeapArraySection(Properties.SELECTED_DseArraysMemoryModelVersion);
     }
 
     /**

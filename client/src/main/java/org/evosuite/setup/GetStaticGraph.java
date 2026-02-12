@@ -158,7 +158,7 @@ public class GetStaticGraph {
      * such that there is a at least one edge and the class is the source of
      * the edge.
      *
-     * @return
+     * @return the set of source classes
      */
     public Set<String> getSourceClasses() {
         Set<String> sourceClasses = new LinkedHashSet<>();
@@ -176,7 +176,7 @@ public class GetStaticGraph {
      * such that there is a at least one edge and the class is the target of
      * the edge.
      *
-     * @return
+     * @return the set of target classes
      */
     public Set<String> getTargetClasses() {
         Set<String> targetClasses = new LinkedHashSet<>();
@@ -191,9 +191,9 @@ public class GetStaticGraph {
 
     /**
      * Returns a classname->set(fieldname) with those static fields reached by
-     * static methods (included <clinit>)
+     * static methods (included &lt;clinit&gt;)
      *
-     * @return
+     * @return the map of static fields
      */
     public Map<String, Set<String>> getStaticFields() {
         Map<String, Set<String>> staticFields = new LinkedHashMap<>();

@@ -60,7 +60,7 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     private static final double DELTA = 0.000000001;
 
 
-    public CellularGA(Properties.CGA_Models model, ChromosomeFactory<T> factory) {
+    public CellularGA(Properties.CgaModels model, ChromosomeFactory<T> factory) {
 
         super(factory);
 

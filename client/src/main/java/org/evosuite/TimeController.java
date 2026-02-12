@@ -34,10 +34,9 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * This class is used to keep track of how long EvoSuite has spent
  * in each of its different phases (eg search, minimization, assertion generation).
- *
- *
  * <p>
  * TODO: in the long run, this should replace all the occurrences of time handling in EvoSuite
+ * </p>
  *
  * @author arcuri
  */
@@ -48,45 +47,48 @@ public class TimeController {
     private static final TimeController singleton = new TimeController();
 
     /**
-     * The current state of the client
+     * The current state of the client.
      */
     private volatile ClientState state;
 
     /**
-     * When the client was started
+     * When the client was started.
      */
     private volatile long clientStartTime;
 
     /**
-     * When the current phase was started
+     * When the current phase was started.
      */
     private volatile long currentPhaseStartTime;
 
     /**
-     * Leftover time
+     * Leftover time.
      */
     private volatile long timeLeftFromPreviousPhases;
 
     /**
      * Map from ClientState phase (key), to timeout (key)
-     * in milliseconds for that phase
+     * in milliseconds for that phase.
      */
     private Map<ClientState, Long> phaseTimeouts;
 
     /**
      * Map from ClientState phase (key), to how long (key)
-     * in milliseconds EvoSuite was in that phase
+     * in milliseconds EvoSuite was in that phase.
      */
     private Map<ClientState, Long> timeSpentInEachPhase;
 
 
     /**
-     * Main and only constructor
+     * Main and only constructor.
      */
     protected TimeController() {
         init();
     }
 
+    /**
+     * Initialize the time controller.
+     */
     private void init() {
         state = ClientState.NOT_STARTED;
         clientStartTime = 0;
@@ -94,6 +96,9 @@ public class TimeController {
         initializePhaseTimeouts();
     }
 
+    /**
+     * Reset the singleton instance.
+     */
     public static void resetSingleton() {
         getInstance().init();
     }
@@ -168,7 +173,8 @@ public class TimeController {
         }
 
         if (newState.getNumPhase() < state.getNumPhase()) {
-            throw new IllegalArgumentException("Phase '" + newState + "' cannot be executed after phase '" + state + "'");
+            throw new IllegalArgumentException("Phase '" + newState
+                    + "' cannot be executed after phase '" + state + "'");
         }
 
         //first log the current state before changing it

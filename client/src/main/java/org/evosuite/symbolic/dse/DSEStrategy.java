@@ -151,7 +151,7 @@ public class DSEStrategy extends TestGenerationStrategy {
 
         if (Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED) {
             LoggingUtils.getEvoLogger().info(SYMBOLIC_ARRAYS_IMPLEMENTATION_SELECTED,
-                    Properties.SELECTED_DSE_ARRAYS_MEMORY_MODEL_VERSION.toString());
+                    Properties.SELECTED_DseArraysMemoryModelVersion.toString());
         }
     }
 

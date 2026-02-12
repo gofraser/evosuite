@@ -272,7 +272,7 @@ public class TestSuiteGeneratorHelper {
             case MOSUITE:
                 return new MOSuiteStrategy();
             case DSE:
-                return DSEStrategyFactory.getDSEStrategy(Properties.CURRENT_DSE_MODULE_VERSION);
+                return DSEStrategyFactory.getDSEStrategy(Properties.CURRENT_DseModuleVersion);
             case NOVELTY:
                 return new NoveltyStrategy();
             case MAP_ELITES:

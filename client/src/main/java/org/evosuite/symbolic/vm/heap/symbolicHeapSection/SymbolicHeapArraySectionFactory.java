@@ -53,7 +53,7 @@ public class SymbolicHeapArraySectionFactory {
      * @return the symbolic heap array section
      */
     public ArraysSection getSymbolicHeapArraySection(
-            Properties.DSE_ARRAYS_MEMORY_MODEL_VERSION arraysMemoryModelVersion) {
+            Properties.DseArraysMemoryModelVersion arraysMemoryModelVersion) {
         if (arraysMemoryModelVersion == null) {
             throw new IllegalArgumentException(DSE_ARRAYS_MEMORY_MODEL_NOT_PROVIDED);
         }

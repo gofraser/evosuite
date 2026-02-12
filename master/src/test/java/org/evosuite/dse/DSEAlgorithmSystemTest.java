@@ -62,7 +62,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
         super.init();
 
         Properties.DSE_EXPLORATION_ALGORITHM_TYPE = DSEAlgorithms.GENERATIONAL_SEARCH;
-        Properties.CURRENT_DSE_MODULE_VERSION = Properties.DSE_MODULE_VERSION.NEW;
+        Properties.CURRENT_DseModuleVersion = Properties.DseModuleVersion.NEW;
     }
 
     @Test
@@ -535,7 +535,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
         EvoSuite evosuite = new EvoSuite();
         String targetClass = IntegerArrayAssignmentExample2.class.getCanonicalName();
         Properties.TARGET_CLASS = targetClass;
-        Properties.SELECTED_DSE_ARRAYS_MEMORY_MODEL_VERSION = Properties.DSE_ARRAYS_MEMORY_MODEL_VERSION.LAZY_VARIABLES;
+        Properties.SELECTED_DseArraysMemoryModelVersion = Properties.DseArraysMemoryModelVersion.LAZY_VARIABLES;
 
         String[] command = new String[]{"-generateSuiteUsingDSE", "-class", targetClass};
 
@@ -587,7 +587,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
         EvoSuite evosuite = new EvoSuite();
         String targetClass = RealArrayAssignmentExample2.class.getCanonicalName();
         Properties.TARGET_CLASS = targetClass;
-        Properties.SELECTED_DSE_ARRAYS_MEMORY_MODEL_VERSION = Properties.DSE_ARRAYS_MEMORY_MODEL_VERSION.LAZY_VARIABLES;
+        Properties.SELECTED_DseArraysMemoryModelVersion = Properties.DseArraysMemoryModelVersion.LAZY_VARIABLES;
 
         String[] command = new String[]{"-generateSuiteUsingDSE", "-class", targetClass};
 

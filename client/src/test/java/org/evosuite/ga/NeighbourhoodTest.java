@@ -38,7 +38,7 @@ public class NeighbourhoodTest {
         }
 
         // Test with Linear Five Model (Default or explicit)
-        Properties.MODEL = Properties.CGA_Models.LINEAR_FIVE;
+        Properties.MODEL = Properties.CgaModels.LINEAR_FIVE;
 
         // First call
         List<DummyChromosome> neighbors1 = neighbourhood.getNeighbors(population, 0);

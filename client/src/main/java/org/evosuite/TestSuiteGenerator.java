@@ -132,7 +132,8 @@ public class TestSuiteGenerator {
             boolean error = true;
 
             String message = e.getMessage();
-            if (message != null && (message.contains("Method code too large") || message.contains("Class file too large"))) {
+            if (message != null && (message.contains("Method code too large")
+                    || message.contains("Class file too large"))) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Instrumentation exceeds Java's 64K limit per method in target class");
                 Properties.Criterion[] newCriteria = Arrays.stream(Properties.CRITERION)
@@ -318,278 +319,143 @@ public class TestSuiteGenerator {
                 ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
                 ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
             } else {
-
                 double before = testSuite.getFitness();
-
                 TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactories());
 
-                                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-
-                                        + "Minimizing test suite");
-
-                                minimizer.minimize(testSuite, true);
-
-                
-
-                                double after = testSuite.getFitness();
-
-                                if (after > before + 0.01d) { // assume minimization
-
-                                    throw new Error("EvoSuite bug: minimization lead fitness from " + before + " to " + after);
-
-                                }
-
-                            }
-
-                        } else {
-
-                            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-
-                                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-
-                                        + "Skipping minimization because not enough time is left");
-
-                            }
-
-                
-
-                            ClientServices.track(RuntimeVariable.Result_Size, testSuite.size());
-
-                            ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
-
-                            ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
-
-                            ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
-
-                        }
-
-                
-
-                        if (Properties.COVERAGE) {
-
-                            ClientServices.getInstance().getClientNode().changeState(ClientState.COVERAGE_ANALYSIS);
-
-                            CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
-
-                        }
-
-                
-
-                        double coverage = testSuite.getCoverage();
-
-                
-
-                        if (ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
-
-                                || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)) {
-
-                            // SearchStatistics.getInstance().mutationScore(coverage);
-
-                        }
-
-                
-
-                        StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
-
-                        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-
-                                + "Generated " + testSuite.size()
-
-                                + " tests with total length " + testSuite.totalLengthOfTestCases());
-
-                
-
-                        // TODO: In the end we will only need one analysis technique
-
-                        if (!Properties.ANALYSIS_CRITERIA.isEmpty()) {
-
-                            // SearchStatistics.getInstance().addCoverage(Properties.CRITERION.toString(),
-
-                            // coverage);
-
-                            CoverageCriteriaAnalyzer.analyzeCriteria(testSuite, Properties.ANALYSIS_CRITERIA);
-
-                            // FIXME: can we send all bestSuites?
-
-                        }
-
-                        if (Properties.CRITERION.length > 1) {
-
-                            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-
-                                            + "Resulting test suite's coverage: "
-
-                                            + NumberFormat.getPercentInstance().format(coverage)
-
-                                            + " (average coverage for all fitness functions)");
-
-                        } else {
-
-                            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-
-                                            + "Resulting test suite's coverage: "
-
-                                            + NumberFormat.getPercentInstance().format(coverage));
-
-                        }
-
-                
-
-                        // printBudget(ga); // TODO - need to move this somewhere else
-
-                        if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) && Properties.ANALYSIS_CRITERIA.isEmpty()) {
-
-                            DefUseCoverageSuiteFitness.printCoverage();
-
-                        }
-
-                
-
-                        DSEStatistics.getInstance().trackStatistics();
-
-                
-
-                        if (Properties.isDSEEnabledInLocalSearch() || Properties.isDSEStrategySelected()) {
-
-                            DSEStatistics.getInstance().logStatistics();
-
-                        }
-
-                
-
-                        if (Properties.FILTER_SANDBOX_TESTS) {
-
-                            for (TestChromosome test : testSuite.getTestChromosomes()) {
-
-                                // delete all statements leading to security exceptions
-
-                                ExecutionResult result = test.getLastExecutionResult();
-
-                                if (result == null) {
-
-                                    result = TestCaseExecutor.runTest(test.getTestCase());
-
-                                }
-
-                                if (result.hasSecurityException()) {
-
-                                    int position = result.getFirstPositionOfThrownException();
-
-                                    if (position > 0) {
-
-                                        test.getTestCase().chop(position);
-
-                                        result = TestCaseExecutor.runTest(test.getTestCase());
-
-                                        test.setLastExecutionResult(result);
-
-                                    }
-
-                                }
-
-                            }
-
-                        }
-
-                
-
-                        if (Properties.ASSERTIONS) {
-
-                            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
-
-                            // progressMonitor.setCurrentPhase("Generating assertions");
-
-                            ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
-
-                            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
-
-                                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-
-                                        + "Skipping assertion generation because not enough time is left");
-
-                            } else {
-
-                                TestSuiteGeneratorHelper.addAssertions(testSuite);
-
-                            }
-
-                            StatisticsSender.sendIndividualToMaster(testSuite); // FIXME: can we
-
-                            // pass the list
-
-                            // of
-
-                            // testsuitechromosomes?
-
-                        }
-
-                
-
-                        if (Properties.NO_RUNTIME_DEPENDENCY) {
-
-                            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-
-                                    + "Property NO_RUNTIME_DEPENDENCY is set to true - skipping JUnit compile check");
-
-                            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-
-                                    + "WARNING: Not including the runtime dependencies is likely to lead to flaky tests!");
-
-                        } else if (Properties.JUNIT_TESTS && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
-
-                                || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
-
-                            if (ClassPathHacker.isJunitCheckAvailable()) {
-
-                                compileAndCheckTests(testSuite);
-
-                            } else {
-
-                                logger.warn("Cannot run Junit test. Cause {}", ClassPathHacker.getCause());
-
-                            }
-
-                        }
-
+                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Minimizing test suite");
+                minimizer.minimize(testSuite, true);
+
+                double after = testSuite.getFitness();
+                if (after > before + 0.01d) { // assume minimization
+                    throw new Error("EvoSuite bug: minimization lead fitness from " + before + " to " + after);
+                }
+            }
+        } else {
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Skipping minimization because not enough time is left");
+            }
+
+            ClientServices.track(RuntimeVariable.Result_Size, testSuite.size());
+            ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
+            ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
+            ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
+        }
+
+        if (Properties.COVERAGE) {
+            ClientServices.getInstance().getClientNode().changeState(ClientState.COVERAGE_ANALYSIS);
+            CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
+        }
+
+        double coverage = testSuite.getCoverage();
+
+        if (ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)) {
+            // SearchStatistics.getInstance().mutationScore(coverage);
+        }
+
+        StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Generated " + testSuite.size()
+                + " tests with total length " + testSuite.totalLengthOfTestCases());
+
+        // TODO: In the end we will only need one analysis technique
+        if (!Properties.ANALYSIS_CRITERIA.isEmpty()) {
+            // SearchStatistics.getInstance().addCoverage(Properties.CRITERION.toString(),
+            // coverage);
+            CoverageCriteriaAnalyzer.analyzeCriteria(testSuite, Properties.ANALYSIS_CRITERIA);
+            // FIXME: can we send all bestSuites?
+        }
+        if (Properties.CRITERION.length > 1) {
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                            + "Resulting test suite's coverage: "
+                            + NumberFormat.getPercentInstance().format(coverage)
+                            + " (average coverage for all fitness functions)");
+        } else {
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                            + "Resulting test suite's coverage: "
+                            + NumberFormat.getPercentInstance().format(coverage));
+        }
+
+        // printBudget(ga); // TODO - need to move this somewhere else
+        if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) && Properties.ANALYSIS_CRITERIA.isEmpty()) {
+            DefUseCoverageSuiteFitness.printCoverage();
+        }
+
+        DSEStatistics.getInstance().trackStatistics();
+
+        if (Properties.isDSEEnabledInLocalSearch() || Properties.isDSEStrategySelected()) {
+            DSEStatistics.getInstance().logStatistics();
+        }
+
+        if (Properties.FILTER_SANDBOX_TESTS) {
+            for (TestChromosome test : testSuite.getTestChromosomes()) {
+                // delete all statements leading to security exceptions
+                ExecutionResult result = test.getLastExecutionResult();
+                if (result == null) {
+                    result = TestCaseExecutor.runTest(test.getTestCase());
+                }
+                if (result.hasSecurityException()) {
+                    int position = result.getFirstPositionOfThrownException();
+                    if (position > 0) {
+                        test.getTestCase().chop(position);
+                        result = TestCaseExecutor.runTest(test.getTestCase());
+                        test.setLastExecutionResult(result);
                     }
+                }
+            }
+        }
 
-                
+        if (Properties.ASSERTIONS) {
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
+            // progressMonitor.setCurrentPhase("Generating assertions");
+            ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
+            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Skipping assertion generation because not enough time is left");
+            } else {
+                TestSuiteGeneratorHelper.addAssertions(testSuite);
+            }
+            StatisticsSender.sendIndividualToMaster(testSuite); // FIXME: can we
+            // pass the list
+            // of
+            // testsuitechromosomes?
+        }
 
-                    /**
+        if (Properties.NO_RUNTIME_DEPENDENCY) {
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Property NO_RUNTIME_DEPENDENCY is set to true - skipping JUnit compile check");
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "WARNING: Not including the runtime dependencies is likely to lead to flaky tests!");
+        } else if (Properties.JUNIT_TESTS && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
+                || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
+            if (ClassPathHacker.isJunitCheckAvailable()) {
+                compileAndCheckTests(testSuite);
+            } else {
+                logger.warn("Cannot run Junit test. Cause {}", ClassPathHacker.getCause());
+            }
+        }
+    }
 
-                     * Compile and run the given tests. Remove from input list all tests that do
+    /**
+     * Compile and run the given tests. Remove from input list all tests that do
+     * not compile, and handle the cases of instability (either remove tests or
+     * comment out failing assertions).
+     *
+     * @param chromosome the test suite to compile and check
+     */
+    private void compileAndCheckTests(TestSuiteChromosome chromosome) {
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Compiling and checking tests");
 
-                     * not compile, and handle the cases of instability (either remove tests or
-
-                     * comment out failing assertions).
-
-                     *
-
-                     * @param chromosome the test suite to compile and check
-
-                     */
-
-                    private void compileAndCheckTests(TestSuiteChromosome chromosome) {
-
-                        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-
-                                + "Compiling and checking tests");
-
-                
-
-                        if (!JUnitAnalyzer.isJavaCompilerAvailable()) {
-
-                            String msg = "No Java compiler is available. Make sure to run EvoSuite with the JDK and not the JRE. "
-
-                                    + "You can try to setup the JAVA_HOME system variable to point to it, "
-
-                                    + "as well as to make sure that the PATH variable points to the JDK before any JRE.";
-
-                            logger.error(msg);
-
-                            throw new RuntimeException(msg);
-
-                        }
+        if (!JUnitAnalyzer.isJavaCompilerAvailable()) {
+            String msg = "No Java compiler is available. Make sure to run EvoSuite with the JDK and not the JRE. "
+                    + "You can try to setup the JAVA_HOME system variable to point to it, "
+                    + "as well as to make sure that the PATH variable points to the JDK before any JRE.";
+            logger.error(msg);
+            throw new RuntimeException(msg);
+        }
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.JUNIT_CHECK);
 
@@ -778,7 +644,8 @@ public class TestSuiteGenerator {
 
     private void writeObjectPool(TestSuiteChromosome suite) {
         if (!Properties.WRITE_POOL.isEmpty()) {
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Writing sequences to pool");
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Writing sequences to pool");
             ObjectPool pool = ObjectPool.getPoolFromTestSuite(suite);
             pool.writePool(Properties.WRITE_POOL);
         }

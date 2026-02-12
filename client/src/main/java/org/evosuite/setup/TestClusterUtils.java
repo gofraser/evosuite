@@ -42,7 +42,7 @@ import static java.util.stream.Collectors.toCollection;
 import static org.objectweb.asm.Type.getMethodDescriptor;
 
 /**
- * Set of pure static methods
+ * Set of pure static methods.
  */
 public class TestClusterUtils {
 
@@ -95,6 +95,12 @@ public class TestClusterUtils {
         return false;
     }
 
+    /**
+     * Determine if a class name corresponds to an anonymous class.
+     *
+     * @param className the name of the class to check
+     * @return true if the class is an anonymous class
+     */
     public static boolean isAnonymousClass(String className) {
         int pos = className.lastIndexOf('$');
         if (pos < 0) {
@@ -107,6 +113,11 @@ public class TestClusterUtils {
         return firstLetter >= '0' && firstLetter <= '9';
     }
 
+    /**
+     * Make a field accessible if it is not public.
+     *
+     * @param field the field to make accessible
+     */
     public static void makeAccessible(Field field) {
         if (!Modifier.isPublic(field.getModifiers())
                 || !Modifier.isPublic(field.getDeclaringClass().getModifiers())) {
@@ -114,6 +125,11 @@ public class TestClusterUtils {
         }
     }
 
+    /**
+     * Make a method accessible if it is not public.
+     *
+     * @param method the method to make accessible
+     */
     public static void makeAccessible(Method method) {
         if (!Modifier.isPublic(method.getModifiers())
                 || !Modifier.isPublic(method.getDeclaringClass().getModifiers())) {
@@ -121,6 +137,11 @@ public class TestClusterUtils {
         }
     }
 
+    /**
+     * Make a constructor accessible if it is not public.
+     *
+     * @param constructor the constructor to make accessible
+     */
     public static void makeAccessible(Constructor<?> constructor) {
         if (!Modifier.isPublic(constructor.getModifiers())
                 || !Modifier.isPublic(constructor.getDeclaringClass().getModifiers())) {
@@ -128,6 +149,12 @@ public class TestClusterUtils {
         }
     }
 
+    /**
+     * Determine if a class is an EvoSuite class.
+     *
+     * @param c the class to check
+     * @return true if the class is an EvoSuite class
+     */
     public static boolean isEvoSuiteClass(Class<?> c) {
         return c.getName().startsWith(PackageInfo.getEvoSuitePackage());
         //|| c.getName().equals("java.lang.String");    // This is now handled in addDependencyClass
@@ -227,6 +254,12 @@ public class TestClusterUtils {
         return fields;
     }
 
+    /**
+     * Determine if a class has a static generator method.
+     *
+     * @param clazz the class to check
+     * @return true if the class has a static generator method
+     */
     public static boolean hasStaticGenerator(Class<?> clazz) {
         final Stream<Method> methods = Arrays.stream(ReflectionUtils.getMethods(clazz));
         final Predicate<Method> isStaticGenerator = m ->
@@ -291,15 +324,30 @@ public class TestClusterUtils {
         return methods;
     }
 
+    /**
+     * Get a method by its name and descriptor.
+     *
+     * @param clazz the class to get the method from
+     * @param methodName the name of the method
+     * @param desc the descriptor of the method
+     * @return the method if found, null otherwise
+     */
     public static Method getMethod(Class<?> clazz, String methodName, String desc) {
         for (Method method : Reflection.getMethods(clazz)) {
             if (method.getName().equals(methodName)
-                    && getMethodDescriptor(method).equals(desc))
+                    && getMethodDescriptor(method).equals(desc)) {
                 return method;
+            }
         }
         return null;
     }
 
+    /**
+     * Get a class by its name.
+     *
+     * @param className the name of the class
+     * @return the class if found, null otherwise
+     */
     public static Class<?> getClass(String className) {
         try {
             Class<?> clazz = Class.forName(className,

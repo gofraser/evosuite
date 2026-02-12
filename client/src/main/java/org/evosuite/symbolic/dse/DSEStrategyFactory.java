@@ -19,7 +19,7 @@
  */
 package org.evosuite.symbolic.dse;
 
-import org.evosuite.Properties.DSE_MODULE_VERSION;
+import org.evosuite.Properties.DseModuleVersion;
 import org.evosuite.strategy.TestGenerationStrategy;
 
 /**
@@ -39,7 +39,7 @@ public class DSEStrategyFactory {
      * @param selectedModule the DSE module version to use.
      * @return a new test generation strategy.
      */
-    public static TestGenerationStrategy getDSEStrategy(DSE_MODULE_VERSION selectedModule) {
+    public static TestGenerationStrategy getDSEStrategy(DseModuleVersion selectedModule) {
         if (selectedModule == null) {
             throw new IllegalArgumentException(DSE_MODULE_NOT_PROVIDED);
         }

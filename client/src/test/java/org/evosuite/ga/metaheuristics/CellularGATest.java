@@ -33,7 +33,7 @@ public class CellularGATest {
     @Test
     public void testPopulationConsistency() {
         Properties.POPULATION = 9; // Square number for L5 (3x3 grid)
-        Properties.MODEL = Properties.CGA_Models.LINEAR_FIVE;
+        Properties.MODEL = Properties.CgaModels.LINEAR_FIVE;
         Properties.ELITE = 0; // We removed implicit elitism usage but just to be safe with standard GA properties
 
         ChromosomeFactory<DummyChromosome> factory = new ChromosomeFactory<DummyChromosome>() {
@@ -70,7 +70,7 @@ public class CellularGATest {
     @Test
     public void testReplacementLogic() {
         Properties.POPULATION = 9;
-        Properties.MODEL = Properties.CGA_Models.LINEAR_FIVE;
+        Properties.MODEL = Properties.CgaModels.LINEAR_FIVE;
 
         ChromosomeFactory<DummyChromosome> factory = new ChromosomeFactory<DummyChromosome>() {
             @Override
