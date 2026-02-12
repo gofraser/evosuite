@@ -24,7 +24,7 @@ import java.io.Serializable;
 public class Call implements Serializable {
 
     /**
-     * Call of call context
+     * Call of call context.
      * TODO this class is approximated and does not consider the method signature
      * mattia
      */
@@ -34,6 +34,12 @@ public class Call implements Serializable {
     private final int hcode;
     private final int approxHcode;
 
+    /**
+     * Constructor.
+     *
+     * @param classname  the class name
+     * @param methodName the method name
+     */
     public Call(String classname, String methodName) {
         this.className = classname;
         this.methodName = methodName;
@@ -41,6 +47,11 @@ public class Call implements Serializable {
         hcode = computeHashCode();
     }
 
+    /**
+     * Copy constructor.
+     *
+     * @param call the call to copy
+     */
     public Call(Call call) {
         this.className = call.className;
         this.methodName = call.methodName;

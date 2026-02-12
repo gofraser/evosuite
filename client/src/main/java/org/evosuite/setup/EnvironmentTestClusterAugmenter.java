@@ -48,9 +48,9 @@ import java.util.Set;
 
 /**
  * This class is responsible to augment {@link org.evosuite.setup.TestCluster}
- * with search operators based on the environment the SUT interacts with
- * <p>
- * Created by arcuri on 6/10/14.
+ * with search operators based on the environment the SUT interacts with.
+ *
+ * <p>Created by arcuri on 6/10/14.
  */
 public class EnvironmentTestClusterAugmenter {
 
@@ -71,10 +71,15 @@ public class EnvironmentTestClusterAugmenter {
 
     /**
      * Keep track of all EvoSuite classes that have been already fully handled
-     * (via recursion)
+     * (via recursion).
      */
     private final Set<String> handledClasses;
 
+    /**
+     * Constructor.
+     *
+     * @param cluster the test cluster
+     */
     public EnvironmentTestClusterAugmenter(TestCluster cluster) {
         this.cluster = cluster;
         testClusterGenerator = TestGenerationContext.getInstance().getTestClusterGenerator();

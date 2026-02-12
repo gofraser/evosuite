@@ -47,6 +47,11 @@ public class ConcreteClassAnalyzer {
         // singleton pattern
     }
 
+    /**
+     * Returns the singleton instance of this class.
+     *
+     * @return the singleton instance
+     */
     public static ConcreteClassAnalyzer getInstance() {
         if (instance == null) {
             instance = new ConcreteClassAnalyzer();
@@ -71,8 +76,8 @@ public class ConcreteClassAnalyzer {
     /**
      * Given a class {@code clazz} and an inheritance tree, returns all subclasses of {@code clazz}
      * that are present in the inheritance tree.
-     * <p>
-     * <b>Warning:</b> May return incorrect and inconsistent results when different inheritance
+     *
+     * <p><b>Warning:</b> May return incorrect and inconsistent results when different inheritance
      * trees are passed for the same class across multiple calls.
      *
      * @param clazz           for which to return its subclasses, not {@code null}
@@ -159,7 +164,7 @@ public class ConcreteClassAnalyzer {
      * @param clazz for which to find subclasses
      * @param tree  inheritance tree modelling subclass relationships
      * @return the set of subclasses for {@code clazz}, all having the lowest package distance,
-     * or {@code null} (see above)
+     *     or {@code null} (see above)
      */
     private Set<Class<?>> handleAbstractClassOrInterface(final Class<?> clazz,
                                                          final InheritanceTree tree) {
@@ -174,7 +179,8 @@ public class ConcreteClassAnalyzer {
 
         // We have to use getName() here and not getCanonicalName() because getCanonicalName() uses
         // "." rather than "$" for inner classes but the InheritanceTree uses "$".
-        final String className = clazz.getName(), superclass;
+        final String className = clazz.getName();
+        final String superclass;
         if (MockList.isAMockClass(className)) {
             superclass = clazz.getSuperclass().getName();
         } else if (clazz.equals(Enum.class)) {

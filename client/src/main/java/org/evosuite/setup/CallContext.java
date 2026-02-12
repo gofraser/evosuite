@@ -128,8 +128,9 @@ public class CallContext implements Serializable {
                     skip = true;
                 }
             }
-            if (!skip)
+            if (!skip) {
                 context.add(newCall);
+            }
         }
         this.context = context;
         hcode = this.context.hashCode();
@@ -150,6 +151,9 @@ public class CallContext implements Serializable {
         hcode = this.context.hashCode();
     }
 
+    /**
+     * Default constructor.
+     */
     public CallContext() {
         addJUnitExcludes();
 
@@ -157,6 +161,11 @@ public class CallContext implements Serializable {
         hcode = this.context.hashCode();
     }
 
+    /**
+     * Constructor.
+     *
+     * @param contextt the context to initialize with
+     */
     public CallContext(Collection<Call> contextt) {
         addJUnitExcludes();
 
@@ -202,7 +211,11 @@ public class CallContext implements Serializable {
     /**
      * attach the className-methodname pair passed as parameter before the
      * current context.
-     **/
+     *
+     * @param className the class name
+     * @param methodName the method name
+     * @return the new context
+     */
     @Deprecated
     public CallContext getSuperContext(String className, String methodName) {
         throw new IllegalStateException("YET TO IMPLEMENT, DEPRECATED");
@@ -210,7 +223,7 @@ public class CallContext implements Serializable {
 
     /**
      * <p>
-     * getRootClassName
+     * getRootClassName.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -221,7 +234,7 @@ public class CallContext implements Serializable {
 
     /**
      * <p>
-     * getRootMethodName
+     * getRootMethodName.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -274,6 +287,12 @@ public class CallContext implements Serializable {
         return hcode == other.hcode;
     }
 
+    /**
+     * Checks if this context matches the given context using full matching.
+     *
+     * @param other the other context
+     * @return true if they match
+     */
     public boolean oldMatches(CallContext other) {
         if (context.size() != other.context.size()) {
             return false;

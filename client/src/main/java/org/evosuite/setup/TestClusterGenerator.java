@@ -81,10 +81,22 @@ public class TestClusterGenerator {
 
     // -------- public methods -----------------
 
+    /**
+     * Constructor.
+     *
+     * @param tree the inheritance tree
+     */
     public TestClusterGenerator(InheritanceTree tree) {
         inheritanceTree = tree;
     }
 
+    /**
+     * Generate the test cluster.
+     *
+     * @param callGraph the call graph
+     * @throws RuntimeException       if an error occurs
+     * @throws ClassNotFoundException if a class is not found
+     */
     public void generateCluster(CallGraph callGraph) throws RuntimeException, ClassNotFoundException {
 
         TestCluster.setInheritanceTree(inheritanceTree);
@@ -951,7 +963,8 @@ public class TestClusterGenerator {
                             + org.objectweb.asm.Type.getMethodDescriptor(method));
                     // TODO: Generic methods cause some troubles, but
                     //                    if (method.getTypeParameters().length > 0) {
-                    //                        logger.info("Type parameters in methods are not handled yet, skipping " + method);
+                    //                        logger.info("Type parameters in methods are not handled yet, "
+                    //                                + "skipping " + method);
                     //                        continue;
                     //                    }
                     GenericMethod genericMethod = new GenericMethod(method, clazz);
@@ -1017,7 +1030,8 @@ public class TestClusterGenerator {
              * although we still need to log it
              */
             logger.error("Problem for " + Properties.TARGET_CLASS + ". Failed to add dependencies for class "
-                    + clazz.getClassName() + ": " + t + "\n" + Arrays.asList(t.getStackTrace()));
+                    + clazz.getClassName() + ": " + t + "\n"
+                    + Arrays.asList(t.getStackTrace()));
 
             return false;
         }

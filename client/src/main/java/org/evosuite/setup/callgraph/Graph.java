@@ -33,10 +33,20 @@ public abstract class Graph<E> {
     private final Map<E, Set<E>> reverseEdges = Collections.synchronizedMap(new HashMap<>());
     private final Set<E> vertexSet = Collections.synchronizedSet(new HashSet<>());
 
+    /**
+     * Returns the edges of the graph.
+     *
+     * @return the edges
+     */
     public Map<E, Set<E>> getEdges() {
         return edges;
     }
 
+    /**
+     * Removes the vertex from the graph.
+     *
+     * @param vertex the vertex to remove
+     */
     public synchronized void removeVertex(E vertex) {
         if (edges.containsKey(vertex)) {
             for (E neighbor : edges.get(vertex)) {
@@ -57,6 +67,13 @@ public abstract class Graph<E> {
         vertexSet.remove(vertex);
     }
 
+    /**
+     * Checks if the graph contains an edge between src and dest.
+     *
+     * @param src  the source vertex
+     * @param dest the destination vertex
+     * @return true if the edge exists
+     */
     public synchronized boolean containsEdge(E src, E dest) {
         Set<E> tempSet = edges.get(src);
         if (tempSet == null) {
@@ -66,6 +83,12 @@ public abstract class Graph<E> {
         }
     }
 
+    /**
+     * Adds an edge to the graph.
+     *
+     * @param src  the source vertex
+     * @param dest the destination vertex
+     */
     public synchronized void addEdge(E src, E dest) {
         vertexSet.add(src);
         vertexSet.add(dest);
@@ -76,14 +99,31 @@ public abstract class Graph<E> {
         rsrcNeighbors.add(src);
     }
 
+    /**
+     * Returns the set of vertices in the graph.
+     *
+     * @return the vertex set
+     */
     public synchronized Set<E> getVertexSet() {
         return vertexSet;
     }
 
+    /**
+     * Checks if the graph contains the given vertex.
+     *
+     * @param e the vertex to check
+     * @return true if the vertex exists
+     */
     public synchronized boolean containsVertex(E e) {
         return vertexSet.contains(e);
     }
 
+    /**
+     * Returns the neighbors of the given vertex.
+     *
+     * @param vertex the vertex
+     * @return the neighbors
+     */
     public synchronized Iterable<E> getNeighbors(E vertex) {
         Set<E> neighbors = this.edges.get(vertex);
         if (neighbors == null) {
@@ -93,6 +133,12 @@ public abstract class Graph<E> {
         }
     }
 
+    /**
+     * Returns the reverse neighbors of the given vertex.
+     *
+     * @param vertex the vertex
+     * @return the reverse neighbors
+     */
     public synchronized Iterable<E> getReverseNeighbors(E vertex) {
         Set<E> neighbors = this.reverseEdges.get(vertex);
         if (neighbors == null) {
@@ -102,6 +148,12 @@ public abstract class Graph<E> {
         }
     }
 
+    /**
+     * Returns the number of neighbors of the given vertex.
+     *
+     * @param vertex the vertex
+     * @return the number of neighbors
+     */
     public synchronized int getNeighborsSize(E vertex) {
         if (this.edges.get(vertex) == null) {
             return 0;

@@ -58,7 +58,7 @@ public class TestCluster {
     protected static final Logger logger = LoggerFactory.getLogger(TestCluster.class);
 
     /**
-     * Singleton instance
+     * Singleton instance.
      */
     private static TestCluster instance = null;
 
@@ -319,6 +319,12 @@ public class TestCluster {
         inheritanceTree = inheritancetree;
     }
 
+    /**
+     * Check if the class is a target class.
+     *
+     * @param className the class name
+     * @return true if the class is a target class
+     */
     public static boolean isTargetClassName(String className) {
         if (!Properties.TARGET_CLASS_PREFIX.isEmpty()
                 && className.startsWith(Properties.TARGET_CLASS_PREFIX)) {
@@ -526,7 +532,8 @@ public class TestCluster {
                     // but in manycases it will pull in large numbers of useless dependencies.
                     // Commented out for now, until we find a case where the problem can be properly studied.
                     //                } else {
-                    //                    logger.debug("4. generator {} CANNOT be instantiated to {}", generatorClazz, clazz);
+                    //                    logger.debug("4. generator {} CANNOT be instantiated to {}",
+                    //                            generatorClazz, clazz);
                     //                    for(GenericClass boundClass : generatorClazz.getGenericBounds()) {
                     //                        CastClassManager.getInstance().addCastClass(boundClass, 0);
                     //                    }
@@ -623,15 +630,18 @@ public class TestCluster {
                             } else {
                                 // TODO: FIXXME
                                 //if (modifier.getOwnerClass().getNumParameters() == 0) {
-                                //    logger.info("Skipping potentially problematic case of parameterized type without parameters (owner likely has types)");
+                                //    logger.info("Skipping potentially problematic case of parameterized" +
+                                //            " type without parameters (owner likely has types)");
                                 //    continue;
                                 //}
 
                                 GenericAccessibleObject<?> newModifier = modifier.copyWithOwnerFromReturnType(newOwner);
                                 logger.debug("Modifier with new owner: " + newModifier);
                                 if (newModifier.getOwnerClass().hasWildcardOrTypeVariables()) {
-                                    GenericClass concreteClass = newModifier.getOwnerClass().getGenericInstantiation(clazz.getTypeVariableMap());
-                                    GenericAccessibleObject<?> concreteNewModifier = newModifier.copyWithNewOwner(concreteClass);
+                                    GenericClass concreteClass = newModifier.getOwnerClass()
+                                            .getGenericInstantiation(clazz.getTypeVariableMap());
+                                    GenericAccessibleObject<?> concreteNewModifier = newModifier
+                                            .copyWithNewOwner(concreteClass);
                                     logger.debug("Modifier with new owner and instantiated types: "
                                             + concreteNewModifier);
                                     genericModifiers.add(concreteNewModifier);
@@ -694,6 +704,15 @@ public class TestCluster {
         return modifiers.get(clazz);
     }
 
+    /**
+     * Get a random call for the given class.
+     *
+     * @param clazz the class to get a call for
+     * @param test the test case
+     * @param position the position in the test case
+     * @return the random call
+     * @throws ConstructionFailedException if construction fails
+     */
     public GenericAccessibleObject<?> getRandomCallFor(GenericClass<?> clazz, TestCase test, int position)
             throws ConstructionFailedException {
 
@@ -712,13 +731,6 @@ public class TestCluster {
         return call;
     }
 
-    /**
-     * Get modifiers for special cases.
-     *
-     * @param clazz the class to get calls for
-     * @return the set of calls
-     * @throws ConstructionFailedException if construction fails
-     */
     /**
      * Get calls for special cases (Collection, Map, Number).
      *
@@ -1186,6 +1198,11 @@ public class TestCluster {
 
     }
 
+    /**
+     * Get randomized calls to the environment.
+     *
+     * @return the list of randomized calls
+     */
     public List<GenericAccessibleObject<?>> getRandomizedCallsToEnvironment() {
 
         if (environmentMethods.isEmpty()) {
@@ -1419,10 +1436,8 @@ public class TestCluster {
     }
 
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see java.lang.Object#toString()
+    /**
+     * {@inheritDoc}
      */
     @Override
     public String toString() {

@@ -62,8 +62,8 @@ public class DependencyAnalysis {
 
     private static Set<String> targetClasses = null;
 
-    /*
-     * Clear all static state
+    /**
+     * Clear all static state.
      */
     public static void clear() {
         classCache.clear();
@@ -256,6 +256,13 @@ public class DependencyAnalysis {
 
     // TODO implement something that takes parameters using properties -
     // generalize this method.
+
+    /**
+     * Check if the class is part of the target project.
+     *
+     * @param className the name of the class
+     * @return true if the class is part of the target project
+     */
     public static boolean isTargetProject(String className) {
         if (!className.startsWith(Properties.PROJECT_PREFIX) && (Properties.TARGET_CLASS_PREFIX.isEmpty()
                 || !className.startsWith(Properties.TARGET_CLASS_PREFIX))) {

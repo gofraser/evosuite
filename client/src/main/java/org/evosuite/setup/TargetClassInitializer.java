@@ -48,7 +48,8 @@ public class TargetClassInitializer {
      * executing a load test case, and analyzing the class.
      *
      * @param targetClass The fully qualified name of the target class.
-     * @param onInitializationError A runnable to execute if an initialization error occurs (e.g., writing a failed test suite).
+     * @param onInitializationError A runnable to execute if an initialization error occurs
+     *                              (e.g., writing a failed test suite).
      * @throws Throwable if initialization fails.
      */
     public void initializeTargetClass(String targetClass, Runnable onInitializationError) throws Throwable {
@@ -86,7 +87,7 @@ public class TargetClassInitializer {
     }
 
     /**
-     * Returns true iif the test case execution has thrown an instance of ExceptionInInitializerError
+     * Returns true iif the test case execution has thrown an instance of ExceptionInInitializerError.
      *
      * @param execResult of the test case execution
      * @return true if the test case has thrown an ExceptionInInitializerError
@@ -101,7 +102,7 @@ public class TargetClassInitializer {
     }
 
     /**
-     * Returns the initialized error from the test case execution
+     * Returns the initialized error from the test case execution.
      *
      * @param execResult of the test case execution
      * @return null if there were no thrown instances of ExceptionInInitializerError

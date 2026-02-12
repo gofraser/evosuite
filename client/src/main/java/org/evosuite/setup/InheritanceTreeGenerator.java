@@ -349,6 +349,12 @@ public class InheritanceTreeGenerator {
     private static final Pattern ANONYMOUS_MATCHER1 = Pattern.compile(".*\\$\\d+.*$");
     private static final Pattern ANONYMOUS_MATCHER2 = Pattern.compile(".*\\.\\d+.*$");
 
+    /**
+     * Checks if the class can be used.
+     *
+     * @param cn the class node
+     * @return true if the class can be used
+     */
     public static boolean canUse(ClassNode cn) {
 
         if ((cn.access & Opcodes.ACC_PRIVATE) == Opcodes.ACC_PRIVATE) {
@@ -495,6 +501,11 @@ public class InheritanceTreeGenerator {
         }
     }
 
+    /**
+     * Reads the JDK inheritance tree data.
+     *
+     * @return the JDK inheritance tree
+     */
     public static InheritanceTree readJDKData() {
         XStream xstream = new XStream();
         XStream.setupDefaultSecurity(xstream);
@@ -521,6 +532,13 @@ public class InheritanceTreeGenerator {
         return null;
     }
 
+    /**
+     * Reads the inheritance tree from a file.
+     *
+     * @param fileName the name of the file to read
+     * @return the inheritance tree
+     * @throws IOException if an I/O error occurs
+     */
     public static InheritanceTree readInheritanceTree(String fileName) throws IOException {
         XStream xstream = new XStream();
         XStream.setupDefaultSecurity(xstream);
@@ -529,6 +547,13 @@ public class InheritanceTreeGenerator {
         return (InheritanceTree) xstream.fromXML(inheritance);
     }
 
+    /**
+     * Reads the uncompressed inheritance tree from a file.
+     *
+     * @param fileName the name of the file to read
+     * @return the inheritance tree
+     * @throws IOException if an I/O error occurs
+     */
     public static InheritanceTree readUncompressedInheritanceTree(String fileName)
             throws IOException {
         XStream xstream = new XStream();
@@ -539,6 +564,13 @@ public class InheritanceTreeGenerator {
         }
     }
 
+    /**
+     * Writes the inheritance tree to a file.
+     *
+     * @param tree the inheritance tree
+     * @param file the file to write to
+     * @throws IOException if an I/O error occurs
+     */
     public static void writeInheritanceTree(InheritanceTree tree, File file) throws IOException {
         XStream xstream = new XStream();
         XStream.setupDefaultSecurity(xstream);
@@ -549,6 +581,11 @@ public class InheritanceTreeGenerator {
     }
 
 
+    /**
+     * Gets all resources from the classpath.
+     *
+     * @return a collection of all resources
+     */
     public static Collection<String> getAllResources() {
         Collection<String> retval = getResources(System.getProperty("java.class.path", "."));
         String boot = System.getProperty("sun.boot.class.path");
@@ -620,6 +657,11 @@ public class InheritanceTreeGenerator {
         Run this once per target JDK LTS (8/11/17/21/25) to generate:
         client/src/main/resources/JDK_inheritance_<LTS>.xml
         client/src/main/resources/JDK_inheritance_<LTS>_shaded.xml
+     */
+    /**
+     * Main method.
+     *
+     * @param args the command line arguments
      */
     public static void main(String[] args) {
         generateJDKCluster(args);

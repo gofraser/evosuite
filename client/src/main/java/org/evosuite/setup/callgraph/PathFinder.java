@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
+ * Finds paths in a graph.
+ *
  * @author mattia
  */
 public class PathFinder {
@@ -51,6 +53,14 @@ public class PathFinder {
         return dfs.getPaths();
     }
 
+    /**
+     * Gets reverse paths in the graph.
+     *
+     * @param g              the graph
+     * @param startingVertex the starting vertex
+     * @param <E>            type of vertices
+     * @return set of paths
+     */
     public static <E> Set<List<E>> getReversePaths(Graph<E> g, E startingVertex) {
         if (!g.containsVertex(startingVertex)) {
             return new HashSet<>();

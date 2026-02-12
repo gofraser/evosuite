@@ -35,11 +35,21 @@ public class PutStaticMethodCollector {
 
     private static final String CLINIT = "<clinit>";
 
+    /**
+     * Identifies a method by class name, method name and descriptor.
+     */
     public static class MethodIdentifier {
         private final String className;
         private final String methodName;
         private final String desc;
 
+        /**
+         * Constructor.
+         *
+         * @param className  the class name
+         * @param methodName the method name
+         * @param desc       the descriptor
+         */
         public MethodIdentifier(String className, String methodName, String desc) {
             this.className = className;
             this.methodName = methodName;
@@ -130,6 +140,11 @@ public class PutStaticMethodCollector {
 
     private final Map<String, Set<String>> getStaticFields;
 
+    /**
+     * Collects all methods that modify the static fields.
+     *
+     * @return a set of method identifiers
+     */
     @SuppressWarnings("unchecked")
     public Set<MethodIdentifier> collectMethods() {
 
