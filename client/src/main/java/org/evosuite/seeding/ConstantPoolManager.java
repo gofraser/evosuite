@@ -96,18 +96,38 @@ public class ConstantPoolManager {
         }
     }
 
+    /**
+     * Adds a constant to the SUT pool.
+     *
+     * @param value the constant to add
+     */
     public void addSUTConstant(Object value) {
         pools[SUT_POOL_INDEX].add(value);
     }
 
+    /**
+     * Adds a constant to the non-SUT pool.
+     *
+     * @param value the constant to add
+     */
     public void addNonSUTConstant(Object value) {
         pools[NON_SUT_POOL_INDEX].add(value);
     }
 
+    /**
+     * Adds a constant to the dynamic pool.
+     *
+     * @param value the constant to add
+     */
     public void addDynamicConstant(Object value) {
         pools[DYNAMIC_POOL_INDEX].add(value);
     }
 
+    /**
+     * Gets a constant pool based on probabilities.
+     *
+     * @return the selected constant pool
+     */
     public ConstantPool getConstantPool() {
         double p = Randomness.nextDouble();
         double k = 0.0;
@@ -123,6 +143,11 @@ public class ConstantPoolManager {
         return pools[SUT_POOL_INDEX];
     }
 
+    /**
+     * Gets the dynamic constant pool.
+     *
+     * @return the dynamic constant pool
+     */
     public ConstantPool getDynamicConstantPool() {
         return pools[DYNAMIC_POOL_INDEX];
     }

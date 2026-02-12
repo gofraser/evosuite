@@ -41,6 +41,9 @@ public class StaticConstantVariableProbabilityPool implements ConstantPool {
 
     private final FrequencyBasedPool<Float> floatPool = new FrequencyBasedPool<>();
 
+    /**
+     * Initializes the static constant pool with variable probabilities.
+     */
     public StaticConstantVariableProbabilityPool() {
         /*
          * all pools HAVE to be non-empty
