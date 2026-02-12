@@ -264,6 +264,7 @@ final class ExecutionModeUtils {
         addOpen(cmdLine, "java.base/java.util=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.lang=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.net=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.util.regex=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt=ALL-UNNAMED");
     }
 
