@@ -93,9 +93,8 @@ public class FloatLocalSearch<T extends Number> extends NumericalLocalSearch<T> 
         ExecutionResult oldResult = test.getLastExecutionResult();
 
         if (p.getValue().getClass().equals(Float.class)) {
-            p.setValue((T) Float.valueOf((float)newValue));
-        } else
-             {
+            p.setValue((T) Float.valueOf((float) newValue));
+        } else {
             p.setValue((T) Double.valueOf(newValue));
         }
 

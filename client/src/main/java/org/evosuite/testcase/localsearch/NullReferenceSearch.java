@@ -37,8 +37,8 @@ import java.util.Map;
  */
 public class NullReferenceSearch extends StatementLocalSearch {
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.LocalSearch#doSearch(org.evosuite.testcase.TestChromosome, int, org.evosuite.ga.LocalSearchObjective)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public boolean doSearch(TestChromosome test, int statement,

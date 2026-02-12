@@ -53,10 +53,6 @@ public class ArrayLocalSearch extends StatementLocalSearch {
     }
 
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.LocalSearch#doSearch(org.evosuite.testcase.TestChromosome, int, org.evosuite.ga.LocalSearchObjective)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -87,7 +83,8 @@ public class ArrayLocalSearch extends StatementLocalSearch {
                 break;
             }
             logger.debug("Local search on statement " + position);
-            StatementLocalSearch search = StatementLocalSearch.getLocalSearchFor(test.getTestCase().getStatement(position));
+            StatementLocalSearch search = StatementLocalSearch.getLocalSearchFor(
+                    test.getTestCase().getStatement(position));
             if (search != null) {
                 if (search.doSearch(test, position, objective)) {
                     hasImproved = true;

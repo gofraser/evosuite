@@ -38,8 +38,7 @@ import java.util.List;
 /**
  * Local search on the parameters of a function call.
  *
- * <p>
- * 1. null/non-null 2. Other assignable values in test case 3. Type hierarchy.
+ * <p>1. null/non-null 2. Other assignable values in test case 3. Type hierarchy.
  *
  * @author Gordon Fraser
  */
@@ -60,10 +59,6 @@ public class ParameterLocalSearch extends StatementLocalSearch {
         test.setLastExecutionResult(oldResult);
         test.setChanged(oldChanged);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.LocalSearch#doSearch(org.evosuite.testcase.TestChromosome, int, org.evosuite.ga.LocalSearchObjective)
-     */
 
     /**
      * {@inheritDoc}

@@ -37,8 +37,7 @@ import java.util.Set;
  * Applies DSE on a given test case. If the test case belongs to a suite, it
  * should be provided by using the constructor that receives a suite chromosome.
  *
- * <p>
- * If the test case has no symbolic variables (or these variables are not
+ * <p>If the test case has no symbolic variables (or these variables are not
  * reached due to a thrown exception during test execution), or it does not
  * reach an uncovered branch, DSE is skipped on this test case.
  *
@@ -233,10 +232,11 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
      * @param testChromosome       the test case to apply DSE
      * @param localSearchObjective the objective to measure fitness improvement
      * @return a set with statement indexes in the test case with symbolic
-     * variables
+     *     variables
      */
     private static Set<Integer> collectStatementIndexesWithSymbolicVariables(TestChromosome testChromosome,
-                                                                             LocalSearchObjective<TestChromosome> localSearchObjective) {
+                                                                             LocalSearchObjective<TestChromosome>
+                                                                                     localSearchObjective) {
 
         // Only apply local search up to the point where an exception was thrown
         // TODO: Check whether this conflicts with test expansion
@@ -288,7 +288,8 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
      * @param suite the suite.
      * @return .
      */
-    private static <E extends AbstractTestChromosome<E>> Set<Branch> collectCoveredBranches(AbstractTestSuiteChromosome<?, E> suite) {
+    private static <E extends AbstractTestChromosome<E>> Set<Branch> collectCoveredBranches(
+            AbstractTestSuiteChromosome<?, E> suite) {
         final Set<Branch> suiteCoveredBranches = new HashSet<>();
         for (E test : suite.getTestChromosomes()) {
             final Set<Branch> testCoveredBranches = getCoveredBranches(test);

@@ -40,10 +40,6 @@ public class EnumLocalSearch extends StatementLocalSearch {
 
     private Object oldValue;
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.LocalSearch#doSearch(org.evosuite.testcase.TestChromosome, int, org.evosuite.ga.LocalSearchObjective)
-     */
-
     /**
      * {@inheritDoc}
      */
