@@ -223,6 +223,12 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
         }
     }
 
+    /**
+     * Calculates the total number of exceptions across all methods in the given map.
+     *
+     * @param exceptions a map from method identifier to a set of exception classes.
+     * @return the total number of exceptions.
+     */
     public static int getNumExceptions(Map<String, Set<Class<?>>> exceptions) {
         int total = 0;
         for (Set<Class<?>> exceptionSet : exceptions.values()) {
@@ -231,6 +237,12 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
         return total;
     }
 
+    /**
+     * Calculates the number of unique exception classes across all methods in the given map.
+     *
+     * @param exceptions a map from method identifier to a set of exception classes.
+     * @return the number of unique exception classes.
+     */
     public static int getNumClassExceptions(Map<String, Set<Class<?>>> exceptions) {
         Set<Class<?>> classExceptions = new HashSet<>();
         for (Set<Class<?>> exceptionSet : exceptions.values()) {

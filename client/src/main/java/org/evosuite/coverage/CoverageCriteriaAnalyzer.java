@@ -148,6 +148,12 @@ public class CoverageCriteriaAnalyzer {
         Properties.CRITERION = oldCriterion;
     }
 
+    /**
+     * Analyzes the given criteria for the specified test suite.
+     *
+     * @param testSuite the test suite to analyze.
+     * @param criteria a comma-separated list of criteria to analyze.
+     */
     public static void analyzeCriteria(TestSuiteChromosome testSuite, String criteria) {
 
         // If coverage of target criteria is not already measured
@@ -190,6 +196,12 @@ public class CoverageCriteriaAnalyzer {
         }
     }
 
+    /**
+     * Returns the runtime variable associated with the coverage of a given criterion.
+     *
+     * @param criterion the criterion.
+     * @return the runtime variable.
+     */
     public static RuntimeVariable getCoverageVariable(Properties.Criterion criterion) {
         if (coverageVariables.containsKey(criterion)) {
             return coverageVariables.get(criterion);
@@ -197,6 +209,11 @@ public class CoverageCriteriaAnalyzer {
         throw new RuntimeException("Criterion not supported: " + criterion);
     }
 
+    /**
+     * Analyzes coverage for all criteria enabled in Properties.
+     *
+     * @param testSuite the test suite to analyze.
+     */
     public static void analyzeCoverage(TestSuiteChromosome testSuite) {
 
         LoggingUtils.getEvoLogger().info("* Going to analyze the coverage criteria");
@@ -312,6 +329,12 @@ public class CoverageCriteriaAnalyzer {
         }
     }
 
+    /**
+     * Returns the runtime variable associated with the coverage bit string of a given criterion.
+     *
+     * @param criterion the criterion.
+     * @return the runtime variable, or null if not supported.
+     */
     public static RuntimeVariable getBitStringVariable(Properties.Criterion criterion) {
         if (bitStringVariables.containsKey(criterion)) {
             return bitStringVariables.get(criterion);

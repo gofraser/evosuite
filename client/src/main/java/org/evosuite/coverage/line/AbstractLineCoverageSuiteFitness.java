@@ -32,6 +32,9 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
     private int maxCoveredLines = 0;
     private double bestFitness = Double.MAX_VALUE;
 
+    /**
+     * Initializes a new AbstractLineCoverageSuiteFitness and computes all line goals.
+     */
     public AbstractLineCoverageSuiteFitness() {
         List<LineCoverageTestFitness> goals = new LineCoverageFactory().getCoverageGoals();
         for (LineCoverageTestFitness goal : goals) {

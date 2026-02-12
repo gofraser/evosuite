@@ -55,6 +55,9 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
     private final Set<CBranchTestFitness> toRemoveGoals = new LinkedHashSet<>();
     private final Set<CBranchTestFitness> removedGoals = new LinkedHashSet<>();
 
+    /**
+     * Initializes a new CBranchSuiteFitness and computes context-aware branch goals.
+     */
     public CBranchSuiteFitness() {
         CBranchFitnessFactory factory = new CBranchFitnessFactory();
         branchGoals = factory.getCoverageGoals();

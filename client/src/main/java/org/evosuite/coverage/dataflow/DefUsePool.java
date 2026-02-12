@@ -627,6 +627,9 @@ public class DefUsePool {
         return duCounter;
     }
 
+    /**
+     * Resets the pool by clearing all maps and resetting counters.
+     */
     public static void clear() {
         defMap.clear();
         useMap.clear();

@@ -51,6 +51,9 @@ public class InputCoverageSuiteFitness extends TestSuiteFitnessFunction {
     private int maxCoveredGoals = 0;
     private double bestFitness = Double.MAX_VALUE;
 
+    /**
+     * Initializes a new InputCoverageSuiteFitness, adding the InputObserver to the executor.
+     */
     public InputCoverageSuiteFitness() {
         // Add observer
         TestCaseExecutor executor = TestCaseExecutor.getInstance();

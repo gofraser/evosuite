@@ -53,6 +53,9 @@ public class FitnessLogger<T extends Chromosome<T>> implements SearchListener<T>
     private String name;
     private int evaluations;
 
+    /**
+     * Initializes a new FitnessLogger with empty history lists.
+     */
     public FitnessLogger() {
         evaluationsHistory = new ArrayList<>();
         statementsHistory = new ArrayList<>();
@@ -62,6 +65,11 @@ public class FitnessLogger<T extends Chromosome<T>> implements SearchListener<T>
         evaluations = 0;
     }
 
+    /**
+     * Creates a copy of the given FitnessLogger.
+     *
+     * @param that the logger to copy from.
+     */
     public FitnessLogger(FitnessLogger<?> that) {
         this.evaluationsHistory = new ArrayList<>(that.evaluationsHistory);
         this.statementsHistory = new ArrayList<>(that.statementsHistory);

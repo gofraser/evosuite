@@ -37,16 +37,35 @@ public class MethodCall {
     private final int invocationNumber;
     private final String calledMethod;
 
+    /**
+     * Initializes a new MethodCall with the given method call node, called method name,
+     * and invocation number.
+     *
+     * @param methodCall the CCFG method call node.
+     * @param calledMethod the name of the called method.
+     * @param invocationNumber the invocation number.
+     */
     public MethodCall(CCFGMethodCallNode methodCall, String calledMethod, int invocationNumber) {
         this.methodCall = methodCall;
         this.invocationNumber = invocationNumber;
         this.calledMethod = calledMethod;
     }
 
+    /**
+     * Checks if this method call represents the entry point of the search.
+     *
+     * @return true if this is the initial method call.
+     */
     public boolean isInitialMethodCall() {
         return methodCall == null;
     }
 
+    /**
+     * Checks if this instance represents the call at the given instruction.
+     *
+     * @param callInstruction the bytecode instruction to check against.
+     * @return true if this is a method call for the given instruction.
+     */
     public boolean isMethodCallFor(BytecodeInstruction callInstruction) {
         if (methodCall == null) {
             return callInstruction == null;
@@ -94,6 +113,11 @@ public class MethodCall {
         return methodCall.getCalledMethod() + " " + invocationNumber;
     }
 
+    /**
+     * Returns the name of the called method.
+     *
+     * @return the called method name.
+     */
     public String getCalledMethodName() {
         return calledMethod;
     }

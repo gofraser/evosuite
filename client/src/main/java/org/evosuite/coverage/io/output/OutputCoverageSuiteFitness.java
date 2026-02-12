@@ -52,6 +52,9 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
     public int maxCoveredGoals = 0;
     public double bestFitness = Double.MAX_VALUE;
 
+    /**
+     * Initializes a new OutputCoverageSuiteFitness, adding the OutputObserver to the executor.
+     */
     public OutputCoverageSuiteFitness() {
         // Add observer
         TestCaseExecutor executor = TestCaseExecutor.getInstance();
@@ -156,6 +159,13 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
         return true;
     }
 
+    /**
+     * Computes the distance for the given results and goals.
+     *
+     * @param results the list of execution results.
+     * @param setOfCoveredGoals the set to collect covered goals.
+     * @return the total distance.
+     */
     public double computeDistance(List<ExecutionResult> results, Set<TestFitnessFunction> setOfCoveredGoals) {
 
         Map<OutputCoverageTestFitness, Double> mapDistances = new LinkedHashMap<>();

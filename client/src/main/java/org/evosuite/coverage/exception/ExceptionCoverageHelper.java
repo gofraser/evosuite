@@ -36,6 +36,13 @@ import java.lang.reflect.Method;
  */
 public class ExceptionCoverageHelper {
 
+    /**
+     * Retrieves the class of the exception thrown at a given position.
+     *
+     * @param result the execution result.
+     * @param exceptionPosition the position in the test case.
+     * @return the exception class.
+     */
     public static Class<?> getExceptionClass(ExecutionResult result, int exceptionPosition) {
         Throwable t = result.getExceptionThrownAtPosition(exceptionPosition);
         if (t instanceof OverrideMock) {
@@ -44,6 +51,13 @@ public class ExceptionCoverageHelper {
         return t.getClass();
     }
 
+    /**
+     * Determines the type of exception (declared, explicit, or implicit).
+     *
+     * @param result the execution result.
+     * @param exceptionPosition the position in the test case.
+     * @return the exception type.
+     */
     public static ExceptionCoverageTestFitness.ExceptionType getType(ExecutionResult result, int exceptionPosition) {
         if (isDeclared(result, exceptionPosition)) {
             return ExceptionCoverageTestFitness.ExceptionType.DECLARED;
@@ -56,11 +70,25 @@ public class ExceptionCoverageHelper {
         }
     }
 
+    /**
+     * Checks if the exception at the given position was explicitly thrown.
+     *
+     * @param result the execution result.
+     * @param exceptionPosition the position in the test case.
+     * @return true if the exception was explicitly thrown.
+     */
     public static boolean isExplicit(ExecutionResult result, int exceptionPosition) {
         return result.getExplicitExceptions().containsKey(exceptionPosition)
                 && result.getExplicitExceptions().get(exceptionPosition);
     }
 
+    /**
+     * Checks if the exception at the given position was declared in the method signature.
+     *
+     * @param result the execution result.
+     * @param exceptionPosition the position in the test case.
+     * @return true if the exception was declared.
+     */
     public static boolean isDeclared(ExecutionResult result, int exceptionPosition) {
         Throwable t = result.getExceptionThrownAtPosition(exceptionPosition);
 
@@ -74,6 +102,13 @@ public class ExceptionCoverageHelper {
         return false;
     }
 
+    /**
+     * Returns a string identifier for the method that threw the exception.
+     *
+     * @param result the execution result.
+     * @param exceptionPosition the position in the test case.
+     * @return the method identifier.
+     */
     public static String getMethodIdentifier(ExecutionResult result, int exceptionPosition) {
         if (result.test.getStatement(exceptionPosition) instanceof MethodStatement) {
             MethodStatement ms = (MethodStatement) result.test.getStatement(exceptionPosition);
@@ -87,6 +122,13 @@ public class ExceptionCoverageHelper {
         return "Unknown";
     }
 
+    /**
+     * Checks if the exception was thrown by the system under test (SUT).
+     *
+     * @param result the execution result.
+     * @param exceptionPosition the position in the test case.
+     * @return true if the exception was thrown by the SUT.
+     */
     public static boolean isSutException(ExecutionResult result, int exceptionPosition) {
         if (Properties.TARGET_CLASS == null) {
             return false;
@@ -109,6 +151,13 @@ public class ExceptionCoverageHelper {
         return false;
     }
 
+    /**
+     * Determines if an exception should be skipped (e.g., if it occurred in the test code itself).
+     *
+     * @param result the execution result.
+     * @param exceptionPosition the position in the test case.
+     * @return true if the exception should be skipped.
+     */
     public static boolean shouldSkip(ExecutionResult result, int exceptionPosition) {
         if (exceptionPosition >= result.test.size()) {
             // Timeouts are put after the last statement if the process was forcefully killed

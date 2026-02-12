@@ -455,6 +455,9 @@ public class DefUseCoverageFactory extends
         return r;
     }
 
+    /**
+     * Resets the factory by clearing all goals and resetting the called flag.
+     */
     public static void clear() {
         if (called) {
             called = false;
@@ -465,6 +468,12 @@ public class DefUseCoverageFactory extends
         }
     }
 
+    /**
+     * Detects new def-use goals that arise from aliasing in the given execution results.
+     *
+     * @param results the list of execution results to analyze.
+     * @return true if new aliasing goals were detected.
+     */
     public static boolean detectAliasingGoals(List<ExecutionResult> results) {
 
         if (!Properties.DEFUSE_ALIASES) {

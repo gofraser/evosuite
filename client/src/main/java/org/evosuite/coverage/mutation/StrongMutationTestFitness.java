@@ -87,7 +87,12 @@ public class StrongMutationTestFitness extends MutationTestFitness {
     }
 
     /**
-     * {@inheritDoc}
+     * Executes the given test case on the specified mutant, activating observers
+     * for strong mutation.
+     *
+     * @param test the test case to execute.
+     * @param mutant the mutant to activate (can be null).
+     * @return the execution result.
      */
     public static ExecutionResult runTest(TestCase test, Mutation mutant) {
 

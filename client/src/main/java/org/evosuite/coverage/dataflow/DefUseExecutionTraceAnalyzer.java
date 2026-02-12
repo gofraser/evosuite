@@ -318,6 +318,15 @@ public abstract class DefUseExecutionTraceAnalyzer {
         return lastDef;
     }
 
+    /**
+     * Retrieves the object that was active at the time of a definition.
+     *
+     * @param trace the execution trace.
+     * @param targetVariable the variable name.
+     * @param objectId the object ID.
+     * @param usePos the position in the DU counter.
+     * @return the active object.
+     */
     public static Object getActiveObjectAtDefinition(ExecutionTrace trace, String targetVariable,
                                                      int objectId, int usePos) {
 
@@ -347,6 +356,15 @@ public abstract class DefUseExecutionTraceAnalyzer {
         return lastDef;
     }
 
+    /**
+     * Retrieves the object that was active at the time of a use.
+     *
+     * @param trace the execution trace.
+     * @param targetVariable the variable name.
+     * @param objectId the object ID.
+     * @param usePos the position in the DU counter.
+     * @return the active object.
+     */
     public static Object getActiveObjectAtUse(ExecutionTrace trace, String targetVariable,
                                               int objectId, int usePos) {
 

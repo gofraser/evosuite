@@ -205,6 +205,9 @@ public class MutationTimeoutStoppingCondition<T extends Chromosome<T>>
         }
     }
 
+    /**
+     * Resets all static fields of the stopping condition.
+     */
     public static void resetStatic() {
         timeouts.clear();
         exceptions.clear();

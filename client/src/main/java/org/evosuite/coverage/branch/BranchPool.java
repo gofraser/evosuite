@@ -83,6 +83,12 @@ public class BranchPool {
 
     private static final Map<ClassLoader, BranchPool> instanceMap = new HashMap<>();
 
+    /**
+     * Returns the BranchPool instance for the given class loader.
+     *
+     * @param classLoader the class loader.
+     * @return the BranchPool instance.
+     */
     public static BranchPool getInstance(ClassLoader classLoader) {
         if (!instanceMap.containsKey(classLoader)) {
             instanceMap.put(classLoader, new BranchPool());
@@ -472,6 +478,13 @@ public class BranchPool {
         return branchMap.get(className).get(methodName).size();
     }
 
+    /**
+     * Returns the number of non-artificial (instrumented) branches in a method.
+     *
+     * @param className the class name.
+     * @param methodName the method name.
+     * @return the number of non-artificial branches.
+     */
     public int getNonArtificialBranchCountForMethod(String className,
                                                     String methodName) {
         if (branchMap.get(className) == null) {
@@ -585,6 +598,11 @@ public class BranchPool {
         return branchCounter;
     }
 
+    /**
+     * Returns the total number of artificial branches in the pool.
+     *
+     * @return the number of artificial branches.
+     */
     public int getNumArtificialBranches() {
         int num = 0;
         for (Branch b : branchIdMap.values()) {
@@ -676,6 +694,13 @@ public class BranchPool {
         return methods;
     }
 
+    /**
+     * Checks if the given method is known to have no branches.
+     *
+     * @param className the class name.
+     * @param methodName the method name.
+     * @return true if the method is branchless.
+     */
     public boolean isBranchlessMethod(String className, String methodName) {
         Map<String, Integer> methodMap = branchlessMethods.get(className);
         if (methodMap != null) {

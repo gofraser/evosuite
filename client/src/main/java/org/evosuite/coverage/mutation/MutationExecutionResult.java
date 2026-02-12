@@ -35,6 +35,12 @@ public class MutationExecutionResult {
 
     boolean hasException = false;
 
+    /**
+     * Creates a copy of this result.
+     *
+     * @return the cloned result.
+     */
+    @Override
     public MutationExecutionResult clone() {
         MutationExecutionResult result = new MutationExecutionResult();
         result.numAssertions = numAssertions;

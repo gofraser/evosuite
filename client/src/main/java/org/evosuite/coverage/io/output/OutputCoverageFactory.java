@@ -159,6 +159,15 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
         return goals;
     }
 
+    /**
+     * Creates an output coverage goal.
+     *
+     * @param className the class name.
+     * @param methodName the method name.
+     * @param returnType the return type of the method.
+     * @param suffix the suffix for the goal (category).
+     * @return the created test fitness object.
+     */
     public static OutputCoverageTestFitness createGoal(String className, String methodName,
                                                        Type returnType, String suffix) {
         OutputCoverageGoal goal = new OutputCoverageGoal(className, methodName, returnType, suffix);

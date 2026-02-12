@@ -52,6 +52,17 @@ public class MutationPool {
 
     private int numMutations = 0;
 
+    /**
+     * Adds a new mutation to the pool.
+     *
+     * @param className the class name.
+     * @param methodName the method name.
+     * @param mutationName the name of the mutation.
+     * @param instruction the original instruction.
+     * @param mutation the mutated instruction.
+     * @param distance the distance calculation instructions.
+     * @return the created mutation object.
+     */
     public synchronized Mutation addMutation(String className, String methodName,
                                 String mutationName, BytecodeInstruction instruction,
                                 AbstractInsnNode mutation, InsnList distance) {
@@ -63,6 +74,17 @@ public class MutationPool {
         return mutationObject;
     }
 
+    /**
+     * Adds a new mutation to the pool.
+     *
+     * @param className the class name.
+     * @param methodName the method name.
+     * @param mutationName the name of the mutation.
+     * @param instruction the original instruction.
+     * @param mutation the mutated instructions.
+     * @param distance the distance calculation instructions.
+     * @return the created mutation object.
+     */
     public synchronized Mutation addMutation(String className, String methodName,
                                 String mutationName, BytecodeInstruction instruction, InsnList mutation,
                                 InsnList distance) {

@@ -55,6 +55,11 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
     protected final Set<Integer> removedMutants = new LinkedHashSet<>();
     protected final Set<Integer> toRemoveMutants = new LinkedHashSet<>();
 
+    /**
+     * Initializes a new MutationSuiteFitness with the given criterion.
+     *
+     * @param criterion the mutation criterion (STRONGMUTATION, WEAKMUTATION, or ONLYMUTATION).
+     */
     public MutationSuiteFitness(Criterion criterion) {
         if (criterion != Criterion.STRONGMUTATION && criterion != Criterion.WEAKMUTATION
                 && criterion != Criterion.ONLYMUTATION) {

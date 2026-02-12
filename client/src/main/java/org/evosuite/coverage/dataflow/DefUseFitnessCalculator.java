@@ -169,6 +169,11 @@ public class DefUseFitnessCalculator {
         return calculateFitnessForObjects();
     }
 
+    /**
+     * Calculates the minimal fitness over all considerable objects in the trace.
+     *
+     * @return the minimal fitness value found.
+     */
     public double calculateFitnessForObjects() {
 
         // select considerable objects

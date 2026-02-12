@@ -46,6 +46,9 @@ public class StatementCoverageSuiteFitness extends TestSuiteFitnessFunction {
     private final Set<TestFitnessFunction> removedStatements = new LinkedHashSet<>();
     private final Set<TestFitnessFunction> toRemoveStatements = new LinkedHashSet<>();
 
+    /**
+     * Initializes a new StatementCoverageSuiteFitness and computes all statement goals.
+     */
     public StatementCoverageSuiteFitness() {
         List<StatementCoverageTestFitness> goals = new StatementCoverageFactory().getCoverageGoals();
 

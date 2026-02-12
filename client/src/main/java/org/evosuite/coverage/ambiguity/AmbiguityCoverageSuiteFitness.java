@@ -40,6 +40,9 @@ public class AmbiguityCoverageSuiteFitness extends TestSuiteFitnessFunction {
     private final Set<Integer> goals;
 
 
+    /**
+     * Initializes a new AmbiguityCoverageSuiteFitness and collects all line goals.
+     */
     public AmbiguityCoverageSuiteFitness() {
 
         this.goals = new LinkedHashSet<>();

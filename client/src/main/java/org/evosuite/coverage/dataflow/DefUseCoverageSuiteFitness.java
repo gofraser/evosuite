@@ -66,6 +66,9 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     protected final BranchCoverageSuiteFitness branchFitness;
 
+    /**
+     * Initializes a new DefUseCoverageSuiteFitness and sets up definition and method counts.
+     */
     public DefUseCoverageSuiteFitness() {
         boolean archive = Properties.TEST_ARCHIVE;
         Properties.TEST_ARCHIVE = false;
@@ -101,6 +104,13 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     // Not working yet
     //@Override
+    /**
+     * An alternative fitness calculation that takes into account the number of times
+     * each definition and method is executed.
+     *
+     * @param suite the test suite chromosome to evaluate.
+     * @return the fitness value.
+     */
     public double getFitnessAlternative(TestSuiteChromosome suite) {
         List<ExecutionResult> results = runTestSuite(suite);
         if (DefUseCoverageFactory.detectAliasingGoals(results)) {
@@ -370,6 +380,11 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
         return fitness;
     }
 
+    /**
+     * Initializes the map of total goals for each def-use pair type.
+     *
+     * @return a map from def-use pair type to the number of goals of that type.
+     */
     public static Map<DefUsePairType, Integer> initTotalGoals() {
         Map<DefUsePairType, Integer> r = new HashMap<>();
 
