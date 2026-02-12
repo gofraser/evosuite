@@ -43,7 +43,7 @@
     <!-- Loggers  -->
 
 
-    <logger name="evo_logger" level="ALL" additivity="false">
+    <logger name="evo_logger" level="${log.level:-WARN}" additivity="false">
         <appender-ref ref="EVO_LOGGER" />
     </logger>
 

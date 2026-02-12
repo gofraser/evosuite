@@ -77,7 +77,7 @@
 	<!-- the "EVO" logger is used both by master and client. it is used for 
 		outputting standard information to the user. so, it's level is always ALL. -->
 
-	<logger name="evo_logger" level="ALL" additivity="false">
+	<logger name="evo_logger" level="${log.level:-WARN}" additivity="false">
 		<appender-ref ref="EVO_LOGGER" />
 	</logger>
 
