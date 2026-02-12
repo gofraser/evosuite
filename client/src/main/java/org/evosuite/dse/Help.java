@@ -35,6 +35,12 @@ import java.lang.annotation.RetentionPolicy;
  */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Help {
+
+    /**
+     * The help text.
+     *
+     * @return the help text
+     */
     String value();
 }
 

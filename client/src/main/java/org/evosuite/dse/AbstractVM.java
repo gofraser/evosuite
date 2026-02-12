@@ -92,8 +92,10 @@ public abstract class AbstractVM implements IVM {
     /**
      * Pass index-th concrete parameter of the just called method.
      *
-     * @param index is the index into the locals. I.e., index increases by two for
-     *              each category-2 parameter
+     * @param nr                index of the parameter.
+     * @param calleeLocalsIndex is the index into the locals. I.e., index increases by two for
+     *                          each category-2 parameter
+     * @param value             the parameter value.
      */
     @Override
     public void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, int value) { /* stub */
