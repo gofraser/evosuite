@@ -73,6 +73,11 @@ public class ClassPathHandler {
         getInstance().evosuiteClassPath = null;
     }
 
+    /**
+     * Gets the EvoSuite classpath.
+     *
+     * @return the EvoSuite classpath
+     */
     public String getEvoSuiteClassPath() {
         if (evosuiteClassPath == null) {
             evosuiteClassPath = System.getProperty("java.class.path");
@@ -155,6 +160,12 @@ public class ClassPathHandler {
         return targetClassPath;
     }
 
+    /**
+     * Writes the given classpath to a temporary file.
+     *
+     * @param classpath the classpath string to write
+     * @return the absolute path of the temporary file
+     */
     public static String writeClasspathToFile(String classpath) {
 
         try {
@@ -227,8 +238,10 @@ public class ClassPathHandler {
     }
 
     /**
-     * This is meant only for running the EvoSuite test cases, whose CUTs will be in the
-     * classpath of EvoSuite itself.
+     * Changes the target classpath to match the EvoSuite classpath.
+     *
+     * <p>This is meant only for running the EvoSuite test cases, whose CUTs will be in the
+     * classpath of EvoSuite itself.</p>
      */
     public void changeTargetCPtoTheSameAsEvoSuite() {
 

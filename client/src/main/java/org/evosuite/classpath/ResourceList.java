@@ -143,6 +143,9 @@ public class ResourceList {
     // --------- public methods  -----------------
     // -------------------------------------------
 
+    /**
+     * Resets the cache.
+     */
     public synchronized void resetCache() {
         if (cache != null) {
             cache.close();
@@ -150,6 +153,9 @@ public class ResourceList {
         cache = null;
     }
 
+    /**
+     * Clears all caches.
+     */
     public static void resetAllCaches() {
         instanceMap.clear();
     }
@@ -321,6 +327,13 @@ public class ResourceList {
         }
     }
 
+    /**
+     * True if the given resource is an interface.
+     *
+     * @param resource the resource path
+     * @return true if the resource is an interface, false otherwise
+     * @throws IOException if an I/O error occurs
+     */
     public static boolean isInterface(String resource) throws IOException {
         try (InputStream input = ResourceList.class.getClassLoader().getResourceAsStream(resource)) {
             if (input == null) {
@@ -330,6 +343,13 @@ public class ResourceList {
         }
     }
 
+    /**
+     * True if the given class name corresponds to an interface.
+     *
+     * @param className the fully qualified class name
+     * @return true if the class is an interface, false otherwise
+     * @throws IOException if an I/O error occurs
+     */
     public boolean isClassAnInterface(String className) throws IOException {
         try (InputStream input = getClassAsStream(className)) {
             if (input == null) {
@@ -339,6 +359,13 @@ public class ResourceList {
         }
     }
 
+    /**
+     * True if the given class is deprecated.
+     *
+     * @param className the fully qualified class name
+     * @return true if the class is deprecated, false otherwise
+     * @throws IOException if an I/O error occurs
+     */
     public boolean isClassDeprecated(String className) throws IOException {
         try (InputStream input = getClassAsStream(className)) {
             if (input == null) {
@@ -348,6 +375,13 @@ public class ResourceList {
         }
     }
 
+    /**
+     * True if the given class is testable.
+     *
+     * @param className the fully qualified class name
+     * @return true if the class is testable, false otherwise
+     * @throws IOException if an I/O error occurs
+     */
     public boolean isClassTestable(String className) throws IOException {
         try (InputStream input = getClassAsStream(className)) {
             if (input == null) {
@@ -433,7 +467,7 @@ public class ResourceList {
     }
 
     /**
-     * Remove last '.' token.
+     * Gets the parent package name of the given class.
      *
      * @param className the class name
      * @return the parent package name
