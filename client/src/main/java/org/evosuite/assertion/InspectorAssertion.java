@@ -37,6 +37,14 @@ public class InspectorAssertion extends Assertion {
 
     }
 
+    /**
+     * Instantiates a new inspector assertion.
+     *
+     * @param inspector the inspector to use
+     * @param statement the statement where the assertion is added
+     * @param source    the source variable reference
+     * @param value     the expected value
+     */
     public InspectorAssertion(Inspector inspector, Statement statement, VariableReference source, Object value) {
         this.inspector = inspector;
         this.source = source;

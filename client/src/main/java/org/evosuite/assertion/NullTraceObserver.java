@@ -49,10 +49,6 @@ public class NullTraceObserver extends AssertionTraceObserver<NullTraceEntry> {
         visitReturnValue(statement, scope);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -62,9 +58,11 @@ public class NullTraceObserver extends AssertionTraceObserver<NullTraceEntry> {
         try {
             if (var == null
                     || var.isPrimitive()
-                    //|| var.isWrapperType() // TODO: Wrapper types might make sense but there were failing assertions...
+                    //|| var.isWrapperType() // TODO: Wrapper types might make sense but
+                    // there were failing assertions...
                     || var.isEnum()
-                    || currentTest.getStatement(var.getStPosition()) instanceof PrimitiveStatement
+                    || currentTest.getStatement(var.getStPosition())
+                    instanceof PrimitiveStatement
                     || currentTest.getStatement(var.getStPosition()).isAssignmentStatement()) {
                 return;
             }

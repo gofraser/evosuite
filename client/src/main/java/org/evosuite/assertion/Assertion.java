@@ -233,6 +233,11 @@ public abstract class Assertion implements Serializable {
         return source != null && value != null;
     }
 
+    /**
+     * Updates the class loader used by this assertion.
+     *
+     * @param loader the new class loader to use
+     */
     public void changeClassLoader(ClassLoader loader) {
         // Need to replace the classloader for enums
         if (value != null) {
