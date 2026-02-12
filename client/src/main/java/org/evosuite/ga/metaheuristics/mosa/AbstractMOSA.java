@@ -200,7 +200,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 offspringPopulation.add(tch);
             }
         }
-        logger.info("Number of offsprings = {}", offspringPopulation.size());
+        logger.debug("Number of offsprings = {}", offspringPopulation.size());
         return offspringPopulation;
     }
 
