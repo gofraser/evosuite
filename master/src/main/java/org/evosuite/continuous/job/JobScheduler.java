@@ -62,6 +62,12 @@ public class JobScheduler {
     }
 
 
+    /**
+     * Chooses the schedule type based on the given schedule.
+     *
+     * @param schedule the schedule type
+     * @throws IllegalArgumentException if the schedule is not supported
+     */
     public void chooseScheduleType(AvailableSchedule schedule) throws IllegalArgumentException {
 
         switch (schedule) {

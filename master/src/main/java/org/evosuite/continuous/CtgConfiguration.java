@@ -78,12 +78,33 @@ public class CtgConfiguration {
     public final String extraArgs;
 
 
+    /**
+     * Constructs a {@link CtgConfiguration} object.
+     *
+     * @param totalMemoryInMB total memory in MB
+     * @param numberOfCores number of cores
+     * @param timeInMinutes time in minutes
+     * @param minMinutesPerJob minimum minutes per job
+     * @param callHome whether to call home
+     * @param schedule the schedule type
+     */
     public CtgConfiguration(int totalMemoryInMB, int numberOfCores,
                             int timeInMinutes, int minMinutesPerJob, boolean callHome,
                             AvailableSchedule schedule) {
         this(totalMemoryInMB, numberOfCores, timeInMinutes, minMinutesPerJob, callHome, schedule, "");
     }
 
+    /**
+     * Constructs a {@link CtgConfiguration} object with extra arguments.
+     *
+     * @param totalMemoryInMB total memory in MB
+     * @param numberOfCores number of cores
+     * @param timeInMinutes time in minutes
+     * @param minMinutesPerJob minimum minutes per job
+     * @param callHome whether to call home
+     * @param schedule the schedule type
+     * @param extraArgs extra arguments
+     */
     public CtgConfiguration(int totalMemoryInMB, int numberOfCores,
                             int timeInMinutes, int minMinutesPerJob, boolean callHome,
                             AvailableSchedule schedule, String extraArgs) {
@@ -165,6 +186,11 @@ public class CtgConfiguration {
     }
 
 
+    /**
+     * Returns the number of usable cores.
+     *
+     * @return number of usable cores
+     */
     public int getNumberOfUsableCores() {
 
         return numberOfCores;
@@ -177,6 +203,11 @@ public class CtgConfiguration {
         // }
     }
 
+    /**
+     * Returns the constant memory per job in MB.
+     *
+     * @return constant memory per job
+     */
     public int getConstantMemoryPerJob() {
         return totalMemoryInMB / getNumberOfUsableCores();
     }

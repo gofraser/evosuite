@@ -123,6 +123,13 @@ public class CsvJUnitData {
         return data;
     }
 
+    /**
+     * Returns the value of the given column name in the given rows.
+     *
+     * @param rows the rows
+     * @param columnName the column name
+     * @return the value
+     */
     public static String getValue(List<String[]> rows, String columnName) {
         String[] names = rows.get(0);
         String[] values = rows.get(1);
@@ -135,6 +142,13 @@ public class CsvJUnitData {
         return null;
     }
 
+    /**
+     * Returns the values of the given column name in the given rows.
+     *
+     * @param rows the rows
+     * @param columnName the column name
+     * @return the values
+     */
     public static List<String> getValues(List<String[]> rows, String columnName) {
         String[] names = rows.get(0);
         List<String> values = new ArrayList<>();

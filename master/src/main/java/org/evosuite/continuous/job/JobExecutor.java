@@ -289,16 +289,30 @@ public class JobExecutor {
     }
 
 
+    /**
+     * Polls a job from the queue.
+     *
+     * @return the job definition
+     * @throws InterruptedException if interrupted while waiting
+     */
     public JobDefinition pollJob() throws InterruptedException {
         return jobQueue.take();
     }
 
+    /**
+     * Notifies that a job has been completed.
+     *
+     * @param job the completed job
+     */
     public void doneWithJob(JobDefinition job) {
         finishedJobs.put(job.cut, job);
         latch.countDown();
         LoggingUtils.getEvoLogger().info("Completed job. Left: " + latch.getCount());
     }
 
+    /**
+     * Waits for all scheduled jobs to finish.
+     */
     public void waitForJobs() {
         /*
          * Note: this method could be called a long while after the starting

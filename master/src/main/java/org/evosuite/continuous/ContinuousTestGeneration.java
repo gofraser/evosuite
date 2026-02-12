@@ -119,6 +119,16 @@ public class ContinuousTestGeneration {
      */
     private final String[] cuts;
 
+    /**
+     * Constructs a {@link ContinuousTestGeneration} object.
+     *
+     * @param target target folder/jar
+     * @param projectClassPath complete used classpath
+     * @param prefix package prefix
+     * @param conf configuration
+     * @param cuts classes under test
+     * @param exportFolder optional export folder
+     */
     public ContinuousTestGeneration(String target, String projectClassPath, String prefix, CtgConfiguration conf,
                                     String[] cuts, String exportFolder) {
         super();
@@ -198,6 +208,13 @@ public class ContinuousTestGeneration {
         return description;
     }
 
+    /**
+     * Resolves the export folder path.
+     *
+     * @param baseFolder the base folder
+     * @param exportFolder the export folder
+     * @return the resolved export folder
+     */
     public static File resolveExportFolder(String baseFolder, String exportFolder) {
 
         Path exp = Paths.get(exportFolder);
@@ -209,6 +226,14 @@ public class ContinuousTestGeneration {
     }
 
 
+    /**
+     * Exports the best test suites to the given folder.
+     *
+     * @param baseFolder the base folder
+     * @param exportFolder the export folder
+     * @return true if successful
+     * @throws IOException if io error
+     */
     public static boolean exportToFolder(String baseFolder, String exportFolder) throws IOException {
         File basedir = new File(baseFolder);
         File evoFolder = StorageManager.getBestTestFolder(basedir);

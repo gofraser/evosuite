@@ -75,12 +75,18 @@ public class ProjectStaticData {
     private ProjectGraph graph = null;
 
 
+    /**
+     * Constructs a {@link ProjectStaticData} object.
+     */
     public ProjectStaticData() {
         classes = new ConcurrentHashMap<>();
         this.modifiedFiles = new LinkedHashSet<>();
     }
 
 
+    /**
+     * Initializes the local history from the history file.
+     */
     public void initializeLocalHistory() {
         if (Properties.CTG_HISTORY_FILE == null) {
             logger.info("ctg history file is not set");
@@ -166,6 +172,13 @@ public class ProjectStaticData {
          */
         private int memoryInMB = 0;
 
+        /**
+         * Constructs a {@link ClassInfo} object.
+         *
+         * @param theClass the class
+         * @param numberOfBranches the number of branches
+         * @param hasCode whether the class has code
+         */
         public ClassInfo(Class<?> theClass, int numberOfBranches, boolean hasCode) {
             super();
             this.theClass = theClass;
@@ -224,6 +237,12 @@ public class ProjectStaticData {
         classes.put(info.getClassName(), info);
     }
 
+    /**
+     * Returns true if the project contains the given class.
+     *
+     * @param c class name
+     * @return true if class is present
+     */
     public boolean containsClass(String c) {
         return classes.containsKey(c);
     }
@@ -264,6 +283,11 @@ public class ProjectStaticData {
         return total;
     }
 
+    /**
+     * Returns the total number of branches in the project.
+     *
+     * @return total number of branches
+     */
     public int getTotalNumberOfBranches() {
         int total = 0;
         for (ClassInfo info : classes.values()) {

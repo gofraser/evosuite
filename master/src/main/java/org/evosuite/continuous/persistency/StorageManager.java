@@ -66,6 +66,9 @@ public class StorageManager {
 
     private DecimalFormat df = null;
 
+    /**
+     * Constructs a {@link StorageManager} object.
+     */
     public StorageManager() {
         this.isStorageOk = this.openForWriting();
         this.df = (DecimalFormat) NumberFormat.getNumberInstance(Locale.ENGLISH);
@@ -129,6 +132,12 @@ public class StorageManager {
         return getBestTestFolder(null);
     }
 
+    /**
+     * Returns the folder where the best test suites are stored.
+     *
+     * @param baseDir the base directory
+     * @return the folder where the best test suites are stored
+     */
     public static File getBestTestFolder(File baseDir) {
         String base = "";
         if (baseDir != null) {
@@ -194,6 +203,9 @@ public class StorageManager {
     }
 
 
+    /**
+     * Deletes all old temporary folders.
+     */
     public void deleteAllOldTmpFolders() {
 
         File root = new File(Properties.CTG_DIR);
@@ -232,6 +244,13 @@ public class StorageManager {
         public final CsvJUnitData csvData;
         public final File serializedSuite;
 
+        /**
+         * Constructs a {@link TestsOnDisk} object.
+         *
+         * @param testSuite the test suite file
+         * @param csvData the CSV data
+         * @param serializedSuite the serialized test suite file
+         */
         public TestsOnDisk(File testSuite, CsvJUnitData csvData, File serializedSuite) {
             super();
             this.testSuite = testSuite;
@@ -240,6 +259,11 @@ public class StorageManager {
             this.serializedSuite = serializedSuite; //this might be null
         }
 
+        /**
+         * Returns true if the test suite is valid.
+         *
+         * @return true if valid
+         */
         public boolean isValid() {
             return testSuite != null && testSuite.exists()
                     && cut != null && !cut.isEmpty()

@@ -64,6 +64,9 @@ public class JobHandler extends Thread {
         this.executor = executor;
     }
 
+    /**
+     * Sets up a shutdown hook to destroy the latest process.
+     */
     public void setUpShutdownHook() {
         /*
          * Just to be sure, in case this thread-class is
