@@ -80,10 +80,20 @@ public class ClassPathHacker {
         }
     }
 
+    /**
+     * Gets the cause of failure if tool initialization failed.
+     *
+     * @return the cause message
+     */
     public static String getCause() {
         return cause;
     }
 
+    /**
+     * True if JUnit check is available.
+     *
+     * @return true if available, false otherwise
+     */
     public static boolean isJunitCheckAvailable() {
         return junitCheckAvailable;
     }
@@ -135,10 +145,22 @@ public class ClassPathHacker {
     }
 
 
+    /**
+     * Sets up the continuous class loader with the given classpath.
+     *
+     * @param cp the classpath string
+     * @throws IOException if an I/O error occurs
+     */
     public static void setupContinuousClassLoader(String cp) throws IOException {
         setupContinuousClassLoader(cp.split(File.pathSeparator));
     }
 
+    /**
+     * Sets up the continuous class loader with the given classpath entries.
+     *
+     * @param cpEntries the classpath entries
+     * @throws IOException if an I/O error occurs
+     */
     public static void setupContinuousClassLoader(String[] cpEntries) throws IOException {
         List<URL> list = new ArrayList<>();
         for (String cpEntry : cpEntries) {
@@ -169,7 +191,9 @@ public class ClassPathHacker {
     }
 
     /**
-     * get a classLoader that can load the cuts for continuous integration.
+     * Gets a classLoader that can load the cuts for continuous integration.
+     *
+     * @return the continuous class loader
      */
     public static ClassLoader getContinuousClassLoader() {
         return continuousClassLoader != null ? continuousClassLoader : Thread.currentThread().getContextClassLoader();
