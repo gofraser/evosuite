@@ -55,7 +55,7 @@
 
 	<!-- appenders for client. -->
 
-	<appender name="STDOUT_CLIENT" class="ch.qos.logback.classic.net.SocketAppender">
+	<appender name="STDOUT_CLIENT_SOCKET" class="ch.qos.logback.classic.net.SocketAppender">
 		<filter class="ch.qos.logback.classic.filter.LevelFilter">
 			<level>ERROR</level>
 			<onMatch>DENY</onMatch>
@@ -66,7 +66,14 @@
 		<reconnectionDelay>10000</reconnectionDelay>
 	</appender>
 
-	<appender name="STDERR_CLIENT" class="ch.qos.logback.classic.net.SocketAppender">
+	<appender name="STDOUT_CLIENT" class="ch.qos.logback.classic.AsyncAppender">
+		<appender-ref ref="STDOUT_CLIENT_SOCKET" />
+		<queueSize>2048</queueSize>
+		<discardingThreshold>0</discardingThreshold>
+		<neverBlock>true</neverBlock>
+	</appender>
+
+	<appender name="STDERR_CLIENT_SOCKET" class="ch.qos.logback.classic.net.SocketAppender">
 		<filter class="ch.qos.logback.classic.filter.LevelFilter">
 			<level>ERROR</level>
 			<onMatch>ACCEPT</onMatch>
@@ -77,6 +84,12 @@
 		<reconnectionDelay>10000</reconnectionDelay>
 	</appender>
 
+	<appender name="STDERR_CLIENT" class="ch.qos.logback.classic.AsyncAppender">
+		<appender-ref ref="STDERR_CLIENT_SOCKET" />
+		<queueSize>2048</queueSize>
+		<discardingThreshold>0</discardingThreshold>
+		<neverBlock>true</neverBlock>
+	</appender>
 
 	<!-- the "EVO" logger is used both by master and client. it is used for 
 		outputting standard information to the user. so, it's level is always ALL. -->
@@ -87,12 +100,18 @@
 		</encoder>
 	</appender>
 
-	<appender name="EVO_LOGGER_CLIENT" class="ch.qos.logback.classic.net.SocketAppender">
+	<appender name="EVO_LOGGER_CLIENT_SOCKET" class="ch.qos.logback.classic.net.SocketAppender">
 		<remoteHost>${master_host:-localhost}</remoteHost>
 		<port>${master_log_port:-12345}</port>
 		<reconnectionDelay>10000</reconnectionDelay>
 	</appender>
 
+	<appender name="EVO_LOGGER_CLIENT" class="ch.qos.logback.classic.AsyncAppender">
+		<appender-ref ref="EVO_LOGGER_CLIENT_SOCKET" />
+		<queueSize>1024</queueSize>
+		<discardingThreshold>0</discardingThreshold>
+		<neverBlock>true</neverBlock>
+	</appender>
 
 
 	<!-- Loggers  -->
