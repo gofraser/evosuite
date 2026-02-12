@@ -64,6 +64,15 @@ public class MockPrintWriter extends PrintWriter implements OverrideMock {
         super(out, autoFlush);
     }
 
+    /**
+     * Creates a new MockPrintWriter, without automatic line flushing, with the specified file name.
+     *
+     * @param fileName The name of the file to use as the destination of this writer.
+     * @throws FileNotFoundException If the given string does not denote an existing, writable
+     *                               regular file and a new regular file of that name cannot be
+     *                               created, or if some other error occurs while opening or
+     *                               creating the file
+     */
     public MockPrintWriter(String fileName) throws FileNotFoundException {
         this(new BufferedWriter(new OutputStreamWriter(
                 (!MockFramework.isEnabled()
@@ -83,6 +92,17 @@ public class MockPrintWriter extends PrintWriter implements OverrideMock {
                 false);
     }
 
+    /**
+     * Creates a new MockPrintWriter, without automatic line flushing, with the specified file name and charset.
+     *
+     * @param fileName The name of the file to use as the destination of this writer.
+     * @param csn      The name of a supported charset
+     * @throws FileNotFoundException        If the given string does not denote an existing,
+     *                                      writable regular file and a new regular file of that
+     *                                      name cannot be created, or if some other error occurs
+     *                                      while opening or creating the file
+     * @throws UnsupportedEncodingException If the named charset is not supported
+     */
     public MockPrintWriter(String fileName, String csn)
             throws FileNotFoundException, UnsupportedEncodingException {
         this(toCharset(csn),
@@ -91,6 +111,15 @@ public class MockPrintWriter extends PrintWriter implements OverrideMock {
                         : new MockFile(fileName)));
     }
 
+    /**
+     * Creates a new MockPrintWriter, without automatic line flushing, with the specified file.
+     *
+     * @param file The file to use as the destination of this writer.
+     * @throws FileNotFoundException If the given file object does not denote an existing,
+     *                               writable regular file and a new regular file of that name
+     *                               cannot be created, or if some other error occurs while
+     *                               opening or creating the file
+     */
     public MockPrintWriter(File file) throws FileNotFoundException {
         this(new BufferedWriter(new OutputStreamWriter(
                 (!MockFramework.isEnabled()
@@ -99,6 +128,17 @@ public class MockPrintWriter extends PrintWriter implements OverrideMock {
                 false);
     }
 
+    /**
+     * Creates a new MockPrintWriter, without automatic line flushing, with the specified file and charset.
+     *
+     * @param file The file to use as the destination of this writer.
+     * @param csn  The name of a supported charset
+     * @throws FileNotFoundException        If the given file object does not denote an existing,
+     *                                      writable regular file and a new regular file of that
+     *                                      name cannot be created, or if some other error occurs
+     *                                      while opening or creating the file
+     * @throws UnsupportedEncodingException If the named charset is not supported
+     */
     public MockPrintWriter(File file, String csn)
             throws FileNotFoundException, UnsupportedEncodingException {
         this(toCharset(csn), file);

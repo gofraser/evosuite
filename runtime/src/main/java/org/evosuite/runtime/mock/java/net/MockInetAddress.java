@@ -110,10 +110,28 @@ public class MockInetAddress implements StaticReplacementMock {
 
     // ----- public instance methods depending on virtual network -----
 
+    /**
+     * Test whether that address is reachable.
+     *
+     * @param addr    the address to check
+     * @param timeout the time, in milliseconds, before the call aborts
+     * @return a boolean indicating if the address is reachable.
+     * @throws IOException if a network error occurs
+     */
     public static boolean isReachable(InetAddress addr, int timeout) throws IOException {
         return isReachable(addr, null, 0, timeout);
     }
 
+    /**
+     * Test whether that address is reachable.
+     *
+     * @param addr    the address to check
+     * @param netif   the network interface through which the test will be done, or null for any interface
+     * @param ttl     the maximum number of hops to try or 0 for the default
+     * @param timeout the time, in milliseconds, before the call aborts
+     * @return a boolean indicating if the address is reachable.
+     * @throws IOException if a network error occurs
+     */
     public static boolean isReachable(InetAddress addr, NetworkInterface netif, int ttl,
                                       int timeout) throws IOException {
 
@@ -130,6 +148,12 @@ public class MockInetAddress implements StaticReplacementMock {
         return true;
     }
 
+    /**
+     * Gets the host name for this IP address.
+     *
+     * @param addr the address
+     * @return the host name
+     */
     public static String getHostName(InetAddress addr) {
         /*
          * We return the textual IP address instead of a lookup
@@ -138,6 +162,12 @@ public class MockInetAddress implements StaticReplacementMock {
         return addr.getHostAddress();
     }
 
+    /**
+     * Gets the fully qualified domain name for this IP address.
+     *
+     * @param addr the address
+     * @return the fully qualified domain name
+     */
     public static String getCanonicalHostName(InetAddress addr) {
         //see the callee
         return getHostName(addr);

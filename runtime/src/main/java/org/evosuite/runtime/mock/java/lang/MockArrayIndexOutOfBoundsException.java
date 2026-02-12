@@ -61,16 +61,29 @@ public class MockArrayIndexOutOfBoundsException extends ArrayIndexOutOfBoundsExc
 
     // ----- constructor --------
 
+    /**
+     * Constructs a {@code MockArrayIndexOutOfBoundsException} with the specified detail message.
+     *
+     * @param index the invalid index
+     */
     public MockArrayIndexOutOfBoundsException(int index) {
         super("Array index out of range: " + index);
     }
 
+    /**
+     * Constructs a {@code MockArrayIndexOutOfBoundsException} with no detail message.
+     */
     public MockArrayIndexOutOfBoundsException() {
         super();
         delegate = new MockThrowable();
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a {@code MockArrayIndexOutOfBoundsException} with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockArrayIndexOutOfBoundsException(String message) {
         super(message);
         delegate = new MockThrowable(message);

@@ -152,6 +152,17 @@ public class MockURL implements StaticReplacementMock {
         return URL(protocol, host, port, file, null);
     }
 
+    /**
+     * Mocked constructor for {@link URL#URL(String, String, int, String, URLStreamHandler)}.
+     *
+     * @param protocol the protocol
+     * @param host     the host
+     * @param port     the port
+     * @param file     the file
+     * @param handler  the stream handler
+     * @return the new URL
+     * @throws MalformedURLException if the URL is invalid
+     */
     @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(String protocol, String host, int port, String file,
                           URLStreamHandler handler) throws MalformedURLException {
@@ -173,6 +184,15 @@ public class MockURL implements StaticReplacementMock {
         return url;
     }
 
+    /**
+     * Mocked constructor for {@link URL#URL(URL, String, URLStreamHandler)}.
+     *
+     * @param context the context URL
+     * @param spec    the URL specification
+     * @param handler the stream handler
+     * @return the new URL
+     * @throws MalformedURLException if the URL is invalid
+     */
     @SuppressWarnings("checkstyle:MethodName")
     public static URL URL(URL context, String spec, URLStreamHandler handler)
             throws MalformedURLException {
@@ -309,6 +329,12 @@ public class MockURL implements StaticReplacementMock {
         return url.getAuthority();
     }
 
+    /**
+     * Returns the port number of the URL.
+     *
+     * @param url the URL
+     * @return the port number, or -1 if the port is not set
+     */
     public static int getPort(URL url) {
         return url.getPort();
     }
@@ -317,6 +343,12 @@ public class MockURL implements StaticReplacementMock {
         return url.getDefaultPort();
     }
 
+    /**
+     * Returns the protocol name of the URL.
+     *
+     * @param url the URL
+     * @return the protocol
+     */
     public static String getProtocol(URL url) {
         return url.getProtocol();
     }
@@ -333,6 +365,13 @@ public class MockURL implements StaticReplacementMock {
         return url.getRef();
     }
 
+    /**
+     * Compares this URL for equality with another object.
+     *
+     * @param url the URL
+     * @param obj the object to compare against
+     * @return true if the objects are the same; false otherwise.
+     */
     public static boolean equals(URL url, Object obj) {
         // URL equals is blocking and broken:
         // https://stackoverflow.com/questions/3771081/proper-way-to-check-for-url-equality
@@ -348,6 +387,12 @@ public class MockURL implements StaticReplacementMock {
         }
     }
 
+    /**
+     * Creates an integer suitable for hash table indexing.
+     *
+     * @param url the URL
+     * @return a hash code for this URL.
+     */
     public static synchronized int hashCode(URL url) {
         try {
             return url.toURI().hashCode();
@@ -360,6 +405,12 @@ public class MockURL implements StaticReplacementMock {
         return url.sameFile(other);
     }
 
+    /**
+     * Returns a string representation of the URL.
+     *
+     * @param url the URL
+     * @return a string representation
+     */
     public static String toString(URL url) {
         return url.toString();
     }
@@ -372,10 +423,27 @@ public class MockURL implements StaticReplacementMock {
         return new URI(url.toString());
     }
 
+    /**
+     * Returns a {@link URLConnection} instance that represents a connection to the
+     * remote object referred to by the {@code URL}.
+     *
+     * @param url the URL
+     * @return a {@link URLConnection} to the URL
+     * @throws java.io.IOException if an I/O error occurs
+     */
     public static URLConnection openConnection(URL url) throws java.io.IOException {
         return url.openConnection();
     }
 
+    /**
+     * Returns a {@link URLConnection} instance that represents a connection to the
+     * remote object referred to by the {@code URL}.
+     *
+     * @param url   the URL
+     * @param proxy the proxy through which the connection will be made
+     * @return a {@link URLConnection} to the URL
+     * @throws java.io.IOException if an I/O error occurs
+     */
     public static URLConnection openConnection(URL url, Proxy proxy)
             throws java.io.IOException {
         if (proxy == null) {
@@ -391,19 +459,47 @@ public class MockURL implements StaticReplacementMock {
         }
     }
 
+    /**
+     * Opens a connection to this URL and returns an InputStream for reading from that connection.
+     *
+     * @param url the URL
+     * @return an input stream for reading from the URL connection
+     * @throws java.io.IOException if an I/O error occurs
+     */
     public static InputStream openStream(URL url) throws java.io.IOException {
         return url.openStream();
     }
 
+    /**
+     * Gets the contents of this URL.
+     *
+     * @param url the URL
+     * @return the contents of this URL
+     * @throws java.io.IOException if an I/O error occurs
+     */
     public static Object getContent(URL url) throws java.io.IOException {
         return url.getContent();
     }
 
+    /**
+     * Gets the contents of this URL.
+     *
+     * @param url     the URL
+     * @param classes an array of Java types
+     * @return the content object that is the first match of the types specified in the classes array.
+     *         null if no match is found.
+     * @throws java.io.IOException if an I/O error occurs
+     */
     public static Object getContent(URL url, Class[] classes)
             throws java.io.IOException {
         return url.getContent(classes);
     }
 
+    /**
+     * Sets an application's {@code URLStreamHandlerFactory}.
+     *
+     * @param fac the desired factory
+     */
     public static void setURLStreamHandlerFactory(URLStreamHandlerFactory fac) {
         synchronized (streamHandlerLock) {
             if (factory != null) {

@@ -355,6 +355,11 @@ public class MSecurityManager extends SecurityManager {
         }
     }
 
+    /**
+     * Marks the beginning of a test case execution.
+     *
+     * @throws IllegalStateException if a test case is already being executed
+     */
     public void goingToExecuteTestCase() throws IllegalStateException {
         if (executingTestCase) {
             throw new IllegalStateException("Trying to set up the sandbox while executing a test case");
@@ -363,10 +368,20 @@ public class MSecurityManager extends SecurityManager {
         executingTestCase = true;
     }
 
+    /**
+     * Checks whether a test case is currently being executed.
+     *
+     * @return true if a test case is being executed
+     */
     public boolean isExecutingTestCase() {
         return executingTestCase;
     }
 
+    /**
+     * Marks the end of a test case execution.
+     *
+     * @throws IllegalStateException if no test case was being executed
+     */
     public void goingToEndTestCase() throws IllegalStateException {
         if (!executingTestCase) {
             throw new IllegalStateException("Trying to disable sandbox when not test case was run");

@@ -35,6 +35,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class NativeMockedIO {
 
+    /**
+     * Returns the virtual file at the specified path for reading.
+     *
+     * @param path the path to the file
+     * @return the VFile instance, or null if not found or no read permission
+     */
     public static VFile getFileForReading(String path) {
         FSObject target = VirtualFileSystem.getInstance().findFSObject(path);
         if (target == null || target.isDeleted() || target.isFolder() || !target.isReadPermission()) {
@@ -43,6 +49,14 @@ public class NativeMockedIO {
         return (VFile) target;
     }
 
+    /**
+     * Reads a byte from the specified virtual file.
+     *
+     * @param path     the path to the file
+     * @param position the current position in the file
+     * @return the byte read, or -1 if EOF
+     * @throws IOException if an I/O error occurs
+     */
     public static int read(String path, AtomicInteger position) throws IOException {
         VFile vf = NativeMockedIO.getFileForReading(path);
         if (vf == null) {
@@ -56,6 +70,12 @@ public class NativeMockedIO {
         return b;
     }
 
+    /**
+     * Returns the virtual file at the specified path for writing.
+     *
+     * @param path the path to the file
+     * @return the VFile instance, or null if not found or no write permission
+     */
     public static VFile getFileForWriting(String path) {
         FSObject target = VirtualFileSystem.getInstance().findFSObject(path);
         if (target == null || target.isDeleted() || target.isFolder() || !target.isWritePermission()) {
@@ -64,6 +84,16 @@ public class NativeMockedIO {
         return (VFile) target;
     }
 
+    /**
+     * Writes bytes to the specified virtual file.
+     *
+     * @param path     the path to the file
+     * @param position the current position in the file
+     * @param b        the byte array to write
+     * @param off      the offset in the byte array
+     * @param len      the number of bytes to write
+     * @throws IOException if an I/O error occurs
+     */
     public static void writeBytes(String path, AtomicInteger position, byte[] b, int off, int len)
             throws IOException {
 
@@ -81,6 +111,13 @@ public class NativeMockedIO {
         position.addAndGet(written);
     }
 
+    /**
+     * Returns the size of the specified virtual file.
+     *
+     * @param path the path to the file
+     * @return the size in bytes
+     * @throws IOException if an I/O error occurs
+     */
     public static int size(String path) throws IOException {
         VFile vf = NativeMockedIO.getFileForReading(path);
         if (vf == null) {
@@ -92,6 +129,14 @@ public class NativeMockedIO {
         return vf.getDataSize();
     }
 
+    /**
+     * Sets the length of the specified virtual file.
+     *
+     * @param path      the path to the file
+     * @param position  the current position (will be adjusted if it exceeds newLength)
+     * @param newLength the new length in bytes
+     * @throws IOException if an I/O error occurs
+     */
     public static void setLength(String path, AtomicInteger position, long newLength) throws IOException {
         if (newLength < 0) {
             throw new MockIOException("Negative position: " + newLength);

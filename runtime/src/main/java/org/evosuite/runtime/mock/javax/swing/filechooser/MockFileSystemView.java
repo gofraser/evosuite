@@ -43,6 +43,11 @@ public abstract class MockFileSystemView extends FileSystemView  implements Over
     private boolean useSystemExtensionHiding =
             UIManager.getDefaults().getBoolean("FileChooser.useSystemExtensionHiding");
 
+    /**
+     * Returns the file system view.
+     *
+     * @return the file system view
+     */
     public static FileSystemView getFileSystemView() {
         if (File.separatorChar == '\\') {
             if (windowsFileSystemView == null) {
@@ -64,6 +69,9 @@ public abstract class MockFileSystemView extends FileSystemView  implements Over
         return genericFileSystemView;
     }
 
+    /**
+     * Constructs a {@code MockFileSystemView}.
+     */
     public MockFileSystemView() {
         final WeakReference<MockFileSystemView> weakReference = new WeakReference<>(this);
 
@@ -268,6 +276,11 @@ public abstract class MockFileSystemView extends FileSystemView  implements Over
         return super.getHomeDirectory();
     }
 
+    /**
+     * Returns the default directory for the file chooser.
+     *
+     * @return a {@code File} object representing the default directory
+     */
     public File getDefaultDirectory() {
         //File f = (File)ShellFolder.get("fileChooserDefaultFolder");
         File f = getHomeDirectory();

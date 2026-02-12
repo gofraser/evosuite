@@ -30,6 +30,11 @@ public class MockDefaultListSelectionModel extends DefaultListSelectionModel imp
 
     private static final long serialVersionUID = 8871874273079985592L;
 
+    /**
+     * Returns a string representation of this object.
+     *
+     * @return a string representation of this object.
+     */
     public String toString() {
         String s =  ((getValueIsAdjusting()) ? "~" : "=");
         try {

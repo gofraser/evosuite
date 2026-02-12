@@ -57,12 +57,28 @@ public class MockFileInputStream extends FileInputStream implements LeakingResou
 
     // ----- constructors -------------
 
+    /**
+     * Creates a {@code MockFileInputStream} by opening a connection to an actual file, the file named by the path name
+     * {@code name} in the file system.
+     *
+     * @param name the system-dependent file name.
+     * @throws FileNotFoundException if the file does not exist, is a directory rather than a regular file, or for some
+     *                               other reason cannot be opened for reading.
+     */
     public MockFileInputStream(String name) throws FileNotFoundException {
         this(name != null
                 ? (!MockFramework.isEnabled() ? new File(name) : new MockFile(name))
                 : (File) null);
     }
 
+    /**
+     * Creates a {@code MockFileInputStream} by opening a connection to an actual file, the file named by the
+     * {@code File} object {@code file} in the file system.
+     *
+     * @param file the file to be opened for reading.
+     * @throws FileNotFoundException if the file does not exist, is a directory rather than a regular file, or for some
+     *                               other reason cannot be opened for reading.
+     */
     public MockFileInputStream(File file) throws FileNotFoundException {
         super(!MockFramework.isEnabled()
                 ? file
@@ -97,6 +113,12 @@ public class MockFileInputStream extends FileInputStream implements LeakingResou
 
     // ----  read methods  ----------
 
+    /**
+     * Reads a byte of data from this input stream.
+     *
+     * @return the next byte of data, or -1 if the end of the file is reached.
+     * @throws IOException if an I/O error occurs.
+     */
     public int read() throws IOException {
 
         if (!MockFramework.isEnabled()) {

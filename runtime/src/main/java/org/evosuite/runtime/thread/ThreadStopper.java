@@ -60,6 +60,13 @@ public class ThreadStopper {
     private long startTime;
 
 
+    /**
+     * Creates a new ThreadStopper.
+     *
+     * @param killSwitch      the kill switch to use
+     * @param threadsToIgnore the set of threads to ignore
+     * @param timeout         the timeout in milliseconds
+     */
     public ThreadStopper(KillSwitch killSwitch, Set<String> threadsToIgnore, long timeout) {
         this.killSwitch = killSwitch;
         this.timeout = timeout;

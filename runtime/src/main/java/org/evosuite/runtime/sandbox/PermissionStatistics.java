@@ -512,6 +512,11 @@ public class PermissionStatistics {
         return maxThreads;
     }
 
+    /**
+     * Checks if new security exceptions have been encountered and resets the flag.
+     *
+     * @return true if new exceptions were encountered since the last call
+     */
     public boolean getAndResetExceptionInfo() {
         if (hasNewExceptions) {
             hasNewExceptions = false;

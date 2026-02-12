@@ -50,6 +50,11 @@ public class ThreadCounter {
         counter = 0;
     }
 
+    /**
+     * Increments the thread counter if the maximum number of threads hasn't been reached.
+     *
+     * @throws TooManyResourcesException if the maximum number of threads is exceeded
+     */
     public synchronized void checkIfCanStartNewThread() throws TooManyResourcesException {
         if (counter >= RuntimeSettings.maxNumberOfThreads) {
             throw new TooManyResourcesException("This test case has tried to start too many threads. "

@@ -105,6 +105,11 @@ public class MockThread extends Thread implements OverrideMock {
 
     // ------ static  methods  --------
 
+    /**
+     * Returns a reference to the currently executing thread object.
+     *
+     * @return the currently executing thread.
+     */
     public static Thread currentThread() {
         return Thread.currentThread();
     }
@@ -114,6 +119,13 @@ public class MockThread extends Thread implements OverrideMock {
         Thread.yield();
     }
 
+    /**
+     * Causes the currently executing thread to sleep (temporarily cease execution)
+     * for the specified number of milliseconds.
+     *
+     * @param millis the length of time to sleep in milliseconds
+     * @throws InterruptedException if any thread has interrupted the current thread.
+     */
     @EvoSuiteExclude
     public static void sleep(long millis) throws InterruptedException {
         //no point in doing any sleep
@@ -127,10 +139,21 @@ public class MockThread extends Thread implements OverrideMock {
         MockThread.sleep(millis);
     }
 
+    /**
+     * Tests whether the current thread has been interrupted.
+     *
+     * @return true if the current thread has been interrupted; false otherwise.
+     */
     public static boolean interrupted() {
         return Thread.interrupted();
     }
 
+    /**
+     * Returns an estimate of the number of active threads in the current thread's thread group and its subgroups.
+     *
+     * @return an estimate of the number of active threads in the current thread's thread group and in any other
+     *         thread group that has the current thread's thread group as an ancestor
+     */
     public static int activeCount() {
         return Thread.activeCount();
     }
@@ -139,6 +162,9 @@ public class MockThread extends Thread implements OverrideMock {
         return Thread.enumerate(tarray);
     }
 
+    /**
+     * Prints a stack trace of the current thread to the standard error stream.
+     */
     public static void dumpStack() {
         if (!MockFramework.isEnabled()) {
             Thread.dumpStack();
@@ -147,6 +173,12 @@ public class MockThread extends Thread implements OverrideMock {
         }
     }
 
+    /**
+     * Returns a map of stack traces for all live threads.
+     *
+     * @return a {@code Map} from {@code Thread} to an array of {@code StackTraceElement} that represents the
+     *         stack dump of the corresponding thread.
+     */
     public static Map<Thread, StackTraceElement[]> getAllStackTraces() {
         if (!MockFramework.isEnabled()) {
             return Thread.getAllStackTraces();
@@ -182,45 +214,92 @@ public class MockThread extends Thread implements OverrideMock {
 
     // -------- constructors ---------
 
+    /**
+     * Allocates a new {@code MockThread} object.
+     */
     public MockThread() {
         super();
         mockSetup(null);
     }
 
+    /**
+     * Allocates a new {@code MockThread} object.
+     *
+     * @param target the object whose {@code run} method is invoked when this thread is started.
+     */
     public MockThread(Runnable target) {
         super(target);
         this.target = target;
         mockSetup(null);
     }
 
+    /**
+     * Allocates a new {@code MockThread} object.
+     *
+     * @param group  the thread group.
+     * @param target the object whose {@code run} method is invoked when this thread is started.
+     */
     public MockThread(ThreadGroup group, Runnable target) {
         super(group, target);
         this.target = target;
         mockSetup(null);
     }
 
+    /**
+     * Allocates a new {@code MockThread} object.
+     *
+     * @param name the name of the new thread
+     */
     public MockThread(String name) {
         super(name);
         mockSetup(name);
     }
 
+    /**
+     * Allocates a new {@code MockThread} object.
+     *
+     * @param group the thread group.
+     * @param name  the name of the new thread
+     */
     public MockThread(ThreadGroup group, String name) {
         super(group, name);
         mockSetup(name);
     }
 
+    /**
+     * Allocates a new {@code MockThread} object.
+     *
+     * @param target the object whose {@code run} method is invoked when this thread is started.
+     * @param name   the name of the new thread
+     */
     public MockThread(Runnable target, String name) {
         super(target, name);
         this.target = target;
         mockSetup(name);
     }
 
+    /**
+     * Allocates a new {@code MockThread} object.
+     *
+     * @param group  the thread group.
+     * @param target the object whose {@code run} method is invoked when this thread is started.
+     * @param name   the name of the new thread
+     */
     public MockThread(ThreadGroup group, Runnable target, String name) {
         super(group, target, name);
         this.target = target;
         mockSetup(name);
     }
 
+    /**
+     * Allocates a new {@code MockThread} object.
+     *
+     * @param group     the thread group.
+     * @param target    the object whose {@code run} method is invoked when this thread is started.
+     * @param name      the name of the new thread
+     * @param stackSize the desired stack size for the new thread, or zero to indicate that
+     *                  this parameter is to be ignored.
+     */
     public MockThread(ThreadGroup group, Runnable target, String name,
                       long stackSize) {
         super(group, target, name, stackSize);

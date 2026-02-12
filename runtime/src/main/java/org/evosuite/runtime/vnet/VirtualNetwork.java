@@ -177,6 +177,9 @@ public class VirtualNetwork {
     //------------------------------------------
 
 
+    /**
+     * Initializes the virtual network.
+     */
     public void init() {
         reset(); //just to be sure
 
@@ -184,6 +187,9 @@ public class VirtualNetwork {
         MockURL.initStaticState();
     }
 
+    /**
+     * Resets the virtual network state.
+     */
     public void reset() {
         dns = new DNS();
 
@@ -218,6 +224,11 @@ public class VirtualNetwork {
         return Collections.unmodifiableSet(remoteContactedPorts);
     }
 
+    /**
+     * Returns a copy of the map containing the number of UDP packets sent to each remote host.
+     *
+     * @return a map from EndPointInfo to packet count
+     */
     public Map<EndPointInfo, Integer> getCopyOfSentUDP() {
         //as AtomicInteger is modifiable, we cannot return a view. we need a copy
         Map<EndPointInfo, Integer> map = new LinkedHashMap<>();

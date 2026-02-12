@@ -49,12 +49,28 @@ public class MockFileReader extends FileReader implements OverrideMock {
      * FileReader defines only constructors, no methods
      */
 
+    /**
+     * Creates a new MockFileReader, given the name of the file to read from.
+     *
+     * @param fileName the name of the file to read from
+     * @throws FileNotFoundException if the file does not exist, is a directory rather than a
+     *                               regular file, or for some other reason cannot be opened for
+     *                               reading.
+     */
     public MockFileReader(String fileName) throws FileNotFoundException {
         this(fileName != null
                 ? (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName))
                 : null);
     }
 
+    /**
+     * Creates a new MockFileReader, given the File to read from.
+     *
+     * @param file the File to read from
+     * @throws FileNotFoundException if the file does not exist, is a directory rather than a
+     *                               regular file, or for some other reason cannot be opened for
+     *                               reading.
+     */
     public MockFileReader(File file) throws FileNotFoundException {
         super(!MockFramework.isEnabled()
                 ? file

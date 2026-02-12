@@ -68,6 +68,16 @@ public class NetworkInterfaceState {
     private final int mtu;
     private final boolean loopback;
 
+    /**
+     * Creates a new NetworkInterfaceState.
+     *
+     * @param name      the name of the interface
+     * @param index     the index of the interface
+     * @param mac       the MAC address
+     * @param mtu       the maximum transmission unit
+     * @param loopback  true if it is a loopback interface
+     * @param anAddress the IP address associated with the interface
+     */
     public NetworkInterfaceState(
             String name,
             int index,
@@ -93,6 +103,11 @@ public class NetworkInterfaceState {
         }
     }
 
+    /**
+     * Returns the mocked NetworkInterface instance.
+     *
+     * @return the NetworkInterface instance
+     */
     public NetworkInterface getNetworkInterface() {
         return ni;
     }

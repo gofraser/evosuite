@@ -45,6 +45,12 @@ public class SocketOut extends OutputStream {
 
     private volatile boolean closed;
 
+    /**
+     * Creates a new output stream for the given TCP connection.
+     *
+     * @param tcp     the TCP connection
+     * @param isLocal whether this stream is for the local socket
+     */
     public SocketOut(NativeTcp tcp, boolean isLocal) {
         super();
         this.tcp = tcp;

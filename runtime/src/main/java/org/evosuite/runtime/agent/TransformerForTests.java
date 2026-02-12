@@ -47,6 +47,9 @@ public class TransformerForTests implements ClassFileTransformer {
 
     private final Set<String> instrumentedClasses;
 
+    /**
+     * Creates a new transformer for instrumentation during test execution.
+     */
     public TransformerForTests() {
         active = false;
         instrumenter = new RuntimeInstrumentation();
@@ -86,6 +89,12 @@ public class TransformerForTests implements ClassFileTransformer {
         }
     }
 
+    /**
+     * Checks if the specified class has already been transformed by this transformer.
+     *
+     * @param className the fully qualified name of the class (with dots).
+     * @return true if the class has been transformed, false otherwise.
+     */
     public boolean isClassAlreadyTransformed(String className) {
         synchronized (instrumentedClasses) {
             return instrumentedClasses.contains(className);

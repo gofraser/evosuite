@@ -64,6 +64,9 @@ public class MockRuntimeException extends RuntimeException implements OverrideMo
 
     // ----- constructor --------
 
+    /**
+     * Constructs a new runtime exception with {@code null} as its detail message.
+     */
     public MockRuntimeException() {
         super();
         delegate = new MockThrowable();
@@ -73,6 +76,11 @@ public class MockRuntimeException extends RuntimeException implements OverrideMo
         }
     }
 
+    /**
+     * Constructs a new runtime exception with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockRuntimeException(String message) {
         super(message);
         delegate = new MockThrowable(message);
@@ -82,6 +90,11 @@ public class MockRuntimeException extends RuntimeException implements OverrideMo
         }
     }
 
+    /**
+     * Constructs a new runtime exception with the specified cause.
+     *
+     * @param cause the cause
+     */
     public MockRuntimeException(Throwable cause) {
         super(cause);
         delegate = new MockThrowable(cause);
@@ -91,6 +104,12 @@ public class MockRuntimeException extends RuntimeException implements OverrideMo
         }
     }
 
+    /**
+     * Constructs a new runtime exception with the specified detail message and cause.
+     *
+     * @param message the detail message
+     * @param cause   the cause
+     */
     public MockRuntimeException(String message, Throwable cause) {
         super(message, cause);
         delegate = new MockThrowable(message, cause);

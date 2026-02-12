@@ -54,11 +54,21 @@ public class VFile extends FSObject {
         data.clear();
     }
 
+    /**
+     * Returns the size of the data in this file.
+     *
+     * @return the number of bytes in the file
+     */
     public synchronized int getDataSize() {
         return data.size();
     }
 
 
+    /**
+     * Sets the length of the file data.
+     *
+     * @param newLength the new length in bytes
+     */
     public synchronized void setLength(int newLength) {
 
         /*
@@ -113,6 +123,16 @@ public class VFile extends FSObject {
     }
 
 
+    /**
+     * Writes bytes to the file at the specified position.
+     *
+     * @param position the position in the file to write to
+     * @param b the byte array to write
+     * @param off the start offset in the data
+     * @param len the number of bytes to write
+     * @return the number of bytes actually written
+     * @throws IllegalArgumentException if position is negative
+     */
     public synchronized int writeBytes(int position, byte[] b, int off, int len) throws IllegalArgumentException {
 
         if (position < 0) {

@@ -135,7 +135,8 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock {
     /**
      * Constructs a datagram socket and binds it to any available port on the local host machine.
      *
-     * @throws SocketException if the socket could not be opened, or the socket could not bind to the specified local port.
+     * @throws SocketException if the socket could not be opened, or the socket could not
+     *                         bind to the specified local port.
      */
     public MockDatagramSocket() throws SocketException {
         super(new EvoDatagramSocketImpl());
@@ -165,6 +166,13 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock {
         }
     }
 
+    /**
+     * Constructs a datagram socket, bound to the specified local address.
+     *
+     * @param bindaddr local socket address to bind, or null for an unbound socket.
+     * @throws SocketException if the socket could not be opened, or the socket could not bind
+     *                         to the specified local port.
+     */
     public MockDatagramSocket(SocketAddress bindaddr) throws SocketException {
         super(new EvoDatagramSocketImpl());
 
@@ -194,6 +202,14 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock {
         this(port, null);
     }
 
+    /**
+     * Constructs a datagram socket and binds it to the specified local address and port.
+     *
+     * @param port  local port to use
+     * @param laddr local address to bind
+     * @throws SocketException if the socket could not be opened, or the socket could not bind
+     *                         to the specified local port.
+     */
     public MockDatagramSocket(int port, InetAddress laddr) throws SocketException {
         this(MockFramework.isEnabled()
                 ? new MockInetSocketAddress(laddr, port)

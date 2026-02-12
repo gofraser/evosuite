@@ -33,6 +33,13 @@ public class EndPointInfo implements Serializable {
     private final int port;
     private final ConnectionType type;
 
+    /**
+     * Creates a new EndPointInfo instance.
+     *
+     * @param host the host name or IP address
+     * @param port the port number
+     * @param type the connection type (UDP or TCP)
+     */
     public EndPointInfo(String host, int port, ConnectionType type) {
         super();
         this.host = host;

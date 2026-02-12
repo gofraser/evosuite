@@ -35,6 +35,13 @@ public class RemoteFile {
     private final byte[] data;
 
 
+    /**
+     * Creates a new remote file with the given URL and data.
+     *
+     * @param url  the URL of the file
+     * @param data the byte content of the file
+     * @throws IllegalArgumentException if url or data is null
+     */
     public RemoteFile(String url, byte[] data) throws IllegalArgumentException {
         if (url == null || data == null) {
             throw new IllegalArgumentException("Null inputs");

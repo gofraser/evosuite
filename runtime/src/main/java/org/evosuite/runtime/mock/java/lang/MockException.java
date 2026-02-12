@@ -61,24 +61,43 @@ public class MockException extends Exception implements OverrideMock {
 
     // ----- constructor --------
 
+    /**
+     * Constructs a new exception with {@code null} as its detail message.
+     */
     public MockException() {
         super();
         delegate = new MockThrowable();
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockException(String message) {
         super(message);
         delegate = new MockThrowable(message);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified cause.
+     *
+     * @param cause the cause
+     */
     public MockException(Throwable cause) {
         super(cause);
         delegate = new MockThrowable(cause);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified detail message and cause.
+     *
+     * @param message the detail message
+     * @param cause   the cause
+     */
     public MockException(String message, Throwable cause) {
         super(message, cause);
         delegate = new MockThrowable(message, cause);

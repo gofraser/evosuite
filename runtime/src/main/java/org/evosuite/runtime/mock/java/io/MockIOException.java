@@ -63,24 +63,44 @@ public class MockIOException extends IOException implements OverrideMock {
 
     // ----- constructor --------
 
+    /**
+     * Constructs a {@code MockIOException} with {@code null} as its error detail message.
+     */
     public MockIOException() {
         super();
         delegate = new MockThrowable();
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a {@code MockIOException} with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockIOException(String message) {
         super(message);
         delegate = new MockThrowable(message);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a {@code MockIOException} with the specified cause and a detail message of
+     * {@code (cause==null ? null : cause.toString())}.
+     *
+     * @param cause the cause
+     */
     public MockIOException(Throwable cause) {
         super(cause);
         delegate = new MockThrowable(cause);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a {@code MockIOException} with the specified detail message and cause.
+     *
+     * @param message the detail message
+     * @param cause   the cause
+     */
     public MockIOException(String message, Throwable cause) {
         super(message, cause);
         delegate = new MockThrowable(message, cause);

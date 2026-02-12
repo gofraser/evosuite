@@ -61,24 +61,43 @@ public class MockIllegalStateException extends IllegalStateException implements 
 
     // ----- constructor --------
 
+    /**
+     * Constructs a new exception with {@code null} as its detail message.
+     */
     public MockIllegalStateException() {
         super();
         delegate = new MockThrowable();
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockIllegalStateException(String message) {
         super(message);
         delegate = new MockThrowable(message);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified cause.
+     *
+     * @param cause the cause
+     */
     public MockIllegalStateException(Throwable cause) {
         super(cause);
         delegate = new MockThrowable(cause);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified detail message and cause.
+     *
+     * @param message the detail message
+     * @param cause   the cause
+     */
     public MockIllegalStateException(String message, Throwable cause) {
         super(message, cause);
         delegate = new MockThrowable(message, cause);

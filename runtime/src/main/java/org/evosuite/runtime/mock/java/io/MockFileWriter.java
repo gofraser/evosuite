@@ -43,12 +43,28 @@ public class MockFileWriter extends FileWriter implements OverrideMock {
      *  -- constructors --------
      */
 
+    /**
+     * Constructs a MockFileWriter object given a file name.
+     *
+     * @param fileName String The system-dependent filename.
+     * @throws IOException if the named file exists but is a directory rather than a regular file,
+     *                     does not exist but cannot be created, or cannot be opened for any other reason
+     */
     public MockFileWriter(String fileName) throws IOException {
         this(fileName != null
                 ? (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName))
                 : null);
     }
 
+    /**
+     * Constructs a MockFileWriter object given a file name with a boolean indicating
+     * whether or not to append the data produced.
+     *
+     * @param fileName String The system-dependent filename.
+     * @param append   boolean if true, then data will be written to the end of the file rather than the beginning.
+     * @throws IOException if the named file exists but is a directory rather than a regular file,
+     *                     does not exist but cannot be created, or cannot be opened for any other reason
+     */
     public MockFileWriter(String fileName, boolean append) throws IOException {
         this(fileName != null
                 ? (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName))
@@ -59,6 +75,15 @@ public class MockFileWriter extends FileWriter implements OverrideMock {
         this(file, false);
     }
 
+    /**
+     * Constructs a MockFileWriter object given a File object with a boolean indicating
+     * whether or not to append the data produced.
+     *
+     * @param file   File A File object to write to.
+     * @param append boolean if true, then data will be written to the end of the file rather than the beginning.
+     * @throws IOException if the file exists but is a directory rather than a regular file,
+     *                     does not exist but cannot be created, or cannot be opened for any other reason
+     */
     public MockFileWriter(File file, boolean append) throws IOException {
         super(!MockFramework.isEnabled()
                 ? file

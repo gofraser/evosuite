@@ -80,14 +80,35 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
         setImpl();
     }
 
+    /**
+     * Creates a server socket, bound to the specified port.
+     *
+     * @param port the port number, or 0 to use a port number that is automatically allocated
+     * @throws IOException if an I/O error occurs when opening the socket
+     */
     public MockServerSocket(int port) throws IOException {
         this(port, 50, null);
     }
 
+    /**
+     * Creates a server socket and binds it to the specified local port number, with the specified backlog.
+     *
+     * @param port    the port number, or 0 to use a port number that is automatically allocated
+     * @param backlog requested maximum length of the queue of incoming connections.
+     * @throws IOException if an I/O error occurs when opening the socket
+     */
     public MockServerSocket(int port, int backlog) throws IOException {
         this(port, backlog, null);
     }
 
+    /**
+     * Creates a server socket with the specified port, listen backlog, and local IP address to bind to.
+     *
+     * @param port     the port number, or 0 to use a port number that is automatically allocated
+     * @param backlog  requested maximum length of the queue of incoming connections.
+     * @param bindAddr the local InetAddress the server will bind to
+     * @throws IOException if an I/O error occurs when opening the socket
+     */
     public MockServerSocket(int port, int backlog, InetAddress bindAddr) throws IOException {
         this();
 

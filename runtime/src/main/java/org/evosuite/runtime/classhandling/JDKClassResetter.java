@@ -59,6 +59,9 @@ public class JDKClassResetter {
 
     }
 
+    /**
+     * Resets the static fields of all handled JDK classes to their initial state.
+     */
     public static void reset() {
 
         if (renderingHintsKeyIdentityMap != null) {

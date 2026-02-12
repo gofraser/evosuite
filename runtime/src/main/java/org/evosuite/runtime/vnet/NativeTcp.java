@@ -59,6 +59,13 @@ public class NativeTcp {
     private final EndPointInfo remoteEndPoint;
 
 
+    /**
+     * Creates a new bi-directional TCP connection.
+     *
+     * @param localEndPoint  info on local (SUT) address/port
+     * @param remoteEndPoint info on remote (EvoSuite tests) address/port
+     * @throws IllegalArgumentException if remoteEndPoint is null
+     */
     public NativeTcp(EndPointInfo localEndPoint, EndPointInfo remoteEndPoint) {
         if (remoteEndPoint == null) {
             throw new IllegalArgumentException("Remote end point cannot be null");
@@ -75,6 +82,12 @@ public class NativeTcp {
     }
 
 
+    /**
+     * Binds the connection to a local address.
+     *
+     * @param local the local address
+     * @throws IllegalStateException if the connection is already bound
+     */
     public void bind(EndPointInfo local) throws IllegalStateException {
         if (isBound()) {
             throw new IllegalStateException("Connection is already bound");

@@ -61,24 +61,43 @@ public class MockIllegalArgumentException extends IllegalArgumentException imple
 
     // ----- constructor --------
 
+    /**
+     * Constructs a new exception with {@code null} as its detail message.
+     */
     public MockIllegalArgumentException() {
         super();
         delegate = new MockThrowable();
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockIllegalArgumentException(String message) {
         super(message);
         delegate = new MockThrowable(message);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified cause.
+     *
+     * @param cause the cause
+     */
     public MockIllegalArgumentException(Throwable cause) {
         super(cause);
         delegate = new MockThrowable(cause);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified detail message and cause.
+     *
+     * @param message the detail message
+     * @param cause   the cause
+     */
     public MockIllegalArgumentException(String message, Throwable cause) {
         super(message, cause);
         delegate = new MockThrowable(message, cause);

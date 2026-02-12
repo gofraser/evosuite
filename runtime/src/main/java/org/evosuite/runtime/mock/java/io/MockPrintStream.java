@@ -59,6 +59,18 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
                 ? new FileOutputStream(fileName) : new MockFileOutputStream(fileName));
     }
 
+    /**
+     * Creates a new MockPrintStream, without automatic line flushing, with the
+     * specified file name and charset.
+     *
+     * @param fileName the name of the file to use as the destination of this print stream
+     * @param csn      the name of a supported charset
+     * @throws FileNotFoundException        if the given file object does not denote an existing,
+     *                                      writable regular file and a new regular file of that name
+     *                                      cannot be created, or if some other error occurs while
+     *                                      opening or creating the file
+     * @throws UnsupportedEncodingException if the named charset is not supported
+     */
     public MockPrintStream(String fileName, String csn)
             throws FileNotFoundException, UnsupportedEncodingException {
         this((!MockFramework.isEnabled()
@@ -71,6 +83,18 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
                 ? new FileOutputStream(file) : new MockFileOutputStream(file));
     }
 
+    /**
+     * Creates a new MockPrintStream, without automatic line flushing, with the
+     * specified file and charset.
+     *
+     * @param file the file to use as the destination of this print stream
+     * @param csn  the name of a supported charset
+     * @throws FileNotFoundException        if the given file object does not denote an existing,
+     *                                      writable regular file and a new regular file of that name
+     *                                      cannot be created, or if some other error occurs while
+     *                                      opening or creating the file
+     * @throws UnsupportedEncodingException if the named charset is not supported
+     */
     public MockPrintStream(File file, String csn)
             throws FileNotFoundException, UnsupportedEncodingException {
         // ensure charset is checked before the file is opened

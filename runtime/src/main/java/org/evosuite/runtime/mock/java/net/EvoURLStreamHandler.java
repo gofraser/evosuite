@@ -29,6 +29,12 @@ public class EvoURLStreamHandler extends MockURLStreamHandler {
 
     private final String protocol;
 
+    /**
+     * Creates a new stream handler for the specified protocol.
+     *
+     * @param protocol the protocol
+     * @throws IllegalArgumentException if protocol is null or empty
+     */
     public EvoURLStreamHandler(String protocol) throws IllegalArgumentException {
         super();
 
@@ -39,6 +45,12 @@ public class EvoURLStreamHandler extends MockURLStreamHandler {
         this.protocol = protocol.trim().toLowerCase();
     }
 
+    /**
+     * Checks if the given protocol is supported by this handler.
+     *
+     * @param protocol the protocol to check
+     * @return true if the protocol is supported
+     */
     public static boolean isValidProtocol(String protocol) {
         if (protocol == null) {
             return false;

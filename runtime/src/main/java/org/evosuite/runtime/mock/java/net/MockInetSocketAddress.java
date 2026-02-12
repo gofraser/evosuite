@@ -34,6 +34,11 @@ public class MockInetSocketAddress extends InetSocketAddress implements Override
 
     private static final long serialVersionUID = 5076001401234631237L;
 
+    /**
+     * Creates a socket address where the IP address is the wildcard address and the port number a specified value.
+     *
+     * @param port the port number
+     */
     public MockInetSocketAddress(int port) {
         this(MockFramework.isEnabled()
                 ? MockInetAddress.anyLocalAddress()
@@ -41,6 +46,12 @@ public class MockInetSocketAddress extends InetSocketAddress implements Override
                 port);
     }
 
+    /**
+     * Creates a socket address from an IP address and a port number.
+     *
+     * @param addr the IP address
+     * @param port the port number
+     */
     public MockInetSocketAddress(InetAddress addr, int port) {
         super(addr == null
                 ? (MockFramework.isEnabled()
@@ -49,6 +60,12 @@ public class MockInetSocketAddress extends InetSocketAddress implements Override
                 : addr, port);
     }
 
+    /**
+     * Creates a socket address from a hostname and a port number.
+     *
+     * @param hostname the hostname
+     * @param port     the port number
+     */
     public MockInetSocketAddress(String hostname, int port) {
         super(MockFramework.isEnabled()
                 ? getResolvedAddressed(hostname).getHostAddress()
@@ -94,6 +111,13 @@ public class MockInetSocketAddress extends InetSocketAddress implements Override
 
     //--------------------------------------------------------------
 
+    /**
+     * Creates an unresolved socket address from a hostname and a port number.
+     *
+     * @param host the hostname
+     * @param port the port number
+     * @return a socket address representing the unresolved host and port
+     */
     public static InetSocketAddress createUnresolved(String host, int port) {
         //no need to create a mock instance? likely not
         return InetSocketAddress.createUnresolved(host, port);

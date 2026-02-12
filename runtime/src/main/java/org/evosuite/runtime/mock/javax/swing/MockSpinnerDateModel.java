@@ -42,6 +42,11 @@ public class MockSpinnerDateModel extends SpinnerDateModel implements OverrideMo
         this(new MockDate(), null, null, Calendar.DAY_OF_MONTH);
     }
 
+    /**
+     * Returns the next object in the sequence, or null if the next date is after end.
+     *
+     * @return the next object in the sequence, or null if the next date is after end.
+     */
     public Object getNextValue() {
         Calendar cal = MockCalendar.getInstance();
         cal.setTime((Date) getValue());
@@ -52,6 +57,11 @@ public class MockSpinnerDateModel extends SpinnerDateModel implements OverrideMo
         return ((getEnd() == null) || (getEnd().compareTo(next) >= 0)) ? next : null;
     }
 
+    /**
+     * Returns the previous object in the sequence, or null if the previous date is before start.
+     *
+     * @return the previous object in the sequence, or null if the previous date is before start.
+     */
     public Object getPreviousValue() {
         Calendar cal = MockCalendar.getInstance();
         cal.setTime((Date) getValue());

@@ -140,22 +140,46 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
      * ------------------------
      */
 
+    /**
+     * Constructs a {@code MockJFileChooser} pointing to the user's default directory.
+     */
     public MockJFileChooser() {
         this((File) null, null);
     }
 
+    /**
+     * Constructs a {@code MockJFileChooser} using the given path.
+     *
+     * @param currentDirectoryPath a {@code String} giving the path to a file or directory
+     */
     public MockJFileChooser(String currentDirectoryPath) {
         this(currentDirectoryPath, null);
     }
 
+    /**
+     * Constructs a {@code MockJFileChooser} using the given {@code File} as the path.
+     *
+     * @param currentDirectory a {@code File} object specifying the path to a file or directory
+     */
     public MockJFileChooser(File currentDirectory) {
         this(currentDirectory, null);
     }
 
+    /**
+     * Constructs a {@code MockJFileChooser} using the given {@code FileSystemView}.
+     *
+     * @param fsv a {@code FileSystemView}
+     */
     public MockJFileChooser(FileSystemView fsv) {
         this((File) null, fsv);
     }
 
+    /**
+     * Constructs a {@code MockJFileChooser} using the given current directory and {@code FileSystemView}.
+     *
+     * @param currentDirectory a {@code File} object specifying the path to a file or directory
+     * @param fsv              a {@code FileSystemView}
+     */
     public MockJFileChooser(File currentDirectory, FileSystemView fsv) {
 
         super();
@@ -167,6 +191,12 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         setCurrentDirectory(currentDirectory);
     }
 
+    /**
+     * Constructs a {@code MockJFileChooser} using the given current directory path and {@code FileSystemView}.
+     *
+     * @param currentDirectoryPath a {@code String} specifying the path to a file or directory
+     * @param fsv                  a {@code FileSystemView}
+     */
     public MockJFileChooser(String currentDirectoryPath, FileSystemView fsv) {
 
         super();
@@ -254,6 +284,12 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         }
     }
 
+    /**
+     * Sets the dragEnabled property.
+     *
+     * @param b the value to which the dragEnabled property is to be set
+     * @throws HeadlessException if b is true and GraphicsEnvironment.isHeadless() returns true
+     */
     public void setDragEnabled(boolean b) {
         if (b && GraphicsEnvironment.isHeadless()) {
             throw new HeadlessException();
@@ -261,14 +297,29 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         dragEnabled = b;
     }
 
+    /**
+     * Returns the value of the dragEnabled property.
+     *
+     * @return the value of the dragEnabled property
+     */
     public boolean getDragEnabled() {
         return dragEnabled;
     }
 
+    /**
+     * Returns the selected file.
+     *
+     * @return the selected file
+     */
     public File getSelectedFile() {
         return selectedFile;
     }
 
+    /**
+     * Sets the selected file.
+     *
+     * @param file the selected file
+     */
     public void setSelectedFile(File file) {
         File oldValue = selectedFile;
         selectedFile = file;
@@ -283,6 +334,11 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(SELECTED_FILE_CHANGED_PROPERTY, oldValue, selectedFile);
     }
 
+    /**
+     * Returns a list of selected files if the file chooser is set to allow multi-selection.
+     *
+     * @return an array of selected {@code File} objects
+     */
     public File[] getSelectedFiles() {
         if (selectedFiles == null) {
             return new File[0];
@@ -291,6 +347,11 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         }
     }
 
+    /**
+     * Sets the list of selected files if the file chooser is set to allow multi-selection.
+     *
+     * @param selectedFiles an array of {@code File} objects to be selected
+     */
     public void setSelectedFiles(File[] selectedFiles) {
         File[] oldValue = this.selectedFiles;
         if (selectedFiles == null || selectedFiles.length == 0) {
@@ -304,20 +365,36 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(SELECTED_FILES_CHANGED_PROPERTY, oldValue, selectedFiles);
     }
 
+    /**
+     * Returns the current directory.
+     *
+     * @return the current directory
+     */
     public File getCurrentDirectory() {
         return currentDirectory;
     }
 
+    /**
+     * Changes the directory to be set to the parent of the current directory.
+     */
     public void changeToParentDirectory() {
         selectedFile = null;
         File oldValue = getCurrentDirectory();
         setCurrentDirectory(getFileSystemView().getParentDirectory(oldValue));
     }
 
+    /**
+     * Tells the UI to rescan the current directory from the file system.
+     */
     public void rescanCurrentDirectory() {
         getUI().rescanCurrentDirectory(this);
     }
 
+    /**
+     * Makes sure that the specified file is visible and not hidden.
+     *
+     * @param f a File object
+     */
     public void ensureFileIsVisible(File f) {
         getUI().ensureFileIsVisible(this, f);
     }
@@ -326,16 +403,38 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
     // ***** JFileChooser Dialog methods *****
     // **************************************
 
+    /**
+     * Pops up an "Open File" file chooser dialog.
+     *
+     * @param parent the parent component of the dialog, can be null
+     * @return the return state of the file chooser on popdown
+     * @throws HeadlessException if GraphicsEnvironment.isHeadless() returns true.
+     */
     public int showOpenDialog(Component parent) throws HeadlessException {
         setDialogType(OPEN_DIALOG);
         return showDialog(parent, null);
     }
 
+    /**
+     * Pops up a "Save File" file chooser dialog.
+     *
+     * @param parent the parent component of the dialog, can be null
+     * @return the return state of the file chooser on popdown
+     * @throws HeadlessException if GraphicsEnvironment.isHeadless() returns true.
+     */
     public int showSaveDialog(Component parent) throws HeadlessException {
         setDialogType(SAVE_DIALOG);
         return showDialog(parent, null);
     }
 
+    /**
+     * Pops a custom file chooser dialog with a custom approve button.
+     *
+     * @param parent            the parent component of the dialog; can be null
+     * @param approveButtonText the text of the {@code ApproveButton}
+     * @return the return state of the file chooser on popdown
+     * @throws HeadlessException if GraphicsEnvironment.isHeadless() returns true.
+     */
     public int showDialog(Component parent, String approveButtonText)
             throws HeadlessException {
         if (dialog != null) {
@@ -415,10 +514,20 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         return dialog;
     }
 
+    /**
+     * Returns true if the control buttons are shown.
+     *
+     * @return true if the control buttons are shown
+     */
     public boolean getControlButtonsAreShown() {
         return controlsShown;
     }
 
+    /**
+     * Sets whether the control buttons are shown.
+     *
+     * @param b true if the control buttons should be shown
+     */
     public void setControlButtonsAreShown(boolean b) {
         if (controlsShown == b) {
             return;
@@ -428,10 +537,21 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(CONTROL_BUTTONS_ARE_SHOWN_CHANGED_PROPERTY, oldValue, controlsShown);
     }
 
+    /**
+     * Returns the type of this dialog.
+     *
+     * @return the type of dialog to be displayed
+     */
     public int getDialogType() {
         return dialogType;
     }
 
+    /**
+     * Sets the type of this dialog.
+     *
+     * @param dialogType the type of dialog to be displayed
+     * @throws IllegalArgumentException if dialogType is invalid
+     */
     public void setDialogType(int dialogType) {
         if (this.dialogType == dialogType) {
             return;
@@ -447,6 +567,11 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(DIALOG_TYPE_CHANGED_PROPERTY, oldValue, dialogType);
     }
 
+    /**
+     * Sets the string that goes into the {@code MockJFileChooser} window's title bar.
+     *
+     * @param dialogTitle the new {@code String} for the title bar
+     */
     public void setDialogTitle(String dialogTitle) {
         String oldValue = this.dialogTitle;
         this.dialogTitle = dialogTitle;
@@ -456,6 +581,11 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(DIALOG_TITLE_CHANGED_PROPERTY, oldValue, dialogTitle);
     }
 
+    /**
+     * Gets the string that goes into the {@code MockJFileChooser} window's title bar.
+     *
+     * @return the {@code String} for the title bar
+     */
     public String getDialogTitle() {
         return dialogTitle;
     }
@@ -464,6 +594,11 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
     // ***** JFileChooser View Options *****
     // ************************************
 
+    /**
+     * Sets the tooltip text used in the {@code ApproveButton}.
+     *
+     * @param toolTipText the tooltip text for the approve button
+     */
     public void setApproveButtonToolTipText(String toolTipText) {
         if (Objects.equals(approveButtonToolTipText, toolTipText)) {
             return;
@@ -473,14 +608,29 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(APPROVE_BUTTON_TOOL_TIP_TEXT_CHANGED_PROPERTY, oldValue, approveButtonToolTipText);
     }
 
+    /**
+     * Returns the tooltip text used in the {@code ApproveButton}.
+     *
+     * @return the tooltip text for the approve button
+     */
     public String getApproveButtonToolTipText() {
         return approveButtonToolTipText;
     }
 
+    /**
+     * Returns the approve button's mnemonic.
+     *
+     * @return an integer value for the mnemonic key
+     */
     public int getApproveButtonMnemonic() {
         return approveButtonMnemonic;
     }
 
+    /**
+     * Sets the approve button's mnemonic using a numeric keycode.
+     *
+     * @param mnemonic an integer value for the mnemonic key
+     */
     public void setApproveButtonMnemonic(int mnemonic) {
         if (approveButtonMnemonic == mnemonic) {
             return;
@@ -490,6 +640,11 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(APPROVE_BUTTON_MNEMONIC_CHANGED_PROPERTY, oldValue, approveButtonMnemonic);
     }
 
+    /**
+     * Sets the approve button's mnemonic using a character.
+     *
+     * @param mnemonic a character value for the mnemonic key
+     */
     public void setApproveButtonMnemonic(char mnemonic) {
         int vk = mnemonic;
         if (vk >= 'a' && vk <= 'z') {
@@ -498,6 +653,11 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         setApproveButtonMnemonic(vk);
     }
 
+    /**
+     * Sets the text used in the {@code ApproveButton} in the {@code FileChooserUI}.
+     *
+     * @param approveButtonText the text used in the {@code ApproveButton}
+     */
     public void setApproveButtonText(String approveButtonText) {
         if (Objects.equals(this.approveButtonText, approveButtonText)) {
             return;
@@ -507,16 +667,31 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(APPROVE_BUTTON_TEXT_CHANGED_PROPERTY, oldValue, approveButtonText);
     }
 
+    /**
+     * Returns the text used in the {@code ApproveButton} in the {@code FileChooserUI}.
+     *
+     * @return the text used in the {@code ApproveButton}
+     */
     public String getApproveButtonText() {
         return approveButtonText;
     }
 
+    /**
+     * Returns a list of user choosable file filters.
+     *
+     * @return a {@code FileFilter} array containing all the choosable file filters
+     */
     public FileFilter[] getChoosableFileFilters() {
         FileFilter[] filterArray = new FileFilter[filters.size()];
         filters.copyInto(filterArray);
         return filterArray;
     }
 
+    /**
+     * Adds a filter to the list of user choosable file filters.
+     *
+     * @param filter the {@code FileFilter} to add to the choosable file filter list
+     */
     public void addChoosableFileFilter(FileFilter filter) {
         if (filter != null && !filters.contains(filter)) {
             FileFilter[] oldValue = getChoosableFileFilters();
@@ -528,6 +703,12 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         }
     }
 
+    /**
+     * Removes a filter from the list of user choosable file filters.
+     *
+     * @param f the {@code FileFilter} to remove
+     * @return true if the file filter was removed
+     */
     public boolean removeChoosableFileFilter(FileFilter f) {
         if (filters.contains(f)) {
             if (getFileFilter() == f) {
@@ -542,6 +723,9 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         }
     }
 
+    /**
+     * Resets the choosable file filter list to its starting state.
+     */
     public void resetChoosableFileFilters() {
         FileFilter[] oldValue = getChoosableFileFilters();
         setFileFilter(null);
@@ -552,6 +736,11 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(CHOOSABLE_FILE_FILTER_CHANGED_PROPERTY, oldValue, getChoosableFileFilters());
     }
 
+    /**
+     * Returns the {@code AcceptAll} file filter.
+     *
+     * @return the {@code AcceptAll} file filter
+     */
     public FileFilter getAcceptAllFileFilter() {
         FileFilter filter = null;
         if (getUI() != null) {
@@ -560,10 +749,20 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         return filter;
     }
 
+    /**
+     * Returns whether the {@code AcceptAll FileFilter} is used.
+     *
+     * @return true if the {@code AcceptAll FileFilter} is used
+     */
     public boolean isAcceptAllFileFilterUsed() {
         return useAcceptAllFileFilter;
     }
 
+    /**
+     * Sets whether the {@code AcceptAll FileFilter} is used as an available choice in the choosable filter list.
+     *
+     * @param b true if the {@code AcceptAll FileFilter} is used
+     */
     public void setAcceptAllFileFilterUsed(boolean b) {
         boolean oldValue = useAcceptAllFileFilter;
         useAcceptAllFileFilter = b;
@@ -576,16 +775,32 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(ACCEPT_ALL_FILE_FILTER_USED_CHANGED_PROPERTY, oldValue, useAcceptAllFileFilter);
     }
 
+    /**
+     * Returns the accessory component.
+     *
+     * @return the accessory component
+     */
     public JComponent getAccessory() {
         return accessory;
     }
 
+    /**
+     * Sets the accessory component.
+     *
+     * @param newAccessory the new accessory component
+     */
     public void setAccessory(JComponent newAccessory) {
         JComponent oldValue = accessory;
         accessory = newAccessory;
         firePropertyChange(ACCESSORY_CHANGED_PROPERTY, oldValue, accessory);
     }
 
+    /**
+     * Sets the file selection mode.
+     *
+     * @param mode the mode of selection
+     * @throws IllegalArgumentException if mode is invalid
+     */
     public void setFileSelectionMode(int mode) {
         if (fileSelectionMode == mode) {
             return;
@@ -600,18 +815,38 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         }
     }
 
+    /**
+     * Returns the current file selection mode.
+     *
+     * @return the mode of selection
+     */
     public int getFileSelectionMode() {
         return fileSelectionMode;
     }
 
+    /**
+     * Returns true if files are selectable based on the current file selection mode.
+     *
+     * @return true if files are selectable
+     */
     public boolean isFileSelectionEnabled() {
         return ((fileSelectionMode == FILES_ONLY) || (fileSelectionMode == FILES_AND_DIRECTORIES));
     }
 
+    /**
+     * Returns true if directories are selectable based on the current file selection mode.
+     *
+     * @return true if directories are selectable
+     */
     public boolean isDirectorySelectionEnabled() {
         return ((fileSelectionMode == DIRECTORIES_ONLY) || (fileSelectionMode == FILES_AND_DIRECTORIES));
     }
 
+    /**
+     * Sets the file chooser to allow multiple file selections.
+     *
+     * @param b true if multiple files may be selected
+     */
     public void setMultiSelectionEnabled(boolean b) {
         if (multiSelectionEnabled == b) {
             return;
@@ -621,14 +856,29 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(MULTI_SELECTION_ENABLED_CHANGED_PROPERTY, oldValue, multiSelectionEnabled);
     }
 
+    /**
+     * Returns true if multiple files can be selected.
+     *
+     * @return true if multiple files can be selected
+     */
     public boolean isMultiSelectionEnabled() {
         return multiSelectionEnabled;
     }
 
+    /**
+     * Returns true if file hiding is enabled.
+     *
+     * @return true if file hiding is enabled
+     */
     public boolean isFileHidingEnabled() {
         return useFileHiding;
     }
 
+    /**
+     * Sets file hiding on or off.
+     *
+     * @param b true if file hiding is enabled
+     */
     public void setFileHidingEnabled(boolean b) {
         // Dump showFilesListener since we'll ignore it from now on
         if (showFilesListener != null) {
@@ -640,6 +890,11 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(FILE_HIDING_CHANGED_PROPERTY, oldValue, useFileHiding);
     }
 
+    /**
+     * Sets the current file filter.
+     *
+     * @param filter the new current file filter to use
+     */
     public void setFileFilter(FileFilter filter) {
         FileFilter oldValue = fileFilter;
         fileFilter = filter;
@@ -664,16 +919,31 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         firePropertyChange(FILE_FILTER_CHANGED_PROPERTY, oldValue, fileFilter);
     }
 
+    /**
+     * Returns the currently selected file filter.
+     *
+     * @return the current file filter
+     */
     public FileFilter getFileFilter() {
         return fileFilter;
     }
 
+    /**
+     * Sets the file view to used to retrieve UI information.
+     *
+     * @param fileView the new file view
+     */
     public void setFileView(FileView fileView) {
         FileView oldValue = this.fileView;
         this.fileView = fileView;
         firePropertyChange(FILE_VIEW_CHANGED_PROPERTY, oldValue, fileView);
     }
 
+    /**
+     * Returns the current file view.
+     *
+     * @return the current file view
+     */
     public FileView getFileView() {
         return fileView;
     }
@@ -682,6 +952,12 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
     // *****FileView delegation *****
     // ******************************
 
+    /**
+     * Returns the filename.
+     *
+     * @param f the File
+     * @return the filename
+     */
     public String getName(File f) {
         String filename = null;
         if (f != null) {
@@ -698,6 +974,12 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         return filename;
     }
 
+    /**
+     * Returns the file description.
+     *
+     * @param f the File
+     * @return the file description
+     */
     public String getDescription(File f) {
         String description = null;
         if (f != null) {
@@ -714,6 +996,12 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         return description;
     }
 
+    /**
+     * Returns the type description.
+     *
+     * @param f the File
+     * @return the type description
+     */
     public String getTypeDescription(File f) {
         String typeDescription = null;
         if (f != null) {
@@ -730,6 +1018,12 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         return typeDescription;
     }
 
+    /**
+     * Returns the icon for this file or type of file.
+     *
+     * @param f the File
+     * @return the icon for this file, or type of file
+     */
     public Icon getIcon(File f) {
         Icon icon = null;
         if (f != null) {
@@ -746,6 +1040,12 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         return icon;
     }
 
+    /**
+     * Returns true if the file (directory) can be visited.
+     *
+     * @param f the File
+     * @return true if the file can be visited
+     */
     public boolean isTraversable(File f) {
         Boolean traversable = null;
         if (f != null) {
@@ -765,6 +1065,12 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         return (traversable != null && traversable);
     }
 
+    /**
+     * Returns true if the file should be displayed.
+     *
+     * @param f the File
+     * @return true if the file should be displayed
+     */
     public boolean accept(File f) {
         boolean shown = true;
         if (f != null && fileFilter != null) {
@@ -773,12 +1079,23 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         return shown;
     }
 
+    /**
+     * Sets the file system view that the {@code MockJFileChooser} uses for
+     * accessing and creating file system resources.
+     *
+     * @param fsv the new {@code FileSystemView}
+     */
     public void setFileSystemView(FileSystemView fsv) {
         FileSystemView oldValue = fileSystemView;
         fileSystemView = fsv;
         firePropertyChange(FILE_SYSTEM_VIEW_CHANGED_PROPERTY, oldValue, fileSystemView);
     }
 
+    /**
+     * Returns the file system view.
+     *
+     * @return the {@code FileSystemView} object
+     */
     public FileSystemView getFileSystemView() {
         return fileSystemView;
     }
@@ -787,6 +1104,9 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
     // ***** Event Handling *****
     // **************************
 
+    /**
+     * Called by the UI when the user hits the Approve button.
+     */
     public void approveSelection() {
         returnValue = APPROVE_OPTION;
         if (dialog != null) {
@@ -795,6 +1115,9 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         fireActionPerformed(APPROVE_SELECTION);
     }
 
+    /**
+     * Called by the UI when the user chooses the Cancel button.
+     */
     public void cancelSelection() {
         returnValue = CANCEL_OPTION;
         if (dialog != null) {
@@ -803,14 +1126,29 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         fireActionPerformed(CANCEL_SELECTION);
     }
 
+    /**
+     * Adds an {@code ActionListener} to the file chooser.
+     *
+     * @param l the listener to be added
+     */
     public void addActionListener(ActionListener l) {
         listenerList.add(ActionListener.class, l);
     }
 
+    /**
+     * Removes an {@code ActionListener} from the file chooser.
+     *
+     * @param l the listener to be removed
+     */
     public void removeActionListener(ActionListener l) {
         listenerList.remove(ActionListener.class, l);
     }
 
+    /**
+     * Returns an array of all the action listeners registered on this file chooser.
+     *
+     * @return all of this file chooser's {@code ActionListener}s
+     */
     public ActionListener[] getActionListeners() {
         return listenerList.getListeners(ActionListener.class);
     }
@@ -868,6 +1206,9 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
     // ***** Pluggable L&F methods *****
     // *********************************
 
+    /**
+     * Resets the UI property to a value from the current look and feel.
+     */
     public void updateUI() {
         if (isAcceptAllFileFilterUsed()) {
             removeChoosableFileFilter(getAcceptAllFileFilter());

@@ -71,6 +71,12 @@ public class ClassResetter {
         return instance;
     }
 
+    /**
+     * Sets the class loader to be used for loading and resetting classes.
+     *
+     * @param loader the class loader
+     * @throws IllegalArgumentException if the loader is null
+     */
     public void setClassLoader(ClassLoader loader) throws IllegalArgumentException {
         if (loader == null) {
             throw new IllegalArgumentException("Null class loader");

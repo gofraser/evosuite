@@ -44,6 +44,13 @@ public class SocketIn extends InputStream {
 
     private volatile boolean closed;
 
+    /**
+     * Creates a new input stream for the given TCP connection.
+     *
+     * @param tcp     the TCP connection
+     * @param isLocal whether this stream is for the local socket
+     * @throws IllegalArgumentException if tcp is null
+     */
     public SocketIn(NativeTcp tcp, boolean isLocal) throws IllegalArgumentException {
         super();
 

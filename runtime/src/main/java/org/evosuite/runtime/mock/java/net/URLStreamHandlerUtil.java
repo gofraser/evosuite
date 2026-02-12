@@ -56,6 +56,16 @@ public class URLStreamHandlerUtil {
 
     }
 
+    /**
+     * Calls {@link URLStreamHandler#parseURL(URL, String, int, int)} via reflection.
+     *
+     * @param handler the stream handler
+     * @param url     the URL to receive the result of parsing the spec
+     * @param spec    the String to parse as a URL
+     * @param start   the character index to start parsing at
+     * @param limit   the character index to stop parsing at
+     * @throws InvocationTargetException if the reflected method throws an exception
+     */
     public static void parseURL(URLStreamHandler handler, URL url,
                                 String spec, int start, int limit) throws InvocationTargetException {
         try {
@@ -65,6 +75,15 @@ public class URLStreamHandlerUtil {
         }
     }
 
+    /**
+     * Calls {@link URLStreamHandler#openConnection(URL, Proxy)} via reflection.
+     *
+     * @param handler the stream handler
+     * @param url     the URL to connect to
+     * @param proxy   the proxy through which the connection will be made
+     * @return a {@code URLConnection} object for the {@code URL}
+     * @throws InvocationTargetException if the reflected method throws an exception
+     */
     public static URLConnection openConnection(URLStreamHandler handler, URL url,
                                                Proxy proxy) throws InvocationTargetException {
         try {

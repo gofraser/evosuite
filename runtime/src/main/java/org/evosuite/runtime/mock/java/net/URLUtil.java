@@ -60,7 +60,8 @@ public class URLUtil {
     }
 
     /**
-     * Replacement for {@link URL#set(String, String, int, String, String, String, String, String)} that uses reflection.
+     * Replacement for {@link URL#set(String, String, int, String, String, String, String, String)}
+     * that uses reflection.
      *
      * @param url       the URL to update
      * @param protocol  the protocol

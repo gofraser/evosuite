@@ -125,6 +125,11 @@ public class MockFile extends File implements OverrideMock {
      * will need to be replaced with EvoFile.foo()
      */
 
+    /**
+     * List the available filesystem roots.
+     *
+     * @return An array of File objects denoting the available filesystem roots
+     */
     public static File[] listRoots() {
         if (!MockFramework.isEnabled()) {
             return File.listRoots();
@@ -139,6 +144,19 @@ public class MockFile extends File implements OverrideMock {
         return mocks;
     }
 
+    /**
+     * Creates a new empty file in the specified directory, using the given prefix and
+     * suffix strings to generate its name.
+     *
+     * @param prefix    The prefix string to be used in generating the file's name; must be
+     *                  at least three characters long
+     * @param suffix    The suffix string to be used in generating the file's name; may be
+     *                  null, in which case the suffix ".tmp" will be used
+     * @param directory The directory in which the file is to be created, or null if the
+     *                  default temporary-file directory is to be used
+     * @return An abstract pathname denoting a newly-created empty file
+     * @throws IOException If a file could not be created
+     */
     public static File createTempFile(String prefix, String suffix, File directory)
             throws IOException {
         if (!MockFramework.isEnabled()) {
@@ -154,6 +172,17 @@ public class MockFile extends File implements OverrideMock {
         return new MockFile(path);
     }
 
+    /**
+     * Creates an empty file in the default temporary-file directory, using the given
+     * prefix and suffix to generate its name.
+     *
+     * @param prefix The prefix string to be used in generating the file's name; must be
+     *               at least three characters long
+     * @param suffix The suffix string to be used in generating the file's name; may be
+     *               null, in which case the suffix ".tmp" will be used
+     * @return An abstract pathname denoting a newly-created empty file
+     * @throws IOException If a file could not be created
+     */
     public static File createTempFile(String prefix, String suffix)
             throws IOException {
         return createTempFile(prefix, suffix, null);

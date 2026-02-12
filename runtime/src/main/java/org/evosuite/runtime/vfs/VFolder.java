@@ -93,10 +93,21 @@ public class VFolder extends FSObject {
         return false;
     }
 
+    /**
+     * Checks whether this folder has a child with the given name.
+     *
+     * @param name the name of the child to check
+     * @return true if a child with the given name exists, false otherwise
+     */
     public boolean hasChild(String name) {
         return getChild(name) != null;
     }
 
+    /**
+     * Returns an array of the names of all children in this folder.
+     *
+     * @return an array of child names
+     */
     public String[] getChildrenNames() {
         List<String> list = new ArrayList<>(children.size());
         for (final FSObject child : children) {
@@ -105,6 +116,13 @@ public class VFolder extends FSObject {
         return list.toArray(new String[0]);
     }
 
+    /**
+     * Returns the child object with the given name.
+     *
+     * @param name the name of the child to return
+     * @return the child object, or null if not found
+     * @throws IllegalArgumentException if the name is null or empty
+     */
     public FSObject getChild(String name) {
         if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException("Empty name");

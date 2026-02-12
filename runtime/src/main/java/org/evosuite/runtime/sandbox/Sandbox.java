@@ -127,6 +127,11 @@ public class Sandbox {
         initializeSecurityManagerForSUT(null);
     }
 
+    /**
+     * Adds a thread to the list of privileged threads.
+     *
+     * @param t the thread to add
+     */
     public static void addPrivilegedThread(Thread t) {
         if (manager != null) {
             manager.addPrivilegedThread(t);
@@ -158,10 +163,18 @@ public class Sandbox {
         return privileged;
     }
 
+    /**
+     * Returns true if the security manager is initialized.
+     *
+     * @return true if the security manager is initialized
+     */
     public static boolean isSecurityManagerInitialized() {
         return manager != null;
     }
 
+    /**
+     * Call before starting executing SUT code.
+     */
     public static void goingToExecuteSUTCode() {
         if (!isSecurityManagerInitialized()) {
             if (checkForInitialization && SECURITY_MANAGER_SUPPORTED) {
@@ -173,6 +186,9 @@ public class Sandbox {
         PermissionStatistics.getInstance().getAndResetExceptionInfo();
     }
 
+    /**
+     * Call after finishing executing SUT code.
+     */
     public static void doneWithExecutingSUTCode() {
         if (!isSecurityManagerInitialized()) {
             if (checkForInitialization && SECURITY_MANAGER_SUPPORTED) {
@@ -183,6 +199,11 @@ public class Sandbox {
         manager.goingToEndTestCase();
     }
 
+    /**
+     * Returns true if the sandbox is on and currently executing SUT code.
+     *
+     * @return true if executing SUT code
+     */
     public static boolean isOnAndExecutingSUTCode() {
         if (!isSecurityManagerInitialized()) {
             return false;
@@ -190,6 +211,12 @@ public class Sandbox {
         return manager.isExecutingTestCase();
     }
 
+    /**
+     * Temporarily elevates privileges for the current thread to execute unsafe code.
+     *
+     * @throws SecurityException     if current thread is not privileged
+     * @throws IllegalStateException if already executing unsafe code
+     */
     public static void goingToExecuteUnsafeCodeOnSameThread() throws SecurityException,
             IllegalStateException {
         if (!isSecurityManagerInitialized()) {
@@ -198,6 +225,12 @@ public class Sandbox {
         manager.goingToExecuteUnsafeCodeOnSameThread();
     }
 
+    /**
+     * Restores the privileged status of the current thread after executing unsafe code.
+     *
+     * @throws SecurityException     if current thread is not privileged
+     * @throws IllegalStateException if not executing unsafe code
+     */
     public static void doneWithExecutingUnsafeCodeOnSameThread()
             throws SecurityException, IllegalStateException {
         if (!isSecurityManagerInitialized()) {
@@ -207,6 +240,11 @@ public class Sandbox {
     }
 
 
+    /**
+     * Returns true if it is safe to execute SUT code.
+     *
+     * @return true if safe to execute SUT code
+     */
     public static boolean isSafeToExecuteSUTCode() {
         if (!isSecurityManagerInitialized()) {
             return false;

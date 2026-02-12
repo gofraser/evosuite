@@ -61,12 +61,20 @@ public class MockNullPointerException extends NullPointerException implements Ov
 
     // ----- constructor --------
 
+    /**
+     * Constructs a new exception with {@code null} as its detail message.
+     */
     public MockNullPointerException() {
         super();
         delegate = new MockThrowable();
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockNullPointerException(String message) {
         super(message);
         delegate = new MockThrowable(message);

@@ -53,6 +53,11 @@ public class AgentLoader {
 
     private static volatile boolean alreadyLoaded = false;
 
+    /**
+     * Dynamically loads the EvoSuite javaagent into the current JVM.
+     *
+     * @throws RuntimeException if the agent jar cannot be found or attachment fails.
+     */
     public static synchronized void loadAgent() throws RuntimeException {
 
         if (alreadyLoaded) {

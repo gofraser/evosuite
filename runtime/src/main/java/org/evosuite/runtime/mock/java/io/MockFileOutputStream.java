@@ -57,6 +57,13 @@ public class MockFileOutputStream extends FileOutputStream implements LeakingRes
 
     //-------- constructors  ----------------
 
+    /**
+     * Creates a file output stream to write to the file with the specified name.
+     *
+     * @param name the system-dependent file name
+     * @throws FileNotFoundException if the file exists but is a directory rather than a regular file,
+     *                               does not exist but cannot be created, or cannot be opened for any other reason
+     */
     public MockFileOutputStream(String name) throws FileNotFoundException {
         this(name != null
                 ? (!MockFramework.isEnabled() ? new File(name) : new MockFile(name))
@@ -64,6 +71,14 @@ public class MockFileOutputStream extends FileOutputStream implements LeakingRes
                 false);
     }
 
+    /**
+     * Creates a file output stream to write to the file with the specified name.
+     *
+     * @param name   the system-dependent file name
+     * @param append if true, then bytes will be written to the end of the file rather than the beginning
+     * @throws FileNotFoundException if the file exists but is a directory rather than a regular file,
+     *                               does not exist but cannot be created, or cannot be opened for any other reason
+     */
     public MockFileOutputStream(String name, boolean append) throws FileNotFoundException {
         this(name != null
                 ? (!MockFramework.isEnabled() ? new File(name) : new MockFile(name))
@@ -75,6 +90,14 @@ public class MockFileOutputStream extends FileOutputStream implements LeakingRes
         this(file, false);
     }
 
+    /**
+     * Creates a file output stream to write to the file represented by the specified {@code File} object.
+     *
+     * @param file   the file to be opened for writing.
+     * @param append if {@code true}, then bytes will be written to the end of the file rather than the beginning
+     * @throws FileNotFoundException if the file exists but is a directory rather than a regular file,
+     *                               does not exist but cannot be created, or cannot be opened for any other reason
+     */
     public MockFileOutputStream(File file, boolean append) throws FileNotFoundException {
 
         super(!MockFramework.isEnabled()

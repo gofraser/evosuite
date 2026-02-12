@@ -38,21 +38,40 @@ public class MockThrowable extends Throwable implements OverrideMock {
 
     // ------ constructors -------------
 
+    /**
+     * Constructs a new throwable with {@code null} as its detail message.
+     */
     public MockThrowable() {
         super();
         init();
     }
 
+    /**
+     * Constructs a new throwable with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockThrowable(String message) {
         super(message);
         init();
     }
 
+    /**
+     * Constructs a new throwable with the specified cause.
+     *
+     * @param cause the cause
+     */
     public MockThrowable(Throwable cause) {
         super(cause);
         init();
     }
 
+    /**
+     * Constructs a new throwable with the specified detail message and cause.
+     *
+     * @param message the detail message
+     * @param cause   the cause
+     */
     public MockThrowable(String message, Throwable cause) {
         super(message, cause);
         init();
@@ -86,6 +105,11 @@ public class MockThrowable extends Throwable implements OverrideMock {
      *  WARN: don't modify the name of these methods, as they are used by reflection in instrumentator
      */
 
+    /**
+     * Returns a default stack trace for EvoSuite mocks.
+     *
+     * @return an array of stack trace elements
+     */
     public static StackTraceElement[] getDefaultStackTrace() {
         StackTraceElement[] v = new StackTraceElement[3];
         v[0] = new StackTraceElement("<evosuite>", "<evosuite>", "<evosuite>", -1);
@@ -94,6 +118,12 @@ public class MockThrowable extends Throwable implements OverrideMock {
         return v;
     }
 
+    /**
+     * Replacement for {@link Throwable#getStackTrace()}.
+     *
+     * @param source the throwable
+     * @return the stack trace
+     */
     public static StackTraceElement[] replacement_getStackTrace(Throwable source) {
         if (!MockFramework.isEnabled() || source instanceof EvoSuiteMock) {
             return source.getStackTrace();
@@ -102,6 +132,12 @@ public class MockThrowable extends Throwable implements OverrideMock {
         return getDefaultStackTrace();
     }
 
+    /**
+     * Replacement for {@link Throwable#printStackTrace(PrintWriter)}.
+     *
+     * @param source the throwable
+     * @param p      the writer
+     */
     public static void replacement_printStackTrace(Throwable source, PrintWriter p) {
         if (!MockFramework.isEnabled() || source instanceof EvoSuiteMock) {
             source.printStackTrace(p);
@@ -112,6 +148,12 @@ public class MockThrowable extends Throwable implements OverrideMock {
         }
     }
 
+    /**
+     * Replacement for {@link Throwable#printStackTrace(PrintStream)}.
+     *
+     * @param source the throwable
+     * @param p      the stream
+     */
     public static void replacement_printStackTrace(Throwable source, PrintStream p) {
         if (!MockFramework.isEnabled() || source instanceof EvoSuiteMock) {
             source.printStackTrace(p);

@@ -209,10 +209,21 @@ public abstract class FSObject {
         return getPath();
     }
 
+    /**
+     * Returns the time that this object was last modified.
+     *
+     * @return the last modified time in milliseconds.
+     */
     public long getLastModified() {
         return lastModified;
     }
 
+    /**
+     * Sets the last modified time of this object.
+     *
+     * @param lastModified the last modified time in milliseconds
+     * @return true if the last modified time was successfully set
+     */
     public boolean setLastModified(long lastModified) {
         //TODO check all of its callers, and  if should simulate time
 

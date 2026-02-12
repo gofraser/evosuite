@@ -61,24 +61,43 @@ public class MockError extends Error implements OverrideMock {
 
     // ----- constructor --------
 
+    /**
+     * Constructs a new error with {@code null} as its detail message.
+     */
     public MockError() {
         super();
         delegate = new MockThrowable();
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new error with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockError(String message) {
         super(message);
         delegate = new MockThrowable(message);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new error with the specified cause.
+     *
+     * @param cause the cause
+     */
     public MockError(Throwable cause) {
         super(cause);
         delegate = new MockThrowable(cause);
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new error with the specified detail message and cause.
+     *
+     * @param message the detail message
+     * @param cause   the cause
+     */
     public MockError(String message, Throwable cause) {
         super(message, cause);
         delegate = new MockThrowable(message, cause);

@@ -186,6 +186,12 @@ public final class VirtualFileSystem {
         return shouldAllThrowIOException || classesThatShouldThrowIOException.contains(path);
     }
 
+    /**
+     * Configures the VFS to throw an IOException for any operation on the given file.
+     *
+     * @param file the file that should trigger IOExceptions
+     * @return true if the file was added to the set of files that throw IOExceptions
+     */
     public boolean setShouldThrowIOException(EvoSuiteFile file) {
         String path = file.getPath();
         if (classesThatShouldThrowIOException.contains(path)) {
@@ -392,6 +398,13 @@ public final class VirtualFileSystem {
         return true;
     }
 
+    /**
+     * Renames a VFS object from source to destination path.
+     *
+     * @param source the source path
+     * @param destination the destination path
+     * @return true if the rename was successful, false otherwise
+     */
     public boolean rename(String source, String destination) {
 
         String parentSource = new File(source).getParent();
@@ -418,6 +431,12 @@ public final class VirtualFileSystem {
         return src.rename(destination);
     }
 
+    /**
+     * Creates a folder at the given path, including any necessary but nonexistent parent folders.
+     *
+     * @param rawPath the path of the folder to create
+     * @return true if the folder was successfully created
+     */
     public boolean createFolder(String rawPath) {
         String[] tokens = tokenize(new File(rawPath).getAbsolutePath());
 

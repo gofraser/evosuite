@@ -56,6 +56,16 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
 
     // ----------- constructors  ----------------
 
+    /**
+     * Creates a random access file stream to read from, and optionally to write to, a file with the specified name.
+     *
+     * @param name the system-dependent filename
+     * @param mode the access mode
+     * @throws FileNotFoundException if the mode is "r" but the given string does not denote an existing regular file,
+     *                               or if the mode begins with "rw" but the given string does not denote an existing,
+     *                               writable regular file and a new regular file of that name cannot be created,
+     *                               or if some other error occurs while opening or creating the file
+     */
     public MockRandomAccessFile(String name, String mode)
             throws FileNotFoundException {
         this(name != null
@@ -65,6 +75,19 @@ public class MockRandomAccessFile extends RandomAccessFile implements LeakingRes
                 : null, mode);
     }
 
+    /**
+     * Creates a random access file stream to read from, and optionally to write to,
+     * the file specified by the File argument.
+     *
+     * @param file the file object
+     * @param mode the access mode
+     * @throws FileNotFoundException if the mode is "r" but the given file object does not
+     *                               denote an existing regular file, or if the mode begins with
+     *                               "rw" but the given file object does not denote an existing,
+     *                               writable regular file and a new regular file of that name
+     *                               cannot be created, or if some other error occurs while
+     *                               opening or creating the file
+     */
     public MockRandomAccessFile(File file, String mode) throws FileNotFoundException {
 
         super((!MockFramework.isEnabled()

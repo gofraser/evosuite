@@ -84,6 +84,12 @@ public class RemoteTcpServer {
         return connection;
     }
 
+    /**
+     * Sends a message to the SUT.
+     *
+     * @param msg the message to send
+     * @return true if the message was sent successfully
+     */
     public boolean sendMessage(String msg) {
         //note: we can send even if connection is not bound yet (msg will be on a buffer)
 
@@ -95,6 +101,11 @@ public class RemoteTcpServer {
         return true;
     }
 
+    /**
+     * Returns all data received from the SUT as a string.
+     *
+     * @return the received data as a string, or null if the connection is not bound or an error occurs
+     */
     public String getAllReceivedDataAsString() {
         if (!connection.isBound()) {
             return null;

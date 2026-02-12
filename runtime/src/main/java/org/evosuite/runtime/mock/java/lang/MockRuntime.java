@@ -40,6 +40,11 @@ public class MockRuntime implements StaticReplacementMock {
 
     // ---- static methods -------
 
+    /**
+     * Returns the runtime object associated with the current Java application.
+     *
+     * @return the {@code Runtime} object associated with the current Java application.
+     */
     public static Runtime getRuntime() {
         /*
          * return actual instance, because we cannot instantiate a new one,
@@ -48,6 +53,11 @@ public class MockRuntime implements StaticReplacementMock {
         return java.lang.Runtime.getRuntime();
     }
 
+    /**
+     * Enable or disable finalization on exit.
+     *
+     * @param value true to enable, false to disable
+     */
     public static void runFinalizersOnExit(boolean value) {
         //Shutdown.setRunFinalizersOnExit(value);
         //nothing to do
@@ -55,6 +65,13 @@ public class MockRuntime implements StaticReplacementMock {
 
     // ----- instance replacement methods -------------
 
+    /**
+     * Terminates the currently running Java virtual machine by throwing a SystemExitException.
+     *
+     * @param runtime the runtime instance
+     * @param status  termination status.
+     * @throws SystemExitException unconditionally
+     */
     public static void exit(Runtime runtime, int status) {
         /*
          * TODO: move this exception class here once we remove old System mock
@@ -62,6 +79,12 @@ public class MockRuntime implements StaticReplacementMock {
         throw new SystemExitException();
     }
 
+    /**
+     * Registers a new virtual-machine shutdown hook.
+     *
+     * @param runtime the runtime instance
+     * @param hook    an initialized but unstarted {@code Thread} object
+     */
     public static void addShutdownHook(Runtime runtime, Thread hook) {
         /*
          * this is going to be handled specially by ShutdownHookHandler.
@@ -72,6 +95,13 @@ public class MockRuntime implements StaticReplacementMock {
         runtime.addShutdownHook(hook);
     }
 
+    /**
+     * De-registers a previously-registered virtual-machine shutdown hook.
+     *
+     * @param runtime the runtime instance
+     * @param hook    the hook to remove
+     * @return true if the specified hook was previously registered and successfully de-registered, false otherwise.
+     */
     public static boolean removeShutdownHook(Runtime runtime, Thread hook) {
         /*
          * this is going to be handled specially by ShutdownHookHandler
@@ -79,19 +109,59 @@ public class MockRuntime implements StaticReplacementMock {
         return runtime.removeShutdownHook(hook);
     }
 
+    /**
+     * Forcibly terminates the currently running Java virtual machine.
+     *
+     * @param runtime the runtime instance
+     * @param status  termination status.
+     * @throws SystemExitException unconditionally
+     */
     public static void halt(Runtime runtime, int status) {
         ShutdownHookHandler.getInstance().processWasHalted();
         throw new SystemExitException();
     }
 
+    /**
+     * Executes the specified string command in a separate process.
+     *
+     * @param runtime the runtime instance
+     * @param command a specified system command.
+     * @return A new {@link Process} object for managing the subprocess
+     * @throws IOException if an I/O error occurs
+     */
     public static Process exec(Runtime runtime, String command) throws IOException {
         return exec(runtime, command, null, null);
     }
 
+    /**
+     * Executes the specified string command in a separate process with the specified environment.
+     *
+     * @param runtime the runtime instance
+     * @param command a specified system command.
+     * @param envp    array of strings, each element of which has environment variable
+     *                settings in the format name=value, or null if the subprocess should
+     *                inherit the environment of the current process.
+     * @return A new {@link Process} object for managing the subprocess
+     * @throws IOException if an I/O error occurs
+     */
     public static Process exec(Runtime runtime, String command, String[] envp) throws IOException {
         return exec(runtime, command, envp, null);
     }
 
+    /**
+     * Executes the specified string command in a separate process with the specified
+     * environment and working directory.
+     *
+     * @param runtime the runtime instance
+     * @param command a specified system command.
+     * @param envp    array of strings, each element of which has environment variable
+     *                settings in the format name=value, or null if the subprocess should
+     *                inherit the environment of the current process.
+     * @param dir     the working directory of the subprocess, or null if the subprocess
+     *                should inherit the working directory of the current process.
+     * @return A new {@link Process} object for managing the subprocess
+     * @throws IOException if an I/O error occurs
+     */
     public static Process exec(Runtime runtime, String command, String[] envp, File dir) throws IOException {
 
         if (command.length() == 0) {
@@ -106,14 +176,48 @@ public class MockRuntime implements StaticReplacementMock {
         return exec(runtime, cmdarray, envp, dir);
     }
 
+    /**
+     * Executes the specified command and arguments in a separate process.
+     *
+     * @param runtime  the runtime instance
+     * @param cmdarray array containing the command to call and its arguments.
+     * @return A new {@link Process} object for managing the subprocess
+     * @throws IOException if an I/O error occurs
+     */
     public static Process exec(Runtime runtime, String[] cmdarray) throws IOException {
         return exec(runtime, cmdarray, null, null);
     }
 
+    /**
+     * Executes the specified command and arguments in a separate process with the
+     * specified environment.
+     *
+     * @param runtime  the runtime instance
+     * @param cmdarray array containing the command to call and its arguments.
+     * @param envp     array of strings, each element of which has environment variable
+     *                 settings in the format name=value, or null if the subprocess should
+     *                 inherit the environment of the current process.
+     * @return A new {@link Process} object for managing the subprocess
+     * @throws IOException if an I/O error occurs
+     */
     public static Process exec(Runtime runtime, String[] cmdarray, String[] envp) throws IOException {
         return exec(runtime, cmdarray, envp, null);
     }
 
+    /**
+     * Executes the specified command and arguments in a separate process with the
+     * specified environment and working directory.
+     *
+     * @param runtime  the runtime instance
+     * @param cmdarray array containing the command to call and its arguments.
+     * @param envp     array of strings, each element of which has environment variable
+     *                 settings in the format name=value, or null if the subprocess should
+     *                 inherit the environment of the current process.
+     * @param dir      the working directory of the subprocess, or null if the subprocess
+     *                 should inherit the working directory of the current process.
+     * @return A new {@link Process} object for managing the subprocess
+     * @throws IOException if an I/O error occurs
+     */
     public static Process exec(Runtime runtime, String[] cmdarray, String[] envp, File dir)
             throws IOException {
         /*
@@ -126,38 +230,86 @@ public class MockRuntime implements StaticReplacementMock {
         throw new MockIOException("Cannot start processes in a unit test");
     }
 
+    /**
+     * Runs the garbage collector.
+     *
+     * @param runtime the runtime instance
+     */
     public static void gc(Runtime runtime) {
         //do nothing
     }
 
+    /**
+     * Runs the finalization methods of any objects pending finalization.
+     *
+     * @param runtime the runtime instance
+     */
     public static void runFinalization(Runtime runtime) {
         //runFinalization0();
         //do nothing
     }
 
+    /**
+     * Enables/disables tracing of instructions.
+     *
+     * @param runtime the runtime instance
+     * @param on      true to enable, false to disable
+     */
     public static void traceInstructions(Runtime runtime, boolean on) {
         //do nothing
     }
 
+    /**
+     * Enables/disables tracing of method calls.
+     *
+     * @param runtime the runtime instance
+     * @param on      true to enable, false to disable
+     */
     public static void traceMethodCalls(Runtime runtime, boolean on) {
         //do nothing
     }
 
+    /**
+     * Loads the native library specified by the filename argument.
+     *
+     * @param runtime  the runtime instance
+     * @param filename the file to load.
+     */
     public static void load(Runtime runtime, String filename) {
         //load0(Reflection.getCallerClass(), filename);
         runtime.load(filename); // we need to load the actuall stuff
     }
 
+    /**
+     * Loads the native library specified by the libname argument.
+     *
+     * @param runtime the runtime instance
+     * @param libname the name of the library.
+     */
     public static void loadLibrary(Runtime runtime, String libname) {
         //loadLibrary0(Reflection.getCallerClass(), libname);
         runtime.loadLibrary(libname); // we need to load the actuall stuff
     }
 
+    /**
+     * Creates a localized version of an input stream.
+     *
+     * @param runtime the runtime instance
+     * @param in      an input stream
+     * @return a localized input stream
+     */
     public static InputStream getLocalizedInputStream(Runtime runtime, InputStream in) {
         // inlined runtime.getLocalizedInputStream for Java 11 compatibility.
         return in;
     }
 
+    /**
+     * Creates a localized version of an output stream.
+     *
+     * @param runtime the runtime instance
+     * @param out     an output stream
+     * @return a localized output stream
+     */
     public static OutputStream getLocalizedOutputStream(Runtime runtime, OutputStream out) {
         // inlined runtime.getLocalizedOutputStream for Java 11 compatibility.
         return out;
@@ -168,18 +320,43 @@ public class MockRuntime implements StaticReplacementMock {
     // be part of the search. But most likely it would be not useful to increase coverage in typical cases
     // Note: we still need them to be deterministic, and not based on actual Runtime
 
+    /**
+     * Returns the number of processors available to the Java virtual machine.
+     *
+     * @param runtime the runtime instance
+     * @return the number of processors
+     */
     public static int availableProcessors(Runtime runtime) {
         return 1;
     }
 
+    /**
+     * Returns the amount of free memory in the Java Virtual Machine.
+     *
+     * @param runtime the runtime instance
+     * @return an approximation to the total amount of memory currently available for
+     *         future allocated objects, in bytes.
+     */
     public static long freeMemory(Runtime runtime) {
         return 200;
     }
 
+    /**
+     * Returns the total amount of memory in the Java virtual machine.
+     *
+     * @param runtime the runtime instance
+     * @return the total amount of memory, in bytes.
+     */
     public static long totalMemory(Runtime runtime) {
         return 400;
     }
 
+    /**
+     * Returns the maximum amount of memory that the Java virtual machine will attempt to use.
+     *
+     * @param runtime the runtime instance
+     * @return the maximum amount of memory, in bytes.
+     */
     public static long maxMemory(Runtime runtime) {
         return 500;
     }

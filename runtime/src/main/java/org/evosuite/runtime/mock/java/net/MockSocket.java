@@ -53,7 +53,7 @@ public class MockSocket extends Socket implements OverrideMock {
 
     //-------- constructors  ---------------------------
 
-    /**
+    /*
      * TODO rollback here would be very complicated, as would need to replicate every single
      * constructor code by reflection, as they have side-effects we cannot avoid.
      */
@@ -70,7 +70,8 @@ public class MockSocket extends Socket implements OverrideMock {
     }
 
     /**
-     * Creates an unconnected socket, specifying the type of proxy, if any, that should be used regardless of any other settings.
+     * Creates an unconnected socket, specifying the type of proxy, if any,
+     * that should be used regardless of any other settings.
      *
      * @param proxy the Proxy object through which the connection will be made
      */
@@ -134,11 +135,27 @@ public class MockSocket extends Socket implements OverrideMock {
                 null, true);
     }
 
+    /**
+     * Creates a stream socket and connects it to the specified port number at the specified IP address.
+     *
+     * @param address the IP address.
+     * @param port    the port number.
+     * @throws IOException if an I/O error occurs when creating the socket.
+     */
     public MockSocket(InetAddress address, int port) throws IOException {
         this(address != null ? new MockInetSocketAddress(address, port) : null,
                 null, true);
     }
 
+    /**
+     * Creates a socket and connects it to the specified remote host on the specified remote port.
+     *
+     * @param host      the remote host
+     * @param port      the remote port
+     * @param localAddr the local address the socket is bound to, or null for the anyLocal address.
+     * @param localPort the local port the socket is bound to, or zero for a system-selected port.
+     * @throws IOException if an I/O error occurs when creating the socket.
+     */
     public MockSocket(String host, int port, InetAddress localAddr,
                       int localPort) throws IOException {
         this(host != null ? new MockInetSocketAddress(host, port) :
@@ -146,18 +163,43 @@ public class MockSocket extends Socket implements OverrideMock {
                 new MockInetSocketAddress(localAddr, localPort), true);
     }
 
+    /**
+     * Creates a socket and connects it to the specified remote address on the specified remote port.
+     *
+     * @param address   the remote address
+     * @param port      the remote port
+     * @param localAddr the local address the socket is bound to, or null for the anyLocal address.
+     * @param localPort the local port the socket is bound to, or zero for a system-selected port.
+     * @throws IOException if an I/O error occurs when creating the socket.
+     */
     public MockSocket(InetAddress address, int port, InetAddress localAddr,
                       int localPort) throws IOException {
         this(address != null ? new MockInetSocketAddress(address, port) : null,
                 new MockInetSocketAddress(localAddr, localPort), true);
     }
 
+    /**
+     * Creates a stream socket and connects it to the specified port number on the named host.
+     *
+     * @param host   the host name, or null for the loopback address.
+     * @param port   the port number.
+     * @param stream if true, create a stream socket, else create a datagram socket.
+     * @throws IOException if an I/O error occurs when creating the socket.
+     */
     public MockSocket(String host, int port, boolean stream) throws IOException {
         this(host != null ? new MockInetSocketAddress(host, port) :
                         new MockInetSocketAddress(MockInetAddress.getByName(null), port),
                 null, stream);
     }
 
+    /**
+     * Creates a socket and connects it to the specified port number at the specified IP address.
+     *
+     * @param host   the IP address.
+     * @param port   the port number.
+     * @param stream if true, create a stream socket, else create a datagram socket.
+     * @throws IOException if an I/O error occurs when creating the socket.
+     */
     public MockSocket(InetAddress host, int port, boolean stream) throws IOException {
         this(host != null ? new MockInetSocketAddress(host, port) : null,
                 new MockInetSocketAddress(0), stream);

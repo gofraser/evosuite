@@ -61,12 +61,20 @@ public class MockIllegalAccessException extends IllegalAccessException implement
 
     // ----- constructor --------
 
+    /**
+     * Constructs a new exception with {@code null} as its detail message.
+     */
     public MockIllegalAccessException() {
         super();
         delegate = new MockThrowable();
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a new exception with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockIllegalAccessException(String message) {
         super(message);
         delegate = new MockThrowable(message);

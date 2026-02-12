@@ -61,12 +61,20 @@ public class MockArithmeticException extends ArithmeticException implements Over
 
     // ----- constructor --------
 
+    /**
+     * Constructs a {@code MockArithmeticException} with no detail message.
+     */
     public MockArithmeticException() {
         super();
         delegate = new MockThrowable();
         delegate.setOriginForDelegate(super.getStackTrace()[0]);
     }
 
+    /**
+     * Constructs a {@code MockArithmeticException} with the specified detail message.
+     *
+     * @param message the detail message
+     */
     public MockArithmeticException(String message) {
         super(message);
         delegate = new MockThrowable(message);
