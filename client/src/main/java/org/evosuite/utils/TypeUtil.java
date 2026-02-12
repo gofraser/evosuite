@@ -150,6 +150,13 @@ public class TypeUtil {
         return isPrimitiveBv32(clazz) || isPrimitiveBv64(clazz) || isPrimitiveFp32(clazz) || isPrimitiveFp64(clazz);
     }
 
+    /**
+     * Get the primitive array class corresponding to the element type.
+     *
+     * @param t the element type
+     * @return the array class
+     * @throws EvosuiteError if t is not a primitive value class
+     */
     public static Class<?> getPrimitiveArrayClassFromElementType(Type t) {
         if (t.equals(Type.BOOLEAN_TYPE)) {
             return boolean[].class;
@@ -179,6 +186,13 @@ public class TypeUtil {
         throw new EvosuiteError(t + IS_NOT_A_PRIMITIVE_VALUE_CLASS);
     }
 
+    /**
+     * Unbox an integer wrapper object to a long.
+     *
+     * @param o the object to unbox
+     * @return the long value
+     * @throws IllegalStateException if the object is not a primitive integer wrapper
+     */
     public static Object unboxIntegerPrimitiveValue(Object o) {
         if (Integer.class.getName().equals(o.getClass().getName())) {
             return ((Integer) o).longValue();
@@ -203,6 +217,13 @@ public class TypeUtil {
                 + " is not a primitive type wrapper.");
     }
 
+    /**
+     * Unbox a real wrapper object to a double.
+     *
+     * @param o the object to unbox
+     * @return the double value
+     * @throws IllegalStateException if the object is not a primitive real wrapper
+     */
     public static Object unboxRealPrimitiveValue(Object o) {
         if (Float.class.getName().equals(o.getClass().getName())) {
             return ((Float) o).doubleValue();
@@ -215,6 +236,13 @@ public class TypeUtil {
                 + " is not a primitive type wrapper.");
     }
 
+    /**
+     * Unbox any primitive wrapper object to its corresponding primitive type (long or double).
+     *
+     * @param o the object to unbox
+     * @return the primitive value
+     * @throws IllegalStateException if the object is not a primitive type wrapper
+     */
     public static Object unboxPrimitiveValue(Object o) {
         if (Integer.class.getName().equals(o.getClass().getName())) {
             return ((Integer) o).longValue();
@@ -245,6 +273,14 @@ public class TypeUtil {
                 + " is not a primitive type wrapper.");
     }
 
+    /**
+     * Convert a Long value to the specified integer component type.
+     *
+     * @param value             the value to convert
+     * @param componentTypeName the target component type name
+     * @return the converted value
+     * @throws IllegalStateException if componentTypeName is not a valid integer type
+     */
     public static Object convertIntegerTo(Long value, String componentTypeName) {
         if (int.class.getName().equals(componentTypeName)) {
             return value.intValue();
@@ -268,6 +304,14 @@ public class TypeUtil {
         throw new IllegalStateException(UNEXPECTED_VALUE + componentTypeName);
     }
 
+    /**
+     * Convert a Double value to the specified real component type.
+     *
+     * @param value             the value to convert
+     * @param componentTypeName the target component type name
+     * @return the converted value
+     * @throws IllegalStateException if componentTypeName is not a valid real type
+     */
     public static Object convertRealTo(Double value, String componentTypeName) {
         if (float.class.getName().equals(componentTypeName)) {
             return value.floatValue();

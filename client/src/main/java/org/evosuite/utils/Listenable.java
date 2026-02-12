@@ -35,7 +35,6 @@ public interface Listenable<T> extends Serializable {
      * {@link Listener#fireEvent(Object)} method.
      *
      * @param listener The listener to add.
-     * @param <T>      a T object.
      */
     void addListener(Listener<T> listener);
 

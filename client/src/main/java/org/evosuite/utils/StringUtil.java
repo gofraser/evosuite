@@ -29,6 +29,12 @@ public abstract class StringUtil {
 
     public static final String SPACE_DELIMITER = " ";
 
+    /**
+     * Escape characters in the string.
+     *
+     * @param original the original string
+     * @return the escaped string
+     */
     public static String getEscapedString(String original) {
         char[] charArray = StringEscapeUtils.escapeJava(original).toCharArray();
         StringBuilder sb = new StringBuilder();

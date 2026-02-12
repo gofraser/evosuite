@@ -132,6 +132,14 @@ public class FileIOUtils {
     }
 
 
+    /**
+     * Recursively find all files in subfolders.
+     *
+     * @param folder the folder to start search in
+     * @param suffix the file suffix
+     * @return list of files found
+     * @throws IllegalArgumentException if folder is null
+     */
     public static List<File> getRecursivelyAllFilesInAllSubfolders(File folder, String suffix)
             throws IllegalArgumentException {
         Inputs.checkNull(folder, suffix);

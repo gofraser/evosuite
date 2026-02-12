@@ -63,6 +63,14 @@ public class IterUtil {
         return join(iter, DEFAULT_JOIN_SEPARATOR);
     }
 
+    /**
+     * Find the minimum elements in a collection according to a comparator.
+     *
+     * @param collection the collection to search
+     * @param comparator the comparator to use
+     * @param <T>        the type of elements
+     * @return list of minimum elements
+     */
     public static <T> List<T> minList(Iterable<T> collection, Comparator<? super T> comparator) {
         List<T> minima = new LinkedList<>();
 

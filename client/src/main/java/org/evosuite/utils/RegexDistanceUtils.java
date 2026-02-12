@@ -44,6 +44,12 @@ public class RegexDistanceUtils {
     private static final Map<String, List<State>> regexStateCache = new HashMap<>();
     private static final Map<String, Automaton> regexAutomatonCache = new HashMap<>();
 
+    /**
+     * Get the automaton for the given regex.
+     *
+     * @param regex the regex
+     * @return the automaton
+     */
     public static Automaton getRegexAutomaton(String regex) {
         if (!regexAutomatonCache.containsKey(regex)) {
             cacheRegex(regex);
@@ -51,6 +57,12 @@ public class RegexDistanceUtils {
         return regexAutomatonCache.get(regex);
     }
 
+    /**
+     * Get a string that matches the given regex.
+     *
+     * @param regex the regex
+     * @return a matching string
+     */
     public static String getRegexInstance(String regex) {
         if (!regexAutomatonCache.containsKey(regex)) {
             cacheRegex(regex);
@@ -59,6 +71,12 @@ public class RegexDistanceUtils {
         return automaton.getShortestExample(true);
     }
 
+    /**
+     * Get a string that does not match the given regex.
+     *
+     * @param regex the regex
+     * @return a non-matching string
+     */
     public static String getNonMatchingRegexInstance(String regex) {
         if (!regexAutomatonCache.containsKey(regex)) {
             cacheRegex(regex);
