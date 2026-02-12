@@ -1486,8 +1486,16 @@ public class TestCodeVisitor extends TestVisitor {
             VariableReference callee = statement.getCallee();
 
             if (callee instanceof ConstantValue) {
-                callee_str += "((" + getClassName(method.getMethod().getDeclaringClass())
-                        + ")" + getVariableName(callee) + ")";
+                Class<?> declaringClass = method.getMethod().getDeclaringClass();
+                Class<?> calleeClass = callee.getVariableClass();
+                String calleeName = getVariableName(callee);
+                // If the constant is not assignable to the declaring class, add an (Object) cast first
+                // to ensure the generated code compiles (e.g., (Target)(Object)"str").
+                if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
+                    callee_str += "((" + getClassName(declaringClass) + ")(Object)" + calleeName + ")";
+                } else {
+                    callee_str += "((" + getClassName(declaringClass) + ")" + calleeName + ")";
+                }
             } else {
                 // If the method is not public and this is a subclass in a different package we need to cast
                 if (!method.isPublic() && !method.getDeclaringClass().equals(callee.getVariableClass()) && callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
