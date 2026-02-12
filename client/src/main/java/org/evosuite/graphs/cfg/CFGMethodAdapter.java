@@ -43,9 +43,9 @@ import java.util.*;
 /**
  * Create a minimized control flow graph for the method and store it. In
  * addition, this adapter also adds instrumentation for branch distance
- * measurement
- * <p>
- * defUse, concurrency and LCSAJs instrumentation is also added (if the
+ * measurement.
+ *
+ * <p>defUse, concurrency and LCSAJs instrumentation is also added (if the
  * properties are set).
  *
  * @author Gordon Fraser
@@ -64,10 +64,13 @@ public class CFGMethodAdapter extends MethodVisitor {
             ClassResetter.STATIC_RESET);
     /**
      * The set of all methods which can be used during test case generation This
-     * excludes e.g. synthetic, initializers, private and deprecated methods
+     * excludes e.g. synthetic, initializers, private and deprecated methods.
      */
     private static Map<ClassLoader, Map<String, Set<String>>> methods = new HashMap<>();
 
+    /**
+     * Clears the stored methods.
+     */
     public static void clear() {
         for (ClassLoader cl : methods.keySet()) {
             methods.get(cl).clear();
@@ -78,12 +81,12 @@ public class CFGMethodAdapter extends MethodVisitor {
     /**
      * This is the name + the description of the method. It is more like the
      * signature and less like the name. The name of the method can be found in
-     * this.plain_name
+     * this.plainName.
      */
     private final String methodName;
 
     private final MethodVisitor next;
-    private final String plain_name;
+    private final String plainName;
     private final int access;
     private final String className;
     private final ClassLoader classLoader;
@@ -91,22 +94,21 @@ public class CFGMethodAdapter extends MethodVisitor {
     private int lineNumber = 0;
 
     /**
-     * Can be set by annotation
+     * Can be set by annotation.
      */
     private boolean excludeMethod = false;
 
     /**
-     * <p>
      * Constructor for CFGMethodAdapter.
-     * </p>
      *
-     * @param className  a {@link java.lang.String} object.
-     * @param access     a int.
-     * @param name       a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @param signature  a {@link java.lang.String} object.
-     * @param exceptions an array of {@link java.lang.String} objects.
-     * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
+     * @param classLoader a {@link java.lang.ClassLoader} object.
+     * @param className   a {@link java.lang.String} object.
+     * @param access      a int.
+     * @param name        a {@link java.lang.String} object.
+     * @param desc        a {@link java.lang.String} object.
+     * @param signature   a {@link java.lang.String} object.
+     * @param exceptions  an array of {@link java.lang.String} objects.
+     * @param mv          a {@link org.objectweb.asm.MethodVisitor} object.
      */
     public CFGMethodAdapter(ClassLoader classLoader, String className, int access,
                             String name, String desc, String signature, String[] exceptions,
@@ -123,11 +125,12 @@ public class CFGMethodAdapter extends MethodVisitor {
         this.className = className; // .replace('/', '.');
         this.access = access;
         this.methodName = name + desc;
-        this.plain_name = name;
+        this.plainName = name;
         this.classLoader = classLoader;
 
-        if (!methods.containsKey(classLoader))
+        if (!methods.containsKey(classLoader)) {
             methods.put(classLoader, new HashMap<>());
+        }
     }
 
     /* (non-Javadoc)
@@ -155,7 +158,7 @@ public class CFGMethodAdapter extends MethodVisitor {
     public void visitEnd() {
         logger.debug("Creating CFG of " + className + "." + methodName);
         boolean isExcludedMethod = excludeMethod || EXCLUDE.contains(methodName);
-        boolean isMainMethod = plain_name.equals("main") && Modifier.isStatic(access);
+        boolean isMainMethod = plainName.equals("main") && Modifier.isStatic(access);
 
         List<MethodInstrumentation> instrumentations = new ArrayList<>();
         if (DependencyAnalysis.shouldInstrument(className, methodName)) {
@@ -227,14 +230,16 @@ public class CFGMethodAdapter extends MethodVisitor {
                 logger.info("Created CFG for method " + methodName);
 
                 if (DependencyAnalysis.shouldInstrument(className, methodName)) {
-                    if (!methods.get(classLoader).containsKey(className))
+                    if (!methods.get(classLoader).containsKey(className)) {
                         methods.get(classLoader).put(className, new HashSet<>());
+                    }
 
                     // add the actual instrumentation
                     logger.info("Instrumenting method " + methodName + " in class "
                             + className);
-                    for (MethodInstrumentation instrumentation : instrumentations)
+                    for (MethodInstrumentation instrumentation : instrumentations) {
                         instrumentation.analyze(classLoader, mn, className, methodName, access);
+                    }
 
                     handleBranchlessMethods();
                     String id = className + "." + methodName;
@@ -250,7 +255,9 @@ public class CFGMethodAdapter extends MethodVisitor {
             }
 
         } else {
-            logger.debug("NOT Creating CFG of " + className + "." + methodName + ": " + checkForMain + ", " + ((!isExcludedMethod || executeOnExcluded)) + ", " + ((access & Opcodes.ACC_ABSTRACT) == 0) + ", " + ((access & Opcodes.ACC_NATIVE) == 0));
+            logger.debug("NOT Creating CFG of " + className + "." + methodName + ": " + checkForMain + ", "
+                    + (!isExcludedMethod || executeOnExcluded) + ", " + ((access & Opcodes.ACC_ABSTRACT) == 0) + ", "
+                    + ((access & Opcodes.ACC_NATIVE) == 0));
             super.visitEnd();
         }
         mn.accept(next);
@@ -282,22 +289,28 @@ public class CFGMethodAdapter extends MethodVisitor {
     }
 
     /**
-     * See description of CFGMethodAdapter.EXCLUDE
+     * Checks if the method is usable for test generation.
      *
-     * @return
+     * <p>See description of CFGMethodAdapter.EXCLUDE.
+     *
+     * @return true if usable
      */
     private boolean isUsable() {
-        if ((this.access & Opcodes.ACC_SYNTHETIC) != 0)
+        if ((this.access & Opcodes.ACC_SYNTHETIC) != 0) {
             return false;
+        }
 
-        if ((this.access & Opcodes.ACC_BRIDGE) != 0)
+        if ((this.access & Opcodes.ACC_BRIDGE) != 0) {
             return false;
+        }
 
-        if ((this.access & Opcodes.ACC_NATIVE) != 0)
+        if ((this.access & Opcodes.ACC_NATIVE) != 0) {
             return false;
+        }
 
-        if (methodName.contains("<clinit>"))
+        if (methodName.contains("<clinit>")) {
             return false;
+        }
 
         // If we are not using reflection, covering private constructors is difficult?
         if (Properties.P_REFLECTION_ON_PRIVATE <= 0.0) {
@@ -307,6 +320,12 @@ public class CFGMethodAdapter extends MethodVisitor {
         return true;
     }
 
+    /**
+     * Returns the methods for the given class.
+     *
+     * @param className class name
+     * @return set of method IDs
+     */
     public Set<String> getMethods(String className) {
         return getMethods(classLoader, className);
     }
@@ -314,23 +333,31 @@ public class CFGMethodAdapter extends MethodVisitor {
     /**
      * Returns a set with all unique methodNames of methods.
      *
+     * @param classLoader class loader
      * @param className a {@link java.lang.String} object.
      * @return A set with all unique methodNames of methods.
      */
     public static Set<String> getMethods(ClassLoader classLoader, String className) {
         Set<String> targetMethods = new HashSet<>();
-        if (!methods.containsKey(classLoader))
+        if (!methods.containsKey(classLoader)) {
             return targetMethods;
+        }
 
         for (String currentClass : methods.get(classLoader).keySet()) {
             if (currentClass.equals(className)
-                    || currentClass.startsWith(className + "$"))
+                    || currentClass.startsWith(className + "$")) {
                 targetMethods.addAll(methods.get(classLoader).get(currentClass));
+            }
         }
 
         return targetMethods;
     }
 
+    /**
+     * Returns the methods for the current class loader.
+     *
+     * @return set of method IDs
+     */
     public Set<String> getMethods() {
         return getMethods(classLoader);
     }
@@ -338,12 +365,14 @@ public class CFGMethodAdapter extends MethodVisitor {
     /**
      * Returns a set with all unique methodNames of methods.
      *
+     * @param classLoader class loader
      * @return A set with all unique methodNames of methods.
      */
     public static Set<String> getMethods(ClassLoader classLoader) {
         Set<String> targetMethods = new HashSet<>();
-        if (!methods.containsKey(classLoader))
+        if (!methods.containsKey(classLoader)) {
             return targetMethods;
+        }
 
         for (String currentClass : methods.get(classLoader).keySet()) {
             targetMethods.addAll(methods.get(classLoader).get(currentClass));
@@ -353,6 +382,12 @@ public class CFGMethodAdapter extends MethodVisitor {
     }
 
 
+    /**
+     * Returns matching methods for the given class name prefix.
+     *
+     * @param className class name prefix
+     * @return set of method IDs
+     */
     public Set<String> getMethodsPrefix(String className) {
         return getMethodsPrefix(classLoader, className);
     }
@@ -360,13 +395,15 @@ public class CFGMethodAdapter extends MethodVisitor {
     /**
      * Returns a set with all unique methodNames of methods.
      *
+     * @param classLoader class loader
      * @param className a {@link java.lang.String} object.
      * @return A set with all unique methodNames of methods.
      */
     public static Set<String> getMethodsPrefix(ClassLoader classLoader, String className) {
         Set<String> matchingMethods = new HashSet<>();
-        if (!methods.containsKey(classLoader))
+        if (!methods.containsKey(classLoader)) {
             return matchingMethods;
+        }
 
         for (String name : methods.get(classLoader).keySet()) {
             if (name.startsWith(className)) {
@@ -377,6 +414,12 @@ public class CFGMethodAdapter extends MethodVisitor {
         return matchingMethods;
     }
 
+    /**
+     * Returns the number of methods for the given class name prefix.
+     *
+     * @param className class name prefix
+     * @return number of methods
+     */
     public int getNumMethodsPrefix(String className) {
         return getNumMethodsPrefix(classLoader, className);
     }
@@ -384,13 +427,15 @@ public class CFGMethodAdapter extends MethodVisitor {
     /**
      * Returns a set with all unique methodNames of methods.
      *
+     * @param classLoader class loader
      * @param className a {@link java.lang.String} object.
      * @return A set with all unique methodNames of methods.
      */
     public static int getNumMethodsPrefix(ClassLoader classLoader, String className) {
         int num = 0;
-        if (!methods.containsKey(classLoader))
+        if (!methods.containsKey(classLoader)) {
             return num;
+        }
 
         for (String name : methods.get(classLoader).keySet()) {
             if (name.startsWith(className)) {
@@ -401,6 +446,11 @@ public class CFGMethodAdapter extends MethodVisitor {
         return num;
     }
 
+    /**
+     * Returns the total number of methods.
+     *
+     * @return number of methods
+     */
     public int getNumMethods() {
         return getNumMethods(classLoader);
     }
@@ -408,12 +458,14 @@ public class CFGMethodAdapter extends MethodVisitor {
     /**
      * Returns a set with all unique methodNames of methods.
      *
+     * @param classLoader class loader
      * @return A set with all unique methodNames of methods.
      */
     public static int getNumMethods(ClassLoader classLoader) {
         int num = 0;
-        if (!methods.containsKey(classLoader))
+        if (!methods.containsKey(classLoader)) {
             return num;
+        }
 
         for (String name : methods.get(classLoader).keySet()) {
             num += methods.get(classLoader).get(name).size();
@@ -422,7 +474,12 @@ public class CFGMethodAdapter extends MethodVisitor {
         return num;
     }
 
-
+    /**
+     * Returns the number of methods for member classes of the given class.
+     *
+     * @param className class name
+     * @return number of methods
+     */
     public int getNumMethodsMemberClasses(String className) {
         return getNumMethodsMemberClasses(classLoader, className);
     }
@@ -430,13 +487,15 @@ public class CFGMethodAdapter extends MethodVisitor {
     /**
      * Returns a set with all unique methodNames of methods.
      *
+     * @param classLoader class loader
      * @param className a {@link java.lang.String} object.
      * @return A set with all unique methodNames of methods.
      */
     public static int getNumMethodsMemberClasses(ClassLoader classLoader, String className) {
         int num = 0;
-        if (!methods.containsKey(classLoader))
+        if (!methods.containsKey(classLoader)) {
             return num;
+        }
 
         for (String name : methods.get(classLoader).keySet()) {
             if (name.equals(className) || name.startsWith(className + "$")) {

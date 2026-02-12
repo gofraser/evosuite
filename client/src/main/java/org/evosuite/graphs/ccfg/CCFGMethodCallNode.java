@@ -27,7 +27,7 @@ public class CCFGMethodCallNode extends CCFGNode {
     private final CCFGMethodReturnNode returnNode;
 
     /**
-     * <p>Constructor for CCFGMethodCallNode.</p>
+     * Constructor for CCFGMethodCallNode.
      *
      * @param callInstruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @param returnNode      a {@link org.evosuite.graphs.ccfg.CCFGMethodReturnNode} object.
@@ -38,7 +38,7 @@ public class CCFGMethodCallNode extends CCFGNode {
     }
 
     /**
-     * <p>getMethod</p>
+     * getMethod.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -47,7 +47,7 @@ public class CCFGMethodCallNode extends CCFGNode {
     }
 
     /**
-     * <p>getCalledMethod</p>
+     * getCalledMethod.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -56,7 +56,7 @@ public class CCFGMethodCallNode extends CCFGNode {
     }
 
     /**
-     * <p>Getter for the field <code>callInstruction</code>.</p>
+     * Getter for the field <code>callInstruction</code>.
      *
      * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
@@ -65,7 +65,7 @@ public class CCFGMethodCallNode extends CCFGNode {
     }
 
     /**
-     * <p>Getter for the field <code>returnNode</code>.</p>
+     * Getter for the field <code>returnNode</code>.
      *
      * @return a {@link org.evosuite.graphs.ccfg.CCFGMethodReturnNode} object.
      */
@@ -92,21 +92,28 @@ public class CCFGMethodCallNode extends CCFGNode {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CCFGMethodCallNode other = (CCFGMethodCallNode) obj;
         if (callInstruction == null) {
-            if (other.callInstruction != null)
+            if (other.callInstruction != null) {
                 return false;
-        } else if (!callInstruction.equals(other.callInstruction))
+            }
+        } else if (!callInstruction.equals(other.callInstruction)) {
             return false;
+        }
         if (returnNode == null) {
             return other.returnNode == null;
-        } else return returnNode.equals(other.returnNode);
+        } else {
+            return returnNode.equals(other.returnNode);
+        }
     }
 
     /**

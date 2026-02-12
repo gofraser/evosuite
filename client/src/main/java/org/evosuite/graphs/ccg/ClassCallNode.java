@@ -28,7 +28,7 @@ public class ClassCallNode extends CCFGNode {
     private final String method;
 
     /**
-     * <p>Getter for the field <code>method</code>.</p>
+     * Getter for the field <code>method</code>.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -37,7 +37,7 @@ public class ClassCallNode extends CCFGNode {
     }
 
     /**
-     * <p>Constructor for ClassCallNode.</p>
+     * Constructor for ClassCallNode.
      *
      * @param method a {@link java.lang.String} object.
      */
@@ -58,10 +58,12 @@ public class ClassCallNode extends CCFGNode {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null || getClass() != obj.getClass())
+        }
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
+        }
         ClassCallNode other = (ClassCallNode) obj;
         return Objects.equals(method, other.method);
     }

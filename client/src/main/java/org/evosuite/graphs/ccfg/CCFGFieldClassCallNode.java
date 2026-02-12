@@ -32,15 +32,16 @@ public class CCFGFieldClassCallNode extends CCFGCodeNode {
     private final String methodName;
     private final String methodParameters;
 
-
-//	
-
     /**
-     * <p>Constructor for CCFGFieldClassCallNode.</p>
+     * Constructor for CCFGFieldClassCallNode.
      *
      * @param code a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
+     * @param className class name
+     * @param methodName method name
+     * @param methodParameters method parameters
      */
-    public CCFGFieldClassCallNode(BytecodeInstruction code, String className, String methodName, String methodParameters) {
+    public CCFGFieldClassCallNode(BytecodeInstruction code, String className,
+                                 String methodName, String methodParameters) {
         super(code);
         this.className = className;
         this.methodName = methodName;
@@ -48,6 +49,8 @@ public class CCFGFieldClassCallNode extends CCFGCodeNode {
     }
 
     /**
+     * Returns the class name.
+     *
      * @return the className
      */
     public String getClassName() {
@@ -55,16 +58,28 @@ public class CCFGFieldClassCallNode extends CCFGCodeNode {
     }
 
     /**
+     * Returns the method name.
+     *
      * @return the methodName
      */
     public String getMethodName() {
         return methodName + methodParameters;
     }
 
+    /**
+     * Returns only the method name.
+     *
+     * @return the method name
+     */
     public String getOnlyMethodName() {
         return methodName;
     }
 
+    /**
+     * Returns only the method parameters.
+     *
+     * @return the method parameters
+     */
     public String getOnlyParameters() {
         return methodParameters;
     }
@@ -85,26 +100,35 @@ public class CCFGFieldClassCallNode extends CCFGCodeNode {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (!super.equals(obj))
+        }
+        if (!super.equals(obj)) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CCFGFieldClassCallNode other = (CCFGFieldClassCallNode) obj;
         if (className == null) {
-            if (other.className != null)
+            if (other.className != null) {
                 return false;
-        } else if (!className.equals(other.className))
+            }
+        } else if (!className.equals(other.className)) {
             return false;
+        }
         if (methodName == null) {
-            if (other.methodName != null)
+            if (other.methodName != null) {
                 return false;
-        } else if (!methodName.equals(other.methodName))
+            }
+        } else if (!methodName.equals(other.methodName)) {
             return false;
+        }
         if (methodParameters == null) {
             return other.methodParameters == null;
-        } else return methodParameters.equals(other.methodParameters);
+        } else {
+            return methodParameters.equals(other.methodParameters);
+        }
     }
 
 

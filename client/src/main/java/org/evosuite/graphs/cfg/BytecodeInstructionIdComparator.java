@@ -22,10 +22,10 @@ package org.evosuite.graphs.cfg;
 import java.util.Comparator;
 
 /**
- * Orders CFGVertices according to their id
- * <p>
- * This is mainly used to put BytecodeInstructions into a PriorityQueue in
- * ControlFlowGraph.getMaximalInitialDistance()
+ * Orders CFGVertices according to their id.
+ *
+ * <p>This is mainly used to put BytecodeInstructions into a PriorityQueue in
+ * ControlFlowGraph.getMaximalInitialDistance().
  *
  * @author Gordon Fraser
  */

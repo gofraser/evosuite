@@ -24,7 +24,7 @@ public class CCFGMethodExitNode extends CCFGNode {
     private final String method;
 
     /**
-     * <p>Constructor for CCFGMethodExitNode.</p>
+     * Constructor for CCFGMethodExitNode.
      *
      * @param method a {@link java.lang.String} object.
      */
@@ -33,19 +33,20 @@ public class CCFGMethodExitNode extends CCFGNode {
     }
 
     /**
-     * <p>isExitOfMethodEntry</p>
+     * isExitOfMethodEntry.
      *
      * @param methodEntry a {@link org.evosuite.graphs.ccfg.CCFGMethodEntryNode} object.
      * @return a boolean.
      */
     public boolean isExitOfMethodEntry(CCFGMethodEntryNode methodEntry) {
-        if (methodEntry == null)
+        if (methodEntry == null) {
             return false;
+        }
         return methodEntry.getMethod().equals(method);
     }
 
     /**
-     * <p>Getter for the field <code>method</code>.</p>
+     * Getter for the field <code>method</code>.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -69,16 +70,21 @@ public class CCFGMethodExitNode extends CCFGNode {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CCFGMethodExitNode other = (CCFGMethodExitNode) obj;
         if (method == null) {
             return other.method == null;
-        } else return method.equals(other.method);
+        } else {
+            return method.equals(other.method);
+        }
     }
 
     /**

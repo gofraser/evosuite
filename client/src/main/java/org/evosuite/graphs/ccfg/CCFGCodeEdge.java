@@ -28,7 +28,7 @@ public class CCFGCodeEdge extends CCFGEdge {
     private final ControlFlowEdge cfgEdge;
 
     /**
-     * <p>Constructor for CCFGCodeEdge.</p>
+     * Constructor for CCFGCodeEdge.
      *
      * @param cfgEdge a {@link org.evosuite.graphs.cfg.ControlFlowEdge} object.
      */
@@ -37,7 +37,7 @@ public class CCFGCodeEdge extends CCFGEdge {
     }
 
     /**
-     * <p>Getter for the field <code>cfgEdge</code>.</p>
+     * Getter for the field <code>cfgEdge</code>.
      *
      * @return a {@link org.evosuite.graphs.cfg.ControlFlowEdge} object.
      */
@@ -61,16 +61,21 @@ public class CCFGCodeEdge extends CCFGEdge {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         CCFGCodeEdge other = (CCFGCodeEdge) obj;
         if (cfgEdge == null) {
             return other.cfgEdge == null;
-        } else return cfgEdge.equals(other.cfgEdge);
+        } else {
+            return cfgEdge.equals(other.cfgEdge);
+        }
     }
 
     /**

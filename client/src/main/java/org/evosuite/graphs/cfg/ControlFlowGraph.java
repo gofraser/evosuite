@@ -32,18 +32,18 @@ import java.util.Set;
 
 
 /**
- * Abstract base class for both forms of CFGs inside EvoSuite
- * <p>
- * One implementation of this is cfg.RawControlFlowGraph, which is also known as
- * the complete CFG The other implementation of this is
- * cfg.ActualControlFlowGraph which is also known as the minimal CFG Look at the
- * respective classes for more detailed information
- * <p>
- * The CFGs can be accessed via the GraphPool which holds for each CUT and each
- * of their methods a complete and a minimal CFG
- * <p>
- * CFGs are created by the CFGGenerator during the analysis of the CUTs'
- * byteCode performed by the BytecodeAnalyzer
+ * Abstract base class for both forms of CFGs inside EvoSuite.
+ *
+ * <p>One implementation of this is cfg.RawControlFlowGraph, which is also known as
+ * the complete CFG. The other implementation of this is
+ * cfg.ActualControlFlowGraph which is also known as the minimal CFG. Look at the
+ * respective classes for more detailed information.
+ *
+ * <p>The CFGs can be accessed via the GraphPool which holds for each CUT and each
+ * of their methods a complete and a minimal CFG.
+ *
+ * <p>CFGs are created by the CFGGenerator during the analysis of the CUTs'
+ * byteCode performed by the BytecodeAnalyzer.
  *
  * @author Gordon Fraser, Andre Mis
  */
@@ -60,7 +60,7 @@ public abstract class ControlFlowGraph<V> extends
     private int diameter = -1;
 
     /**
-     * Creates a fresh and empty CFG for the given class and method
+     * Creates a fresh and empty CFG for the given class and method.
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
@@ -69,8 +69,9 @@ public abstract class ControlFlowGraph<V> extends
     protected ControlFlowGraph(String className, String methodName, int access) {
         super(ControlFlowEdge.class);
 
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         this.className = className;
         this.methodName = methodName;
@@ -79,19 +80,20 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * Creates a CFG determined by the given jGraph for the given class and
-     * method
+     * method.
      *
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      * @param access     a int.
-     * @param jGraph     a {@link org.jgrapht.graph.DefaultDirectedGraph} object.
+     * @param jgraph     a {@link org.jgrapht.graph.DefaultDirectedGraph} object.
      */
     protected ControlFlowGraph(String className, String methodName, int access,
-                               DefaultDirectedGraph<V, ControlFlowEdge> jGraph) {
-        super(jGraph, ControlFlowEdge.class);
+                               DefaultDirectedGraph<V, ControlFlowEdge> jgraph) {
+        super(jgraph, ControlFlowEdge.class);
 
-        if (className == null || methodName == null)
+        if (className == null || methodName == null) {
             throw new IllegalArgumentException("null given");
+        }
 
         this.className = className;
         this.methodName = methodName;
@@ -99,7 +101,7 @@ public abstract class ControlFlowGraph<V> extends
     }
 
     /**
-     * <p>leadsToNode</p>
+     * leadsToNode.
      *
      * @param e a {@link org.evosuite.graphs.cfg.ControlFlowEdge} object.
      * @param b a V object.
@@ -113,15 +115,18 @@ public abstract class ControlFlowGraph<V> extends
         queue.add(getEdgeTarget(e));
         while (!queue.isEmpty()) {
             V current = queue.poll();
-            if (handled.contains(current))
+            if (handled.contains(current)) {
                 continue;
+            }
             handled.add(current);
 
-            for (V next : getChildren(current))
-                if (next.equals(b))
+            for (V next : getChildren(current)) {
+                if (next.equals(b)) {
                     return true;
-                else
+                } else {
                     queue.add(next);
+                }
+            }
         }
 
         return false;
@@ -138,9 +143,9 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * Can be used to retrieve an instruction contained in this CFG identified
-     * by it's instructionId
-     * <p>
-     * If no such instruction exists in this CFG, null is returned
+     * by it's instructionId.
+     *
+     * <p>If no such instruction exists in this CFG, null is returned.
      *
      * @param instructionId a int.
      * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
@@ -148,7 +153,7 @@ public abstract class ControlFlowGraph<V> extends
     public abstract BytecodeInstruction getInstruction(int instructionId);
 
     /**
-     * Determines, whether a given instruction is contained in this CFG
+     * Determines, whether a given instruction is contained in this CFG.
      *
      * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return a boolean.
@@ -156,13 +161,13 @@ public abstract class ControlFlowGraph<V> extends
     public abstract boolean containsInstruction(BytecodeInstruction instruction);
 
     /**
-     * Computes the diameter of this CFG and the mutation distances
-     * <p>
-     * Since both takes some time this is not automatically done on each CFG
-     * <p>
-     * GraphPool will automatically call this immediately after the
+     * Computes the diameter of this CFG and the mutation distances.
+     *
+     * <p>Since both takes some time this is not automatically done on each CFG.
+     *
+     * <p>GraphPool will automatically call this immediately after the
      * instantiation of an ActualControlFlowGraph, but not after the creation of
-     * a RawControlFlowGraph
+     * a RawControlFlowGraph.
      */
     public void finalise() {
         computeDiameter();
@@ -172,10 +177,10 @@ public abstract class ControlFlowGraph<V> extends
     }
 
     /**
-     * Returns the Diameter of this CFG
-     * <p>
-     * If the diameter of this graph was not computed previously it is computed
-     * first
+     * Returns the Diameter of this CFG.
+     *
+     * <p>If the diameter of this graph was not computed previously it is computed
+     * first.
      *
      * @return a int.
      */
@@ -188,17 +193,22 @@ public abstract class ControlFlowGraph<V> extends
         return diameter;
     }
 
+    /**
+     * Returns the cyclomatic complexity of this CFG.
+     *
+     * @return cyclomatic complexity
+     */
     public int getCyclomaticComplexity() {
-        // E = the number of edges of the graph.
-        // N = the number of nodes of the graph.
-        // M = E − N + 2
-        int E = this.edgeCount();
-        int N = this.vertexCount();
-        return E - N + 2;
+        // numEdges = the number of edges of the graph.
+        // numNodes = the number of nodes of the graph.
+        // mNum = numEdges - numNodes + 2
+        int numEdges = this.edgeCount();
+        int numNodes = this.vertexCount();
+        return numEdges - numNodes + 2;
     }
 
     /**
-     * <p>computeDiameter</p>
+     * computeDiameter.
      */
     protected void computeDiameter() {
         // The diameter is just an upper bound for the approach level
@@ -212,20 +222,22 @@ public abstract class ControlFlowGraph<V> extends
     }
 
     /**
-     * <p>determineEntryPoint</p>
+     * determineEntryPoint.
      *
      * @return a V object.
      */
     public V determineEntryPoint() {
         Set<V> candidates = determineEntryPoints();
 
-        if (candidates.size() > 1)
+        if (candidates.size() > 1) {
             throw new IllegalStateException(
                     "expect CFG of a method to contain at most one instruction with no parent in "
                             + methodName);
+        }
 
-        for (V instruction : candidates)
+        for (V instruction : candidates) {
             return instruction;
+        }
 
         // there was a back loop to the first instruction within this CFG, so no
         // candidate
@@ -237,7 +249,7 @@ public abstract class ControlFlowGraph<V> extends
     }
 
     /**
-     * <p>Getter for the field <code>className</code>.</p>
+     * Getter for the field <code>className</code>.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -246,7 +258,7 @@ public abstract class ControlFlowGraph<V> extends
     }
 
     /**
-     * <p>Getter for the field <code>methodName</code>.</p>
+     * Getter for the field <code>methodName</code>.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -255,7 +267,7 @@ public abstract class ControlFlowGraph<V> extends
     }
 
     /**
-     * <p>getMethodAccess</p>
+     * getMethodAccess.
      *
      * @return a int.
      */
@@ -264,7 +276,7 @@ public abstract class ControlFlowGraph<V> extends
     }
 
     /**
-     * <p>isPublicMethod</p>
+     * isPublicMethod.
      *
      * @return a boolean.
      */
@@ -273,7 +285,7 @@ public abstract class ControlFlowGraph<V> extends
     }
 
     /**
-     * <p>isStaticMethod</p>
+     * isStaticMethod.
      *
      * @return a boolean.
      */
@@ -298,7 +310,7 @@ public abstract class ControlFlowGraph<V> extends
     }
 
     /**
-     * <p>getCFGType</p>
+     * getCFGType.
      *
      * @return a {@link java.lang.String} object.
      */

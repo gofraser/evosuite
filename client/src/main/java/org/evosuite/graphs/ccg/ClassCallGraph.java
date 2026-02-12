@@ -31,11 +31,11 @@ import java.util.TreeMap;
 
 /**
  * Represents the method call structure of a class in a graph.
- * <p>
- * The graph contains a node for each of the classes methods with edges going
+ *
+ * <p>The graph contains a node for each of the classes methods with edges going
  * from a method node to each of its called methods.
- * <p>
- * Edges are labeled with the BytecodeInstruction of the corresponding call.
+ *
+ * <p>Edges are labeled with the BytecodeInstruction of the corresponding call.
  *
  * @author Andre Mis
  */
@@ -48,6 +48,8 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
     private final Map<String, ClassCallNode> methodToNodeMap = new HashMap<>();
 
     /**
+     * Returns the class loader.
+     *
      * @return the classLoader
      */
     public ClassLoader getClassLoader() {
@@ -55,10 +57,9 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
     }
 
     /**
-     * <p>
      * Constructor for ClassCallGraph.
-     * </p>
      *
+     * @param classLoader class loader
      * @param className a {@link java.lang.String} object.
      */
     public ClassCallGraph(ClassLoader classLoader, String className) {
@@ -73,9 +74,10 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
     private void compute() {
         Map<String, RawControlFlowGraph> cfgs = GraphPool.getInstance(classLoader).getRawCFGs(className);
 
-        if (cfgs == null)
+        if (cfgs == null) {
             throw new IllegalStateException(
                     "Did not find CFGs for class " + className + " to compute the CCG of");
+        }
 
         // Use TreeMap for deterministic iteration order
         Map<String, RawControlFlowGraph> sortedCfgs = new TreeMap<>(cfgs);
@@ -105,9 +107,7 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
     }
 
     /**
-     * <p>
-     * getNodeByMethodName
-     * </p>
+     * getNodeByMethodName.
      *
      * @param methodName a {@link java.lang.String} object.
      * @return a {@link org.evosuite.graphs.ccg.ClassCallNode} object.
@@ -117,9 +117,7 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
     }
 
     /**
-     * <p>
      * Getter for the field <code>className</code>.
-     * </p>
      *
      * @return a {@link java.lang.String} object.
      */

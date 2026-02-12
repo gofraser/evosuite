@@ -34,23 +34,23 @@ import org.objectweb.asm.util.Printer;
 // - look at BranchCoverageGoal and Branch for more information
 
 /**
- * Wrapper class for the underlying byteCode instruction library ASM
- * <p>
- * Gives access to a lot of methods that interpret the raw information in
- * AbstractInsnNode to usable chunks of information, inside EvoSuite
- * <p>
- * This class is supposed to hide the ASM library from the rest of EvoSuite as
- * much as possible
- * <p>
- * After initialization, all information about byteCode instructions should be
+ * Wrapper class for the underlying byteCode instruction library ASM.
+ *
+ * <p>Gives access to a lot of methods that interpret the raw information in
+ * AbstractInsnNode to usable chunks of information, inside EvoSuite.
+ *
+ * <p>This class is supposed to hide the ASM library from the rest of EvoSuite as
+ * much as possible.
+ *
+ * <p>After initialization, all information about byteCode instructions should be
  * accessible via the BytecodeInstruction-, DefUse- and BranchPool. Each of
  * those has data structures holding all BytecodeInstruction, DefUse and Branch
  * objects respectively created during initialization.
- * <p>
- * BytecodeInstruction directly extends ASMWrapper and is the first way to
+ *
+ * <p>BytecodeInstruction directly extends ASMWrapper and is the first way to
  * instantiate an ASMWrapper. Branch and DefUse extend BytecodeInstruction,
  * where DefUse is abstract and Branch is not ("concrete"?) DefUse is further
- * extended by Definition and Use
+ * extended by Definition and Use.
  *
  * @author Andre Mis
  */
@@ -61,9 +61,7 @@ public abstract class ASMWrapper {
     protected CFGFrame frame;
 
     /**
-     * <p>
-     * getASMNode
-     * </p>
+     * getASMNode.
      *
      * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
@@ -72,68 +70,67 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * getInstructionType
-     * </p>
+     * getInstructionType.
      *
      * @return a {@link java.lang.String} object.
      */
     public String getInstructionType() {
 
-        if (asmNode.getOpcode() >= 0 && asmNode.getOpcode() < Printer.OPCODES.length)
+        if (asmNode.getOpcode() >= 0 && asmNode.getOpcode() < Printer.OPCODES.length) {
             return Printer.OPCODES[asmNode.getOpcode()];
+        }
 
-        if (isLineNumber())
+        if (isLineNumber()) {
             return "LINE " + this.getLineNumber();
+        }
 
         return getType();
     }
 
+    /**
+     * Returns the descriptor of the called method.
+     *
+     * @return method call descriptor
+     */
     public String getMethodCallDescriptor() {
-        if (!isMethodCall())
+        if (!isMethodCall()) {
             return null;
+        }
         MethodInsnNode meth = (MethodInsnNode) asmNode;
         return meth.desc;
     }
 
     /**
-     * <p>
-     * getType
-     * </p>
+     * getType.
      *
      * @return a {@link java.lang.String} object.
      */
     public String getType() {
         // TODO explain
         String type = "";
-        if (asmNode.getType() >= 0 && asmNode.getType() < Printer.TYPES.length)
+        if (asmNode.getType() >= 0 && asmNode.getType() < Printer.TYPES.length) {
             type = Printer.TYPES[asmNode.getType()];
+        }
 
         return type;
     }
 
     /**
-     * <p>
-     * getInstructionId
-     * </p>
+     * getInstructionId.
      *
      * @return a int.
      */
     public abstract int getInstructionId();
 
     /**
-     * <p>
-     * getMethodName
-     * </p>
+     * getMethodName.
      *
      * @return a {@link java.lang.String} object.
      */
     public abstract String getMethodName();
 
     /**
-     * <p>
-     * getClassName
-     * </p>
+     * getClassName.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -146,9 +143,7 @@ public abstract class ASMWrapper {
     // methods for branch analysis
 
     /**
-     * <p>
-     * isActualBranch
-     * </p>
+     * isActualBranch.
      *
      * @return a boolean.
      */
@@ -157,9 +152,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isSwitch
-     * </p>
+     * isSwitch.
      *
      * @return a boolean.
      */
@@ -168,9 +161,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * canReturnFromMethod
-     * </p>
+     * canReturnFromMethod.
      *
      * @return a boolean.
      */
@@ -179,9 +170,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isReturn
-     * </p>
+     * isReturn.
      *
      * @return a boolean.
      */
@@ -200,9 +189,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isThrow
-     * </p>
+     * isThrow.
      *
      * @return a boolean.
      */
@@ -212,9 +199,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isTableSwitch
-     * </p>
+     * isTableSwitch.
      *
      * @return a boolean.
      */
@@ -223,9 +208,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isLookupSwitch
-     * </p>
+     * isLookupSwitch.
      *
      * @return a boolean.
      */
@@ -234,9 +217,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isBranchLabel
-     * </p>
+     * isBranchLabel.
      *
      * @return a boolean.
      */
@@ -246,9 +227,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isJump
-     * </p>
+     * isJump.
      *
      * @return a boolean.
      */
@@ -257,12 +236,9 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isInvokeStatic
-     * </p>
+     * isInvokeStatic.
      *
-     * @return a boolean representing whether the instruction is a static method
-     * call.
+     * @return a boolean representing whether the instruction is a static method call.
      */
     public boolean isInvokeStatic() {
         if (asmNode instanceof MethodInsnNode) {
@@ -272,9 +248,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isGoto
-     * </p>
+     * isGoto.
      *
      * @return a boolean.
      */
@@ -286,9 +260,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isBranch
-     * </p>
+     * isBranch.
      *
      * @return a boolean.
      */
@@ -302,9 +274,7 @@ public abstract class ASMWrapper {
     // }
 
     /**
-     * <p>
-     * isIfNull
-     * </p>
+     * isIfNull.
      *
      * @return a boolean.
      */
@@ -316,9 +286,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isFrame
-     * </p>
+     * isFrame.
      *
      * @return a boolean.
      */
@@ -327,9 +295,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isMethodCall
-     * </p>
+     * isMethodCall.
      *
      * @return a boolean.
      */
@@ -339,47 +305,51 @@ public abstract class ASMWrapper {
 
     /**
      * Returns the conjunction of the name and method descriptor of the method
-     * called by this instruction
+     * called by this instruction.
      *
      * @return a {@link java.lang.String} object.
      */
     public String getCalledMethod() {
-        if (!isMethodCall())
+        if (!isMethodCall()) {
             return null;
+        }
         MethodInsnNode meth = (MethodInsnNode) asmNode;
         return meth.name + meth.desc;
     }
 
     /**
      * Returns the conjunction of the name of the method called by this
-     * instruction
+     * instruction.
      *
      * @return a {@link java.lang.String} object.
      */
     public String getCalledMethodName() {
-        if (!isMethodCall())
+        if (!isMethodCall()) {
             return null;
+        }
         MethodInsnNode meth = (MethodInsnNode) asmNode;
         return meth.name;
     }
 
     /**
      * Returns true if and only if the class of the method called by this
-     * instruction is the same as the given className
+     * instruction is the same as the given className.
      *
      * @param className a {@link java.lang.String} object.
      * @return a boolean.
      */
     public boolean isMethodCallForClass(String className) {
         if (isMethodCall()) {
-            // System.out.println("in isMethodCallForClass of "+toString()+" for arg "+className+" calledMethodsClass: "+getCalledMethodsClass()+" calledMethod "+getCalledMethod());
+            // System.out.println("in isMethodCallForClass of "+toString()+" for arg "
+            // +className+" calledMethodsClass: "+getCalledMethodsClass()+" calledMethod "
+            // +getCalledMethod());
             return getCalledMethodsClass().equals(className);
         }
         return false;
     }
 
     /**
-     * Returns the class of the method called by this instruction
+     * Returns the class of the method called by this instruction.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -392,7 +362,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * Returns the number of arguments of the method called by this instruction
+     * Returns the number of arguments of the method called by this instruction.
      *
      * @return a int.
      */
@@ -412,9 +382,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isLoadConstant
-     * </p>
+     * isLoadConstant.
      *
      * @return a boolean.
      */
@@ -423,9 +391,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isConstant
-     * </p>
+     * isConstant.
      *
      * @return a boolean.
      */
@@ -457,9 +423,7 @@ public abstract class ASMWrapper {
     // methods for defUse analysis
 
     /**
-     * <p>
-     * isDefUse
-     * </p>
+     * isDefUse.
      *
      * @return a boolean.
      */
@@ -468,9 +432,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isFieldDU
-     * </p>
+     * isFieldDU.
      *
      * @return a boolean.
      */
@@ -478,14 +440,17 @@ public abstract class ASMWrapper {
         return isFieldDefinition() || isFieldUse();
     }
 
+    /**
+     * Checks if this is a field node definition or use.
+     *
+     * @return true if it is a field node definition or use
+     */
     public boolean isFieldNodeDU() {
         return isFieldNodeDefinition() || isFieldNodeUse();
     }
 
     /**
-     * <p>
-     * isLocalDU
-     * </p>
+     * isLocalDU.
      *
      * @return a boolean.
      */
@@ -494,9 +459,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isDefinition
-     * </p>
+     * isDefinition.
      *
      * @return a boolean.
      */
@@ -505,9 +468,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isUse
-     * </p>
+     * isUse.
      *
      * @return a boolean.
      */
@@ -520,9 +481,7 @@ public abstract class ASMWrapper {
     public abstract boolean isFieldMethodCallUse();
 
     /**
-     * <p>
-     * isFieldDefinition
-     * </p>
+     * isFieldDefinition.
      *
      * @return a boolean.
      */
@@ -533,9 +492,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isFieldDefinition
-     * </p>
+     * isFieldNodeDefinition.
      *
      * @return a boolean.
      */
@@ -545,9 +502,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isFieldUse
-     * </p>
+     * isFieldUse.
      *
      * @return a boolean.
      */
@@ -557,9 +512,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isFieldUse
-     * </p>
+     * isFieldNodeUse.
      *
      * @return a boolean.
      */
@@ -569,9 +522,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isStaticDefUse
-     * </p>
+     * isStaticDefUse.
      *
      * @return a boolean.
      */
@@ -583,9 +534,7 @@ public abstract class ASMWrapper {
     // retrieving information about variable names from ASM
 
     /**
-     * <p>
-     * getDUVariableName
-     * </p>
+     * getVariableName.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -606,9 +555,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * getFieldName
-     * </p>
+     * getFieldSimpleName.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -619,9 +566,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * getFieldName
-     * </p>
+     * getFieldName.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -632,9 +577,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * getFieldName
-     * </p>
+     * getFieldType.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -645,9 +588,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * getLocalVarName
-     * </p>
+     * getLocalVariableName.
      *
      * @return a {@link java.lang.String} object.
      */
@@ -659,25 +600,22 @@ public abstract class ASMWrapper {
     // TODO unsafe
 
     /**
-     * <p>
-     * getLocalVar
-     * </p>
+     * getLocalVariableSlot.
      *
      * @return a int.
      */
     public int getLocalVariableSlot() {
-        if (asmNode instanceof VarInsnNode)
+        if (asmNode instanceof VarInsnNode) {
             return ((VarInsnNode) asmNode).var;
-        else if (asmNode instanceof IincInsnNode)
+        } else if (asmNode instanceof IincInsnNode) {
             return ((IincInsnNode) asmNode).var;
-        else
+        } else {
             return -1;
+        }
     }
 
     /**
-     * <p>
-     * isLocalVarDefinition
-     * </p>
+     * isLocalVariableDefinition.
      *
      * @return a boolean.
      */
@@ -691,9 +629,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isLocalVarUse
-     * </p>
+     * isLocalVariableUse.
      *
      * @return a boolean.
      */
@@ -706,17 +642,22 @@ public abstract class ASMWrapper {
                 || (asmNode.getOpcode() == Opcodes.ALOAD && !loadsReferenceToThis());
     }
 
+    /**
+     * Checks if this is an IINC instruction.
+     *
+     * @return true if it is an IINC instruction
+     */
     public boolean isIINC() {
         return asmNode.getOpcode() == Opcodes.IINC;
     }
 
     /**
      * Determines whether this is the special ALOAD that pushes 'this' onto the
-     * stack
-     * <p>
-     * In non static methods the variable slot 0 holds the reference to "this".
+     * stack.
+     *
+     * <p>In non static methods the variable slot 0 holds the reference to "this".
      * Loading this reference is not seen as a Use for defuse purposes. This
-     * method checks if this is the case
+     * method checks if this is the case.
      *
      * @return a boolean.
      */
@@ -730,41 +671,67 @@ public abstract class ASMWrapper {
 
     public abstract RawControlFlowGraph getRawCFG();
 
+    /**
+     * Checks if this is a local array definition.
+     *
+     * @return true if it is a local array definition
+     */
     public boolean isLocalArrayDefinition() {
-        if (!isArrayStoreInstruction())
+        if (!isArrayStoreInstruction()) {
             return false;
+        }
 
         // only local var if arrayref on stack is from local var use
         BytecodeInstruction arrayLoader = getSourceOfArrayReference();
-        if (arrayLoader == null)
+        if (arrayLoader == null) {
             return false;
+        }
 
         return arrayLoader.isLocalVariableUse();
     }
 
+    /**
+     * Checks if this is a field array definition.
+     *
+     * @return true if it is a field array definition
+     */
     public boolean isFieldArrayDefinition() {
-        if (!isArrayStoreInstruction())
+        if (!isArrayStoreInstruction()) {
             return false;
+        }
 
         // only field var if arrayref on stack is from field var use
         BytecodeInstruction arrayLoader = getSourceOfArrayReference();
-        if (arrayLoader == null)
+        if (arrayLoader == null) {
             return false;
+        }
 
         return arrayLoader.isFieldUse();
     }
 
+    /**
+     * Checks if this is a static array usage.
+     *
+     * @return true if it is a static array usage
+     */
     public boolean isStaticArrayUsage() {
-        if (!isArrayStoreInstruction())
+        if (!isArrayStoreInstruction()) {
             return false;
+        }
 
         BytecodeInstruction arrayLoader = getSourceOfArrayReference();
-        if (arrayLoader == null)
+        if (arrayLoader == null) {
             return false;
+        }
 
         return arrayLoader.isStaticDefUse();
     }
 
+    /**
+     * Checks if this is an array store instruction.
+     *
+     * @return true if it is an array store instruction
+     */
     public boolean isArrayStoreInstruction() {
         return asmNode.getOpcode() == Opcodes.IASTORE
                 || asmNode.getOpcode() == Opcodes.LASTORE
@@ -773,6 +740,11 @@ public abstract class ASMWrapper {
                 || asmNode.getOpcode() == Opcodes.AASTORE;
     }
 
+    /**
+     * Checks if this is an array load instruction.
+     *
+     * @return true if it is an array load instruction
+     */
     public boolean isArrayLoadInstruction() {
         return asmNode.getOpcode() == Opcodes.IALOAD
                 || asmNode.getOpcode() == Opcodes.LALOAD
@@ -781,10 +753,16 @@ public abstract class ASMWrapper {
                 || asmNode.getOpcode() == Opcodes.AALOAD;
     }
 
+    /**
+     * Returns the array variable name.
+     *
+     * @return array variable name
+     */
     protected String getArrayVariableName() {
         BytecodeInstruction arrayLoader = getSourceOfArrayReference();
-        if (arrayLoader == null)
+        if (arrayLoader == null) {
             return null;
+        }
 
         return arrayLoader.getVariableName();
     }
@@ -792,9 +770,7 @@ public abstract class ASMWrapper {
     public abstract BytecodeInstruction getSourceOfArrayReference();
 
     /**
-     * <p>
-     * isDefinitionForVariable
-     * </p>
+     * isDefinitionForVariable.
      *
      * @param var a {@link java.lang.String} object.
      * @return a boolean.
@@ -804,9 +780,7 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * isInvokeSpecial
-     * </p>
+     * isInvokeSpecial.
      *
      * @return a boolean.
      */
@@ -821,8 +795,9 @@ public abstract class ASMWrapper {
      * @return a boolean.
      */
     public boolean isConstructorInvocation() {
-        if (!isInvokeSpecial())
+        if (!isInvokeSpecial()) {
             return false;
+        }
 
         MethodInsnNode invoke = (MethodInsnNode) asmNode;
         // if (!invoke.owner.equals(className.replaceAll("\\.", "/")))
@@ -839,12 +814,14 @@ public abstract class ASMWrapper {
      * @return a boolean.
      */
     public boolean isConstructorInvocation(String className) {
-        if (!isInvokeSpecial())
+        if (!isInvokeSpecial()) {
             return false;
+        }
 
         MethodInsnNode invoke = (MethodInsnNode) asmNode;
-        if (!invoke.owner.equals(className.replaceAll("\\.", "/")))
+        if (!invoke.owner.equals(className.replaceAll("\\.", "/"))) {
             return false;
+        }
 
         return invoke.name.equals("<init>");
     }
@@ -852,10 +829,10 @@ public abstract class ASMWrapper {
     // other classification methods
 
     /**
-     * Determines if this instruction is a line number instruction
-     * <p>
-     * More precisely this method checks if the underlying asmNode is a
-     * LineNumberNode
+     * Determines if this instruction is a line number instruction.
+     *
+     * <p>More precisely this method checks if the underlying asmNode is a
+     * LineNumberNode.
      *
      * @return a boolean.
      */
@@ -864,23 +841,20 @@ public abstract class ASMWrapper {
     }
 
     /**
-     * <p>
-     * getLineNumber
-     * </p>
+     * getLineNumber.
      *
      * @return a int.
      */
     public int getLineNumber() {
-        if (!isLineNumber())
+        if (!isLineNumber()) {
             return -1;
+        }
 
         return ((LineNumberNode) asmNode).line;
     }
 
     /**
-     * <p>
-     * isLabel
-     * </p>
+     * isLabel.
      *
      * @return a boolean.
      */
@@ -888,22 +862,19 @@ public abstract class ASMWrapper {
         return asmNode instanceof LabelNode;
     }
 
-    // sanity checks
-
     /**
-     * <p>
-     * sanityCheckAbstractInsnNode
-     * </p>
+     * sanityCheckAbstractInsnNode.
      *
      * @param node a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
+     * @return true if it matches the internal ASM node
      */
     public boolean sanityCheckAbstractInsnNode(AbstractInsnNode node) {
-        if (node == null)
+        if (node == null) {
             return false; //throw new IllegalArgumentException("null given");
+        }
         return node.equals(this.asmNode);
         //
-        //	throw new IllegalStateException("sanity check failed for "
-        //			+ node.toString() + " on " + getMethodName() + toString());
+        //  throw new IllegalStateException("sanity check failed for "
+        //          + node.toString() + " on " + getMethodName() + toString());
     }
-
 }

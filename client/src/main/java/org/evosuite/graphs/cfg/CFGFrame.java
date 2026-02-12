@@ -28,17 +28,17 @@ public class CFGFrame extends Frame {
     Map<Integer, CFGFrame> successors = new HashMap<>();
 
     /**
-     * <p>Constructor for CFGFrame.</p>
+     * Constructor for CFGFrame.
      *
-     * @param nLocals a int.
-     * @param nStack  a int.
+     * @param numLocals a int.
+     * @param numStack  a int.
      */
-    public CFGFrame(int nLocals, int nStack) {
-        super(nLocals, nStack);
+    public CFGFrame(int numLocals, int numStack) {
+        super(numLocals, numStack);
     }
 
     /**
-     * <p>Constructor for CFGFrame.</p>
+     * Constructor for CFGFrame.
      *
      * @param src a {@link org.objectweb.asm.tree.analysis.Frame} object.
      */
