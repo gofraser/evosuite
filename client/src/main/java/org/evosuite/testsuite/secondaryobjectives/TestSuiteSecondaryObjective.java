@@ -28,7 +28,9 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 
 public class TestSuiteSecondaryObjective {
 
-
+    /**
+     * Sets the secondary objectives based on the properties.
+     */
     public static void setSecondaryObjectives() {
         for (Properties.SecondaryObjective secondaryObjective : Properties.SECONDARY_OBJECTIVE) {
             SecondaryObjective<TestSuiteChromosome> secondaryObjectiveInstance = null;
