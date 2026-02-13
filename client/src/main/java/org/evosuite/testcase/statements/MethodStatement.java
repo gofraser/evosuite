@@ -118,9 +118,9 @@ public class MethodStatement extends EntityWithParametersStatement {
     private void init(GenericMethod method, VariableReference callee) throws IllegalArgumentException {
         if (callee == null && !method.isStatic()) {
             throw new IllegalArgumentException(
-                    "A null callee cannot call a non-static method: " +
-                            method.getDeclaringClass().getCanonicalName() +
-                            "." + method.getName());
+                    "A null callee cannot call a non-static method: "
+                            + method.getDeclaringClass().getCanonicalName()
+                            + "." + method.getName());
         }
         if (callee != null && !callee.isAssignableTo(method.getOwnerType())) {
             logger.debug("Skipping incompatible callee {} for method {}.{}",
@@ -130,9 +130,9 @@ public class MethodStatement extends EntityWithParametersStatement {
             return;
         }
         if (parameters == null) {
-            throw new IllegalArgumentException("Parameter list cannot be null for method " +
-                    method.getDeclaringClass().getCanonicalName() +
-                    "." + method.getName());
+            throw new IllegalArgumentException("Parameter list cannot be null for method "
+                    + method.getDeclaringClass().getCanonicalName()
+                    + "." + method.getName());
         }
         for (VariableReference var : parameters) {
             if (var == null) {
@@ -151,16 +151,13 @@ public class MethodStatement extends EntityWithParametersStatement {
         this.method = method;
         if (isStatic()) {
             this.callee = null;
-        } else
-             {
+        } else {
             this.callee = callee;
         }
     }
 
     /**
-     * <p>
      * Getter for the field <code>method</code>.
-     * </p>
      *
      * @return a {@link java.lang.reflect.Method} object.
      */
@@ -169,9 +166,7 @@ public class MethodStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * <p>
      * Setter for the field <code>method</code>.
-     * </p>
      *
      * @param method a {@link java.lang.reflect.Method} object.
      */
@@ -180,9 +175,7 @@ public class MethodStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * <p>
      * Getter for the field <code>callee</code>.
-     * </p>
      *
      * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
@@ -191,9 +184,7 @@ public class MethodStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * <p>
      * Setter for the field <code>callee</code>.
-     * </p>
      *
      * @param callee a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
@@ -221,9 +212,7 @@ public class MethodStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * <p>
-     * isStatic
-     * </p>
+     * Checks if method is static.
      *
      * @return a boolean.
      */
@@ -253,7 +242,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                 public void execute() throws InvocationTargetException,
                         IllegalArgumentException, IllegalAccessException,
                         InstantiationException, CodeUnderTestException {
-                    Object callee_object;
+                    Object calleeObject;
                     try {
                         java.lang.reflect.Type[] exactParameterTypes = method.getParameterTypes();
                         for (int i = 0; i < parameters.size(); i++) {
@@ -265,24 +254,29 @@ public class MethodStatement extends EntityWithParametersStatement {
                             if (inputs[i] != null) {
                                 boolean assignable;
                                 try {
-                                    assignable = TypeUtils.isAssignable(inputs[i].getClass(), exactParameterTypes[i]);
+                                    assignable = TypeUtils.isAssignable(inputs[i].getClass(),
+                                            exactParameterTypes[i]);
                                 } catch (IllegalStateException e) {
                                     // Fallback for wildcard captures that TypeUtils cannot handle.
-                                    assignable = method.getMethod().getParameterTypes()[i].isAssignableFrom(inputs[i].getClass());
+                                    assignable = method.getMethod().getParameterTypes()[i]
+                                            .isAssignableFrom(inputs[i].getClass());
                                 }
                                 if (!assignable) {
-                                    // TODO: This used to be a check of the declared type, but the problem is that
-                                    //       Generic types are not updated during execution, so this may fail:
-                                    //!parameterVar.isAssignableTo(exactParameterTypes[i])) {
+                                    // TODO: This used to be a check of the declared type, but the
+                                    // problem is that Generic types are not updated during
+                                    // execution, so this may fail:
+                                    // !parameterVar.isAssignableTo(exactParameterTypes[i])) {
                                     throw new CodeUnderTestException(
-                                            new UncompilableCodeException("Cannot assign " + parameterVar.getVariableClass().getName() + " to " + exactParameterTypes[i]));
+                                            new UncompilableCodeException("Cannot assign "
+                                                    + parameterVar.getVariableClass().getName()
+                                                    + " to " + exactParameterTypes[i]));
                                 }
                             }
                         }
 
-                        callee_object = method.isStatic() ? null
+                        calleeObject = method.isStatic() ? null
                                 : callee.getObject(scope);
-                        if (!method.isStatic() && callee_object == null) {
+                        if (!method.isStatic() && calleeObject == null) {
                             throw new CodeUnderTestException(new NullPointerException());
                         }
                     } catch (CodeUnderTestException e) {
@@ -292,7 +286,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                         throw new EvosuiteError(e);
                     }
 
-                    Object ret = method.getMethod().invoke(callee_object, inputs);
+                    Object ret = method.getMethod().invoke(calleeObject, inputs);
                     // Try exact return type
                     /*
                      * TODO: Sometimes we do want to cast an Object to String etc...
@@ -423,7 +417,7 @@ public class MethodStatement extends EntityWithParametersStatement {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
      */
 
     /**
@@ -443,8 +437,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     return;
                 }
                 callee = newVar;
-            } else
-                 {
+            } else {
                 callee.replaceAdditionalVariableReference(oldVar, newVar);
             }
         }
@@ -508,8 +501,7 @@ public class MethodStatement extends EntityWithParametersStatement {
         } else {
             if (callee == null) {
                 return true;
-            } else
-                 {
+            } else {
                 return (callee.equals(ms.callee));
             }
         }
@@ -636,8 +628,7 @@ public class MethodStatement extends EntityWithParametersStatement {
         } else {
             if (callee == null) {
                 return true;
-            } else
-                 {
+            } else {
                 return (callee.same(ms.callee));
             }
         }
@@ -668,14 +659,15 @@ public class MethodStatement extends EntityWithParametersStatement {
             return false;
         } // Static method with no parameters...
 
-        double pParam = 1.0 / max;
-        if (!isStatic() && Randomness.nextDouble() < pParam) {
+        double parameterProbability = 1.0 / max;
+        if (!isStatic() && Randomness.nextDouble() < parameterProbability) {
             // replace callee
             VariableReference callee = getCallee();
             List<VariableReference> objects = test.getObjects(callee.getType(),
                     getPosition());
             objects.remove(callee);
-            objects = objects.stream().filter(var -> !(test.getStatement(var.getStPosition()) instanceof FunctionalMockStatement))
+            objects = objects.stream().filter(var -> !(test.getStatement(var.getStPosition())
+                    instanceof FunctionalMockStatement))
                     .collect(Collectors.toList());
             // Keep only candidates compatible with the method's declaring type
             objects = objects.stream()
@@ -690,7 +682,7 @@ public class MethodStatement extends EntityWithParametersStatement {
         }
 
         for (int numParameter = 0; numParameter < parameters.size(); numParameter++) {
-            if (Randomness.nextDouble() < pParam) {
+            if (Randomness.nextDouble() < parameterProbability) {
                 if (mutateParameter(test, numParameter)) {
                     changed = true;
                 }
@@ -744,6 +736,9 @@ public class MethodStatement extends EntityWithParametersStatement {
         return method.getName();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public List<String> obtainParameterNameListInOrder() {
         final Parameter[] parameters = this.method.getParameters();
         final List<String> names = new ArrayList<String>();
