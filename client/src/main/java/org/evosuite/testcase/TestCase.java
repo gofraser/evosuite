@@ -98,13 +98,13 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
      * @param statement New statement
      * @param position  Position at which to add
      * @return Return value of statement. Notice that the test might choose to
-     * modify the statement you inserted. You should use the returned
-     * variable reference and not use references
+     *     modify the statement you inserted. You should use the returned
+     *     variable reference and not use references.
      */
     VariableReference addStatement(Statement statement, int position);
 
     /**
-     * <p>addStatements</p>
+     * <p>addStatements.</p>
      *
      * @param statements a {@link java.util.List} object.
      */
@@ -128,7 +128,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     boolean contains(Statement statement);
 
     /**
-     * <p>clone</p>
+     * <p>clone.</p>
      *
      * @return a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -151,10 +151,11 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     /**
      * Get all assertions that exist for this test case.
      *
-     * @return List of assertions
+     * @return List of assertions.
      *
      * <p>
-     *         TODO: Also return ExceptionAssertion?
+     *     TODO: Also return ExceptionAssertion?
+     * </p>
      */
     List<Assertion> getAssertions();
 
@@ -174,7 +175,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     Set<TestFitnessFunction> getCoveredGoals();
 
     /**
-     * <p>getDeclaredExceptions</p>
+     * <p>getDeclaredExceptions.</p>
      *
      * @return a {@link java.util.Set} object.
      */
@@ -335,7 +336,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     boolean hasAssertions();
 
     /**
-     * <p>hasCastableObject</p>
+     * <p>hasCastableObject.</p>
      *
      * @param type a {@link java.lang.reflect.Type} object.
      * @return a boolean.
@@ -355,7 +356,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
      * Check if var is referenced after its definition.
      *
      * @param var Variable to check for
-     * @return True if there is a use of var
+     * @return True if there is a use of var.
      */
     boolean hasReferences(VariableReference var);
 
@@ -368,7 +369,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     boolean isAccessible();
 
     /**
-     * <p>isEmpty</p>
+     * <p>isEmpty.</p>
      *
      * @return true if size()==0
      */
@@ -394,6 +395,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
      * and only if the first {@code length(A)} statements of {@code B} are
      * equal to ones of {@code A}, in the same order.
      * In other words, {@code B} can be seen as an extension of {@code A}.
+     * </p>
      *
      * @param t Test case to check against
      * @return True if this test is a prefix of t
@@ -447,8 +449,8 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
      * @param statement New statement
      * @param position  Position at which to add
      * @return Return value of statement. Notice that the test might choose to
-     * modify the statement you inserted. You should use the returned
-     * variable reference and not use references
+     *     modify the statement you inserted. You should use the returned
+     *     variable reference and not use references.
      */
     VariableReference setStatement(Statement statement, int position);
 
@@ -460,7 +462,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     void setUnstable(boolean unstable);
 
     /**
-     * <p>size</p>
+     * <p>size.</p>
      *
      * @return Number of statements
      */

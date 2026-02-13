@@ -441,8 +441,7 @@ public class VariableReferenceImpl implements VariableReference {
         logger.debug("Loading variable in bytecode: " + getStPosition());
         if (getStPosition() < 0) {
             mg.visitInsn(Opcodes.ACONST_NULL);
-        } else
-             {
+        } else {
             mg.loadLocal(locals.get(getStPosition()),
                     org.objectweb.asm.Type.getType(type.getRawClass()));
         }
@@ -471,28 +470,26 @@ public class VariableReferenceImpl implements VariableReference {
     public Object getDefaultValue() {
         if (isVoid()) {
             return null;
-        } else  {
-            if (type.isString())
-            return "";
-        else if (isPrimitive()) {
-            if (type.getRawClass().equals(float.class)) {
-                return 0.0F;
-            } else  {
-                if (type.getRawClass().equals(long.class))
-                return 0L;
-            else  {
-                if (type.getRawClass().equals(boolean.class))
-                return false;
-            else
-                 {
-                return 0;
+        } else {
+            if (type.isString()) {
+                return "";
+            } else if (isPrimitive()) {
+                if (type.getRawClass().equals(float.class)) {
+                    return 0.0F;
+                } else {
+                    if (type.getRawClass().equals(long.class)) {
+                        return 0L;
+                    } else {
+                        if (type.getRawClass().equals(boolean.class)) {
+                            return false;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            } else {
+                return null;
             }
-            }
-            }
-        } else
-             {
-            return null;
-        }
         }
     }
 
@@ -503,28 +500,26 @@ public class VariableReferenceImpl implements VariableReference {
     public String getDefaultValueString() {
         if (isVoid()) {
             return "";
-        } else  {
-            if (type.isString())
-            return "\"\"";
-        else if (isPrimitive()) {
-            if (type.getRawClass().equals(float.class)) {
-                return "0.0F";
-            } else  {
-                if (type.getRawClass().equals(long.class))
-                return "0L";
-            else  {
-                if (type.getRawClass().equals(boolean.class))
-                return "false";
-            else
-                 {
-                return "0";
+        } else {
+            if (type.isString()) {
+                return "\"\"";
+            } else if (isPrimitive()) {
+                if (type.getRawClass().equals(float.class)) {
+                    return "0.0F";
+                } else {
+                    if (type.getRawClass().equals(long.class)) {
+                        return "0L";
+                    } else {
+                        if (type.getRawClass().equals(boolean.class)) {
+                            return "false";
+                        } else {
+                            return "0";
+                        }
+                    }
+                }
+            } else {
+                return "null";
             }
-            }
-            }
-        } else
-             {
-            return "null";
-        }
         }
     }
 

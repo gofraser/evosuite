@@ -46,9 +46,9 @@ import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericClassUtils;
+import org.mockito.MockMakers;
 import org.mockito.MockSettings;
 import org.mockito.Mockito;
-import org.mockito.MockMakers;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.stubbing.OngoingStubbing;
 import org.slf4j.Logger;
@@ -97,10 +97,11 @@ import static org.mockito.Mockito.withSettings;
  * This statement cannot be used to mock the SUT, as it would make no sense whatsoever.
  * However, there might be special cases: eg SUT being an abstract class with no
  * concrete implementation. That would need to be handled specially.
- *
+ * </p>
  *
  * <p>
  * Created by Andrea Arcuri on 01/08/15.
+ * </p>
  */
 public class FunctionalMockStatement extends EntityWithParametersStatement {
 
@@ -291,7 +292,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * Check if the last execution of the test case has led a change in the usage of the mock.
      * This will result in adding/removing variable references.
      *
-     * @return .
+     * @return a boolean.
      */
     public boolean doesNeedToUpdateInputs() {
         if (listener == null) {
@@ -338,9 +339,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                  increasing by any amount should have no impact
              */
 
-            if (now.getCounter() != previous.getCounter() &&
-                    (now.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT) ||
-                    previous.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT
+            if (now.getCounter() != previous.getCounter()
+                    && (now.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT)
+                    || previous.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT
             ) {
                 return true;
             }
@@ -423,7 +424,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
             //check if rather more calls
             if (existingParameters < md.getCounter()) {
-                for (int i = existingParameters; i < md.getCounter() && i < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT; i++) {
+                for (int i = existingParameters; i < md.getCounter()
+                        && i < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT; i++) {
                     // Create a copy as the typemap is stored in the class during generic instantiation
                     // but we might want to have a different type for each call of the same method invocation
                     GenericClass<?> calleeClass = GenericClassFactory.get(retval.getGenericClass());
