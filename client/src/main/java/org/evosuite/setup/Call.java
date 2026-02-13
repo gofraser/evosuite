@@ -24,8 +24,8 @@ import java.io.Serializable;
 public class Call implements Serializable {
 
     /**
-     * Call of call context
-     * TODO this class is approximated and does not consider the method signature
+     * Call of call context.
+     * TODO this class is approximated and does not consider the method signature.
      * mattia
      */
     private static final long serialVersionUID = -8148115191773499144L;
@@ -34,6 +34,12 @@ public class Call implements Serializable {
     private final int hcode;
     private final int approxHcode;
 
+    /**
+     * Constructor for Call.
+     *
+     * @param classname the class name
+     * @param methodName the method name
+     */
     public Call(String classname, String methodName) {
         this.className = classname;
         this.methodName = methodName;
@@ -41,6 +47,11 @@ public class Call implements Serializable {
         hcode = computeHashCode();
     }
 
+    /**
+     * Copy constructor for Call.
+     *
+     * @param call the call to copy
+     */
     public Call(Call call) {
         this.className = call.className;
         this.methodName = call.methodName;
@@ -107,6 +118,13 @@ public class Call implements Serializable {
     }
 
     // TODO: Could consider line number?
+
+    /**
+     * Determine if this call matches another call.
+     *
+     * @param other the other call
+     * @return true if they match
+     */
     public boolean matches(Call other) {
         return approxHcode == other.approxHcode;
     }

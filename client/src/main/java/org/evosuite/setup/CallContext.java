@@ -128,8 +128,9 @@ public class CallContext implements Serializable {
                     skip = true;
                 }
             }
-            if (!skip)
+            if (!skip) {
                 context.add(newCall);
+            }
         }
         this.context = context;
         hcode = this.context.hashCode();
@@ -150,6 +151,9 @@ public class CallContext implements Serializable {
         hcode = this.context.hashCode();
     }
 
+    /**
+     * Default constructor for CallContext.
+     */
     public CallContext() {
         addJUnitExcludes();
 
@@ -157,6 +161,11 @@ public class CallContext implements Serializable {
         hcode = this.context.hashCode();
     }
 
+    /**
+     * Constructor for CallContext with a collection of calls.
+     *
+     * @param contextt the collection of calls
+     */
     public CallContext(Collection<Call> contextt) {
         addJUnitExcludes();
 
@@ -210,7 +219,7 @@ public class CallContext implements Serializable {
 
     /**
      * <p>
-     * getRootClassName
+     * getRootClassName.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -221,7 +230,7 @@ public class CallContext implements Serializable {
 
     /**
      * <p>
-     * getRootMethodName
+     * getRootMethodName.
      * </p>
      *
      * @return a {@link java.lang.String} object.
@@ -274,6 +283,12 @@ public class CallContext implements Serializable {
         return hcode == other.hcode;
     }
 
+    /**
+     * Determine if this context matches another one.
+     *
+     * @param other the other context
+     * @return true if they match
+     */
     public boolean oldMatches(CallContext other) {
         if (context.size() != other.context.size()) {
             return false;

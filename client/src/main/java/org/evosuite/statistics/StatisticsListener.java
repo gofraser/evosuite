@@ -59,6 +59,9 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
      */
     private volatile long timeFromLastGenerationUpdate = 0;
 
+    /**
+     * Default constructor.
+     */
     public StatisticsListener() {
         individuals = new LinkedBlockingQueue<>();
         done = false;
@@ -67,6 +70,11 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
         numFitnessEvaluations = 0;
     }
 
+    /**
+     * Copy constructor.
+     *
+     * @param that the statistics listener to copy from
+     */
     public StatisticsListener(StatisticsListener<T> that) {
         this.individuals = new LinkedBlockingQueue<>(that.individuals);
 

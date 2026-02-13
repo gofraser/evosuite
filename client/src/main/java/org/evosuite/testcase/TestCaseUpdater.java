@@ -58,7 +58,8 @@ public class TestCaseUpdater {
     public static final int DEFAULT_STRING_LENGTH = 10;
     public static final int ARRAY_DIMENSION_LOWER_BOUND = 0;
     /**
-     * TODO (ilebrero): At some point there can be an empirical study about the max length that arrays usually have in open source projects.
+     * TODO (ilebrero): At some point there can be an empirical study about the max length
+     * that arrays usually have in open source projects.
      */
     public static final int DEFAULT_ARRAY_LENGTH_UPPER_BOUND = 20;
 
@@ -68,11 +69,21 @@ public class TestCaseUpdater {
     public static final String COULD_NOT_FIND_ARRAY = "Could not find array ";
     public static final String NEW_VALUE_IS_OF_AN_UNSUPPORTED_TYPE = "New value is of an unsupported type: ";
     public static final String NEW_REAL_VALUE_IS_OF_AN_UNSUPPORTED_TYPE = "New real value is of an unsupported type: ";
-    public static final String NEW_INTEGER_VALUE_IS_OF_AN_UNSUPPORTED_TYPE = "New integer value is of an unsupported type: ";
-    public static final String SKIPPING_CURRENT_VALUE_AS_REFERENCES_ARE_NOT_ENABLED_VALUE = "Skipping current value as references are not enabled. Value: ";
-    public static final String SKIPPING_CURRENT_ARRAY_AS_THE_FEATURE_IS_NOT_ENABLED_VALUE = "Skipping current array as the feature is not enabled. Value: ";
+    public static final String NEW_INTEGER_VALUE_IS_OF_AN_UNSUPPORTED_TYPE =
+            "New integer value is of an unsupported type: ";
+    public static final String SKIPPING_CURRENT_VALUE_AS_REFERENCES_ARE_NOT_ENABLED_VALUE =
+            "Skipping current value as references are not enabled. Value: ";
+    public static final String SKIPPING_CURRENT_ARRAY_AS_THE_FEATURE_IS_NOT_ENABLED_VALUE =
+            "Skipping current array as the feature is not enabled. Value: ";
 
 
+    /**
+     * Updates the test case with the provided updated values.
+     *
+     * @param test a {@link org.evosuite.testcase.TestCase} object.
+     * @param updatedValues a {@link java.util.Map} object.
+     * @return a {@link org.evosuite.testcase.TestCase} object.
+     */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static TestCase updateTest(TestCase test, Map<String, Object> updatedValues) {
 
@@ -108,7 +119,8 @@ public class TestCaseUpdater {
                     // TODO (ilebrero): not ready yet, needs more work and testing
                     processObjectValue(newTest, symbolicVariableName, (Long) updateValue, created);
                 // Non-reserved names cases
-                } else if (Properties.isLazyArraysImplementationSelected() && SymbolicArrayUtil.isArrayContentVariableName(symbolicVariableName)) {
+                } else if (Properties.isLazyArraysImplementationSelected()
+                        && SymbolicArrayUtil.isArrayContentVariableName(symbolicVariableName)) {
                     if (!Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED) {
                         logger.debug(SKIPPING_CURRENT_VALUE_AS_REFERENCES_ARE_NOT_ENABLED_VALUE + updateValue);
                         continue;
@@ -142,15 +154,17 @@ public class TestCaseUpdater {
 
     }
 
-    private static void processArrayElement(TestCase test, TestCase newTest, String symbolicArrayVariableName, Object updateValue) {
+    private static void processArrayElement(TestCase test, TestCase newTest,
+            String symbolicArrayVariableName, Object updateValue) {
         String[] names = symbolicArrayVariableName.split("\\_");
         String arrayVariableName = names[0].replace("__SYM", "");
-        ArrayStatement arrayStatement = (ArrayStatement) getStatement(newTest, arrayVariableName, StatementClassChecker.ARRAY_STATEMENT);
+        ArrayStatement arrayStatement = (ArrayStatement) getStatement(newTest, arrayVariableName,
+                StatementClassChecker.ARRAY_STATEMENT);
 
         assert (arrayStatement != null) : COULD_NOT_FIND_ARRAY + arrayVariableName + " in test: " + newTest.toCode()
                 + " / Orig test: " + test.toCode() + ", seed: " + Randomness.getSeed();
 
-        AssignmentStatement s = (AssignmentStatement) getStatement(
+        getStatement(
                 newTest,
                 ArrayUtil.buildArrayIndexName(arrayVariableName, Collections.singletonList(Integer.parseInt(names[2]))),
                 StatementClassChecker.ASSIGNMENT_STATEMENT);
@@ -167,23 +181,25 @@ public class TestCaseUpdater {
     /**
      * Updates the test case values that are stored on the array.
      *
-     * <p>
-     * TODO (ilebrero):
-     *     Is there a case where the empty array happends after the test case contains an already setted array?.
+     * <p>TODO (ilebrero):
+     *     Is there a case where the empty array happends after the test case contains an already setted array?
      *
      * @param test the test case.
      * @param newTest the new test.
      * @param symbolicArrayVariableName the symbolic array variable name.
      * @param updatedArray the updated array.
      */
-    private static void processArray(TestCase test, TestCase newTest, String symbolicArrayVariableName, Object updatedArray) {
+    private static void processArray(TestCase test, TestCase newTest, String symbolicArrayVariableName,
+            Object updatedArray) {
         String arrayVariableName = symbolicArrayVariableName.replace("__SYM", "");
-        ArrayStatement arrayStatement = (ArrayStatement) getStatement(newTest, arrayVariableName, StatementClassChecker.ARRAY_STATEMENT);
+        ArrayStatement arrayStatement = (ArrayStatement) getStatement(newTest, arrayVariableName,
+                StatementClassChecker.ARRAY_STATEMENT);
 
         assert (arrayStatement != null) : COULD_NOT_FIND_ARRAY + arrayVariableName + " in test: " + newTest.toCode()
                 + " / Orig test: " + test.toCode() + ", seed: " + Randomness.getSeed();
 
-        ArrayUtil.MultiDimensionalArrayIterator arrayIterator = new ArrayUtil.MultiDimensionalArrayIterator(updatedArray);
+        ArrayUtil.MultiDimensionalArrayIterator arrayIterator =
+                new ArrayUtil.MultiDimensionalArrayIterator(updatedArray);
         while (arrayIterator.hasNext()) {
             processArrayElement(
                     newTest,
@@ -198,8 +214,7 @@ public class TestCaseUpdater {
     /**
      * Updates the assignment of an element of an array.
      *
-     * <p>
-     * ***** General algorithm *****
+     * <p>***** General algorithm *****
      * if (! exists assignment statement for the current index)
      * if (! current value is a default value (i.e. arr[i] = 0))
      * Create primitive variable and assign new value (i.e. x = val)     | PrimitiveStatement
@@ -213,13 +228,15 @@ public class TestCaseUpdater {
      * @param indexes the indexes.
      * @param newValue the new value.
      */
-    private static void processArrayElement(TestCase newTest, ArrayReference arrayReference, String arrayVariableName, int[] indexes, Object newValue) {
+    private static void processArrayElement(TestCase newTest, ArrayReference arrayReference, String arrayVariableName,
+            int[] indexes, Object newValue) {
         // TODO (ilebrero): Improve this as we have to recreate the list on each iteration
         List<Integer> indexList = getIntegerList(indexes);
         String componentType = arrayReference.getComponentName();
 
         // New test case builder starting at the statement position
-        TestCaseBuilder testCaseBuilder = new TestCaseBuilder((DefaultTestCase) newTest, getStatementPosition(newTest, arrayReference.getName()) + 1);
+        TestCaseBuilder testCaseBuilder = new TestCaseBuilder((DefaultTestCase) newTest,
+                getStatementPosition(newTest, arrayReference.getName()) + 1);
 
         // Possible assignment statement(if the variable was already used in a previous ran).
         AssignmentStatement s = (AssignmentStatement) getStatement(
@@ -230,11 +247,13 @@ public class TestCaseUpdater {
         if (s == null) {
             if (!DefaultValueChecker.isDefaultValue(newValue)) {
                 // In case there's no assignment already created, we create a new variable and the assignment itself
-                VariableReference newArrayElement = buildArrayVariableElementReference(testCaseBuilder, componentType, newValue);
+                VariableReference newArrayElement = buildArrayVariableElementReference(testCaseBuilder, componentType,
+                        newValue);
                 testCaseBuilder.appendAssignment(arrayReference, indexList, newArrayElement);
             }
         } else {
             // In case there exists an statement (we already used that value before
+            @SuppressWarnings("rawtypes")
             PrimitiveStatement valueStatement = getPrimitiveStatement(newTest, s.getValue().getName());
             updateStatement(newValue, valueStatement);
         }
@@ -246,6 +265,7 @@ public class TestCaseUpdater {
      * @param newValue the new value.
      * @param valueStatement the value statement.
      */
+    @SuppressWarnings("rawtypes")
     private static void updateStatement(Object newValue, PrimitiveStatement valueStatement) {
         if (Long.class.getName().equals(newValue.getClass().getName())) {
             updateIntegerValueStatement((Long) newValue, valueStatement);
@@ -268,7 +288,7 @@ public class TestCaseUpdater {
      * @return .
      */
     private static List<Integer> getIntegerList(int[] indexes) {
-        List<Integer> elements = new ArrayList();
+        List<Integer> elements = new ArrayList<>();
 
         for (int index : indexes) {
             elements.add(index);
@@ -285,7 +305,9 @@ public class TestCaseUpdater {
      * @param symbolicVariableName the symbolic variable name.
      * @param updateValue the update value.
      */
-    private static void processRealValue(TestCase test, TestCase newTest, String symbolicVariableName, Object updateValue) {
+    @SuppressWarnings("rawtypes")
+    private static void processRealValue(TestCase test, TestCase newTest, String symbolicVariableName,
+            Object updateValue) {
         Double value = (Double) updateValue;
         String name = symbolicVariableName.replace("__SYM", "");
         PrimitiveStatement p = getPrimitiveStatement(newTest, name);
@@ -299,54 +321,58 @@ public class TestCaseUpdater {
 
     /**
      * Update Algorithm for reference variables. It executes the following high level idea:
-     *  1) Does the current variable already have a definition statement?
+     *
+     * <p>1) Does the current variable already have a definition statement?
      *    - No => We a create a nullStatement for it.
      *
-     *  2) Is the current instance already created?
+     * <p>2) Is the current instance already created?
      *    - Yes => Assign that one
      *    - No =>
-     *      3) if it's a null statement, it has to be a constructor?
-     *        - Yes => build a new constructor statement for it.
      *
-     *      4) if it's a constructor statement, it has to be null?
-     *        - Yes => Build a new null statement for the variable.
+     * <p>3) if it's a null statement, it has to be a constructor?
+     *        - Yes =&gt; build a new constructor statement for it.
+     *
+     * <p>4) if it's a constructor statement, it has to be null?
+     *        - Yes =&gt; Build a new null statement for the variable.
      *
      * @param newTest the new test.
      * @param symbolicVariableName the symbolic variable name.
      * @param updateValue the update value.
      * @param createdInstances the created instances.
      */
-    private static void processObjectValue(TestCase newTest, String symbolicVariableName, Long updateValue, HashMap<Long, Object> createdInstances) {
-         String statementName = symbolicVariableName.split("\\_")[1];
-         Statement currentVariableStatement = getUncheckedStatement(newTest, statementName);
+    private static void processObjectValue(TestCase newTest, String symbolicVariableName, Long updateValue,
+            HashMap<Long, Object> createdInstances) {
+        String statementName = symbolicVariableName.split("\\_")[1];
+        Statement currentVariableStatement = getUncheckedStatement(newTest, statementName);
 
-         // 1) Does it have a definition statement?
-         if (currentVariableStatement == null) {
-             //TODO: Class needed
-             Class varClass = null; // will be added when keeping track of symbolic classes
-             currentVariableStatement = new NullStatement(newTest, varClass);
-             newTest.addStatement(currentVariableStatement);
-         }
+        // 1) Does it have a definition statement?
+        if (currentVariableStatement == null) {
+            //TODO: Class needed
+            Class<?> varClass = null; // will be added when keeping track of symbolic classes
+            currentVariableStatement = new NullStatement(newTest, varClass);
+            newTest.addStatement(currentVariableStatement);
+        }
 
-         // 2) Does this reference points to an already created instance?
-         if (createdInstances.keySet().contains(updateValue)) {
-             ConstructorStatement cst = (ConstructorStatement) createdInstances.get(updateValue);
-             AssignmentStatement ast = new AssignmentStatement(newTest, currentVariableStatement.getReturnValue(), cst.getReturnValue());
-             newTest.addStatement(ast);
-         } else {
-             // 3) is a null statement and a constructor is needed
-             if (currentVariableStatement instanceof NullStatement && updateValue != 0) {
-                 //TODO: Build constructor statement
-                 VariableReference varRef = currentVariableStatement.getReturnValue();
+        // 2) Does this reference points to an already created instance?
+        if (createdInstances.keySet().contains(updateValue)) {
+            ConstructorStatement cst = (ConstructorStatement) createdInstances.get(updateValue);
+            AssignmentStatement ast = new AssignmentStatement(newTest, currentVariableStatement.getReturnValue(),
+                    cst.getReturnValue());
+            newTest.addStatement(ast);
+        } else {
+            // 3) is a null statement and a constructor is needed
+            if (currentVariableStatement instanceof NullStatement && updateValue != 0) {
+                //TODO: Build constructor statement
 
-             // 4) is a constructor statement and null is needed
-             } else if (currentVariableStatement instanceof ConstructorStatement && updateValue == 0) {
-                 NullStatement currentVariableNullStatement = new NullStatement(newTest, currentVariableStatement.getReturnType());
-                 newTest.remove(currentVariableStatement.getPosition());
-                 newTest.addStatement(currentVariableNullStatement, currentVariableStatement.getPosition());
-             // What happens here? do we need to do something else?
-             } else {}
-         }
+                // 4) is a constructor statement and null is needed
+            } else if (currentVariableStatement instanceof ConstructorStatement && updateValue == 0) {
+                NullStatement currentVariableNullStatement = new NullStatement(newTest,
+                        currentVariableStatement.getReturnType());
+                newTest.remove(currentVariableStatement.getPosition());
+                newTest.addStatement(currentVariableNullStatement, currentVariableStatement.getPosition());
+                // What happens here? do we need to do something else?
+            }
+        }
     }
 
     /**
@@ -357,7 +383,9 @@ public class TestCaseUpdater {
      * @param symbolicVariableName the symbolic variable name.
      * @param updateValue the update value.
      */
-    private static void processStringValue(TestCase test, TestCase newTest, String symbolicVariableName, Object updateValue) {
+    @SuppressWarnings("rawtypes")
+    private static void processStringValue(TestCase test, TestCase newTest, String symbolicVariableName,
+            Object updateValue) {
         String name = symbolicVariableName.replace("__SYM", "");
         PrimitiveStatement p = getPrimitiveStatement(newTest, name);
         // logger.warn("New string value for " + name + " is " +
@@ -366,8 +394,7 @@ public class TestCaseUpdater {
                 + " / Orig test: " + test.toCode() + ", seed: " + Randomness.getSeed();
         if (p.getValue().getClass().equals(Character.class)) {
             p.setValue((char) Integer.parseInt(updateValue.toString()));
-        } else
-             {
+        } else {
             p.setValue(updateValue.toString());
         }
     }
@@ -379,13 +406,16 @@ public class TestCaseUpdater {
      * @param symbolicVariableName the symbolic variable name.
      * @param updateValue the update value.
      */
-    private static void processLongValue(TestCase newTest, String symbolicVariableName, Object updateValue) {
+    private static void processLongValue(TestCase newTest, String symbolicVariableName,
+            Object updateValue) {
         Long value = (Long) updateValue;
 
         String name = symbolicVariableName.replace("__SYM", "");
         // logger.warn("New long value for " + name + " is " +
         // value);
-        PrimitiveStatement p = (PrimitiveStatement) getStatement(newTest, name, StatementClassChecker.PRIMITIVE_STATEMENT);
+        @SuppressWarnings("rawtypes")
+        PrimitiveStatement p = (PrimitiveStatement) getStatement(newTest, name,
+                StatementClassChecker.PRIMITIVE_STATEMENT);
         updateIntegerValueStatement(value, p);
     }
 
@@ -398,7 +428,8 @@ public class TestCaseUpdater {
      */
     private static void processArrayLengthValue(TestCase newTest, String symbolicVariableName, Long updateValue) {
         ArraySymbolicLengthName arraySymbolicLengthName = new ArraySymbolicLengthName(symbolicVariableName);
-        ArrayStatement arrayStatement = (ArrayStatement) getStatement(newTest, arraySymbolicLengthName.getArrayReferenceName(), StatementClassChecker.ARRAY_STATEMENT);
+        ArrayStatement arrayStatement = (ArrayStatement) getStatement(newTest,
+                arraySymbolicLengthName.getArrayReferenceName(), StatementClassChecker.ARRAY_STATEMENT);
         arrayStatement.setLength(
                 updateValue.intValue(),
                 arraySymbolicLengthName.getDimension()
@@ -465,7 +496,8 @@ public class TestCaseUpdater {
                     break;
                 }
                 case Type.ARRAY: {
-                    VariableReference arrayVariable = testCaseBuilder.appendArrayStmt(argumentClass, ArrayUtil.buildDimensionsArray(argumentType));
+                    VariableReference arrayVariable = testCaseBuilder.appendArrayStmt(argumentClass,
+                            ArrayUtil.buildDimensionsArray(argumentType));
                     arguments.add(arrayVariable);
                     break;
                 }
@@ -512,12 +544,14 @@ public class TestCaseUpdater {
 
             switch (argumentType.getSort()) {
                 case Type.BOOLEAN: {
-                    VariableReference booleanVariable = testCaseBuilder.appendBooleanPrimitive(Randomness.nextBoolean());
+                    VariableReference booleanVariable = testCaseBuilder.appendBooleanPrimitive(
+                            Randomness.nextBoolean());
                     arguments.add(booleanVariable);
                     break;
                 }
                 case Type.BYTE: {
-                    VariableReference byteVariable = testCaseBuilder.appendBytePrimitive((byte) Randomness.nextInt());
+                    VariableReference byteVariable = testCaseBuilder.appendBytePrimitive(
+                            (byte) Randomness.nextInt());
                     arguments.add(byteVariable);
                     break;
                 }
@@ -527,7 +561,8 @@ public class TestCaseUpdater {
                     break;
                 }
                 case Type.SHORT: {
-                    VariableReference shortVariable = testCaseBuilder.appendShortPrimitive((short) Randomness.nextInt());
+                    VariableReference shortVariable = testCaseBuilder.appendShortPrimitive(
+                            (short) Randomness.nextInt());
                     arguments.add(shortVariable);
                     break;
                 }
@@ -552,13 +587,15 @@ public class TestCaseUpdater {
                     break;
                 }
                 case Type.ARRAY: {
-                    VariableReference arrayVariable = testCaseBuilder.appendArrayStmt(argumentClass, ArrayUtil.buildRandomDimensionsArray(argumentType));
+                    VariableReference arrayVariable = testCaseBuilder.appendArrayStmt(argumentClass,
+                            ArrayUtil.buildRandomDimensionsArray(argumentType));
                     arguments.add(arrayVariable);
                     break;
                 }
                 case Type.OBJECT: {
                     if (argumentClass.equals(String.class)) {
-                        VariableReference stringVariable = testCaseBuilder.appendStringPrimitive(Randomness.nextString(DEFAULT_STRING_LENGTH));
+                        VariableReference stringVariable = testCaseBuilder.appendStringPrimitive(
+                                Randomness.nextString(DEFAULT_STRING_LENGTH));
                         arguments.add(stringVariable);
                     } else {
                         // TODO: complete the randomness
@@ -588,12 +625,12 @@ public class TestCaseUpdater {
      * @return .
      */
     public static Statement getUncheckedStatement(TestCase test, String name) {
-      for (Statement statement : test) {
-        if (statement.getReturnValue().getName().equals(name)) {
-          return statement;
+        for (Statement statement : test) {
+            if (statement.getReturnValue().getName().equals(name)) {
+                return statement;
+            }
         }
-      }
-      return null;
+        return null;
     }
 
     /**
@@ -662,6 +699,7 @@ public class TestCaseUpdater {
      * @param value the value.
      * @param statement the statement.
      */
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private static void updateIntegerValueStatement(Long value, PrimitiveStatement statement) {
         if (statement.getValue().getClass().equals(Character.class)) {
             char charValue = (char) value.intValue();
@@ -677,8 +715,7 @@ public class TestCaseUpdater {
         } else if (statement.getValue().getClass().equals(Byte.class)) {
             statement.setValue(value.byteValue());
 
-        } else
-             {
+        } else {
             logger.warn(NEW_INTEGER_VALUE_IS_OF_AN_UNSUPPORTED_TYPE + statement.getValue().getClass() + value);
         }
     }
@@ -689,16 +726,16 @@ public class TestCaseUpdater {
      * @param value the value.
      * @param p the parameter.
      */
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private static void updateRealValueStatement(Double value, PrimitiveStatement p) {
         if (p.getValue().getClass().equals(Double.class)) {
             p.setValue(value);
-        } else  {
-            if (p.getValue().getClass().equals(Float.class))
-            p.setValue(value.floatValue());
-        else
-             {
-            logger.warn(NEW_REAL_VALUE_IS_OF_AN_UNSUPPORTED_TYPE + value);
-        }
+        } else {
+            if (p.getValue().getClass().equals(Float.class)) {
+                p.setValue(value.floatValue());
+            } else {
+                logger.warn(NEW_REAL_VALUE_IS_OF_AN_UNSUPPORTED_TYPE + value);
+            }
         }
     }
 
@@ -708,11 +745,13 @@ public class TestCaseUpdater {
      * @param newValue the new value.
      * @param p the parameter.
      */
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private static void updateStringValueStatement(String newValue, PrimitiveStatement p) {
         p.setValue(newValue);
     }
 
-    private static VariableReference buildArrayVariableElementReference(TestCaseBuilder testCaseBuilder, String componentName, Object newValue) {
+    private static VariableReference buildArrayVariableElementReference(TestCaseBuilder testCaseBuilder,
+            String componentName, Object newValue) {
         if (int.class.getName().equals(componentName)) {
             return testCaseBuilder.appendIntPrimitive(((Long) newValue).intValue());
         } else if (short.class.getName().equals(componentName)) {

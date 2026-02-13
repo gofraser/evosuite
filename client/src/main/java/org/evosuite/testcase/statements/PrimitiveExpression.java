@@ -62,6 +62,12 @@ public class PrimitiveExpression extends AbstractStatement {
         CONDITIONAL_AND("&&"), //
         CONDITIONAL_OR("||");
 
+        /**
+         * Returns the operator corresponding to the given code.
+         *
+         * @param code the operator code
+         * @return the operator
+         */
         public static Operator toOperator(String code) {
             for (Operator operator : values()) {
                 if (operator.code.equals(code)) {
@@ -181,21 +187,17 @@ public class PrimitiveExpression extends AbstractStatement {
     }
 
     /**
-     * <p>
      * Getter for the field <code>operator</code>.
-     * </p>
      *
      * @return a {@link org.evosuite.testcase.statements.PrimitiveExpression.Operator}
-     * object.
+     *     object.
      */
     public Operator getOperator() {
         return operator;
     }
 
     /**
-     * <p>
      * Getter for the field <code>rightOperand</code>.
-     * </p>
      *
      * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */

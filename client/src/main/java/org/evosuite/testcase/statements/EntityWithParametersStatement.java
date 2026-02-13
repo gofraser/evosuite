@@ -38,8 +38,7 @@ import java.util.*;
  * A common superclass for statements that contain a call to an executable entity, i.e.,
  * methods, constructors and functional mocks.
  *
- * <p>
- * Created by Andrea Arcuri on 04/07/15.
+ * <p>Created by Andrea Arcuri on 04/07/15.
  */
 public abstract class EntityWithParametersStatement extends AbstractStatement {
 
@@ -49,7 +48,8 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
     protected final Annotation[] annotations;
 
     protected EntityWithParametersStatement(TestCase tc, Type type, List<VariableReference> parameters,
-                                            Annotation[] annotations, Annotation[][] parameterAnnotations) throws IllegalArgumentException {
+                                            Annotation[] annotations,
+                                            Annotation[][] parameterAnnotations) throws IllegalArgumentException {
         super(tc, type);
         this.parameters = parameters;
         this.annotations = annotations;
@@ -58,7 +58,8 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
     }
 
     protected EntityWithParametersStatement(TestCase tc, VariableReference retval, List<VariableReference> parameters,
-                                            Annotation[] annotations, Annotation[][] parameterAnnotations) throws IllegalArgumentException {
+                                            Annotation[] annotations,
+                                            Annotation[][] parameterAnnotations) throws IllegalArgumentException {
         super(tc, retval);
         this.parameters = parameters;
         this.annotations = annotations;
@@ -101,8 +102,9 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         }
         if (parameterAnnotations != null) {
             if (parameterAnnotations.length != parameters.size()) {
-                throw new IllegalArgumentException("Number of parameter annotations (" + parameterAnnotations.length +
-                        ") does not match number of parameters (" + parameters.size() + ")");
+                throw new IllegalArgumentException("Number of parameter annotations ("
+                        + parameterAnnotations.length + ") does not match number of parameters ("
+                        + parameters.size() + ")");
             }
         }
     }
@@ -112,7 +114,7 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
      */
 
     /**
@@ -130,8 +132,7 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
 
             if (parameters.get(i).equals(var1)) {
                 parameters.set(i, var2);
-            } else
-                 {
+            } else {
                 parameters.get(i).replaceAdditionalVariableReference(var1, var2);
             }
         }
@@ -181,9 +182,7 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
     }
 
     /**
-     * <p>
-     * replaceParameterReference
-     * </p>
+     * replaceParameterReference.
      *
      * @param var          a {@link org.evosuite.testcase.variable.VariableReference} object.
      * @param numParameter a int.
@@ -191,11 +190,13 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
     public void replaceParameterReference(VariableReference var, int numParameter) throws IllegalArgumentException {
         Inputs.checkNull(var);
         if (numParameter < 0 || numParameter >= parameters.size()) {
-            throw new IllegalArgumentException("Out of range index " + numParameter + " from list of size " + parameters.size());
+            throw new IllegalArgumentException("Out of range index " + numParameter
+                    + " from list of size " + parameters.size());
         }
 
-        if(!TypeUtils.isAssignable(var.getType(), parameters.get(numParameter).getType())) {
-            throw new IllegalArgumentException(var.getType() + " cannot be assigned to " + parameters.get(numParameter).getType());
+        if (!TypeUtils.isAssignable(var.getType(), parameters.get(numParameter).getType())) {
+            throw new IllegalArgumentException(var.getType() + " cannot be assigned to "
+                    + parameters.get(numParameter).getType());
         }
 
         parameters.set(numParameter, var);
@@ -213,7 +214,8 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
 
         if (parameterAnnotations == null) {
             if (!(this instanceof FunctionalMockStatement)) {
-                throw new IllegalStateException("parameterAnnotations is null but statement is not a FunctionalMockStatement");
+                throw new IllegalStateException("parameterAnnotations is null but statement is"
+                        + " not a FunctionalMockStatement");
             }
             return false;
         }
@@ -285,7 +287,7 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
 
         try {
             replaceParameterReference(replacement, numParameter);
-        }catch(IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             LoggingUtils.getEvoLogger().warn(e.getMessage());
             return false;
         }

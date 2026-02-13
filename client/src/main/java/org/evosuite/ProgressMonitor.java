@@ -26,6 +26,8 @@ import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.ClientStateInformation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 
@@ -38,9 +40,9 @@ import java.io.Serializable;
 public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<T>, Serializable {
 
     private static final long serialVersionUID = -8518559681906649686L;
+    private static final Logger logger = LoggerFactory.getLogger(ProgressMonitor.class);
 
-    private StoppingCondition<T> stoppingCondition;
-    private long max;
+    private transient GeneticAlgorithm<T> algorithm;
     private int currentCoverage;
 
     protected int lastCoverage;
@@ -52,8 +54,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
      * Default constructor.
      */
     public ProgressMonitor() {
-        stoppingCondition = null;
-        max = 1;
         currentCoverage = 0;
         lastCoverage = 0;
         lastProgress = 0;
@@ -67,13 +67,29 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
      * @param that the ProgressMonitor to copy from.
      */
     public ProgressMonitor(ProgressMonitor<T> that) {
-        this.stoppingCondition = that.stoppingCondition.clone();
-        this.max = that.max;
         this.currentCoverage = that.currentCoverage;
         this.lastCoverage = that.lastCoverage;
         this.lastProgress = that.lastProgress;
         this.iteration = that.iteration;
         this.state = that.state;
+    }
+
+    /**
+     * Compute the current search progress as a percentage (0-100) by querying
+     * the algorithm's stopping conditions directly. This avoids holding a
+     * potentially stale/disconnected copy of a stopping condition, which is
+     * important when MOSA's {@code TestSuiteAdapter} is in use because
+     * {@code getStoppingConditions()} returns fresh snapshots each time.
+     */
+    private int getProgress(GeneticAlgorithm<T> algorithm) {
+        for (StoppingCondition<T> cond : algorithm.getStoppingConditions()) {
+            long limit = cond.getLimit();
+            if (limit <= 0) {
+                continue;
+            }
+            return (int) (100 * cond.getCurrentValue() / limit);
+        }
+        return 0;
     }
 
     /**
@@ -108,14 +124,7 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
      */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
-        for (StoppingCondition<T> cond : algorithm.getStoppingConditions()) {
-            if (cond.getLimit() == 0) { // No ZeroStoppingCondition
-                continue;
-            }
-            stoppingCondition = cond;
-            max = stoppingCondition.getLimit();
-            break;
-        }
+        this.algorithm = algorithm;
     }
 
     /* (non-Javadoc)
@@ -127,9 +136,19 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
      */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
-        long current = stoppingCondition.getCurrentValue();
-        currentCoverage = (int) Math.floor(algorithm.getBestIndividual().getCoverage() * 100);
-        updateStatus((int) (100 * current / max));
+        T best = algorithm.getBestIndividual();
+        double rawCoverage = best.getCoverage();
+        currentCoverage = (int) Math.floor(rawCoverage * 100);
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("iteration {}: algorithm={}, bestIndividual={}, "
+                            + "rawCoverage={}, coverageValues={}, currentCoverage={}",
+                    iteration, algorithm.getClass().getSimpleName(),
+                    best.getClass().getSimpleName(), rawCoverage,
+                    best.getCoverageValues(), currentCoverage);
+        }
+
+        updateStatus(getProgress(algorithm));
         iteration++;
     }
 
@@ -144,9 +163,8 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
         currentCoverage = (int) Math.floor(algorithm.getBestIndividual().getCoverage() * 100);
         if (currentCoverage > lastCoverage) {
-            updateStatus((int) (100 * stoppingCondition.getCurrentValue() / max));
+            updateStatus(getProgress(algorithm));
         }
-        // System.out.println("");
     }
 
     /* (non-Javadoc)
@@ -158,7 +176,10 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
      */
     @Override
     public void fitnessEvaluation(T individual) {
-        int current = (int) ((int) (100 * stoppingCondition.getCurrentValue()) / max);
+        if (algorithm == null) {
+            return;
+        }
+        int current = getProgress(algorithm);
         currentCoverage = (int) Math.floor(individual.getCoverage() * 100);
         if (currentCoverage > lastCoverage || current > lastProgress) {
             updateStatus(current);

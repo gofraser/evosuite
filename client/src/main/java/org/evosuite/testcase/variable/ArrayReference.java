@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.evosuite.testcase.variable;
 
 import org.apache.commons.lang3.ArrayUtils;
@@ -31,16 +32,13 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Summary.
- * @author Gordon Fraser
- */
-
-/**
  * Represents a reference to an array in the test case.
  *
- * <p>
- * Note: The array length is currently stored in both ArrayReference and ArrayStatement (if created by one).
- * This duplication should be addressed in future refactorings to avoid inconsistencies.
+ * <p>Note: The array length is currently stored in both ArrayReference and ArrayStatement
+ * (if created by one). This duplication should be addressed in future refactorings to
+ * avoid inconsistencies.
+ *
+ * @author Gordon Fraser
  */
 public class ArrayReference extends VariableReferenceImpl {
 
@@ -49,9 +47,7 @@ public class ArrayReference extends VariableReferenceImpl {
     private int[] lengths;
 
     /**
-     * <p>
      * Constructor for ArrayReference.
-     * </p>
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param clazz a {@link java.lang.Class} object.
@@ -62,9 +58,7 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
      * Constructor for ArrayReference.
-     * </p>
      *
      * @param tc      a {@link org.evosuite.testcase.TestCase} object.
      * @param clazz   a {@link GenericClass} object.
@@ -77,22 +71,18 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
      * Constructor for ArrayReference.
-     * </p>
      *
-     * @param tc           a {@link org.evosuite.testcase.TestCase} object.
-     * @param clazz        a {@link GenericClass} object.
-     * @param array_length a int.
+     * @param tc          a {@link org.evosuite.testcase.TestCase} object.
+     * @param clazz       a {@link GenericClass} object.
+     * @param arrayLength a int.
      */
-    public ArrayReference(TestCase tc, GenericClass<?> clazz, int array_length) {
-        this(tc, clazz, new int[]{array_length});
+    public ArrayReference(TestCase tc, GenericClass<?> clazz, int arrayLength) {
+        this(tc, clazz, new int[]{arrayLength});
     }
 
     /**
-     * <p>
-     * getArrayLength
-     * </p>
+     * getArrayLength.
      *
      * @return a int.
      */
@@ -101,9 +91,7 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
-     * setArrayLength
-     * </p>
+     * setArrayLength.
      *
      * @param l a int.
      */
@@ -113,20 +101,16 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
      * Getter for the field <code>lengths</code>.
-     * </p>
      *
-     * @return an array of int.
+     * @return a {@link java.util.List} object.
      */
     public List<Integer> getLengths() {
         return Arrays.asList(ArrayUtils.toObject(lengths));
     }
 
     /**
-     * <p>
      * Setter for the field <code>lengths</code>.
-     * </p>
      *
      * @param lengths an array of int.
      */
@@ -138,12 +122,10 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
      * Setter for an element of the field <code>lengths</code>.
-     * </p>
      *
-     * @param length an int
-     * @param index  an int
+     * @param length an int.
+     * @param index  an int.
      */
     public void setLength(int length, int index) {
         this.lengths[index] = length;
@@ -152,8 +134,7 @@ public class ArrayReference extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Create a copy of the current variable
+     * <p>Create a copy of the current variable.
      */
     @Override
     public VariableReference copy(TestCase newTestCase, int offset) {
@@ -163,7 +144,6 @@ public class ArrayReference extends VariableReferenceImpl {
             otherArray.setLengths(lengths);
             return otherArray;
         } else {
-
             // FIXME: This part should be redundant
 
             if (newRef.getComponentType() != null) {
@@ -181,9 +161,7 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
-     * getArrayDimensions
-     * </p>
+     * getArrayDimensions.
      *
      * @return a int.
      */
@@ -192,9 +170,7 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
      * Setter for the field <code>lengths</code>.
-     * </p>
      *
      * @param lengths a {@link java.util.List} object.
      */
@@ -207,6 +183,11 @@ public class ArrayReference extends VariableReferenceImpl {
         }
     }
 
+    /**
+     * getMaximumIndex.
+     *
+     * @return the maximum index.
+     */
     public int getMaximumIndex() {
         int max = 0;
 
@@ -223,10 +204,23 @@ public class ArrayReference extends VariableReferenceImpl {
         return max;
     }
 
+    /**
+     * isInitialized.
+     *
+     * @param index the index.
+     * @return true if initialized.
+     */
     public boolean isInitialized(int index) {
         return isInitialized(index, testCase.size());
     }
 
+    /**
+     * isInitialized.
+     *
+     * @param index    the index.
+     * @param position the position.
+     * @return true if initialized.
+     */
     public boolean isInitialized(int index, int position) {
         int pos = 0;
         for (Statement s : testCase) {

@@ -76,9 +76,7 @@ public class AssignmentStatement extends AbstractStatement {
     }
 
     /**
-     * <p>
-     * getValue
-     * </p>
+     * getValue.
      *
      * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
@@ -87,9 +85,7 @@ public class AssignmentStatement extends AbstractStatement {
     }
 
     /**
-     * <p>
-     * setValue
-     * </p>
+     * setValue.
      *
      * @param value the value.
      */
@@ -153,7 +149,8 @@ public class AssignmentStatement extends AbstractStatement {
 
                     // FIXXME: IllegalArgumentException may happen when we only have generators
                     // for an abstract supertype and not the concrete type that we need!
-                    // We rethrow it so that the execution framework can handle it (e.g., by marking the test as failing or invalid)
+                    // We rethrow it so that the execution framework can handle it
+                    // (e.g., by marking the test as failing or invalid)
                     throw e;
                 } catch (CodeUnderTestException e) {
                     throw e;
@@ -216,7 +213,7 @@ public class AssignmentStatement extends AbstractStatement {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
      */
 
     /**
@@ -226,8 +223,7 @@ public class AssignmentStatement extends AbstractStatement {
     public void replace(VariableReference var1, VariableReference var2) {
         if (parameter.equals(var1)) {
             parameter = var2;
-        } else
-             {
+        } else {
             parameter.replaceAdditionalVariableReference(var1, var2);
         }
     }
@@ -262,13 +258,14 @@ public class AssignmentStatement extends AbstractStatement {
             if (other.parameter != null) {
                 return false;
             }
-        } else  {
-            if (!parameter.equals(other.parameter))
-            return false;
+        } else {
+            if (!parameter.equals(other.parameter)) {
+                return false;
+            }
         }
         if (retval == null) {
             return other.retval == null;
-        } else  {
+        } else {
             return retval.equals(other.retval);
         }
     }
@@ -322,13 +319,14 @@ public class AssignmentStatement extends AbstractStatement {
             if (other.parameter != null) {
                 return false;
             }
-        } else  {
-            if (!parameter.same(other.parameter))
-            return false;
+        } else {
+            if (!parameter.same(other.parameter)) {
+                return false;
+            }
         }
         if (retval == null) {
             return other.retval == null;
-        } else  {
+        } else {
             return retval.same(other.retval);
         }
     }
@@ -426,7 +424,8 @@ public class AssignmentStatement extends AbstractStatement {
                     // Need special care if it is a wrapper class
                     if (retval.getGenericClass().isWrapperType()) {
                         Class<?> rawClass = ClassUtils.wrapperToPrimitive(retval.getVariableClass());
-                        if (!retval.getVariableClass().equals(rawClass) && !retval.getVariableClass().equals(choice.getVariableClass())) {
+                        if (!retval.getVariableClass().equals(rawClass)
+                                && !retval.getVariableClass().equals(choice.getVariableClass())) {
                             return false;
                         }
                     }

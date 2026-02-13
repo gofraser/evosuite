@@ -33,7 +33,7 @@ import java.util.Optional;
 import static java.util.stream.Collectors.averagingDouble;
 
 /**
- * Abstract base class of chromosomes
+ * Abstract base class of chromosomes.
  *
  * @author Gordon Fraser, Jose Miguel Rojas
  */
@@ -43,14 +43,14 @@ public abstract class Chromosome<T extends Chromosome<T>>
     private static final long serialVersionUID = -6921897301005213358L;
 
     /**
-     * General Class Related Constants
+     * General Class Related Constants.
      */
     public static final int MIN_REACHABLE_COVERAGE = 0;
     public static final int MAX_REACHABLE_COVERAGE = 100;
     public static final int UNCOVERED_GOALS_DEFAULT = -1;
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     private static final Logger logger = LoggerFactory.getLogger(Chromosome.class);
 
@@ -72,12 +72,12 @@ public abstract class Chromosome<T extends Chromosome<T>>
     private final LinkedHashMap<FitnessFunction<T>, Double> previousFitnessValues = new LinkedHashMap<>();
 
     /**
-     * Has this chromosome changed since its fitness was last evaluated?
+     * Checks if this chromosome has changed since its fitness was last evaluated.
      */
     private boolean changed = true;
 
     /**
-     * Has local search been applied to this individual since it was last changed?
+     * Checks if local search has been applied to this individual since it was last changed.
      */
     private boolean localSearchApplied = false;
 
@@ -172,12 +172,22 @@ public abstract class Chromosome<T extends Chromosome<T>>
         return this.previousFitnessValues.containsKey(ff);
     }
 
+    /**
+     * Sets the fitness values for this chromosome.
+     *
+     * @param fits the fitness values to set.
+     */
     public void setFitnessValues(Map<? extends FitnessFunction<T>, Double> fits) {
         //TODO mainfitness?
         this.fitnessValues.clear();
         this.fitnessValues.putAll(fits);
     }
 
+    /**
+     * Sets the previous fitness values.
+     *
+     * @param lastFits the previous fitness values
+     */
     public void setPreviousFitnessValues(Map<FitnessFunction<T>, Double> lastFits) {
         this.previousFitnessValues.clear();
         this.previousFitnessValues.putAll(lastFits);
@@ -235,7 +245,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Set new fitness value
+     * Sets new fitness value.
      *
      * @param value a double.
      */
@@ -363,9 +373,9 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Set changed status to @param changed
-     * <p>
-     * Note: If changed is set to true, it also resets {@code localSearchApplied} to false,
+     * Set changed status to @param changed.
+     *
+     * <p>Note: If changed is set to true, it also resets {@code localSearchApplied} to false,
      * implying local search can be applied again.
      * </p>
      *
@@ -455,7 +465,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Gets the coverage value for a given fitness function
+     * Gets the coverage value for a given fitness function.
      *
      * @param ff a fitness function
      * @return the number of covered goals for {@code ff}
@@ -465,7 +475,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Sets the coverage value for a given fitness function
+     * Sets the coverage value for a given fitness function.
      *
      * @param ff       a fitness function
      * @param coverage the coverage value
@@ -475,7 +485,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Gets the number of covered goals for a given fitness function
+     * Gets the number of covered goals for a given fitness function.
      *
      * @param ff a fitness function
      * @return the number of covered goals for {@code ff}
@@ -485,7 +495,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Gets the number of not covered goals for a given fitness function
+     * Gets the number of not covered goals for a given fitness function.
      *
      * @param ff a fitness function
      * @return the number of covered goals for {@code ff}
@@ -495,7 +505,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Sets the number of covered goals for a given fitness function
+     * Sets the number of covered goals for a given fitness function.
      *
      * @param ff              a fitness function
      * @param numCoveredGoals the number of covered goals

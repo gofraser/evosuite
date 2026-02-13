@@ -36,6 +36,7 @@ import org.evosuite.setup.callgraph.CallGraph;
 import org.evosuite.setup.callgraph.CallGraphGenerator;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.ArrayUtil;
+import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.slf4j.Logger;
@@ -62,8 +63,8 @@ public class DependencyAnalysis {
 
     private static Set<String> targetClasses = null;
 
-    /*
-     * Clear all static state
+    /**
+     * Clear all static state.
      */
     public static void clear() {
         classCache.clear();
@@ -165,6 +166,17 @@ public class DependencyAnalysis {
         initInheritanceTree(classPath);
         initCallGraph(className);
 
+        if (inheritanceTree.hasMissingClasses() && !Properties.INHERITANCE_FILE.isEmpty()) {
+            LoggingUtils.getEvoLogger().info("* Cached inheritance tree appears outdated "
+                    + "for the current Java version; regenerating a fresh one");
+            callGraphs.clear();
+            classCache.clear();
+            inheritanceTree = null;
+            Properties.INHERITANCE_FILE = "";
+            initInheritanceTree(classPath);
+            initCallGraph(className);
+        }
+
         analyze(className);
     }
 
@@ -184,9 +196,24 @@ public class DependencyAnalysis {
 
         targetClasses = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getAllClasses(target, false);
+        boolean regenerated = false;
         for (String className : targetClasses) {
             Properties.TARGET_CLASS = className;
             initCallGraph(className);
+
+            if (!regenerated && inheritanceTree.hasMissingClasses()
+                    && !Properties.INHERITANCE_FILE.isEmpty()) {
+                LoggingUtils.getEvoLogger().info("* Cached inheritance tree appears outdated "
+                        + "for the current Java version; regenerating a fresh one");
+                callGraphs.clear();
+                classCache.clear();
+                inheritanceTree = null;
+                Properties.INHERITANCE_FILE = "";
+                initInheritanceTree(classPath);
+                initCallGraph(className);
+                regenerated = true;
+            }
+
             analyze(className);
         }
 
@@ -254,8 +281,12 @@ public class DependencyAnalysis {
         return targetClasses != null && targetClasses.contains(className);
     }
 
-    // TODO implement something that takes parameters using properties -
-    // generalize this method.
+    /**
+     * Determine if the given class belongs to the target project.
+     *
+     * @param className the class name to check
+     * @return true if it belongs to the target project
+     */
     public static boolean isTargetProject(String className) {
         if (!className.startsWith(Properties.PROJECT_PREFIX) && (Properties.TARGET_CLASS_PREFIX.isEmpty()
                 || !className.startsWith(Properties.TARGET_CLASS_PREFIX))) {

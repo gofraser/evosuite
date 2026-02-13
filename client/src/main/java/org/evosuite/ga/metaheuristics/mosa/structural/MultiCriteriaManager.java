@@ -377,9 +377,15 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         c.setChanged(false);
 
         // If the test failed to execute properly, or if the test does not cover anything,
-        // it means none of the current gaols could be reached.
+        // it means none of the current goals could be reached.
+        // Note: we check lines, branches and branchless methods because getCoveredLines() can be
+        // empty when the class under test was compiled without debug information.
+        final ExecutionTrace trace = result.getTrace();
         if (result.hasTimeout() || result.hasTestException()
-                || result.getTrace().getCoveredLines().isEmpty()) {
+                || (trace.getCoveredLines().isEmpty()
+                    && trace.getCoveredTrueBranches().isEmpty()
+                    && trace.getCoveredFalseBranches().isEmpty()
+                    && trace.getCoveredBranchlessMethods().isEmpty())) {
             currentGoals.forEach(f -> c.setFitness(f, Double.MAX_VALUE)); // assume minimization
             return;
         }
@@ -412,6 +418,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
              * covered or uncovered.
              */
             if (fitness == 0.0) { // assume minimization function
+                logger.debug("calculateFitness: target covered — {}", target);
                 updateCoveredGoals(target, c); // marks the current goal as covered
 
                 /*
@@ -436,7 +443,6 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         currentGoals.removeAll(this.getCoveredGoals());
 
         // 2) We update the archive.
-        final ExecutionTrace trace = result.getTrace();
         for (int branchid : trace.getCoveredFalseBranches()) {
             TestFitnessFunction branch = this.branchCoverageFalseMap.get(branchid);
             if (branch == null) {

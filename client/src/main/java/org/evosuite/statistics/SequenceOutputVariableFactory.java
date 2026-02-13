@@ -72,6 +72,11 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
         values.add(getValue(individual));
     }
 
+    /**
+     * Retrieves the names of all variables created by this factory.
+     *
+     * @return a list of variable names
+     */
     public List<String> getVariableNames() {
         List<String> variables = new ArrayList<>();
 
@@ -83,6 +88,11 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
 
     }
 
+    /**
+     * Retrieves all output variables created by this factory.
+     *
+     * @return a list of output variables
+     */
     public List<OutputVariable<T>> getOutputVariables() {
         List<OutputVariable<T>> variables = new ArrayList<>();
 
@@ -94,7 +104,6 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
         return variables;
     }
 
-    @SuppressWarnings("unchecked")
     private T getTimeLineValue(String name) {
         long interval = Properties.TIMELINE_INTERVAL;
 

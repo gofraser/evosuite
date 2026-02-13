@@ -42,6 +42,12 @@ public class GetStaticGraphGenerator {
     private static final Logger logger = LoggerFactory
             .getLogger(GetStaticGraphGenerator.class);
 
+    /**
+     * Generate a static usage graph for a class.
+     *
+     * @param className the name of the class
+     * @return the static usage graph
+     */
     public static GetStaticGraph generate(String className) {
         ClassNode targetClass = DependencyAnalysis.getClassNode(className);
 

@@ -38,6 +38,11 @@ public class PropertyOutputVariableFactory {
         this.propertyName = propertyName;
     }
 
+    /**
+     * Retrieves the output variable for the property.
+     *
+     * @return the output variable
+     */
     public OutputVariable<String> getVariable() {
         try {
             return new OutputVariable<>(propertyName, Properties.getStringValue(propertyName));

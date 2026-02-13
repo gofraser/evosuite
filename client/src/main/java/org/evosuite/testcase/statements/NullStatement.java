@@ -111,7 +111,7 @@ public class NullStatement extends PrimitiveStatement<Void> {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
      */
 
     /**

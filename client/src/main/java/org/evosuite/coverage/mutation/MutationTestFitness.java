@@ -225,20 +225,11 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         return infectionDistance;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome, 
-     * org.evosuite.testcase.ExecutionResult)
-     */
-
     /**
      * {@inheritDoc}
      */
     @Override
     public abstract double getFitness(TestChromosome individual, ExecutionResult result);
-
-    /* (non-Javadoc)
-     * @see java.lang.Object#toString()
-     */
 
     /**
      * {@inheritDoc}
@@ -256,9 +247,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         return "mutation (" + mutantId + ")";
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
-     */
     @Override
     public int compareTo(TestFitnessFunction other) {
         if (other instanceof MutationTestFitness) {
@@ -307,9 +295,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         return mutantId == other.mutantId;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
-     */
     @Override
     public String getTargetClass() {
         if (mutation != null) {
@@ -318,9 +303,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         return mutationClassName;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
-     */
     @Override
     public String getTargetMethod() {
         if (mutation != null) {
@@ -344,7 +326,8 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         this.mutation = pool.getMutant(mutantId);
         if (this.mutation == null) {
             if (pool.getMutantCounter() == 0) {
-                logger.debug("mutation id not found {} while deserializing; leaving mutation null (empty pool)", mutantId);
+                logger.debug("mutation id not found {} while deserializing; leaving mutation null (empty pool)",
+                        mutantId);
             } else {
                 logger.warn("mutation id not found {} while deserializing; leaving mutation null", mutantId);
             }

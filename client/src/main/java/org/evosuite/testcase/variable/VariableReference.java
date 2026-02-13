@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.evosuite.testcase.variable;
 
 import org.evosuite.testcase.TestCase;
@@ -33,8 +34,7 @@ import java.util.Map;
 /**
  * This class represents a variable in a test case.
  *
- * <p>
- * TODO: Store generic types in this variable - we know at creation what it is
+ * <p>TODO: Store generic types in this variable - we know at creation what it is
  * (from method calls).
  *
  * @author Gordon Fraser
@@ -103,36 +103,28 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     String getClassName();
 
     /**
-     * <p>
-     * getComponentName
-     * </p>
+     * getComponentName.
      *
      * @return a {@link java.lang.String} object.
      */
     String getComponentName();
 
     /**
-     * <p>
-     * getComponentType
-     * </p>
+     * getComponentType.
      *
      * @return a {@link java.lang.reflect.Type} object.
      */
     Type getComponentType();
 
     /**
-     * <p>
-     * getGenericClass
-     * </p>
+     * getGenericClass.
      *
      * @return a {@link GenericClassImpl} object.
      */
     GenericClass<?> getGenericClass();
 
     /**
-     * <p>
-     * getTestCase
-     * </p>
+     * getTestCase.
      *
      * @return a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -169,14 +161,14 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     /**
      * Return true if this is an index into an array variable.
      *
-     * @return a boolean
+     * @return a boolean.
      */
     boolean isArrayIndex();
 
     /**
      * Return true if this is a reference to a public field.
      *
-     * @return a boolean
+     * @return a boolean.
      */
     boolean isFieldReference();
 
@@ -195,16 +187,18 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     boolean isWrapperType();
 
     /**
-     * Return true if we can validly access this variable. This might not be the case for a field reference if the owner class is not accessible.
+     * Return true if we can validly access this variable.
      *
-     * @return .
+     * <p>This might not be the case for a field reference if the owner class is not accessible.
+     *
+     * @return true if accessible.
      */
     boolean isAccessible();
 
     /**
      * Return true if other type can be assigned to this variable.
      *
-     * @param other Right hand side of the assignment
+     * @param other Right hand side of the assignment.
      * @return a boolean.
      */
     boolean isAssignableFrom(Type other);
@@ -212,7 +206,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     /**
      * Return true if this variable can by assigned to a variable of other type.
      *
-     * @param other Left hand side of the assignment
+     * @param other Left hand side of the assignment.
      * @return a boolean.
      */
     boolean isAssignableTo(Type other);
@@ -220,7 +214,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     /**
      * Return true if other type can be assigned to this variable.
      *
-     * @param other Right hand side of the assignment
+     * @param other Right hand side of the assignment.
      * @return a boolean.
      */
     boolean isAssignableFrom(VariableReference other);
@@ -228,7 +222,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     /**
      * Return true if this variable can by assigned to a variable of other type.
      *
-     * @param other Left hand side of the assignment
+     * @param other Left hand side of the assignment.
      * @return a boolean.
      */
     boolean isAssignableTo(VariableReference other);
@@ -264,30 +258,31 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     /**
      * Return the actual object represented by this variable for a given scope.
      *
-     * @param scope The scope of the test case execution
+     * @param scope The scope of the test case execution.
      * @return a {@link java.lang.Object} object.
-     * @throws org.evosuite.testcase.execution.CodeUnderTestException if code from the class under test throws an exception. (E.g.
-     *                                                                the static init of a field)
+     * @throws org.evosuite.testcase.execution.CodeUnderTestException if code from the class
+     *                                                                under test throws an
+     *                                                                exception. (E.g. the
+     *                                                                static init of a field)
      */
     Object getObject(Scope scope) throws CodeUnderTestException;
 
     /**
-     * <p>
-     * getOriginalCode
-     * </p>
+     * getOriginalCode.
      *
-     * @return the code this variable reference stems from or null if it was
-     * generated.
+     * @return the code this variable reference stems from or null if it was generated.
      */
     String getOriginalCode();
 
     /**
      * Set the actual object represented by this variable in a given scope.
      *
-     * @param scope The scope of the test case execution
-     * @param value The value to be assigned
-     * @throws org.evosuite.testcase.execution.CodeUnderTestException if code from the class under test throws an exception. (E.g.
-     *                                                                the static init of a field)
+     * @param scope The scope of the test case execution.
+     * @param value The value to be assigned.
+     * @throws org.evosuite.testcase.execution.CodeUnderTestException if code from the class
+     *                                                                under test throws an
+     *                                                                exception. (E.g. the
+     *                                                                static init of a field)
      */
     void setObject(Scope scope, Object value) throws CodeUnderTestException;
 
@@ -302,8 +297,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return string representation of the variable
+     * <p>Return string representation of the variable.
      */
     @Override
     String toString();
@@ -316,27 +310,21 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     String getName();
 
     /**
-     * <p>
-     * getAdditionalVariableReference
-     * </p>
+     * getAdditionalVariableReference.
      *
      * @return a {@link VariableReference} object.
      */
     VariableReference getAdditionalVariableReference();
 
     /**
-     * <p>
-     * setAdditionalVariableReference
-     * </p>
+     * setAdditionalVariableReference.
      *
      * @param var a {@link VariableReference} object.
      */
     void setAdditionalVariableReference(VariableReference var);
 
     /**
-     * <p>
-     * replaceAdditionalVariableReference
-     * </p>
+     * replaceAdditionalVariableReference.
      *
      * @param var1 a {@link VariableReference} object.
      * @param var2 a {@link VariableReference} object.
@@ -345,9 +333,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
                                             VariableReference var2);
 
     /**
-     * <p>
-     * loadBytecode
-     * </p>
+     * loadBytecode.
      *
      * @param mg     a {@link org.objectweb.asm.commons.GeneratorAdapter} object.
      * @param locals a {@link java.util.Map} object.
@@ -355,9 +341,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     void loadBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals);
 
     /**
-     * <p>
-     * storeBytecode
-     * </p>
+     * storeBytecode.
      *
      * @param mg     a {@link org.objectweb.asm.commons.GeneratorAdapter} object.
      * @param locals a {@link java.util.Map} object.
@@ -365,37 +349,25 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     void storeBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals);
 
     /**
-     * <p>
-     * changeClassLoader
-     * </p>
+     * changeClassLoader.
      *
      * @param loader a {@link java.lang.ClassLoader} object.
      */
     void changeClassLoader(ClassLoader loader);
 
     /**
-     * <p>
-     * getDefaultValue
-     * </p>
+     * getDefaultValue.
      *
      * @return a {@link java.lang.Object} object.
      */
     Object getDefaultValue();
 
     /**
-     * <p>
-     * getDefaultValueString
-     * </p>
+     * getDefaultValueString.
      *
      * @return a {@link java.lang.String} object.
      */
     String getDefaultValueString();
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see java.lang.Comparable#compareTo(java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}
@@ -404,9 +376,7 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     int compareTo(VariableReference other);
 
     /**
-     * <p>
-     * same
-     * </p>
+     * same.
      *
      * @param r a {@link VariableReference} object.
      * @return a boolean.

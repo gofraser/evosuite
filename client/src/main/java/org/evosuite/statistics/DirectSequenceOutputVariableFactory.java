@@ -32,6 +32,13 @@ public class DirectSequenceOutputVariableFactory<T extends Number> extends Seque
     protected T value;
     private final Class<T> type;
 
+    /**
+     * Constructor.
+     *
+     * @param variable   the runtime variable
+     * @param type       the type of the variable value
+     * @param startValue the initial value
+     */
     public DirectSequenceOutputVariableFactory(RuntimeVariable variable, Class<T> type, T startValue) {
         super(variable);
         this.type = type;
@@ -52,6 +59,11 @@ public class DirectSequenceOutputVariableFactory<T extends Number> extends Seque
         this.value = value;
     }
 
+    /**
+     * Sets value directly after type check.
+     *
+     * @param value the value to set
+     */
     @SuppressWarnings("unchecked")
     public void setValue(Object value) {
         if (this.type.isInstance(value)) {

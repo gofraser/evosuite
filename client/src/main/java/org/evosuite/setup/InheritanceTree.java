@@ -21,7 +21,6 @@
 package org.evosuite.setup;
 
 import org.evosuite.classpath.ResourceList;
-import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DirectedMultigraph;
 import org.jgrapht.graph.EdgeReversedGraph;
@@ -33,6 +32,8 @@ import java.io.File;
 import java.util.*;
 
 /**
+ * This class represents the inheritance tree of the classes in the classpath.
+ *
  * @author Gordon Fraser
  */
 public class InheritanceTree {
@@ -48,6 +49,8 @@ public class InheritanceTree {
 
     private DirectedMultigraph<String, DefaultEdge> inheritanceGraph = new DirectedMultigraph<>(
             DefaultEdge.class);
+
+    private transient boolean missingClassDetected = false;
 
     private Object readResolve() {
         if (analyzedMethods == null) {
@@ -65,6 +68,10 @@ public class InheritanceTree {
         return this;
     }
 
+    public boolean hasMissingClasses() {
+        return missingClassDetected;
+    }
+
     public boolean isClassDefined(String className) {
         return analyzedMethods.containsKey(className);
     }
@@ -77,14 +84,31 @@ public class InheritanceTree {
         return abstractClassesSet.contains(classname);
     }
 
+    /**
+     * Register a class as an abstract class.
+     *
+     * @param abstractClassName the name of the abstract class
+     */
     public void registerAbstractClass(String abstractClassName) {
         abstractClassesSet.add(ResourceList.getClassNameFromResourcePath(abstractClassName));
     }
 
+    /**
+     * Register a class as an interface.
+     *
+     * @param interfaceName the name of the interface
+     */
     public void registerInterface(String interfaceName) {
         interfacesSet.add(ResourceList.getClassNameFromResourcePath(interfaceName));
     }
 
+    /**
+     * Determine if a method is defined in a class.
+     *
+     * @param className the class name
+     * @param methodNameWdescriptor the method name with descriptor
+     * @return true if the method is defined
+     */
     public boolean isMethodDefined(String className, String methodNameWdescriptor) {
         if (analyzedMethods.get(className) == null) {
             return false;
@@ -92,6 +116,14 @@ public class InheritanceTree {
         return analyzedMethods.get(className).contains(methodNameWdescriptor);
     }
 
+    /**
+     * Determine if a method is defined in a class.
+     *
+     * @param className the class name
+     * @param methodName the method name
+     * @param descriptor the method descriptor
+     * @return true if the method is defined
+     */
     public boolean isMethodDefined(String className, String methodName, String descriptor) {
         if (analyzedMethods.get(className) == null) {
             return false;
@@ -99,6 +131,13 @@ public class InheritanceTree {
         return analyzedMethods.get(className).contains(methodName + descriptor);
     }
 
+    /**
+     * Add a method to the list of analyzed methods.
+     *
+     * @param classname the class name
+     * @param methodname the method name
+     * @param descriptor the method descriptor
+     */
     public void addAnalyzedMethod(String classname, String methodname, String descriptor) {
         classname = classname.replace(File.separator, ".");
         Set<String> tmp = analyzedMethods.get(classname);
@@ -109,6 +148,13 @@ public class InheritanceTree {
     }
 
 
+    /**
+     * Add a superclass relationship to the inheritance tree.
+     *
+     * @param className the class name
+     * @param superName the superclass name
+     * @param access the access modifiers
+     */
     public void addSuperclass(String className, String superName, int access) {
         String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
         String superNameWithDots = ResourceList.getClassNameFromResourcePath(superName);
@@ -118,6 +164,12 @@ public class InheritanceTree {
         inheritanceGraph.addEdge(superNameWithDots, classNameWithDots);
     }
 
+    /**
+     * Add an interface relationship to the inheritance tree.
+     *
+     * @param className the class name
+     * @param interfaceName the interface name
+     */
     public void addInterface(String className, String interfaceName) {
         String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
         String interfaceNameWithDots = ResourceList.getClassNameFromResourcePath(interfaceName);
@@ -128,6 +180,12 @@ public class InheritanceTree {
         interfacesSet.add(interfaceNameWithDots);
     }
 
+    /**
+     * Get all subclasses of a given class.
+     *
+     * @param className the class name
+     * @return the set of subclasses
+     */
     public Set<String> getSubclasses(String className) {
         String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
 
@@ -136,7 +194,8 @@ public class InheritanceTree {
         }
 
         if (!inheritanceGraph.containsVertex(classNameWithDots)) {
-            AtMostOnceLogger.warn(logger, "Class not in inheritance graph: " + classNameWithDots);
+            missingClassDetected = true;
+            logger.debug("Class not in inheritance graph: " + classNameWithDots);
             return new LinkedHashSet<>();
         }
 
@@ -151,10 +210,17 @@ public class InheritanceTree {
         return result;
     }
 
+    /**
+     * Get all superclasses of a given class.
+     *
+     * @param className the class name
+     * @return the set of superclasses
+     */
     public Set<String> getSuperclasses(String className) {
         String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
         if (!inheritanceGraph.containsVertex(classNameWithDots)) {
-            AtMostOnceLogger.warn(logger, "Class not in inheritance graph: " + classNameWithDots);
+            missingClassDetected = true;
+            logger.debug("Class not in inheritance graph: " + classNameWithDots);
             return new LinkedHashSet<>();
         }
         EdgeReversedGraph<String, DefaultEdge> reverseGraph = new EdgeReversedGraph<>(
@@ -170,10 +236,17 @@ public class InheritanceTree {
         return result;
     }
 
+    /**
+     * Get a list of superclasses in order.
+     *
+     * @param className the class name
+     * @return the ordered list of superclasses
+     */
     public List<String> getOrderedSuperclasses(String className) {
         String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
         if (!inheritanceGraph.containsVertex(classNameWithDots)) {
-            AtMostOnceLogger.warn(logger, "Class not in inheritance graph: " + classNameWithDots);
+            missingClassDetected = true;
+            logger.debug("Class not in inheritance graph: " + classNameWithDots);
             return new LinkedList<>();
         }
         EdgeReversedGraph<String, DefaultEdge> reverseGraph = new EdgeReversedGraph<>(
@@ -188,18 +261,39 @@ public class InheritanceTree {
     }
 
 
+    /**
+     * Get all classes in the inheritance tree.
+     *
+     * @return the set of all classes
+     */
     public Set<String> getAllClasses() {
         return inheritanceGraph.vertexSet();
     }
 
+    /**
+     * Remove a class from the inheritance tree.
+     *
+     * @param className the name of the class to remove
+     */
     public void removeClass(String className) {
         inheritanceGraph.removeVertex(className);
     }
 
+    /**
+     * Determine if a class is in the inheritance tree.
+     *
+     * @param className the class name
+     * @return true if the class is in the tree
+     */
     public boolean hasClass(String className) {
         return inheritanceGraph.containsVertex(className);
     }
 
+    /**
+     * Get the number of classes in the inheritance tree.
+     *
+     * @return the number of classes
+     */
     public int getNumClasses() {
         return inheritanceGraph.vertexSet().size();
     }

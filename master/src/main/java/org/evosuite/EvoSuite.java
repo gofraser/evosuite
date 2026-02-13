@@ -53,11 +53,15 @@ public class EvoSuite {
 
     public static String base_dir_path = System.getProperty("user.dir");
 
-    private static final Logger logger = LoggerFactory.getLogger(EvoSuite.class);
+    private static Logger logger() {
+        return LoggerFactory.getLogger(EvoSuite.class);
+    }
 
     private static final String separator = FileSystems.getDefault().getSeparator();
 
     static {
+        System.setProperty("logback.statusListenerClass",
+                "ch.qos.logback.core.status.NopStatusListener");
         LoggingUtils.loadLogbackForEvoSuite();
     }
 
@@ -107,7 +111,7 @@ public class EvoSuite {
             EvoSuite evosuite = new EvoSuite();
             evosuite.parseCommandLine(args);
         } catch (Throwable t) {
-            logger.error("Fatal crash on main EvoSuite process. Class "
+            logger().error("Fatal crash on main EvoSuite process. Class "
                     + Properties.TARGET_CLASS + " using seed " + Randomness.getSeed()
                     + ". Configuration id : " + Properties.CONFIGURATION_ID, t);
             System.exit(-1);
@@ -248,7 +252,7 @@ public class EvoSuite {
 
             if (!ClassPathHacker.isJunitCheckAvailable()) {
                 if (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE) {
-                    logger.error("Can not execute Junit tests. "
+                    logger().error("Can not execute Junit tests. "
                             + "Run EvoSuite with -Djunit_check=optional to generate tests, but dont check them.");
                     throw new IllegalStateException(ClassPathHacker.getCause());
                 }
@@ -345,7 +349,7 @@ public class EvoSuite {
 
         } catch (ParseException exp) {
             // oops, something went wrong
-            logger.error("Parsing failed.  Reason: " + exp.getMessage());
+            logger().error("Parsing failed.  Reason: " + exp.getMessage());
             // automatically generate the help statement
             Help.execute(options);
         }

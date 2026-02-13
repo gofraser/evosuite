@@ -34,6 +34,11 @@ public class ExceptionMapGenerator {
 
     private static final Logger logger = LoggerFactory.getLogger(ExceptionMapGenerator.class);
 
+    /**
+     * Initialize the exception map for a class.
+     *
+     * @param className the class name
+     */
     public static void initializeExceptionMap(String className) {
         ClassNode targetClass = DependencyAnalysis.getClassNode(className);
         if (targetClass != null) {

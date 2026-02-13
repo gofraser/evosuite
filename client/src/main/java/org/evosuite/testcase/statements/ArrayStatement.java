@@ -63,9 +63,7 @@ public class ArrayStatement extends AbstractStatement {
     }
 
     /**
-     * <p>
-     * determineDimensions
-     * </p>
+     * determineDimensions.
      *
      * @param type a {@link java.lang.reflect.Type} object.
      * @return a int.
@@ -219,9 +217,7 @@ public class ArrayStatement extends AbstractStatement {
 
 
     /**
-     * <p>
      * Getter for the field <code>lengths</code>.
-     * </p>
      *
      * @return an array of int.
      */
@@ -303,7 +299,7 @@ public class ArrayStatement extends AbstractStatement {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.AbstractStatement#mutate(org.evosuite.testcase.TestCase, org.evosuite.testcase.AbstractTestFactory)
+     * @see org.evosuite.testcase.AbstractStatement#mutate(TestCase, TestFactory)
      */
 
     /**
@@ -320,10 +316,11 @@ public class ArrayStatement extends AbstractStatement {
                         currentVar = ((FieldReference) currentVar).getSource();
                     }
                     if (!(currentVar instanceof ArrayIndex)) {
-                        LoggingUtils.getEvoLogger().error("Found assignment to array without ArrayIndex:");
+                        LoggingUtils.getEvoLogger()
+                                .error("Found assignment to array without ArrayIndex:");
                         LoggingUtils.getEvoLogger().error(test.toCode());
-                        LoggingUtils.getEvoLogger().error(statement.getPosition() + ", "
-                                + statement.getCode());
+                        LoggingUtils.getEvoLogger().error("{} , {}", statement.getPosition(),
+                                statement.getCode());
                     }
                     ArrayIndex index = (ArrayIndex) currentVar;
                     maxAssignment = Math.max(maxAssignment, index.getArrayIndex());
@@ -346,8 +343,7 @@ public class ArrayStatement extends AbstractStatement {
                         Properties.MAX_DELTA);
                 if (max > 0) {
                     newLength = lengths[dim] + Randomness.nextInt(2 * max) - max;
-                } else
-                     {
+                } else {
                     newLength = lengths[dim] + Randomness.nextInt(Properties.MAX_DELTA);
                 }
             }
@@ -364,7 +360,7 @@ public class ArrayStatement extends AbstractStatement {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
      */
 
     /**
@@ -424,9 +420,7 @@ public class ArrayStatement extends AbstractStatement {
 
 
     /**
-     * <p>
-     * setSize
-     * </p>
+     * setSize.
      *
      * @param size a int.
      */
@@ -437,9 +431,7 @@ public class ArrayStatement extends AbstractStatement {
     }
 
     /**
-     * <p>
-     * size
-     * </p>
+     * size.
      *
      * @return a int.
      */

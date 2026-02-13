@@ -163,6 +163,11 @@ public class ClientProcess {
         return identifier;
     }
 
+    /**
+     * Returns the client's identifier for pretty printing.
+     *
+     * @return a formatted identifier string (e.g., "Client-0: ") or an empty string if only one client is running.
+     */
     public static String getPrettyPrintIdentifier() {
         if (Properties.NUM_PARALLEL_CLIENTS == 1) {
             return "";

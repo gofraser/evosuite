@@ -271,9 +271,7 @@ public class DefaultTestCase implements TestCase, Serializable {
     }
 
     /**
-     * <p>
-     * changeClassLoader
-     * </p>
+     * {@inheritDoc}
      *
      * @param loader a {@link java.lang.ClassLoader} object.
      */
@@ -322,8 +320,8 @@ public class DefaultTestCase implements TestCase, Serializable {
         for (int i = lastPosition; i >= 0; i--) {
             Set<Statement> newStatements = new LinkedHashSet<>();
             for (Statement s : dependentStatements) {
-                if (s.references(statements.get(i).getReturnValue()) ||
-                        s.references(statements.get(i).getReturnValue().getAdditionalVariableReference())) {
+                if (s.references(statements.get(i).getReturnValue())
+                        || s.references(statements.get(i).getReturnValue().getAdditionalVariableReference())) {
                     newStatements.add(statements.get(i));
                     break;
                 }
@@ -361,7 +359,6 @@ public class DefaultTestCase implements TestCase, Serializable {
 
     /**
      * {@inheritDoc}
-     *
      * <p>
      * Create a copy of the test case
      */
@@ -440,9 +437,9 @@ public class DefaultTestCase implements TestCase, Serializable {
                 if (var != null && !var.isPrimitive()) {
                     Class<?> clazz = var.getVariableClass();
                     while (clazz.isMemberClass()) {
-                        //accessed_classes.add(clazz);
                         clazz = clazz.getEnclosingClass();
-                    } while (clazz.isArray()) {
+                    }
+                    while (clazz.isArray()) {
                         clazz = clazz.getComponentType();
                     }
                     accessedClasses.add(clazz);
@@ -659,7 +656,8 @@ public class DefaultTestCase implements TestCase, Serializable {
                 }
 
                 if (value.isAssignableTo(type) && !isClassUtilsBug && value.isArray() == rawClass.isArray()) {
-                    logger.debug("Array is assignable: {} to {}, {}, {}", value.getType(), type, value.isArray(), rawClass.isArray());
+                    logger.debug("Array is assignable: {} to {}, {}, {}", value.getType(), type, value.isArray(),
+                            rawClass.isArray());
                     variables.add(value);
                 } else if (GenericClassUtils.isAssignable(type, value.getComponentType())) {
                     Class<?> arrayClass = value.getComponentClass();
@@ -676,8 +674,8 @@ public class DefaultTestCase implements TestCase, Serializable {
                 }
             } else if (value instanceof ArrayIndex) {
                 // Don't need to add this because array indices are created for array statement
-            } else if (value.isAssignableTo(type) && value.isPrimitive() == rawClass.isPrimitive() &&
-                    value.isArray() == rawClass.isArray()) {
+            } else if (value.isAssignableTo(type) && value.isPrimitive() == rawClass.isPrimitive()
+                    && value.isArray() == rawClass.isArray()) {
                 variables.add(value);
             } else {
                 addFields(variables, value, type);
@@ -705,17 +703,19 @@ public class DefaultTestCase implements TestCase, Serializable {
             VariableReference var = iterator.next();
             if (var instanceof NullReference) {
                 iterator.remove();
-            } else  {
-                if (getStatement(var.getStPosition()) instanceof PrimitiveStatement)
-                iterator.remove();
-            else  {
-                if (var.isPrimitive() || var.isWrapperType())
-                iterator.remove();
-            else  {
-                if (this.getStatement(var.getStPosition()) instanceof FunctionalMockStatement && !(this.getStatement(var.getStPosition()) instanceof FunctionalMockForAbstractClassStatement))
-                iterator.remove();
-            }
-            }
+            } else {
+                if (getStatement(var.getStPosition()) instanceof PrimitiveStatement) {
+                    iterator.remove();
+                } else {
+                    if (var.isPrimitive() || var.isWrapperType()) {
+                        iterator.remove();
+                    } else {
+                        if (this.getStatement(var.getStPosition()) instanceof FunctionalMockStatement
+                                && !(this.getStatement(var.getStPosition()) instanceof FunctionalMockForAbstractClassStatement)) {
+                            iterator.remove();
+                        }
+                    }
+                }
             }
         }
         if (variables.isEmpty()) {
@@ -834,16 +834,18 @@ public class DefaultTestCase implements TestCase, Serializable {
             Set<VariableReference> temp = new LinkedHashSet<>();
             if (statements.get(i).references(var)) {
                 temp.add(statements.get(i).getReturnValue());
-            } else  {
-                if (statements.get(i).references(var.getAdditionalVariableReference()))
-                temp.add(statements.get(i).getReturnValue());
+            } else {
+                if (statements.get(i).references(var.getAdditionalVariableReference())) {
+                    temp.add(statements.get(i).getReturnValue());
+                }
             }
             for (VariableReference v : references) {
                 if (statements.get(i).references(v)) {
                     temp.add(statements.get(i).getReturnValue());
-                } else  {
-                    if (statements.get(i).references(v.getAdditionalVariableReference()))
-                    temp.add(statements.get(i).getReturnValue());
+                } else {
+                    if (statements.get(i).references(v.getAdditionalVariableReference())) {
+                        temp.add(statements.get(i).getReturnValue());
+                    }
                 }
             }
             references.addAll(temp);
@@ -918,7 +920,6 @@ public class DefaultTestCase implements TestCase, Serializable {
 
     /**
      * {@inheritDoc}
-     *
      * <p>
      * Equality check
      */
@@ -1109,13 +1110,15 @@ public class DefaultTestCase implements TestCase, Serializable {
     private boolean methodNeedsDownCast(MethodStatement methodStatement, VariableReference var, Class<?> abstractClass) {
 
         if (!methodStatement.isStatic() && methodStatement.getCallee().equals(var)) {
-
-            if (MethodUtils.getAccessibleMethod(abstractClass, methodStatement.getMethodName(), methodStatement.getMethod().getRawParameterTypes()) == null) {
+            if (MethodUtils.getAccessibleMethod(abstractClass, methodStatement.getMethodName(),
+                    methodStatement.getMethod().getRawParameterTypes()) == null) {
                 // Need downcast for real
                 return true;
             } else {
-                Method superClassMethod = MethodUtils.getMatchingMethod(abstractClass, methodStatement.getMethodName(), methodStatement.getMethod().getRawParameterTypes());
-                if (superClassMethod != null && !methodStatement.getMethod().getRawGeneratedType().equals(superClassMethod.getReturnType())) {
+                Method superClassMethod = MethodUtils.getMatchingMethod(abstractClass, methodStatement.getMethodName(),
+                        methodStatement.getMethod().getRawParameterTypes());
+                if (superClassMethod != null && !methodStatement.getMethod().getRawGeneratedType()
+                        .equals(superClassMethod.getReturnType())) {
                     // Overriding can also change return value, in which case we need to keep the downcast
                     return true;
                 }
@@ -1133,7 +1136,8 @@ public class DefaultTestCase implements TestCase, Serializable {
         return false;
     }
 
-    private boolean constructorNeedsDownCast(ConstructorStatement constructorStatement, VariableReference var, Class<?> abstractClass) {
+    private boolean constructorNeedsDownCast(ConstructorStatement constructorStatement, VariableReference var,
+            Class<?> abstractClass) {
         List<VariableReference> parameters = constructorStatement.getParameterReferences();
         Class<?>[] parameterTypes = constructorStatement.getConstructor().getConstructor().getParameterTypes();
         for (int i = 0; i < parameters.size(); i++) {
@@ -1167,7 +1171,8 @@ public class DefaultTestCase implements TestCase, Serializable {
             if (assertion instanceof InspectorAssertion && assertion.getSource().equals(var)) {
                 InspectorAssertion inspectorAssertion = (InspectorAssertion) assertion;
                 Method inspectorMethod = inspectorAssertion.getInspector().getMethod();
-                if (MethodUtils.getAccessibleMethod(abstractClass, inspectorMethod.getName(), inspectorMethod.getParameterTypes()) == null) {
+                if (MethodUtils.getAccessibleMethod(abstractClass, inspectorMethod.getName(),
+                        inspectorMethod.getParameterTypes()) == null) {
                     return true;
                 }
             } else if (assertion instanceof PrimitiveFieldAssertion && assertion.getSource().equals(var)) {
@@ -1202,10 +1207,10 @@ public class DefaultTestCase implements TestCase, Serializable {
                                 return;
                             }
                         } else if (usageStatement instanceof ConstructorStatement) {
-                            if (constructorNeedsDownCast((ConstructorStatement) usageStatement, retVal, methodReturnClass)) {
+                            if (constructorNeedsDownCast((ConstructorStatement) usageStatement, retVal,
+                                    methodReturnClass)) {
                                 return;
                             }
-
                         } else if (usageStatement instanceof FieldStatement) {
                             if (fieldNeedsDownCast((FieldStatement) usageStatement, retVal, methodReturnClass)) {
                                 return;

@@ -1045,29 +1045,33 @@ public class TestCluster {
         }
 
 
-        GenericAccessibleObject<?> generator = null;
+        Collection<GenericAccessibleObject<?>> generators;
         if (isSpecialCase(clazz)) {
-            Collection<GenericAccessibleObject<?>> generators = getGeneratorsForSpecialCase(clazz);
-            if (generators.isEmpty()) {
-                logger.warn("No generators for class: " + clazz);
-            }
-            generator = Randomness.choice(generators);
+            generators = getGeneratorsForSpecialCase(clazz);
         } else {
             if (!hasGenerator(clazz)) {
                 throw new ConstructionFailedException("No generators of type " + clazz);
             }
-
-            generator = Randomness.choice(generatorCache.get(clazz));
+            generators = generatorCache.get(clazz);
         }
 
-        if (generator == null) {
+        if (generators.isEmpty()) {
             throw new ConstructionFailedException("No generators of type " + clazz);
         }
 
-        if (generator.hasTypeParameters()) {
-            generator = generator.getGenericInstantiation(clazz);
+        List<GenericAccessibleObject<?>> compatible = new ArrayList<>();
+        for (GenericAccessibleObject<?> candidate : generators) {
+            GenericAccessibleObject<?> instantiated = instantiateGenerator(candidate, clazz);
+            if (instantiated != null && instantiated.getGeneratedClass().isAssignableTo(clazz)) {
+                compatible.add(instantiated);
+            }
         }
-        return generator;
+
+        if (compatible.isEmpty()) {
+            throw new ConstructionFailedException("No compatible generators of type " + clazz);
+        }
+
+        return Randomness.choice(compatible);
     }
 
 
@@ -1101,28 +1105,28 @@ public class TestCluster {
             }
         }
 
-        GenericAccessibleObject<?> generator = null;
+        List<GenericAccessibleObject<?>> candidates = new ArrayList<>();
 
         // Collection, Map, Number
         if (isSpecialCase(clazz)) {
-            generator = Randomness.choice(getGeneratorsForSpecialCase(clazz));
-            if (generator == null) {
+            candidates.addAll(getGeneratorsForSpecialCase(clazz));
+            if (candidates.isEmpty()) {
                 logger.warn("No generator for special case class: " + clazz);
                 throw new ConstructionFailedException("Have no generators for special case: " + clazz);
             }
         } else {
             cacheGenerators(clazz);
-            Set<GenericAccessibleObject<?>> candidates = new LinkedHashSet<>(generatorCache.get(clazz));
-            candidates.removeAll(excluded);
+            Set<GenericAccessibleObject<?>> baseCandidates = new LinkedHashSet<>(generatorCache.get(clazz));
+            baseCandidates.removeAll(excluded);
 
             if (generatorRefToExclude != null) {
                 //if current generator could be called from excluded ref, then we cannot use it
-                candidates.removeIf(gam -> generatorRefToExclude.isAssignableTo(gam.getOwnerType()));
+                baseCandidates.removeIf(gam -> generatorRefToExclude.isAssignableTo(gam.getOwnerType()));
             }
 
-            logger.debug("Candidate generators for " + clazz + ": " + candidates.size());
+            logger.debug("Candidate generators for " + clazz + ": " + baseCandidates.size());
 
-            if (candidates.isEmpty()) {
+            if (baseCandidates.isEmpty()) {
                 return null;
             }
 
@@ -1132,41 +1136,52 @@ public class TestCluster {
                     as non-static methods would require to get a caller which, if it is missing, would need
                     to be created, and that could lead to further calls if its generators need input parameters
                  */
-                Set<GenericAccessibleObject<?>> set = candidates.stream()
+                Set<GenericAccessibleObject<?>> set = baseCandidates.stream()
                         .filter(p -> p.isStatic() || p.isConstructor())
                         .collect(toCollection(LinkedHashSet::new));
                 if (!set.isEmpty()) {
-                    candidates = set;
+                    baseCandidates = set;
                 }
             }
 
-            Set<GenericAccessibleObject<?>> candidatesWithNoTypeParameters = candidates.stream()
+            Set<GenericAccessibleObject<?>> candidatesWithNoTypeParameters = baseCandidates.stream()
                     .filter(p -> !p.hasTypeParameters())
                     .collect(Collectors.toCollection(LinkedHashSet::new));
 
             if (!candidatesWithNoTypeParameters.isEmpty()) {
-                generator = Randomness.choice(candidatesWithNoTypeParameters);
+                candidates.addAll(candidatesWithNoTypeParameters);
             } else {
-                generator = Randomness.choice(candidates);
-            }
-            logger.debug("Chosen generator: " + generator);
-        }
-
-        if (generator.getOwnerClass().hasWildcardOrTypeVariables()) {
-            logger.debug("Owner class has a wildcard: " + clazz.getTypeName());
-            generator = generator.copyWithNewOwner(generator.getOwnerClass().getGenericInstantiation());
-        }
-
-        if (generator.hasTypeParameters()) {
-            logger.debug("Generator has a type parameter: " + generator);
-            generator = generator.getGenericInstantiationFromReturnValue(clazz);
-            if (!generator.getGeneratedClass().isAssignableTo(clazz)) {
-                throw new ConstructionFailedException("Generics error");
+                candidates.addAll(baseCandidates);
             }
         }
 
-        return generator;
+        List<GenericAccessibleObject<?>> compatible = new ArrayList<>();
+        for (GenericAccessibleObject<?> candidate : candidates) {
+            GenericAccessibleObject<?> instantiated = instantiateGenerator(candidate, clazz);
+            if (instantiated != null && instantiated.getGeneratedClass().isAssignableTo(clazz)) {
+                compatible.add(instantiated);
+            }
+        }
 
+        if (compatible.isEmpty()) {
+            return null;
+        }
+
+        return Randomness.choice(compatible);
+
+    }
+
+    private GenericAccessibleObject<?> instantiateGenerator(GenericAccessibleObject<?> generator,
+                                                            GenericClass<?> target)
+            throws ConstructionFailedException {
+        GenericAccessibleObject<?> instantiated = generator;
+        if (instantiated.getOwnerClass().hasWildcardOrTypeVariables()) {
+            instantiated = instantiated.copyWithNewOwner(instantiated.getOwnerClass().getGenericInstantiation());
+        }
+        if (instantiated.hasTypeParameters()) {
+            instantiated = instantiated.getGenericInstantiationFromReturnValue(target);
+        }
+        return instantiated;
     }
 
     /**

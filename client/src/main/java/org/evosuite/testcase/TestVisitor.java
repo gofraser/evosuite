@@ -24,144 +24,111 @@ import org.evosuite.testcase.statements.*;
 
 
 /**
- * <p>
- * TestVisitor interface.
- * </p>
+ * The TestVisitor class provides an interface and a dispatcher for visiting different types of
+ * statements and expressions in a test case.
  *
  * @author fraser
  */
 public abstract class TestVisitor {
 
     /**
-     * <p>
-     * visitTestCase
-     * </p>
+     * Visits a test case.
      *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
+     * @param test the {@link TestCase} object to visit.
      */
     public abstract void visitTestCase(TestCase test);
 
     /**
-     * <p>
-     * visitPrimitiveStatement
-     * </p>
+     * Visits a primitive statement.
      *
-     * @param statement a {@link org.evosuite.testcase.statements.PrimitiveStatement} object.
+     * @param statement the {@link PrimitiveStatement} object to visit.
      */
     public abstract void visitPrimitiveStatement(PrimitiveStatement<?> statement);
 
     /**
-     * <p>
-     * visitFieldStatement
-     * </p>
+     * Visits a field statement.
      *
-     * @param statement a {@link org.evosuite.testcase.statements.FieldStatement} object.
+     * @param statement the {@link FieldStatement} object to visit.
      */
     public abstract void visitFieldStatement(FieldStatement statement);
 
     /**
-     * <p>
-     * visitMethodStatement
-     * </p>
+     * Visits a method statement.
      *
-     * @param statement a {@link org.evosuite.testcase.statements.MethodStatement} object.
+     * @param statement the {@link MethodStatement} object to visit.
      */
     public abstract void visitMethodStatement(MethodStatement statement);
 
     /**
-     * <p>
-     * visitConstructorStatement
-     * </p>
+     * Visits a constructor statement.
      *
-     * @param statement a {@link org.evosuite.testcase.statements.ConstructorStatement} object.
+     * @param statement the {@link ConstructorStatement} object to visit.
      */
     public abstract void visitConstructorStatement(ConstructorStatement statement);
 
     /**
-     * <p>
-     * visitArrayStatement
-     * </p>
+     * Visits an array statement.
      *
-     * @param statement a {@link org.evosuite.testcase.statements.ArrayStatement} object.
+     * @param statement the {@link ArrayStatement} object to visit.
      */
     public abstract void visitArrayStatement(ArrayStatement statement);
 
     /**
-     * <p>
-     * visitAssignmentStatement
-     * </p>
+     * Visits an assignment statement.
      *
-     * @param statement a {@link org.evosuite.testcase.statements.AssignmentStatement} object.
+     * @param statement the {@link AssignmentStatement} object to visit.
      */
     public abstract void visitAssignmentStatement(AssignmentStatement statement);
 
     /**
-     * <p>
-     * visitNullStatement
-     * </p>
+     * Visits a null statement.
      *
-     * @param statement a {@link org.evosuite.testcase.statements.NullStatement} object.
+     * @param statement the {@link NullStatement} object to visit.
      */
     public abstract void visitNullStatement(NullStatement statement);
 
     /**
-     * <p>
-     * visitPrimitiveExpression
-     * </p>
+     * Visits a primitive expression.
      *
-     * @param primitiveExpression a {@link org.evosuite.testcase.statements.PrimitiveExpression} object.
+     * @param primitiveExpression the {@link PrimitiveExpression} object to visit.
      */
     public abstract void visitPrimitiveExpression(PrimitiveExpression primitiveExpression);
 
-
+    /**
+     * Visits a functional mock statement.
+     *
+     * @param functionalMockStatement the {@link FunctionalMockStatement} object to visit.
+     */
     public abstract void visitFunctionalMockStatement(FunctionalMockStatement functionalMockStatement);
 
     /**
-     * <p>
-     * visitStatement
-     * </p>
+     * Dispatches the call to the appropriate visit method based on the type of statement.
      *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
+     * @param statement the {@link Statement} object to visit.
      */
     public void visitStatement(Statement statement) {
 
         if (statement instanceof PrimitiveStatement<?>) {
             visitPrimitiveStatement((PrimitiveStatement<?>) statement);
-        } else  {
-            if (statement instanceof FieldStatement)
+        } else if (statement instanceof FieldStatement) {
             visitFieldStatement((FieldStatement) statement);
-        else  {
-            if (statement instanceof ConstructorStatement)
+        } else if (statement instanceof ConstructorStatement) {
             visitConstructorStatement((ConstructorStatement) statement);
-        else  {
-            if (statement instanceof MethodStatement)
+        } else if (statement instanceof MethodStatement) {
             visitMethodStatement((MethodStatement) statement);
-        else  {
-            if (statement instanceof AssignmentStatement)
+        } else if (statement instanceof AssignmentStatement) {
             visitAssignmentStatement((AssignmentStatement) statement);
-        else  {
-            if (statement instanceof ArrayStatement)
+        } else if (statement instanceof ArrayStatement) {
             visitArrayStatement((ArrayStatement) statement);
-        else  {
-            if (statement instanceof NullStatement)
+        } else if (statement instanceof NullStatement) {
             visitNullStatement((NullStatement) statement);
-        else  {
-            if (statement instanceof PrimitiveExpression)
+        } else if (statement instanceof PrimitiveExpression) {
             visitPrimitiveExpression((PrimitiveExpression) statement);
-        else  {
-            if (statement instanceof FunctionalMockStatement)
+        } else if (statement instanceof FunctionalMockStatement) {
             visitFunctionalMockStatement((FunctionalMockStatement) statement);
-        else
-             {
+        } else {
             throw new RuntimeException("Unknown statement type: " + statement);
-        }
-        }
-        }
-        }
-        }
-        }
-        }
-        }
         }
     }
 }
+

@@ -698,7 +698,12 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         GenericClass<?> selectedClass = CastClassManager.getInstance().selectCastClass((WildcardType) type,
                 recursionLevel < Properties.MAX_GENERIC_DEPTH - 1,
                 typeMap);
-        return selectedClass.getGenericInstantiation(new HashMap<>(), recursionLevel + 1);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Wildcard instantiation: {} -> {} with typeMap {}",
+                    type, selectedClass, GenericUtils.stableTypeVariableMapToString(typeMap));
+        }
+        // Preserve any bound-derived type mappings when instantiating the selected class
+        return selectedClass.getGenericInstantiation(typeMap, recursionLevel + 1);
     }
 
     /**
