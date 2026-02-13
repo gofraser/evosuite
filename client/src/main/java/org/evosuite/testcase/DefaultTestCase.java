@@ -65,6 +65,8 @@ public class DefaultTestCase implements TestCase, Serializable {
 
     protected static final AtomicInteger idGenerator = new AtomicInteger(0);
 
+    private static final int MAX_FIELD_DEPTH = 2;
+
     private final AccessedEnvironment accessedEnvironment = new AccessedEnvironment();
 
     /**
@@ -100,10 +102,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return id;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#accept(org.evosuite.testcase.TestVisitor)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -116,10 +114,6 @@ public class DefaultTestCase implements TestCase, Serializable {
             visitor.visitStatement(s);
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#addAssertions(org.evosuite.testcase.DefaultTestCase)
-     */
 
     /**
      * {@inheritDoc}
@@ -144,10 +138,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public Set<ContractViolation> getContractViolations() {
         return contractViolations;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#addCoveredGoal(org.evosuite.testcase.TestFitnessFunction)
-     */
 
     /**
      * {@inheritDoc}
@@ -187,7 +177,7 @@ public class DefaultTestCase implements TestCase, Serializable {
                 }
                 FieldReference f = new FieldReference(this, new GenericField(field,
                         var.getGenericClass()), fieldType, var);
-                if (f.getDepth() <= 2) {
+                if (f.getDepth() <= MAX_FIELD_DEPTH) {
                     if (type != null) {
                         if (f.isAssignableTo(type) && !variables.contains(f)) {
                             variables.add(f);
@@ -207,10 +197,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public void addListener(Listener<Void> listener) {
         statements.addListener(listener);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#addStatement(org.evosuite.testcase.Statement)
-     */
 
     /**
      * {@inheritDoc}
@@ -247,10 +233,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
         return statement.getReturnValue();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#addStatement(org.evosuite.testcase.Statement, int)
-     */
 
     /**
      * {@inheritDoc}
@@ -289,10 +271,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public ClassLoader getChangedClassLoader() {
         return changedClassLoader;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#chop(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -347,10 +325,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.contains(statement);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#clearCoveredGoals()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -377,11 +351,11 @@ public class DefaultTestCase implements TestCase, Serializable {
             copy.setAssertions(s.copyAssertions(t, 0));
         }
         t.coveredGoals.addAll(coveredGoals);
+        t.contractViolations.addAll(contractViolations);
         t.accessedEnvironment.copyFrom(accessedEnvironment);
         t.isFailing = isFailing;
-        t.id = idGenerator.getAndIncrement(); //always create new ID when making a clone
-        //t.exception_statement = exception_statement;
-        //t.exceptionThrown = exceptionThrown;
+        t.unstable = unstable;
+        t.changedClassLoader = changedClassLoader;
         return t;
     }
 
@@ -425,10 +399,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return true;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getAccessedClasses()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -440,9 +410,9 @@ public class DefaultTestCase implements TestCase, Serializable {
                 if (var != null && !var.isPrimitive()) {
                     Class<?> clazz = var.getVariableClass();
                     while (clazz.isMemberClass()) {
-                        //accessed_classes.add(clazz);
                         clazz = clazz.getEnclosingClass();
-                    } while (clazz.isArray()) {
+                    }
+                    while (clazz.isArray()) {
                         clazz = clazz.getComponentType();
                     }
                     accessedClasses.add(clazz);
@@ -469,10 +439,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     }
 
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getAssertions()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -485,10 +451,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getCoveredGoals()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -496,10 +458,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public Set<TestFitnessFunction> getCoveredGoals() {
         return coveredGoals;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getDeclaredExceptions()
-     */
 
     /**
      * {@inheritDoc}
@@ -517,10 +475,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public AccessedEnvironment getAccessedEnvironment() {
         return accessedEnvironment;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getDependencies(org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -571,10 +525,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         throw new ConstructionFailedException("Found no variables of type " + type);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getObject(org.evosuite.testcase.VariableReference, org.evosuite.testcase.Scope)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -586,10 +536,6 @@ public class DefaultTestCase implements TestCase, Serializable {
             throw new AssertionError("This case isn't handled yet");
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getObjects(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -605,7 +551,7 @@ public class DefaultTestCase implements TestCase, Serializable {
                 continue;
             }
             // TODO: Need to support arrays that were not self-created
-            if (value instanceof ArrayReference) { // &&
+            if (value instanceof ArrayReference) {
                 for (int index = 0; index < ((ArrayReference) value).getArrayLength(); index++) {
                     variables.add(new ArrayIndex(this, (ArrayReference) value, index));
                 }
@@ -613,7 +559,6 @@ public class DefaultTestCase implements TestCase, Serializable {
                 variables.add(value);
                 addFields(variables, value, null);
             }
-            // logger.trace(statements.get(i).retval.getSimpleClassName());
         }
 
         return variables;
@@ -645,35 +590,7 @@ public class DefaultTestCase implements TestCase, Serializable {
                 continue;
             }
             if (value instanceof ArrayReference) {
-
-                // For some reason, TypeUtils/ClassUtils sometimes claims
-                // that an array is assignable to its component type
-                // TODO: Fix
-                boolean isClassUtilsBug = false;
-                if (value.isArray()) {
-                    Class<?> arrayClass = value.getVariableClass();
-                    isClassUtilsBug = isClassUtilsBug(rawClass, arrayClass);
-                }
-                if (rawClass.isArray() && !isClassUtilsBug) {
-                    isClassUtilsBug = isClassUtilsBug(value.getVariableClass(), rawClass);
-                }
-
-                if (value.isAssignableTo(type) && !isClassUtilsBug && value.isArray() == rawClass.isArray()) {
-                    logger.debug("Array is assignable: {} to {}, {}, {}", value.getType(), type, value.isArray(), rawClass.isArray());
-                    variables.add(value);
-                } else if (GenericClassUtils.isAssignable(type, value.getComponentType())) {
-                    Class<?> arrayClass = value.getComponentClass();
-                    if (isClassUtilsBug(rawClass, arrayClass)) {
-                        continue;
-                    }
-
-                    for (int index = 0; index < ((ArrayReference) value).getArrayLength(); index++) {
-                        if (((ArrayReference) value).isInitialized(index, position)) {
-                            variables.add(new ArrayIndex(this, (ArrayReference) value,
-                                    index));
-                        }
-                    }
-                }
+                variables.addAll(getArrayObjects(type, position, value, rawClass));
             } else if (value instanceof ArrayIndex) {
                 // Don't need to add this because array indices are created for array statement
             } else if (value.isAssignableTo(type) && value.isPrimitive() == rawClass.isPrimitive() &&
@@ -687,6 +604,36 @@ public class DefaultTestCase implements TestCase, Serializable {
         return variables;
     }
 
+    private List<VariableReference> getArrayObjects(Type type, int position, VariableReference value, Class<?> rawClass) {
+        List<VariableReference> variables = new LinkedList<>();
+        // For some reason, TypeUtils/ClassUtils sometimes claims
+        // that an array is assignable to its component type
+        // TODO: Fix
+        boolean isClassUtilsBug = false;
+        if (value.isArray()) {
+            Class<?> arrayClass = value.getVariableClass();
+            isClassUtilsBug = isClassUtilsBug(rawClass, arrayClass);
+        }
+        if (rawClass.isArray() && !isClassUtilsBug) {
+            isClassUtilsBug = isClassUtilsBug(value.getVariableClass(), rawClass);
+        }
+
+        if (value.isAssignableTo(type) && !isClassUtilsBug && value.isArray() == rawClass.isArray()) {
+            logger.debug("Array is assignable: {} to {}, {}, {}", value.getType(), type, value.isArray(), rawClass.isArray());
+            variables.add(value);
+        } else if (GenericClassUtils.isAssignable(type, value.getComponentType())) {
+            Class<?> arrayClass = value.getComponentClass();
+            if (!isClassUtilsBug(rawClass, arrayClass)) {
+                for (int index = 0; index < ((ArrayReference) value).getArrayLength(); index++) {
+                    if (((ArrayReference) value).isInitialized(index, position)) {
+                        variables.add(new ArrayIndex(this, (ArrayReference) value, index));
+                    }
+                }
+            }
+        }
+        return variables;
+    }
+
     /* (non-Javadoc)
      * @see org.evosuite.testcase.TestCase#getRandomObject(java.lang.reflect.Type, int)
      */
@@ -697,33 +644,19 @@ public class DefaultTestCase implements TestCase, Serializable {
     @Override
     public VariableReference getRandomNonNullNonPrimitiveObject(Type type, int position)
             throws ConstructionFailedException {
-        Inputs.checkNull(type);
-
-        List<VariableReference> variables = getObjects(type, position);
-        Iterator<VariableReference> iterator = variables.iterator();
-        while (iterator.hasNext()) {
-            VariableReference var = iterator.next();
+        return getRandomObject(type, position, var -> {
             if (var instanceof NullReference) {
-                iterator.remove();
-            } else  {
-                if (getStatement(var.getStPosition()) instanceof PrimitiveStatement)
-                iterator.remove();
-            else  {
-                if (var.isPrimitive() || var.isWrapperType())
-                iterator.remove();
-            else  {
-                if (this.getStatement(var.getStPosition()) instanceof FunctionalMockStatement && !(this.getStatement(var.getStPosition()) instanceof FunctionalMockForAbstractClassStatement))
-                iterator.remove();
+                return true;
             }
+            Statement s = getStatement(var.getStPosition());
+            if (s instanceof PrimitiveStatement) {
+                return true;
             }
+            if (var.isPrimitive() || var.isWrapperType()) {
+                return true;
             }
-        }
-        if (variables.isEmpty()) {
-            throw new ConstructionFailedException("Found no variables of type " + type
-                    + " at position " + position);
-        }
-
-        return Randomness.choice(variables);
+            return s instanceof FunctionalMockStatement && !(s instanceof FunctionalMockForAbstractClassStatement);
+        });
     }
 
     /* (non-Javadoc)
@@ -736,19 +669,10 @@ public class DefaultTestCase implements TestCase, Serializable {
     @Override
     public VariableReference getRandomNonNullObject(Type type, int position)
             throws ConstructionFailedException {
-        Inputs.checkNull(type);
-
-        List<VariableReference> variables = getObjects(type, position);
-        variables.removeIf(ref -> {
+        return getRandomObject(type, position, ref -> {
             final Statement statement = this.getStatement(ref.getStPosition());
             return ref instanceof NullReference || statement instanceof FunctionalMockStatement;
         });
-        if (variables.isEmpty()) {
-            throw new ConstructionFailedException("Found no variables of type " + type
-                    + " at position " + position);
-        }
-
-        return Randomness.choice(variables);
     }
 
     /* (non-Javadoc)
@@ -803,8 +727,18 @@ public class DefaultTestCase implements TestCase, Serializable {
     @Override
     public VariableReference getRandomObject(Type type, int position)
             throws ConstructionFailedException {
-        assert (type != null);
+        return getRandomObject(type, position, null);
+    }
+
+    private VariableReference getRandomObject(Type type, int position, java.util.function.Predicate<VariableReference> excludeFilter)
+            throws ConstructionFailedException {
+        Inputs.checkNull(type);
+
         List<VariableReference> variables = getObjects(type, position);
+        if (excludeFilter != null) {
+            variables.removeIf(excludeFilter);
+        }
+
         if (variables.isEmpty()) {
             throw new ConstructionFailedException("Found no variables of type " + type
                     + " at position " + position);
@@ -812,10 +746,6 @@ public class DefaultTestCase implements TestCase, Serializable {
 
         return Randomness.choice(variables);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getReferences(org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -827,8 +757,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         if (var == null || var.getStPosition() == -1) {
             return references;
         }
-
-        // references.add(var);
 
         for (int i = var.getStPosition() + 1; i < statements.size(); i++) {
             Set<VariableReference> temp = new LinkedHashSet<>();
@@ -852,10 +780,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return references;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getReturnValue(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -863,10 +787,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public VariableReference getReturnValue(int position) {
         return getStatement(position).getReturnValue();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getStatement(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -880,10 +800,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.get(position);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#hasStatement(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -892,10 +808,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.size() > position && position >= 0;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#hasAssertions()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -903,10 +815,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public boolean hasAssertions() {
         return statements.stream().anyMatch(Statement::hasAssertions);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#hasCastableObject(java.lang.reflect.Type)
-     */
 
     /**
      * {@inheritDoc}
@@ -918,21 +826,11 @@ public class DefaultTestCase implements TestCase, Serializable {
 
     /**
      * {@inheritDoc}
-     *
-     * <p>
-     * Equality check
      */
-    // public boolean equals(TestCase t) {
-    // return statements.size() == t.statements.size() && isPrefix(t);
-    // }
     @Override
     public int hashCode() {
         return statements.hashCode();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#hasObject(java.lang.reflect.Type, int)
-     */
 
     /**
      * {@inheritDoc}
@@ -950,10 +848,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#hasReferences(org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -993,10 +887,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.stream().allMatch(Statement::isAccessible);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#isEmpty()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1014,10 +904,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public void setFailing() {
         isFailing = true;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#isPrefix(org.evosuite.testcase.DefaultTestCase)
-     */
 
     /**
      * {@inheritDoc}
@@ -1042,10 +928,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return unstable;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#isValid()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1057,10 +939,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return true;
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Iterable#iterator()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1068,10 +946,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public Iterator<Statement> iterator() {
         return statements.iterator();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#remove(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -1084,19 +958,12 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
         statements.remove(position);
         assert (isValid());
-        // for(Statement s : statements) {
-        // for(Asss.assertions)
-        // }
     }
 
     @Override
     public void removeAssertion(Assertion assertion) {
         statements.forEach(s -> s.removeAssertion(assertion));
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#removeAssertions()
-     */
 
     /**
      * {@inheritDoc}
@@ -1183,50 +1050,61 @@ public class DefaultTestCase implements TestCase, Serializable {
     public void removeDownCasts() {
         for (Statement s : statements) {
             if (s instanceof MethodStatement) {
-                MethodStatement ms = (MethodStatement) s;
-                VariableReference retVal = s.getReturnValue();
-                Class<?> variableClass = retVal.getVariableClass();
-                Class<?> methodReturnClass = ms.getMethod().getRawGeneratedType();
-                if (!variableClass.equals(methodReturnClass) && methodReturnClass.isAssignableFrom(variableClass)) {
-                    logger.debug("Found downcast from {} to {}", methodReturnClass.getName(), variableClass);
-                    if (assertionsNeedDownCast(ms, retVal, methodReturnClass)) {
-                        return;
-                    }
-                    for (VariableReference ref : getReferences(retVal)) {
-                        Statement usageStatement = statements.get(ref.getStPosition());
-                        if (assertionsNeedDownCast(usageStatement, retVal, methodReturnClass)) {
-                            return;
-                        }
-                        if (usageStatement instanceof MethodStatement) {
-                            if (methodNeedsDownCast((MethodStatement) usageStatement, retVal, methodReturnClass)) {
-                                return;
-                            }
-                        } else if (usageStatement instanceof ConstructorStatement) {
-                            if (constructorNeedsDownCast((ConstructorStatement) usageStatement, retVal, methodReturnClass)) {
-                                return;
-                            }
-
-                        } else if (usageStatement instanceof FieldStatement) {
-                            if (fieldNeedsDownCast((FieldStatement) usageStatement, retVal, methodReturnClass)) {
-                                return;
-                            }
-                        }
-                        if (ref.isFieldReference()) {
-                            if (fieldNeedsDownCast((FieldReference) ref, retVal, methodReturnClass)) {
-                                return;
-                            }
-                        }
-                    }
-                    logger.debug("Downcast not needed, replacing with {}", ms.getMethod().getReturnType());
-                    retVal.setType(ms.getMethod().getReturnType());
-                }
+                checkAndRemoveDownCast((MethodStatement) s);
             }
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#replace(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
-     */
+    private void checkAndRemoveDownCast(MethodStatement ms) {
+        VariableReference retVal = ms.getReturnValue();
+        Class<?> variableClass = retVal.getVariableClass();
+        Class<?> methodReturnClass = ms.getMethod().getRawGeneratedType();
+
+        if (!variableClass.equals(methodReturnClass) && methodReturnClass.isAssignableFrom(variableClass)) {
+            logger.debug("Found downcast from {} to {}", methodReturnClass.getName(), variableClass);
+            if (isDownCastNeeded(ms, retVal, methodReturnClass)) {
+                return;
+            }
+            logger.debug("Downcast not needed, replacing with {}", ms.getMethod().getReturnType());
+            retVal.setType(ms.getMethod().getReturnType());
+        }
+    }
+
+    private boolean isDownCastNeeded(MethodStatement ms, VariableReference retVal, Class<?> methodReturnClass) {
+        if (assertionsNeedDownCast(ms, retVal, methodReturnClass)) {
+            return true;
+        }
+        for (VariableReference ref : getReferences(retVal)) {
+            Statement usageStatement = statements.get(ref.getStPosition());
+            if (assertionsNeedDownCast(usageStatement, retVal, methodReturnClass)) {
+                return true;
+            }
+            if (usageNeedsDownCast(usageStatement, ref, retVal, methodReturnClass)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean usageNeedsDownCast(Statement usageStatement, VariableReference ref, VariableReference retVal, Class<?> methodReturnClass) {
+        if (usageStatement instanceof MethodStatement) {
+            if (methodNeedsDownCast((MethodStatement) usageStatement, retVal, methodReturnClass)) {
+                return true;
+            }
+        } else if (usageStatement instanceof ConstructorStatement) {
+            if (constructorNeedsDownCast((ConstructorStatement) usageStatement, retVal, methodReturnClass)) {
+                return true;
+            }
+        } else if (usageStatement instanceof FieldStatement) {
+            if (fieldNeedsDownCast((FieldStatement) usageStatement, retVal, methodReturnClass)) {
+                return true;
+            }
+        }
+        if (ref.isFieldReference()) {
+            return fieldNeedsDownCast((FieldReference) ref, retVal, methodReturnClass);
+        }
+        return false;
+    }
 
     /**
      * {@inheritDoc}
@@ -1249,10 +1127,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         isFailing = failing;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#setStatement(org.evosuite.testcase.Statement, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1267,10 +1141,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public void setUnstable(boolean unstable) {
         this.unstable = unstable;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#size()
-     */
 
     /**
      * {@inheritDoc}
@@ -1288,10 +1158,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return this.size() + this.getAssertions().size();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#toCode()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1301,10 +1167,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         accept(visitor);
         return visitor.getCode();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#toCode(java.util.Map)
-     */
 
     /**
      * {@inheritDoc}
@@ -1316,10 +1178,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         accept(visitor);
         return visitor.getCode();
     }
-
-    /* (non-Javadoc)
-     * @see java.lang.Object#toString()
-     */
 
     /**
      * {@inheritDoc}
