@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.evosuite.testcase.variable;
 
 import org.evosuite.testcase.TestCase;
@@ -33,7 +34,7 @@ public class NullReference extends VariableReferenceImpl {
     private static final long serialVersionUID = -6172885297590386463L;
 
     /**
-     * <p>Constructor for NullReference.</p>
+     * Constructor for NullReference.
      *
      * @param type     a {@link java.lang.reflect.Type} object.
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.

@@ -209,7 +209,8 @@ public class FieldReference extends VariableReferenceImpl {
                     + value + " on object " + sourceObject + ": " + e, e);
             throw e;
         } catch (IllegalAccessException e) {
-            logger.error("Error while assigning field: " + field.getField().toString()
+            logger.error("Error while assigning field: "
+                    + field.getField().toString()
                     + " of type: " + field.getField().getType().getCanonicalName()
                     + " " + e, e);
             throw new EvosuiteError(e);

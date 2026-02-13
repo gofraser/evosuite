@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.evosuite.testcase.variable;
 
 import org.evosuite.Properties;
@@ -44,7 +45,7 @@ public class ArrayLengthSymbolicUtil {
     /**
      * Creates the expression for an array length.
      *
-     * @param length the length.
+     * @param length                  the length.
      * @param arraySymbolicLengthName the symbolic length name.
      * @return the built integer value expression.
      */

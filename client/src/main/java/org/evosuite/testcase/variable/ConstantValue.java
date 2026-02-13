@@ -40,6 +40,8 @@ public class ConstantValue extends VariableReferenceImpl {
 
     private static final long serialVersionUID = -3760942087575495415L;
 
+    private Object value;
+
     /**
      * Constructor for ConstantValue.
      *
@@ -84,6 +86,9 @@ public class ConstantValue extends VariableReferenceImpl {
         return ret;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public VariableReference clone(TestCase newTestCase) {
         Statement st = newTestCase.getStatement(getStPosition());
@@ -94,8 +99,6 @@ public class ConstantValue extends VariableReferenceImpl {
         }
         throw new IllegalArgumentException("Constant value not defined in new test");
     }
-
-    private Object value;
 
     /**
      * Getter for the field <code>value</code>.
@@ -176,15 +179,18 @@ public class ConstantValue extends VariableReferenceImpl {
         if (r instanceof ConstantValue) {
             ConstantValue v = (ConstantValue) r;
             if (this.value == null) {
-                return v.getValue() == null;
+                return v.value == null;
             } else {
-                return this.value.equals(v.getValue());
+                return this.value.equals(v.value);
             }
         }
 
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void changeClassLoader(ClassLoader loader) {
         super.changeClassLoader(loader);

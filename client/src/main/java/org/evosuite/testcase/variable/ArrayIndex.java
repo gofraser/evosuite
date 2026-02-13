@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.evosuite.testcase.variable;
 
 import com.googlecode.gentyref.GenericTypeReflector;
@@ -459,10 +460,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         }
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#hashCode()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -476,10 +473,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         result = prime * result + ((indices == null) ? 0 : indices.hashCode());
         return result;
     }
-
-    /* (non-Javadoc)
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}

@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.evosuite.testcase.variable;
 
 import org.apache.commons.lang3.ArrayUtils;
@@ -143,7 +144,6 @@ public class ArrayReference extends VariableReferenceImpl {
             otherArray.setLengths(lengths);
             return otherArray;
         } else {
-
             // FIXME: This part should be redundant
 
             if (newRef.getComponentType() != null) {
