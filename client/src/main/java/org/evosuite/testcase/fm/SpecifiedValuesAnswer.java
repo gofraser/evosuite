@@ -27,8 +27,7 @@ import org.mockito.stubbing.Answer;
  * specified each time an answer is queried.
  * If there are more queries than values, the last value will be returned.
  *
- * <p>
- * Created by Andrea Arcuri on 27/07/15.
+ * <p>Created by Andrea Arcuri on 27/07/15.
  */
 @Deprecated // there is easier way to do it in Mockito, ie "Stubbing consecutive calls (iterator-style stubbing)"
 public class SpecifiedValuesAnswer<T> implements Answer<T> {
