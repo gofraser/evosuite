@@ -294,6 +294,17 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         return (GenericMethod) super.getGenericInstantiation(calleeType);
     }
 
+    /**
+     * Checks whether there are conflicting overloads for this method when called with the given parameter types.
+     * <p>
+     * This method returns {@code true} if there is another method with the same name (but different parameters)
+     * AND the provided parameters do not exactly match the current method's parameter types.
+     * This suggests that generating a call with these parameters might result in ambiguity or calling the wrong overload,
+     * so casts might be necessary.
+     *
+     * @param parameters the list of arguments to check against
+     * @return {@code true} if there is a potential overloading conflict, {@code false} otherwise.
+     */
     @Override
     public boolean isOverloaded(List<VariableReference> parameters) {
         String methodName = getName();
@@ -338,10 +349,6 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         return method.getGenericParameterTypes().length;
     }
 
-    public boolean isGenericMethod() {
-        return getNumParameters() > 0;
-    }
-
 
     @Override
     public String getNameWithDescriptor() {
@@ -372,11 +379,10 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         ois.defaultReadObject();
 
         // Read/initialize additional fields
+        // The method class must be loaded using the SUT classloader to ensure we get the instrumented version
+        // if applicable, and to match the execution environment.
         Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(
                 (String) ois.readObject());
-
-        // TODO: What was the point of this??
-        // methodClass = TestCluster.classLoader.loadClass(methodClass.getName());
 
         String methodName = (String) ois.readObject();
         String methodDesc = (String) ois.readObject();
@@ -402,42 +408,22 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         try {
             Class<?> oldClass = method.getDeclaringClass();
             Class<?> newClass = loader.loadClass(oldClass.getName());
-            for (Method newMethod : TestClusterUtils.getMethods(newClass)) {
-                if (newMethod.getName().equals(this.method.getName())) {
-                    boolean equals = true;
-                    Class<?>[] oldParameters = this.method.getParameterTypes();
-                    Class<?>[] newParameters = newMethod.getParameterTypes();
-                    if (oldParameters.length != newParameters.length) {
-                        continue;
-                    }
+            String methodName = method.getName();
+            String methodDesc = org.objectweb.asm.Type.getMethodDescriptor(method);
 
-                    if (!newMethod.getDeclaringClass().getName().equals(method.getDeclaringClass().getName())) {
-                        continue;
-                    }
-
-                    if (!newMethod.getReturnType().getName().equals(method.getReturnType().getName())) {
-                        continue;
-                    }
-
-
-                    for (int i = 0; i < newParameters.length; i++) {
-                        if (!oldParameters[i].getName().equals(newParameters[i].getName())) {
-                            equals = false;
-                            break;
-                        }
-                    }
-                    if (equals) {
-                        this.method = newMethod;
-                        this.method.setAccessible(true);
-                        return;
-                    }
+            for (Method newMethod : newClass.getDeclaredMethods()) {
+                if (newMethod.getName().equals(methodName)
+                        && org.objectweb.asm.Type.getMethodDescriptor(newMethod).equals(methodDesc)) {
+                    this.method = newMethod;
+                    this.method.setAccessible(true);
+                    return;
                 }
             }
-            LoggingUtils.getEvoLogger().info("Method not found - keeping old class loader ");
+            LoggingUtils.getEvoLogger().info("Method not found in new class loader: " + methodName + methodDesc);
         } catch (ClassNotFoundException e) {
             LoggingUtils.getEvoLogger().info("Class not found - keeping old class loader ", e);
         } catch (SecurityException e) {
-            LoggingUtils.getEvoLogger().info("Class not found - keeping old class loader ", e);
+            LoggingUtils.getEvoLogger().info("Security exception - keeping old class loader ", e);
         }
     }
 
@@ -463,6 +449,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     @Override
     public int hashCode() {
+        // Note: owner is intentionally ignored for hashCode/equals to allow methods to match across different generic contexts.
         final int prime = 31;
         int result = 1;
         result = prime * result + ((method == null) ? 0 : method.hashCode());
@@ -480,6 +467,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         if (getClass() != obj.getClass()) {
             return false;
         }
+        // Note: owner is intentionally ignored for hashCode/equals to allow methods to match across different generic contexts.
         GenericMethod other = (GenericMethod) obj;
         if (method == null) {
             return other.method == null;
