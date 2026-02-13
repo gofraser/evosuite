@@ -179,10 +179,11 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
             }
             /*
                         if (genericClass.hasWildcardTypes()) {
-                            Class<?> bound = GenericTypeReflector.erase(TypeUtils.getImplicitUpperBounds((WildcardType) typeParameter)[0]);
+                            Class<?> bound = GenericTypeReflector.erase(TypeUtils
+                                    .getImplicitUpperBounds((WildcardType) typeParameter)[0]);
                             if (!bound.equals(Object.class)) {
                                 Set<Class<?>> assignableClasses = TestClusterGenerator.getConcreteClasses(bound,
-                                                                                                          DependencyAnalysis.getInheritanceTree());
+                                        DependencyAnalysis.getInheritanceTree());
                                 statement = new ClassPrimitiveStatement(tc, genericClass,
                                         assignableClasses);
                             } else {
@@ -410,15 +411,13 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
                         // mutateTransformedBoolean(test);
                         this.negate();
 
-                    } else
-                         {
+                    } else {
                         randomize();
                     }
                 } else {
                     randomize();
                 }
-            } else
-                 {
+            } else {
                 delta();
             }
         }

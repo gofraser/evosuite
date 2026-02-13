@@ -37,18 +37,34 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Represents a class literal statement.
+ */
 public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
 
     private static final long serialVersionUID = -2728777640255424791L;
 
     private transient Set<Class<?>> assignableClasses = new LinkedHashSet<>();
 
+    /**
+     * Constructor for ClassPrimitiveStatement.
+     *
+     * @param tc                the test case
+     * @param type              the type
+     * @param assignableClasses the set of assignable classes
+     */
     public ClassPrimitiveStatement(TestCase tc, GenericClass<?> type,
                                    Set<Class<?>> assignableClasses) {
         super(tc, type, Randomness.choice(assignableClasses));
         this.assignableClasses.addAll(assignableClasses);
     }
 
+    /**
+     * Constructor for ClassPrimitiveStatement.
+     *
+     * @param tc    the test case
+     * @param value the class value
+     */
     public ClassPrimitiveStatement(TestCase tc, Class<?> value) {
         //        super(tc, new GenericClass(Class.class).getWithWildcardTypes(), value);
         super(
@@ -59,11 +75,17 @@ public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
         this.assignableClasses.add(value);
     }
 
+    /**
+     * Constructor for ClassPrimitiveStatement.
+     *
+     * @param tc the test case
+     */
     public ClassPrimitiveStatement(TestCase tc) {
         //        super(tc, new GenericClass(Class.class).getWithWildcardTypes(),
         super(
                 tc,
-                GenericClassFactory.get(Class.class).getWithParameterTypes(new Type[]{Properties.getTargetClassAndDontInitialise()}),
+                GenericClassFactory.get(Class.class)
+                        .getWithParameterTypes(new Type[]{Properties.getTargetClassAndDontInitialise()}),
                 Properties.getTargetClassAndDontInitialise());
         //        super(tc, new GenericClass(Properties.getTargetClass()),
         //                Properties.getTargetClass());

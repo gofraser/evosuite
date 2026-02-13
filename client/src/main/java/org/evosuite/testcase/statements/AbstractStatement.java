@@ -46,8 +46,6 @@ import static java.util.stream.Collectors.joining;
 
 /**
  * Abstract superclass of test case statements.
- *
- * @author Gordon Fraser
  */
 public abstract class AbstractStatement implements Statement, Serializable {
 
@@ -84,7 +82,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     private static final long serialVersionUID = 8993506743384548704L;
 
     /**
-     * Constant <code>logger</code>
+     * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(AbstractStatement.class);
 
@@ -103,9 +101,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     protected String comment = "";
 
     /**
-     * <p>
      * Constructor for AbstractStatement.
-     * </p>
      *
      * @param tc     a {@link org.evosuite.testcase.TestCase} object.
      * @param retval a {@link org.evosuite.testcase.variable.VariableReference} object.
@@ -122,9 +118,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /**
-     * <p>
      * Constructor for AbstractStatement.
-     * </p>
      *
      * @param tc   a {@link org.evosuite.testcase.TestCase} object.
      * @param type a {@link java.lang.reflect.Type} object.
@@ -170,11 +164,11 @@ public abstract class AbstractStatement implements Statement, Serializable {
              * Signal an error in evosuite code and are therefore always thrown
              */
             throw e;
-        } catch (Error | RuntimeException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+        } catch (Error | RuntimeException | InstantiationException | IllegalAccessException
+                | InvocationTargetException e) {
             if (isAssignableFrom(e, code.throwableExceptions())) {
                 throw e;
-            } else
-                 {
+            } else {
                 return e;
             }
         }
@@ -187,8 +181,8 @@ public abstract class AbstractStatement implements Statement, Serializable {
      * in throwableClasses.
      *
      * @param concreteThrowable true if concreteThrowable is assignable
-     * @param throwableClasses the throwable classes.
-     * @return .
+     * @param throwableClasses  the throwable classes.
+     * @return true if assignable
      */
     private boolean isAssignableFrom(Throwable concreteThrowable,
                                      Set<Class<? extends Throwable>> throwableClasses) {
@@ -197,7 +191,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#references(org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.testcase.StatementInterface#references(VariableReference)
      */
 
     /**
@@ -209,9 +203,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /**
-     * <p>
-     * getAssertionReferences
-     * </p>
+     * getAssertionReferences.
      *
      * @return a {@link java.util.Set} object.
      */
@@ -224,7 +216,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#SetRetval(org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.testcase.StatementInterface#SetRetval(VariableReference)
      */
 
     /**
@@ -273,7 +265,8 @@ public abstract class AbstractStatement implements Statement, Serializable {
      */
     @Override
     public final Statement clone() {
-        throw new UnsupportedOperationException("Statement.clone() is not supported. Use Statement.clone(TestCase) instead.");
+        throw new UnsupportedOperationException("Statement.clone() is not supported."
+                + " Use Statement.clone(TestCase) instead.");
     }
 
     /* (non-Javadoc)
@@ -326,10 +319,11 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /**
-     * {@inheritDoc}
+     * Create copies of all attached assertions.
      *
-     * <p>
-     * Create copies of all attached assertions
+     * @param newTestCase the testcase in which this statement will be inserted
+     * @param offset      a int.
+     * @return a {@link java.util.Set} object.
      */
     @Override
     public Set<Assertion> copyAssertions(TestCase newTestCase, int offset) {
@@ -355,7 +349,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#addAssertion(org.evosuite.assertion.Assertion)
+     * @see org.evosuite.testcase.StatementInterface#addAssertion(Assertion)
      */
 
     /**
@@ -416,7 +410,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#removeAssertion(org.evosuite.assertion.Assertion)
+     * @see org.evosuite.testcase.StatementInterface#removeAssertion(Assertion)
      */
 
     /**
@@ -452,9 +446,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /**
-     * <p>
-     * getExceptionClass
-     * </p>
+     * getExceptionClass.
      *
      * @param t a {@link java.lang.Throwable} object.
      * @return a {@link java.lang.Class} object.
@@ -502,7 +494,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#mutate(org.evosuite.testcase.TestCase)
+     * @see org.evosuite.testcase.StatementInterface#mutate(TestCase, TestFactory)
      */
 
     /**
@@ -514,7 +506,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#clone(org.evosuite.testcase.TestCase)
+     * @see org.evosuite.testcase.StatementInterface#clone(TestCase)
      */
 
     /**
@@ -542,9 +534,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /**
-     * <p>
-     * negate
-     * </p>
+     * negate.
      */
     public void negate() {
     }

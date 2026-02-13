@@ -110,24 +110,21 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
     private static Class<?> retrieveEnumClass(Class<?> clazz) {
         if (clazz.isEnum()) {
             return clazz;
-        } else  {
-            if (clazz.getEnclosingClass() != null && clazz.getEnclosingClass().isEnum())
-            return clazz.getEnclosingClass();
-        else  {
-            if (clazz.getDeclaringClass() != null && clazz.getDeclaringClass().isEnum())
-            return clazz.getDeclaringClass();
-        else
-             {
-            throw new RuntimeException("Cannot find enum class: " + clazz);
-        }
-        }
+        } else {
+            if (clazz.getEnclosingClass() != null && clazz.getEnclosingClass().isEnum()) {
+                return clazz.getEnclosingClass();
+            } else {
+                if (clazz.getDeclaringClass() != null && clazz.getDeclaringClass().isEnum()) {
+                    return clazz.getDeclaringClass();
+                } else {
+                    throw new RuntimeException("Cannot find enum class: " + clazz);
+                }
+            }
         }
     }
 
     /**
-     * <p>
-     * Getter for the field <code>enumClass</code>.
-     * </p>
+     * getEnumClass.
      *
      * @return a {@link java.lang.Class} object.
      */
@@ -136,9 +133,7 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
     }
 
     /**
-     * <p>
-     * getEnumValues
-     * </p>
+     * getEnumValues.
      *
      * @return a {@link java.util.List} object.
      */
@@ -240,14 +235,15 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
             enumClass = (Class<T>) loader.loadClass(enumClass.getName());
             constants = enumClass.getEnumConstants(); // wtf
             if (constants == null) {
-                /**
+                /*
                  * I am not sure why, but sometimes it looks as getEnumConstants()
                  * returns a null value even when the enumClass is actually an enum
                  * with values. So, the hack I found was simply to retry this again.
                  */
                 constants = enumClass.getEnumConstants();
             }
-            //TODO: the hack above has a drawback: sometimes the new constant array doesn't contain the element at constants[pos]
+            // TODO: the hack above has a drawback:
+            // sometimes the new constant array doesn't contain the element at constants[pos]
             if (constants.length > pos) {
                 value = constants[pos];
             }

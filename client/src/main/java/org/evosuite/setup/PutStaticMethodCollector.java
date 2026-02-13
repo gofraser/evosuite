@@ -40,6 +40,13 @@ public class PutStaticMethodCollector {
         private final String methodName;
         private final String desc;
 
+        /**
+         * Constructor for MethodIdentifier.
+         *
+         * @param className the class name
+         * @param methodName the method name
+         * @param desc the method descriptor
+         */
         public MethodIdentifier(String className, String methodName, String desc) {
             this.className = className;
             this.methodName = methodName;
@@ -130,6 +137,11 @@ public class PutStaticMethodCollector {
 
     private final Map<String, Set<String>> getStaticFields;
 
+    /**
+     * Collect all methods that update static fields.
+     *
+     * @return the set of method identifiers
+     */
     @SuppressWarnings("unchecked")
     public Set<MethodIdentifier> collectMethods() {
 

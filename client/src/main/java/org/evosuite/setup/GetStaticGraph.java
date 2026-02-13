@@ -191,7 +191,7 @@ public class GetStaticGraph {
 
     /**
      * Returns a classname->set(fieldname) with those static fields reached by
-     * static methods (included &lt;clinit&gt;)
+     * static methods (included &lt;clinit&gt;).
      *
      * @return the map of static fields
      */

@@ -114,9 +114,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * <p>
      * Getter for the field <code>constructor</code>.
-     * </p>
      *
      * @return a {@link java.lang.reflect.Constructor} object.
      */
@@ -125,9 +123,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * <p>
      * Setter for the field <code>constructor</code>.
-     * </p>
      *
      * @param constructor a {@link java.lang.reflect.Constructor} object.
      */
@@ -137,9 +133,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * <p>
-     * getReturnType
-     * </p>
+     * getReturnType.
      *
      * @param clazz a {@link java.lang.Class} object.
      * @return a {@link java.lang.String} object.
@@ -187,12 +181,15 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                                     + ". Error encountered: " + e);
                             throw new EvosuiteError(e);
                         }
-                        if (inputs[i] != null && !TypeUtils.isAssignable(inputs[i].getClass(), parameterTypes[i])) {
+                        if (inputs[i] != null && !TypeUtils.isAssignable(inputs[i].getClass(),
+                                parameterTypes[i])) {
                             // TODO: This used to be a check of the declared type, but the problem is that
                             //       Generic types are not updated during execution, so this may fail:
                             //!parameterVar.isAssignableTo(parameterTypes[i])) {
                             throw new CodeUnderTestException(
-                                    new UncompilableCodeException("Cannot assign " + parameterVar.getVariableClass().getName() + " to " + parameterTypes[i]));
+                                    new UncompilableCodeException("Cannot assign "
+                                            + parameterVar.getVariableClass().getName()
+                                            + " to " + parameterTypes[i]));
                         }
                         if (inputs[i] == null && constructor.getConstructor().getParameterTypes()[i].isPrimitive()) {
                             throw new CodeUnderTestException(new NullPointerException());
@@ -202,7 +199,8 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
                     // If this is a non-static member class, the first parameter must not be null
                     if (constructor.getConstructor().getDeclaringClass().isMemberClass()
-                            && !Modifier.isStatic(constructor.getConstructor().getDeclaringClass().getModifiers())) {
+                            && !Modifier.isStatic(constructor.getConstructor().getDeclaringClass()
+                            .getModifiers())) {
                         if (inputs[0] == null) {
                             // throw new NullPointerException();
                             throw new CodeUnderTestException(new NullPointerException());
@@ -234,11 +232,10 @@ public class ConstructorStatement extends EntityWithParametersStatement {
             if (logger.isDebugEnabled()) {
                 try {
                     logger.debug("Exception thrown in constructor: " + e.getCause());
-                }
-                //this can happen if SUT throws exception on toString
-                catch (Exception ex) {
-                    logger.debug("Exception thrown in constructor and SUT gives issue when calling e.getCause()",
-                            ex);
+                } catch (Exception ex) {
+                    //this can happen if SUT throws exception on toString
+                    logger.debug("Exception thrown in constructor and SUT gives issue "
+                            + "when calling e.getCause()", ex);
                 }
             }
         }
@@ -250,22 +247,20 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      */
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
-        ArrayList<VariableReference> new_params = new ArrayList<>();
+        ArrayList<VariableReference> newParams = new ArrayList<>();
         for (VariableReference r : parameters) {
-            new_params.add(r.copy(newTestCase, offset));
+            newParams.add(r.copy(newTestCase, offset));
         }
 
         AbstractStatement copy = new ConstructorStatement(newTestCase,
-                constructor.copy(), new_params);
+                constructor.copy(), newParams);
 
         return copy;
     }
 
 
     /**
-     * <p>
-     * getParameterReferences
-     * </p>
+     * getParameterReferences.
      *
      * @return a {@link java.util.List} object.
      */
@@ -353,7 +348,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      * @param factory the factory.
      */
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.AbstractStatement#mutate(org.evosuite.testcase.TestCase, org.evosuite.testcase.TestFactory)
+     * @see org.evosuite.testcase.AbstractStatement#mutate(TestCase, TestFactory)
      */
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
@@ -366,10 +361,10 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         if (parameters.isEmpty()) {
             return false;
         }
-        double pParam = 1.0 / parameters.size();
+        double parameterProbability = 1.0 / parameters.size();
         boolean changed = false;
         for (int numParameter = 0; numParameter < parameters.size(); numParameter++) {
-            if (Randomness.nextDouble() < pParam) {
+            if (Randomness.nextDouble() < parameterProbability) {
                 if (mutateParameter(test, numParameter)) {
                     changed = true;
                 }
@@ -490,7 +485,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      * Returns a list of the parameter names of a method using reflection. The list is in order of
      * declaration in the method.
      *
-     * @return List<String>
+     * @return {@code List<String>}
      */
     public List<String> obtainParameterNameListInOrder() {
         final Parameter[] parameters = this.constructor.getParameters();

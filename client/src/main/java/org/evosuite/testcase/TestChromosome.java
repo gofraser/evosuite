@@ -111,8 +111,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Create a deep copy of the chromosome
+     * <p>Create a deep copy of the chromosome.
      */
     @Override
     public TestChromosome clone() {
@@ -170,8 +169,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Single point cross over
+     * <p>Single point cross over.
      */
     @Override
     public void crossOver(TestChromosome other, int position1, int position2)
@@ -199,8 +197,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Two chromosomes are equal if their tests are equal
+     * <p>Two chromosomes are equal if their tests are equal.
      */
     @Override
     public boolean equals(Object obj) {
@@ -229,14 +226,27 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         return test.hashCode();
     }
 
+    /**
+     * Returns the mutation history for this chromosome.
+     *
+     * @return a {@link org.evosuite.ga.operators.mutation.MutationHistory} object.
+     */
     public MutationHistory<TestMutationHistoryEntry> getMutationHistory() {
         return mutationHistory;
     }
 
+    /**
+     * Clears the mutation history.
+     */
     public void clearMutationHistory() {
         mutationHistory.clear();
     }
 
+    /**
+     * Checks if this chromosome has any relevant mutations for local search.
+     *
+     * @return true if there are relevant mutations.
+     */
     public boolean hasRelevantMutations() {
 
         if (mutationHistory.isEmpty()) {
@@ -295,6 +305,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * {@inheritDoc}
      *
      * @param objective the objective.
+     * @return true if the local search was successful.
      */
     @Override
     public boolean localSearch(LocalSearchObjective<TestChromosome> objective) {
@@ -306,8 +317,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Each statement is mutated with probability 1/l
+     * <p>Each statement is mutated with probability 1/l.
      */
     @Override
     public void mutate() {
@@ -388,7 +398,8 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                 int pos = st.getPosition();
                 logger.debug("Generating parameters for mock call");
                 // Added 'null' as additional parameter - fix for @NotNull annotations issue on evo mailing list
-                List<VariableReference> refs = TestFactory.getInstance().satisfyParameters(test, null, missing, null, pos, 0, true, false, true);
+                List<VariableReference> refs = TestFactory.getInstance().satisfyParameters(test, null, missing,
+                        null, pos, 0, true, false, true);
                 fms.addMissingInputs(refs);
             } catch (Exception e) {
                 //shouldn't really happen because, in the worst case, we could create mocks for missing parameters
@@ -433,7 +444,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * Each statement is deleted with probability 1/length.
      *
-     * @return .
+     * @return true if the chromosome was changed.
      */
     private boolean mutationDelete() {
 
@@ -484,7 +495,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * Each statement is replaced with probability 1/length.
      *
-     * @return .
+     * @return true if the chromosome was changed.
      */
     private boolean mutationChange() {
         boolean changed = false;
@@ -546,7 +557,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * With exponentially decreasing probability, insert statements at random
      * position.
      *
-     * @return .
+     * @return true if the chromosome was changed.
      */
     public boolean mutationInsert() {
         boolean changed = false;
@@ -575,7 +586,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * Collect path constraints and negate one of them to derive new integer
      * inputs.
      *
-     * @return .
+     * @return true if the chromosome was changed.
      */
     private boolean mutationConcolic() {
         logger.info("Applying DSE mutation");
@@ -623,8 +634,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * The size of a chromosome is the length of its test case
+     * <p>The size of a chromosome is the length of its test case.
      */
     @Override
     public int size() {
@@ -655,11 +665,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * <p>
-     * hasException
-     * </p>
+     * <p>hasException.</p>
      *
-     * @return a boolean.
+     * @return true if an exception was thrown.
      */
     public boolean hasException() {
         return lastExecutionResult != null && !lastExecutionResult.noThrownExceptions();
@@ -716,24 +724,29 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * Clear the list of secondary objectives.
      *
-     * <p>
-     * This method should be called to avoid state pollution when running unit tests involving this class.
+     * <p>This method should be called to avoid state pollution when running unit tests involving this class.
      */
     public static void clearSecondaryObjectives() {
         secondaryObjectives.clear();
     }
 
 
+    /**
+     * Converts this chromosome to a test suite.
+     *
+     * @return a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
+     */
     public TestSuiteChromosome toSuite() {
         return Stream.of(this).collect(toTestSuiteCollector);
     }
 
-    public final static TestChromosomeCollector toTestSuiteCollector = new TestChromosomeCollector();
+    public static final TestChromosomeCollector toTestSuiteCollector = new TestChromosomeCollector();
 
-    public static class TestChromosomeCollector implements Collector<TestChromosome, TestSuiteChromosome, TestSuiteChromosome> {
-        private final static Set<Characteristics> characteristics =
-                Collections.unmodifiableSet(new HashSet<>(Arrays.asList(Characteristics.CONCURRENT, Characteristics.IDENTITY_FINISH,
-                        Characteristics.UNORDERED)));
+    public static class TestChromosomeCollector
+            implements Collector<TestChromosome, TestSuiteChromosome, TestSuiteChromosome> {
+        private static final Set<Characteristics> characteristics =
+                Collections.unmodifiableSet(new HashSet<>(Arrays.asList(Characteristics.CONCURRENT,
+                        Characteristics.IDENTITY_FINISH, Characteristics.UNORDERED)));
 
         @Override
         public Supplier<TestSuiteChromosome> supplier() {

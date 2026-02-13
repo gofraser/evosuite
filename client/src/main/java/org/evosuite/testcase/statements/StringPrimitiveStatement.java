@@ -35,9 +35,7 @@ import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 
 /**
- * <p>
  * StringPrimitiveStatement class.
- * </p>
  *
  * @author fraser
  */
@@ -92,11 +90,11 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         return s.substring(0, pos) + c + s.substring(pos);
     }
 
-    private String StringInsert(String s, int pos) {
-        final double ALPHA = 0.5;
+    private String stringInsert(String s, int pos) {
+        final double alpha = 0.5;
         int count = 1;
 
-        while (Randomness.nextDouble() <= Math.pow(ALPHA, count)
+        while (Randomness.nextDouble() <= Math.pow(alpha, count)
                 && s.length() < Properties.STRING_LENGTH) {
             count++;
             // logger.info("Before insert: '"+s+"'");
@@ -118,23 +116,23 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
             return;
         }
 
-        final double P2 = 1d / 3d;
-        double P = 1d / s.length();
+        final double p2 = 1d / 3d;
+        double p = 1d / s.length();
         // Delete
-        if (Randomness.nextDouble() < P2) {
+        if (Randomness.nextDouble() < p2) {
             for (int i = s.length(); i > 0; i--) {
-                if (Randomness.nextDouble() < P) {
+                if (Randomness.nextDouble() < p) {
                     // logger.info("Before remove at "+i+": '"+s+"'");
                     s = removeCharAt(s, i - 1);
                     // logger.info("After remove: '"+s+"'");
                 }
             }
         }
-        P = 1d / s.length();
+        p = 1d / s.length();
         // Change
-        if (Randomness.nextDouble() < P2) {
+        if (Randomness.nextDouble() < p2) {
             for (int i = 0; i < s.length(); i++) {
-                if (Randomness.nextDouble() < P) {
+                if (Randomness.nextDouble() < p) {
                     // logger.info("Before change: '"+s+"'");
                     s = replaceCharAt(s, i, Randomness.nextChar());
                     // logger.info("After change: '"+s+"'");
@@ -143,14 +141,14 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         }
 
         // Insert
-        if (Randomness.nextDouble() < P2) {
+        if (Randomness.nextDouble() < p2) {
             // for(int i = 0; i < s.length(); i++) {
             // if(Randomness.nextDouble() < P) {
             int pos = 0;
             if (s.length() > 0) {
                 pos = Randomness.nextInt(s.length());
             }
-            s = StringInsert(s, pos);
+            s = stringInsert(s, pos);
             // }
             // }
         }
@@ -163,9 +161,7 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
      */
 
     /**
-     * <p>
-     * increment
-     * </p>
+     * increment.
      */
     public void increment() {
         String s = value;
@@ -181,10 +177,6 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         value = s;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#randomize()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -197,8 +189,7 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
             String candidateString = constantPool.getRandomString();
             if (Properties.MAX_STRING > 0 && candidateString.length() < Properties.MAX_STRING) {
                 value = candidateString;
-            } else
-                 {
+            } else {
                 value = Randomness.nextString(Randomness.nextInt(Properties.STRING_LENGTH));
             }
         }

@@ -61,24 +61,24 @@ public class TestCaseMinimizer {
      * @return True if something was deleted
      */
     public static boolean removeUnusedVariables(TestCase t) {
-        List<Integer> to_delete = new ArrayList<>();
-        boolean has_deleted = false;
+        List<Integer> toDelete = new ArrayList<>();
+        boolean hasDeleted = false;
 
         int num = 0;
         for (Statement s : t) {
             VariableReference var = s.getReturnValue();
             if (!t.hasReferences(var)) {
-                to_delete.add(num);
-                has_deleted = true;
+                toDelete.add(num);
+                hasDeleted = true;
             }
             num++;
         }
-        to_delete.sort(Collections.reverseOrder());
-        for (Integer position : to_delete) {
+        toDelete.sort(Collections.reverseOrder());
+        for (Integer position : toDelete) {
             t.remove(position);
         }
 
-        return has_deleted;
+        return hasDeleted;
     }
 
     private static boolean isWorse(FitnessFunction<TestChromosome> fitness,
@@ -179,11 +179,10 @@ public class TestCaseMinimizer {
         }
 
         //TODO: add back this check
-        assert (fitnessFunction.isMaximizationFunction() ?
-                fitnessFunction.getFitness(c) >= fitness : fitnessFunction.getFitness(c) <= fitness)
-                :
-                "Minimization worsened " + fitnessFunction.getClass().getName() + " fitness from " + fitness +
-                        " to " + fitnessFunction.getFitness(c) + " on test " + c.getTestCase().toCode();
+        assert (fitnessFunction.isMaximizationFunction()
+                ? fitnessFunction.getFitness(c) >= fitness : fitnessFunction.getFitness(c) <= fitness)
+                : "Minimization worsened " + fitnessFunction.getClass().getName() + " fitness from " + fitness
+                + " to " + fitnessFunction.getFitness(c) + " on test " + c.getTestCase().toCode();
 
 
         if (Properties.MINIMIZE_VALUES) {

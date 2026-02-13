@@ -75,9 +75,7 @@ public interface Statement {
     Statement clone();
 
     /**
-     * <p>
-     * clone
-     * </p>
+     * clone.
      *
      * @param newTestCase the testcase in which this statement will be inserted
      * @return a {@link Statement} object.
@@ -85,9 +83,7 @@ public interface Statement {
     Statement clone(TestCase newTestCase);
 
     /**
-     * <p>
-     * copy
-     * </p>
+     * copy.
      *
      * @param newTestCase the testcase in which this statement will be inserted
      * @param offset      a int.
@@ -96,9 +92,7 @@ public interface Statement {
     Statement copy(TestCase newTestCase, int offset);
 
     /**
-     * <p>
-     * copyAssertions
-     * </p>
+     * copyAssertions.
      *
      * @param newTestCase the testcase in which this statement will be inserted
      * @param offset      a int.
@@ -107,10 +101,7 @@ public interface Statement {
     Set<Assertion> copyAssertions(TestCase newTestCase, int offset);
 
     /**
-     * {@inheritDoc}
-     *
-     * <p>
-     * Equality check
+     * Equality check.
      */
     @Override
     boolean equals(Object s);
@@ -123,7 +114,7 @@ public interface Statement {
      * @param scope the scope under which the statement is executed
      * @param out   a {@link java.io.PrintStream} object.
      * @return the exception that was thrown during execution, or {@code null} if no exception
-     * was thrown
+     *         was thrown
      * @throws java.lang.reflect.InvocationTargetException if any.
      * @throws java.lang.IllegalArgumentException          if any.
      * @throws java.lang.IllegalAccessException            if any.
@@ -181,9 +172,7 @@ public interface Statement {
 
 
     /**
-     * <p>
-     * getDeclaredExceptions
-     * </p>
+     * getDeclaredExceptions.
      *
      * @return a {@link java.util.Set} object.
      */
@@ -197,36 +186,28 @@ public interface Statement {
     int getNumParameters();
 
     /**
-     * <p>
-     * getPosition
-     * </p>
+     * getPosition.
      *
      * @return a int.
      */
     int getPosition();
 
     /**
-     * <p>
-     * getReturnClass
-     * </p>
+     * getReturnClass.
      *
      * @return Raw class of return value
      */
     Class<?> getReturnClass();
 
     /**
-     * <p>
-     * getReturnType
-     * </p>
+     * getReturnType.
      *
      * @return Generic type of return value
      */
     Type getReturnType();
 
     /**
-     * <p>
-     * getReturnValue
-     * </p>
+     * getReturnValue.
      *
      * @return Variable representing return value
      */
@@ -240,18 +221,14 @@ public interface Statement {
     TestCase getTestCase();
 
     /**
-     * <p>
-     * getUniqueVariableReferences
-     * </p>
+     * getUniqueVariableReferences.
      *
      * @return a {@link java.util.List} object.
      */
     List<VariableReference> getUniqueVariableReferences();
 
     /**
-     * <p>
-     * getVariableReferences
-     * </p>
+     * getVariableReferences.
      *
      * @return a {@link java.util.Set} object.
      */
@@ -265,10 +242,7 @@ public interface Statement {
     boolean hasAssertions();
 
     /**
-     * {@inheritDoc}
-     *
-     * <p>
-     * Generate hash code
+     * Generate hash code.
      */
     @Override
     int hashCode();
@@ -312,9 +286,7 @@ public interface Statement {
     boolean isValid();
 
     /**
-     * <p>
-     * mutate
-     * </p>
+     * mutate.
      *
      * @param test    a {@link org.evosuite.testcase.TestCase} object.
      * @param factory a {@link org.evosuite.testcase.TestFactory} object.
@@ -369,9 +341,7 @@ public interface Statement {
     void setAssertions(Set<Assertion> assertions);
 
     /**
-     * <p>
-     * setRetval
-     * </p>
+     * setRetval.
      *
      * @param newRetVal a {@link org.evosuite.testcase.variable.VariableReference} object.
      */

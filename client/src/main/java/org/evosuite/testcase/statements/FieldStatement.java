@@ -58,14 +58,11 @@ public class FieldStatement extends AbstractStatement {
     protected VariableReference source;
 
     /**
-     * <p>
      * Constructor for FieldStatement.
-     * </p>
      *
      * @param tc     a {@link org.evosuite.testcase.TestCase} object.
-     * @param field  a {@link java.lang.reflect.Field} object.
+     * @param field  a {@link GenericField} object.
      * @param source a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param type   a {@link java.lang.reflect.Type} object.
      */
     public FieldStatement(TestCase tc, GenericField field, VariableReference source) {
         super(tc, new VariableReferenceImpl(tc, field.getFieldType()));
@@ -82,23 +79,21 @@ public class FieldStatement extends AbstractStatement {
      * with this statement. And already existing objects should in the future
      * reference this object.
      *
-     * @param tc      a {@link org.evosuite.testcase.TestCase} object.
-     * @param field   a {@link java.lang.reflect.Field} object.
-     * @param source  a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param ret_var a {@link org.evosuite.testcase.variable.VariableReference} object.
+     * @param tc     a {@link org.evosuite.testcase.TestCase} object.
+     * @param field  a {@link GenericField} object.
+     * @param source a {@link org.evosuite.testcase.variable.VariableReference} object.
+     * @param retVar a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public FieldStatement(TestCase tc, GenericField field, VariableReference source,
-                          VariableReference ret_var) {
-        super(tc, ret_var);
-        assert (tc.size() > ret_var.getStPosition()); //as an old statement should be replaced by this statement
+                          VariableReference retVar) {
+        super(tc, retVar);
+        assert (tc.size() > retVar.getStPosition()); //as an old statement should be replaced by this statement
         this.field = field;
         this.source = source;
     }
 
     /**
-     * <p>
      * Getter for the field <code>source</code>.
-     * </p>
      *
      * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
@@ -110,11 +105,8 @@ public class FieldStatement extends AbstractStatement {
      * Try to replace source of field with all possible choices.
      *
      * @param test the test case.
-     * @param statement the statement.
-     * @param objective the objective.
-     */
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.AbstractStatement#mutate(org.evosuite.testcase.TestCase, org.evosuite.testcase.TestFactory)
+     * @param factory the factory.
+     * @return true if mutated
      */
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
@@ -139,9 +131,7 @@ public class FieldStatement extends AbstractStatement {
     }
 
     /**
-     * <p>
      * Setter for the field <code>source</code>.
-     * </p>
      *
      * @param source a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
@@ -159,9 +149,7 @@ public class FieldStatement extends AbstractStatement {
     }
 
     /**
-     * <p>
-     * isStatic
-     * </p>
+     * Checks if field is static.
      *
      * @return a boolean.
      */
@@ -176,8 +164,7 @@ public class FieldStatement extends AbstractStatement {
     public int getNumParameters() {
         if (isStatic()) {
             return 0;
-        } else
-             {
+        } else {
             return 1;
         }
     }
@@ -203,6 +190,7 @@ public class FieldStatement extends AbstractStatement {
     }
 
     /**
+     * Executes the field access.
      * {@inheritDoc}
      */
     @Override
@@ -218,12 +206,12 @@ public class FieldStatement extends AbstractStatement {
                 public void execute() throws InvocationTargetException,
                         IllegalArgumentException, IllegalAccessException,
                         InstantiationException, CodeUnderTestException {
-                    Object source_object;
+                    Object sourceObject;
                     try {
-                        source_object = (field.isStatic()) ? null
+                        sourceObject = (field.isStatic()) ? null
                                 : source.getObject(scope);
 
-                        if (!field.isStatic() && source_object == null) {
+                        if (!field.isStatic() && sourceObject == null) {
                             retval.setObject(scope, null);
                             throw new CodeUnderTestException(new NullPointerException());
                         }
@@ -235,13 +223,12 @@ public class FieldStatement extends AbstractStatement {
                         throw new EvosuiteError(e);
                     }
 
-                    Object ret = field.getField().get(source_object);
+                    Object ret = field.getField().get(sourceObject);
                     if (ret != null && !retval.isAssignableFrom(ret.getClass())) {
                         throw new CodeUnderTestException(new ClassCastException());
                     }
                     try {
                         // FIXXME: isAssignableFrom int <- Integer does not return true
-                        //assert(ret==null || retval.getVariableClass().isAssignableFrom(ret.getClass())) : "we want an " + retval.getVariableClass() + " but got an " + ret.getClass();
                         retval.setObject(scope, ret);
                     } catch (CodeUnderTestException e) {
                         throw e;
@@ -283,7 +270,7 @@ public class FieldStatement extends AbstractStatement {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
      */
 
     /**
@@ -294,8 +281,7 @@ public class FieldStatement extends AbstractStatement {
         if (!field.isStatic()) {
             if (source.equals(var1)) {
                 source = var2;
-            } else
-                 {
+            } else {
                 source.replaceAdditionalVariableReference(var1, var2);
             }
         }
@@ -320,8 +306,7 @@ public class FieldStatement extends AbstractStatement {
         if (!field.isStatic()) {
             return source.equals(fs.source) && retval.equals(fs.retval)
                     && field.equals(fs.field);
-        } else
-             {
+        } else {
             return retval.equals(fs.retval) && field.equals(fs.field);
         }
     }
@@ -339,9 +324,7 @@ public class FieldStatement extends AbstractStatement {
     }
 
     /**
-     * <p>
      * Getter for the field <code>field</code>.
-     * </p>
      *
      * @return a {@link java.lang.reflect.Field} object.
      */
@@ -350,9 +333,7 @@ public class FieldStatement extends AbstractStatement {
     }
 
     /**
-     * <p>
      * Setter for the field <code>field</code>.
-     * </p>
      *
      * @param field a {@link java.lang.reflect.Field} object.
      */
@@ -395,8 +376,7 @@ public class FieldStatement extends AbstractStatement {
         if (!field.isStatic()) {
             return source.same(fs.source) && retval.same(fs.retval)
                     && field.equals(fs.field);
-        } else
-             {
+        } else {
             return retval.same(fs.retval) && field.equals(fs.field);
         }
     }
