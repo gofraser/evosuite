@@ -22,12 +22,15 @@ package org.evosuite.executionmode;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import org.evosuite.*;
+import org.evosuite.EvoSuite;
+import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
+import org.evosuite.TimeController;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.instrumentation.BytecodeInstrumentation;
 import org.evosuite.rmi.MasterServices;
-import org.evosuite.rmi.service.MasterNodeLocal;
 import org.evosuite.rmi.service.ClientNodeRemote;
+import org.evosuite.rmi.service.MasterNodeLocal;
 import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.statistics.SearchStatistics;
 import org.evosuite.utils.ExternalProcessGroupHandler;
@@ -42,12 +45,20 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+/**
+ * Measure coverage on existing test cases.
+ */
 public class MeasureCoverage {
 
     private static final Logger logger = LoggerFactory.getLogger(MeasureCoverage.class);
 
     public static final String NAME = "measureCoverage";
 
+    /**
+     * Returns the command line option for this execution mode.
+     *
+     * @return the command line option
+     */
     public static Option getOption() {
         return new Option(NAME, "measure coverage on existing test cases");
     }
@@ -73,6 +84,12 @@ public class MeasureCoverage {
         return SearchStatistics.getInstance();
     }
 
+    /**
+     * Measures coverage for a single class.
+     *
+     * @param targetClass the target class name
+     * @param args the command line arguments
+     */
     private static void measureCoverageClass(String targetClass, List<String> args) {
 
         if (!ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
@@ -92,6 +109,12 @@ public class MeasureCoverage {
         measureCoverage(targetClass, args);
     }
 
+    /**
+     * Measures coverage for a target (class or package).
+     *
+     * @param target the target name
+     * @param args the command line arguments
+     */
     private static void measureCoverageTarget(String target, List<String> args) {
 
         Set<String> classes = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
@@ -101,6 +124,12 @@ public class MeasureCoverage {
         measureCoverage(target, args);
     }
 
+    /**
+     * Helper to measure coverage.
+     *
+     * @param targetClass the target class or prefix
+     * @param args the command line arguments
+     */
     private static void measureCoverage(String targetClass, List<String> args) {
 
         ExecutionModeUtils.ClasspathInfo classpathInfo = ExecutionModeUtils.getClasspathInfo();
