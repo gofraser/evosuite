@@ -20,11 +20,18 @@
 package org.evosuite.utils.generic;
 
 
+import org.evosuite.testcase.variable.VariableReference;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Created by Andrea Arcuri on 02/07/15.
@@ -135,5 +142,94 @@ public class GenericMethodTest {
 
         Class<?> upper = (Class<?>) wt.getUpperBounds()[0];
         Assert.assertEquals(Object.class, upper);
+    }
+
+    public static class OverloadedTarget {
+        public void foo(int x) {}
+        public void foo(String s) {}
+        public void bar() {}
+    }
+
+    @Test
+    public void testIsOverloadedWithParameters() throws Exception {
+        Method mFooInt = OverloadedTarget.class.getMethod("foo", int.class);
+        GenericMethod gmFooInt = new GenericMethod(mFooInt, OverloadedTarget.class);
+
+        // Case 1: Exact match - should return false
+        VariableReference varInt = Mockito.mock(VariableReference.class);
+        Mockito.doReturn(int.class).when(varInt).getVariableClass();
+        Assert.assertFalse("Should be false for exact match", gmFooInt.isOverloaded(Arrays.asList(varInt)));
+
+        // Case 2: Mismatch but overloaded method exists - should return true
+        VariableReference varString = Mockito.mock(VariableReference.class);
+        Mockito.doReturn(String.class).when(varString).getVariableClass();
+        // Here we pass a String variable to foo(int).
+        // The method name matches foo(String), so there is an overload.
+        // And the parameters (String) do not match foo(int).
+        // So isOverloaded returns true, indicating potential ambiguity/conflict with another overload if we were to try to call this method with these params?
+        // Wait, isOverloaded(params) checks:
+        // 1. Do params match THIS method exactly? If yes -> return false.
+        // 2. Is there ANY other method with same name?
+        //    If yes -> return true (unless we check params match that one too? The code says:
+        //      if (otherMethod.getName().equals(methodName)) {
+        //           if (!Arrays.equals(otherMethod.getParameterTypes(), parameterTypes)) {
+        //               return true;
+        //           }
+        //      }
+        // This looks like it returns true if ANY other method has the same name but different signature (which is the definition of overloading).
+        // AND the provided parameters did NOT match THIS method exactly.
+
+        Assert.assertTrue("Should be true for mismatching parameters when overload exists", gmFooInt.isOverloaded(Arrays.asList(varString)));
+
+        // Case 3: No overloading
+        Method mBar = OverloadedTarget.class.getMethod("bar");
+        GenericMethod gmBar = new GenericMethod(mBar, OverloadedTarget.class);
+        Assert.assertFalse("Should be false when no overload exists", gmBar.isOverloaded(new ArrayList<>()));
+    }
+
+    @Test
+    public void testEqualsAndHashCode() throws Exception {
+        Method m = A.class.getDeclaredMethod("bar", Object.class);
+        GenericMethod gm1 = new GenericMethod(m, A.class);
+        GenericMethod gm2 = new GenericMethod(m, B.class); // Different owner
+
+        Assert.assertEquals(gm1, gm2);
+        Assert.assertEquals(gm1.hashCode(), gm2.hashCode());
+
+        Method m2 = B.class.getDeclaredMethod("bar", Object.class); // Different method (declared in B)
+        GenericMethod gm3 = new GenericMethod(m2, B.class);
+
+        Assert.assertNotEquals(gm1, gm3);
+    }
+
+    @Test
+    public void testChangeClassLoader() throws Exception {
+        Method m = OverloadedTarget.class.getMethod("foo", int.class);
+        GenericMethod gm = new GenericMethod(m, OverloadedTarget.class);
+
+        ClassLoader currentLoader = getClass().getClassLoader();
+        String[] paths = System.getProperty("java.class.path").split(System.getProperty("path.separator"));
+        List<URL> urlList = new ArrayList<>();
+        for (String path : paths) {
+            try {
+                urlList.add(new java.io.File(path).toURI().toURL());
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+        URL[] urls = urlList.toArray(new URL[0]);
+        ClassLoader newLoader = new URLClassLoader(urls, currentLoader.getParent());
+
+        gm.changeClassLoader(newLoader);
+
+        Method newM = gm.getMethod();
+        Assert.assertNotEquals("Should be different Method object", m, newM);
+        Assert.assertEquals("Should have same name", m.getName(), newM.getName());
+        Assert.assertArrayEquals("Should have same parameter types",
+            new Class<?>[]{int.class},
+            newM.getParameterTypes());
+
+        // Basic check that we can still invoke it or inspect it
+        Assert.assertEquals(OverloadedTarget.class.getName(), newM.getDeclaringClass().getName());
     }
 }
