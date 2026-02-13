@@ -43,12 +43,19 @@ public class ConstantValue extends VariableReferenceImpl {
      * <p>Constructor for ConstantValue.</p>
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param type     a {@link org.evosuite.utils.generic.GenericClassImpl} object.
+     * @param type     a {@link org.evosuite.utils.generic.GenericClass} object.
      */
     public ConstantValue(TestCase testCase, GenericClass<?> type) {
         super(testCase, type);
     }
 
+    /**
+     * Constructor.
+     *
+     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
+     * @param type     a {@link org.evosuite.utils.generic.GenericClass} object.
+     * @param value    a {@link java.lang.Object} object.
+     */
     public ConstantValue(TestCase testCase, GenericClass<?> type, Object value) {
         super(testCase, type);
         setValue(value);
@@ -216,7 +223,7 @@ public class ConstantValue extends VariableReferenceImpl {
     @Override
     public int hashCode() {
         final int prime = 31;
-        int result = super.hashCode();
+        int result = 1;
         result = prime * result + ((getValue() == null) ? 0 : getValue().hashCode());
         return result;
     }

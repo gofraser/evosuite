@@ -45,7 +45,9 @@ public class ArrayReference extends VariableReferenceImpl {
     private int[] lengths;
 
     /**
-     * <p>Constructor for ArrayReference.</p>
+     * <p>
+     * Constructor for ArrayReference.
+     * </p>
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param clazz a {@link java.lang.Class} object.
@@ -56,10 +58,12 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>Constructor for ArrayReference.</p>
+     * <p>
+     * Constructor for ArrayReference.
+     * </p>
      *
      * @param tc      a {@link org.evosuite.testcase.TestCase} object.
-     * @param clazz   a {@link GenericClass} object.
+     * @param clazz   a {@link org.evosuite.utils.generic.GenericClass} object.
      * @param lengths an array of int.
      */
     public ArrayReference(TestCase tc, GenericClass<?> clazz, int[] lengths) {
@@ -69,10 +73,12 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>Constructor for ArrayReference.</p>
+     * <p>
+     * Constructor for ArrayReference.
+     * </p>
      *
      * @param tc          a {@link org.evosuite.testcase.TestCase} object.
-     * @param clazz       a {@link GenericClass} object.
+     * @param clazz       a {@link org.evosuite.utils.generic.GenericClass} object.
      * @param arrayLength a int.
      */
     public ArrayReference(TestCase tc, GenericClass<?> clazz, int arrayLength) {
@@ -80,7 +86,9 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>getArrayLength.</p>
+     * <p>
+     * getArrayLength.
+     * </p>
      *
      * @return a int.
      */
@@ -89,7 +97,9 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>setArrayLength.</p>
+     * <p>
+     * setArrayLength.
+     * </p>
      *
      * @param l a int.
      */
@@ -99,16 +109,20 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>Getter for the field <code>lengths</code>.</p>
+     * <p>
+     * Getter for the field <code>lengths</code>.
+     * </p>
      *
-     * @return an array of int.
+     * @return a {@link java.util.List} object.
      */
     public List<Integer> getLengths() {
         return Arrays.asList(ArrayUtils.toObject(lengths));
     }
 
     /**
-     * <p>Setter for the field <code>lengths</code>.</p>
+     * <p>
+     * Setter for the field <code>lengths</code>.
+     * </p>
      *
      * @param lengths an array of int.
      */
@@ -120,7 +134,9 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>Setter for an element of the field <code>lengths</code>.</p>
+     * <p>
+     * Setter for an element of the field <code>lengths</code>.
+     * </p>
      *
      * @param length an int
      * @param index  an int
@@ -160,7 +176,9 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>getArrayDimensions.</p>
+     * <p>
+     * getArrayDimensions.
+     * </p>
      *
      * @return a int.
      */
@@ -169,7 +187,9 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>Setter for the field <code>lengths</code>.</p>
+     * <p>
+     * Setter for the field <code>lengths</code>.
+     * </p>
      *
      * @param lengths a {@link java.util.List} object.
      */
