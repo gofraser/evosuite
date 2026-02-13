@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors.
  *
@@ -29,10 +29,16 @@ import org.evosuite.testcase.TestChromosome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Factory class to configure and set secondary objectives for test generation.
+ */
 public class TestCaseSecondaryObjective {
 
     private static final Logger logger = LoggerFactory.getLogger(TestCaseSecondaryObjective.class);
 
+    /**
+     * Reads the secondary objectives from properties and configures the test chromosome accordingly.
+     */
     public static void setSecondaryObjectives() {
         for (Properties.SecondaryObjective secondaryObjective : Properties.SECONDARY_OBJECTIVE) {
             SecondaryObjective<TestChromosome> secondaryObjectiveInstance = null;

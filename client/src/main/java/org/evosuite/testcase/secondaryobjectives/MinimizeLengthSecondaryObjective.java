@@ -23,7 +23,7 @@ import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.testcase.TestChromosome;
 
 /**
- * <p>MinimizeLengthSecondaryObjective class.</p>
+ * Secondary objective to minimize the length (number of statements) of the test case.
  *
  * @author José Campos
  */
@@ -31,32 +31,16 @@ public class MinimizeLengthSecondaryObjective extends SecondaryObjective<TestChr
 
     private static final long serialVersionUID = 7211557650429998223L;
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.secondaryobjectives.SecondaryObjective#compareChromosomes(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome)
-     */
-
     /**
-     * {@inheritDoc}
+     * Compares two chromosomes based on their size (length).
      */
     @Override
     public int compareChromosomes(TestChromosome chromosome1, TestChromosome chromosome2) {
         return chromosome1.size() - chromosome2.size();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.secondaryobjectives.SecondaryObjective#compareGenerations(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome)
-     */
-
     /**
-     * {@inheritDoc}
+     * Compares two generations based on the size (length) of the test cases.
      */
     @Override
     public int compareGenerations(TestChromosome parent1, TestChromosome parent2,
