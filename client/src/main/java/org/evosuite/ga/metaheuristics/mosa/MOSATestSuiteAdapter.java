@@ -24,6 +24,8 @@ import org.evosuite.ga.metaheuristics.TestSuiteAdapter;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.LinkedList;
@@ -36,6 +38,7 @@ import java.util.Map;
  */
 public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
     private static final long serialVersionUID = 1556980428376303737L;
+    private static final Logger logger = LoggerFactory.getLogger(MOSATestSuiteAdapter.class);
 
     public MOSATestSuiteAdapter(final AbstractMOSA algorithm) {
         super(algorithm);
@@ -88,6 +91,7 @@ public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
     @Override
     public TestSuiteChromosome getBestIndividual() {
         TestSuiteChromosome best = getAlgorithm().generateSuite();
+        int archiveSolutions = best.getTestChromosomes().size();
         if (best.getTestChromosomes().isEmpty()) {
             for (TestChromosome test : getAlgorithm().getBestIndividuals()) {
                 best.addTest(test);
@@ -96,11 +100,20 @@ public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
                 best.setCoverage(suiteFitness, 0.0);
                 best.setFitness(suiteFitness, 1.0);
             }
+            Archive archive = Archive.getArchiveInstance();
+            logger.debug("getBestIndividual: archive empty (covered={}, uncovered={}, "
+                            + "archiveClass={}), using {} tests from population",
+                    archive.getNumberOfCoveredTargets(),
+                    archive.getNumberOfUncoveredTargets(),
+                    archive.getClass().getSimpleName(),
+                    best.getTestChromosomes().size());
             return best;
         }
 
         // compute overall fitness and coverage
         this.computeCoverageAndFitness(best);
+        logger.debug("getBestIndividual: archive has {} solutions, computed coverage={}",
+                archiveSolutions, best.getCoverage());
 
         return best;
     }
@@ -119,6 +132,13 @@ public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
 
             double coverage = totalNumberTargets == 0 ? 1.0
                     : ((double) numberCoveredTargets) / ((double) totalNumberTargets);
+
+            logger.debug("computeCoverageAndFitness: criterion={}, targetClass={}, "
+                            + "covered={}, uncovered={}, total={}, coverage={}",
+                    suiteFitnessFunction.getClass().getSimpleName(),
+                    testFitnessFunction.getSimpleName(),
+                    numberCoveredTargets, numberUncoveredTargets,
+                    totalNumberTargets, coverage);
 
             suite.setFitness(suiteFitnessFunction, numberUncoveredTargets);
             suite.setCoverage(suiteFitnessFunction, coverage);
