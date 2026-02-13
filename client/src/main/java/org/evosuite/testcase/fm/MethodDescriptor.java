@@ -145,6 +145,11 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
     }
 
 
+    /**
+     * Changes the class loader.
+     *
+     * @param loader the new class loader
+     */
     public void changeClassLoader(ClassLoader loader) {
         method.changeClassLoader(loader);
     }
@@ -158,10 +163,10 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
 
         int modifiers = method.getMethod().getModifiers();
 
-        if (method.getReturnType().equals(Void.TYPE) ||
-                method.getName().equals("equals") ||
-                method.getName().equals("hashCode") ||
-                Modifier.isPrivate(modifiers)) {
+        if (method.getReturnType().equals(Void.TYPE)
+                || method.getName().equals("equals")
+                || method.getName().equals("hashCode")
+                || Modifier.isPrivate(modifiers)) {
 
             return false;
         }
@@ -195,6 +200,11 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         return true;
     }
 
+    /**
+     * Creates a copy of this descriptor.
+     *
+     * @return a copy of this descriptor
+     */
     public MethodDescriptor getCopy() {
         MethodDescriptor copy = new MethodDescriptor(method, methodName, className, inputParameterMatchers);
         copy.counter = this.counter;
@@ -205,6 +215,13 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         return method.getNumParameters();
     }
 
+    /**
+     * Executes the matcher for the parameter at the given index.
+     *
+     * @param i the index of the parameter
+     * @return the result of the matcher execution
+     * @throws IllegalArgumentException if the index is invalid
+     */
     public Object executeMatcher(int i) throws IllegalArgumentException {
         if (i < 0 || i >= getNumberOfInputParameters()) {
             throw new IllegalArgumentException("Invalid index: " + i);
@@ -246,13 +263,24 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
                 return Mockito.nullable(type);
             }
         } catch (Exception e) {
-            logger.error("Failed to executed Mockito matcher n{} of type {} in {}.{}: {}", i, type, className, methodName, e.getMessage());
+            logger.error("Failed to executed Mockito matcher n{} of type {} in {}.{}: {}",
+                    i, type, className, methodName, e.getMessage());
             throw new EvosuiteError(e);
         }
     }
 
-    @Deprecated // better (more precise results) to use the other constructor
-    public MethodDescriptor(String className, String methodName, String inputParameterMatchers) throws IllegalArgumentException {
+    /**
+     * Constructor.
+     *
+     * @param className              the class name
+     * @param methodName             the method name
+     * @param inputParameterMatchers the matchers string
+     * @throws IllegalArgumentException if arguments are invalid
+     * @deprecated better (more precise results) to use the other constructor
+     */
+    @Deprecated
+    public MethodDescriptor(String className, String methodName,
+                            String inputParameterMatchers) throws IllegalArgumentException {
         Inputs.checkNull(methodName, inputParameterMatchers);
         this.className = className;
         this.methodName = methodName;
@@ -285,6 +313,11 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         return inputParameterMatchers;
     }
 
+    /**
+     * Gets the ID.
+     *
+     * @return the ID
+     */
     public String getID() {
         if (id == null) {
             id = className + "." + getMethodName() + "#" + getInputParameterMatchers();

@@ -39,8 +39,7 @@ import java.util.stream.Collectors;
  * and how often they were called.
  * This is however not needed in the final generated JUnit tests.
  *
- * <p>
- * Created by Andrea Arcuri on 27/07/15.
+ * <p>Created by Andrea Arcuri on 27/07/15.
  */
 public class EvoInvocationListener implements InvocationListener, Serializable {
 
@@ -70,6 +69,11 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
     }
 
 
+    /**
+     * Changes the class loader.
+     *
+     * @param loader the new class loader
+     */
     public void changeClassLoader(ClassLoader loader) {
         for (MethodDescriptor descriptor : map.values()) {
             if (descriptor != null) {
@@ -130,14 +134,14 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
 
     @Deprecated
     private MethodDescriptor getMethodDescriptor_old(DescribedInvocation di) {
-    /*
-        Current Mockito API seems quite limited. Here, to know what
-        was called, it looks like the only way is to parse the results
-        of toString.
-        We can identify primitive types and String, but likely not the
-        exact type of input objects. This is a problem if methods are overloaded
-        and having same number of input parameters :(
-     */
+        /*
+            Current Mockito API seems quite limited. Here, to know what
+            was called, it looks like the only way is to parse the results
+            of toString.
+            We can identify primitive types and String, but likely not the
+            exact type of input objects. This is a problem if methods are overloaded
+            and having same number of input parameters :(
+         */
         String description = di.toString();
 
         int openingP = description.indexOf('(');
