@@ -32,7 +32,7 @@ import java.lang.reflect.Type;
 
 
 /**
- * <p>ConstantValue class.</p>
+ * ConstantValue class.
  *
  * @author Gordon Fraser
  */
@@ -41,7 +41,7 @@ public class ConstantValue extends VariableReferenceImpl {
     private static final long serialVersionUID = -3760942087575495415L;
 
     /**
-     * <p>Constructor for ConstantValue.</p>
+     * Constructor for ConstantValue.
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @param type     a {@link GenericClassImpl} object.
@@ -50,13 +50,20 @@ public class ConstantValue extends VariableReferenceImpl {
         super(testCase, type);
     }
 
+    /**
+     * Constructor for ConstantValue.
+     *
+     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
+     * @param type     a {@link GenericClass} object.
+     * @param value    the value of the constant.
+     */
     public ConstantValue(TestCase testCase, GenericClass<?> type, Object value) {
         super(testCase, type);
         setValue(value);
     }
 
     /**
-     * <p>Constructor for ConstantValue.</p>
+     * Constructor for ConstantValue.
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @param type     a {@link java.lang.reflect.Type} object.
@@ -68,8 +75,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Create a copy of the current variable
+     * <p>Create a copy of the current variable.
      */
     @Override
     public VariableReference copy(TestCase newTestCase, int offset) {
@@ -92,7 +98,7 @@ public class ConstantValue extends VariableReferenceImpl {
     private Object value;
 
     /**
-     * <p>Getter for the field <code>value</code>.</p>
+     * Getter for the field <code>value</code>.
      *
      * @return a {@link java.lang.Object} object.
      */
@@ -101,7 +107,7 @@ public class ConstantValue extends VariableReferenceImpl {
     }
 
     /**
-     * <p>Setter for the field <code>value</code>.</p>
+     * Setter for the field <code>value</code>.
      *
      * @param value a {@link java.lang.Object} object.
      */
@@ -112,8 +118,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * The position of the statement, defining this VariableReference, in the
+     * <p>The position of the statement, defining this VariableReference, in the
      * testcase.
      */
     @Override
@@ -131,8 +136,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return name for source code representation
+     * <p>Return name for source code representation.
      */
     @Override
     public String getName() {
@@ -149,8 +153,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return the actual object represented by this variable for a given scope
+     * <p>Return the actual object represented by this variable for a given scope.
      */
     @Override
     public Object getObject(Scope scope) {

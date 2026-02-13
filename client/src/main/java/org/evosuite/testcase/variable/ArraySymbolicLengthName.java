@@ -29,7 +29,8 @@ public class ArraySymbolicLengthName {
     public static final String ARRAY_LENGTH_NAME_SEPARATOR = "_";
     public static final String ARRAY_LENGTH_NAME_SEPARATOR_REGEX = "\\_";
     public static final String ARRAY_LENGTH_SYMBOLIC_NAME_SUFFIX = "length";
-    public static final String ARRAY_LENGTH_SYMBOLIC_NAME_INVALID_FOR_NAME_EXCEPTION = "Array length symbolic name invalid for name: ";
+    public static final String ARRAY_LENGTH_SYMBOLIC_NAME_INVALID_FOR_NAME_EXCEPTION =
+            "Array length symbolic name invalid for name: ";
 
     public static final int ARRAY_LENGTH_SYMBOLIC_NAME_SECTIONS_AMOUNT = 3;
     public static final int ARRAY_LENGTH_SYMBOLIC_NAME_DIMENSION_POSITION = 2;
@@ -41,6 +42,11 @@ public class ArraySymbolicLengthName {
     private final String arrayReferenceName;
     private final String symbolicName;
 
+    /**
+     * Constructor for ArraySymbolicLengthName using a symbolic name.
+     *
+     * @param symbolicName the symbolic name to parse.
+     */
     public ArraySymbolicLengthName(String symbolicName) {
         if (!isArraySymbolicLengthVariableName(symbolicName)) {
             throw new IllegalArgumentException(ARRAY_LENGTH_SYMBOLIC_NAME_INVALID_FOR_NAME_EXCEPTION + symbolicName);
@@ -54,6 +60,12 @@ public class ArraySymbolicLengthName {
         this.symbolicName = symbolicName;
     }
 
+    /**
+     * Constructor for ArraySymbolicLengthName using array reference name and dimension.
+     *
+     * @param arrayReferenceName the name of the array reference.
+     * @param dimension the dimension of the array.
+     */
     public ArraySymbolicLengthName(String arrayReferenceName, int dimension) {
         this.arrayReferenceName = arrayReferenceName;
         this.dimension = dimension;
@@ -77,7 +89,7 @@ public class ArraySymbolicLengthName {
      *
      * @param arrayReferenceName the reference name.
      * @param dimension the dimension.
-     * @return .
+     * @return the built symbolic length dimension name.
      */
     public static String buildSymbolicLengthDimensionName(String arrayReferenceName, int dimension) {
         return new StringBuilder()
@@ -93,12 +105,13 @@ public class ArraySymbolicLengthName {
      * Checks whether a symbolic variable name corresponds to an array's length.
      *
      * @param symbolicVariableName the symbolic variable name.
-     * @return .
+     * @return true if the symbolic variable name corresponds to an array's length, false otherwise.
      */
     public static boolean isArraySymbolicLengthVariableName(String symbolicVariableName) {
-        String[] nameSections = symbolicVariableName.split(ArraySymbolicLengthName.ARRAY_LENGTH_NAME_SEPARATOR_REGEX);
+        String[] nameSections = symbolicVariableName.split(ARRAY_LENGTH_NAME_SEPARATOR_REGEX);
 
         return nameSections.length == ARRAY_LENGTH_SYMBOLIC_NAME_SECTIONS_AMOUNT
-                && nameSections[ARRAY_LENGTH_SYMBOLIC_NAME_DIMENSION_TAG_POSITION].equals(ARRAY_LENGTH_SYMBOLIC_NAME_SUFFIX);
+                && nameSections[ARRAY_LENGTH_SYMBOLIC_NAME_DIMENSION_TAG_POSITION]
+                .equals(ARRAY_LENGTH_SYMBOLIC_NAME_SUFFIX);
     }
 }
