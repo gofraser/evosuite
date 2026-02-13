@@ -25,7 +25,7 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 
 /**
- * <p>MinimizeExceptionsSecondaryObjective class.</p>
+ * Secondary objective to minimize the number of exceptions thrown during test execution.
  *
  * @author Gordon Fraser
  */
@@ -33,36 +33,31 @@ public class MinimizeExceptionsSecondaryObjective extends SecondaryObjective<Tes
 
     private static final long serialVersionUID = -4405276303273532040L;
 
+    /**
+     * Calculates the number of exceptions thrown by the last execution of the given chromosome.
+     *
+     * @param chromosome the test chromosome
+     * @return the number of thrown exceptions, or 0 if no result is available
+     */
     private int getNumExceptions(TestChromosome chromosome) {
         ExecutionResult result = chromosome.getLastExecutionResult();
         if (result != null) {
             return result.getNumberOfThrownExceptions();
-        } else
-             {
+        } else {
             return 0;
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SecondaryObjective#compareChromosomes(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome)
-     */
-
     /**
-     * {@inheritDoc}
+     * Compares two chromosomes based on the number of exceptions thrown.
      */
     @Override
     public int compareChromosomes(TestChromosome chromosome1, TestChromosome chromosome2) {
         return getNumExceptions(chromosome1) - getNumExceptions(chromosome2);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SecondaryObjective#compareGenerations(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome)
-     */
-
     /**
-     * {@inheritDoc}
+     * Compares two generations based on the number of exceptions thrown.
      */
     @Override
     public int compareGenerations(TestChromosome parent1, TestChromosome parent2,
