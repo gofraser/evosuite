@@ -41,7 +41,7 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
     private static final long serialVersionUID = 4402006999670328128L;
 
     /**
-     * <p>Constructor for FileNamePrimitiveStatement.</p>
+     * Constructor.
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param value a {@link org.evosuite.runtime.testdata.EvoSuiteFile} object.
@@ -50,6 +50,9 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
         super(tc, EvoSuiteFile.class, value);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getTestCode(String varName) {
         String testCode = "";
@@ -69,10 +72,6 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
         return testCode;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#delta()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -81,10 +80,6 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
         randomize();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#zero()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -92,10 +87,6 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
     public void zero() {
         // there does not exist a zero value for files
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#randomize()
-     */
 
     /**
      * {@inheritDoc}

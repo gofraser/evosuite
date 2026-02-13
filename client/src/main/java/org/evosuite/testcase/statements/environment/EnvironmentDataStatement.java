@@ -25,15 +25,31 @@ import org.evosuite.testcase.statements.PrimitiveStatement;
 import java.lang.reflect.Type;
 
 /**
- * Created by arcuri on 12/12/14.
+ * Abstract class for environment data statements.
+ *
+ * @author arcuri
+ * @param <T> the type of the environment data.
  */
 public abstract class EnvironmentDataStatement<T> extends PrimitiveStatement<T> {
 
     private static final long serialVersionUID = -348689954506405873L;
 
+    /**
+     * Constructor.
+     *
+     * @param tc    the test case context.
+     * @param clazz the type of the environment data.
+     * @param value the value of the environment data.
+     */
     protected EnvironmentDataStatement(TestCase tc, Type clazz, T value) {
         super(tc, clazz, value);
     }
 
+    /**
+     * Generates the test code for this statement.
+     *
+     * @param varName the variable name to use in the test code.
+     * @return the generated test code string.
+     */
     public abstract String getTestCode(String varName);
 }

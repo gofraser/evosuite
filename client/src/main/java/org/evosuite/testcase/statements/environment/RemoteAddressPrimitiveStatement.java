@@ -30,21 +30,37 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.StringUtil;
 
 /**
- * Created by arcuri on 12/17/14.
+ * Primitive statement for remote address.
+ *
+ * @author arcuri
  */
 public class RemoteAddressPrimitiveStatement extends EnvironmentDataStatement<EvoSuiteRemoteAddress> {
 
     private static final long serialVersionUID = -4863601663573415059L;
 
+    /**
+     * Constructor.
+     *
+     * @param tc the test case context.
+     */
     public RemoteAddressPrimitiveStatement(TestCase tc) {
         this(tc, null);
         randomize();
     }
 
+    /**
+     * Constructor.
+     *
+     * @param tc    the test case context.
+     * @param value the remote address value.
+     */
     public RemoteAddressPrimitiveStatement(TestCase tc, EvoSuiteRemoteAddress value) {
         super(tc, EvoSuiteRemoteAddress.class, value);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getTestCode(String varName) {
         String testCode = "";
@@ -66,16 +82,25 @@ public class RemoteAddressPrimitiveStatement extends EnvironmentDataStatement<Ev
         return testCode;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void delta() {
         randomize();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void zero() {
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void randomize() {
         EvoSuiteRemoteAddress addr;
@@ -110,6 +135,12 @@ public class RemoteAddressPrimitiveStatement extends EnvironmentDataStatement<Ev
         setValue(addr);
     }
 
+    /**
+     * Ensures the port is within valid range.
+     *
+     * @param port the port to check.
+     * @return a valid port number.
+     */
     private int getPort(int port) {
         if (port <= 0 || port > 65535) {
             port = 12345; //just a valid port number

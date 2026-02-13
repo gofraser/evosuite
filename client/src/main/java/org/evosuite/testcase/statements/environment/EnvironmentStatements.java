@@ -25,13 +25,19 @@ import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.utils.Randomness;
 
 /**
- * @see org.evosuite.runtime.testdata.EnvironmentDataList
+ * Utility class for handling environment statements.
  *
- * <p>
- * Created by arcuri on 12/11/14.
+ * @author arcuri
+ * @see org.evosuite.runtime.testdata.EnvironmentDataList
  */
 public class EnvironmentStatements {
 
+    /**
+     * Checks if the given class is an environment data type.
+     *
+     * @param clazz the class to check.
+     * @return true if the class is an environment data type, false otherwise.
+     */
     public static boolean isEnvironmentData(Class<?> clazz) {
         for (Class<?> env : EnvironmentDataList.getListOfClasses()) {
             if (clazz.equals(env)) {
@@ -41,13 +47,22 @@ public class EnvironmentStatements {
         return false;
     }
 
+    /**
+     * Creates a new PrimitiveStatement for the given environment data type.
+     *
+     * @param clazz the environment data class.
+     * @param tc    the test case context.
+     * @return a new PrimitiveStatement instance.
+     * @throws IllegalArgumentException if the class is not an environment data type.
+     */
     public static PrimitiveStatement<?> getStatement(Class<?> clazz, TestCase tc) throws IllegalArgumentException {
         if (!isEnvironmentData(clazz)) {
             throw new IllegalArgumentException("Class " + clazz.getName() + " is not an environment data type");
         }
 
         if (clazz.equals(EvoSuiteFile.class)) {
-            return new FileNamePrimitiveStatement(tc, new EvoSuiteFile(Randomness.choice(tc.getAccessedEnvironment().getViewOfAccessedFiles())));
+            String fileName = Randomness.choice(tc.getAccessedEnvironment().getViewOfAccessedFiles());
+            return new FileNamePrimitiveStatement(tc, new EvoSuiteFile(fileName));
         } else if (clazz.equals(EvoSuiteLocalAddress.class)) {
             return new LocalAddressPrimitiveStatement(tc);
         } else if (clazz.equals(EvoSuiteRemoteAddress.class)) {
