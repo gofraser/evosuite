@@ -1,11 +1,12 @@
 package org.evosuite.testcase.utils;
+
 import java.util.ArrayList;
 
 public class HeuristicsUtil {
     /**
-     * List of particles of a method name that can be excluded or avoided when syggesting names.
+     * List of particles of a method name that can be excluded or avoided when suggesting names.
      */
-    private static ArrayList<String> avoidableParticles = new ArrayList<String>(){
+    private static ArrayList<String> avoidableParticles = new ArrayList<String>() {
         {
             add("get");
             add("to");
@@ -16,19 +17,23 @@ public class HeuristicsUtil {
     };
 
     /**
-     * Returns a boolean value that indicates if the first word of a method can be avoided/excluded
+     * Indicates whether the first word of a method can be avoided/excluded
      * on method name suggestion.
-     * @return boolean
+     *
+     * @param firstWord the word to check
+     * @return true if the word is avoidable
      */
-
-    public static boolean containsAvoidableParticle(String firstWord){
+    public static boolean containsAvoidableParticle(String firstWord) {
         return avoidableParticles.contains(firstWord);
     }
+
     /**
-     * Separates camelcase strings and retrieves the parts in a list.
-     * @return ArrayList<String>
+     * Splits camelCase strings into a list of words.
+     *
+     * @param name the string to split
+     * @return the list of words
      */
-    public static ArrayList<String> separateByCamelCase(String name){
+    public static ArrayList<String> separateByCamelCase(String name) {
         ArrayList<String> separatedName = new ArrayList<>();
         for (String word : name.split("(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z])")) {
             separatedName.add(word);
