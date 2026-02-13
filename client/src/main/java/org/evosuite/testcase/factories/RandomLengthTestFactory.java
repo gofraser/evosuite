@@ -40,7 +40,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     private static final long serialVersionUID = -5202578461625984100L;
 
     /**
-     * Constant <code>logger</code>
+     * The logger for this class.
      */
     protected static final Logger logger = LoggerFactory.getLogger(RandomLengthTestFactory.class);
 
@@ -69,7 +69,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         if (size > 1) {
             length = Randomness.nextInt(1, size);
         } else {
-             logger.warn("Requested random test case size {} is too small, defaulting to empty test case.", size);
+            logger.warn("Requested random test case size {} is too small, defaulting to empty test case.", size);
         }
 
         // Then add random statements until the test case reaches the chosen length or we run out of
@@ -95,8 +95,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Generate a random chromosome
+     * <p>Generate a random chromosome.
      */
     @Override
     public TestChromosome getChromosome() {
