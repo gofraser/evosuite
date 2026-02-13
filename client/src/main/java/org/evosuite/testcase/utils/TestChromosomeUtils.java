@@ -3,7 +3,11 @@ package org.evosuite.testcase.utils;
 import org.evosuite.Properties;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.statements.*;
+import org.evosuite.testcase.statements.ArrayStatement;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,16 +20,19 @@ public class TestChromosomeUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(TestChromosomeUtils.class);
 
-    private TestChromosomeUtils() {}
+    private TestChromosomeUtils() {
+    }
 
     /**
-     * This method checks whether the test has only primitive type statements. Indeed,
-     * crossover and mutation can lead to tests with no method calls (methods or constructors
+     * Checks if the test chromosome contains any method or constructor calls.
+     * <p>
+     * Indeed, crossover and mutation can lead to tests with no method calls (methods or constructors
      * call), thus, when executed they will never cover something in the class under test.
+     * </p>
      *
-     * @param test to check
+     * @param test the test chromosome to check
      * @return true if the test has at least one method or constructor call (i.e., the test may
-     * cover something when executed; false otherwise
+     *     cover something when executed); false otherwise
      */
     public static boolean hasMethodCall(TestChromosome test) {
         boolean flag = false;
@@ -50,12 +57,15 @@ public class TestChromosomeUtils {
     }
 
     /**
-     * When a test case is changed via crossover and/or mutation, it can contains some
+     * Removes unused primitive variables from the test chromosome.
+     * <p>
+     * When a test case is changed via crossover and/or mutation, it can contain some
      * primitive variables that are not used as input (or to store the output) of method calls.
      * Thus, this method removes all these "trash" statements.
+     * </p>
      *
-     * @param chromosome the chromosome.
-     * @return true or false depending on whether "unused variables" are removed
+     * @param chromosome the chromosome
+     * @return true if any unused variables were removed
      */
     public static boolean removeUnusedVariables(TestChromosome chromosome) {
         int sizeBefore = chromosome.size();

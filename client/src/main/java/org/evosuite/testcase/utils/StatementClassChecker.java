@@ -42,6 +42,12 @@ public enum StatementClassChecker {
         this.statementCheck = statementCheck;
     }
 
+    /**
+     * Checks if the statement is of the type defined by this checker.
+     *
+     * @param statement the statement to check
+     * @return true if the statement matches the type
+     */
     public Boolean checkClassType(Statement statement) {
         return statementCheck.apply(statement);
     }
