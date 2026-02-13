@@ -26,6 +26,7 @@
 	to master through TCP. -->
 
 <configuration>
+	<statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
 
 	<!-- different appenders for std out and err -->
 
@@ -116,7 +117,7 @@
 
 	<!-- Loggers  -->
 
-	<logger name="evo_logger" level="${log.level:-WARN}" additivity="false">
+	<logger name="evo_logger" level="${log.level:-INFO}" additivity="false">
 		<appender-ref ref="EVO_LOGGER_${evosuite.log.appender:-MASTER}" />
 	</logger>
 

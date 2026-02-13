@@ -302,7 +302,9 @@ public class LoggingUtils {
         // Only overrule default configurations
         if (isDefaultLoggingConfiguration(context)) {
             isOK = changeLogbackFile(getLogbackFileName());
-            StatusPrinter.printInCaseOfErrorsOrWarnings(context);
+            if (Boolean.getBoolean("evosuite.logback.status")) {
+                StatusPrinter.printInCaseOfErrorsOrWarnings(context);
+            }
         }
         return isOK;
     }
