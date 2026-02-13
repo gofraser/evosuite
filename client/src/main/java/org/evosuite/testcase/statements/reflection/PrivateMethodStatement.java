@@ -41,8 +41,7 @@ import java.util.List;
 /**
  * Test case statement representing a reflection call to a private method of the SUT.
  *
- * <p>
- * Created by Andrea Arcuri on 22/02/15.
+ * <p>Created by Andrea Arcuri on 22/02/15.
  */
 public class PrivateMethodStatement extends MethodStatement {
 
@@ -52,7 +51,25 @@ public class PrivateMethodStatement extends MethodStatement {
 
     private boolean isStaticMethod = false;
 
-    public PrivateMethodStatement(TestCase tc, Class<?> klass, Method method, VariableReference callee, List<VariableReference> params, boolean isStatic) {
+    /**
+     * Constructor.
+     *
+     * @param tc
+     *         the test case
+     * @param klass
+     *         the class owning the method
+     * @param method
+     *         the method to call
+     * @param callee
+     *         the object instance (can be null for static methods)
+     * @param params
+     *         the parameters to pass
+     * @param isStatic
+     *         whether the method is static
+     */
+    public PrivateMethodStatement(TestCase tc, Class<?> klass, Method method,
+                                  VariableReference callee, List<VariableReference> params,
+                                  boolean isStatic) {
         super(
                 tc,
                 new GenericMethod(PrivateAccess.getCallMethod(params.size()), PrivateAccess.class),
@@ -67,7 +84,8 @@ public class PrivateMethodStatement extends MethodStatement {
     }
 
     private static List<VariableReference> getReflectionParams(TestCase tc, Class<?> klass, Method method,
-                                                               VariableReference callee, List<VariableReference> inputs) {
+                                                               VariableReference callee,
+                                                               List<VariableReference> inputs) {
 
         List<VariableReference> list = new ArrayList<>(3 + inputs.size() * 2);
         list.add(new ConstantValue(tc, GenericClassFactory.get(Class.class), klass));
@@ -103,7 +121,8 @@ public class PrivateMethodStatement extends MethodStatement {
         VariableReference newCallee = parameters.get(1).copy(newTestCase, offset);
         Class<?> klass = (Class<?>) ((ConstantValue) parameters.get(0)).getValue(); // TODO: Make this nice
 
-        pm = new PrivateMethodStatement(newTestCase, klass, reflectedMethod.getMethod(), newCallee, newParams, isStaticMethod);
+        pm = new PrivateMethodStatement(newTestCase, klass, reflectedMethod.getMethod(),
+                newCallee, newParams, isStaticMethod);
 
         assert pm.parameters.size() == this.parameters.size();
 

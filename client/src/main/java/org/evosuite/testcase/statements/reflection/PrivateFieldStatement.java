@@ -46,8 +46,7 @@ import java.util.List;
  * Statement representing the setting of a private field, which is done through reflection in the
  * generated JUnit tests.
  *
- * <p>
- * Created by foo on 20/02/15.
+ * <p>Created by foo on 20/02/15.
  */
 public class PrivateFieldStatement extends MethodStatement {
 
@@ -66,20 +65,43 @@ public class PrivateFieldStatement extends MethodStatement {
     static {
         try {
             //Class<T> klass, T instance, String fieldName, Object value
-            setVariable = PrivateAccess.class.getMethod("setVariable", Class.class, Object.class, String.class, Object.class);
+            setVariable = PrivateAccess.class.getMethod("setVariable",
+                    Class.class, Object.class, String.class, Object.class);
         } catch (NoSuchMethodException e) {
             //should never happen
             throw new RuntimeException("EvoSuite bug", e);
         }
     }
 
-    public PrivateFieldStatement(TestCase tc, Class<?> klass, String fieldName, VariableReference callee, VariableReference param)
+    /**
+     * Constructor.
+     *
+     * @param tc
+     *         the test case
+     * @param klass
+     *         the class owning the field
+     * @param fieldName
+     *         the name of the field
+     * @param callee
+     *         the object instance (can be null for static fields)
+     * @param param
+     *         the value to set
+     * @throws NoSuchFieldException
+     *         if field not found
+     * @throws IllegalArgumentException
+     *         if arguments are invalid
+     * @throws ConstructionFailedException
+     *         if construction fails
+     */
+    public PrivateFieldStatement(TestCase tc, Class<?> klass, String fieldName,
+                                 VariableReference callee, VariableReference param)
             throws NoSuchFieldException, IllegalArgumentException, ConstructionFailedException {
         super(
                 tc,
                 new GenericMethod(setVariable, PrivateAccess.class),
                 null, //it is static
-                Arrays.asList(  // setVariable(Class<T> klass, T instance, String fieldName, Object value)
+                Arrays.asList(
+                        // setVariable(Class<T> klass, T instance, String fieldName, Object value)
                         new ConstantValue(tc, GenericClassFactory.get(Class.class), klass),  // Class<T> klass
                         //new ClassPrimitiveStatement(tc,klass).getReturnValue(),  // Class<T> klass
                         callee, // T instance
@@ -145,7 +167,9 @@ public class PrivateFieldStatement extends MethodStatement {
     }
 
     @Override
-    public Throwable execute(Scope scope, PrintStream out) throws InvocationTargetException, IllegalArgumentException, IllegalAccessException, InstantiationException {
+    public Throwable execute(Scope scope, PrintStream out)
+            throws InvocationTargetException, IllegalArgumentException,
+            IllegalAccessException, InstantiationException {
         if (!isStaticField) {
             try {
                 Object receiver = parameters.get(1).getObject(scope);

@@ -31,8 +31,7 @@ import java.util.List;
 /**
  * Class used to get private fields/methods to construct statements in the generated tests.
  *
- * <p>
- * Created by Andrea Arcuri on 22/02/15.
+ * <p>Created by Andrea Arcuri on 22/02/15.
  */
 public class ReflectionFactory {
 
@@ -41,6 +40,14 @@ public class ReflectionFactory {
     private final List<Method> methods;
 
 
+    /**
+     * Constructor.
+     *
+     * @param target
+     *         the target class
+     * @throws IllegalArgumentException
+     *         if target is null
+     */
     public ReflectionFactory(Class<?> target) throws IllegalArgumentException {
         this.target = target;
         if (target == null) {
@@ -79,14 +86,29 @@ public class ReflectionFactory {
         }
     }
 
+    /**
+     * Gets the number of usable fields.
+     *
+     * @return the number of usable fields
+     */
     public int getNumberOfUsableFields() {
         return fields.size();
     }
 
+    /**
+     * Checks if there are private fields or methods.
+     *
+     * @return true if there are private fields or methods
+     */
     public boolean hasPrivateFieldsOrMethods() {
         return !(fields.isEmpty() && methods.isEmpty());
     }
 
+    /**
+     * Determines if the next item should be a field.
+     *
+     * @return true if the next item should be a field
+     */
     public boolean nextUseField() {
         if (fields.isEmpty()) {
             return false;
@@ -104,6 +126,13 @@ public class ReflectionFactory {
         return Randomness.nextDouble() <= ratio;
     }
 
+    /**
+     * Gets the next field.
+     *
+     * @return the next field
+     * @throws IllegalStateException
+     *         if there are no private fields
+     */
     public Field nextField() throws IllegalStateException {
         if (fields.isEmpty()) {
             throw new IllegalStateException("No private field");
@@ -111,6 +140,13 @@ public class ReflectionFactory {
         return Randomness.choice(fields);
     }
 
+    /**
+     * Gets the next method.
+     *
+     * @return the next method
+     * @throws IllegalStateException
+     *         if there are no private methods
+     */
     public Method nextMethod() throws IllegalStateException {
         if (methods.isEmpty()) {
             throw new IllegalStateException("No private method");
@@ -118,6 +154,11 @@ public class ReflectionFactory {
         return Randomness.choice(methods);
     }
 
+    /**
+     * Gets the reflected class.
+     *
+     * @return the reflected class
+     */
     public Class<?> getReflectedClass() {
         return target;
     }
