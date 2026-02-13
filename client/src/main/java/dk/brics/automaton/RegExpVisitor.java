@@ -1,14 +1,21 @@
 package dk.brics.automaton;
 
-/*
+/**
  * This class is not in the org.evosuite package,
  * as it has to access package level variables and classes in the
- * dk.brics.automaton package
+ * dk.brics.automaton package.
  *
+ * @param <K> The return type of the visitor.
  */
-
 public abstract class RegExpVisitor<K> {
 
+    /**
+     * Visits a regular expression.
+     *
+     * @param e The regular expression to visit.
+     * @return The result of the visit.
+     * @throws IllegalArgumentException if the regular expression kind is unsupported.
+     */
     public final K visitRegExp(RegExp e) {
         switch (e.kind) {
             case REGEXP_ANYCHAR: {
@@ -61,7 +68,7 @@ public abstract class RegExpVisitor<K> {
             }
             default:
                 throw new IllegalArgumentException(
-                        "Unsupported kind ogf regular expression " + e.kind);
+                        "Unsupported kind of regular expression " + e.kind);
         }
     }
 
