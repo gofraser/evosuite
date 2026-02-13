@@ -510,40 +510,40 @@ public class TestCodeVisitor extends TestVisitor {
         VariableReference source = assertion.getSource();
         Object[] value = (Object[]) assertion.getValue();
 
-        String stmt = "";
+        StringBuilder stmt = new StringBuilder();
 
         if (source.getComponentClass().equals(Boolean.class) || source.getComponentClass().equals(boolean.class)) {
-            stmt += "assertTrue(Arrays.equals(";
+            stmt.append("assertTrue(Arrays.equals(");
             // Make sure that the Arrays class is imported
             getClassName(Arrays.class);
         } else {
-            stmt += "assertArrayEquals(";
+            stmt.append("assertArrayEquals(");
         }
-        stmt += "new " + getTypeName(source.getComponentType()) + "[] {";
+        stmt.append("new ").append(getTypeName(source.getComponentType())).append("[] {");
         boolean first = true;
         for (Object o : value) {
             if (!first) {
-                stmt += ", ";
+                stmt.append(", ");
             } else
                  {
                 first = false;
             }
 
-            stmt += NumberFormatter.getNumberString(o, this);
+            stmt.append(NumberFormatter.getNumberString(o, this));
 
         }
-        stmt += "}" + ", " + getVariableName(source);
+        stmt.append("}").append(", ").append(getVariableName(source));
         if (source.getComponentClass().equals(Float.class) || source.getComponentClass().equals(float.class)) {
-            stmt += ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
+            stmt.append(", ").append(NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this)).append(");");
         } else  {
             if (source.getComponentClass().equals(Double.class) || source.getComponentClass().equals(double.class))
-            stmt += ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
+            stmt.append(", ").append(NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this)).append(");");
         else  {
             if (source.getComponentClass().equals(Boolean.class) || source.getComponentClass().equals(boolean.class))
-            stmt += "));";
+            stmt.append("));");
         else
              {
-            stmt += ");";
+            stmt.append(");");
         }
         }
         }
@@ -999,17 +999,15 @@ public class TestCodeVisitor extends TestVisitor {
 
         if (statement instanceof StringPrimitiveStatement) {
             if (value == null) {
-                testCode.append(((Class<?>) retval.getType()).getSimpleName() + " "
-                        + getVariableName(retval) + " = null;" + NEWLINE);
+                testCode.append(((Class<?>) retval.getType()).getSimpleName()).append(" ")
+                        .append(getVariableName(retval)).append(" = null;").append(NEWLINE);
 
             } else {
                 String escapedString = StringUtil.getEscapedString((String) value);
-                testCode.append(((Class<?>) retval.getType()).getSimpleName() + " "
-                        + getVariableName(retval) + " = \"" + escapedString + "\";" + NEWLINE);
+                testCode.append(((Class<?>) retval.getType()).getSimpleName()).append(" ")
+                        .append(getVariableName(retval)).append(" = \"")
+                        .append(escapedString).append("\";").append(NEWLINE);
             }
-            // testCode.append(((Class<?>) retval.getType()).getSimpleName() + " "
-            // + getVariableName(retval) + " = \""
-            // + StringEscapeUtils.escapeJava((String) value) + "\";\n");
         } else if (statement instanceof EnvironmentDataStatement) {
             testCode.append(((EnvironmentDataStatement<?>) statement).getTestCode(getVariableName(retval)));
         } else if (statement instanceof ClassPrimitiveStatement) {
@@ -1025,8 +1023,8 @@ public class TestCodeVisitor extends TestVisitor {
             builder.append(NEWLINE);
             testCode.append(builder.toString());
         } else {
-            testCode.append(getClassName(retval) + " " + getVariableName(retval) + " = "
-                    + NumberFormatter.getNumberString(value, this) + ";" + NEWLINE);
+            testCode.append(getClassName(retval)).append(" ").append(getVariableName(retval)).append(" = ")
+                    .append(NumberFormatter.getNumberString(value, this)).append(";").append(NEWLINE);
         }
         addAssertions(statement);
     }
@@ -1037,12 +1035,11 @@ public class TestCodeVisitor extends TestVisitor {
     @Override
     public void visitPrimitiveExpression(PrimitiveExpression statement) {
         VariableReference retval = statement.getReturnValue();
-        String expression = ((Class<?>) retval.getType()).getSimpleName() + " "
-                + getVariableName(retval) + " = ";
-        expression += getVariableName(statement.getLeftOperand()) + " "
-                + statement.getOperator().toCode() + " "
-                + getVariableName(statement.getRightOperand());
-        testCode.append(expression + ";" + NEWLINE);
+        testCode.append(((Class<?>) retval.getType()).getSimpleName()).append(" ")
+                .append(getVariableName(retval)).append(" = ")
+                .append(getVariableName(statement.getLeftOperand())).append(" ")
+                .append(statement.getOperator().toCode()).append(" ")
+                .append(getVariableName(statement.getRightOperand())).append(";").append(NEWLINE);
         addAssertions(statement);
     }
 
@@ -1061,14 +1058,14 @@ public class TestCodeVisitor extends TestVisitor {
     public void visitFieldStatement(FieldStatement statement) {
         Throwable exception = getException(statement);
 
-        String cast_str = "";
+        String castStr = "";
         StringBuilder builder = new StringBuilder();
 
         VariableReference retval = statement.getReturnValue();
         GenericField field = statement.getField();
 
         if (!retval.isAssignableFrom(field.getFieldType())) {
-            cast_str += "(" + getClassName(retval) + ")";
+            castStr = "(" + getClassName(retval) + ")";
         }
 
         if (exception != null) {
@@ -1087,12 +1084,12 @@ public class TestCodeVisitor extends TestVisitor {
             VariableReference source = statement.getSource();
             builder.append(getVariableName(retval));
             builder.append(" = ");
-            builder.append(cast_str);
+            builder.append(castStr);
             builder.append(getVariableName(source));
         } else {
             builder.append(getVariableName(retval));
             builder.append(" = ");
-            builder.append(cast_str);
+            builder.append(castStr);
             builder.append(getClassName(field.getField().getDeclaringClass()));
         }
         builder.append(".");
@@ -1226,12 +1223,6 @@ public class TestCodeVisitor extends TestVisitor {
         VariableReference retval = st.getReturnValue();
 
         // If it is not used, then minimizer will delete the statement anyway
-//        boolean unused = test!=null && !test.hasReferences(retval);
-//        if(unused){
-//            //no point whatsoever in creating a mock that is never used
-//            return;
-//        }
-
         StringBuffer result = new StringBuffer();
 
         //by construction, we should avoid cases like:
@@ -1268,9 +1259,7 @@ public class TestCodeVisitor extends TestVisitor {
             }
             st.fillWithNullRefs();
 
-            //result += "mock(" + rawClassName + ".class);" + NEWLINE;
         } else {
-            //result += "mock(" + rawClassName + ".class, new " + ViolatedAssumptionAnswer.class.getSimpleName() + "());" + NEWLINE;
         }
 
         if (st instanceof FunctionalMockForAbstractClassStatement) {
@@ -1291,9 +1280,8 @@ public class TestCodeVisitor extends TestVisitor {
             }
 
             GenericClass<?> returnType = md.getReturnClass();
-            // Class<?> returnType = md.getMethod().getReturnType();
 
-            String parameter_string;
+            String parameterString;
 
             if (!returnType.isPrimitive()) {
                 Type[] types = new Type[params.size()];
@@ -1307,24 +1295,19 @@ public class TestCodeVisitor extends TestVisitor {
                     }
                 }
 
-                parameter_string = getParameterString(types, params, false, isOverloaded, 0);//TODO unsure of these parameters
+                parameterString = getParameterString(types, params, false, isOverloaded, 0);//TODO unsure of these parameters
             } else {
 
                 //if return type is a primitive, then things can get complicated due to autoboxing :(
 
-                parameter_string = getParameterStringForFMthatReturnPrimitive(returnType.getRawClass(), params);
+                parameterString = getParameterStringForFMthatReturnPrimitive(returnType.getRawClass(), params);
             }
 
             //this does not work when throwing exception as default answer
-//            result += "when("+getVariableName(retval)+"."+md.getMethodName()+"("+md.getInputParameterMatchers()+"))";
-//            result += ".thenReturn( ";
-//            result += parameter_string + " );"+NEWLINE;
 
             // Mockito doReturn() only takes single arguments. So we need to make sure that in the generated
             // tests we import MockitoExtension class
-            //parameter_string = "doReturn(" + parameter_string.replaceAll(", ", ").doReturn(") + ")";
-            //result += parameter_string+".when("+getVariableName(retval)+")";
-            result.append("doReturn(").append(parameter_string).append(").when(").append(getVariableName(retval)).append(")");
+            result.append("doReturn(").append(parameterString).append(").when(").append(getVariableName(retval)).append(")");
             result.append(".").append(md.getMethodName()).append("(").append(md.getInputParameterMatchers()).append(");").append(NEWLINE);
 
         }
@@ -1419,14 +1402,15 @@ public class TestCodeVisitor extends TestVisitor {
      */
     @Override
     public void visitMethodStatement(MethodStatement statement) {
-        String result = "";
+        StringBuilder result = new StringBuilder();
         VariableReference retval = statement.getReturnValue();
         GenericMethod method = statement.getMethod();
         Throwable exception = getException(statement);
         List<VariableReference> parameters = statement.getParameterReferences();
         boolean isGenericMethod = method.hasTypeParameters();
+
         if (exception != null && !statement.isDeclaredException(exception)) {
-            result += "// Undeclared exception!" + NEWLINE;
+            result.append("// Undeclared exception!").append(NEWLINE);
         }
         boolean lastStatement = statement.getPosition() == statement.getTestCase().size() - 1;
         boolean unused = !Properties.ASSERTIONS ? exception != null : test != null
@@ -1439,18 +1423,18 @@ public class TestCodeVisitor extends TestVisitor {
             }
             if (exception != null) {
                 if (!lastStatement || statement.hasAssertions()) {
-                    result += getClassName(retval) + " " + getVariableName(retval)
-                            + " = " + retval.getDefaultValueString() + ";" + NEWLINE;
+                    result.append(getClassName(retval)).append(" ").append(getVariableName(retval))
+                            .append(" = ").append(retval.getDefaultValueString()).append(";").append(NEWLINE);
                 }
             } else {
-                result += getClassName(retval) + " ";
+                result.append(getClassName(retval)).append(" ");
             }
         }
         if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
-            result += "try { " + NEWLINE + "  ";
+            result.append("try { ").append(NEWLINE).append("  ");
         }
 
-        if (!this.argumentNames.containsKey(retval) && VariableNameStrategyFactory.gatherInformation()) {
+        if (VariableNameStrategyFactory.gatherInformation() && (!this.argumentNames.containsKey(retval) || retval.isVoid())) {
             final List<String> parameterNames = (List<String>)statement.obtainParameterNameListInOrder();
             int idx = 0;
             for (final VariableReference param : parameters) {
@@ -1458,32 +1442,58 @@ public class TestCodeVisitor extends TestVisitor {
                 ++idx;
             }
         }
-        if (retval.isVoid() && VariableNameStrategyFactory.gatherInformation()) {
-            final List<String> parameterNames = (List<String>)statement.obtainParameterNameListInOrder();
-            int idx = 0;
-            for (final VariableReference param : parameters) {
-                this.argumentNames.put(param, parameterNames.get(idx));
-                ++idx;
-            }
-        }
-        String parameter_string = getParameterString(method.getParameterTypes(),
+
+        String parameterString = getParameterString(method.getParameterTypes(),
                 parameters, isGenericMethod,
                 method.isOverloaded(parameters), 0);
 
-        String callee_str = "";
-        if (!unused && !retval.isAssignableFrom(method.getReturnType())
+        String calleeStr = getCalleeString(method, statement.getCallee());
+        String castStr = getCastString(retval, method, unused, isGenericMethod);
+
+        if (retval.isVoid()) {
+            result.append(castStr).append(calleeStr).append(".").append(method.getName()).append("(").append(parameterString).append(");");
+        } else {
+            if (!unused) {
+                result.append(getVariableName(retval)).append(" = ");
+            }
+
+            result.append(castStr).append(calleeStr).append(".").append(method.getName()).append("(").append(parameterString).append(");");
+        }
+
+        if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
+            if (Properties.ASSERTIONS) {
+                result.append(generateFailAssertion(statement, exception));
+            }
+
+            result.append(NEWLINE).append("}");// end try block
+
+            result.append(generateCatchBlock(statement, exception));
+        }
+
+        testCode.append(result).append(NEWLINE);
+        addAssertions(statement);
+    }
+
+    private String getCastString(VariableReference retval, GenericMethod method, boolean unused, boolean isGenericMethod) {
+        String castStr = "";
+        if (!unused
+                && !retval.isAssignableFrom(method.getReturnType())
                 && !retval.getVariableClass().isAnonymousClass()
                 // Static generic methods are a special case where we shouldn't add a cast
                 && !(isGenericMethod && method.getParameterTypes().length == 0 && method.isStatic())) {
             String name = getClassName(retval);
             if (!name.matches(".*\\.\\d+$")) {
-                callee_str = "(" + name + ")";
+                castStr = "(" + name + ")";
             }
         }
+        return castStr;
+    }
+
+    private String getCalleeString(GenericMethod method, VariableReference callee) {
+        String calleeStr = "";
         if (method.isStatic()) {
-            callee_str += getClassName(method.getMethod().getDeclaringClass());
+            calleeStr += getClassName(method.getMethod().getDeclaringClass());
         } else {
-            VariableReference callee = statement.getCallee();
             if (callee instanceof ConstantValue) {
                 Class<?> declaringClass = method.getMethod().getDeclaringClass();
                 Class<?> calleeClass = callee.getVariableClass();
@@ -1491,72 +1501,44 @@ public class TestCodeVisitor extends TestVisitor {
                 // If the constant is not assignable to the declaring class, add an (Object) cast first
                 // to ensure the generated code compiles (e.g., (Target)(Object)"str").
                 if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
-                    callee_str += "((" + getClassName(declaringClass) + ")(Object)" + calleeName + ")";
+                    calleeStr += "((" + getClassName(declaringClass) + ")(Object)" + calleeName + ")";
                 } else {
-                    callee_str += "((" + getClassName(declaringClass) + ")" + calleeName + ")";
+                    calleeStr += "((" + getClassName(declaringClass) + ")" + calleeName + ")";
                 }
             } else {
                 // If the method is not public and this is a subclass in a different package we need to cast
-                if (!method.isPublic() && !method.getDeclaringClass().equals(callee.getVariableClass()) && callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
+                if (!method.isPublic()
+                        && !method.getDeclaringClass().equals(callee.getVariableClass())
+                        && callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
                     String packageName1 = ClassUtils.getPackageName(method.getDeclaringClass());
                     String packageName2 = ClassUtils.getPackageName(callee.getVariableClass());
                     if (!packageName1.equals(packageName2)) {
-                        callee_str += "((" + getClassName(method.getMethod().getDeclaringClass())
+                        calleeStr += "((" + getClassName(method.getMethod().getDeclaringClass())
                                 + ")" + getVariableName(callee) + ")";
                     } else {
-                        callee_str += getVariableName(callee);
+                        calleeStr += getVariableName(callee);
                     }
                 } else if (!callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
                     try {
                         // If the concrete callee class has that method then it's ok
                         callee.getVariableClass().getDeclaredMethod(method.getName(), method.getRawParameterTypes());
-                        callee_str += getVariableName(callee);
+                        calleeStr += getVariableName(callee);
                     } catch (NoSuchMethodException e) {
                         // If not we need to cast to the subtype. If callee is unrelated, cast via Object to keep code compilable.
                         Class<?> declaringClass = method.getMethod().getDeclaringClass();
                         Class<?> calleeClass = callee.getVariableClass();
                         if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
-                            callee_str += "((" + getTypeName(declaringClass) + ")(Object)" + getVariableName(callee) + ")";
+                            calleeStr += "((" + getTypeName(declaringClass) + ")(Object)" + getVariableName(callee) + ")";
                         } else {
-                            callee_str += "((" + getTypeName(declaringClass) + ") " + getVariableName(callee) + ")";
+                            calleeStr += "((" + getTypeName(declaringClass) + ") " + getVariableName(callee) + ")";
                         }
-                        // TODO: Here we could check if this is actually possible
-                        // ...but what would we do?
-                        // if(!ClassUtils.getAllSuperclasses(method.getMethod().getDeclaringClass()).contains(callee.getVariableClass())) {
-                        //}
                     }
                 } else {
-                    callee_str += getVariableName(callee);
+                    calleeStr += getVariableName(callee);
                 }
             }
         }
-
-        if (retval.isVoid()) {
-            result += callee_str + "." + method.getName() + "(" + parameter_string + ");";
-        } else {
-            // if (exception == null || !lastStatement)
-            if (!unused) {
-                result += getVariableName(retval) + " = ";
-            }
-            // If unused, then we don't want to print anything:
-            //else
-            //    result += getClassName(retval) + " " + getVariableName(retval) + " = ";
-
-            result += callee_str + "." + method.getName() + "(" + parameter_string + ");";
-        }
-
-        if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
-            if (Properties.ASSERTIONS) {
-                result += generateFailAssertion(statement, exception);
-            }
-
-            result += NEWLINE + "}";// end try block
-
-            result += generateCatchBlock(statement, exception);
-        }
-
-        testCode.append(result + NEWLINE);
-        addAssertions(statement);
+        return calleeStr;
     }
 
     /**
@@ -1624,11 +1606,11 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         if (sourceClass != null && isValidSource(sourceClass) && isExceptionToAssertThrownBy(ex) && !Properties.NO_RUNTIME_DEPENDENCY) {
-                /*
-                    do not check source if it comes from a non-runtime evosuite
-                    class. this could happen if source is an instrumentation done
-                    during search which is not applied to runtime
-                 */
+            /*
+                do not check source if it comes from a non-runtime evosuite
+                class. this could happen if source is an instrumentation done
+                during search which is not applied to runtime
+             */
 
             //from class EvoAssertions
             result += "   verifyException(\"" + sourceClass + "\", e);" + NEWLINE;
@@ -1646,17 +1628,17 @@ public class TestCodeVisitor extends TestVisitor {
     }
 
     private boolean isValidSource(String sourceClass) {
-        return (!sourceClass.startsWith(PackageInfo.getEvoSuitePackage() + ".") ||
-                sourceClass.startsWith(PackageInfo.getEvoSuitePackage() + ".runtime.")) &&
-                !sourceClass.equals(URLClassLoader.class.getName()) && // Classloaders may differ, e.g. when running with ant
-                !sourceClass.startsWith(RegExp.class.getPackage().getName()) &&
-                !sourceClass.startsWith("java.lang.System") &&
-                !sourceClass.startsWith("java.lang.String") &&
-                !sourceClass.startsWith("java.lang.Class") &&
-                !sourceClass.startsWith("sun.") &&
-                !sourceClass.startsWith("com.sun.") &&
-                !sourceClass.startsWith("jdk.internal.") &&
-                !sourceClass.startsWith("<evosuite>");
+        return (!sourceClass.startsWith(PackageInfo.getEvoSuitePackage() + ".")
+                || sourceClass.startsWith(PackageInfo.getEvoSuitePackage() + ".runtime."))
+                && !sourceClass.equals(URLClassLoader.class.getName()) // Classloaders may differ, e.g. when running with ant
+                && !sourceClass.startsWith(RegExp.class.getPackage().getName())
+                && !sourceClass.startsWith("java.lang.System")
+                && !sourceClass.startsWith("java.lang.String")
+                && !sourceClass.startsWith("java.lang.Class")
+                && !sourceClass.startsWith("sun.")
+                && !sourceClass.startsWith("com.sun.")
+                && !sourceClass.startsWith("jdk.internal.")
+                && !sourceClass.startsWith("<evosuite>");
     }
 
     private final List<Class<?>> invalidExceptions = Arrays.asList(new Class<?>[]{
@@ -1702,7 +1684,7 @@ public class TestCodeVisitor extends TestVisitor {
      */
     @Override
     public void visitConstructorStatement(ConstructorStatement statement) {
-        String result = "";
+        StringBuilder result = new StringBuilder();
         GenericConstructor constructor = statement.getConstructor();
         VariableReference retval = statement.getReturnValue();
         Throwable exception = getException(statement);
@@ -1739,36 +1721,45 @@ public class TestCodeVisitor extends TestVisitor {
                 className = retval.getGenericClass().getUnboxedType().getSimpleName();
             }
 
-            result = className + " " + getVariableName(retval) + " = null;" + NEWLINE;
-            result += "try {" + NEWLINE + "  ";
+            result.append(className).append(" ").append(getVariableName(retval)).append(" = null;").append(NEWLINE);
+            result.append("try {").append(NEWLINE).append("  ");
         } else {
-            result += getClassName(retval) + " ";
+            result.append(getClassName(retval)).append(" ");
         }
 
-        if (isNonStaticMemberClass) {
-            result += getVariableName(retval) + " = "
-                    + getVariableName(parameters.get(0))
-                    + ".new "
-                    + getSimpleTypeName(constructor.getOwnerType()) + "("
-                    + parameterString + ");";
-        } else {
-            result += getVariableName(retval) + " = new "
-                    + getTypeName(constructor.getOwnerType())
-                    + "(" + parameterString + ");";
-        }
+        result.append(generateConstructorCallString(constructor, retval, parameters, parameterString, isNonStaticMemberClass));
 
         if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
             if (Properties.ASSERTIONS) {
-                result += generateFailAssertion(statement, exception);
+                result.append(generateFailAssertion(statement, exception));
             }
 
-            result += NEWLINE + "}";// end try block
+            result.append(NEWLINE).append("}");// end try block
 
-            result += generateCatchBlock(statement, exception);
+            result.append(generateCatchBlock(statement, exception));
         }
 
-        testCode.append(result + NEWLINE);
+        testCode.append(result).append(NEWLINE);
         addAssertions(statement);
+    }
+
+    private String generateConstructorCallString(GenericConstructor constructor, VariableReference retval,
+                                                 List<VariableReference> parameters, String parameterString,
+                                                 boolean isNonStaticMemberClass) {
+        StringBuilder result = new StringBuilder();
+        if (isNonStaticMemberClass) {
+            result.append(getVariableName(retval)).append(" = ")
+                    .append(getVariableName(parameters.get(0)))
+                    .append(".new ")
+                    .append(getSimpleTypeName(constructor.getOwnerType())).append("(")
+                    .append(parameterString).append(");");
+        } else {
+            result.append(getVariableName(retval)).append(" = new ")
+                    .append(getTypeName(constructor.getOwnerType()))
+                    .append("(")
+                    .append(parameterString).append(");");
+        }
+        return result.toString();
     }
 
     private boolean shouldUseTryCatch(Throwable t, boolean isDeclared) {
@@ -1786,9 +1777,6 @@ public class TestCodeVisitor extends TestVisitor {
      **/
     public String generateFailAssertion(AbstractStatement statement, Throwable exception) {
         Class<?> ex = getExceptionClassToUse(exception);
-
-        // boolean isExpected = getDeclaredExceptions().contains(ex);
-        // if (isExpected)
 
         String stmt = " fail(\"Expecting exception: " + getClassName(ex) + "\");" + NEWLINE;
 
@@ -1817,41 +1805,44 @@ public class TestCodeVisitor extends TestVisitor {
         List<Integer> lengths = statement.getLengths();
 
         String type = getClassName(retval);
-        String multiDimensions = "";
+        StringBuilder multiDimensions = new StringBuilder();
         if (lengths.size() == 1) {
             type = type.replaceFirst("\\[\\]", "");
-            multiDimensions = "[" + lengths.get(0) + "]";
+            multiDimensions.append("[").append(lengths.get(0)).append("]");
             while (type.contains("[]")) {
-                multiDimensions += "[]";
+                multiDimensions.append("[]");
                 type = type.replaceFirst("\\[\\]", "");
             }
         } else {
             type = type.replaceAll("\\[\\]", "");
             for (int length : lengths) {
-                multiDimensions += "[" + length + "]";
+                multiDimensions.append("[").append(length).append("]");
             }
         }
 
         if (retval.getGenericClass().isGenericArray()) {
+            String dimensions;
             if (lengths.size() > 1) {
-                multiDimensions = "new int[] {" + lengths.get(0);
+                StringBuilder sb = new StringBuilder("new int[] {" + lengths.get(0));
                 for (int i = 1; i < lengths.size(); i++) {
-                    multiDimensions += ", " + lengths.get(i);
+                    sb.append(", ").append(lengths.get(i));
                 }
-                multiDimensions += "}";
+                sb.append("}");
+                dimensions = sb.toString();
             } else {
-                multiDimensions = "" + lengths.get(0);
+                dimensions = "" + lengths.get(0);
             }
 
-            testCode.append(getClassName(retval) + " " + getVariableName(retval) + " = ("
-                    + getClassName(retval) + ") " + getClassName(Array.class)
-                    + ".newInstance("
-                    + getClassName(retval.getComponentClass()).replaceAll("\\[\\]", "")
-                    + ".class, " + multiDimensions + ");" + NEWLINE);
+            testCode.append(getClassName(retval)).append(" ").append(getVariableName(retval)).append(" = (")
+                    .append(getClassName(retval)).append(") ").append(getClassName(Array.class))
+                    .append(".newInstance(")
+                    .append(getClassName(retval.getComponentClass()).replaceAll("\\[\\]", ""))
+                    .append(".class, ")
+                    .append(dimensions).append(");").append(NEWLINE);
 
         } else {
-            testCode.append(getClassName(retval) + " " + getVariableName(retval) + " = new "
-                    + type + multiDimensions + ";" + NEWLINE);
+            testCode.append(getClassName(retval)).append(" ").append(getVariableName(retval)).append(" = new ")
+                    .append(type).append(multiDimensions).append(";").append(NEWLINE);
         }
         addAssertions(statement);
     }
@@ -1896,8 +1887,8 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
 
-        testCode.append(getVariableName(retval) + " = " + cast + getVariableName(parameter)
-                + ";" + NEWLINE);
+        testCode.append(getVariableName(retval)).append(" = ").append(cast).append(getVariableName(parameter))
+                .append(";").append(NEWLINE);
         addAssertions(statement);
     }
 
@@ -1914,7 +1905,7 @@ public class TestCodeVisitor extends TestVisitor {
     public void visitNullStatement(NullStatement statement) {
         VariableReference retval = statement.getReturnValue();
 
-        testCode.append(getClassName(retval) + " " + getVariableName(retval) + " = null;" + NEWLINE);
+        testCode.append(getClassName(retval)).append(" ").append(getVariableName(retval)).append(" = null;").append(NEWLINE);
     }
 
     @Override

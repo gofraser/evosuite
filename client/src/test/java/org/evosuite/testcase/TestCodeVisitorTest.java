@@ -25,13 +25,12 @@ import com.examples.with.different.packagename.EnumInInnerClass;
 import com.examples.with.different.packagename.EnumUser;
 import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
-import org.evosuite.testcase.statements.ArrayStatement;
-import org.evosuite.testcase.statements.AssignmentStatement;
-import org.evosuite.testcase.statements.EnumPrimitiveStatement;
-import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.*;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
 import org.evosuite.utils.generic.Person;
 import org.evosuite.utils.generic.WildcardTypeImpl;
@@ -320,7 +319,6 @@ public class TestCodeVisitorTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor); //should not throw exception
         String code = visitor.getCode();
-        System.out.println(code);
         assertFalse(code.contains("= AbstractEnumInInnerClass.AnEnum.1.FOO"));
         assertTrue(code.contains("= AbstractEnumInInnerClass.AnEnum.FOO"));
     }
@@ -361,7 +359,6 @@ public class TestCodeVisitorTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor); //should not throw exception
         String code = visitor.getCode();
-        System.out.println(code);
 
         assertTrue(code.contains("int age = person.getAge()"));
         assertFalse(code.contains("int int1 = person0.getAge()"));
@@ -407,7 +404,6 @@ public class TestCodeVisitorTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor); //should not throw exception
         String code = visitor.getCode();
-        System.out.println(code);
 
         assertFalse(code.contains("int age = person.getAge()"));
         assertTrue(code.contains("int int1 = person0.getAge()"));
@@ -415,5 +411,95 @@ public class TestCodeVisitorTest {
         assertTrue(code.contains("int int0 = person0.getFixedId()"));
         assertFalse(code.contains("boolean adult = person.isAdult()"));
         assertTrue(code.contains("boolean boolean0 = person0.isAdult()"));
+    }
+
+    @Test
+    public void testStringEscaping() {
+        TestCase tc = new DefaultTestCase();
+        StringPrimitiveStatement st = new StringPrimitiveStatement(tc, "Hello \"World\" \n");
+        tc.addStatement(st);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains(" = \"Hello \\\"World\\\" \\n\""));
+    }
+
+    @Test
+    public void testVoidMethod() throws NoSuchMethodException, ConstructionFailedException {
+        TestCase tc = new DefaultTestCase();
+        VariableReference person = TestFactory.getInstance().addConstructor(tc,
+                new GenericConstructor(Person.class.getDeclaredConstructor(), Person.class), 0, 0);
+
+        Method m = Person.class.getDeclaredMethod("setAge", int.class);
+        GenericMethod gm = new GenericMethod(m, Person.class);
+
+        IntPrimitiveStatement intSt = new IntPrimitiveStatement(tc, 10);
+        VariableReference intVar = tc.addStatement(intSt);
+
+        MethodStatement ms = new MethodStatement(tc, gm, person, Arrays.asList(intVar));
+        tc.addStatement(ms);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains(".setAge("));
+        assertFalse(code.contains(" = " + visitor.getVariableName(person) + ".setAge("));
+    }
+
+    @Test
+    public void testExceptionHandling() throws NoSuchMethodException, ConstructionFailedException {
+        TestCase tc = new DefaultTestCase();
+        VariableReference person = TestFactory.getInstance().addConstructor(tc,
+                new GenericConstructor(Person.class.getDeclaredConstructor(), Person.class), 0, 0);
+
+        Method m = Person.class.getDeclaredMethod("getFixedId");
+        GenericMethod gm = new GenericMethod(m, Person.class);
+        MethodStatement ms = new MethodStatement(tc, gm, person, Arrays.asList());
+        tc.addStatement(ms);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        visitor.setException(ms, new IllegalArgumentException("Expected exception"));
+
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("try {"));
+        assertTrue(code.contains("fail(\"Expecting exception: IllegalArgumentException\");"));
+        assertTrue(code.contains("} catch(IllegalArgumentException e) {"));
+    }
+
+    @Test
+    public void testMultiDimArray() {
+        TestCase tc = new DefaultTestCase();
+        ArrayStatement as = new ArrayStatement(tc, int[][].class, new int[]{2, 3});
+        tc.addStatement(as);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("int[][] "));
+        assertTrue(code.contains("= new int[2][3];"));
+    }
+
+    @Test
+    public void testFieldAccess() throws NoSuchFieldException, ConstructionFailedException, NoSuchMethodException {
+        TestCase tc = new DefaultTestCase();
+        VariableReference country = TestFactory.getInstance().addConstructor(tc,
+                new GenericConstructor(Country.class.getDeclaredConstructor(), Country.class), 0, 0);
+
+        GenericField field = new GenericField(Country.class.getDeclaredField("bar"), Country.class);
+        FieldStatement fs = new FieldStatement(tc, field, country);
+        VariableReference fieldVal = tc.addStatement(fs);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains(".bar;"));
+        assertTrue(code.contains("String "));
     }
 }
