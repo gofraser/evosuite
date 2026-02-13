@@ -379,8 +379,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
              */
 
             if (now.getCounter() != previous.getCounter()
-                    && (now.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT
-                    || previous.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT)) {
+                    && (now.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT)
+                    || previous.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT
+            ) {
                 return true;
             }
         }
@@ -461,8 +462,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
             // check if rather more calls
             if (existingParameters < md.getCounter()) {
-                for (int i = existingParameters;
-                        i < md.getCounter() && i < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT; i++) {
+                for (int i = existingParameters; i < md.getCounter()
+                        && i < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT; i++) {
                     // Create a copy as the typemap is stored in the class during generic instantiation
                     // but we might want to have a different type for each call of the same method invocation
                     GenericClass<?> calleeClass = GenericClassFactory.get(retval.getGenericClass());
