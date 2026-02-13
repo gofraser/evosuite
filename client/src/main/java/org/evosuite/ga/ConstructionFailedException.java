@@ -37,4 +37,14 @@ public class ConstructionFailedException extends Exception {
         super(reason);
     }
 
+    /**
+     * <p>Constructor for ConstructionFailedException.</p>
+     *
+     * @param reason a {@link java.lang.String} object.
+     * @param cause a {@link java.lang.Throwable} object.
+     */
+    public ConstructionFailedException(String reason, Throwable cause) {
+        super(reason, cause);
+    }
+
 }

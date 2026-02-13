@@ -66,7 +66,12 @@ import java.util.stream.Collectors;
  */
 
 /**
- * Summary.
+ * Factory class for creating and modifying {@link TestCase}s.
+ *
+ * <p>This class handles the generation of objects, method calls, constructor calls,
+ * and field accesses. It manages recursion depth to avoid infinite loops and
+ * uses heuristics to satisfy dependencies.</p>
+ *
  * @author Gordon Fraser
  */
 public class TestFactory {
@@ -106,14 +111,13 @@ public class TestFactory {
 
     /**
      * Adds a call of the field or method represented by {@code call} to the
-     * test case
-     * {@code test} at the given {@code position} with {@code callee} as the callee of {@code call}.
-     * Note that constructor calls are <em>not</em> supported
-     * Returns {@code true} if the operation was successful, {@code false} otherwise.
+     * test case {@code test} at the given {@code position} with {@code callee} as the callee of {@code call}.
+     *
+     * <p>Note that constructor calls are <em>not</em> supported by this method.</p>
      *
      * @param test     the test case the call should be added to
      * @param callee   reference to the owning object of {@code call}
-     * @param call     the {@code GenericAccessibleObject}
+     * @param call     the {@code GenericAccessibleObject} (method or field)
      * @param position the position within {@code test} at which to add the call
      * @return {@code true} if successful, {@code false} otherwise
      */
@@ -150,7 +154,8 @@ public class TestFactory {
             }
             return true;
         } catch (ConstructionFailedException e) {
-            // TODO: Check this!
+            // Inserting call failed (likely due to recursion depth or other constraint),
+            // so we revert the changes.
             logger.debug("Inserting call {} has failed: {} Removing statements", call, e);
             // TODO: Doesn't work if position != test.size()
             int lengthDifference = test.size() - previousLength;
@@ -171,26 +176,40 @@ public class TestFactory {
     }
 
 
+    /**
+     * Adds a functional mock for the given type.
+     *
+     * @param test the test case.
+     * @param type the type to mock.
+     * @param position the position in the test case.
+     * @param recursionDepth the current recursion depth.
+     * @return a reference to the created mock.
+     * @throws ConstructionFailedException if construction fails.
+     * @throws IllegalArgumentException if arguments are invalid.
+     */
     public VariableReference addFunctionalMock(TestCase test, Type type, int position, int recursionDepth)
             throws ConstructionFailedException, IllegalArgumentException {
-
-        Inputs.checkNull(test, type);
-
-        if (recursionDepth > Properties.MAX_RECURSION) {
-            logger.debug("Max recursion depth reached");
-            throw new ConstructionFailedException("Max recursion depth reached");
-        }
-
-        //TODO this needs to be fixed once we handle Generics in mocks
-        FunctionalMockStatement fms = new FunctionalMockStatement(test, type, GenericClassFactory.get(type));
-        VariableReference ref = test.addStatement(fms, position);
-
-        //note: when we add a new mock, by default it will have no parameter at the beginning
-
-        return ref;
+        return addFunctionalMockInternal(test, type, position, recursionDepth, (t, c) -> new FunctionalMockStatement(t, type, c));
     }
 
+    /**
+     * Adds a functional mock for an abstract class.
+     *
+     * @param test the test case.
+     * @param type the abstract class type.
+     * @param position the position in the test case.
+     * @param recursionDepth the current recursion depth.
+     * @return a reference to the created mock.
+     * @throws ConstructionFailedException if construction fails.
+     * @throws IllegalArgumentException if arguments are invalid.
+     */
     public VariableReference addFunctionalMockForAbstractClass(TestCase test, Type type, int position, int recursionDepth)
+            throws ConstructionFailedException, IllegalArgumentException {
+        return addFunctionalMockInternal(test, type, position, recursionDepth, (t, c) -> new FunctionalMockForAbstractClassStatement(t, type, c));
+    }
+
+    private VariableReference addFunctionalMockInternal(TestCase test, Type type, int position, int recursionDepth,
+                                                        java.util.function.BiFunction<TestCase, GenericClass<?>, Statement> factory)
             throws ConstructionFailedException, IllegalArgumentException {
 
         Inputs.checkNull(test, type);
@@ -201,9 +220,7 @@ public class TestFactory {
         }
 
         //TODO this needs to be fixed once we handle Generics in mocks
-        FunctionalMockForAbstractClassStatement fms = new FunctionalMockForAbstractClassStatement(test,
-                type,
-                GenericClassFactory.get(type));
+        Statement fms = factory.apply(test, GenericClassFactory.get(type));
         VariableReference ref = test.addStatement(fms, position);
 
         //note: when we add a new mock, by default it will have no parameter at the beginning
@@ -990,8 +1007,8 @@ public class TestFactory {
                 test.setStatement(f, position);
                 logger.debug("Using field {}", f.getCode());
             } catch (Throwable e) {
-            logger.error("Error: {} , Field: {} , Test: {}", e, field, test);
-                throw new Error(e);
+                logger.error("Error: {} , Field: {} , Test: {}", e, field, test);
+                throw new ConstructionFailedException("Failed to construct field statement", e);
             }
         }
     }
@@ -1278,14 +1295,20 @@ public class TestFactory {
      * {@code createNull} should be used instead. If one wants to create arrays, the corresponding
      * method {@code createArray} should be used.
      *
-     * <p>
-     * Clients have to supply the current recursion depth. This allows for better
+     * <p>This method attempts to create the object using the following strategies in order:</p>
+     * <ol>
+     *     <li>Functional mocking (if enabled and applicable).</li>
+     *     <li>Using a generator (constructor, method, field) from {@link TestCluster}.</li>
+     *     <li>Reusing an existing variable (if enabled and generator failed).</li>
+     *     <li>Handling missing generators by resolving dependencies (e.g. adding mocks).</li>
+     * </ol>
+     *
+     * <p>Clients have to supply the current recursion depth. This allows for better
      * management of test generation resources. If this method is called from another method that
      * already has a recursion depth as formal parameter, passing that recursion depth + 1 is
      * appropriate. Otherwise, 0 should be used.
      *
-     * <p>
-     * Returns the reference to the created object or throws a {@code ConstructionFailedException}
+     * <p>Returns the reference to the created object or throws a {@code ConstructionFailedException}
      * if creation was not possible.
      *
      * @param test                  the test case in which to insert
@@ -1304,124 +1327,154 @@ public class TestFactory {
                                           int recursionDepth, VariableReference generatorRefToExclude,
                                           boolean allowNull, boolean canUseFunctionalMocks,
                                           boolean canReuseVariables) throws ConstructionFailedException {
-        GenericClass<?> clazz = GenericClassFactory.get(type);
-
         logger.debug("Going to create object for type {}", type);
-        VariableReference ret = null;
 
-        if (canUseFunctionalMocks && TimeController.getInstance().getPhasePercentage() >= Properties.FUNCTIONAL_MOCKING_PERCENT &&
-                Randomness.nextDouble() < Properties.P_FUNCTIONAL_MOCKING &&
-                FunctionalMockStatement.canBeFunctionalMocked(type)) {
-
-            //mock creation
-            logger.debug("Creating functional mock for {}", type);
-            ret = addFunctionalMock(test, type, position, recursionDepth + 1);
-
-        } else {
-
-            //regular creation
-
-            GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomGenerator(
-                    clazz, currentRecursion, test, position, generatorRefToExclude, recursionDepth);
-            currentRecursion.add(o);
-
-            if (o == null) {
-                if (canReuseVariables) {
-//                    throw new ConstructionFailedException("Cannot currently instantiate type "+type);
-
-                /*
-                    It could happen that there is no current valid generator for 'position', but valid
-                    generators were usable before. This is for example the case when the only generator
-                    has an "atMostOnce" constraint, and so can only be used once.
-                    In such case, we should just re-use an existing variable if it exists, as long as
-                    it is not a functional mock (which can be used only once)
-                 */
-                    for (int i = position - 1; i >= 0; i--) {
-                        Statement statement = test.getStatement(i);
-                        VariableReference var = statement.getReturnValue();
-
-                        if (!allowNull && ConstraintHelper.isNull(var, test)) {
-                            continue;
-                        }
-
-                        if (var.isAssignableTo(type) && !(statement instanceof FunctionalMockStatement)) {
-
-                            // Workaround for https://issues.apache.org/jira/browse/LANG-1420
-                            if (!clazz.getRawClass().isAssignableFrom(var.getGenericClass().getRawClass())) {
-                                continue;
-                            }
-                            logger.debug("Reusing variable at position {}", var.getStPosition());
-                            return var;
-                        }
-                    }
-                }
-
-                if (canUseFunctionalMocks && (Properties.MOCK_IF_NO_GENERATOR || Properties.P_FUNCTIONAL_MOCKING > 0)) {
-                    /*
-                        Even if mocking is not active yet in this phase, if we have
-                        no generator for a type, we use mocking directly
-                     */
-                    if (FunctionalMockStatement.canBeFunctionalMocked(type)) {
-                        logger.debug("Using mock for type {}", type);
-                        ret = addFunctionalMock(test, type, position, recursionDepth + 1);
-                    } else if (clazz.isAbstract() && FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(type)) {
-                        {
-                            logger.debug("Using mock for abstract type {}", type);
-                            ret = addFunctionalMockForAbstractClass(test, type, position, recursionDepth + 1);
-                        }
-                    }
-                }
-                if (ret == null) {
-                    logger.debug("No mock solution found: {}, {}, {}, {}", canUseFunctionalMocks, Properties.MOCK_IF_NO_GENERATOR, FunctionalMockStatement.canBeFunctionalMocked(type), FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(type));
-
-                    if (!TestCluster.getInstance().hasGenerator(type)) {
-                        logger.debug("No generators found for {}, attempting to resolve dependencies", type);
-                        TestClusterGenerator clusterGenerator = TestGenerationContext.getInstance().getTestClusterGenerator();
-                        Class<?> mock = MockList.getMockClass(clazz.getRawClass().getCanonicalName());
-                        if (mock != null) {
-                            clusterGenerator.addNewDependencies(Collections.singletonList(mock));
-                        } else {
-                            clusterGenerator.addNewDependencies(Collections.singletonList(clazz.getRawClass()));
-                        }
-
-                        if (TestCluster.getInstance().hasGenerator(type)) {
-                            logger.debug("Found new generators for {}", type);
-                            return createObject(test, type, position, recursionDepth + 1, generatorRefToExclude, allowNull, canUseFunctionalMocks, canReuseVariables);
-                        } else {
-                            logger.debug("Found no new generators for {}", type);
-                        }
-                    }
-                    throw new ConstructionFailedException("Have no generator for " + type + " canUseFunctionalMocks=" + canUseFunctionalMocks + ", canBeMocked: " + FunctionalMockStatement.canBeFunctionalMocked(type));
-                }
-
-            } else if (o.isField()) {
-                logger.debug("Attempting generating of {} via field of type {}", type, type);
-                ret = addField(test, (GenericField) o, position, recursionDepth + 1);
-            } else if (o.isMethod()) {
-                logger.debug("Attempting generating of {} via method {} of type {}", type, o, type);
-
-                ret = addMethod(test, (GenericMethod) o, position, recursionDepth + 1);
-
-                // TODO: Why are we doing this??
-                //if (o.isStatic()) {
-                //    ret.setType(type);
-                //}
-                logger.debug("Success in generating type {} using method \"{}\"", type, o);
-            } else if (o.isConstructor()) {
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Attempting generating of {} via constructor {} of type {}, with constructor type {}, at position {}", type, o, type, o.getOwnerType(), position);
-                }
-
-                ret = addConstructor(test, (GenericConstructor) o, type, position, recursionDepth + 1);
-            } else {
-                logger.debug("No generators found for type {}", type);
-                throw new ConstructionFailedException("No generator found for type " + type);
+        VariableReference ret;
+        if (canUseFunctionalMocks) {
+            ret = tryCreateFunctionalMock(test, type, position, recursionDepth);
+            if (ret != null) {
+                ret.setDistance(recursionDepth + 1);
+                logger.debug("Success in generation of type {} at position {}", type, position);
+                return ret;
             }
+        }
+
+        ret = tryCreateFromGenerator(test, type, position, recursionDepth, generatorRefToExclude);
+
+        if (ret == null) {
+            if (canReuseVariables) {
+                ret = tryReuseExistingVariable(test, type, position, allowNull);
+                if (ret != null) {
+                    return ret;
+                }
+            }
+            ret = handleNoGeneratorFound(test, type, position, recursionDepth, generatorRefToExclude, allowNull, canUseFunctionalMocks, canReuseVariables);
         }
 
         ret.setDistance(recursionDepth + 1);
         logger.debug("Success in generation of type {} at position {}", type, position);
         return ret;
+    }
+
+    private VariableReference tryCreateFunctionalMock(TestCase test, Type type, int position, int recursionDepth) throws ConstructionFailedException {
+        if (TimeController.getInstance().getPhasePercentage() >= Properties.FUNCTIONAL_MOCKING_PERCENT &&
+                Randomness.nextDouble() < Properties.P_FUNCTIONAL_MOCKING &&
+                FunctionalMockStatement.canBeFunctionalMocked(type)) {
+
+            //mock creation
+            logger.debug("Creating functional mock for {}", type);
+            return addFunctionalMock(test, type, position, recursionDepth + 1);
+        }
+        return null;
+    }
+
+    private VariableReference tryCreateFromGenerator(TestCase test, Type type, int position, int recursionDepth, VariableReference generatorRefToExclude) throws ConstructionFailedException {
+        GenericClass<?> clazz = GenericClassFactory.get(type);
+        GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomGenerator(
+                clazz, currentRecursion, test, position, generatorRefToExclude, recursionDepth);
+        currentRecursion.add(o);
+
+        if (o == null) {
+            return null;
+        }
+
+        VariableReference ret = null;
+        if (o.isField()) {
+            logger.debug("Attempting generating of {} via field of type {}", type, type);
+            ret = addField(test, (GenericField) o, position, recursionDepth + 1);
+        } else if (o.isMethod()) {
+            logger.debug("Attempting generating of {} via method {} of type {}", type, o, type);
+
+            ret = addMethod(test, (GenericMethod) o, position, recursionDepth + 1);
+
+            // TODO: Why are we doing this??
+            //if (o.isStatic()) {
+            //    ret.setType(type);
+            //}
+            logger.debug("Success in generating type {} using method \"{}\"", type, o);
+        } else if (o.isConstructor()) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Attempting generating of {} via constructor {} of type {}, with constructor type {}, at position {}", type, o, type, o.getOwnerType(), position);
+            }
+
+            ret = addConstructor(test, (GenericConstructor) o, type, position, recursionDepth + 1);
+        } else {
+            logger.debug("No generators found for type {}", type);
+            throw new ConstructionFailedException("No generator found for type " + type);
+        }
+        return ret;
+    }
+
+    private VariableReference tryReuseExistingVariable(TestCase test, Type type, int position, boolean allowNull) {
+        GenericClass<?> clazz = GenericClassFactory.get(type);
+        /*
+            It could happen that there is no current valid generator for 'position', but valid
+            generators were usable before. This is for example the case when the only generator
+            has an "atMostOnce" constraint, and so can only be used once.
+            In such case, we should just re-use an existing variable if it exists, as long as
+            it is not a functional mock (which can be used only once)
+         */
+        for (int i = position - 1; i >= 0; i--) {
+            Statement statement = test.getStatement(i);
+            VariableReference var = statement.getReturnValue();
+
+            if (!allowNull && ConstraintHelper.isNull(var, test)) {
+                continue;
+            }
+
+            if (var.isAssignableTo(type) && !(statement instanceof FunctionalMockStatement)) {
+
+                // Workaround for https://issues.apache.org/jira/browse/LANG-1420
+                if (!clazz.getRawClass().isAssignableFrom(var.getGenericClass().getRawClass())) {
+                    continue;
+                }
+                logger.debug("Reusing variable at position {}", var.getStPosition());
+                return var;
+            }
+        }
+        return null;
+    }
+
+    private VariableReference handleNoGeneratorFound(TestCase test, Type type, int position, int recursionDepth,
+                                                     VariableReference generatorRefToExclude, boolean allowNull,
+                                                     boolean canUseFunctionalMocks, boolean canReuseVariables)
+            throws ConstructionFailedException {
+
+        GenericClass<?> clazz = GenericClassFactory.get(type);
+
+        if (canUseFunctionalMocks && (Properties.MOCK_IF_NO_GENERATOR || Properties.P_FUNCTIONAL_MOCKING > 0)) {
+            /*
+                Even if mocking is not active yet in this phase, if we have
+                no generator for a type, we use mocking directly
+             */
+            if (FunctionalMockStatement.canBeFunctionalMocked(type)) {
+                logger.debug("Using mock for type {}", type);
+                return addFunctionalMock(test, type, position, recursionDepth + 1);
+            } else if (clazz.isAbstract() && FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(type)) {
+                logger.debug("Using mock for abstract type {}", type);
+                return addFunctionalMockForAbstractClass(test, type, position, recursionDepth + 1);
+            }
+        }
+        logger.debug("No mock solution found: {}, {}, {}, {}", canUseFunctionalMocks, Properties.MOCK_IF_NO_GENERATOR, FunctionalMockStatement.canBeFunctionalMocked(type), FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(type));
+
+        if (!TestCluster.getInstance().hasGenerator(type)) {
+            logger.debug("No generators found for {}, attempting to resolve dependencies", type);
+            TestClusterGenerator clusterGenerator = TestGenerationContext.getInstance().getTestClusterGenerator();
+            Class<?> mock = MockList.getMockClass(clazz.getRawClass().getCanonicalName());
+            if (mock != null) {
+                clusterGenerator.addNewDependencies(Collections.singletonList(mock));
+            } else {
+                clusterGenerator.addNewDependencies(Collections.singletonList(clazz.getRawClass()));
+            }
+
+            if (TestCluster.getInstance().hasGenerator(type)) {
+                logger.debug("Found new generators for {}", type);
+                return createObject(test, type, position, recursionDepth + 1, generatorRefToExclude, allowNull, canUseFunctionalMocks, canReuseVariables);
+            } else {
+                logger.debug("Found no new generators for {}", type);
+            }
+        }
+        throw new ConstructionFailedException("Have no generator for " + type + " canUseFunctionalMocks=" + canUseFunctionalMocks + ", canBeMocked: " + FunctionalMockStatement.canBeFunctionalMocked(type));
     }
 
     private VariableReference createOrReuseVariable(TestCase test, Type parameterType,
