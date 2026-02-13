@@ -30,9 +30,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * <p>
- * FloatPrimitiveStatement class.
- * </p>
+ * Primitive statement for float values.
  *
  * @author Gordon Fraser
  */
@@ -41,31 +39,23 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
     private static final long serialVersionUID = 708022695544843828L;
 
     /**
-     * <p>
-     * Constructor for FloatPrimitiveStatement.
-     * </p>
+     * Constructs a new FloatPrimitiveStatement with the given value.
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param value a {@link java.lang.Float} object.
+     * @param value the initial value.
      */
     public FloatPrimitiveStatement(TestCase tc, Float value) {
         super(tc, float.class, value);
     }
 
     /**
-     * <p>
-     * Constructor for FloatPrimitiveStatement.
-     * </p>
+     * Constructs a new FloatPrimitiveStatement with default value 0.0F.
      *
      * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public FloatPrimitiveStatement(TestCase tc) {
         super(tc, float.class, 0.0F);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#zero()
-     */
 
     /**
      * {@inheritDoc}
@@ -75,19 +65,15 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
         value = (float) 0.0;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#delta()
-     */
-
     /**
      * {@inheritDoc}
      */
     @Override
     public void delta() {
-        double P = Randomness.nextDouble();
-        if (P < 1d / 3d) {
+        double probability = Randomness.nextDouble();
+        if (probability < 1d / 3d) {
             value += (float) Randomness.nextGaussian() * Properties.MAX_DELTA;
-        } else if (P < 2d / 3d) {
+        } else if (probability < 2d / 3d) {
             value += (float) Randomness.nextGaussian();
         } else {
             int precision = Randomness.nextInt(7);
@@ -95,6 +81,11 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
         }
     }
 
+    /**
+     * Reduces the precision of the value.
+     *
+     * @param precision the number of decimal places to keep
+     */
     private void chopPrecision(int precision) {
         if (value.isNaN() || value.isInfinite()) {
             return;
@@ -104,10 +95,6 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
         this.value = bd.floatValue();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment(java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -116,10 +103,6 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
         value = value + delta;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment(java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -127,10 +110,6 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
     public void increment(double delta) {
         value = value + (float) delta;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#randomize()
-     */
 
     /**
      * {@inheritDoc}
@@ -147,10 +126,6 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -158,10 +133,6 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
     public void increment() {
         increment(1.0F);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#setMid(java.lang.Object, java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}
@@ -171,10 +142,6 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
         value = min + ((max - min) / 2);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#decrement()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -182,10 +149,6 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
     public void decrement() {
         increment(-1);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#isPositive()
-     */
 
     /**
      * {@inheritDoc}

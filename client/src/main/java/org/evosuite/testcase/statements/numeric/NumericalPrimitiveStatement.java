@@ -29,45 +29,45 @@ import java.io.ObjectOutputStream;
 import java.lang.reflect.Type;
 
 /**
- * <p>Abstract NumericalPrimitiveStatement class.</p>
+ * Abstract base class for numerical primitive statements.
  *
  * @author Gordon Fraser
+ * @param <T> the type of the value
  */
 public abstract class NumericalPrimitiveStatement<T> extends PrimitiveStatement<T> {
 
     private static final long serialVersionUID = 476613542969677702L;
 
     /**
-     * <p>Constructor for NumericalPrimitiveStatement.</p>
+     * Constructs a new NumericalPrimitiveStatement.
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param type  a {@link java.lang.reflect.Type} object.
-     * @param value a T object.
-     * @param <T>   a T object.
+     * @param value the initial value.
      */
     public NumericalPrimitiveStatement(TestCase tc, Type type, T value) {
         super(tc, type, value);
     }
 
     /**
-     * Increase value by smallest possible increment.
+     * Increases value by smallest possible increment.
      */
     public abstract void increment();
 
     /**
-     * Decrease value by smallest possible increment.
+     * Decreases value by smallest possible increment.
      */
     public abstract void decrement();
 
     /**
-     * Change value by delta.
+     * Changes value by delta.
      *
      * @param delta a long.
      */
     public abstract void increment(long delta);
 
     /**
-     * Change value by delta.
+     * Changes value by delta.
      *
      * @param delta a double.
      */
@@ -84,7 +84,7 @@ public abstract class NumericalPrimitiveStatement<T> extends PrimitiveStatement<
     public abstract void setMid(T min, T max);
 
     /**
-     * Is the value >= 0?.
+     * True if the value is greater than or equal to 0.
      *
      * @return a boolean.
      */

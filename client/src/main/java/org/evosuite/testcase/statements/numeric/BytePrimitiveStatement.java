@@ -29,30 +29,24 @@ import org.evosuite.utils.Randomness;
 import java.lang.reflect.Type;
 
 /**
- * <p>
- * BytePrimitiveStatement class.
- * </p>
+ * Primitive statement for byte values.
  *
  * @author fraser
  */
 public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
 
     /**
-     * <p>
-     * Constructor for BytePrimitiveStatement.
-     * </p>
+     * Constructs a new BytePrimitiveStatement with the given value.
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param value a {@link java.lang.Byte} object.
+     * @param value the initial value.
      */
     public BytePrimitiveStatement(TestCase tc, Byte value) {
         super(tc, byte.class, value);
     }
 
     /**
-     * <p>
-     * Constructor for BytePrimitiveStatement.
-     * </p>
+     * Constructs a new BytePrimitiveStatement with default value 0.
      *
      * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -61,22 +55,16 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
     }
 
     /**
-     * <p>
-     * Constructor for BytePrimitiveStatement.
-     * </p>
+     * Constructs a new BytePrimitiveStatement with default value 0 and given type.
      *
      * @param tc   a {@link org.evosuite.testcase.TestCase} object.
-     * @param type a {@link java.lang.reflect.Type} object.
+     * @param type the type of the value.
      */
     public BytePrimitiveStatement(TestCase tc, Type type) {
         super(tc, type, (byte) 0);
     }
 
     private static final long serialVersionUID = -8123457944460041347L;
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#zero()
-     */
 
     /**
      * {@inheritDoc}
@@ -85,10 +73,6 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
     public void zero() {
         value = (byte) 0;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#delta()
-     */
 
     /**
      * {@inheritDoc}
@@ -99,10 +83,6 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
         value = (byte) (value + delta);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment(java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -110,10 +90,6 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
     public void increment(long delta) {
         value = (byte) (value + delta);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#randomize()
-     */
 
     /**
      * {@inheritDoc}
@@ -128,10 +104,6 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -139,10 +111,6 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
     public void increment() {
         increment((byte) 1);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment()
-     */
 
     /**
      * {@inheritDoc}
@@ -152,10 +120,6 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
         increment((byte) -1);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#setMid(java.lang.Object, java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -163,10 +127,6 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
     public void setMid(Byte min, Byte max) {
         value = (byte) (min + ((max - min) / 2));
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#isPositive()
-     */
 
     /**
      * {@inheritDoc}
