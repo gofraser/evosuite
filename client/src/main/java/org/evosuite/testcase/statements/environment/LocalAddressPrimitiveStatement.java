@@ -28,21 +28,37 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.StringUtil;
 
 /**
- * Created by arcuri on 12/15/14.
+ * Primitive statement for local address.
+ *
+ * @author arcuri
  */
 public class LocalAddressPrimitiveStatement extends EnvironmentDataStatement<EvoSuiteLocalAddress> {
 
     private static final long serialVersionUID = -6687351650507282638L;
 
+    /**
+     * Constructor.
+     *
+     * @param tc the test case context.
+     */
     public LocalAddressPrimitiveStatement(TestCase tc) {
         this(tc, null);
         randomize();
     }
 
+    /**
+     * Constructor.
+     *
+     * @param tc    the test case context.
+     * @param value the local address value.
+     */
     public LocalAddressPrimitiveStatement(TestCase tc, EvoSuiteLocalAddress value) {
         super(tc, EvoSuiteLocalAddress.class, value);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getTestCode(String varName) {
         String testCode = "";
@@ -65,16 +81,25 @@ public class LocalAddressPrimitiveStatement extends EnvironmentDataStatement<Evo
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void delta() {
         randomize();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void zero() {
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void randomize() {
 

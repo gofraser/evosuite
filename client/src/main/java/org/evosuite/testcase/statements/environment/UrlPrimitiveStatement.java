@@ -27,22 +27,38 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.StringUtil;
 
 /**
- * Created by arcuri on 12/14/14.
+ * Primitive statement for URL.
+ *
+ * @author arcuri
  */
 public class UrlPrimitiveStatement extends EnvironmentDataStatement<EvoSuiteURL> {
 
     private static final long serialVersionUID = 2062390100066807026L;
 
+    /**
+     * Constructor.
+     *
+     * @param tc the test case context.
+     */
     public UrlPrimitiveStatement(TestCase tc) {
         this(tc, null);
         randomize();
     }
 
 
+    /**
+     * Constructor.
+     *
+     * @param tc    the test case context.
+     * @param value the URL value.
+     */
     public UrlPrimitiveStatement(TestCase tc, EvoSuiteURL value) {
         super(tc, EvoSuiteURL.class, value);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getTestCode(String varName) {
         String testCode = "";
@@ -62,16 +78,25 @@ public class UrlPrimitiveStatement extends EnvironmentDataStatement<EvoSuiteURL>
         return testCode;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void delta() {
         randomize();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void zero() {
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void randomize() {
         String url = Randomness.choice(tc.getAccessedEnvironment().getViewOfRemoteURLs());
