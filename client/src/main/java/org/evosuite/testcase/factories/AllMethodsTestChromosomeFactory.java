@@ -56,7 +56,7 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
     private static final long serialVersionUID = -420224349882780856L;
 
     /**
-     * Constant <code>logger</code>
+     * The logger for this class.
      */
     protected static final Logger logger = LoggerFactory.getLogger(AllMethodsTestChromosomeFactory.class);
 
@@ -149,8 +149,7 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Generate a random chromosome
+     * <p>Generate a random chromosome.
      */
     @Override
     public TestChromosome getChromosome() {

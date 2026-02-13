@@ -117,18 +117,38 @@ public class JUnitTestCarvedChromosomeFactory implements
         }
     }
 
+    /**
+     * Checks if there are any carved test cases available.
+     *
+     * @return true if there are carved test cases, false otherwise.
+     */
     public boolean hasCarvedTestCases() {
         return !junitTests.isEmpty();
     }
 
+    /**
+     * Returns the number of carved test cases.
+     *
+     * @return the number of carved test cases.
+     */
     public int getNumCarvedTestCases() {
         return junitTests.size();
     }
 
+    /**
+     * Returns the list of carved test cases.
+     *
+     * @return a list of {@link TestCase}.
+     */
     public List<TestCase> getCarvedTestCases() {
         return junitTests;
     }
 
+    /**
+     * Returns a test suite containing all carved test cases.
+     *
+     * @return a {@link TestSuiteChromosome} containing the carved tests.
+     */
     public TestSuiteChromosome getCarvedTestSuite() {
         TestSuiteChromosome testSuite = new TestSuiteChromosome();
         for (TestCase t : junitTests) {
@@ -137,6 +157,11 @@ public class JUnitTestCarvedChromosomeFactory implements
         return testSuite;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns a chromosome containing a test case, potentially cloned from a carved test.
+     */
     @Override
     public TestChromosome getChromosome() {
         final int N_mutations = Properties.SEED_MUTATIONS;

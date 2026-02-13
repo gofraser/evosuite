@@ -34,7 +34,7 @@ public class FixedLengthTestChromosomeFactory implements
     private static final long serialVersionUID = -3860201346772188495L;
 
     /**
-     * Constant <code>logger</code>
+     * The logger for this class.
      */
     protected static final Logger logger = LoggerFactory.getLogger(FixedLengthTestChromosomeFactory.class);
 
@@ -63,7 +63,7 @@ public class FixedLengthTestChromosomeFactory implements
         }
 
         if (logger.isDebugEnabled()) {
-             logger.debug("Randomized test case:" + test.toCode());
+            logger.debug("Randomized test case:" + test.toCode());
         }
 
         return test;
@@ -72,8 +72,7 @@ public class FixedLengthTestChromosomeFactory implements
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Generate a random chromosome
+     * <p>Generate a random chromosome.
      */
     @Override
     public TestChromosome getChromosome() {
