@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.evosuite.testcase.variable;
 
 import org.evosuite.testcase.TestCase;
@@ -68,9 +69,7 @@ public class VariableReferenceImpl implements VariableReference {
     }
 
     /**
-     * <p>
      * Constructor for VariableReferenceImpl.
-     * </p>
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @param type     a {@link java.lang.reflect.Type} object.
@@ -82,12 +81,10 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * The position of the statement, defining this VariableReference, in the
+     * <p>The position of the statement, defining this VariableReference, in the
      * testcase.
      *
-     * <p>
-     * TODO: Notify change listener also when return value changes
+     * <p>TODO: Notify change listener also when return value changes
      */
     @Override
     public synchronized int getStPosition() {
@@ -109,7 +106,8 @@ public class VariableReferenceImpl implements VariableReference {
                 msg.append("failed to find type ").append(this.type.getTypeName()).append("\n");
 
                 throw new AssertionError(
-                        msg + "A VariableReference's position is only defined if the VariableReference is defined by a statement in the testCase");
+                        msg + "A VariableReference's position is only defined if "
+                                + "the VariableReference is defined by a statement in the testCase");
             }
         }
         return stPosition;
@@ -123,8 +121,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Create a copy of the current variable
+     * <p>Create a copy of the current variable
      */
     @Override
     public VariableReference clone() {
@@ -135,8 +132,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Create a copy of the current variable
+     * <p>Create a copy of the current variable
      */
     @Override
     public VariableReference clone(TestCase newTestCase) {
@@ -154,8 +150,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return simple class name
+     * <p>Return simple class name
      */
     @Override
     public String getSimpleClassName() {
@@ -171,8 +166,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return class name
+     * <p>Return class name
      */
     @Override
     public String getClassName() {
@@ -198,16 +192,15 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return true if variable is an enumeration
+     * <p>Return true if variable is an enumeration
      */
     @Override
     public boolean isEnum() {
         return type.isEnum();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#isArray()
+    /**
+     * {@inheritDoc}
      */
     @Override
     public boolean isArray() {
@@ -227,8 +220,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return true if variable is a primitive type
+     * <p>Return true if variable is a primitive type
      */
     @Override
     public boolean isPrimitive() {
@@ -238,8 +230,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return true if variable is void
+     * <p>Return true if variable is void
      */
     @Override
     public boolean isVoid() {
@@ -249,8 +240,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return true if variable is a string
+     * <p>Return true if variable is a string
      */
     @Override
     public boolean isString() {
@@ -260,8 +250,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return true if type of variable is a primitive wrapper
+     * <p>Return true if type of variable is a primitive wrapper
      */
     @Override
     public boolean isWrapperType() {
@@ -276,8 +265,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return true if other type can be assigned to this variable
+     * <p>Return true if other type can be assigned to this variable
      */
     @Override
     public boolean isAssignableFrom(Type other) {
@@ -287,8 +275,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return true if this variable can by assigned to a variable of other type
+     * <p>Return true if this variable can by assigned to a variable of other type
      */
     @Override
     public boolean isAssignableTo(Type other) {
@@ -298,8 +285,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return true if other type can be assigned to this variable
+     * <p>Return true if other type can be assigned to this variable
      */
     @Override
     public boolean isAssignableFrom(VariableReference other) {
@@ -309,8 +295,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return true if this variable can by assigned to a variable of other type
+     * <p>Return true if this variable can by assigned to a variable of other type
      */
     @Override
     public boolean isAssignableTo(VariableReference other) {
@@ -320,8 +305,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return type of this variable
+     * <p>Return type of this variable
      */
     @Override
     public Type getType() {
@@ -331,8 +315,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Set type of this variable
+     * <p>Set type of this variable
      */
     @Override
     public void setType(Type type) {
@@ -342,8 +325,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return raw class of this variable
+     * <p>Return raw class of this variable
      */
     @Override
     public Class<?> getVariableClass() {
@@ -353,8 +335,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return raw class of this variable's component
+     * <p>Return raw class of this variable's component
      */
     @Override
     public Class<?> getComponentClass() {
@@ -364,8 +345,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return the actual object represented by this variable for a given scope
+     * <p>Return the actual object represented by this variable for a given scope
      */
     @Override
     public Object getObject(Scope scope) throws CodeUnderTestException {
@@ -383,8 +363,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Set the actual object represented by this variable in a given scope
+     * <p>Set the actual object represented by this variable in a given scope
      */
     @Override
     public void setObject(Scope scope, Object value) throws CodeUnderTestException {
@@ -409,8 +388,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return string representation of the variable
+     * <p>Return string representation of the variable
      */
     @Override
     public String toString() {
@@ -424,8 +402,7 @@ public class VariableReferenceImpl implements VariableReference {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return name for source code representation
+     * <p>Return name for source code representation
      */
     @Override
     public String getName() {
@@ -441,8 +418,7 @@ public class VariableReferenceImpl implements VariableReference {
         logger.debug("Loading variable in bytecode: " + getStPosition());
         if (getStPosition() < 0) {
             mg.visitInsn(Opcodes.ACONST_NULL);
-        } else
-             {
+        } else {
             mg.loadLocal(locals.get(getStPosition()),
                     org.objectweb.asm.Type.getType(type.getRawClass()));
         }
@@ -471,29 +447,22 @@ public class VariableReferenceImpl implements VariableReference {
     public Object getDefaultValue() {
         if (isVoid()) {
             return null;
-        } else  {
-            if (type.isString())
+        }
+        if (type.isString()) {
             return "";
-        else if (isPrimitive()) {
+        }
+        if (isPrimitive()) {
             if (type.getRawClass().equals(float.class)) {
                 return 0.0F;
-            } else  {
-                if (type.getRawClass().equals(long.class))
+            } else if (type.getRawClass().equals(long.class)) {
                 return 0L;
-            else  {
-                if (type.getRawClass().equals(boolean.class))
+            } else if (type.getRawClass().equals(boolean.class)) {
                 return false;
-            else
-                 {
+            } else {
                 return 0;
             }
-            }
-            }
-        } else
-             {
-            return null;
         }
-        }
+        return null;
     }
 
     /**
@@ -503,36 +472,23 @@ public class VariableReferenceImpl implements VariableReference {
     public String getDefaultValueString() {
         if (isVoid()) {
             return "";
-        } else  {
-            if (type.isString())
+        }
+        if (type.isString()) {
             return "\"\"";
-        else if (isPrimitive()) {
+        }
+        if (isPrimitive()) {
             if (type.getRawClass().equals(float.class)) {
                 return "0.0F";
-            } else  {
-                if (type.getRawClass().equals(long.class))
+            } else if (type.getRawClass().equals(long.class)) {
                 return "0L";
-            else  {
-                if (type.getRawClass().equals(boolean.class))
+            } else if (type.getRawClass().equals(boolean.class)) {
                 return "false";
-            else
-                 {
+            } else {
                 return "0";
             }
-            }
-            }
-        } else
-             {
-            return "null";
         }
-        }
+        return "null";
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see java.lang.Comparable#compareTo(java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}
@@ -566,10 +522,6 @@ public class VariableReferenceImpl implements VariableReference {
         return type;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#getAdditionalVariableReference()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -578,10 +530,6 @@ public class VariableReferenceImpl implements VariableReference {
         return null;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#setAdditionalVariableReference(org.evosuite.testcase.VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -589,10 +537,6 @@ public class VariableReferenceImpl implements VariableReference {
     public void setAdditionalVariableReference(VariableReference var) {
         // Do nothing by default
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#replaceAdditionalVariableReference(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -604,10 +548,6 @@ public class VariableReferenceImpl implements VariableReference {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#getDistance()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -616,10 +556,6 @@ public class VariableReferenceImpl implements VariableReference {
         return distance;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#setDistance(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -627,10 +563,6 @@ public class VariableReferenceImpl implements VariableReference {
     public void setDistance(int distance) {
         this.distance = distance;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#changeClassLoader(java.lang.ClassLoader)
-     */
 
     /**
      * {@inheritDoc}
