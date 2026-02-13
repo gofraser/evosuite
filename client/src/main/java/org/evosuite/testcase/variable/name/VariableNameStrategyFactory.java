@@ -5,8 +5,7 @@ import org.evosuite.Properties;
 /**
  * This class encapsulates the logic of creating a new naming strategy.
  *
- * <p>
- * With the use of method get we can create a new variable naming strategy
+ * <p>With the use of method get we can create a new variable naming strategy
  * using the default configuration or by providing the desired naming strategy.
  *
  * <pre>
@@ -16,12 +15,18 @@ import org.evosuite.Properties;
  * <pre>
  *     VariableNameStrategy namingStrategy = VariableNameStrategyFactory.get(Properties.VARIABLE_NAMING_STRATEGY);
  * </pre>
- * @author Afonso Oliveira
  *
+ * @author Afonso Oliveira
  * @see TypeBasedVariableNameStrategy
  */
 public class VariableNameStrategyFactory {
 
+    /**
+     * Get the variable naming strategy.
+     *
+     * @param identifierNamingStrategy a {@link org.evosuite.Properties.VariableNamingStrategy} object.
+     * @return a {@link org.evosuite.testcase.variable.name.VariableNameStrategy} object.
+     */
     public static VariableNameStrategy get(Properties.VariableNamingStrategy identifierNamingStrategy) {
         if (Properties.VariableNamingStrategy.TYPE_BASED.equals(identifierNamingStrategy)) {
             return new TypeBasedVariableNameStrategy();
@@ -29,15 +34,15 @@ public class VariableNameStrategyFactory {
         if (Properties.VariableNamingStrategy.HEURISTICS_BASED.equals(identifierNamingStrategy)) {
             return new HeuristicsVariableNameStrategy();
         } else {
-            throw new IllegalArgumentException(String.format("Unknown variable naming strategy: %s", identifierNamingStrategy));
+            throw new IllegalArgumentException(String.format("Unknown variable naming strategy: %s",
+                    identifierNamingStrategy));
         }
     }
 
     /**
      * Get the currently selected variable naming strategy.
      *
-     * <p>
-     * The select strategy is defined in {@link Properties#VARIABLE_NAMING_STRATEGY}.
+     * <p>The select strategy is defined in {@link Properties#VARIABLE_NAMING_STRATEGY}.
      *
      * @return The selected strategy.
      */
@@ -49,7 +54,12 @@ public class VariableNameStrategyFactory {
         // Nothing to do here
     }
 
-    public static boolean gatherInformation(){
+    /**
+     * gatherInformation.
+     *
+     * @return a boolean.
+     */
+    public static boolean gatherInformation() {
         if (Properties.VariableNamingStrategy.HEURISTICS_BASED.equals(Properties.VARIABLE_NAMING_STRATEGY)) {
             return true;
         }

@@ -46,9 +46,10 @@ public class ArrayLengthSymbolicUtil {
      *
      * @param length the length.
      * @param arraySymbolicLengthName the symbolic length name.
-     * @return .
+     * @return the symbolic length expression.
      */
-    public static IntegerValue buildArraySymbolicLengthExpression(int length, ArraySymbolicLengthName arraySymbolicLengthName) {
+    public static IntegerValue buildArraySymbolicLengthExpression(int length,
+                                                                  ArraySymbolicLengthName arraySymbolicLengthName) {
         IntegerValue lengthExpression;
 
         // If arrays support is enabled, we create the symbolic value
@@ -69,7 +70,7 @@ public class ArrayLengthSymbolicUtil {
     /**
      * Checks if support for symbolic arrays is enabled.
      *
-     * @return .
+     * @return true if symbolic arrays support is enabled.
      */
     public static boolean isSymbolicArraysSupportEnabled() {
         return Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED;

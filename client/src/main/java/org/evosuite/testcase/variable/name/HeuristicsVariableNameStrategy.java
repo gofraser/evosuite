@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy{
+public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy {
 
     protected final Map<String, Integer> nextIndices = new ConcurrentHashMap<>();
     /**
@@ -19,6 +19,7 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
     protected Map<VariableReference, String> argumentNames = new HashMap<>();
 
     private TypeBasedVariableNameStrategy typeBasedVariableNameStrategy = new TypeBasedVariableNameStrategy();
+
     @Override
     public String createNameForVariable(VariableReference variable) {
         String typeBasedName = typeBasedVariableNameStrategy.getPlainNameForVariable(variable);
@@ -29,7 +30,7 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
      * Returns the variable name + the corresponding index if and only if there is more than one repetition of the name,
      * otherwise, it returns the name without an index at last.
      *
-     * Mainly used for Heuristic Renaming Strategy.
+     * <p>Mainly used for Heuristic Renaming Strategy.
      *
      * @return String
      */
@@ -43,10 +44,11 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
         }
         return variableName;
     }
+
     /**
      * Retrieve a suggested name based on method, argument and type information.
      *
-     * The followed order for prioritizing is:
+     * <p>The followed order for prioritizing is:
      * 1. Use argument suggestion, if not possible
      * 2. Use method suggestion + reductions, if not possible
      * 3. Use type suggestion, traditional naming.
@@ -61,7 +63,7 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
         } else if (methodCode != null) {
             variableName = analyzeMethodName(methodCode);
         }
-        if(variableName.equals(var.getSimpleClassName())){
+        if (variableName.equals(var.getSimpleClassName())) {
             variableName = "_" + variableName;
         }
         return variableName;
@@ -76,9 +78,9 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
     private String analyzeMethodName(String methodCode) {
         String name = "";
         ArrayList<String> methodName = HeuristicsUtil.separateByCamelCase(methodCode);
-        if(methodCode.length() > 0){
-            if(HeuristicsUtil.containsAvoidableParticle(methodName.get(0)) && methodName.size() > 1){
-                name = StringUtils.join(methodName.subList(1,methodName.size()), "");
+        if (methodCode.length() > 0) {
+            if (HeuristicsUtil.containsAvoidableParticle(methodName.get(0)) && methodName.size() > 1) {
+                name = StringUtils.join(methodName.subList(1, methodName.size()), "");
                 final char[] auxCharArray = name.toCharArray();
                 auxCharArray[0] = Character.toLowerCase(auxCharArray[0]);
                 return new String(auxCharArray);
@@ -87,7 +89,12 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
         return methodCode;
     }
 
-    public void addVariableInformation(Map<String, Map<VariableReference, String>> information){
+    /**
+     * Adds information to the variable.
+     *
+     * @param information a {@link Map} object.
+     */
+    public void addVariableInformation(Map<String, Map<VariableReference, String>> information) {
         methodNames = information.get("MethodNames");
         argumentNames = information.get("ArgumentNames");
     }

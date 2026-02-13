@@ -34,9 +34,7 @@ import java.lang.reflect.Type;
 import java.util.Map;
 
 /**
- * <p>
- * FieldReference class.
- * </p>
+ * <p>FieldReference class.</p>
  *
  * @author Gordon Fraser
  */
@@ -51,9 +49,7 @@ public class FieldReference extends VariableReferenceImpl {
     private VariableReference source;
 
     /**
-     * <p>
-     * Constructor for FieldReference.
-     * </p>
+     * <p>Constructor for FieldReference.</p>
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @param field    a {@link java.lang.reflect.Field} object.
@@ -61,7 +57,9 @@ public class FieldReference extends VariableReferenceImpl {
      */
     public FieldReference(TestCase testCase, GenericField field, VariableReference source) {
         super(testCase, field.getFieldType());
-        assert (source != null || field.isStatic()) : "No source object was supplied, therefore we assumed the field to be static. However asking the field if it was static, returned false";
+        assert (source != null || field.isStatic()) :
+                "No source object was supplied, therefore we assumed the field to be static."
+                        + " However asking the field if it was static, returned false";
         this.field = field;
         this.source = source;
     }
@@ -80,7 +78,9 @@ public class FieldReference extends VariableReferenceImpl {
                           VariableReference source) {
         super(testCase, fieldType);
         assert (field != null);
-        assert (source != null || field.isStatic()) : "No source object was supplied, therefore we assumed the field to be static. However asking the field if it was static, returned false";
+        assert (source != null || field.isStatic()) :
+                "No source object was supplied, therefore we assumed the field to be static."
+                        + " However asking the field if it was static, returned false";
         this.field = field;
         this.source = source;
         assert (source == null || field.getField().getDeclaringClass().isAssignableFrom(source.getVariableClass()))
@@ -93,9 +93,7 @@ public class FieldReference extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
-     * Constructor for FieldReference.
-     * </p>
+     * <p>Constructor for FieldReference.</p>
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @param field    a {@link java.lang.reflect.Field} object.
@@ -142,8 +140,7 @@ public class FieldReference extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return the actual object represented by this variable for a given scope
+     * <p>Return the actual object represented by this variable for a given scope</p>
      */
     @Override
     public Object getObject(Scope scope) throws CodeUnderTestException {
@@ -173,8 +170,7 @@ public class FieldReference extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Set the actual object represented by this variable in a given scope
+     * <p>Set the actual object represented by this variable in a given scope</p>
      */
     @Override
     public void setObject(Scope scope, Object value) throws CodeUnderTestException {
@@ -189,14 +185,16 @@ public class FieldReference extends VariableReferenceImpl {
                      *    That means we can have a testcase
                      *  SomeObject var1 = null;
                      *  var1.someAttribute = test;
-                     *  and the testcase will execute in evosuite, executing it with junit will however lead to a nullpointer exception
+                     *  and the testcase will execute in evosuite, executing it with junit
+                     *  will however lead to a nullpointer exception
                      */
                     throw new CodeUnderTestException(new NullPointerException());
                 }
 
                 // TODO: It seems this is unavoidable based on the search operators
                 //       but maybe there is a better solution
-                if (!field.getField().getDeclaringClass().isAssignableFrom(sourceObject.getClass())) {
+                if (!field.getField().getDeclaringClass()
+                        .isAssignableFrom(sourceObject.getClass())) {
                     throw new CodeUnderTestException(new IllegalArgumentException(
                             "Cannot assignable: " + value + " of class "
                                     + value.getClass() + " to field " + field
@@ -223,26 +221,18 @@ public class FieldReference extends VariableReferenceImpl {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#getAdditionalVariableReference()
-     */
-
     /**
      * {@inheritDoc}
      */
     @Override
     public VariableReference getAdditionalVariableReference() {
-        if (source != null && source.getAdditionalVariableReference() != null) {
+        if (source != null
+                && source.getAdditionalVariableReference() != null) {
             return source.getAdditionalVariableReference();
-        } else
-             {
+        } else {
             return source;
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#setAdditionalVariableReference(org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -250,17 +240,14 @@ public class FieldReference extends VariableReferenceImpl {
     @Override
     public void setAdditionalVariableReference(VariableReference var) {
         if (source != null
-                && !field.getField().getDeclaringClass().isAssignableFrom(var.getVariableClass())) {
+                && !field.getField().getDeclaringClass()
+                .isAssignableFrom(var.getVariableClass())) {
             logger.info("Not assignable: " + field.getField().getDeclaringClass()
                     + " and " + var);
             assert (false);
         }
         source = var;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#replaceAdditionalVariableReference(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -277,8 +264,7 @@ public class FieldReference extends VariableReferenceImpl {
                     }
                 }
                 source = var2;
-            } else
-                 {
+            } else {
                 source.replaceAdditionalVariableReference(var1, var2);
             }
         }
@@ -303,23 +289,23 @@ public class FieldReference extends VariableReferenceImpl {
                 }
             }
             throw new AssertionError(
-                    "A VariableReference's position is only defined if the VariableReference is defined by a statement in the testCase.");
+                    "A VariableReference's position is only defined if the "
+                            + "VariableReference is defined by a statement in the testCase.");
         }
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return name for source code representation
+     * <p>Return name for source code representation</p>
      */
     @Override
     public String getName() {
         if (source != null) {
             return source.getName() + "." + field.getName();
-        } else
-             {
-            return field.getOwnerClass().getSimpleName() + "." + field.getName();
+        } else {
+            return field.getOwnerClass().getSimpleName() + "."
+                    + field.getName();
         }
     }
 
@@ -332,14 +318,13 @@ public class FieldReference extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Create a copy of the current variable
+     * <p>Create a copy of the current variable</p>
      */
     @Override
     public VariableReference copy(TestCase newTestCase, int offset) {
         Type fieldType = field.getFieldType();
         if (source != null) {
-            //            VariableReference otherSource = newTestCase.getStatement(source.getStPosition()).getReturnValue();
+            // VariableReference otherSource = newTestCase.getStatement(source.getStPosition()).getReturnValue();
             VariableReference otherSource = source.copy(newTestCase, offset);
             return new FieldReference(newTestCase, field.copy(), fieldType, otherSource);
         } else {
@@ -405,13 +390,14 @@ public class FieldReference extends VariableReferenceImpl {
             if (other.field != null) {
                 return false;
             }
-        } else  {
-            if (!field.equals(other.field))
-            return false;
+        } else {
+            if (!field.equals(other.field)) {
+                return false;
+            }
         }
         if (source == null) {
             return other.source == null;
-        } else  {
+        } else {
             return source.equals(other.source);
         }
     }
@@ -425,8 +411,8 @@ public class FieldReference extends VariableReferenceImpl {
         return true;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReferenceImpl#loadBytecode(org.objectweb.asm.commons.GeneratorAdapter, java.util.Map)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public void loadBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals) {
@@ -442,8 +428,8 @@ public class FieldReference extends VariableReferenceImpl {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReferenceImpl#storeBytecode(org.objectweb.asm.commons.GeneratorAdapter, java.util.Map)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public void storeBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals) {

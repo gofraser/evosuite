@@ -1,10 +1,11 @@
 package org.evosuite.testcase.variable.name;
 
+import org.evosuite.testcase.variable.VariableReference;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import org.evosuite.testcase.variable.VariableReference;
 
 /**
  * The basic implementation for a {@link VariableNameStrategy}.

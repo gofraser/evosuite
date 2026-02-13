@@ -66,9 +66,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
-     * Constructor for ArrayIndex.
-     * </p>
+     * <p>Constructor for ArrayIndex.</p>
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @param array    a {@link ArrayReference} object.
@@ -92,9 +90,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
-     * Getter for the field <code>array</code>.
-     * </p>
+     * <p>Getter for the field <code>array</code>.</p>
      *
      * @return a {@link ArrayReference} object.
      */
@@ -103,9 +99,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
-     * Setter for the field <code>array</code>.
-     * </p>
+     * <p>Setter for the field <code>array</code>.</p>
      *
      * @param r a {@link ArrayReference} object.
      */
@@ -123,9 +117,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
-     * getArrayIndex
-     * </p>
+     * <p>getArrayIndex.</p>
      *
      * @return a int.
      */
@@ -135,9 +127,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
-     * setArrayIndex
-     * </p>
+     * <p>setArrayIndex.</p>
      *
      * @param index a int.
      */
@@ -158,8 +148,9 @@ public class ArrayIndex extends VariableReferenceImpl {
             }
         }
 
-        //notice that this case is only reached if no AssignmentStatement was used to assign to the array index (as in that case the for loop would have found something)
-        //Therefore the array must have been assigned in some method and we can return the method call
+        // notice that this case is only reached if no AssignmentStatement was used to assign to the array index
+        // (as in that case the for loop would have found something)
+        // Therefore the array must have been assigned in some method and we can return the method call
 
         return array.getStPosition();
     }
@@ -167,8 +158,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return name for source code representation
+     * <p>Return name for source code representation</p>
      */
     @Override
     public String getName() {
@@ -241,8 +231,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return the actual object represented by this variable for a given scope
+     * <p>Return the actual object represented by this variable for a given scope</p>
      */
     @Override
     public Object getObject(Scope scope) throws CodeUnderTestException {
@@ -270,8 +259,7 @@ public class ArrayIndex extends VariableReferenceImpl {
             return ((Number) object).intValue();
         } else if (object instanceof Character) {
             return (int) (Character) object;
-        } else
-             {
+        } else {
             return 0;
         }
     }
@@ -283,8 +271,7 @@ public class ArrayIndex extends VariableReferenceImpl {
             return (short) ((Number) object).intValue();
         } else if (object instanceof Character) {
             return (short) ((Character) object).charValue();
-        } else
-             {
+        } else {
             return 0;
         }
     }
@@ -296,8 +283,7 @@ public class ArrayIndex extends VariableReferenceImpl {
             return (byte) ((Number) object).intValue();
         } else if (object instanceof Character) {
             return (byte) ((Character) object).charValue();
-        } else
-             {
+        } else {
             return 0;
         }
     }
@@ -309,8 +295,7 @@ public class ArrayIndex extends VariableReferenceImpl {
             return ((Number) object).longValue();
         } else if (object instanceof Character) {
             return (long) (Character) object;
-        } else
-             {
+        } else {
             return 0L;
         }
     }
@@ -322,8 +307,7 @@ public class ArrayIndex extends VariableReferenceImpl {
             return ((Number) object).floatValue();
         } else if (object instanceof Character) {
             return (float) (Character) object;
-        } else
-             {
+        } else {
             return 0F;
         }
     }
@@ -335,8 +319,7 @@ public class ArrayIndex extends VariableReferenceImpl {
             return ((Number) object).doubleValue();
         } else if (object instanceof Character) {
             return (double) (Character) object;
-        } else
-             {
+        } else {
             return 0.0;
         }
     }
@@ -348,8 +331,7 @@ public class ArrayIndex extends VariableReferenceImpl {
             return (Character) object;
         } else if (object instanceof Number) {
             return (char) ((Number) object).intValue();
-        } else
-             {
+        } else {
             return '0';
         }
     }
@@ -357,8 +339,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Set the actual object represented by this variable in a given scope
+     * <p>Set the actual object represented by this variable in a given scope</p>
      */
     @Override
     public void setObject(Scope scope, Object value) throws CodeUnderTestException {
@@ -373,86 +354,61 @@ public class ArrayIndex extends VariableReferenceImpl {
             if (arrayObject == null) {
                 throw new CodeUnderTestException(new NullPointerException());
             }
-            if (value == null && arrayObject.getClass().getComponentType().isPrimitive()) {
+            if (value == null
+                    && arrayObject.getClass().getComponentType().isPrimitive()) {
                 throw new CodeUnderTestException(new NullPointerException());
             }
             if (arrayObject.getClass().getComponentType().equals(int.class)) {
                 Array.setInt(arrayObject, indices.get(indices.size() - 1),
                         getIntValue(value));
-            } else  {
-                if (arrayObject.getClass().getComponentType().equals(boolean.class))
+            } else if (arrayObject.getClass().getComponentType().equals(boolean.class)) {
                 Array.setBoolean(arrayObject, indices.get(indices.size() - 1),
                         (Boolean) value);
-            else if (arrayObject.getClass().getComponentType().equals(char.class)) {
+            } else if (arrayObject.getClass().getComponentType().equals(char.class)) {
                 Array.setChar(arrayObject, indices.get(indices.size() - 1),
                         getCharValue(value));
-            } else  {
-                if (arrayObject.getClass().getComponentType().equals(double.class))
+            } else if (arrayObject.getClass().getComponentType().equals(double.class)) {
                 Array.setDouble(arrayObject, indices.get(indices.size() - 1),
                         getDoubleValue(value));
-            else  {
-                if (arrayObject.getClass().getComponentType().equals(float.class))
+            } else if (arrayObject.getClass().getComponentType().equals(float.class)) {
                 Array.setFloat(arrayObject, indices.get(indices.size() - 1),
                         getFloatValue(value));
-            else  {
-                if (arrayObject.getClass().getComponentType().equals(long.class))
+            } else if (arrayObject.getClass().getComponentType().equals(long.class)) {
                 Array.setLong(arrayObject, indices.get(indices.size() - 1),
                         getLongValue(value));
-            else  {
-                if (arrayObject.getClass().getComponentType().equals(short.class))
+            } else if (arrayObject.getClass().getComponentType().equals(short.class)) {
                 Array.setShort(arrayObject, indices.get(indices.size() - 1),
                         getShortValue(value));
-            else  {
-                if (arrayObject.getClass().getComponentType().equals(byte.class))
+            } else if (arrayObject.getClass().getComponentType().equals(byte.class)) {
                 Array.setByte(arrayObject, indices.get(indices.size() - 1),
                         getByteValue(value));
                 // We also need to check if we are assigning to a wrapper type, because autoboxing
                 // only seems to work from int -> Integer, but e.g. not from byte -> Integer
-            else  {
-                if (arrayObject.getClass().getComponentType().equals(Integer.class))
+            } else if (arrayObject.getClass().getComponentType().equals(Integer.class)) {
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getIntValue(value));
-            else  {
-                if (arrayObject.getClass().getComponentType().equals(Boolean.class))
+            } else if (arrayObject.getClass().getComponentType().equals(Boolean.class)) {
                 Array.set(arrayObject, indices.get(indices.size() - 1), value);
-            else if (arrayObject.getClass().getComponentType().equals(Character.class)) {
+            } else if (arrayObject.getClass().getComponentType().equals(Character.class)) {
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getCharValue(value));
-            } else  {
-                if (arrayObject.getClass().getComponentType().equals(Double.class))
+            } else if (arrayObject.getClass().getComponentType().equals(Double.class)) {
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getDoubleValue(value));
-            else  {
-                if (arrayObject.getClass().getComponentType().equals(Float.class))
+            } else if (arrayObject.getClass().getComponentType().equals(Float.class)) {
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getFloatValue(value));
-            else  {
-                if (arrayObject.getClass().getComponentType().equals(Long.class))
+            } else if (arrayObject.getClass().getComponentType().equals(Long.class)) {
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getLongValue(value));
-            else  {
-                if (arrayObject.getClass().getComponentType().equals(Short.class))
+            } else if (arrayObject.getClass().getComponentType().equals(Short.class)) {
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getShortValue(value));
-            else  {
-                if (arrayObject.getClass().getComponentType().equals(Byte.class))
+            } else if (arrayObject.getClass().getComponentType().equals(Byte.class)) {
                 Array.set(arrayObject, indices.get(indices.size() - 1),
                         getByteValue(value));
-            else {
+            } else {
                 Array.set(arrayObject, indices.get(indices.size() - 1), value);
-            }
-            }
-            }
-            }
-            }
-            }
-            }
-            }
-            }
-            }
-            }
-            }
-            }
             }
         } catch (ArrayIndexOutOfBoundsException e) {
             throw new CodeUnderTestException(e);
@@ -462,8 +418,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Create a copy of the current variable
+     * <p>Create a copy of the current variable</p>
      */
     @Override
     public VariableReference copy(TestCase newTestCase, int offset) {
@@ -478,10 +433,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         return new ArrayIndex(newTestCase, (ArrayReference) array.clone(newTestCase), indices);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#getAdditionalVariableReference()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -489,15 +440,10 @@ public class ArrayIndex extends VariableReferenceImpl {
     public VariableReference getAdditionalVariableReference() {
         if (array.getAdditionalVariableReference() == null) {
             return array;
-        } else
-             {
+        } else {
             return array.getAdditionalVariableReference();
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#setAdditionalVariableReference(org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -507,10 +453,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         assert (var instanceof ArrayReference);
         array = (ArrayReference) var;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.VariableReference#replaceAdditionalVariableReference(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -526,8 +468,7 @@ public class ArrayIndex extends VariableReferenceImpl {
             // but for this we have FieldStatements, which would give us
             // ArrayReferences.
             // Such a replacement should only happen as part of a graceful delete
-        } else
-             {
+        } else {
             array.replaceAdditionalVariableReference(var1, var2);
         }
     }
@@ -573,17 +514,16 @@ public class ArrayIndex extends VariableReferenceImpl {
             if (other.array != null) {
                 return false;
             }
-        } else  {
-            if (!array.equals(other.array))
-            return false;
+        } else {
+            if (!array.equals(other.array)) {
+                return false;
+            }
         }
         return indices.equals(other.indices);
     }
 
     /**
-     * <p>
-     * setArrayIndices
-     * </p>
+     * <p>setArrayIndices.</p>
      *
      * @param indices a {@link java.util.List} object.
      */
@@ -595,9 +535,7 @@ public class ArrayIndex extends VariableReferenceImpl {
     }
 
     /**
-     * <p>
-     * getArrayIndices
-     * </p>
+     * <p>getArrayIndices.</p>
      *
      * @return a {@link java.util.List} object.
      */

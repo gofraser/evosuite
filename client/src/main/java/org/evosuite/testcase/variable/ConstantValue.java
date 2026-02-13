@@ -26,7 +26,6 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.utils.NumberFormatter;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
-import org.evosuite.utils.generic.GenericClassImpl;
 
 import java.lang.reflect.Type;
 
@@ -44,7 +43,7 @@ public class ConstantValue extends VariableReferenceImpl {
      * <p>Constructor for ConstantValue.</p>
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param type     a {@link GenericClassImpl} object.
+     * @param type     a {@link org.evosuite.utils.generic.GenericClassImpl} object.
      */
     public ConstantValue(TestCase testCase, GenericClass<?> type) {
         super(testCase, type);
@@ -68,8 +67,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Create a copy of the current variable
+     * <p>Create a copy of the current variable</p>
      */
     @Override
     public VariableReference copy(TestCase newTestCase, int offset) {
@@ -112,9 +110,8 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * The position of the statement, defining this VariableReference, in the
-     * testcase.
+     * <p>The position of the statement, defining this VariableReference, in the
+     * testcase.</p>
      */
     @Override
     public int getStPosition() {
@@ -131,8 +128,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return name for source code representation
+     * <p>Return name for source code representation</p>
      */
     @Override
     public String getName() {
@@ -149,8 +145,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return the actual object represented by this variable for a given scope
+     * <p>Return the actual object represented by this variable for a given scope</p>
      */
     @Override
     public Object getObject(Scope scope) {
@@ -191,6 +186,39 @@ public class ConstantValue extends VariableReferenceImpl {
             value = genericClass.getRawClass();
 
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        ConstantValue other = (ConstantValue) obj;
+        if (getValue() == null) {
+            return other.getValue() == null;
+        } else {
+            return getValue().equals(other.getValue());
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = super.hashCode();
+        result = prime * result + ((getValue() == null) ? 0 : getValue().hashCode());
+        return result;
     }
 
 }

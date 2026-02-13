@@ -1,10 +1,11 @@
 package org.evosuite.testcase.variable.name;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.CharUtils;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A name strategy that is based on variable type.
@@ -23,7 +24,13 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
         return getIndexIncludingFirstAppearance(variableName);
     }
 
-    public String getPlainNameForVariable(VariableReference var){
+    /**
+     * Returns the plain name for a variable.
+     *
+     * @param var a {@link VariableReference} object.
+     * @return a {@link String} object.
+     */
+    public String getPlainNameForVariable(VariableReference var) {
         String className = var.getSimpleClassName();
         String variableName;
         if (var instanceof ArrayReference) {
@@ -55,7 +62,7 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
      * Returns the variable name + the number of repetitions counting from 0.
      * i.e. If the variable appears only once in the test, it is named as variable0.
      *
-     * Mainly used for Type-Based Renaming Strategy (traditional naming in EvoSuite).
+     * <p>Mainly used for Type-Based Renaming Strategy (traditional naming in EvoSuite).
      *
      * @return String
      */
@@ -67,8 +74,14 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
         nextIndices.put(variableName, index + 1);
         return variableName += index;
     }
-    public void addVariableInformation(Map<String, Map<VariableReference, String>> information){
-        //If needed any information about types
+
+    /**
+     * Adds information to the variable.
+     *
+     * @param information a {@link Map} object.
+     */
+    public void addVariableInformation(Map<String, Map<VariableReference, String>> information) {
+        // If needed any information about types
     }
 
 }
