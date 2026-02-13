@@ -25,24 +25,24 @@ import org.evosuite.utils.Randomness;
 
 
 /**
- * <p>BooleanPrimitiveStatement class.</p>
+ * Primitive statement for boolean values.
  *
  * @author fraser
  */
 public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boolean> {
 
     /**
-     * <p>Constructor for BooleanPrimitiveStatement.</p>
+     * Constructs a new BooleanPrimitiveStatement with the given value.
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param value a {@link java.lang.Boolean} object.
+     * @param value the initial value.
      */
     public BooleanPrimitiveStatement(TestCase tc, Boolean value) {
         super(tc, boolean.class, value);
     }
 
     /**
-     * <p>Constructor for BooleanPrimitiveStatement.</p>
+     * Constructs a new BooleanPrimitiveStatement with default value false.
      *
      * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -52,10 +52,6 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
 
     private static final long serialVersionUID = 2864789903354543815L;
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#zero()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -63,10 +59,6 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
     public void zero() {
         value = false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#delta()
-     */
 
     /**
      * {@inheritDoc}
@@ -76,10 +68,6 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
         value = !value;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment(java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -87,10 +75,6 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
     public void increment(long delta) {
         delta();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#randomize()
-     */
 
     /**
      * {@inheritDoc}
@@ -100,10 +84,6 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
         value = Randomness.nextBoolean();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -111,10 +91,6 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
     public void increment() {
         delta();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment()
-     */
 
     /**
      * {@inheritDoc}
@@ -124,10 +100,6 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
         delta();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#setMid(java.lang.Object, java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -136,10 +108,6 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
         // TODO Auto-generated method stub
 
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#isPositive()
-     */
 
     /**
      * {@inheritDoc}

@@ -25,7 +25,7 @@ import org.evosuite.utils.Randomness;
 
 
 /**
- * <p>CharPrimitiveStatement class.</p>
+ * Primitive statement for character values.
  *
  * @author fraser
  */
@@ -34,29 +34,23 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
     private static final long serialVersionUID = -1960567565801078784L;
 
     /**
-     * <p>Constructor for CharPrimitiveStatement.</p>
+     * Constructs a new CharPrimitiveStatement with the given value.
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param value a {@link java.lang.Character} object.
+     * @param value the initial value.
      */
     public CharPrimitiveStatement(TestCase tc, Character value) {
         super(tc, char.class, value);
-        // TODO Auto-generated constructor stub
     }
 
     /**
-     * <p>Constructor for CharPrimitiveStatement.</p>
+     * Constructs a new CharPrimitiveStatement with default value.
      *
      * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public CharPrimitiveStatement(TestCase tc) {
         super(tc, char.class, (char) 0);
-        // TODO Auto-generated constructor stub
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#zero()
-     */
 
     /**
      * {@inheritDoc}
@@ -65,10 +59,6 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
     public void zero() {
         value = (char) 0;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#delta()
-     */
 
     /**
      * {@inheritDoc}
@@ -79,10 +69,6 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
         value = (char) (value + delta);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment(java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -90,10 +76,6 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
     public void increment(long delta) {
         value = (char) (value + delta);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#randomize()
-     */
 
     /**
      * {@inheritDoc}
@@ -103,10 +85,6 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
         value = Randomness.nextChar();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -114,10 +92,6 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
     public void increment() {
         increment((char) 1);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#setMid(java.lang.Object, java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}
@@ -127,10 +101,6 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
         value = (char) (min + ((max - min) / 2));
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#decrement()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -138,10 +108,6 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
     public void decrement() {
         increment(-1);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#isPositive()
-     */
 
     /**
      * {@inheritDoc}

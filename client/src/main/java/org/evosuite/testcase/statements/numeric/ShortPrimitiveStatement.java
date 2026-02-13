@@ -27,9 +27,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.utils.Randomness;
 
 /**
- * <p>
- * ShortPrimitiveStatement class.
- * </p>
+ * Primitive statement for short values.
  *
  * @author fraser
  */
@@ -38,31 +36,23 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
     private static final long serialVersionUID = -1041008456902695964L;
 
     /**
-     * <p>
-     * Constructor for ShortPrimitiveStatement.
-     * </p>
+     * Constructs a new ShortPrimitiveStatement with the given value.
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param value a {@link java.lang.Short} object.
+     * @param value the initial value.
      */
     public ShortPrimitiveStatement(TestCase tc, Short value) {
         super(tc, short.class, value);
     }
 
     /**
-     * <p>
-     * Constructor for ShortPrimitiveStatement.
-     * </p>
+     * Constructs a new ShortPrimitiveStatement with default value 0.
      *
      * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public ShortPrimitiveStatement(TestCase tc) {
         super(tc, short.class, (short) 0);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#zero()
-     */
 
     /**
      * {@inheritDoc}
@@ -71,10 +61,6 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
     public void zero() {
         value = (short) 0;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#delta()
-     */
 
     /**
      * {@inheritDoc}
@@ -85,10 +71,6 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
         value = (short) (value + delta);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment(java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -96,10 +78,6 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
     public void increment(long delta) {
         value = (short) (value + (short) delta);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#randomize()
-     */
 
     /**
      * {@inheritDoc}
@@ -115,10 +93,6 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -126,10 +100,6 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
     public void increment() {
         increment((short) 1);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#setMid(java.lang.Object, java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}
@@ -139,10 +109,6 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
         value = (short) (min + ((max - min) / 2));
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#decrement()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -150,10 +116,6 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
     public void decrement() {
         increment(-1);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#isPositive()
-     */
 
     /**
      * {@inheritDoc}

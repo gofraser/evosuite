@@ -27,9 +27,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.utils.Randomness;
 
 /**
- * <p>
- * IntPrimitiveStatement class.
- * </p>
+ * Primitive statement for integer values.
  *
  * @author fraser
  */
@@ -38,31 +36,23 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
     private static final long serialVersionUID = -8616399657291345433L;
 
     /**
-     * <p>
-     * Constructor for IntPrimitiveStatement.
-     * </p>
+     * Constructs a new IntPrimitiveStatement with the given value.
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param value a {@link java.lang.Integer} object.
+     * @param value the initial value.
      */
     public IntPrimitiveStatement(TestCase tc, Integer value) {
         super(tc, int.class, value);
     }
 
     /**
-     * <p>
-     * Constructor for IntPrimitiveStatement.
-     * </p>
+     * Constructs a new IntPrimitiveStatement with default value 0.
      *
      * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public IntPrimitiveStatement(TestCase tc) {
         super(tc, int.class, 0);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#zero()
-     */
 
     /**
      * {@inheritDoc}
@@ -71,10 +61,6 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
     public void zero() {
         value = 0;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#delta()
-     */
 
     /**
      * {@inheritDoc}
@@ -85,10 +71,6 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
         value = value + delta;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment(java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -96,10 +78,6 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
     public void increment(long delta) {
         value = value + (int) delta;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#randomize()
-     */
 
     /**
      * {@inheritDoc}
@@ -114,10 +92,6 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -125,10 +99,6 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
     public void increment() {
         increment(1);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#setMid(java.lang.Object, java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}
@@ -138,10 +108,6 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
         value = min + ((max - min) / 2);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#decrement()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -149,10 +115,6 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
     public void decrement() {
         increment(-1);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#isPositive()
-     */
 
     /**
      * {@inheritDoc}

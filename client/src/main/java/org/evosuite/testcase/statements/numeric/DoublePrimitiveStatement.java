@@ -30,9 +30,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * <p>
- * DoublePrimitiveStatement class.
- * </p>
+ * Primitive statement for double values.
  *
  * @author fraser
  */
@@ -41,31 +39,23 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
     private static final long serialVersionUID = 6229514439946892566L;
 
     /**
-     * <p>
-     * Constructor for DoublePrimitiveStatement.
-     * </p>
+     * Constructs a new DoublePrimitiveStatement with the given value.
      *
      * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param value a {@link java.lang.Double} object.
+     * @param value the initial value.
      */
     public DoublePrimitiveStatement(TestCase tc, Double value) {
         super(tc, double.class, value);
     }
 
     /**
-     * <p>
-     * Constructor for DoublePrimitiveStatement.
-     * </p>
+     * Constructs a new DoublePrimitiveStatement with default value 0.0.
      *
      * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public DoublePrimitiveStatement(TestCase tc) {
         super(tc, double.class, 0.0);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#zero()
-     */
 
     /**
      * {@inheritDoc}
@@ -75,29 +65,21 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
         value = 0.0;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#delta()
-     */
-
     /**
      * {@inheritDoc}
      */
     @Override
     public void delta() {
-        double P = Randomness.nextDouble();
-        if (P < 1d / 3d) {
+        double probability = Randomness.nextDouble();
+        if (probability < 1d / 3d) {
             value += Randomness.nextGaussian() * Properties.MAX_DELTA;
-        } else if (P < 2d / 3d) {
+        } else if (probability < 2d / 3d) {
             value += Randomness.nextGaussian();
         } else {
             int precision = Randomness.nextInt(15);
             chopPrecision(precision);
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment(java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}
@@ -107,6 +89,11 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
         value = value + delta;
     }
 
+    /**
+     * Reduces the precision of the value.
+     *
+     * @param precision the number of decimal places to keep
+     */
     private void chopPrecision(int precision) {
         if (value.isNaN() || value.isInfinite()) {
             return;
@@ -116,10 +103,6 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
         this.value = bd.doubleValue();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment(java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -127,10 +110,6 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
     public void increment(double delta) {
         value = value + delta;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#randomize()
-     */
 
     /**
      * {@inheritDoc}
@@ -147,10 +126,6 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -158,10 +133,6 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
     public void increment() {
         increment(1.0);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#setMid(java.lang.Object, java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}
@@ -171,10 +142,6 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
         value = min + ((max - min) / 2);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#decrement()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -182,10 +149,6 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
     public void decrement() {
         increment(-1.0);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.NumericalPrimitiveStatement#isPositive()
-     */
 
     /**
      * {@inheritDoc}
