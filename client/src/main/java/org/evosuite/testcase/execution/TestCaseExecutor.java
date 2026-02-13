@@ -238,6 +238,11 @@ public class TestCaseExecutor implements ThreadFactory {
         observers = new LinkedHashSet<>();
     }
 
+    /**
+     * Returns a copy of the current set of execution observers.
+     *
+     * @return a {@link java.util.Set} object containing the execution observers.
+     */
     public Set<ExecutionObserver> getExecutionObservers() {
         return new LinkedHashSet<>(observers);
     }
@@ -545,6 +550,11 @@ public class TestCaseExecutor implements ThreadFactory {
         return currentThread;
     }
 
+    /**
+     * Sets the execution observers.
+     *
+     * @param observers a {@link java.util.Set} of {@link org.evosuite.testcase.execution.ExecutionObserver} objects.
+     */
     public void setExecutionObservers(Set<ExecutionObserver> observers) {
         this.observers = observers;
     }

@@ -381,6 +381,11 @@ public class ExecutionResult implements Cloneable {
         return hasSecurityException;
     }
 
+    /**
+     * Sets whether a security exception occurred.
+     *
+     * @param value true if a security exception occurred.
+     */
     public void setSecurityException(boolean value) {
         logger.debug("Changing hasSecurityException from " + hasSecurityException + " to " + value);
         hasSecurityException = value;
@@ -435,38 +440,83 @@ public class ExecutionResult implements Cloneable {
         return "Trace:" + trace;
     }
 
+    /**
+     * Gets the set of system properties read during test execution.
+     *
+     * @return a {@link java.util.Set} of read system properties.
+     */
     public Set<String> getReadProperties() {
         return readProperties;
     }
 
+    /**
+     * Sets the set of system properties read during test execution.
+     *
+     * @param readProperties a {@link java.util.Set} of read system properties.
+     */
     public void setReadProperties(Set<String> readProperties) {
         this.readProperties = readProperties;
     }
 
+    /**
+     * Checks if any system property was written during test execution.
+     *
+     * @return true if any system property was written, false otherwise.
+     */
     public boolean wasAnyPropertyWritten() {
         return wasAnyPropertyWritten;
     }
 
+    /**
+     * Sets whether any system property was written during test execution.
+     *
+     * @param wasAnyPropertyWritten true if any system property was written.
+     */
     public void setWasAnyPropertyWritten(boolean wasAnyPropertyWritten) {
         this.wasAnyPropertyWritten = wasAnyPropertyWritten;
     }
 
+    /**
+     * Sets the test case that produced this result.
+     *
+     * @param tc the {@link org.evosuite.testcase.TestCase}.
+     */
     public void setTest(TestCase tc) {
         this.test = tc;
     }
 
+    /**
+     * Sets the covered input goals.
+     *
+     * @param coveredGoals a map of statement index to set of covered input goals.
+     */
     public void setInputGoals(Map<Integer, Set<InputCoverageGoal>> coveredGoals) {
         inputGoals.putAll(coveredGoals);
     }
 
+    /**
+     * Sets the covered output goals.
+     *
+     * @param coveredGoals a map of statement index to set of covered output goals.
+     */
     public void setOutputGoals(Map<Integer, Set<OutputCoverageGoal>> coveredGoals) {
         outputGoals.putAll(coveredGoals);
     }
 
+    /**
+     * Gets the covered input goals.
+     *
+     * @return a map of statement index to set of covered input goals.
+     */
     public Map<Integer, Set<InputCoverageGoal>> getInputGoals() {
         return inputGoals;
     }
 
+    /**
+     * Gets the covered output goals.
+     *
+     * @return a map of statement index to set of covered output goals.
+     */
     public Map<Integer, Set<OutputCoverageGoal>> getOutputGoals() {
         return outputGoals;
     }
@@ -489,6 +539,11 @@ public class ExecutionResult implements Cloneable {
         return Collections.unmodifiableList(this.featureVectors);
     }
 
+    /**
+     * Gets the map of explicit exceptions.
+     *
+     * @return a {@link java.util.Map} of explicit exceptions.
+     */
     public Map<Integer, Boolean> getExplicitExceptions() {
         return explicitExceptions;
     }

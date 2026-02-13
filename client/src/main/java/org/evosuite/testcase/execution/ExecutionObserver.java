@@ -48,12 +48,10 @@ public abstract class ExecutionObserver {
                     Void.class));
 
     /**
-     * <p>
-     * isWrapperType.
-     * </p>
+     * Checks if the given class is a wrapper type.
      *
-     * @param clazz a {@link java.lang.Class} object.
-     * @return a boolean.
+     * @param clazz a {@link java.lang.Class} object to check.
+     * @return true if the class is a wrapper type, false otherwise.
      */
     protected static boolean isWrapperType(Class<?> clazz) {
         return WRAPPER_TYPES.contains(clazz);
@@ -105,6 +103,9 @@ public abstract class ExecutionObserver {
 
     /**
      * Allow observers to update the execution result at the end the execution of a test.
+     *
+     * @param r the execution result.
+     * @param s the scope of execution.
      */
     public abstract void testExecutionFinished(ExecutionResult r, Scope s);
 
