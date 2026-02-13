@@ -63,7 +63,9 @@ public class RandomInsertion implements InsertionStrategy {
 
         // Determine intended action based on probabilities
         boolean attemptUUT = Properties.INSERTION_UUT > 0 && r <= Properties.INSERTION_UUT;
-        boolean attemptEnv = Properties.INSERTION_ENVIRONMENT > 0 && r > Properties.INSERTION_UUT && r <= Properties.INSERTION_UUT + Properties.INSERTION_ENVIRONMENT;
+        boolean attemptEnv = Properties.INSERTION_ENVIRONMENT > 0
+                && r > Properties.INSERTION_UUT
+                && r <= Properties.INSERTION_UUT + Properties.INSERTION_ENVIRONMENT;
 
         // Fallback or explicit parameter insertion
         // If we didn't pick UUT or ENV, then we picked PARAM.
@@ -80,7 +82,7 @@ public class RandomInsertion implements InsertionStrategy {
                 logger.debug("Inserted random call to UUT");
             }
         } else if (attemptEnv && TestCluster.getInstance().getNumOfEnvironmentCalls() > 0) {
-             /*
+            /*
                 Insert a call to the environment, i.e., external resources for the test case such
                 as handles to files on the file system, sockets that open network connections, etc.
                 As such call is likely to depend on many constraints, we do not specify here the
