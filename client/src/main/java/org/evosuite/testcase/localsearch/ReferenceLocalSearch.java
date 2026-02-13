@@ -58,8 +58,8 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
         REPLACE, PARAMETER, CALL
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.LocalSearch#doSearch(org.evosuite.testcase.TestChromosome, int, org.evosuite.ga.LocalSearchObjective)
+    /**
+     * {@inheritDoc}
      */
     @Override
     public boolean doSearch(TestChromosome test, int statement,
@@ -104,6 +104,8 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
                     break;
                 case CALL:
                     addCall(test, statement);
+                    break;
+                default:
                     break;
             }
 

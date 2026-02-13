@@ -40,8 +40,8 @@ public abstract class NumericalLocalSearch<T> extends StatementLocalSearch {
         boolean improved = executeSearch(test, statement, objective, p);
 
         if (improved) {
-             NumericalPrimitiveStatement<T> ps = (NumericalPrimitiveStatement<T>) oldTest.getStatement(oldStatement);
-             ps.setValue(p.getValue());
+            NumericalPrimitiveStatement<T> ps = (NumericalPrimitiveStatement<T>) oldTest.getStatement(oldStatement);
+            ps.setValue(p.getValue());
         }
         test.setChanged(true);
         test.setTestCase(oldTest);

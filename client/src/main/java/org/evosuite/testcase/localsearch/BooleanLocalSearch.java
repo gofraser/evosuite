@@ -40,10 +40,6 @@ public class BooleanLocalSearch extends StatementLocalSearch {
 
     private boolean oldValue;
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.LocalSearch#doSearch(org.evosuite.testcase.TestChromosome, int, org.evosuite.ga.LocalSearchObjective)
-     */
-
     /**
      * {@inheritDoc}
      */

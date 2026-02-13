@@ -34,10 +34,6 @@ import org.evosuite.utils.Randomness;
  */
 public class StringAVMLocalSearch extends AbstractStringLocalSearch {
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.LocalSearch#doSearch(org.evosuite.testcase.TestChromosome, int, org.evosuite.ga.LocalSearchObjective)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -56,8 +52,7 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
         for (int i = 0; i < Properties.LOCAL_SEARCH_PROBES; i++) {
             if (Randomness.nextDouble() > 0.5) {
                 p.increment();
-            } else
-                 {
+            } else {
                 p.randomize();
             }
 

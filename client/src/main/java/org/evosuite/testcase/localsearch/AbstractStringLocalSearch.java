@@ -70,9 +70,9 @@ public abstract class AbstractStringLocalSearch extends StatementLocalSearch {
             int position = oldValue.length();
             char[] characters = Arrays.copyOf(oldValue.toCharArray(), position + 1);
             for (char replacement = 9; replacement < 128; replacement++) {
-                 if (LocalSearchBudget.getInstance().isFinished()) {
-                     return improvement;
-                 }
+                if (LocalSearchBudget.getInstance().isFinished()) {
+                    return improvement;
+                }
                 characters[position] = replacement;
                 String newString = new String(characters);
                 p.setValue(newString);
@@ -94,9 +94,9 @@ public abstract class AbstractStringLocalSearch extends StatementLocalSearch {
             int position = 0;
             char[] characters = (" " + oldValue).toCharArray();
             for (char replacement = 9; replacement < 128; replacement++) {
-                 if (LocalSearchBudget.getInstance().isFinished()) {
-                     return improvement;
-                 }
+                if (LocalSearchBudget.getInstance().isFinished()) {
+                    return improvement;
+                }
                 characters[position] = replacement;
                 String newString = new String(characters);
                 p.setValue(newString);
