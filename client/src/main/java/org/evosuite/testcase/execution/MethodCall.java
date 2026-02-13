@@ -17,16 +17,16 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-/**
- * <p>MethodCall class.</p>
- *
- * @author Gordon Fraser
- */
 package org.evosuite.testcase.execution;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Represents a method call in an execution trace.
+ *
+ * @author Gordon Fraser
+ */
 public class MethodCall implements Cloneable {
     public String className;
     public String methodName;
