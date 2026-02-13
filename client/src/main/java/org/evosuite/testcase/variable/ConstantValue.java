@@ -32,7 +32,7 @@ import java.lang.reflect.Type;
 
 
 /**
- * <p>ConstantValue class.</p>
+ * ConstantValue class.
  *
  * @author Gordon Fraser
  */
@@ -40,8 +40,10 @@ public class ConstantValue extends VariableReferenceImpl {
 
     private static final long serialVersionUID = -3760942087575495415L;
 
+    private Object value;
+
     /**
-     * <p>Constructor for ConstantValue.</p>
+     * Constructor for ConstantValue.
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @param type     a {@link GenericClassImpl} object.
@@ -50,13 +52,20 @@ public class ConstantValue extends VariableReferenceImpl {
         super(testCase, type);
     }
 
+    /**
+     * Constructor for ConstantValue.
+     *
+     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
+     * @param type     a {@link GenericClassImpl} object.
+     * @param value    a {@link java.lang.Object} object.
+     */
     public ConstantValue(TestCase testCase, GenericClass<?> type, Object value) {
         super(testCase, type);
         setValue(value);
     }
 
     /**
-     * <p>Constructor for ConstantValue.</p>
+     * Constructor for ConstantValue.
      *
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @param type     a {@link java.lang.reflect.Type} object.
@@ -68,8 +77,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Create a copy of the current variable
+     * <p>Create a copy of the current variable
      */
     @Override
     public VariableReference copy(TestCase newTestCase, int offset) {
@@ -78,6 +86,9 @@ public class ConstantValue extends VariableReferenceImpl {
         return ret;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public VariableReference clone(TestCase newTestCase) {
         Statement st = newTestCase.getStatement(getStPosition());
@@ -89,10 +100,8 @@ public class ConstantValue extends VariableReferenceImpl {
         throw new IllegalArgumentException("Constant value not defined in new test");
     }
 
-    private Object value;
-
     /**
-     * <p>Getter for the field <code>value</code>.</p>
+     * Getter for the field <code>value</code>.
      *
      * @return a {@link java.lang.Object} object.
      */
@@ -101,7 +110,7 @@ public class ConstantValue extends VariableReferenceImpl {
     }
 
     /**
-     * <p>Setter for the field <code>value</code>.</p>
+     * Setter for the field <code>value</code>.
      *
      * @param value a {@link java.lang.Object} object.
      */
@@ -112,8 +121,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * The position of the statement, defining this VariableReference, in the
+     * <p>The position of the statement, defining this VariableReference, in the
      * testcase.
      */
     @Override
@@ -131,8 +139,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return name for source code representation
+     * <p>Return name for source code representation
      */
     @Override
     public String getName() {
@@ -149,8 +156,7 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Return the actual object represented by this variable for a given scope
+     * <p>Return the actual object represented by this variable for a given scope
      */
     @Override
     public Object getObject(Scope scope) {
@@ -173,15 +179,18 @@ public class ConstantValue extends VariableReferenceImpl {
         if (r instanceof ConstantValue) {
             ConstantValue v = (ConstantValue) r;
             if (this.value == null) {
-                return v.getValue() == null;
+                return v.value == null;
             } else {
-                return this.value.equals(v.getValue());
+                return this.value.equals(v.value);
             }
         }
 
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void changeClassLoader(ClassLoader loader) {
         super.changeClassLoader(loader);

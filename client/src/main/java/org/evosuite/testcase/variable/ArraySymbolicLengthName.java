@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.evosuite.testcase.variable;
 
 /**
@@ -26,14 +27,39 @@ package org.evosuite.testcase.variable;
  */
 public class ArraySymbolicLengthName {
 
+    /**
+     * Separator.
+     */
     public static final String ARRAY_LENGTH_NAME_SEPARATOR = "_";
+    /**
+     * Separator regex.
+     */
     public static final String ARRAY_LENGTH_NAME_SEPARATOR_REGEX = "\\_";
+    /**
+     * Suffix.
+     */
     public static final String ARRAY_LENGTH_SYMBOLIC_NAME_SUFFIX = "length";
-    public static final String ARRAY_LENGTH_SYMBOLIC_NAME_INVALID_FOR_NAME_EXCEPTION = "Array length symbolic name invalid for name: ";
+    /**
+     * Exception message.
+     */
+    public static final String ARRAY_LENGTH_SYMBOLIC_NAME_INVALID_FOR_NAME_EXCEPTION =
+            "Array length symbolic name invalid for name: ";
 
+    /**
+     * Sections amount.
+     */
     public static final int ARRAY_LENGTH_SYMBOLIC_NAME_SECTIONS_AMOUNT = 3;
+    /**
+     * Dimension position.
+     */
     public static final int ARRAY_LENGTH_SYMBOLIC_NAME_DIMENSION_POSITION = 2;
+    /**
+     * Array name position.
+     */
     public static final int ARRAY_LENGTH_SYMBOLIC_NAME_ARRAY_NAME_POSITION = 0;
+    /**
+     * Dimension tag position.
+     */
     public static final int ARRAY_LENGTH_SYMBOLIC_NAME_DIMENSION_TAG_POSITION = 1;
 
     private final int dimension;
@@ -41,6 +67,11 @@ public class ArraySymbolicLengthName {
     private final String arrayReferenceName;
     private final String symbolicName;
 
+    /**
+     * Constructor.
+     *
+     * @param symbolicName a {@link java.lang.String} object.
+     */
     public ArraySymbolicLengthName(String symbolicName) {
         if (!isArraySymbolicLengthVariableName(symbolicName)) {
             throw new IllegalArgumentException(ARRAY_LENGTH_SYMBOLIC_NAME_INVALID_FOR_NAME_EXCEPTION + symbolicName);
@@ -54,20 +85,41 @@ public class ArraySymbolicLengthName {
         this.symbolicName = symbolicName;
     }
 
+    /**
+     * Constructor.
+     *
+     * @param arrayReferenceName a {@link java.lang.String} object.
+     * @param dimension          a int.
+     */
     public ArraySymbolicLengthName(String arrayReferenceName, int dimension) {
         this.arrayReferenceName = arrayReferenceName;
         this.dimension = dimension;
         this.symbolicName = buildSymbolicLengthDimensionName(arrayReferenceName, dimension);
     }
 
+    /**
+     * Getter for the field <code>dimension</code>.
+     *
+     * @return a int.
+     */
     public int getDimension() {
         return dimension;
     }
 
+    /**
+     * Getter for the field <code>symbolicName</code>.
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getSymbolicName() {
         return symbolicName;
     }
 
+    /**
+     * Getter for the field <code>arrayReferenceName</code>.
+     *
+     * @return a {@link java.lang.String} object.
+     */
     public String getArrayReferenceName() {
         return arrayReferenceName;
     }
@@ -76,8 +128,8 @@ public class ArraySymbolicLengthName {
      * Builds the name of an array length symbolic variable.
      *
      * @param arrayReferenceName the reference name.
-     * @param dimension the dimension.
-     * @return .
+     * @param dimension          the dimension.
+     * @return the symbolic name.
      */
     public static String buildSymbolicLengthDimensionName(String arrayReferenceName, int dimension) {
         return new StringBuilder()
@@ -93,12 +145,13 @@ public class ArraySymbolicLengthName {
      * Checks whether a symbolic variable name corresponds to an array's length.
      *
      * @param symbolicVariableName the symbolic variable name.
-     * @return .
+     * @return true if valid.
      */
     public static boolean isArraySymbolicLengthVariableName(String symbolicVariableName) {
         String[] nameSections = symbolicVariableName.split(ArraySymbolicLengthName.ARRAY_LENGTH_NAME_SEPARATOR_REGEX);
 
         return nameSections.length == ARRAY_LENGTH_SYMBOLIC_NAME_SECTIONS_AMOUNT
-                && nameSections[ARRAY_LENGTH_SYMBOLIC_NAME_DIMENSION_TAG_POSITION].equals(ARRAY_LENGTH_SYMBOLIC_NAME_SUFFIX);
+                && nameSections[ARRAY_LENGTH_SYMBOLIC_NAME_DIMENSION_TAG_POSITION]
+                .equals(ARRAY_LENGTH_SYMBOLIC_NAME_SUFFIX);
     }
 }

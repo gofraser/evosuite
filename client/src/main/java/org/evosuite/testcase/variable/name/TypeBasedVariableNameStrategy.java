@@ -1,10 +1,31 @@
+/*
+ * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package org.evosuite.testcase.variable.name;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.CharUtils;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A name strategy that is based on variable type.
@@ -23,7 +44,13 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
         return getIndexIncludingFirstAppearance(variableName);
     }
 
-    public String getPlainNameForVariable(VariableReference var){
+    /**
+     * getPlainNameForVariable.
+     *
+     * @param var a {@link org.evosuite.testcase.variable.VariableReference} object.
+     * @return a {@link java.lang.String} object.
+     */
+    public String getPlainNameForVariable(VariableReference var) {
         String className = var.getSimpleClassName();
         String variableName;
         if (var instanceof ArrayReference) {
@@ -55,8 +82,9 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
      * Returns the variable name + the number of repetitions counting from 0.
      * i.e. If the variable appears only once in the test, it is named as variable0.
      *
-     * Mainly used for Type-Based Renaming Strategy (traditional naming in EvoSuite).
+     * <p>Mainly used for Type-Based Renaming Strategy (traditional naming in EvoSuite).
      *
+     * @param variableName a {@link java.lang.String} object.
      * @return String
      */
     private String getIndexIncludingFirstAppearance(String variableName) {
@@ -67,7 +95,11 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
         nextIndices.put(variableName, index + 1);
         return variableName += index;
     }
-    public void addVariableInformation(Map<String, Map<VariableReference, String>> information){
+
+    /**
+     * {@inheritDoc}
+     */
+    public void addVariableInformation(Map<String, Map<VariableReference, String>> information) {
         //If needed any information about types
     }
 

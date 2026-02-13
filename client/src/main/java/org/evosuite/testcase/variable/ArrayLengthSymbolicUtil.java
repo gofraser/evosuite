@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.evosuite.testcase.variable;
 
 import org.evosuite.Properties;
@@ -44,11 +45,12 @@ public class ArrayLengthSymbolicUtil {
     /**
      * Creates the expression for an array length.
      *
-     * @param length the length.
+     * @param length                  the length.
      * @param arraySymbolicLengthName the symbolic length name.
-     * @return .
+     * @return the array symbolic length expression.
      */
-    public static IntegerValue buildArraySymbolicLengthExpression(int length, ArraySymbolicLengthName arraySymbolicLengthName) {
+    public static IntegerValue buildArraySymbolicLengthExpression(int length,
+                                                                ArraySymbolicLengthName arraySymbolicLengthName) {
         IntegerValue lengthExpression;
 
         // If arrays support is enabled, we create the symbolic value
@@ -69,7 +71,7 @@ public class ArrayLengthSymbolicUtil {
     /**
      * Checks if support for symbolic arrays is enabled.
      *
-     * @return .
+     * @return true if enabled.
      */
     public static boolean isSymbolicArraysSupportEnabled() {
         return Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED;
