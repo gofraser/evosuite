@@ -72,12 +72,12 @@ public abstract class Chromosome<T extends Chromosome<T>>
     private final LinkedHashMap<FitnessFunction<T>, Double> previousFitnessValues = new LinkedHashMap<>();
 
     /**
-     * Has this chromosome changed since its fitness was last evaluated?
+     * Checks if this chromosome has changed since its fitness was last evaluated.
      */
     private boolean changed = true;
 
     /**
-     * Has local search been applied to this individual since it was last changed?
+     * Checks if local search has been applied to this individual since it was last changed.
      */
     private boolean localSearchApplied = false;
 
@@ -183,6 +183,11 @@ public abstract class Chromosome<T extends Chromosome<T>>
         this.fitnessValues.putAll(fits);
     }
 
+    /**
+     * Sets the previous fitness values.
+     *
+     * @param lastFits the previous fitness values
+     */
     public void setPreviousFitnessValues(Map<FitnessFunction<T>, Double> lastFits) {
         this.previousFitnessValues.clear();
         this.previousFitnessValues.putAll(lastFits);
@@ -240,7 +245,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Set new fitness value.
+     * Sets new fitness value.
      *
      * @param value a double.
      */
