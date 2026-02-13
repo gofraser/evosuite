@@ -53,7 +53,8 @@ public class ConcreteValueObserver extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope)
+     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope)
      */
     @Override
     public void beforeStatement(Statement statement, Scope scope) {
@@ -62,7 +63,8 @@ public class ConcreteValueObserver extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#afterStatement(org.evosuite.testcase.StatementInterface, org.evosuite.testcase.Scope, java.lang.Throwable)
+     * @see org.evosuite.testcase.ExecutionObserver#afterStatement(org.evosuite.testcase.StatementInterface,
+     * org.evosuite.testcase.Scope, java.lang.Throwable)
      */
     @Override
     public void afterStatement(Statement statement, Scope scope,

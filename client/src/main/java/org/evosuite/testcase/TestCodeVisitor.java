@@ -155,10 +155,10 @@ public class TestCodeVisitor extends TestVisitor {
         Type[] types = type.getActualTypeArguments();
         boolean isDefined = false;
         for (Type parameterType : types) {
-            if (parameterType instanceof Class<?> ||
-                    parameterType instanceof ParameterizedType ||
-                    parameterType instanceof WildcardType ||
-                    parameterType instanceof GenericArrayType) {
+            if (parameterType instanceof Class<?>
+                    || parameterType instanceof ParameterizedType
+                    || parameterType instanceof WildcardType
+                    || parameterType instanceof GenericArrayType) {
                 isDefined = true;
                 break;
             }
@@ -179,6 +179,12 @@ public class TestCodeVisitor extends TestVisitor {
         return name;
     }
 
+    /**
+     * Returns the type name of the given type.
+     *
+     * @param type the type to get the name for
+     * @return the type name
+     */
     public String getTypeName(Type type) {
         if (type instanceof Class<?>) {
             return getClassName((Class<?>) type);
@@ -205,6 +211,12 @@ public class TestCodeVisitor extends TestVisitor {
         }
     }
 
+    /**
+     * Returns the type parameter name of the given type.
+     *
+     * @param type the type to get the name for
+     * @return the type parameter name
+     */
     public String getTypeParameterName(Type type) {
         if (type instanceof Class<?>) {
             return getClassName((Class<?>) type);
@@ -227,7 +239,8 @@ public class TestCodeVisitor extends TestVisitor {
             }
             for (Type bound : ((WildcardType) type).getUpperBounds()) {
                 if (bound == null
-                        || (!(bound instanceof CaptureType) && GenericTypeReflector.erase(bound).equals(Object.class))) {
+                        || (!(bound instanceof CaptureType)
+                        && GenericTypeReflector.erase(bound).equals(Object.class))) {
                     continue;
                 }
 
@@ -256,6 +269,12 @@ public class TestCodeVisitor extends TestVisitor {
         }
     }
 
+    /**
+     * Returns the type name of the given variable reference.
+     *
+     * @param var the variable reference
+     * @return the type name
+     */
     public String getTypeName(VariableReference var) {
 
         GenericClass<?> clazz = var.getGenericClass();
@@ -290,7 +309,8 @@ public class TestCodeVisitor extends TestVisitor {
             String fullName = Properties.CLASS_PREFIX + "." + name;
             if (!fullName.equals(clazz.getCanonicalName())) {
                 try {
-                    if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).hasClass(fullName)) {
+                    if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                            .hasClass(fullName)) {
                         name = clazz.getCanonicalName();
                     }
                 } catch (IllegalArgumentException e) {
@@ -345,7 +365,8 @@ public class TestCodeVisitor extends TestVisitor {
             if (source != null) {
                 String ret = "";
                 // If the method is not public and this is a subclass in a different package we need to cast
-                if (!field.isPublic() && !field.getDeclaringClass().equals(source.getVariableClass()) && source.isAssignableTo(field.getDeclaringClass())) {
+                if (!field.isPublic() && !field.getDeclaringClass().equals(source.getVariableClass())
+                        && source.isAssignableTo(field.getDeclaringClass())) {
                     String packageName1 = ClassUtils.getPackageName(field.getDeclaringClass());
                     String packageName2 = ClassUtils.getPackageName(source.getVariableClass());
                     if (!packageName1.equals(packageName2)) {
@@ -361,7 +382,8 @@ public class TestCodeVisitor extends TestVisitor {
                         ret = getVariableName(source);
                     } catch (NoSuchFieldException e) {
                         // If not we need to cast to the subtype
-                        ret = "((" + getTypeName(field.getField().getDeclaringClass()) + ") " + getVariableName(source) + ")";
+                        ret = "((" + getTypeName(field.getField().getDeclaringClass()) + ") "
+                                + getVariableName(source) + ")";
                     }
                 } else {
                     ret += getVariableName(source);
@@ -440,10 +462,12 @@ public class TestCodeVisitor extends TestVisitor {
             stmt += "assertNull(" + getVariableName(source) + ");";
         } else if (source.getVariableClass().equals(float.class)) {
             stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + getVariableName(source) + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
+                    + getVariableName(source) + ", "
+                    + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
         } else if (source.getVariableClass().equals(double.class)) {
             stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + getVariableName(source) + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
+                    + getVariableName(source) + ", "
+                    + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
         } else if (value.getClass().isEnum()) {
             stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
                     + getVariableName(source) + ");";
@@ -460,10 +484,12 @@ public class TestCodeVisitor extends TestVisitor {
         } else if (source.isWrapperType()) {
             if (source.getVariableClass().equals(Float.class)) {
                 stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this)
-                        + ", (float)" + getVariableName(source) + ", " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
+                        + ", (float)" + getVariableName(source) + ", "
+                        + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");";
             } else if (source.getVariableClass().equals(Double.class)) {
                 stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this)
-                        + ", (double)" + getVariableName(source) + ", " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
+                        + ", (double)" + getVariableName(source) + ", "
+                        + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
             } else if (value.getClass().isEnum()) {
                 stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this)
                         + ", " + getVariableName(source) + ");";

@@ -40,13 +40,11 @@ public abstract class TestFitnessFunction
     static boolean warnedAboutIsSimilarTo = false;
 
     /**
-     * <p>
-     * getFitness
-     * </p>
+     * Calculates the fitness of the given individual based on its execution result.
      *
      * @param individual a {@link org.evosuite.testcase.TestChromosome} object.
      * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @return a double.
+     * @return the fitness value
      */
     public abstract double getFitness(TestChromosome individual, ExecutionResult result);
 
@@ -72,8 +70,7 @@ public abstract class TestFitnessFunction
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * Used to preorder goals by difficulty
+     * <p>Used to preorder goals by difficulty
      */
     @Override
     public abstract int compareTo(TestFitnessFunction other);
@@ -115,6 +112,12 @@ public abstract class TestFitnessFunction
         return tests.stream().anyMatch(this::isCovered);
     }
 
+    /**
+     * Checks if the goal is covered by any test in the test suite.
+     *
+     * @param testSuite the test suite to check
+     * @return true if covered
+     */
     public boolean isCoveredBy(TestSuiteChromosome testSuite) {
         int num = 1;
         for (TestChromosome test : testSuite.getTestChromosomes()) {
@@ -128,9 +131,7 @@ public abstract class TestFitnessFunction
     }
 
     /**
-     * <p>
-     * isCovered
-     * </p>
+     * Checks if the given test case covers this goal.
      *
      * @param test a {@link org.evosuite.testcase.TestCase} object.
      * @return a boolean.
@@ -142,9 +143,7 @@ public abstract class TestFitnessFunction
     }
 
     /**
-     * <p>
-     * isCovered
-     * </p>
+     * Checks if the given test chromosome covers this goal.
      *
      * @param tc a {@link org.evosuite.testcase.TestChromosome} object.
      * @return a boolean.
@@ -165,9 +164,7 @@ public abstract class TestFitnessFunction
     }
 
     /**
-     * <p>
-     * isCovered
-     * </p>
+     * Checks if the given test chromosome covers this goal based on the execution result.
      *
      * @param individual a {@link org.evosuite.testcase.TestChromosome} object.
      * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.

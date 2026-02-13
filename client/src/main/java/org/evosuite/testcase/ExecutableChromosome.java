@@ -86,7 +86,7 @@ public abstract class ExecutableChromosome<E extends ExecutableChromosome<E>> ex
 
 
     /**
-     * <p>clearCachedResults</p>
+     * Clears cached execution results.
      */
     public void clearCachedResults() {
         this.lastExecutionResult = null;
@@ -94,26 +94,26 @@ public abstract class ExecutableChromosome<E extends ExecutableChromosome<E>> ex
     }
 
     /**
-     * <p>clearCachedMutationResults</p>
+     * Clears cached mutation results.
      */
     public void clearCachedMutationResults() {
         lastMutationResult.clear();
     }
 
     /**
-     * <p>copyCachedResults</p>
+     * Copies cached results from another chromosome.
      *
-     * @param other a {@link org.evosuite.testcase.ExecutableChromosome} object.
+     * @param other the other chromosome to copy from
      */
     protected abstract void copyCachedResults(E other);
 
     /**
-     * <p>executeForFitnessFunction</p>
+     * Executes the chromosome for a specific fitness function.
      *
-     * @param testSuiteFitnessFunction a {@link org.evosuite.testsuite.TestSuiteFitnessFunction} object.
-     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
+     * @param testSuiteFitnessFunction the fitness function to execute for
+     * @return the execution result
      */
-    abstract public ExecutionResult executeForFitnessFunction(
+    public abstract ExecutionResult executeForFitnessFunction(
             TestSuiteFitnessFunction testSuiteFitnessFunction);
 
     private void readObject(ObjectInputStream ois) throws ClassNotFoundException,

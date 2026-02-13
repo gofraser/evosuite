@@ -37,6 +37,12 @@ public class TestCaseExpander {
 
     private int currentPosition = 0;
 
+    /**
+     * Expands the given test case.
+     *
+     * @param test the test case to expand
+     * @return the expanded test case
+     */
     public TestCase expandTestCase(TestCase test) {
         TestCase expandedTest = test.clone();
         // Deactivated for now - only needed in NL branch
@@ -107,12 +113,11 @@ public class TestCaseExpander {
         variableMapping.get(var.getStPosition()).add(copy);
     }
 
-    /*
-     * (non-Javadoc)
+    /**
+     * Visits a method statement during expansion.
      *
-     * @see
-     * org.evosuite.testcase.TestVisitor#visitMethodStatement(org.evosuite
-     * .testcase.MethodStatement)
+     * @param test the test case being expanded
+     * @param statement the method statement to visit
      */
     public void visitMethodStatement(TestCase test, MethodStatement statement) {
         // The problem is that at this point in the test case the parameters
@@ -135,12 +140,11 @@ public class TestCaseExpander {
         addUnchangedMapping(test, statement.getReturnValue());
     }
 
-    /*
-     * (non-Javadoc)
+    /**
+     * Visits a constructor statement during expansion.
      *
-     * @see
-     * org.evosuite.testcase.TestVisitor#visitConstructorStatement(org.evosuite
-     * .testcase.ConstructorStatement)
+     * @param test the test case being expanded
+     * @param statement the constructor statement to visit
      */
     public void visitConstructorStatement(TestCase test, ConstructorStatement statement) {
         int i = 0;
@@ -161,6 +165,12 @@ public class TestCaseExpander {
 
     }
 
+    /**
+     * Visits an array statement during expansion.
+     *
+     * @param test the test case being expanded
+     * @param statement the array statement to visit
+     */
     public void visitArrayStatement(TestCase test, ArrayStatement statement) {
         ArrayReference arrRef = (ArrayReference) statement.getReturnValue();
 
@@ -207,6 +217,12 @@ public class TestCaseExpander {
         }
     }
 
+    /**
+     * Visits an assignment statement during expansion.
+     *
+     * @param test the test case being expanded
+     * @param statement the assignment statement to visit
+     */
     public void visitAssignmentStatement(TestCase test, AssignmentStatement statement) {
 
         VariableReference var = statement.getValue();

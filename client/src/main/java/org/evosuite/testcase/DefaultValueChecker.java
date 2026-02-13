@@ -40,6 +40,12 @@ public enum DefaultValueChecker {
         this.checker = statementCheck;
     }
 
+    /**
+     * Checks if the given value is a default value for its type.
+     *
+     * @param value the value to check
+     * @return true if it is a default value
+     */
     public static boolean isDefaultValue(Object value) {
         if (Integer.class.equals(value.getClass())) {
             return INTEGER.checker.apply(value);

@@ -54,13 +54,11 @@ public class TestCaseReplacementFunction extends ReplacementFunction<TestChromos
     }
 
     /**
-     * <p>
-     * getLengthSum
-     * </p>
+     * Calculates the sum of the lengths of two chromosomes.
      *
      * @param chromosome1 a {@link org.evosuite.testcase.ExecutableChromosome} object.
      * @param chromosome2 a {@link org.evosuite.testcase.ExecutableChromosome} object.
-     * @return a int.
+     * @return the sum of the sizes of the two chromosomes.
      */
     public int getLengthSum(TestChromosome chromosome1,
                             TestChromosome chromosome2) {

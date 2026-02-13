@@ -79,9 +79,10 @@ public class StructuredTestCodeVisitor extends TestCodeVisitor {
         int position = statement.getPosition();
         if (position == exercisePosition) {
             testCode.append("\n// Exercise\n");
-        } else  {
-            if (position == 0)
-            testCode.append("// Setup\n");
+        } else {
+            if (position == 0) {
+                testCode.append("// Setup\n");
+            }
         }
 
         super.visitStatement(statement);

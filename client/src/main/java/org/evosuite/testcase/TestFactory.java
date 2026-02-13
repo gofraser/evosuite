@@ -1303,42 +1303,33 @@ public class TestFactory {
     }
 
 
-        /**
-
-
-         * Creates a new object of the given complex (i.e. non-primitive) {@code type} and adds it to
-
-
-         * the {@code test} case at the desired {@code position}. If the test case already contains an
-
-
-         * object of the specified type, this method might simply return a reference to the already
-
-
-         * existing object. Also, the insertion of a {@code null} reference is possible. The decision
-
-
-              * about which action to take is made probabilistically.
-              *
-              * <p>Clients have to supply the current recursion depth. This allows for better
-              * management of test generation resources. If this method is called from another method that
-              * already has a recursion depth as formal parameter, passing that recursion depth + 1 is
-              * appropriate. Otherwise, 0 should be used.
-              *
-              * <p>Returns a reference to the created object or throws a {@code ConstructionFailedException} if
-              * generation was not possible.
-              *
-              * @param test                  the test case for which to create the object
-              * @param type                  represents the type of the object to create
-              * @param position              the position in {@code test} at which to insert the reference to the object
-              * @param recursionDepth        the current recursion depth (see above)
-              * @param generatorRefToExclude the generator reference to exclude.
-              * @return a reference to the generated object
-              * @throws ConstructionFailedException if generation was not possible
-              */
-             public VariableReference createObject(TestCase test, Type type, int position,
-                                                   int recursionDepth, VariableReference generatorRefToExclude)
-                     throws ConstructionFailedException {        return createObject(test, type, position, recursionDepth, generatorRefToExclude, true, true, true);
+    /**
+     * Creates a new object of the given complex (i.e. non-primitive) {@code type} and adds it to
+     * the {@code test} case at the desired {@code position}. If the test case already contains an
+     * object of the specified type, this method might simply return a reference to the already
+     * existing object. Also, the insertion of a {@code null} reference is possible. The decision
+     * about which action to take is made probabilistically.
+     *
+     * <p>Clients have to supply the current recursion depth. This allows for better
+     * management of test generation resources. If this method is called from another method that
+     * already has a recursion depth as formal parameter, passing that recursion depth + 1 is
+     * appropriate. Otherwise, 0 should be used.
+     *
+     * <p>Returns a reference to the created object or throws a {@code ConstructionFailedException} if
+     * generation was not possible.
+     *
+     * @param test                  the test case for which to create the object
+     * @param type                  represents the type of the object to create
+     * @param position              the position in {@code test} at which to insert the reference to the object
+     * @param recursionDepth        the current recursion depth (see above)
+     * @param generatorRefToExclude the generator reference to exclude.
+     * @return a reference to the generated object
+     * @throws ConstructionFailedException if generation was not possible
+     */
+    public VariableReference createObject(TestCase test, Type type, int position,
+                                          int recursionDepth, VariableReference generatorRefToExclude)
+            throws ConstructionFailedException {
+        return createObject(test, type, position, recursionDepth, generatorRefToExclude, true, true, true);
     }
 
     /**
@@ -1614,8 +1605,7 @@ public class TestFactory {
      *     instead of generating a new one. The given {@code position} is ignored in this case.</li>
      * </ul>
      *
-     * <p>
-     * Clients have to supply the current recursion depth. This allows for better
+     * <p>Clients have to supply the current recursion depth. This allows for better
      * management of test generation resources. If this method is called from another method that
      * already has a recursion depth as formal parameter, passing that recursion depth + 1 is
      * appropriate. Otherwise, 0 should be used.

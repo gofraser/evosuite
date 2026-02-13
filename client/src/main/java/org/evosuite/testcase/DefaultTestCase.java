@@ -359,8 +359,8 @@ public class DefaultTestCase implements TestCase, Serializable {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Create a copy of the test case
+     *
+     * <p>Create a copy of the test case
      */
     @Override
     public DefaultTestCase clone() {
@@ -569,7 +569,8 @@ public class DefaultTestCase implements TestCase, Serializable {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getObject(org.evosuite.testcase.VariableReference, org.evosuite.testcase.Scope)
+     * @see org.evosuite.testcase.TestCase#getObject(org.evosuite.testcase.VariableReference,
+     * org.evosuite.testcase.Scope)
      */
 
     /**
@@ -711,7 +712,8 @@ public class DefaultTestCase implements TestCase, Serializable {
                         iterator.remove();
                     } else {
                         if (this.getStatement(var.getStPosition()) instanceof FunctionalMockStatement
-                                && !(this.getStatement(var.getStPosition()) instanceof FunctionalMockForAbstractClassStatement)) {
+                                && !(this.getStatement(var.getStPosition())
+                                instanceof FunctionalMockForAbstractClassStatement)) {
                             iterator.remove();
                         }
                     }
@@ -920,8 +922,8 @@ public class DefaultTestCase implements TestCase, Serializable {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Equality check
+     *
+     * <p>Equality check
      */
     // public boolean equals(TestCase t) {
     // return statements.size() == t.statements.size() && isPrefix(t);
@@ -1107,7 +1109,8 @@ public class DefaultTestCase implements TestCase, Serializable {
         statements.forEach(Statement::removeAssertions);
     }
 
-    private boolean methodNeedsDownCast(MethodStatement methodStatement, VariableReference var, Class<?> abstractClass) {
+    private boolean methodNeedsDownCast(MethodStatement methodStatement, VariableReference var,
+                                        Class<?> abstractClass) {
 
         if (!methodStatement.isStatic() && methodStatement.getCallee().equals(var)) {
             if (MethodUtils.getAccessibleMethod(abstractClass, methodStatement.getMethodName(),
@@ -1185,6 +1188,9 @@ public class DefaultTestCase implements TestCase, Serializable {
         return false;
     }
 
+    /**
+     * Removes unnecessary downcasts from the test case.
+     */
     public void removeDownCasts() {
         for (Statement s : statements) {
             if (s instanceof MethodStatement) {
@@ -1230,7 +1236,8 @@ public class DefaultTestCase implements TestCase, Serializable {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#replace(org.evosuite.testcase.VariableReference, org.evosuite.testcase.VariableReference)
+     * @see org.evosuite.testcase.TestCase#replace(org.evosuite.testcase.VariableReference,
+     * org.evosuite.testcase.VariableReference)
      */
 
     /**

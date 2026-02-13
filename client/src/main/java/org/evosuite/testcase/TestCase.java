@@ -151,11 +151,9 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     /**
      * Get all assertions that exist for this test case.
      *
-     * @return List of assertions.
+     * <p>TODO: Also return ExceptionAssertion?
      *
-     * <p>
-     *     TODO: Also return ExceptionAssertion?
-     * </p>
+     * @return List of assertions.
      */
     List<Assertion> getAssertions();
 

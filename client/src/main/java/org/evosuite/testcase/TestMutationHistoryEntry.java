@@ -38,12 +38,23 @@ public class TestMutationHistoryEntry implements MutationHistoryEntry, Serializa
 
     public String whatwasit;
 
+    /**
+     * Creates a new mutation history entry.
+     *
+     * @param type      the type of mutation
+     * @param statement the statement affected by the mutation
+     */
     public TestMutationHistoryEntry(TestMutation type, Statement statement) {
         this.mutationType = type;
         this.statement = statement;
         this.whatwasit = statement.getCode() + " at position " + statement.getPosition();
     }
 
+    /**
+     * Creates a new mutation history entry for a deletion.
+     *
+     * @param type the type of mutation (usually DELETION)
+     */
     public TestMutationHistoryEntry(TestMutation type) {
         this.mutationType = type;
         this.statement = null;
@@ -54,10 +65,21 @@ public class TestMutationHistoryEntry implements MutationHistoryEntry, Serializa
         return statement;
     }
 
+    /**
+     * Returns the type of mutation.
+     *
+     * @return the mutation type
+     */
     public TestMutation getMutationType() {
         return mutationType;
     }
 
+    /**
+     * Creates a copy of this mutation history entry for the given test case.
+     *
+     * @param newTest the test case to clone to
+     * @return the cloned mutation history entry
+     */
     public TestMutationHistoryEntry clone(TestCase newTest) {
         if (statement == null) {
             return new TestMutationHistoryEntry(mutationType);

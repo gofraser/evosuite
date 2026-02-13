@@ -35,18 +35,21 @@ public class RelativeTestLengthBloatControl<T extends ExecutableChromosome<T>>
 
     private static final long serialVersionUID = -459141492060919204L;
 
-    protected int current_max;
-    protected double best_fitness;
+    protected int currentMax;
+    protected double bestFitness;
 
+    /**
+     * Default constructor.
+     */
     public RelativeTestLengthBloatControl() {
-        current_max = 0;
-        best_fitness = Double.MAX_VALUE; // FIXXME: Assuming
+        currentMax = 0;
+        bestFitness = Double.MAX_VALUE; // FIXXME: Assuming
         // minimizing fitness!
     }
 
     public RelativeTestLengthBloatControl(final RelativeTestLengthBloatControl<?> that) {
-        this.current_max = that.current_max;
-        this.best_fitness = that.best_fitness;
+        this.currentMax = that.currentMax;
+        this.bestFitness = that.bestFitness;
     }
 
     /**
@@ -55,21 +58,20 @@ public class RelativeTestLengthBloatControl<T extends ExecutableChromosome<T>>
     @Override
     public boolean isTooLong(T chromosome) {
         // Always accept if fitness is better
-        if (chromosome.getFitness() < best_fitness) {
+        if (chromosome.getFitness() < bestFitness) {
             return false;
         }
 
-        // logger.debug("Current - max: "+((TestSuiteChromosome)chromosome).length()+" - "+current_max);
-        if (current_max > 0) {
+        // logger.debug("Current - max: "+((TestSuiteChromosome)chromosome).length()+" - "+currentMax);
+        if (currentMax > 0) {
             // if(((TestSuiteChromosome)chromosome).length() > bloat_factor *
-            // current_max)
+            // currentMax)
             // logger.debug("Bloat control: "+((TestSuiteChromosome)chromosome).length()
-            // +" > "+ bloat_factor * current_max);
+            // +" > "+ bloat_factor * currentMax);
 
             return chromosome.size() > Properties.BLOAT_FACTOR
-                    * current_max;
-        } else
-             {
+                    * currentMax;
+        } else {
             return false;
         } // Don't know max length so can't reject!
     }
@@ -88,8 +90,8 @@ public class RelativeTestLengthBloatControl<T extends ExecutableChromosome<T>>
      */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
-        current_max = algorithm.getBestIndividual().size();
-        best_fitness = algorithm.getBestIndividual().getFitness();
+        currentMax = algorithm.getBestIndividual().size();
+        bestFitness = algorithm.getBestIndividual().getFitness();
     }
 
     /**

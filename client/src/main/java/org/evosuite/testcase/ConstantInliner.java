@@ -49,9 +49,7 @@ public class ConstantInliner extends ExecutionObserver {
     private static final Logger logger = LoggerFactory.getLogger(ConstantInliner.class);
 
     /**
-     * <p>
-     * inline
-     * </p>
+     * Inlines constants in the given test case.
      *
      * @param test a {@link org.evosuite.testcase.TestCase} object.
      */
@@ -67,9 +65,7 @@ public class ConstantInliner extends ExecutionObserver {
     }
 
     /**
-     * <p>
-     * inline
-     * </p>
+     * Inlines constants in the given test chromosome.
      *
      * @param test a {@link org.evosuite.testcase.TestChromosome} object.
      */
@@ -78,9 +74,7 @@ public class ConstantInliner extends ExecutionObserver {
     }
 
     /**
-     * <p>
-     * inline
-     * </p>
+     * Inlines constants in the given test suite chromosome.
      *
      * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
