@@ -305,16 +305,6 @@ public class TestClusterGenerator {
                 continue;
             }
             boolean added = false;
-            /*
-             * if (dependency.getDependencyClass().isParameterizedType()) { for
-             * (List<GenericClass> parameterTypes :
-             * getAssignableTypes(dependency.getDependencyClass())) {
-             * GenericClass copy = new GenericClass(
-             * dependency.getDependencyClass().getType());
-             * copy.setParameterTypes(parameterTypes); boolean success =
-             * addDependencyClass(copy, dependency.getRecursion()); if (success)
-             * added = true; } } else
-             */
             added = addDependencyClass(dependency.getDependencyClass(), dependency.getRecursion());
             if (!added) {
                 blackList.add(className);
@@ -378,7 +368,43 @@ public class TestClusterGenerator {
 
         // To make sure we also have anonymous inner classes double check inner
         // classes using ASM
+        addInnerClasses(targetClasses);
 
+        for (Class<?> clazz : targetClasses) {
+            logger.info("Current SUT class: " + clazz);
+
+            if (!TestUsageChecker.canUse(clazz)) {
+                logger.info("Cannot access SUT class: " + clazz);
+                continue;
+            }
+
+            addConstructors(clazz, cluster);
+            addMethods(clazz, cluster);
+            addFields(clazz, cluster);
+
+            analyzedClasses.add(clazz);
+            // TODO: Set to generic type rather than class?
+            cluster.getAnalyzedClasses().add(clazz);
+        }
+        if (Properties.INSTRUMENT_PARENT) {
+            for (String superClass : inheritanceTree.getSuperclasses(Properties.TARGET_CLASS)) {
+                try {
+                    Class<?> superClazz = TestGenerationContext.getInstance().getClassLoaderForSUT()
+                            .loadClass(superClass);
+                    dependencies.add(new DependencyPair(0, superClazz));
+                } catch (ClassNotFoundException e) {
+                    logger.error("Problem for " + Properties.TARGET_CLASS + ". Class not found: " + superClass, e);
+                }
+
+            }
+        }
+
+        handleStaticFields(cluster);
+
+        logger.info("Finished analyzing target class");
+    }
+
+    private void addInnerClasses(Set<Class<?>> targetClasses) {
         // because the loop changes 'targetClasses' set we cannot iterate over
         // it, not even
         // using an iterator. a simple workaround is to create a temporary set
@@ -427,194 +453,177 @@ public class TestClusterGenerator {
                 }
             }
         }
+    }
 
-        for (Class<?> clazz : targetClasses) {
-            logger.info("Current SUT class: " + clazz);
+    private void addConstructors(Class<?> clazz, TestCluster cluster) {
+        // Add all constructors
+        for (Constructor<?> constructor : TestClusterUtils.getConstructors(clazz)) {
+            logger.info("Checking target constructor " + constructor);
+            String name = "<init>" + org.objectweb.asm.Type.getConstructorDescriptor(constructor);
 
-            if (!TestUsageChecker.canUse(clazz)) {
-                logger.info("Cannot access SUT class: " + clazz);
-                continue;
-            }
-
-            // Add all constructors
-            for (Constructor<?> constructor : TestClusterUtils.getConstructors(clazz)) {
-                logger.info("Checking target constructor " + constructor);
-                String name = "<init>" + org.objectweb.asm.Type.getConstructorDescriptor(constructor);
-
-                if (Properties.TT) {
-                    String orig = name;
-                    name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getName(), "<init>",
-                            org.objectweb.asm.Type.getConstructorDescriptor(constructor));
-                    if (!orig.equals(name)) {
-                        logger.info("TT name: " + orig + " -> " + name);
-                    }
-
-                }
-
-                if (TestUsageChecker.canUse(constructor)) {
-                    GenericConstructor genericConstructor = new GenericConstructor(constructor, clazz);
-                    if (constructor.getDeclaringClass().equals(clazz)) {
-                        cluster.addTestCall(genericConstructor);
-                    }
-                    // TODO: Add types!
-                    cluster.addGenerator(GenericClassFactory.get(clazz), // .getWithWildcardTypes(),
-                            genericConstructor);
-                    addDependencies(genericConstructor, 1);
-                    logger.debug("Keeping track of " + constructor.getDeclaringClass().getName() + "."
-                            + constructor.getName() + org.objectweb.asm.Type.getConstructorDescriptor(constructor));
-                } else {
-                    logger.debug("Constructor cannot be used: " + constructor);
+            if (Properties.TT) {
+                String orig = name;
+                name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getName(), "<init>",
+                        org.objectweb.asm.Type.getConstructorDescriptor(constructor));
+                if (!orig.equals(name)) {
+                    logger.info("TT name: " + orig + " -> " + name);
                 }
 
             }
 
-            // Add all methods
-            for (Method method : TestClusterUtils.getMethods(clazz)) {
-                logger.info("Checking target method " + method);
-                String name = method.getName() + org.objectweb.asm.Type.getMethodDescriptor(method);
+            if (TestUsageChecker.canUse(constructor)) {
+                GenericConstructor genericConstructor = new GenericConstructor(constructor, clazz);
+                if (constructor.getDeclaringClass().equals(clazz)) {
+                    cluster.addTestCall(genericConstructor);
+                }
+                // TODO: Add types!
+                cluster.addGenerator(GenericClassFactory.get(clazz), // .getWithWildcardTypes(),
+                        genericConstructor);
+                addDependencies(genericConstructor, 1);
+                logger.debug("Keeping track of " + constructor.getDeclaringClass().getName() + "."
+                        + constructor.getName() + org.objectweb.asm.Type.getConstructorDescriptor(constructor));
+            } else {
+                logger.debug("Constructor cannot be used: " + constructor);
+            }
 
-                if (Properties.TT) {
-                    String orig = name;
-                    name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getName(), method.getName(),
-                            org.objectweb.asm.Type.getMethodDescriptor(method));
-                    if (!orig.equals(name)) {
-                        logger.info("TT name: " + orig + " -> " + name);
-                    }
+        }
+    }
+
+    private void addMethods(Class<?> clazz, TestCluster cluster) {
+        // Add all methods
+        for (Method method : TestClusterUtils.getMethods(clazz)) {
+            logger.info("Checking target method " + method);
+            String name = method.getName() + org.objectweb.asm.Type.getMethodDescriptor(method);
+
+            if (Properties.TT) {
+                String orig = name;
+                name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getName(), method.getName(),
+                        org.objectweb.asm.Type.getMethodDescriptor(method));
+                if (!orig.equals(name)) {
+                    logger.info("TT name: " + orig + " -> " + name);
+                }
+            }
+
+            if (TestUsageChecker.canUse(method, clazz)) {
+                logger.debug("Adding method " + clazz.getName() + "." + method.getName()
+                        + org.objectweb.asm.Type.getMethodDescriptor(method));
+
+                if (clazz.isInterface() && Modifier.isAbstract(method.getModifiers())) {
+                    logger.debug("Not adding interface method {}", method);
+                    continue;
                 }
 
-                if (TestUsageChecker.canUse(method, clazz)) {
-                    logger.debug("Adding method " + clazz.getName() + "." + method.getName()
-                            + org.objectweb.asm.Type.getMethodDescriptor(method));
+                GenericMethod genericMethod = new GenericMethod(method, clazz);
+                if (method.getDeclaringClass().equals(clazz)) {
+                    cluster.addTestCall(genericMethod);
+                }
 
-                    if (clazz.isInterface() && Modifier.isAbstract(method.getModifiers())) {
-                        logger.debug("Not adding interface method {}", method);
-                        continue;
-                    }
+                // This is now enabled, as the test calls are managed by the
+                // test archive
+                // However, there previously were concerns that:
+                // For SUT classes without impure methods
+                // this can affect the chances of covering the targets
+                // so for now we keep all pure methods.
+                // In the long run, covered methods maybe should be
+                // removed?
+                if (!CheapPurityAnalyzer.getInstance().isPure(method)) {
+                    cluster.addModifier(GenericClassFactory.get(clazz), genericMethod);
+                }
+                addDependencies(genericMethod, 1);
+                GenericClass<?> retClass = GenericClassFactory.get(method.getReturnType());
 
+                // For the CUT, we may want to use primitives and Object return types as generators
+                //if (!retClass.isPrimitive() && !retClass.isVoid() && !retClass.isObject())
+                if (!retClass.isVoid()) {
+                    cluster.addGenerator(retClass, // .getWithWildcardTypes(),
+                            genericMethod);
+                }
+            } else {
+                logger.debug("Method cannot be used: " + method);
+
+                // If we do reflection on private methods, we still need to consider dependencies
+                if (Properties.P_REFLECTION_ON_PRIVATE > 0 && method.getDeclaringClass().equals(clazz)) {
                     GenericMethod genericMethod = new GenericMethod(method, clazz);
-                    if (method.getDeclaringClass().equals(clazz)) {
-                        cluster.addTestCall(genericMethod);
-                    }
-
-                    // This is now enabled, as the test calls are managed by the
-                    // test archive
-                    // However, there previously were concerns that:
-                    // For SUT classes without impure methods
-                    // this can affect the chances of covering the targets
-                    // so for now we keep all pure methods.
-                    // In the long run, covered methods maybe should be
-                    // removed?
-                    if (!CheapPurityAnalyzer.getInstance().isPure(method)) {
-                        cluster.addModifier(GenericClassFactory.get(clazz), genericMethod);
-                    }
                     addDependencies(genericMethod, 1);
-                    GenericClass<?> retClass = GenericClassFactory.get(method.getReturnType());
-
-                    // For the CUT, we may want to use primitives and Object return types as generators
-                    //if (!retClass.isPrimitive() && !retClass.isVoid() && !retClass.isObject())
-                    if (!retClass.isVoid()) {
-                        cluster.addGenerator(retClass, // .getWithWildcardTypes(),
-                                genericMethod);
-                    }
-                } else {
-                    logger.debug("Method cannot be used: " + method);
-
-                    // If we do reflection on private methods, we still need to consider dependencies
-                    if (Properties.P_REFLECTION_ON_PRIVATE > 0 && method.getDeclaringClass().equals(clazz)) {
-                        GenericMethod genericMethod = new GenericMethod(method, clazz);
-                        addDependencies(genericMethod, 1);
-                    }
                 }
             }
+        }
+    }
 
-            for (Field field : TestClusterUtils.getFields(clazz)) {
-                logger.info("Checking target field " + field);
+    private void addFields(Class<?> clazz, TestCluster cluster) {
+        for (Field field : TestClusterUtils.getFields(clazz)) {
+            logger.info("Checking target field " + field);
 
-                if (TestUsageChecker.canUse(field, clazz)) {
-                    GenericField genericField = new GenericField(field, clazz);
+            if (TestUsageChecker.canUse(field, clazz)) {
+                GenericField genericField = new GenericField(field, clazz);
 
-                    addDependencies(genericField, 1);
-                    cluster.addGenerator(GenericClassFactory.get(field.getGenericType()), // .getWithWildcardTypes(),
-                            genericField);
-                    logger.debug("Adding field " + field);
-                    final boolean isFinalField = isFinalField(field);
-                    if (!isFinalField) {
-                        logger.debug("Is not final");
-                        // Setting fields does not contribute to coverage, so we will only count it as a modifier
-                        // if (field.getDeclaringClass().equals(clazz))
-                        //    cluster.addTestCall(new GenericField(field, clazz));
-                        cluster.addModifier(GenericClassFactory.get(clazz), genericField);
-                    } else {
-                        logger.debug("Is final");
-                        if (Modifier.isStatic(field.getModifiers()) && !field.getType().isPrimitive()) {
-                            logger.debug("Is static non-primitive");
-                            /*
-                             * With this we are trying to cover such cases:
-                             *
-                             * public static final DurationField INSTANCE = new
-                             * MillisDurationField();
-                             *
-                             * private MillisDurationField() { super(); }
-                             */
-                            try {
-                                Object o = field.get(null);
-                                if (o == null) {
-                                    logger.info("Field is not yet initialized: " + field);
-                                } else {
-                                    Class<?> actualClass = o.getClass();
-                                    logger.debug("Actual class is " + actualClass);
-                                    if (!actualClass.isAssignableFrom(genericField.getRawGeneratedType())
-                                            && genericField.getRawGeneratedType().isAssignableFrom(actualClass)) {
-                                        GenericField superClassField = new GenericField(field, clazz);
-                                        cluster.addGenerator(GenericClassFactory.get(actualClass), superClassField);
-                                    }
+                addDependencies(genericField, 1);
+                cluster.addGenerator(GenericClassFactory.get(field.getGenericType()), // .getWithWildcardTypes(),
+                        genericField);
+                logger.debug("Adding field " + field);
+                final boolean isFinalField = isFinalField(field);
+                if (!isFinalField) {
+                    logger.debug("Is not final");
+                    // Setting fields does not contribute to coverage, so we will only count it as a modifier
+                    // if (field.getDeclaringClass().equals(clazz))
+                    //    cluster.addTestCall(new GenericField(field, clazz));
+                    cluster.addModifier(GenericClassFactory.get(clazz), genericField);
+                } else {
+                    logger.debug("Is final");
+                    if (Modifier.isStatic(field.getModifiers()) && !field.getType().isPrimitive()) {
+                        logger.debug("Is static non-primitive");
+                        /*
+                         * With this we are trying to cover such cases:
+                         *
+                         * public static final DurationField INSTANCE = new
+                         * MillisDurationField();
+                         *
+                         * private MillisDurationField() { super(); }
+                         */
+                        try {
+                            Object o = field.get(null);
+                            if (o == null) {
+                                logger.info("Field is not yet initialized: " + field);
+                            } else {
+                                Class<?> actualClass = o.getClass();
+                                logger.debug("Actual class is " + actualClass);
+                                if (!actualClass.isAssignableFrom(genericField.getRawGeneratedType())
+                                        && genericField.getRawGeneratedType().isAssignableFrom(actualClass)) {
+                                    GenericField superClassField = new GenericField(field, clazz);
+                                    cluster.addGenerator(GenericClassFactory.get(actualClass), superClassField);
                                 }
-                            } catch (IllegalAccessException e) {
-                                logger.error(e.getMessage());
                             }
+                        } catch (IllegalAccessException e) {
+                            logger.error(e.getMessage());
+                        }
 
-                        }
                     }
-                } else {
-                    logger.debug("Can't use field " + field);
-                    // If reflection on private is used, we still need to make sure dependencies are handled
-                    // TODO: Duplicate code here
-                    if (Properties.P_REFLECTION_ON_PRIVATE > 0) {
-                        if (Modifier.isPrivate(field.getModifiers())
-                                && !field.isSynthetic()
-                                && !field.getName().equals("serialVersionUID")
-                                // primitives cannot be changed
-                                && !(field.getType().isPrimitive())
-                                // changing final strings also doesn't make much sense
-                                && !(Modifier.isFinal(field.getModifiers()) && field.getType().equals(String.class))
-                                // static fields lead to just too many problems...
-                                // although this could be set as a parameter
-                                && !Modifier.isStatic(field.getModifiers())
-                        ) {
-                            GenericField genericField = new GenericField(field, clazz);
-                            addDependencies(genericField, 1);
-                        }
+                }
+            } else {
+                logger.debug("Can't use field " + field);
+                // If reflection on private is used, we still need to make sure dependencies are handled
+                // TODO: Duplicate code here
+                if (Properties.P_REFLECTION_ON_PRIVATE > 0) {
+                    if (Modifier.isPrivate(field.getModifiers())
+                            && !field.isSynthetic()
+                            && !field.getName().equals("serialVersionUID")
+                            // primitives cannot be changed
+                            && !(field.getType().isPrimitive())
+                            // changing final strings also doesn't make much sense
+                            && !(Modifier.isFinal(field.getModifiers()) && field.getType().equals(String.class))
+                            // static fields lead to just too many problems...
+                            // although this could be set as a parameter
+                            && !Modifier.isStatic(field.getModifiers())
+                    ) {
+                        GenericField genericField = new GenericField(field, clazz);
+                        addDependencies(genericField, 1);
                     }
                 }
             }
-
-            analyzedClasses.add(clazz);
-            // TODO: Set to generic type rather than class?
-            cluster.getAnalyzedClasses().add(clazz);
         }
-        if (Properties.INSTRUMENT_PARENT) {
-            for (String superClass : inheritanceTree.getSuperclasses(Properties.TARGET_CLASS)) {
-                try {
-                    Class<?> superClazz = TestGenerationContext.getInstance().getClassLoaderForSUT()
-                            .loadClass(superClass);
-                    dependencies.add(new DependencyPair(0, superClazz));
-                } catch (ClassNotFoundException e) {
-                    logger.error("Problem for " + Properties.TARGET_CLASS + ". Class not found: " + superClass, e);
-                }
+    }
 
-            }
-        }
-
+    private void handleStaticFields(TestCluster cluster) {
         if (Properties.HANDLE_STATIC_FIELDS) {
 
             GetStaticGraph getStaticGraph = GetStaticGraphGenerator.generate(Properties.TARGET_CLASS);
@@ -691,8 +700,6 @@ public class TestClusterGenerator {
 
             }
         }
-
-        logger.info("Finished analyzing target class");
     }
 
     /**
@@ -910,116 +917,10 @@ public class TestClusterGenerator {
                 return false;
             }
 
-            // Add all constructors
-            for (Constructor<?> constructor : TestClusterUtils.getConstructors(clazz.getRawClass())) {
-                String name = "<init>" + org.objectweb.asm.Type.getConstructorDescriptor(constructor);
+            addDependencyConstructors(clazz, cluster, recursionLevel);
+            addDependencyMethods(clazz, cluster, recursionLevel);
+            addDependencyFields(clazz, cluster, recursionLevel);
 
-                if (Properties.TT) {
-                    String orig = name;
-                    name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getClassName(), "<init>",
-                            org.objectweb.asm.Type.getConstructorDescriptor(constructor));
-                    if (!orig.equals(name)) {
-                        logger.info("TT name: " + orig + " -> " + name);
-                    }
-
-                }
-
-                if (TestUsageChecker.canUse(constructor)) {
-                    GenericConstructor genericConstructor = new GenericConstructor(constructor, clazz);
-                    try {
-                        cluster.addGenerator(clazz, // .getWithWildcardTypes(),
-                                genericConstructor);
-                        addDependencies(genericConstructor, recursionLevel + 1);
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("Keeping track of " + constructor.getDeclaringClass().getName() + "."
-                                    + constructor.getName()
-                                    + org.objectweb.asm.Type.getConstructorDescriptor(constructor));
-                        }
-                    } catch (Throwable t) {
-                        logger.info("Error adding constructor {}: {}", constructor.getName(), t.getMessage());
-                    }
-
-                } else {
-                    logger.debug("Constructor cannot be used: {}", constructor);
-                }
-
-            }
-
-            // Add all methods
-            for (Method method : TestClusterUtils.getMethods(clazz.getRawClass())) {
-                String name = method.getName() + org.objectweb.asm.Type.getMethodDescriptor(method);
-
-                if (Properties.TT) {
-                    String orig = name;
-                    name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getClassName(), method.getName(),
-                            org.objectweb.asm.Type.getMethodDescriptor(method));
-                    if (!orig.equals(name)) {
-                        logger.info("TT name: " + orig + " -> " + name);
-                    }
-                }
-
-                if (TestUsageChecker.canUse(method, clazz.getRawClass()) && !method.getName().equals("hashCode")) {
-                    logger.debug("Adding method " + clazz.getClassName() + "." + method.getName()
-                            + org.objectweb.asm.Type.getMethodDescriptor(method));
-                    // TODO: Generic methods cause some troubles, but
-                    //                    if (method.getTypeParameters().length > 0) {
-                    //                        logger.info("Type parameters in methods are not handled yet, skipping "
-                    //                                + method);
-                    //                        continue;
-                    //                    }
-                    GenericMethod genericMethod = new GenericMethod(method, clazz);
-                    try {
-                        addDependencies(genericMethod, recursionLevel + 1);
-                        if (!Properties.PURE_INSPECTORS) {
-                            cluster.addModifier(GenericClassFactory.get(clazz), genericMethod);
-                        } else {
-                            if (!CheapPurityAnalyzer.getInstance().isPure(method)) {
-                                cluster.addModifier(GenericClassFactory.get(clazz), genericMethod);
-                            }
-                        }
-
-                        GenericClass<?> retClass = GenericClassFactory.get(method.getReturnType());
-
-                        // Only use as generator if its not any of the types with special treatment
-                        if (!retClass.isPrimitive() && !retClass.isVoid() && !retClass.isObject()
-                                && !retClass.isString()) {
-                            cluster.addGenerator(retClass, // .getWithWildcardTypes(),
-                                    genericMethod);
-                        }
-                    } catch (Throwable t) {
-                        logger.info("Error adding method " + method.getName() + ": " + t.getMessage());
-                    }
-                } else {
-                    logger.debug("Method cannot be used: " + method);
-                }
-            }
-
-            // Add all fields
-            for (Field field : TestClusterUtils.getFields(clazz.getRawClass())) {
-                logger.debug("Checking field " + field);
-                if (TestUsageChecker.canUse(field, clazz.getRawClass())) {
-                    logger.debug("Adding field " + field + " for class " + clazz);
-                    try {
-                        GenericField genericField = new GenericField(field, clazz);
-                        GenericClass<?> retClass = GenericClassFactory.get(field.getType());
-                        // Only use as generator if its not any of the types with special treatment
-                        if (!retClass.isPrimitive() && !retClass.isObject() && !retClass.isString()) {
-                            cluster.addGenerator(GenericClassFactory.get(field.getGenericType()), genericField);
-                        }
-                        final boolean isFinalField = isFinalField(field);
-                        if (!isFinalField) {
-                            cluster.addModifier(clazz, // .getWithWildcardTypes(),
-                                    genericField);
-                            addDependencies(genericField, recursionLevel + 1);
-                        }
-                    } catch (Throwable t) {
-                        logger.info("Error adding field " + field.getName() + ": " + t.getMessage());
-                    }
-
-                } else {
-                    logger.debug("Field cannot be used: " + field);
-                }
-            }
             logger.info("Finished analyzing " + clazz.getTypeName() + " at recursion level " + recursionLevel);
             cluster.getAnalyzedClasses().add(clazz.getRawClass());
         } catch (Throwable t) {
@@ -1037,80 +938,121 @@ public class TestClusterGenerator {
         return true;
     }
 
-    // ----------------------
-    // unused old methods
-    // ----------------------
+    private void addDependencyConstructors(GenericClass<?> clazz, TestCluster cluster, int recursionLevel) {
+        // Add all constructors
+        for (Constructor<?> constructor : TestClusterUtils.getConstructors(clazz.getRawClass())) {
+            String name = "<init>" + org.objectweb.asm.Type.getConstructorDescriptor(constructor);
 
-    private static Set<Class<?>> loadClasses(Collection<String> classNames) {
-        Set<Class<?>> loadedClasses = new LinkedHashSet<>();
-        for (String subClass : classNames) {
-            try {
-                Class<?> subClazz = Class.forName(subClass, false,
-                        TestGenerationContext.getInstance().getClassLoaderForSUT());
-                if (!TestUsageChecker.canUse(subClazz)) {
-                    continue;
+            if (Properties.TT) {
+                String orig = name;
+                name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getClassName(), "<init>",
+                        org.objectweb.asm.Type.getConstructorDescriptor(constructor));
+                if (!orig.equals(name)) {
+                    logger.info("TT name: " + orig + " -> " + name);
                 }
-                if (subClazz.isInterface()) {
-                    continue;
-                }
-                if (Modifier.isAbstract(subClazz.getModifiers())) {
-                    if (!TestClusterUtils.hasStaticGenerator(subClazz)) {
-                        continue;
+
+            }
+
+            if (TestUsageChecker.canUse(constructor)) {
+                GenericConstructor genericConstructor = new GenericConstructor(constructor, clazz);
+                try {
+                    cluster.addGenerator(clazz, // .getWithWildcardTypes(),
+                            genericConstructor);
+                    addDependencies(genericConstructor, recursionLevel + 1);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Keeping track of " + constructor.getDeclaringClass().getName() + "."
+                                + constructor.getName()
+                                + org.objectweb.asm.Type.getConstructorDescriptor(constructor));
                     }
+                } catch (Throwable t) {
+                    logger.info("Error adding constructor {}: {}", constructor.getName(), t.getMessage());
                 }
-                Class<?> mock = MockList.getMockClass(subClazz.getCanonicalName());
-                if (mock != null) {
-                    /*
-                     * If we are mocking this class, then such class should not
-                     * be used in the generated JUnit test cases, but rather its
-                     * mock.
-                     */
-                    // logger.debug("Adding mock " + mock + " instead of "
-                    // + clazz);
-                    subClazz = mock;
-                } else {
 
-                    if (!TestClusterUtils.checkIfCanUse(subClazz.getCanonicalName())) {
-                        continue;
+            } else {
+                logger.debug("Constructor cannot be used: {}", constructor);
+            }
+
+        }
+    }
+
+    private void addDependencyMethods(GenericClass<?> clazz, TestCluster cluster, int recursionLevel) {
+        // Add all methods
+        for (Method method : TestClusterUtils.getMethods(clazz.getRawClass())) {
+            String name = method.getName() + org.objectweb.asm.Type.getMethodDescriptor(method);
+
+            if (Properties.TT) {
+                String orig = name;
+                name = BooleanTestabilityTransformation.getOriginalNameDesc(clazz.getClassName(), method.getName(),
+                        org.objectweb.asm.Type.getMethodDescriptor(method));
+                if (!orig.equals(name)) {
+                    logger.info("TT name: " + orig + " -> " + name);
+                }
+            }
+
+            if (TestUsageChecker.canUse(method, clazz.getRawClass()) && !method.getName().equals("hashCode")) {
+                logger.debug("Adding method " + clazz.getClassName() + "." + method.getName()
+                        + org.objectweb.asm.Type.getMethodDescriptor(method));
+                // TODO: Generic methods cause some troubles, but
+                //                    if (method.getTypeParameters().length > 0) {
+                //                        logger.info("Type parameters in methods are not handled yet, skipping "
+                //                                + method);
+                //                        continue;
+                //                    }
+                GenericMethod genericMethod = new GenericMethod(method, clazz);
+                try {
+                    addDependencies(genericMethod, recursionLevel + 1);
+                    if (!Properties.PURE_INSPECTORS) {
+                        cluster.addModifier(GenericClassFactory.get(clazz), genericMethod);
+                    } else {
+                        if (!CheapPurityAnalyzer.getInstance().isPure(method)) {
+                            cluster.addModifier(GenericClassFactory.get(clazz), genericMethod);
+                        }
                     }
+
+                    GenericClass<?> retClass = GenericClassFactory.get(method.getReturnType());
+
+                    // Only use as generator if its not any of the types with special treatment
+                    if (!retClass.isPrimitive() && !retClass.isVoid() && !retClass.isObject()
+                            && !retClass.isString()) {
+                        cluster.addGenerator(retClass, // .getWithWildcardTypes(),
+                                genericMethod);
+                    }
+                } catch (Throwable t) {
+                    logger.info("Error adding method " + method.getName() + ": " + t.getMessage());
                 }
-
-                loadedClasses.add(subClazz);
-
-            } catch (ClassNotFoundException e) {
-                logger.error("Problem for " + Properties.TARGET_CLASS + ". Class not found: " + subClass, e);
-                logger.error("Removing class from inheritance tree");
+            } else {
+                logger.debug("Method cannot be used: " + method);
             }
         }
-        return loadedClasses;
     }
 
-    /**
-     * Update the container classes.
-     *
-     * @param clazz the class to add
-     */
-    private void addCastClassForContainer(Class<?> clazz) {
-        if (concreteCastClasses.contains(clazz)) {
-            return;
-        }
+    private void addDependencyFields(GenericClass<?> clazz, TestCluster cluster, int recursionLevel) {
+        // Add all fields
+        for (Field field : TestClusterUtils.getFields(clazz.getRawClass())) {
+            logger.debug("Checking field " + field);
+            if (TestUsageChecker.canUse(field, clazz.getRawClass())) {
+                logger.debug("Adding field " + field + " for class " + clazz);
+                try {
+                    GenericField genericField = new GenericField(field, clazz);
+                    GenericClass<?> retClass = GenericClassFactory.get(field.getType());
+                    // Only use as generator if its not any of the types with special treatment
+                    if (!retClass.isPrimitive() && !retClass.isObject() && !retClass.isString()) {
+                        cluster.addGenerator(GenericClassFactory.get(field.getGenericType()), genericField);
+                    }
+                    final boolean isFinalField = isFinalField(field);
+                    if (!isFinalField) {
+                        cluster.addModifier(clazz, // .getWithWildcardTypes(),
+                                genericField);
+                        addDependencies(genericField, recursionLevel + 1);
+                    }
+                } catch (Throwable t) {
+                    logger.info("Error adding field " + field.getName() + ": " + t.getMessage());
+                }
 
-        concreteCastClasses.add(clazz);
-        // TODO: What if this is generic again?
-        genericCastClasses.add(GenericClassFactory.get(clazz));
-
-        CastClassManager.getInstance().addCastClass(clazz, 1);
-        TestCluster.getInstance().clearGeneratorCache(GenericClassFactory.get(clazz));
-    }
-
-    private List<GenericClass<?>> getAssignableTypes(java.lang.reflect.Type type) {
-        List<GenericClass<?>> types = new ArrayList<>();
-        for (GenericClass<?> clazz : genericCastClasses) {
-            if (clazz.isAssignableTo(type)) {
-                logger.debug(clazz + " is assignable to " + type);
-                types.add(clazz);
+            } else {
+                logger.debug("Field cannot be used: " + field);
             }
         }
-        return types;
     }
+
 }
