@@ -46,9 +46,9 @@ import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericClassUtils;
+import org.mockito.MockMakers;
 import org.mockito.MockSettings;
 import org.mockito.Mockito;
-import org.mockito.MockMakers;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.stubbing.OngoingStubbing;
 import org.slf4j.Logger;
@@ -70,37 +70,30 @@ import static org.mockito.Mockito.withSettings;
  * Recall: a functional mock is different from an environment one (eg for file IO and CPU time).
  * A functional mock instantiation can look like:
  *
- * <p>
- * EvoInvocationListener listener = new EvoInvocationListener(); <br>
+ * <p>EvoInvocationListener listener = new EvoInvocationListener(); <br>
  * Foo foo = mock(Foo.class, withSettings().invocationListeners(listener)); <br>
  * when(foo.aMethod(any() ...)).thenReturn( v0, v1, ...); <br>
  * when(foo.anotherMethod(...)).thenReturn( k0, k1, ...); <br>
  * ... <br>
  * listener.activate();
  *
- * <p>
- * All these statements will be represented with a single one, where the return
+ * <p>All these statements will be represented with a single one, where the return
  * value is the instantiated mock "foo", and the input parameters are all the input
  * parameters of all mocked methods (eg v0, k0), in order.
  *
- * <p>
- * Calls to "listener" are essential during the search (eg when the statement is executed),
+ * <p>Calls to "listener" are essential during the search (eg when the statement is executed),
  * but will not be part of the final generated JUnit tests (ie not part of toCode()).
  *
- * <p>
- * Initially, a functional mock will have 0 input parameters, and no "when" call.
+ * <p>Initially, a functional mock will have 0 input parameters, and no "when" call.
  * After a test is executed, the input parameter lists will be updated based on what
  * "listener" does report. The number of input parameters might vary several times
  * throughout the lifespan of a test during the search (can both increase and decrease).
  *
- * <p>
- * This statement cannot be used to mock the SUT, as it would make no sense whatsoever.
+ * <p>This statement cannot be used to mock the SUT, as it would make no sense whatsoever.
  * However, there might be special cases: eg SUT being an abstract class with no
  * concrete implementation. That would need to be handled specially.
  *
- *
- * <p>
- * Created by Andrea Arcuri on 01/08/15.
+ * <p>Created by Andrea Arcuri on 01/08/15.
  */
 public class FunctionalMockStatement extends EntityWithParametersStatement {
 
@@ -125,8 +118,16 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     protected transient Method mockCreator;
 
-
-    public FunctionalMockStatement(TestCase tc, VariableReference retval, GenericClass<?> targetClass) throws IllegalArgumentException {
+    /**
+     * Constructor for FunctionalMockStatement.
+     *
+     * @param tc          the test case
+     * @param retval      the return value variable reference
+     * @param targetClass the class to mock
+     * @throws IllegalArgumentException if targetClass is null
+     */
+    public FunctionalMockStatement(TestCase tc, VariableReference retval, GenericClass<?> targetClass)
+            throws IllegalArgumentException {
         super(tc, retval);
         Inputs.checkNull(targetClass);
         this.targetClass = targetClass;
@@ -137,14 +138,23 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         //setUpMockCreator();
     }
 
-
-    public FunctionalMockStatement(TestCase tc, Type retvalType, GenericClass<?> targetClass) throws IllegalArgumentException {
+    /**
+     * Constructor for FunctionalMockStatement.
+     *
+     * @param tc          the test case
+     * @param retvalType  the type of the return value
+     * @param targetClass the class to mock
+     * @throws IllegalArgumentException if targetClass is null or type mismatch
+     */
+    public FunctionalMockStatement(TestCase tc, Type retvalType, GenericClass<?> targetClass)
+            throws IllegalArgumentException {
         super(tc, retvalType);
         Inputs.checkNull(targetClass);
 
         Class<?> rawType = GenericClassFactory.get(retvalType).getRawClass();
         if (!targetClass.getRawClass().equals(rawType)) {
-            throw new IllegalArgumentException("Mismatch between raw type " + rawType + " and target class " + targetClass);
+            throw new IllegalArgumentException("Mismatch between raw type " + rawType + " and target class "
+                    + targetClass);
         }
 
         this.targetClass = targetClass;
@@ -188,22 +198,29 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         }
     }
 
+    /**
+     * Checks if a type can be functional mocked, including the SUT.
+     *
+     * @param type the type to check
+     * @return true if it can be mocked
+     */
     public static boolean canBeFunctionalMockedIncludingSUT(Type type) {
 
         Class<?> rawClass = GenericClassFactory.get(type).getRawClass();
 
-        if (EvoSuiteMock.class.isAssignableFrom(rawClass) ||
-                MockList.isAMockClass(rawClass.getName()) ||
-                rawClass.equals(Class.class) ||
-                rawClass.isArray() || rawClass.isPrimitive() || rawClass.isAnonymousClass() ||
-                rawClass.isEnum() ||
-                //note: Mockito can handle package-level classes, but we get all kinds of weird exceptions with instrumentation :(
-                !Modifier.isPublic(rawClass.getModifiers())) {
+        if (EvoSuiteMock.class.isAssignableFrom(rawClass)
+                || MockList.isAMockClass(rawClass.getName())
+                || rawClass.equals(Class.class)
+                || rawClass.isArray() || rawClass.isPrimitive() || rawClass.isAnonymousClass()
+                || rawClass.isEnum()
+                // note: Mockito can handle package-level classes,
+                // but we get all kinds of weird exceptions with instrumentation :(
+                || !Modifier.isPublic(rawClass.getModifiers())) {
             return false;
         }
 
-        if (!InstrumentedClass.class.isAssignableFrom(rawClass) &&
-                Modifier.isFinal(rawClass.getModifiers())) {
+        if (!InstrumentedClass.class.isAssignableFrom(rawClass)
+                && Modifier.isFinal(rawClass.getModifiers())) {
             /*
                 if a class has not been instrumented (eg because belonging to javax.*),
                 then if it is final we cannot mock it :(
@@ -228,7 +245,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
-        //avoid cases of infinite recursions
+        // avoid cases of infinite recursions
         boolean onlySelfReturns = true;
         for (Method m : rawClass.getDeclaredMethods()) {
             if (!rawClass.equals(m.getReturnType())) {
@@ -238,18 +255,24 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         }
 
         if (onlySelfReturns && rawClass.getDeclaredMethods().length > 0) {
-            //avoid weird cases like java.lang.Appendable
+            // avoid weird cases like java.lang.Appendable
             return false;
         }
 
-        //ad-hoc list of classes we should not really mock
+        // ad-hoc list of classes we should not really mock
         List<Class<?>> avoid = Arrays.asList(
-                //add here if needed
+        // add here if needed
         );
 
         return !avoid.contains(rawClass);
     }
 
+    /**
+     * Checks if a type can be functional mocked.
+     *
+     * @param type the type to check
+     * @return true if it can be mocked
+     */
     public static boolean canBeFunctionalMocked(Type type) {
 
         Class<?> rawClass = GenericClassFactory.get(type).getRawClass();
@@ -264,14 +287,31 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
 
+    /**
+     * getTargetClass.
+     *
+     * @return the target class
+     */
     public Class<?> getTargetClass() {
         return targetClass.getRawClass();
     }
 
+    /**
+     * getMockedMethods.
+     *
+     * @return the list of mocked methods
+     */
     public List<MethodDescriptor> getMockedMethods() {
         return mockedMethods;
     }
 
+    /**
+     * getParameters for a given method id.
+     *
+     * @param id the method id
+     * @return the list of variable references
+     * @throws IllegalArgumentException if id is null
+     */
     public List<VariableReference> getParameters(String id) throws IllegalArgumentException {
         Inputs.checkNull(id);
 
@@ -291,7 +331,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * Check if the last execution of the test case has led a change in the usage of the mock.
      * This will result in adding/removing variable references.
      *
-     * @return .
+     * @return true if update is needed
      */
     public boolean doesNeedToUpdateInputs() {
         if (listener == null) {
@@ -338,10 +378,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                  increasing by any amount should have no impact
              */
 
-            if (now.getCounter() != previous.getCounter() &&
-                    (now.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT) ||
-                    previous.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT
-            ) {
+            if (now.getCounter() != previous.getCounter()
+                    && (now.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT
+                    || previous.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT)) {
                 return true;
             }
         }
@@ -351,15 +390,14 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
 
     /**
-     * Based on most recent test execution, update the mocking configuration.
-     * After calling this method, it is <b>necessary</b> to provide the missing
-     * VariableReferences, if any, using addMissingInputs.
+     * updateMockedMethods.
      *
      * @return a ordered, non-null list of types of missing new inputs that will need to be provided
+     * @throws ConstructionFailedException if construction fails
      */
     public List<Type> updateMockedMethods() throws ConstructionFailedException {
 
-        logger.debug("Executing updateMockedMethods. Parameter size: " + parameters.size());
+        logger.debug("Executing updateMockedMethods. Parameter size: {}", parameters.size());
 
         List<Type> list = new ArrayList<>();
 
@@ -389,9 +427,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
             int added = 0;
 
-            logger.debug("Method called on mock object: " + md.getMethod());
+            logger.debug("Method called on mock object: {}", md.getMethod());
 
-            //infer parameter mapping of current vars from previous execution, if any
+            // infer parameter mapping of current vars from previous execution, if any
             int[] minMax = methodParameters.get(md.getID());
             int existingParameters; //total number of existing parameters
             if (minMax == null) {
@@ -421,15 +459,17 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 }
             }
 
-            //check if rather more calls
+            // check if rather more calls
             if (existingParameters < md.getCounter()) {
-                for (int i = existingParameters; i < md.getCounter() && i < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT; i++) {
+                for (int i = existingParameters;
+                        i < md.getCounter() && i < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT; i++) {
                     // Create a copy as the typemap is stored in the class during generic instantiation
                     // but we might want to have a different type for each call of the same method invocation
                     GenericClass<?> calleeClass = GenericClassFactory.get(retval.getGenericClass());
                     Type returnType = md.getGenericMethodFor(calleeClass).getGeneratedType();
                     assert !returnType.equals(Void.TYPE);
-                    logger.debug("Return type: " + returnType + " for retval " + retval.getGenericClass());
+                    logger.debug("Return type: {} for retval {}", returnType,
+                            retval.getGenericClass());
                     list.add(returnType);
 
                     super.parameters.add(null); //important place holder for following updates
@@ -458,6 +498,12 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         return list;
     }
 
+    /**
+     * addMissingInputs.
+     *
+     * @param inputs the list of inputs
+     * @throws IllegalArgumentException if inputs is null or mismatch
+     */
     public void addMissingInputs(List<VariableReference> inputs) throws IllegalArgumentException {
         Inputs.checkNull(inputs);
 
@@ -478,7 +524,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                         throw new IllegalArgumentException("Not enough parameter place holders");
                     }
                 }
-                logger.debug("Current input: " + ref + " for expected type " + getExpectedParameterType(index));
+                logger.debug("Current input: {} for expected type {}", ref,
+                        getExpectedParameterType(index));
 
                 assert ref.isAssignableTo(getExpectedParameterType(index));
 
@@ -489,11 +536,15 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         //check if all "holes" have been filled
         for (VariableReference ref : parameters) {
             if (ref == null) {
-                throw new IllegalArgumentException("Functional mock not fully set with all needed missing inputs");
+                throw new IllegalArgumentException("Functional mock not fully set with all"
+                        + " needed missing inputs");
             }
         }
     }
 
+    /**
+     * fillWithNullRefs.
+     */
     public void fillWithNullRefs() {
         for (int i = 0; i < parameters.size(); i++) {
             VariableReference ref = parameters.get(i);
@@ -524,6 +575,12 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
 
+    /**
+     * getExpectedParameterType.
+     *
+     * @param i the index
+     * @return the expected type
+     */
     private Class<?> getExpectedParameterType(int i) {
 
         for (MethodDescriptor md : mockedMethods) {
@@ -532,9 +589,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 return md.getMethod().getReturnType();
             }
         }
-        LoggingUtils.getEvoLogger().error("Error for finding expected parameter type: " + i + ", " + mockedMethods);
+        LoggingUtils.getEvoLogger().error("Error for finding expected parameter type: {}, {}",
+                i, mockedMethods);
         // TODO: This should not happen and if it is, some bugs are triggered. '
-        // Since 'return Object.class' can improve code coverage instead of giving it up, I do not forcefully trigger Error.
+        // Since 'return Object.class' can improve code coverage instead of giving it up,
+        // I do not forcefully trigger Error.
         // This should be fixed (find the root causes of bugs and ..)
         return Object.class;
     }
@@ -587,7 +646,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     private MockSettings createSubclassMockSettings() {
-        return withSettings().invocationListeners(listener).mockMaker(MockMakers.SUBCLASS);
+        return withSettings().invocationListeners(listener)
+                .mockMaker(MockMakers.SUBCLASS);
     }
 
     private static boolean shouldForceSubclassMockMaker() {
@@ -624,7 +684,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     @Override
-    public Throwable execute(Scope scope, PrintStream out) throws InvocationTargetException, IllegalArgumentException, IllegalAccessException, InstantiationException {
+    public Throwable execute(Scope scope, PrintStream out)
+            throws InvocationTargetException, IllegalArgumentException,
+            IllegalAccessException, InstantiationException {
 
         Throwable exceptionThrown = null;
 
@@ -649,7 +711,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                             ret = mock(targetClass.getRawClass(), settings);
                         } catch (IllegalStateException e) {
                             if (!shouldForceSubclassMockMaker() && isMockitoPluginInitFailure(e)) {
-                                logger.warn("Mockito plugin init failed, retrying with subclass mock maker for {}", targetClass);
+                                logger.warn("Mockito plugin init failed, retrying with subclass"
+                                        + " mock maker for {}", targetClass);
                                 ret = mock(targetClass.getRawClass(), createSubclassMockSettings());
                             } else {
                                 throw e;
@@ -671,14 +734,15 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
                             Method method = md.getMethod(); //target method, eg foo.aMethod(...)
 
-                            // this is needed if method is protected: it couldn't be called here, although fine in
-                            // the generated JUnit tests
+                            // this is needed if method is protected: it couldn't be called here,
+                            // although fine in the generated JUnit tests
                             method.setAccessible(true);
 
                             //target inputs
                             Object[] targetInputs = new Object[md.getNumberOfInputParameters()];
                             for (int i = 0; i < targetInputs.length; i++) {
-                                logger.debug("Mockito: executing matcher {}/{}", (1 + i), targetInputs.length);
+                                logger.debug("Mockito: executing matcher {}/{}", (1 + i),
+                                        targetInputs.length);
                                 targetInputs[i] = md.executeMatcher(i);
                             }
 
@@ -687,10 +751,12 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
                             if (!method.getDeclaringClass().isAssignableFrom(ret.getClass())) {
 
-                                String msg = "Mismatch between callee's class " + ret.getClass() + " and method's class " +
-                                        method.getDeclaringClass();
-                                msg += "\nTarget class classloader " + targetClass.getRawClass().getClassLoader() +
-                                        " vs method's classloader " + method.getDeclaringClass().getClassLoader();
+                                String msg = "Mismatch between callee's class " + ret.getClass()
+                                        + " and method's class " + method.getDeclaringClass();
+                                msg += "\nTarget class classloader "
+                                        + targetClass.getRawClass().getClassLoader()
+                                        + " vs method's classloader "
+                                        + method.getDeclaringClass().getClassLoader();
                                 throw new EvosuiteError(msg);
                             }
 
@@ -704,13 +770,16 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                                     targetMethodResult = method.invoke(ret, targetInputs);
                                 }
                             } catch (InvocationTargetException e) {
-                                logger.error("Invocation of mocked {}.{}() threw an exception. " +
-                                        "This means the method was not mocked", targetClass.getClassName(), method.getName());
+                                logger.error("Invocation of mocked {}.{}() threw an exception. "
+                                        + "This means the method was not mocked",
+                                        targetClass.getClassName(), method.getName());
                                 throw e;
                             } catch (IllegalArgumentException | IllegalAccessError e) {
-                                // FIXME: Happens for reasons I don't understand. By throwing a CodeUnderTestException EvoSuite
-                                // will just ignore that mocking statement and continue, instead of crashing
-                                logger.error("IAE on <" + method + "> when called with " + Arrays.toString(targetInputs));
+                                // FIXME: Happens for reasons I don't understand. By throwing a
+                                // CodeUnderTestException EvoSuite will just ignore that
+                                // mocking statement and continue, instead of crashing
+                                logger.error("IAE on <{}> when called with {}", method,
+                                        Arrays.toString(targetInputs));
                                 throw new CodeUnderTestException(e);
                             }
 
@@ -721,7 +790,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                             //thenReturn(...)
                             Object[] thenReturnInputs = null;
                             try {
-                                int size = Math.min(md.getCounter(), Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT);
+                                int size = Math.min(md.getCounter(),
+                                        Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT);
 
                                 thenReturnInputs = new Object[size];
 
@@ -729,8 +799,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
                                     int k = i + index; //the position in flat parameter list
                                     if (k >= parameters.size()) {
-                                        //throw new RuntimeException("EvoSuite ERROR: index " + k + " out of " + parameters.size());
-                                        throw new CodeUnderTestException(new FalsePositiveException("EvoSuite ERROR: index " + k + " out of " + parameters.size()));
+                                        // throw new RuntimeException("EvoSuite ERROR: index " + k
+                                        // + " out of " + parameters.size());
+                                        throw new CodeUnderTestException(new FalsePositiveException(
+                                                "EvoSuite ERROR: index " + k + " out of "
+                                                        + parameters.size()));
                                     }
 
                                     VariableReference parameterVar = parameters.get(i + index);
@@ -739,11 +812,15 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                                     CodeUnderTestException codeUnderTestException = null;
 
                                     if (thenReturnInputs[i] == null && method.getReturnType().isPrimitive()) {
-                                        codeUnderTestException = new CodeUnderTestException(new NullPointerException());
-
-                                    } else if (thenReturnInputs[i] != null && !TypeUtils.isAssignable(thenReturnInputs[i].getClass(), method.getReturnType())) {
                                         codeUnderTestException = new CodeUnderTestException(
-                                                new UncompilableCodeException("Cannot assign " + parameterVar.getVariableClass().getName()
+                                                new NullPointerException());
+
+                                    } else if (thenReturnInputs[i] != null
+                                            && !TypeUtils.isAssignable(thenReturnInputs[i].getClass(),
+                                            method.getReturnType())) {
+                                        codeUnderTestException = new CodeUnderTestException(
+                                                new UncompilableCodeException("Cannot assign "
+                                                        + parameterVar.getVariableClass().getName()
                                                         + " to " + method.getReturnType()));
                                     }
 
@@ -751,12 +828,14 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                                         throw codeUnderTestException;
                                     }
 
-                                    thenReturnInputs[i] = fixBoxing(thenReturnInputs[i], method.getReturnType());
+                                    thenReturnInputs[i] = fixBoxing(thenReturnInputs[i],
+                                            method.getReturnType());
                                 }
                             } catch (Exception e) {
-                                //be sure "then" is always called after a "when", otherwise Mockito might end up in
-                                //a inconsistent state
-                                retForThen.thenThrow(new RuntimeException("Failed to setup mock: " + e.getMessage()));
+                                // be sure "then" is always called after a "when", otherwise
+                                // Mockito might end up in a inconsistent state
+                                retForThen.thenThrow(new RuntimeException("Failed to setup mock: "
+                                        + e.getMessage()));
                                 throw e;
                             }
 
@@ -768,7 +847,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                             } else if (thenReturnInputs.length == 1) {
                                 retForThen.thenReturn(thenReturnInputs[0]);
                             } else {
-                                Object[] values = Arrays.copyOfRange(thenReturnInputs, 1, thenReturnInputs.length);
+                                Object[] values = Arrays.copyOfRange(thenReturnInputs, 1,
+                                        thenReturnInputs.length);
                                 retForThen.thenReturn(thenReturnInputs[0], values);
                             }
 
@@ -778,18 +858,24 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                     } catch (CodeUnderTestException e) {
                         throw e;
                     } catch (java.lang.NoClassDefFoundError e) {
-                        AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass + " due to failed class initialization: " + e.getMessage());
+                        AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass
+                                + " due to failed class initialization: " + e.getMessage());
                         return; //or should throw an exception?
                     } catch (IllegalStateException e) {
-                        AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass + " due to ISE: " + e.getMessage());
+                        AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass
+                                + " due to ISE: " + e.getMessage());
                         throw new CodeUnderTestException(e);
-                    } catch (MockitoException | IllegalAccessException | IllegalAccessError | IllegalArgumentException e) {
-                        // FIXME: Happens for reasons I don't understand. By throwing a CodeUnderTestException EvoSuite
-                        // will just ignore that mocking statement and continue, instead of crashing
-                        AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass + " due to IAE: " + e.getMessage());
+                    } catch (MockitoException | IllegalAccessException | IllegalAccessError
+                            | IllegalArgumentException e) {
+                        // FIXME: Happens for reasons I don't understand. By throwing a
+                        // CodeUnderTestException EvoSuite will just ignore that mocking
+                        // statement and continue, instead of crashing
+                        AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass
+                                + " due to IAE: " + e.getMessage());
                         throw new CodeUnderTestException(e); //or should throw an exception?
                     } catch (Throwable t) {
-                        AtMostOnceLogger.error(logger, "Failed to use Mockito on " + targetClass + ": " + t.getMessage());
+                        AtMostOnceLogger.error(logger, "Failed to use Mockito on " + targetClass
+                                + ": " + t.getMessage());
                         throw new EvosuiteError(t);
                     }
 

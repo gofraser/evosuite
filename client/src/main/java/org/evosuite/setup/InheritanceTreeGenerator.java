@@ -657,7 +657,7 @@ public class InheritanceTreeGenerator {
     }
 
     /**
-     * Usage example from command line:
+     * Usage example from command line.
      *
      * <p>
      * java -cp master/target/evosuite-master-0.1.1-SNAPSHOT-jar-minimal.jar \
