@@ -1,0 +1,149 @@
+[INFO] Scanning for projects...
+[INFO] Inspecting build with total of 10 modules...
+[INFO] Installing Nexus Staging features:
+[INFO]   ... total of 10 executions of maven-deploy-plugin replaced with nexus-staging-maven-plugin
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO]
+[INFO] EvoSuite                                                           [pom]
+[INFO] evosuite-runtime                                                   [jar]
+[INFO] evosuite-client                                                    [jar]
+[INFO] evosuite-master                                                    [jar]
+[INFO] evosuite-plugins                                                   [pom]
+[INFO] Maven Plugin for EvoSuite                                 [maven-plugin]
+[INFO] evosuite-maven-plugin-test                                         [jar]
+[INFO] build-support-test                                                 [jar]
+[INFO] evosuite-standalone-runtime                                        [jar]
+[INFO] evosuite-shaded                                                    [jar]
+[INFO]
+[INFO] -----------------------< org.evosuite:evosuite >------------------------
+[INFO] Building EvoSuite 1.2.1-SNAPSHOT                                  [1/10]
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO]
+[INFO] --- checkstyle:3.3.1:check (default-cli) @ evosuite ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO]
+[INFO] -------------------< org.evosuite:evosuite-runtime >--------------------
+[INFO] Building evosuite-runtime 1.2.1-SNAPSHOT                          [2/10]
+[INFO]   from runtime/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- checkstyle:3.3.1:check (default-cli) @ evosuite-runtime ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO]
+[INFO] --------------------< org.evosuite:evosuite-client >--------------------
+[INFO] Building evosuite-client 1.2.1-SNAPSHOT                           [3/10]
+[INFO]   from client/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- checkstyle:3.3.1:check (default-cli) @ evosuite-client ---
+[INFO] Starting audit...
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:35: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:45: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:52: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:74: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:79: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:175:5: Missing a Javadoc comment. [MissingJavadocMethod]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:237: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:365: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:457: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:467: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:477: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:487: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+[WARN] /app/client/src/main/java/org/evosuite/ga/Chromosome.java:497: First sentence of Javadoc is missing an ending period. [SummaryJavadoc]
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO]
+[INFO] --------------------< org.evosuite:evosuite-master >--------------------
+[INFO] Building evosuite-master 1.2.1-SNAPSHOT                           [4/10]
+[INFO]   from master/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- checkstyle:3.3.1:check (default-cli) @ evosuite-master ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO]
+[INFO] ---------------< org.evosuite.plugins:evosuite-plugins >----------------
+[INFO] Building evosuite-plugins 1.2.1-SNAPSHOT                          [5/10]
+[INFO]   from plugins/pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO]
+[INFO] --- checkstyle:3.3.1:check (default-cli) @ evosuite-plugins ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO]
+[INFO] -------------< org.evosuite.plugins:evosuite-maven-plugin >-------------
+[INFO] Building Maven Plugin for EvoSuite 1.2.1-SNAPSHOT                 [6/10]
+[INFO]   from plugins/maven/pom.xml
+[INFO] ----------------------------[ maven-plugin ]----------------------------
+[INFO]
+[INFO] --- checkstyle:3.3.1:check (default-cli) @ evosuite-maven-plugin ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO]
+[INFO] ----------< org.evosuite.plugins:evosuite-maven-plugin-test >-----------
+[INFO] Building evosuite-maven-plugin-test 1.2.1-SNAPSHOT                [7/10]
+[INFO]   from plugins/maven-test/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- checkstyle:3.3.1:check (default-cli) @ evosuite-maven-plugin-test ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO]
+[INFO] --------------< org.evosuite.plugins:build-support-test >---------------
+[INFO] Building build-support-test 1.2.1-SNAPSHOT                        [8/10]
+[INFO]   from plugins/build-support-test/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- checkstyle:3.3.1:check (default-cli) @ build-support-test ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO]
+[INFO] --------------< org.evosuite:evosuite-standalone-runtime >--------------
+[INFO] Building evosuite-standalone-runtime 1.2.1-SNAPSHOT               [9/10]
+[INFO]   from standalone_runtime/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- checkstyle:3.3.1:check (default-cli) @ evosuite-standalone-runtime ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO]
+[INFO] --------------------< org.evosuite:evosuite-shaded >--------------------
+[INFO] Building evosuite-shaded 1.2.1-SNAPSHOT                          [10/10]
+[INFO]   from shaded/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- checkstyle:3.3.1:check (default-cli) @ evosuite-shaded ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for EvoSuite 1.2.1-SNAPSHOT:
+[INFO]
+[INFO] EvoSuite ........................................... SUCCESS [  1.414 s]
+[INFO] evosuite-runtime ................................... SUCCESS [  0.150 s]
+[INFO] evosuite-client .................................... SUCCESS [  0.862 s]
+[INFO] evosuite-master .................................... SUCCESS [  0.115 s]
+[INFO] evosuite-plugins ................................... SUCCESS [  0.085 s]
+[INFO] Maven Plugin for EvoSuite .......................... SUCCESS [  0.098 s]
+[INFO] evosuite-maven-plugin-test ......................... SUCCESS [  0.087 s]
+[INFO] build-support-test ................................. SUCCESS [  0.077 s]
+[INFO] evosuite-standalone-runtime ........................ SUCCESS [  0.085 s]
+[INFO] evosuite-shaded .................................... SUCCESS [  0.075 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  4.072 s
+[INFO] Finished at: 2026-02-13T14:16:33Z
+[INFO] ------------------------------------------------------------------------
