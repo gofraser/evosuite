@@ -19,7 +19,6 @@
  */
 package org.evosuite.testcase.statements;
 
-import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.testcase.TestCase;
@@ -28,6 +27,7 @@ import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
+import org.evosuite.utils.generic.GenericClassUtils;
 import org.evosuite.utils.generic.GenericUtils;
 
 import java.lang.annotation.Annotation;
@@ -194,7 +194,7 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
                     + " from list of size " + parameters.size());
         }
 
-        if (!TypeUtils.isAssignable(var.getType(), parameters.get(numParameter).getType())) {
+        if (!GenericClassUtils.isAssignable(parameters.get(numParameter).getType(), var.getType())) {
             throw new IllegalArgumentException(var.getType() + " cannot be assigned to "
                     + parameters.get(numParameter).getType());
         }
