@@ -62,7 +62,7 @@ public class EvoSuite {
     static {
         System.setProperty("logback.statusListenerClass",
                 "ch.qos.logback.core.status.NopStatusListener");
-        LoggingUtils.loadLogbackForEvoSuite();
+        LoggingUtils.changeLogbackFile(LoggingUtils.getLogbackFileName());
     }
 
     /**

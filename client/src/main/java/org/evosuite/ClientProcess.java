@@ -188,6 +188,9 @@ public class ClientProcess {
      *             is expected to be the client identifier.
      */
     public static void main(String[] args) {
+        System.setProperty("logback.statusListenerClass",
+                "ch.qos.logback.core.status.NopStatusListener");
+        LoggingUtils.changeLogbackFile(LoggingUtils.getLogbackFileName());
 
         /*
          * important to have it in a variable, otherwise
