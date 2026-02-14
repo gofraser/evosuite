@@ -34,6 +34,11 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.FieldStatement;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
@@ -251,6 +256,102 @@ public abstract class AssertionGenerator {
             Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
             Sandbox.doneWithExecutingSUTCode();
             TestGenerationContext.getInstance().doneWithExecutingSUTCode();
+        }
+    }
+
+    /**
+     * Returns true if the variable var is used as callee later on in the test.
+     *
+     * @param test the test case
+     * @param var  the variable
+     * @return true if the variable is used as callee
+     */
+    protected boolean isUsedAsCallee(TestCase test, VariableReference var) {
+        for (int pos = var.getStPosition() + 1; pos < test.size(); pos++) {
+            Statement statement = test.getStatement(pos);
+            if (statement instanceof MethodStatement) {
+                if (((MethodStatement) statement).getCallee() == var) {
+                    return true;
+                }
+            } else if (statement instanceof FieldStatement) {
+                if (((FieldStatement) statement).getSource() == var) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Remove NullAssertions that are redundant because more specific assertions
+     * exist on the same return value, or the object is used as a callee later.
+     *
+     * @param test the test case
+     */
+    protected void filterRedundantNonnullAssertions(TestCase test) {
+        Set<Assertion> redundantAssertions = new HashSet<>();
+        for (Statement statement : test) {
+            if (statement instanceof ConstructorStatement || statement instanceof MethodStatement) {
+                VariableReference returnValue = statement.getReturnValue();
+                Set<Assertion> assertions = statement.getAssertions();
+                for (Assertion a : assertions) {
+                    if (a instanceof NullAssertion) {
+                        if (assertions.size() > 1) {
+                            for (Assertion a2 : assertions) {
+                                if (a2.getSource() == returnValue) {
+                                    redundantAssertions.add(a);
+                                }
+                            }
+                        } else if (isUsedAsCallee(test, returnValue)) {
+                            redundantAssertions.add(a);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (Assertion a : redundantAssertions) {
+            test.removeAssertion(a);
+        }
+    }
+
+    /**
+     * Remove inspector assertions that duplicate a primitive assertion for the
+     * same method's return value.
+     *
+     * @param statement the statement
+     */
+    protected void filterInspectorPrimitiveDuplication(Statement statement) {
+        Set<Assertion> assertions = new HashSet<>(statement.getAssertions());
+        if (assertions.size() < 2) {
+            return;
+        }
+
+        if (!(statement instanceof MethodStatement)) {
+            return;
+        }
+
+        MethodStatement methodStatement = (MethodStatement) statement;
+
+        boolean hasPrimitive = false;
+        for (Assertion assertion : assertions) {
+            if (assertion instanceof PrimitiveAssertion) {
+                if (assertion.getStatement().equals(statement)) {
+                    hasPrimitive = true;
+                }
+            }
+        }
+
+        if (hasPrimitive) {
+            for (Assertion assertion : assertions) {
+                if (assertion instanceof InspectorAssertion) {
+                    InspectorAssertion ia = (InspectorAssertion) assertion;
+                    if (ia.getInspector().getMethod().equals(methodStatement.getMethod().getMethod())) {
+                        statement.removeAssertion(assertion);
+                        return;
+                    }
+                }
+            }
         }
     }
 

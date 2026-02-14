@@ -87,12 +87,10 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
             if (statement.getTestCase().getStatement(var.getStPosition()) instanceof FunctionalMockStatement) {
                 continue;
             }
-            if (!var.isVoid()) {
-                try {
-                    visit(statement, scope, var);
-                } catch (CodeUnderTestException e) {
-                    // ignore
-                }
+            try {
+                visit(statement, scope, var);
+            } catch (CodeUnderTestException e) {
+                // ignore
             }
         }
     }

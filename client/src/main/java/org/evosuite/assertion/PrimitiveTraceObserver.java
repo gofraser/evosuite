@@ -113,7 +113,7 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
                         return;
                     }
                     // Avoid asserting anything on values referring to mockito proxy objects
-                    if (((String) object).toLowerCase().contains("EnhancerByMockito")) {
+                    if (((String) object).toLowerCase().contains("enhancerbymockito")) {
                         return;
                     }
                     // The word "hashCode" is also suspicious

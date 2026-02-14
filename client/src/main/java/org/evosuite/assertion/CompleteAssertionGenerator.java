@@ -50,6 +50,10 @@ public class CompleteAssertionGenerator extends AssertionGenerator {
             trace.getAllAssertions(test);
             trace.clear();
         }
+        filterRedundantNonnullAssertions(test);
+        for (int i = 0; i < test.size(); i++) {
+            filterInspectorPrimitiveDuplication(test.getStatement(i));
+        }
         logger.debug("Test after adding assertions: " + test.toCode());
     }
 }

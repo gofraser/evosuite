@@ -117,10 +117,10 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                             continue;
                         }
                         // Avoid asserting anything on values referring to mockito proxy objects
-                        if (((String) value).toLowerCase().contains("EnhancerByMockito")) {
+                        if (((String) value).toLowerCase().contains("enhancerbymockito")) {
                             continue;
                         }
-                        if (((String) value).toLowerCase().contains("$MockitoMock$")) {
+                        if (((String) value).toLowerCase().contains("$mockitomock$")) {
                             continue;
                         }
 
@@ -148,6 +148,62 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                 }
             }
         }
+        // Also process chained inspectors (e.g., getList().size())
+        List<ChainedInspector> chainedInspectors = InspectorManager.getInstance()
+                .getChainedInspectors(var.getVariableClass());
+
+        for (ChainedInspector ci : chainedInspectors) {
+
+            if (ci.getOuterMethod().getDeclaringClass().equals(Object.class)) {
+                continue;
+            }
+
+            try {
+                Object target = var.getObject(scope);
+                if (target != null) {
+
+                    if (target.getClass().getCanonicalName().contains("EnhancerByMockito")) {
+                        break;
+                    }
+
+                    Object value = ci.getValue(target);
+                    if (value == null) {
+                        continue;
+                    }
+                    logger.debug("Chained inspector " + ci.getMethodCall() + " is: " + value);
+
+                    if (value instanceof String) {
+                        if (((String) value).length() >= 32767) {
+                            continue;
+                        }
+                        if (((String) value).length() > Properties.MAX_STRING) {
+                            continue;
+                        }
+                        if (addressPattern.matcher((String) value).find()) {
+                            continue;
+                        }
+                        if (((String) value).toLowerCase().contains("hashcode")) {
+                            continue;
+                        }
+                        if (((String) value).toLowerCase().contains("enhancerbymockito")) {
+                            continue;
+                        }
+                        if (((String) value).toLowerCase().contains("$mockitomock$")) {
+                            continue;
+                        }
+                    }
+
+                    entry.addValue(ci, value);
+                }
+            } catch (Exception e) {
+                if (e instanceof TimeoutException) {
+                    logger.debug("Timeout during chained inspector call - deactivating "
+                            + ci.getMethodCall());
+                }
+                logger.debug("Exception " + e + " / " + e.getCause());
+            }
+        }
+
         logger.debug("Found " + entry.size() + " inspectors for " + var
                 + " at statement " + statement.getPosition());
 

@@ -104,6 +104,9 @@ public class OutputTrace<T extends OutputTraceEntry> implements Cloneable {
         for (Integer statement : trace.keySet()) {
             if (other.trace.containsKey(statement)) {
                 for (Integer var : trace.get(statement).keySet()) {
+                    if (!other.trace.get(statement).containsKey(var)) {
+                        continue;
+                    }
                     if (trace.get(statement).get(var).differs(other.trace.get(statement).get(var))) {
                         return true;
                     }
@@ -126,6 +129,9 @@ public class OutputTrace<T extends OutputTraceEntry> implements Cloneable {
         for (Integer statement : trace.keySet()) {
             if (other.trace.containsKey(statement)) {
                 for (Integer var : trace.get(statement).keySet()) {
+                    if (!other.trace.get(statement).containsKey(var)) {
+                        continue;
+                    }
                     if (trace.get(statement).get(var).differs(other.trace.get(statement).get(var))) {
                         num++;
                     }
@@ -151,6 +157,9 @@ public class OutputTrace<T extends OutputTraceEntry> implements Cloneable {
                 logger.debug("Other trace contains " + statement);
                 for (Integer var : trace.get(statement).keySet()) {
                     logger.debug("Variable " + var);
+                    if (!other.trace.get(statement).containsKey(var)) {
+                        continue;
+                    }
                     for (Assertion assertion : trace.get(statement).get(var)
                             .getAssertions(other.trace.get(statement).get(var))) {
                         assert (assertion.isValid()) : "Invalid assertion: "

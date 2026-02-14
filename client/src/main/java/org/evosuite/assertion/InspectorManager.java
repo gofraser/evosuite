@@ -40,6 +40,8 @@ public class InspectorManager {
 
     private final Map<Class<?>, List<Inspector>> inspectors = new HashMap<>();
 
+    private final Map<Class<?>, List<ChainedInspector>> chainedInspectors = new HashMap<>();
+
     private final Map<String, List<String>> blackList = new HashMap<>();
 
     private InspectorManager() {
@@ -284,5 +286,85 @@ public class InspectorManager {
         if (inspectors.containsKey(clazz)) {
             inspectors.get(clazz).remove(inspector);
         }
+    }
+
+    /**
+     * Returns true if the method is a public no-arg method returning a complex
+     * (non-primitive, non-String, non-enum, non-wrapper, non-void) type,
+     * suitable as the outer method in a chained inspector.
+     */
+    private boolean isComplexReturnMethod(Method method) {
+        if (!Modifier.isPublic(method.getModifiers())) {
+            return false;
+        }
+
+        if (method.getParameterTypes().length != 0) {
+            return false;
+        }
+
+        Class<?> returnType = method.getReturnType();
+        if (returnType.equals(void.class) || returnType.isPrimitive()
+                || returnType.equals(String.class) || returnType.isEnum()
+                || ClassUtils.isPrimitiveWrapper(returnType)) {
+            return false;
+        }
+
+        if (method.getDeclaringClass().equals(Object.class)
+                || method.getDeclaringClass().equals(Enum.class)) {
+            return false;
+        }
+
+        if (method.isSynthetic() || method.isBridge()) {
+            return false;
+        }
+
+        if (isBlackListed(method)) {
+            return false;
+        }
+
+        if (Properties.PURE_INSPECTORS) {
+            return CheapPurityAnalyzer.getInstance().isPure(method);
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns chained inspectors for the given class. Each chained inspector
+     * calls a complex-returning method on the target, then a primitive inspector
+     * on the intermediate result.
+     *
+     * @param clazz the class to inspect
+     * @return a list of chained inspectors
+     */
+    public List<ChainedInspector> getChainedInspectors(Class<?> clazz) {
+        if (chainedInspectors.containsKey(clazz)) {
+            return chainedInspectors.get(clazz);
+        }
+
+        List<ChainedInspector> result = new ArrayList<>();
+
+        if (!TestUsageChecker.canUse(clazz)) {
+            chainedInspectors.put(clazz, result);
+            return result;
+        }
+
+        for (Method method : clazz.getMethods()) {
+            if (!isComplexReturnMethod(method)) {
+                continue;
+            }
+
+            Class<?> returnType = method.getReturnType();
+            List<Inspector> innerInspectors = getInspectors(returnType);
+
+            for (Inspector inner : innerInspectors) {
+                result.add(new ChainedInspector(clazz, method, inner));
+            }
+        }
+
+        logger.debug("Found " + result.size() + " chained inspectors for "
+                + clazz.getSimpleName());
+        chainedInspectors.put(clazz, result);
+        return result;
     }
 }

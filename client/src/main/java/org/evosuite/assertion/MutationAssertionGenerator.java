@@ -32,8 +32,6 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
-import org.evosuite.testcase.statements.ConstructorStatement;
-import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -250,7 +248,7 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
                         i++;
                     }
                 } else {
-                    isKilled = true;
+                    // Mutant not in traces means it was not covered, not killed
                 }
             }
         }
@@ -315,99 +313,31 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
     }
 
     /**
-     * Returns true if the variable var is used as callee later on in the test.
+     * Returns true if the statement has a non-void return value but no meaningful
+     * assertion (i.e., only NullAssertions or no assertions) on that return value.
+     * Covers primitives, Strings, wrappers, and complex objects.
      *
-     * @param test the test case
-     * @param var  the variable
-     * @return true if the variable is used as callee
+     * @param statement the statement to check
+     * @return true if the return value lacks a meaningful assertion
      */
-    protected boolean isUsedAsCallee(TestCase test, VariableReference var) {
-        for (int pos = var.getStPosition() + 1; pos < test.size(); pos++) {
-            Statement statement = test.getStatement(pos);
-            if (statement instanceof MethodStatement) {
-                if (((MethodStatement) statement).getCallee() == var) {
-                    return true;
-                }
-            } else if (statement instanceof FieldStatement) {
-                if (((FieldStatement) statement).getSource() == var) {
-                    return true;
-                }
-            }
-
+    protected boolean returnValueWithoutAssertion(Statement statement) {
+        VariableReference ret = statement.getReturnValue();
+        if (ret.isVoid()) {
+            return false;
         }
 
-        return false;
-    }
+        Set<Assertion> assertions = statement.getAssertions();
+        if (assertions.isEmpty()) {
+            return true;
+        }
 
-    /**
-     * Remove assertNonNull assertions for all cases where we have further
-     * assertions.
-     *
-     * @param test the test case
-     */
-    protected void filterRedundantNonnullAssertions(TestCase test) {
-        Set<Assertion> redundantAssertions = new HashSet<>();
-        for (Statement statement : test) {
-            if (statement instanceof ConstructorStatement) {
-                ConstructorStatement cs = (ConstructorStatement) statement;
-                for (Assertion a : cs.getAssertions()) {
-                    if (a instanceof NullAssertion) {
-                        if (cs.getAssertions().size() > 0) {
-                            for (Assertion a2 : cs.getAssertions()) {
-                                if (a2.getSource() == cs.getReturnValue()) {
-                                    redundantAssertions.add(a);
-                                }
-                            }
-                        } else if (isUsedAsCallee(test, cs.getReturnValue())) {
-                            redundantAssertions.add(a);
-                        }
-                    }
-                }
+        for (Assertion ass : assertions) {
+            if (!(ass instanceof NullAssertion) && ass.getReferencedVariables().contains(ret)) {
+                return false;
             }
         }
 
-        for (Assertion a : redundantAssertions) {
-            test.removeAssertion(a);
-        }
-    }
-
-    /**
-     * Remove inspector assertions that follow method calls of the same method.
-     *
-     * @param statement the statement
-     */
-    protected void filterInspectorPrimitiveDuplication(Statement statement) {
-        Set<Assertion> assertions = new HashSet<>(statement.getAssertions());
-        if (assertions.size() < 2) {
-            return;
-        }
-
-        if (!(statement instanceof MethodStatement)) {
-            return;
-        }
-
-        MethodStatement methodStatement = (MethodStatement) statement;
-
-        boolean hasPrimitive = false;
-        for (Assertion assertion : assertions) {
-            if (assertion instanceof PrimitiveAssertion) {
-                if (assertion.getStatement().equals(statement)) {
-                    hasPrimitive = true;
-                }
-            }
-        }
-
-        if (hasPrimitive) {
-            for (Assertion assertion : assertions) {
-                if (assertion instanceof InspectorAssertion) {
-                    InspectorAssertion ia = (InspectorAssertion) assertion;
-                    if (ia.getInspector().getMethod().equals(methodStatement.getMethod().getMethod())) {
-                        statement.removeAssertion(assertion);
-                        return;
-                    }
-                }
-            }
-        }
+        return true;
     }
 
     /*

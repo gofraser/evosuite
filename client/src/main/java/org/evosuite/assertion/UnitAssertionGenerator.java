@@ -74,6 +74,10 @@ public class UnitAssertionGenerator extends AssertionGenerator {
                 s.removeAssertions();
             }
         }
+        filterRedundantNonnullAssertions(test);
+        for (int i = 0; i < test.size(); i++) {
+            filterInspectorPrimitiveDuplication(test.getStatement(i));
+        }
     }
 
 }
