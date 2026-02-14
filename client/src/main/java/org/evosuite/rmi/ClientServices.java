@@ -68,7 +68,7 @@ public class ClientServices<T extends Chromosome<T>> {
 
         try {
             int port = Properties.PROCESS_COMMUNICATION_PORT;
-            Registry registry = LocateRegistry.getRegistry(port);
+            Registry registry = LocateRegistry.getRegistry("127.0.0.1", port);
             clientNode = new ClientNodeImpl<>(registry, identifier);
             Remote stub = UtilsRMI.exportObject(clientNode);
             registry.rebind(clientNode.getClientRmiIdentifier(), stub);
