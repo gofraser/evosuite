@@ -82,6 +82,7 @@ public class TestSuiteGenerator {
 
     private static final String FOR_NAME = "forName";
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteGenerator.class);
+    private Criterion[] requestedCriteria = null;
 
 
     private void initializeTargetClass() throws Throwable {
@@ -194,6 +195,7 @@ public class TestSuiteGenerator {
 
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating tests for class "
                 + Properties.TARGET_CLASS);
+        sanitizeDebugInfoDependentCriteria();
         TestSuiteGeneratorHelper.printTestCriterion();
 
         if (!Properties.hasTargetClassBeenLoaded()) {
@@ -231,6 +233,30 @@ public class TestSuiteGenerator {
         LoggingUtils.getEvoLogger().info("");
 
         return result != null ? result : TestGenerationResultBuilder.buildSuccessResult();
+    }
+
+    private void sanitizeDebugInfoDependentCriteria() {
+        Criterion[] oldCriteria = Properties.CRITERION;
+        Criterion[] filteredCriteria = TestSuiteGeneratorHelper.removeDebugInfoDependentCriteriaIfMissing(oldCriteria);
+        if (filteredCriteria.length == oldCriteria.length) {
+            return;
+        }
+
+        String omittedCriteria = Arrays.stream(oldCriteria)
+                .filter(c -> TestSuiteGeneratorHelper.isLineDebugInfoDependentCriterion(c))
+                .map(Enum::name)
+                .collect(java.util.stream.Collectors.joining(", "));
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Missing line debug information in target class {}; omitting criterion during test generation: {}",
+                Properties.TARGET_CLASS, omittedCriteria);
+
+        requestedCriteria = oldCriteria;
+        Properties.CRITERION = filteredCriteria;
+
+        if (Properties.CRITERION.length == 0) {
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "No test criteria left after removing debug-info-dependent criteria");
+        }
     }
 
     /**
@@ -345,7 +371,15 @@ public class TestSuiteGenerator {
 
         if (Properties.COVERAGE) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.COVERAGE_ANALYSIS);
-            CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
+            Criterion[] originalCriteria = Properties.CRITERION;
+            if (requestedCriteria != null) {
+                Properties.CRITERION = requestedCriteria;
+            }
+            try {
+                CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
+            } finally {
+                Properties.CRITERION = originalCriteria;
+            }
         }
 
         double coverage = testSuite.getCoverage();
@@ -364,7 +398,15 @@ public class TestSuiteGenerator {
         if (!Properties.ANALYSIS_CRITERIA.isEmpty()) {
             // SearchStatistics.getInstance().addCoverage(Properties.CRITERION.toString(),
             // coverage);
-            CoverageCriteriaAnalyzer.analyzeCriteria(testSuite, Properties.ANALYSIS_CRITERIA);
+            Criterion[] originalCriteria = Properties.CRITERION;
+            if (requestedCriteria != null) {
+                Properties.CRITERION = requestedCriteria;
+            }
+            try {
+                CoverageCriteriaAnalyzer.analyzeCriteria(testSuite, Properties.ANALYSIS_CRITERIA);
+            } finally {
+                Properties.CRITERION = originalCriteria;
+            }
             // FIXME: can we send all bestSuites?
         }
         if (Properties.CRITERION.length > 1) {

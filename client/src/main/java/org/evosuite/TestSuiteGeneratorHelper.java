@@ -31,12 +31,14 @@ import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.strategy.*;
+import org.evosuite.instrumentation.LinePool;
 import org.evosuite.symbolic.dse.DSEStrategyFactory;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 
@@ -255,6 +257,50 @@ public class TestSuiteGeneratorHelper {
         for (int i = 0; i < Properties.CRITERION.length; i++) {
             printTestCriterion(Properties.CRITERION[i]);
         }
+    }
+
+    static boolean isLineDebugInfoDependentCriterion(Criterion criterion) {
+        return criterion == Criterion.LINE || criterion == Criterion.ONLYLINE;
+    }
+
+    static boolean hasUsableLineNumbersForTargetClass() {
+        for (String className : LinePool.getKnownClasses()) {
+            if (!isCUT(className)) {
+                continue;
+            }
+            for (Integer line : LinePool.getLines(className)) {
+                if (line != null && line.intValue() > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    static Criterion[] removeDebugInfoDependentCriteriaIfMissing(Criterion[] criteria) {
+        if (criteria == null || criteria.length == 0) {
+            return criteria;
+        }
+
+        boolean hasDebugInfoDependentCriterion = Arrays.stream(criteria)
+                .anyMatch(TestSuiteGeneratorHelper::isLineDebugInfoDependentCriterion);
+        if (!hasDebugInfoDependentCriterion) {
+            return criteria;
+        }
+
+        if (hasUsableLineNumbersForTargetClass()) {
+            return criteria;
+        }
+
+        return Arrays.stream(criteria)
+                .filter(c -> !isLineDebugInfoDependentCriterion(c))
+                .toArray(Criterion[]::new);
+    }
+
+    private static boolean isCUT(String className) {
+        return Properties.TARGET_CLASS.isEmpty()
+                || className.equals(Properties.TARGET_CLASS)
+                || className.startsWith(Properties.TARGET_CLASS + "$");
     }
 
     static TestGenerationStrategy getTestGenerationStrategy() {
