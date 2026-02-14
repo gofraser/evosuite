@@ -72,6 +72,14 @@ public class InheritanceTree {
         return missingClassDetected;
     }
 
+    /**
+     * Reset runtime-only caches and flags that can become stale across analysis phases.
+     */
+    public void resetRuntimeState() {
+        subclassCache.clear();
+        missingClassDetected = false;
+    }
+
     public boolean isClassDefined(String className) {
         return analyzedMethods.containsKey(className);
     }

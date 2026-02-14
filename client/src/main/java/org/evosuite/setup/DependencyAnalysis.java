@@ -60,6 +60,7 @@ public class DependencyAnalysis {
     private static final Map<String, CallGraph> callGraphs = new LinkedHashMap<>();
 
     private static InheritanceTree inheritanceTree = null;
+    private static String inheritanceTreeClasspathSignature = null;
 
     private static Set<String> targetClasses = null;
 
@@ -67,10 +68,21 @@ public class DependencyAnalysis {
      * Clear all static state.
      */
     public static void clear() {
+        clear(false);
+    }
+
+    /**
+     * Clear static state, optionally preserving the inheritance tree cache.
+     *
+     * @param keepInheritanceTree if true, keep the inheritance tree cache (and its classpath signature)
+     */
+    public static void clear(boolean keepInheritanceTree) {
         classCache.clear();
         callGraphs.clear();
-        inheritanceTree = null;
         targetClasses = null;
+        if (!keepInheritanceTree) {
+            dropInheritanceTree();
+        }
     }
 
     /**
@@ -88,9 +100,20 @@ public class DependencyAnalysis {
      * @param classPath the classpath to use
      */
     public static void initInheritanceTree(List<String> classPath) {
+        final String currentClasspathSignature = computeClasspathSignature(classPath);
+        if (inheritanceTree != null
+                && inheritanceTreeClasspathSignature != null
+                && !inheritanceTreeClasspathSignature.equals(currentClasspathSignature)) {
+            logger.debug("Discarding cached inheritance hierarchy due to classpath change");
+            dropInheritanceTree();
+        }
+
         if (inheritanceTree == null) {
             logger.debug("Calculate inheritance hierarchy");
             inheritanceTree = InheritanceTreeGenerator.createFromClassPath(classPath);
+            inheritanceTreeClasspathSignature = currentClasspathSignature;
+        } else {
+            inheritanceTree.resetRuntimeState();
         }
         TestClusterGenerator clusterGenerator = new TestClusterGenerator(inheritanceTree);
         TestGenerationContext.getInstance().setTestClusterGenerator(clusterGenerator);
@@ -171,7 +194,7 @@ public class DependencyAnalysis {
                     + "classpath; regenerating a fresh inheritance tree", Properties.INHERITANCE_FILE);
             callGraphs.clear();
             classCache.clear();
-            inheritanceTree = null;
+            dropInheritanceTree();
             Properties.INHERITANCE_FILE = "";
             initInheritanceTree(classPath);
             initCallGraph(className);
@@ -207,7 +230,7 @@ public class DependencyAnalysis {
                         + "classpath; regenerating a fresh inheritance tree", Properties.INHERITANCE_FILE);
                 callGraphs.clear();
                 classCache.clear();
-                inheritanceTree = null;
+                dropInheritanceTree();
                 Properties.INHERITANCE_FILE = "";
                 initInheritanceTree(classPath);
                 initCallGraph(className);
@@ -218,6 +241,18 @@ public class DependencyAnalysis {
         }
 
         return targetClasses;
+    }
+
+    private static void dropInheritanceTree() {
+        inheritanceTree = null;
+        inheritanceTreeClasspathSignature = null;
+    }
+
+    private static String computeClasspathSignature(List<String> classPath) {
+        if (classPath == null) {
+            return "";
+        }
+        return String.join("\n", classPath);
     }
 
     /**

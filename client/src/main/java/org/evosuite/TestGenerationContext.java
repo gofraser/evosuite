@@ -194,7 +194,8 @@ public class TestGenerationContext {
 
         // TODO: After this, the test cluster is empty until
         // DependencyAnalysis.analyse is called
-        DependencyAnalysis.clear();
+        // Keep inheritance metadata when classpath is unchanged; it is safe to rebuild other caches.
+        DependencyAnalysis.clear(true);
         TestCluster.reset();
         CastClassManager.getInstance().clear();
         ConcreteClassAnalyzer.getInstance().clear();
