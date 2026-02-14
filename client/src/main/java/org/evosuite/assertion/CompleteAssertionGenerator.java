@@ -51,6 +51,8 @@ public class CompleteAssertionGenerator extends AssertionGenerator {
             trace.clear();
         }
         filterRedundantNonnullAssertions(test);
+        filterRedundantChainedInspectorAssertions(test);
+        filterRedundantIsEmptySizeAssertions(test);
         for (int i = 0; i < test.size(); i++) {
             filterInspectorPrimitiveDuplication(test.getStatement(i));
         }

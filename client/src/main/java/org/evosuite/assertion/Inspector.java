@@ -206,6 +206,7 @@ public class Inspector implements Serializable {
             if (method.getName().equals(methodName)) {
                 if (Type.getMethodDescriptor(method).equals(methodDesc)) {
                     this.method = method;
+                    this.method.setAccessible(true);
                     return;
                 }
             }

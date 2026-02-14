@@ -78,6 +78,11 @@ public class ChainedInspector extends Inspector {
         return innerInspector.getReturnType();
     }
 
+    @Override
+    public Method getMethod() {
+        return innerInspector.getMethod();
+    }
+
     public Method getOuterMethod() {
         return outerMethod;
     }
@@ -115,10 +120,10 @@ public class ChainedInspector extends Inspector {
 
     @Override
     public void changeClassLoader(ClassLoader loader) {
-        // Update the outer method
+        // Update the outer method via parent (which updates the super's method field)
         super.changeClassLoader(loader);
-        // Also update the outer method reference
-        this.outerMethod = getMethod();
+        // Also update the outer method reference from the super's field
+        this.outerMethod = super.getMethod();
         // Update the inner inspector
         innerInspector.changeClassLoader(loader);
     }

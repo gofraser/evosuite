@@ -109,6 +109,8 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
     private void addAssertions(TestCase test, Set<Integer> killed) {
         addAssertions(test, killed, mutants);
         filterRedundantNonnullAssertions(test);
+        filterRedundantChainedInspectorAssertions(test);
+        filterRedundantIsEmptySizeAssertions(test);
     }
 
     /**
@@ -278,139 +280,8 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                 + killedAfter + "/" + s2);
 
         logger.info("Assertions in this test: " + test.getAssertions().size());
-        //TestCase clone = test.clone();
 
-        // If the last statement's return value has no meaningful assertion, or if
-        // the last statement has no assertions at all (e.g., void methods), add one
-        Statement lastStatement = test.getStatement(test.size() - 1);
-        if (returnValueWithoutAssertion(lastStatement)
-                || lastStatement.getAssertions().isEmpty()
-                || justNullAssertion(lastStatement)) {
-            VariableReference returnValue = lastStatement.getReturnValue();
-            logger.info("Last statement return value lacks meaningful assertion: " + test.toCode());
-            logger.info("Assertions to choose from: " + assertions.size());
-
-            boolean haveAssertion = false;
-
-            // Priority 1: PrimitiveAssertion referencing the return value
-            for (Assertion assertion : assertions) {
-                if (assertion instanceof PrimitiveAssertion
-                        && assertion.getStatement().equals(lastStatement)
-                        && assertion.getReferencedVariables().contains(returnValue)) {
-                    logger.debug("Adding a primitive assertion " + assertion);
-                    lastStatement.addAssertion(assertion);
-                    haveAssertion = true;
-                    break;
-                }
-            }
-
-            // Priority 2: InspectorAssertion referencing the return value
-            if (!haveAssertion) {
-                for (Assertion assertion : assertions) {
-                    if (assertion instanceof InspectorAssertion
-                            && assertion.getStatement().equals(lastStatement)
-                            && assertion.getReferencedVariables().contains(returnValue)) {
-                        logger.debug("Adding an inspector assertion " + assertion);
-                        lastStatement.addAssertion(assertion);
-                        haveAssertion = true;
-                        break;
-                    }
-                }
-            }
-
-            // Priority 3: Any non-null assertion referencing the return value
-            if (!haveAssertion) {
-                for (Assertion assertion : assertions) {
-                    if (assertion instanceof NullAssertion) {
-                        continue;
-                    }
-                    if (assertion.getStatement().equals(lastStatement)
-                            && assertion.getReferencedVariables().contains(returnValue)) {
-                        logger.debug("Adding a non-null assertion " + assertion);
-                        lastStatement.addAssertion(assertion);
-                        haveAssertion = true;
-                        break;
-                    }
-                }
-            }
-
-            // Priority 4: Fall back to trace-based assertions for the return value
-            if (!haveAssertion) {
-                logger.info("No assertion from killed mutants, trying all trace assertions");
-                Method inspectorMethod = null;
-                if (lastStatement instanceof MethodStatement) {
-                    MethodStatement methodStatement = (MethodStatement) lastStatement;
-                    Method method = methodStatement.getMethod().getMethod();
-                    if (method.getParameterTypes().length == 0) {
-                        if (method.getReturnType().isPrimitive()
-                                && !method.getReturnType().equals(void.class)) {
-                            inspectorMethod = method;
-                        }
-                    }
-                }
-
-                // Collect all trace assertions for the last statement without
-                // disturbing existing assertions on other statements
-                Set<Assertion> existingAssertions = new HashSet<>(lastStatement.getAssertions());
-                for (OutputTrace<?> trace : origResult.getTraces()) {
-                    trace.getAllAssertions(test);
-                }
-                Set<Assertion> allLastAssertions = new HashSet<>(lastStatement.getAssertions());
-                // Remove trace-added assertions, restoring original state
-                lastStatement.removeAssertions();
-                for (Assertion existing : existingAssertions) {
-                    lastStatement.addAssertion(existing);
-                }
-
-                if (!returnValue.isVoid()) {
-                    logger.debug("Return value is non void: " + returnValue.getClassName());
-
-                    // First pass: non-null assertions referencing the return value
-                    for (Assertion ass : allLastAssertions) {
-                        if (ass.getReferencedVariables().contains(returnValue)
-                                && !(ass instanceof NullAssertion)) {
-
-                            if (ass instanceof InspectorAssertion) {
-                                if (((InspectorAssertion) ass).inspector.getMethod().equals(inspectorMethod)) {
-                                    continue;
-                                }
-                            }
-
-                            lastStatement.addAssertion(ass);
-                            logger.debug("Adding trace assertion " + ass.getCode());
-                            haveAssertion = true;
-                            break;
-                        }
-                    }
-                    // Second pass: allow NullAssertion as last resort
-                    if (!haveAssertion) {
-                        for (Assertion ass : allLastAssertions) {
-                            if (ass.getReferencedVariables().contains(returnValue)) {
-                                lastStatement.addAssertion(ass);
-                                logger.debug("Adding trace assertion " + ass.getCode());
-                                haveAssertion = true;
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    logger.debug("Return value is void");
-
-                    Set<VariableReference> targetVars = lastStatement.getVariableReferences();
-                    for (Assertion ass : allLastAssertions) {
-                        Set<VariableReference> vars = new HashSet<>(ass.getReferencedVariables());
-                        vars.retainAll(targetVars);
-                        if (!vars.isEmpty()) {
-                            lastStatement.addAssertion(ass);
-                            break;
-                        }
-                    }
-                }
-                logger.info("1. Done with assertions");
-            }
-            logger.info("2. Done with assertions");
-            filterInspectorPrimitiveDuplication(lastStatement);
-        }
+        addLastStatementFallbackAssertion(test, assertions, origResult);
 
         if (!origResult.noThrownExceptions()) {
             if (!test.getStatement(test.size() - 1).getAssertions().isEmpty()) {
@@ -419,6 +290,166 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
             }
         }
 
+    }
+
+    /**
+     * If the last statement's return value has no meaningful assertion, try to
+     * add one using priorities 1-3 (from the mutation kill pool) and then
+     * priority 4 (from execution traces).
+     */
+    private void addLastStatementFallbackAssertion(TestCase test,
+                                                    List<Assertion> assertions,
+                                                    ExecutionResult origResult) {
+        Statement lastStatement = test.getStatement(test.size() - 1);
+        if (!returnValueWithoutAssertion(lastStatement)
+                && !lastStatement.getAssertions().isEmpty()
+                && !justNullAssertion(lastStatement)) {
+            return;
+        }
+
+        VariableReference returnValue = lastStatement.getReturnValue();
+        logger.info("Last statement return value lacks meaningful assertion: " + test.toCode());
+        logger.info("Assertions to choose from: " + assertions.size());
+
+        boolean haveAssertion = findMutationAssertionFromPool(lastStatement, assertions, returnValue);
+
+        if (!haveAssertion) {
+            haveAssertion = findTraceBasedAssertion(lastStatement, origResult, test, returnValue);
+        }
+
+        logger.info("2. Done with assertions");
+        filterInspectorPrimitiveDuplication(lastStatement);
+    }
+
+    /**
+     * Priorities 1-3: find assertion from the mutation-killed assertion pool.
+     *
+     * @return true if an assertion was added
+     */
+    private boolean findMutationAssertionFromPool(Statement lastStatement,
+                                                   List<Assertion> assertions,
+                                                   VariableReference returnValue) {
+        // Priority 1: PrimitiveAssertion referencing the return value
+        for (Assertion assertion : assertions) {
+            if (assertion instanceof PrimitiveAssertion
+                    && assertion.getStatement().equals(lastStatement)
+                    && assertion.getReferencedVariables().contains(returnValue)) {
+                logger.debug("Adding a primitive assertion " + assertion);
+                lastStatement.addAssertion(assertion);
+                return true;
+            }
+        }
+
+        // Priority 2: InspectorAssertion referencing the return value
+        for (Assertion assertion : assertions) {
+            if (assertion instanceof InspectorAssertion
+                    && assertion.getStatement().equals(lastStatement)
+                    && assertion.getReferencedVariables().contains(returnValue)) {
+                logger.debug("Adding an inspector assertion " + assertion);
+                lastStatement.addAssertion(assertion);
+                return true;
+            }
+        }
+
+        // Priority 3: Any non-null assertion referencing the return value
+        for (Assertion assertion : assertions) {
+            if (assertion instanceof NullAssertion) {
+                continue;
+            }
+            if (assertion.getStatement().equals(lastStatement)
+                    && assertion.getReferencedVariables().contains(returnValue)) {
+                logger.debug("Adding a non-null assertion " + assertion);
+                lastStatement.addAssertion(assertion);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Priority 4: Fall back to trace-based assertions for the last statement.
+     *
+     * @return true if an assertion was added
+     */
+    private boolean findTraceBasedAssertion(Statement lastStatement,
+                                             ExecutionResult origResult,
+                                             TestCase test,
+                                             VariableReference returnValue) {
+        logger.info("No assertion from killed mutants, trying all trace assertions");
+        Method inspectorMethod = null;
+        if (lastStatement instanceof MethodStatement) {
+            MethodStatement methodStatement = (MethodStatement) lastStatement;
+            Method method = methodStatement.getMethod().getMethod();
+            if (method.getParameterTypes().length == 0) {
+                if (method.getReturnType().isPrimitive()
+                        && !method.getReturnType().equals(void.class)) {
+                    inspectorMethod = method;
+                }
+            }
+        }
+
+        // Collect all trace assertions for the last statement without
+        // disturbing existing assertions on other statements
+        Set<Assertion> existingAssertions = new HashSet<>(lastStatement.getAssertions());
+        for (OutputTrace<?> trace : origResult.getTraces()) {
+            trace.getAllAssertions(test);
+        }
+        Set<Assertion> allLastAssertions = new HashSet<>(lastStatement.getAssertions());
+        // Remove trace-added assertions, restoring original state
+        lastStatement.removeAssertions();
+        for (Assertion existing : existingAssertions) {
+            lastStatement.addAssertion(existing);
+        }
+
+        boolean haveAssertion = false;
+        if (!returnValue.isVoid()) {
+            logger.debug("Return value is non void: " + returnValue.getClassName());
+
+            // First pass: non-null assertions referencing the return value
+            for (Assertion ass : allLastAssertions) {
+                if (ass.getReferencedVariables().contains(returnValue)
+                        && !(ass instanceof NullAssertion)) {
+
+                    if (ass instanceof InspectorAssertion) {
+                        if (((InspectorAssertion) ass).inspector.getMethod().equals(inspectorMethod)) {
+                            continue;
+                        }
+                    }
+
+                    lastStatement.addAssertion(ass);
+                    logger.debug("Adding trace assertion " + ass.getCode());
+                    haveAssertion = true;
+                    break;
+                }
+            }
+            // Second pass: allow NullAssertion as last resort
+            if (!haveAssertion) {
+                for (Assertion ass : allLastAssertions) {
+                    if (ass.getReferencedVariables().contains(returnValue)) {
+                        lastStatement.addAssertion(ass);
+                        logger.debug("Adding trace assertion " + ass.getCode());
+                        haveAssertion = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            logger.debug("Return value is void");
+
+            Set<VariableReference> targetVars = lastStatement.getVariableReferences();
+            for (Assertion ass : allLastAssertions) {
+                Set<VariableReference> vars = new HashSet<>(ass.getReferencedVariables());
+                vars.retainAll(targetVars);
+                if (!vars.isEmpty()) {
+                    lastStatement.addAssertion(ass);
+                    haveAssertion = true;
+                    break;
+                }
+            }
+        }
+        logger.info("1. Done with assertions");
+        return haveAssertion;
     }
 
     /**

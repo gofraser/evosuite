@@ -96,6 +96,11 @@ public class LineCoverageFactory extends
                 }
                 Set<Integer> lines = LinePool.getLines(className, methodName);
                 for (Integer line : lines) {
+                    if (line == null || line.intValue() <= 0) {
+                        logger.info("Ignoring invalid line number {} for method {}.{} (likely missing debug information).",
+                                line, className, methodName);
+                        continue;
+                    }
                     logger.info("Adding goal for method {}.{}, Line {}.", className, methodName, line);
                     goals.add(new LineCoverageTestFitness(className, methodName, line));
                 }

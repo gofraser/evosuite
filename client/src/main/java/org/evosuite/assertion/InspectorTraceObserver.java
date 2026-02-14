@@ -35,7 +35,8 @@ import java.util.regex.Pattern;
 
 public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTraceEntry> {
 
-    private static final Pattern addressPattern = Pattern.compile(".*[\\w+\\.]+@[abcdef\\d]+.*", Pattern.MULTILINE);
+    // Matches Java's default Object.toString() format: e.g., "com.example.Foo@1a2b3c4d"
+    private static final Pattern addressPattern = Pattern.compile("[A-Za-z_$][\\w.]*@[a-f\\d]{2,}", Pattern.MULTILINE);
 
 
     /* (non-Javadoc)
@@ -88,48 +89,15 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                 Object target = var.getObject(scope);
                 if (target != null) {
 
-                    // Don't call inspector methods on mock objects
-                    if (target.getClass().getCanonicalName().contains("EnhancerByMockito")) {
+                    if (isMockitoProxy(target)) {
                         return;
                     }
 
                     Object value = i.getValue(target);
                     logger.debug("Inspector " + i.getMethodCall() + " is: " + value);
 
-                    // We need no assertions that include the memory location
-                    if (value instanceof String) {
-                        // String literals may not be longer than 32767
-                        if (((String) value).length() >= 32767) {
-                            continue;
-                        }
-
-                        // Maximum length of strings we look at
-                        if (((String) value).length() > Properties.MAX_STRING) {
-                            continue;
-                        }
-
-                        // If we suspect an Object hashCode not use this, as it may lead to flaky tests
-                        if (addressPattern.matcher((String) value).find()) {
-                            continue;
-                        }
-                        // The word "hashCode" is also suspicious
-                        if (((String) value).toLowerCase().contains("hashcode")) {
-                            continue;
-                        }
-                        // Avoid asserting anything on values referring to mockito proxy objects
-                        if (((String) value).toLowerCase().contains("enhancerbymockito")) {
-                            continue;
-                        }
-                        if (((String) value).toLowerCase().contains("$mockitomock$")) {
-                            continue;
-                        }
-
-                        if (target instanceof URL) {
-                            // Absolute paths may be different between executions
-                            if (((String) value).startsWith("/") || ((String) value).startsWith("file:/")) {
-                                continue;
-                            }
-                        }
+                    if (isFilteredStringValue(value, target)) {
+                        continue;
                     }
 
                     entry.addValue(i, value);
@@ -162,7 +130,7 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                 Object target = var.getObject(scope);
                 if (target != null) {
 
-                    if (target.getClass().getCanonicalName().contains("EnhancerByMockito")) {
+                    if (isMockitoProxy(target)) {
                         break;
                     }
 
@@ -172,25 +140,8 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                     }
                     logger.debug("Chained inspector " + ci.getMethodCall() + " is: " + value);
 
-                    if (value instanceof String) {
-                        if (((String) value).length() >= 32767) {
-                            continue;
-                        }
-                        if (((String) value).length() > Properties.MAX_STRING) {
-                            continue;
-                        }
-                        if (addressPattern.matcher((String) value).find()) {
-                            continue;
-                        }
-                        if (((String) value).toLowerCase().contains("hashcode")) {
-                            continue;
-                        }
-                        if (((String) value).toLowerCase().contains("enhancerbymockito")) {
-                            continue;
-                        }
-                        if (((String) value).toLowerCase().contains("$mockitomock$")) {
-                            continue;
-                        }
+                    if (isFilteredStringValue(value, target)) {
+                        continue;
                     }
 
                     entry.addValue(ci, value);
@@ -209,6 +160,40 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
 
         trace.addEntry(statement.getPosition(), var, entry);
 
+    }
+
+    private boolean isFilteredStringValue(Object value, Object target) {
+        if (!(value instanceof String)) {
+            return false;
+        }
+        String s = (String) value;
+        if (s.length() >= 32767) {
+            return true;
+        }
+        if (s.length() > Properties.MAX_STRING) {
+            return true;
+        }
+        if (addressPattern.matcher(s).find()) {
+            return true;
+        }
+        if (s.toLowerCase().contains("enhancerbymockito")) {
+            return true;
+        }
+        if (s.toLowerCase().contains("$mockitomock$")) {
+            return true;
+        }
+        if (target instanceof URL) {
+            if (s.startsWith("/") || s.startsWith("file:/")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isMockitoProxy(Object target) {
+        return target != null
+                && target.getClass().getCanonicalName() != null
+                && target.getClass().getCanonicalName().contains("EnhancerByMockito");
     }
 
     @Override

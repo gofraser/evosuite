@@ -24,7 +24,11 @@ import org.evosuite.Properties;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
-import org.evosuite.testcase.statements.*;
+import org.evosuite.testcase.statements.AssignmentStatement;
+import org.evosuite.testcase.statements.ArrayStatement;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 
 import java.lang.reflect.Array;
@@ -53,7 +57,13 @@ public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> 
         }
 
         visitReturnValue(statement, scope);
-        visitDependencies(statement, scope);
+        if (statement.isAssignmentStatement()) {
+            AssignmentStatement assign = (AssignmentStatement) statement;
+            visitDependencies(statement, scope,
+                    assign.getValue(), statement.getReturnValue());
+        } else {
+            visitDependencies(statement, scope);
+        }
     }
 
     private Object[] getArray(Object val) {
@@ -94,6 +104,12 @@ public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> 
 
             // We don't need assertions on array declarations
             if (statement instanceof ArrayStatement) {
+                return;
+            }
+
+            // Also skip arrays that were created by an ArrayStatement (visited as dependency)
+            Statement declaringStatement = currentTest.getStatement(var.getStPosition());
+            if (declaringStatement instanceof ArrayStatement) {
                 return;
             }
 

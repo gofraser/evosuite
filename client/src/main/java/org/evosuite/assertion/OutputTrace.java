@@ -67,7 +67,6 @@ public class OutputTrace<T extends OutputTraceEntry> implements Cloneable {
      */
     public synchronized T getEntry(int position, VariableReference var) {
         if (!trace.containsKey(position)) {
-            trace.put(position, new HashMap<>());
             return null;
         }
 
@@ -87,7 +86,6 @@ public class OutputTrace<T extends OutputTraceEntry> implements Cloneable {
      */
     public boolean containsEntry(int position, VariableReference var) {
         if (!trace.containsKey(position)) {
-            trace.put(position, new HashMap<>());
             return false;
         }
 

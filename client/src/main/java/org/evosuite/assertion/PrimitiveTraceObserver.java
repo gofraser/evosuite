@@ -34,7 +34,9 @@ import java.util.regex.Pattern;
 
 public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTraceEntry> {
 
-    private static final Pattern addressPattern = Pattern.compile(".*[\\w+\\.]+@[abcdef\\d]+.*", Pattern.MULTILINE);
+    // Matches Java's default Object.toString() format: e.g., "com.example.Foo@1a2b3c4d"
+    // or nested occurrences like "[Foo@abc, Bar@def]". Requires at least 2 hex chars after @.
+    private static final Pattern addressPattern = Pattern.compile("[A-Za-z_$][\\w.]*@[a-f\\d]{2,}", Pattern.MULTILINE);
 
     /**
      * {@inheritDoc}
@@ -116,11 +118,8 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
                     if (((String) object).toLowerCase().contains("enhancerbymockito")) {
                         return;
                     }
-                    // The word "hashCode" is also suspicious
-                    if (((String) object).toLowerCase().contains("hashcode")) {
-                        return;
-                    }
-                    // Check if there is a reference that would make the test fail
+                    // Check if there is an object identity reference (e.g. ClassName@hex)
+                    // that would make the test nondeterministic across JVM runs
                     if (addressPattern.matcher((String) object).find()) {
                         return;
                     }

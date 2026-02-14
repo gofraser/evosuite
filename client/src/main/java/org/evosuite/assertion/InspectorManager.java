@@ -144,19 +144,13 @@ public class InspectorManager {
         instance = null;
     }
 
-    private boolean isInspectorMethod(Method method) {
+    /**
+     * Checks common prerequisites shared between inspector methods and
+     * complex-return methods: public, no-arg, not from Object/Enum, not
+     * synthetic/bridge, not blacklisted.
+     */
+    private boolean isBaseMethodCandidate(Method method) {
         if (!Modifier.isPublic(method.getModifiers())) {
-            return false;
-        }
-
-        if (!method.getReturnType().isPrimitive()
-                && !method.getReturnType().equals(String.class)
-                && !method.getReturnType().isEnum()
-                && !ClassUtils.isPrimitiveWrapper(method.getReturnType())) {
-            return false;
-        }
-
-        if (method.getReturnType().equals(void.class)) {
             return false;
         }
 
@@ -164,7 +158,7 @@ public class InspectorManager {
             return false;
         }
 
-        if (method.getName().equals("hashCode")) {
+        if (method.getReturnType().equals(void.class)) {
             return false;
         }
 
@@ -176,19 +170,34 @@ public class InspectorManager {
             return false;
         }
 
-        if (method.isSynthetic()) {
-            return false;
-        }
-
-        if (method.isBridge()) {
-            return false;
-        }
-
-        if (method.getName().equals("pop")) {
+        if (method.isSynthetic() || method.isBridge()) {
             return false;
         }
 
         if (isBlackListed(method)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean isInspectorMethod(Method method) {
+        if (!isBaseMethodCandidate(method)) {
+            return false;
+        }
+
+        if (!method.getReturnType().isPrimitive()
+                && !method.getReturnType().equals(String.class)
+                && !method.getReturnType().isEnum()
+                && !ClassUtils.isPrimitiveWrapper(method.getReturnType())) {
+            return false;
+        }
+
+        if (method.getName().equals("hashCode")) {
+            return false;
+        }
+
+        if (method.getName().equals("pop")) {
             return false;
         }
 
@@ -240,8 +249,6 @@ public class InspectorManager {
     private void determineInspectors(Class<?> clazz) {
         if (!TestUsageChecker.canUse(clazz)) {
             inspectors.put(clazz, Collections.emptyList());
-        }
-        if (!TestUsageChecker.canUse(clazz)) {
             return;
         }
         List<Inspector> inspectorList = new ArrayList<>();
@@ -294,31 +301,13 @@ public class InspectorManager {
      * suitable as the outer method in a chained inspector.
      */
     private boolean isComplexReturnMethod(Method method) {
-        if (!Modifier.isPublic(method.getModifiers())) {
-            return false;
-        }
-
-        if (method.getParameterTypes().length != 0) {
+        if (!isBaseMethodCandidate(method)) {
             return false;
         }
 
         Class<?> returnType = method.getReturnType();
-        if (returnType.equals(void.class) || returnType.isPrimitive()
-                || returnType.equals(String.class) || returnType.isEnum()
-                || ClassUtils.isPrimitiveWrapper(returnType)) {
-            return false;
-        }
-
-        if (method.getDeclaringClass().equals(Object.class)
-                || method.getDeclaringClass().equals(Enum.class)) {
-            return false;
-        }
-
-        if (method.isSynthetic() || method.isBridge()) {
-            return false;
-        }
-
-        if (isBlackListed(method)) {
+        if (returnType.isPrimitive() || returnType.equals(String.class)
+                || returnType.isEnum() || ClassUtils.isPrimitiveWrapper(returnType)) {
             return false;
         }
 

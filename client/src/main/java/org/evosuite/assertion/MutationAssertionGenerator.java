@@ -58,26 +58,9 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
 
     protected final Map<Integer, Mutation> mutants = new HashMap<>();
 
-    protected static final PrimitiveTraceObserver primitiveObserver = new PrimitiveTraceObserver();
-    protected static final ComparisonTraceObserver comparisonObserver = new ComparisonTraceObserver();
-    protected static final SameTraceObserver sameObserver = new SameTraceObserver();
-    protected static final InspectorTraceObserver inspectorObserver = new InspectorTraceObserver();
-    protected static final PrimitiveFieldTraceObserver fieldObserver = new PrimitiveFieldTraceObserver();
-    protected static final NullTraceObserver nullObserver = new NullTraceObserver();
-    protected static final ArrayTraceObserver arrayObserver = new ArrayTraceObserver();
-    protected static final ArrayLengthObserver arrayLengthObserver = new ArrayLengthObserver();
-    protected static final ContainsTraceObserver containsTraceObserver = new ContainsTraceObserver();
-
     protected static final Map<Mutation, Integer> timedOutMutations = new HashMap<>();
 
     protected static final Map<Mutation, Integer> exceptionMutations = new HashMap<>();
-
-    /**
-     * Constant <code>observerClasses</code>.
-     */
-    protected static Class<?>[] observerClasses = {PrimitiveTraceEntry.class, ComparisonTraceEntry.class,
-            SameTraceEntry.class, InspectorTraceEntry.class, PrimitiveFieldTraceEntry.class, NullTraceEntry.class,
-            ArrayTraceEntry.class, ArrayLengthTraceEntry.class, ContainsTraceEntry.class};
 
     /**
      * Default constructor.

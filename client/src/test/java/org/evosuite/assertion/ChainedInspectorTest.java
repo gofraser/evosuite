@@ -164,6 +164,20 @@ public class ChainedInspectorTest {
     }
 
     @Test
+    public void testGetMethod_returnsInnerMethod() throws Exception {
+        Method outerMethod = Container.class.getMethod("getItems");
+        Method innerMethod = List.class.getMethod("size");
+
+        Inspector innerInspector = new Inspector(List.class, innerMethod);
+        ChainedInspector chained = new ChainedInspector(Container.class, outerMethod, innerInspector);
+
+        // getMethod() should return the inner method, not the outer
+        assertEquals(innerMethod, chained.getMethod());
+        // getReturnType() should be consistent with getMethod().getReturnType()
+        assertEquals(chained.getMethod().getReturnType(), chained.getReturnType());
+    }
+
+    @Test
     public void testGetInnerInspector() throws Exception {
         Method outerMethod = Container.class.getMethod("getItems");
         Method innerMethod = List.class.getMethod("size");

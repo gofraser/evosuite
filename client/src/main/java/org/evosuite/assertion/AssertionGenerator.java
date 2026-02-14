@@ -45,10 +45,8 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.lang.reflect.Method;
+import java.util.*;
 
 /**
  * <p>
@@ -78,6 +76,10 @@ public abstract class AssertionGenerator {
     protected static final ArrayLengthObserver arrayLengthObserver = new ArrayLengthObserver();
 
     protected static final ContainsTraceObserver containsTraceObserver = new ContainsTraceObserver();
+
+    protected static final Class<?>[] observerClasses = {PrimitiveTraceEntry.class, ComparisonTraceEntry.class,
+            SameTraceEntry.class, InspectorTraceEntry.class, PrimitiveFieldTraceEntry.class, NullTraceEntry.class,
+            ArrayTraceEntry.class, ArrayLengthTraceEntry.class, ContainsTraceEntry.class};
 
     /**
      * <p>
@@ -298,8 +300,14 @@ public abstract class AssertionGenerator {
                     if (a instanceof NullAssertion) {
                         if (assertions.size() > 1) {
                             for (Assertion a2 : assertions) {
-                                if (a2.getSource() == returnValue) {
+                                // Only a non-null assertion on the return value
+                                // makes the NullAssertion redundant (e.g., assertEquals
+                                // implies non-null). Inspector assertions on other
+                                // variables (dependencies) don't count.
+                                if (!(a2 instanceof NullAssertion)
+                                        && a2.getSource() == returnValue) {
                                     redundantAssertions.add(a);
+                                    break;
                                 }
                             }
                         } else if (isUsedAsCallee(test, returnValue)) {
@@ -312,6 +320,102 @@ public abstract class AssertionGenerator {
 
         for (Assertion a : redundantAssertions) {
             test.removeAssertion(a);
+        }
+    }
+
+    /**
+     * Remove chained inspector assertions that are redundant because the outer
+     * method is explicitly called on the same variable later in the test.
+     *
+     * @param test the test case
+     */
+    protected void filterRedundantChainedInspectorAssertions(TestCase test) {
+        Set<Assertion> toRemove = new HashSet<>();
+        for (Statement statement : test) {
+            for (Assertion assertion : statement.getAssertions()) {
+                if (!(assertion instanceof InspectorAssertion)) {
+                    continue;
+                }
+                InspectorAssertion ia = (InspectorAssertion) assertion;
+                if (!(ia.getInspector() instanceof ChainedInspector)) {
+                    continue;
+                }
+                ChainedInspector ci = (ChainedInspector) ia.getInspector();
+                VariableReference sourceVar = ia.getSource();
+                Method outerMethod = ci.getOuterMethod();
+
+                // Check if any later MethodStatement calls the same outer method on the same variable
+                for (int pos = statement.getPosition() + 1; pos < test.size(); pos++) {
+                    Statement later = test.getStatement(pos);
+                    if (later instanceof MethodStatement) {
+                        MethodStatement ms = (MethodStatement) later;
+                        if (ms.getCallee() == sourceVar
+                                && ms.getMethod().getMethod().equals(outerMethod)) {
+                            toRemove.add(assertion);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        for (Assertion a : toRemove) {
+            test.removeAssertion(a);
+        }
+    }
+
+    /**
+     * Remove redundant isEmpty/size assertion pairs on the same source variable.
+     * If size == 0, keep only isEmpty(). If size > 0, keep only size().
+     *
+     * @param test the test case
+     */
+    protected void filterRedundantIsEmptySizeAssertions(TestCase test) {
+        for (Statement statement : test) {
+            Set<Assertion> assertions = statement.getAssertions();
+            if (assertions.size() < 2) {
+                continue;
+            }
+
+            // Group InspectorAssertions by source variable
+            Map<VariableReference, List<InspectorAssertion>> bySource = new HashMap<>();
+            for (Assertion a : assertions) {
+                if (a instanceof InspectorAssertion) {
+                    InspectorAssertion ia = (InspectorAssertion) a;
+                    bySource.computeIfAbsent(ia.getSource(), k -> new ArrayList<>()).add(ia);
+                }
+            }
+
+            Set<Assertion> toRemove = new HashSet<>();
+            for (List<InspectorAssertion> group : bySource.values()) {
+                InspectorAssertion isEmptyAssertion = null;
+                InspectorAssertion sizeAssertion = null;
+
+                for (InspectorAssertion ia : group) {
+                    Inspector inspector = ia.getInspector();
+                    // Use the inspector's own method (for ChainedInspector this is the inner method)
+                    String methodName = inspector.getMethod().getName();
+                    if ("isEmpty".equals(methodName)) {
+                        isEmptyAssertion = ia;
+                    } else if ("size".equals(methodName)) {
+                        sizeAssertion = ia;
+                    }
+                }
+
+                if (isEmptyAssertion != null && sizeAssertion != null) {
+                    Object sizeValue = sizeAssertion.value;
+                    if (sizeValue instanceof Number && ((Number) sizeValue).intValue() == 0) {
+                        // size == 0: keep isEmpty, remove size
+                        toRemove.add(sizeAssertion);
+                    } else {
+                        // size > 0: keep size, remove isEmpty
+                        toRemove.add(isEmptyAssertion);
+                    }
+                }
+            }
+
+            for (Assertion a : toRemove) {
+                statement.removeAssertion(a);
+            }
         }
     }
 

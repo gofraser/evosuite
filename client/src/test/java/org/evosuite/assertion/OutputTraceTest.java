@@ -122,6 +122,35 @@ public class OutputTraceTest {
     // getAssertions() — null-safety for missing variable keys
     // -----------------------------------------------------------------------
 
+    // -----------------------------------------------------------------------
+    // getEntry() / containsEntry() — should not mutate trace on read (A4)
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testGetEntry_missingPositionDoesNotMutate() {
+        OutputTrace<PrimitiveTraceEntry> trace = new OutputTrace<>();
+        VariableReference var = mockVar(0);
+
+        // Before: trace is empty
+        assertNull(trace.getEntry(5, var));
+        // The trace's internal map should NOT have gained a new entry for position 5
+        assertFalse(trace.containsEntry(5, var));
+    }
+
+    @Test
+    public void testContainsEntry_missingPositionDoesNotMutate() {
+        OutputTrace<PrimitiveTraceEntry> trace = new OutputTrace<>();
+        VariableReference var = mockVar(0);
+
+        assertFalse(trace.containsEntry(5, var));
+        // Calling containsEntry should not create entries
+        assertNull(trace.getEntry(5, var));
+    }
+
+    // -----------------------------------------------------------------------
+    // getAssertions() — null-safety for missing variable keys
+    // -----------------------------------------------------------------------
+
     @Test
     public void testGetAssertions_extraVarInFirstTrace_noException() {
         VariableReference var1 = mockVar(0);

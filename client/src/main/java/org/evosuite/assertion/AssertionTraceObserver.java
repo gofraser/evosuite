@@ -24,6 +24,7 @@ import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionObserver;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
@@ -77,10 +78,22 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
      * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
      */
     protected void visitDependencies(Statement statement, Scope scope) {
+        visitDependencies(statement, scope, (VariableReference[]) null);
+    }
+
+    /**
+     * Visit dependencies, optionally excluding specific variables (e.g. the
+     * RHS and LHS of an assignment).
+     */
+    protected void visitDependencies(Statement statement, Scope scope,
+                                     VariableReference... excludeVars) {
         Set<VariableReference> dependencies = currentTest.getDependencies(statement.getReturnValue());
 
         for (VariableReference var : dependencies) {
             if (var.isVoid()) {
+                continue;
+            }
+            if (isExcluded(var, excludeVars)) {
                 continue;
             }
             // No assertions on mocked objects
@@ -93,6 +106,18 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
                 // ignore
             }
         }
+    }
+
+    private boolean isExcluded(VariableReference var, VariableReference[] excludeVars) {
+        if (excludeVars == null) {
+            return false;
+        }
+        for (VariableReference ex : excludeVars) {
+            if (ex != null && var.getStPosition() == ex.getStPosition()) {
+                return true;
+            }
+        }
+        return false;
     }
 
 
@@ -159,7 +184,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
             return;
         }
 
-
         // By default, no assertions are created for statements that threw exceptions
         if (exception != null) {
             return;
@@ -168,6 +192,13 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         if (statement instanceof FieldStatement) {
             // Only need to check returnvalue here, nothing else can have changed
             visitReturnValue(statement, scope);
+        } else if (statement.isAssignmentStatement()) {
+            // Assignment modifies the owner object's state, so visit its
+            // dependencies — but exclude the RHS value (not modified) and
+            // the LHS field reference (value was just assigned, already known)
+            AssignmentStatement assign = (AssignmentStatement) statement;
+            visitDependencies(statement, scope,
+                    assign.getValue(), statement.getReturnValue());
         } else {
             visitDependencies(statement, scope);
         }
