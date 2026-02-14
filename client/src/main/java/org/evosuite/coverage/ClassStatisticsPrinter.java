@@ -78,6 +78,8 @@ public class ClassStatisticsPrinter {
             // Load SUT without initialising it
             Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
             if (targetClass != null) {
+                DependencyAnalysis.logClasspathAnalysisSummary(
+                        Arrays.asList(ClassPathHandler.getInstance().getClassPathElementsForTargetProject()));
                 LoggingUtils.getEvoLogger().info("* Finished analyzing classpath");
             } else {
                 LoggingUtils.getEvoLogger().info("* Error while initializing target class, not continuing");

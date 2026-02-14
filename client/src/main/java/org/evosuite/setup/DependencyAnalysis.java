@@ -167,8 +167,8 @@ public class DependencyAnalysis {
         initCallGraph(className);
 
         if (inheritanceTree.hasMissingClasses() && !Properties.INHERITANCE_FILE.isEmpty()) {
-            LoggingUtils.getEvoLogger().info("* Cached inheritance tree appears outdated "
-                    + "for the current Java version; regenerating a fresh one");
+            LoggingUtils.getEvoLogger().info("* Cached inheritance tree ({}) is missing classes for the current "
+                    + "classpath; regenerating a fresh inheritance tree", Properties.INHERITANCE_FILE);
             callGraphs.clear();
             classCache.clear();
             inheritanceTree = null;
@@ -203,8 +203,8 @@ public class DependencyAnalysis {
 
             if (!regenerated && inheritanceTree.hasMissingClasses()
                     && !Properties.INHERITANCE_FILE.isEmpty()) {
-                LoggingUtils.getEvoLogger().info("* Cached inheritance tree appears outdated "
-                        + "for the current Java version; regenerating a fresh one");
+                LoggingUtils.getEvoLogger().info("* Cached inheritance tree ({}) is missing classes for the current "
+                        + "classpath; regenerating a fresh inheritance tree", Properties.INHERITANCE_FILE);
                 callGraphs.clear();
                 classCache.clear();
                 inheritanceTree = null;
@@ -504,5 +504,28 @@ public class DependencyAnalysis {
                     break;
             }
         }
+    }
+
+    @SuppressWarnings("deprecation")
+    public static void logClasspathAnalysisSummary(List<String> classPath) {
+        long classpathEntries = classPath.stream().filter(entry -> entry != null && !entry.isEmpty()).count();
+        int classpathClasses = inheritanceTree != null ? inheritanceTree.getNumClasses() : 0;
+        int analyzedClasses = TestCluster.getInstance().getAnalyzedClasses().size();
+        int generators = TestCluster.getInstance().getGenerators().size();
+        int modifiers = TestCluster.getInstance().getModifiers().size();
+        int methods = CFGMethodAdapter.getNumMethods(TestGenerationContext.getInstance().getClassLoaderForSUT());
+        int branches = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getBranchCounter();
+        int lines = LinePool.getNumLines();
+
+        LoggingUtils.getEvoLogger().info("* Classpath analysis summary:");
+        LoggingUtils.getEvoLogger().info("  - Classpath entries: {}", classpathEntries);
+        LoggingUtils.getEvoLogger().info("  - Classes in inheritance tree: {}", classpathClasses);
+        LoggingUtils.getEvoLogger().info("  - Analyzed classes in test cluster: {}", analyzedClasses);
+        LoggingUtils.getEvoLogger().info("  - Available generators: {}", generators);
+        LoggingUtils.getEvoLogger().info("  - Available modifiers: {}", modifiers);
+        LoggingUtils.getEvoLogger().info("  - Instrumented methods: {}", methods);
+        LoggingUtils.getEvoLogger().info("  - Total branch predicates: {}", branches);
+        LoggingUtils.getEvoLogger().info("  - Lines in target scope: {}", lines);
     }
 }

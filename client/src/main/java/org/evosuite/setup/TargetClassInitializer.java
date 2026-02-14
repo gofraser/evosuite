@@ -54,11 +54,12 @@ public class TargetClassInitializer {
      */
     public void initializeTargetClass(String targetClass, Runnable onInitializationError) throws Throwable {
         String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
+        java.util.List<String> classPathEntries = Arrays.asList(cp.split(File.pathSeparator));
 
         // Generate inheritance tree and call graph *before* loading the CUT
         // as these are required for instrumentation for context-sensitive
         // criteria (e.g. ibranch)
-        DependencyAnalysis.initInheritanceTree(Arrays.asList(cp.split(File.pathSeparator)));
+        DependencyAnalysis.initInheritanceTree(classPathEntries);
         DependencyAnalysis.initCallGraph(targetClass);
 
         // Here is where the <clinit> code should be invoked for the first time
@@ -81,7 +82,8 @@ public class TargetClassInitializer {
         // Analysis has to happen *after* the CUT is loaded since it will cause
         // several other classes to be loaded (including the CUT), but we require
         // the CUT to be loaded first
-        DependencyAnalysis.analyzeClass(targetClass, Arrays.asList(cp.split(File.pathSeparator)));
+        DependencyAnalysis.analyzeClass(targetClass, classPathEntries);
+        DependencyAnalysis.logClasspathAnalysisSummary(classPathEntries);
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                 + "Finished analyzing classpath");
     }

@@ -20,6 +20,7 @@
 package org.evosuite.coverage;
 
 import org.evosuite.Properties;
+import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.LoggingUtils;
@@ -125,13 +126,14 @@ public class FitnessFunctionsUtils {
                 LoggingUtils.getEvoLogger().info("* Total number of test goals: ");
             }
 
-            for (TestFitnessFactory<? extends TestFitnessFunction> goalFactory : goalFactories) {
+            for (int i = 0; i < goalFactories.size(); i++) {
+                TestFitnessFactory<? extends TestFitnessFunction> goalFactory = goalFactories.get(i);
                 goals.addAll(goalFactory.getCoverageGoals());
 
                 if (verbose) {
                     LoggingUtils.getEvoLogger()
-                            .info("  - {} {}", goalFactory.getClass().getSimpleName()
-                                            .replace("CoverageFactory", ""),
+                            .info("  - {} {}",
+                                    TestSuiteGeneratorHelper.getCriterionDisplayName(criterion[i]),
                                     goalFactory.getCoverageGoals().size());
                     if (Properties.PRINT_GOALS) {
                         for (TestFitnessFunction goal : goalFactory.getCoverageGoals()) {

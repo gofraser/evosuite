@@ -47,75 +47,58 @@ import java.util.Set;
  */
 public class TestSuiteGeneratorHelper {
 
-    static void printTestCriterion(Criterion criterion) {
+    public static String getCriterionDisplayName(Criterion criterion) {
         switch (criterion) {
             case WEAKMUTATION:
-                LoggingUtils.getEvoLogger().info("  - Mutation testing (weak)");
-                break;
+                return "Mutation testing (weak)";
             case ONLYMUTATION:
-                LoggingUtils.getEvoLogger().info("  - Only Mutation testing (weak)");
-                break;
+                return "Only Mutation testing (weak)";
             case STRONGMUTATION:
             case MUTATION:
-                LoggingUtils.getEvoLogger().info("  - Mutation testing (strong)");
-                break;
+                return "Mutation testing (strong)";
             case DEFUSE:
-                LoggingUtils.getEvoLogger().info("  - All DU Pairs");
-                break;
+                return "All DU Pairs";
             case STATEMENT:
-                LoggingUtils.getEvoLogger().info("  - Statement Coverage");
-                break;
+                return "Statement Coverage";
             case RHO:
-                LoggingUtils.getEvoLogger().info("  - Rho Coverage");
-                break;
+                return "Rho Coverage";
             case AMBIGUITY:
-                LoggingUtils.getEvoLogger().info("  - Ambiguity Coverage");
-                break;
+                return "Ambiguity Coverage";
             case ALLDEFS:
-                LoggingUtils.getEvoLogger().info("  - All Definitions");
-                break;
+                return "All Definitions";
             case EXCEPTION:
-                LoggingUtils.getEvoLogger().info("  - Exception");
-                break;
+                return "Exception";
             case ONLYBRANCH:
-                LoggingUtils.getEvoLogger().info("  - Only-Branch Coverage");
-                break;
+                return "Only-Branch Coverage";
             case METHODTRACE:
-                LoggingUtils.getEvoLogger().info("  - Method Coverage");
-                break;
+                return "Method Coverage";
             case METHOD:
-                LoggingUtils.getEvoLogger().info("  - Top-Level Method Coverage");
-                break;
+                return "Top-Level Method Coverage";
             case METHODNOEXCEPTION:
-                LoggingUtils.getEvoLogger().info("  - No-Exception Top-Level Method Coverage");
-                break;
+                return "No-Exception Top-Level Method Coverage";
             case LINE:
-                LoggingUtils.getEvoLogger().info("  - Line Coverage");
-                break;
+                return "Line Coverage";
             case ONLYLINE:
-                LoggingUtils.getEvoLogger().info("  - Only-Line Coverage");
-                break;
+                return "Only-Line Coverage";
             case OUTPUT:
-                LoggingUtils.getEvoLogger().info("  - Method-Output Coverage");
-                break;
+                return "Method-Output Coverage";
             case INPUT:
-                LoggingUtils.getEvoLogger().info("  - Method-Input Coverage");
-                break;
+                return "Method-Input Coverage";
             case BRANCH:
-                LoggingUtils.getEvoLogger().info("  - Branch Coverage");
-                break;
+                return "Branch Coverage";
             case CBRANCH:
-                LoggingUtils.getEvoLogger().info("  - Context Branch Coverage");
-                break;
+                return "Context Branch Coverage";
             case IBRANCH:
-                LoggingUtils.getEvoLogger().info("  - Interprocedural Context Branch Coverage");
-                break;
+                return "Interprocedural Context Branch Coverage";
             case TRYCATCH:
-                LoggingUtils.getEvoLogger().info("  - Try-Catch Branch Coverage");
-                break;
+                return "Try-Catch Branch Coverage";
             default:
                 throw new IllegalArgumentException("Unrecognized criterion: " + criterion);
         }
+    }
+
+    static void printTestCriterion(Criterion criterion) {
+        LoggingUtils.getEvoLogger().info("  - {}", getCriterionDisplayName(criterion));
     }
 
     private static int getBytecodeCount(RuntimeVariable v, Map<RuntimeVariable, Set<Integer>> m) {

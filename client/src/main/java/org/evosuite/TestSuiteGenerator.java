@@ -244,7 +244,7 @@ public class TestSuiteGenerator {
 
         String omittedCriteria = Arrays.stream(oldCriteria)
                 .filter(c -> TestSuiteGeneratorHelper.isLineDebugInfoDependentCriterion(c))
-                .map(Enum::name)
+                .map(TestSuiteGeneratorHelper::getCriterionDisplayName)
                 .collect(java.util.stream.Collectors.joining(", "));
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                 + "Missing line debug information in target class {}; omitting criterion during test generation: {}",

@@ -22,6 +22,7 @@ package org.evosuite.coverage;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.ambiguity.AmbiguityCoverageSuiteFitness;
 import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
@@ -216,7 +217,7 @@ public class CoverageCriteriaAnalyzer {
      */
     public static void analyzeCoverage(TestSuiteChromosome testSuite) {
 
-        LoggingUtils.getEvoLogger().info("* Going to analyze the coverage criteria");
+        LoggingUtils.getEvoLogger().info("* Resulting code coverage:");
 
         Properties.Criterion[] criteria = Properties.CRITERION;
 
@@ -227,7 +228,7 @@ public class CoverageCriteriaAnalyzer {
         boolean recalculate = false;
 
         for (Properties.Criterion pc : criteria) {
-            LoggingUtils.getEvoLogger().info("* Coverage analysis for criterion {}", pc);
+            logger.debug("Coverage analysis for criterion {}", pc);
 
             analyzeCoverage(testSuite, pc, recalculate);
         }
@@ -291,30 +292,29 @@ public class CoverageCriteriaAnalyzer {
             ClientServices.getInstance().getClientNode().trackOutputVariable(bitStringVariable, goalBitString);
         }
 
+        String criterionName = TestSuiteGeneratorHelper.getCriterionDisplayName(criterion);
         if (goals.isEmpty()) {
             if (criterion == Properties.Criterion.MUTATION
                     || criterion == Properties.Criterion.STRONGMUTATION) {
                 ClientServices.getInstance().getClientNode().trackOutputVariable(
                         RuntimeVariable.MutationScore, 1.0);
             }
-            LoggingUtils.getEvoLogger().info("* Coverage of criterion {}: 100% (no goals)", criterion);
+            LoggingUtils.getEvoLogger().info("  - {}: 100% (0/0 goals)", criterionName);
             ClientServices.getInstance().getClientNode().trackOutputVariable(getCoverageVariable(criterion), 1.0);
         } else {
 
+            double coverage = (double) covered / (double) goals.size();
             ClientServices.getInstance().getClientNode().trackOutputVariable(
-                    getCoverageVariable(criterion), (double) covered / (double) goals.size());
+                    getCoverageVariable(criterion), coverage);
 
             if (criterion == Properties.Criterion.MUTATION
                     || criterion == Properties.Criterion.STRONGMUTATION) {
                 ClientServices.getInstance().getClientNode().trackOutputVariable(
-                        RuntimeVariable.MutationScore, (double) covered / (double) goals.size());
+                        RuntimeVariable.MutationScore, coverage);
             }
 
-            LoggingUtils.getEvoLogger().info("* Coverage of criterion {}: {}", criterion,
-                    NumberFormat.getPercentInstance().format((double) covered / (double) goals.size()));
-
-            LoggingUtils.getEvoLogger().info("* Total number of goals: {}", goals.size());
-            LoggingUtils.getEvoLogger().info("* Number of covered goals: {}", covered);
+            LoggingUtils.getEvoLogger().info("  - {}: {} ({}/{} goals)", criterionName,
+                    NumberFormat.getPercentInstance().format(coverage), covered, goals.size());
         }
 
         // FIXME it works, but needs a better way of handling this

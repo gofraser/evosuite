@@ -22,6 +22,7 @@ package org.evosuite.strategy;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.ShutdownTestWriter;
+import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
@@ -85,10 +86,11 @@ public class IndividualTestStrategy extends TestGenerationStrategy {
         // long goalComputationStart = System.currentTimeMillis();
         List<TestFitnessFunction> goals = new ArrayList<>();
         LoggingUtils.getEvoLogger().info("* Total number of test goals: ");
-        for (TestFitnessFactory<? extends TestFitnessFunction> goalFactory : goalFactories) {
+        for (int i = 0; i < goalFactories.size(); i++) {
+            TestFitnessFactory<? extends TestFitnessFunction> goalFactory = goalFactories.get(i);
             goals.addAll(goalFactory.getCoverageGoals());
             LoggingUtils.getEvoLogger().info("  - {} {}",
-                    goalFactory.getClass().getSimpleName().replace("CoverageFactory", ""),
+                    TestSuiteGeneratorHelper.getCriterionDisplayName(Properties.CRITERION[i]),
                     goalFactory.getCoverageGoals().size());
         }
 

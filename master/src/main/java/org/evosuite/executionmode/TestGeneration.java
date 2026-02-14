@@ -53,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -523,14 +524,22 @@ public class TestGeneration {
             Set<ClientNodeRemote> clients = null;
             try {
                 //FIXME: timeout here should be handled by TimeController
-                clients = new CopyOnWriteArraySet<>(MasterServices.getInstance().getMasterNode()
-                        .getClientsOnceAllConnected(60000).values());
+                Map<String, ClientNodeRemote> connectedClients = MasterServices.getInstance().getMasterNode()
+                        .getClientsOnceAllConnected(60000);
+                if (connectedClients != null) {
+                    clients = new CopyOnWriteArraySet<>(connectedClients.values());
+                }
             } catch (InterruptedException e) {
                 // ignored
             }
             if (clients == null) {
-                logger.error("Not possible to access to clients. Clients' state:\n" + handler.getProcessStates()
-                        + "Master registry port: " + MasterServices.getInstance().getRegistryPort());
+                logger.error("Timed out while waiting for all clients to connect. "
+                                + "Expected {} client(s). Clients' state:\n{}"
+                                + "Master registry port: {}",
+                        Properties.NUM_PARALLEL_CLIENTS,
+                        handler.getProcessStates(),
+                        MasterServices.getInstance().getRegistryPort());
+                LoggingUtils.getEvoLogger().error("* Timed out waiting for client(s) to connect to master");
 
             } else {
                 /*
