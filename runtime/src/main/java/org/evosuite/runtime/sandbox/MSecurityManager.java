@@ -80,6 +80,7 @@ import java.util.logging.LoggingPermission;
 public class MSecurityManager extends SecurityManager {
 
     private static final Logger logger = LoggerFactory.getLogger(MSecurityManager.class);
+    private static final Logger evoLogger = LoggerFactory.getLogger("evo_logger");
 
 
     /*
@@ -334,7 +335,7 @@ public class MSecurityManager extends SecurityManager {
             System.setSecurityManager(this);
         } catch (UnsupportedOperationException e) {
             // Java 24+ no longer supports Security Manager
-            logger.warn("Security Manager is not supported in this JVM (Java 24+)");
+            evoLogger.warn("* Security Manager is not supported in this JVM (Java 24+)");
             throw e;
         } catch (SecurityException e) {
             // this should never happen in EvoSuite, ie this object should be created just once
@@ -351,7 +352,7 @@ public class MSecurityManager extends SecurityManager {
             System.setSecurityManager(defaultManager);
         } catch (UnsupportedOperationException e) {
             // Java 24+ no longer supports Security Manager
-            logger.warn("Security Manager is not supported in this JVM (Java 24+), cannot restore");
+            evoLogger.warn("* Security Manager is not supported in this JVM (Java 24+), cannot restore");
         }
     }
 

@@ -35,6 +35,7 @@ public class Sandbox {
     }
 
     private static final Logger logger = LoggerFactory.getLogger(Sandbox.class);
+    private static final Logger evoLogger = LoggerFactory.getLogger("evo_logger");
 
     /**
      * Flag indicating whether Security Manager is supported in this JVM.
@@ -52,7 +53,7 @@ public class Sandbox {
             System.setSecurityManager(current);
         } catch (UnsupportedOperationException e) {
             supported = false;
-            logger.warn("Security Manager is not supported in this JVM (Java 24+). "
+            evoLogger.warn("* Security Manager is not supported in this JVM (Java 24+). "
                     + "Sandbox functionality will be disabled.");
         } catch (SecurityException e) {
             // Security Manager is supported but we don't have permission to change it
