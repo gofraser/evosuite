@@ -323,6 +323,9 @@ public class ExternalProcessGroupHandler {
              * NOTE: this should only be done for debugging, ie in
              * JUnit files created for testing EvoSuite.
              */
+            final String clientIdentifier = (Properties.NUM_PARALLEL_CLIENTS == 1)
+                    ? ClientProcess.DEFAULT_CLIENT_NAME
+                    : ClientProcess.CLIENT_PREFIX + processIndex;
             clientRunningOnThread = new Thread() {
                 @Override
                 public void run() {
@@ -330,10 +333,10 @@ public class ExternalProcessGroupHandler {
                      * NOTE: the handling of the parameters "-D" should be handled
                      * directly in JUnit by setting the different values in Properties
                      */
-                    ClientProcess.main(new String[0]);
+                    ClientProcess.main(new String[]{clientIdentifier});
                 }
             };
-            clientRunningOnThread.setName("client");
+            clientRunningOnThread.setName("client-" + processIndex);
             clientRunningOnThread.start();
             Sandbox.addPrivilegedThread(clientRunningOnThread);
         }
