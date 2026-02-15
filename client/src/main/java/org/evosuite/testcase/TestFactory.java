@@ -135,12 +135,13 @@ public class TestFactory {
         try {
             if (call.isMethod()) {
                 GenericMethod method = (GenericMethod) call;
-                if (call.isStatic()
-                        || !method.getDeclaringClass().isAssignableFrom(callee.getVariableClass())) {
-                    // Static methods / methods in other classes can be modifiers of the SUT
-                    // if the SUT depends on static fields
+                if (call.isStatic()) {
+                    // Static methods can be modifiers of the SUT if the SUT depends on static fields
                     addMethod(test, method, position, 0);
                 } else {
+                    if (!MethodStatement.isCompatibleCalleeType(method, callee.getType())) {
+                        throw new ConstructionFailedException("Cannot apply method to this callee");
+                    }
                     addMethodFor(test,
                             callee,
                             (GenericMethod) call.copyWithNewOwner(callee.getGenericClass()),
@@ -558,6 +559,10 @@ public class TestFactory {
                 if (!TestUsageChecker.canUse(method.getMethod(),
                         callee.getVariableClass())) {
                     logger.debug("Cannot call method {} with callee of type {}", method, callee.getClassName());
+                    throw new ConstructionFailedException("Cannot apply method to this callee");
+                }
+                if (!MethodStatement.isCompatibleCalleeType(method, callee.getType())) {
+                    logger.debug("Incompatible method {} for callee type {}", method, callee.getClassName());
                     throw new ConstructionFailedException("Cannot apply method to this callee");
                 }
             }
@@ -2369,8 +2374,10 @@ public class TestFactory {
                         } else {
                             callee = test.getRandomNonNullObject(target, position);
                         }
-                        if (!TestUsageChecker.canUse(m.getMethod(), callee.getVariableClass())) {
+                        if (!TestUsageChecker.canUse(m.getMethod(), callee.getVariableClass())
+                                || !MethodStatement.isCompatibleCalleeType(m, callee.getType())) {
                             logger.error("Cannot call method {} with callee of type {}", m, callee.getClassName());
+                            throw new ConstructionFailedException("Cannot apply method to this callee");
                         }
 
                         addMethodFor(test, callee, m.copyWithNewOwner(callee.getGenericClass()), position);
@@ -2452,7 +2459,8 @@ public class TestFactory {
                         // }
                     }
                     logger.debug("Got callee of type {}", callee.getGenericClass().getTypeName());
-                    if (!TestUsageChecker.canUse(m.getMethod(), callee.getVariableClass())) {
+                    if (!TestUsageChecker.canUse(m.getMethod(), callee.getVariableClass())
+                            || !MethodStatement.isCompatibleCalleeType(m, callee.getType())) {
                         logger.debug("Cannot call method {} with callee of type {}", m, callee.getClassName());
                         throw new ConstructionFailedException("Cannot apply method to this callee");
                     }

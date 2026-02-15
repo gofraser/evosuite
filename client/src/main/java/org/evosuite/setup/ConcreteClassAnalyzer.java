@@ -24,6 +24,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.runtime.mock.MockList;
+import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -247,8 +248,8 @@ public class ConcreteClassAnalyzer {
         } catch (ClassNotFoundException
                 | IncompatibleClassChangeError
                 | NoClassDefFoundError e) {
-            logger.error("Problem for {}. Class not found: {}", Properties.TARGET_CLASS, className);
-            logger.error("Removing class from inheritance tree");
+            logMissingClass(className);
+            warnIfCachedInheritanceTreeOutOfSyncWithJvm(className);
             tree.removeClass(className);
         } finally {
             testGenerationContext().doneWithExecutingSUTCode();
@@ -277,6 +278,43 @@ public class ConcreteClassAnalyzer {
         }
 
         return clazz;
+    }
+
+    private static void logMissingClass(final String className) {
+        if (isLikelyStaleCachedJdkEntry(className)) {
+            logger.debug("Problem for {}. Class not found (likely stale cached JDK entry): {}",
+                    Properties.TARGET_CLASS, className);
+            logger.debug("Removing class from inheritance tree");
+            return;
+        }
+
+        logger.error("Problem for {}. Class not found: {}", Properties.TARGET_CLASS, className);
+        logger.error("Removing class from inheritance tree");
+    }
+
+    private static void warnIfCachedInheritanceTreeOutOfSyncWithJvm(final String className) {
+        if (!isLikelyStaleCachedJdkEntry(className)) {
+            return;
+        }
+
+        String javaVersion = System.getProperty("java.version", "unknown");
+        String javaSpecVersion = System.getProperty("java.specification.version", "unknown");
+        String message = "Cached inheritance tree (" + Properties.INHERITANCE_FILE + ") appears out of sync with "
+                + "the running JVM (java.version=" + javaVersion + ", java.specification.version="
+                + javaSpecVersion + "). Consider regenerating the inheritance tree for this JDK.";
+        AtMostOnceLogger.warn(logger, message);
+    }
+
+    private static boolean isLikelyJdkClass(final String className) {
+        return className.startsWith("java.")
+                || className.startsWith("javax.")
+                || className.startsWith("jdk.")
+                || className.startsWith("sun.")
+                || className.startsWith("com.sun.");
+    }
+
+    private static boolean isLikelyStaleCachedJdkEntry(final String className) {
+        return !Properties.INHERITANCE_FILE.isEmpty() && isLikelyJdkClass(className);
     }
 
     private static TestGenerationContext testGenerationContext() {

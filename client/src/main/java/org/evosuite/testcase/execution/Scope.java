@@ -89,8 +89,18 @@ public class Scope {
                 && !reference.isPrimitive() // && !reference.getGenericClass().isClass()
                 && !o.getClass().isArray()) { // && !(reference instanceof ArrayReference)) {
             if (TestUsageChecker.canUse(o.getClass())) {
+                /*
+                 * Keep inferred runtime types only when they are assignment-compatible
+                 * with the variable's declared/static type. Otherwise we can corrupt the
+                 * test model (eg, FileUtil variable rewritten to MockFile under VFS mocks),
+                 * which later yields impossible receiver casts in generated code.
+                 */
+                Class<?> declaredType = reference.getVariableClass();
                 if (Proxy.isProxyClass(o.getClass())) {
-                    reference.setType(o.getClass().getSuperclass());
+                    Class<?> inferredType = o.getClass().getSuperclass();
+                    if (declaredType == null || declaredType.isAssignableFrom(inferredType)) {
+                        reference.setType(inferredType);
+                    }
                 } else if (o.getClass().getName().contains("EnhancerByMockito")) {
                     /*
                         tricky: this is a functional mock for a class X. We do not want to set
@@ -110,10 +120,14 @@ public class Scope {
                             }
                         }
                     }
-                    reference.setType(target);
+                    if (declaredType == null || declaredType.isAssignableFrom(target)) {
+                        reference.setType(target);
+                    }
 
                 } else {
-                    reference.setType(o.getClass());
+                    if (declaredType == null || declaredType.isAssignableFrom(o.getClass())) {
+                        reference.setType(o.getClass());
+                    }
                 }
             }
         }

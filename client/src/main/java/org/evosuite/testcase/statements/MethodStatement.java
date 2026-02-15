@@ -21,6 +21,7 @@ package org.evosuite.testcase.statements;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
+import org.evosuite.runtime.mock.MockList;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
@@ -31,6 +32,7 @@ import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.Randomness;
+import org.evosuite.utils.generic.GenericClassUtils;
 import org.evosuite.utils.generic.GenericMethod;
 import org.objectweb.asm.Type;
 import org.slf4j.Logger;
@@ -115,6 +117,25 @@ public class MethodStatement extends EntityWithParametersStatement {
         init(method, callee);
     }
 
+    public static boolean isCompatibleCalleeType(GenericMethod method, java.lang.reflect.Type calleeType) {
+        if (method == null || calleeType == null) {
+            return false;
+        }
+
+        if (GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)) {
+            return true;
+        }
+
+        String declaringClassName = method.getDeclaringClass().getCanonicalName();
+        if (declaringClassName != null
+                && MockList.isAMockClass(declaringClassName)
+                && GenericClassUtils.isAssignable(method.getOwnerType(), calleeType)) {
+            return true;
+        }
+
+        return false;
+    }
+
     private void init(GenericMethod method, VariableReference callee) throws IllegalArgumentException {
         if (callee == null && !method.isStatic()) {
             throw new IllegalArgumentException(
@@ -122,12 +143,15 @@ public class MethodStatement extends EntityWithParametersStatement {
                             + method.getDeclaringClass().getCanonicalName()
                             + "." + method.getName());
         }
-        if (callee != null && !callee.isAssignableTo(method.getOwnerType())) {
+        if (callee != null && !isCompatibleCalleeType(method, callee.getType())) {
             logger.debug("Skipping incompatible callee {} for method {}.{}",
                     callee.getVariableClass().getCanonicalName(),
                     method.getDeclaringClass().getCanonicalName(),
                     method.getName());
-            return;
+            throw new IllegalArgumentException("Incompatible callee type "
+                    + callee.getVariableClass().getCanonicalName()
+                    + " for method " + method.getDeclaringClass().getCanonicalName()
+                    + "." + method.getName());
         }
         if (parameters == null) {
             throw new IllegalArgumentException("Parameter list cannot be null for method "
@@ -190,7 +214,7 @@ public class MethodStatement extends EntityWithParametersStatement {
      */
     public void setCallee(VariableReference callee) {
         if (!isStatic()) {
-            if (callee != null && !callee.isAssignableTo(method.getOwnerType())) {
+            if (callee != null && !isCompatibleCalleeType(method, callee.getType())) {
                 StringBuilder context = new StringBuilder();
                 try {
                     context.append(" at statement ").append(getPosition());
@@ -429,7 +453,8 @@ public class MethodStatement extends EntityWithParametersStatement {
 
         if (isInstanceMethod()) {
             if (callee.equals(oldVar)) {
-                if (newVar != null && !newVar.isAssignableTo(method.getOwnerType())) {
+                if (newVar != null
+                        && !isCompatibleCalleeType(method, newVar.getType())) {
                     logger.debug("Skipping incompatible callee {} for method {}.{}",
                             newVar.getVariableClass().getCanonicalName(),
                             method.getDeclaringClass().getCanonicalName(),
@@ -671,7 +696,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     .collect(Collectors.toList());
             // Keep only candidates compatible with the method's declaring type
             objects = objects.stream()
-                    .filter(var -> var.isAssignableTo(method.getOwnerType()))
+                    .filter(var -> isCompatibleCalleeType(method, var.getType()))
                     .collect(Collectors.toList());
 
             if (!objects.isEmpty()) {

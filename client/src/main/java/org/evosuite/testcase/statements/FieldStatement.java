@@ -120,6 +120,7 @@ public class FieldStatement extends AbstractStatement {
             List<VariableReference> objects = test.getObjects(source.getType(),
                     getPosition());
             objects.remove(source);
+            objects.removeIf(var -> !var.isAssignableTo(field.getOwnerType()));
 
             if (!objects.isEmpty()) {
                 setSource(Randomness.choice(objects));

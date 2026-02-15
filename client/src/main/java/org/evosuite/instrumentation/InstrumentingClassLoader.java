@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
+import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.objectweb.asm.ClassReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -132,8 +133,19 @@ public class InstrumentingClassLoader extends ClassLoader {
                 if (result != null) {
                     return result;
                 }
-                // Delegate to parent (which was passed as InstrumentingClassLoader.class.getClassLoader())
-                return getParent().loadClass(name);
+                // Delegate to parent first.
+                try {
+                    // Parent was passed as InstrumentingClassLoader.class.getClassLoader()
+                    return getParent().loadClass(name);
+                } catch (ClassNotFoundException e) {
+                    // During (de-)serialization, project dependencies may only be visible from
+                    // the current thread context class loader.
+                    ClassLoader context = Thread.currentThread().getContextClassLoader();
+                    if (context != null && context != this && context != getParent()) {
+                        return context.loadClass(name);
+                    }
+                    throw e;
+                }
             }
 
             Class<?> result = classes.get(name);
@@ -181,9 +193,31 @@ public class InstrumentingClassLoader extends ClassLoader {
             // We catch Throwable here because instrumentation or class definition might fail with
             // LinkageError or other unexpected errors, which we want to wrap as ClassNotFoundException
             // to conform to the ClassLoader contract and logging.
-            logger.error("Error while loading class: " + t.getMessage(), t);
+            if (isMissingClassError(t)) {
+                AtMostOnceLogger.warn(logger, "Error while loading class (one-time): " + t.getMessage());
+                logger.debug("Full stack trace while loading class {}", fullyQualifiedTargetClass, t);
+            } else {
+                logger.error("Error while loading class: " + t.getMessage(), t);
+            }
             throw new ClassNotFoundException(t.getMessage(), t);
         }
+    }
+
+    private static boolean isMissingClassError(Throwable t) {
+        Throwable current = t;
+        while (current != null) {
+            if (current instanceof ClassNotFoundException || current instanceof NoClassDefFoundError) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null
+                    && (message.startsWith("Class not found: ")
+                    || message.startsWith("Class not found "))) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private Class<?> defineInstrumentedClass(String fullyQualifiedTargetClass, byte[] byteBuffer) {
