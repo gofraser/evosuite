@@ -376,6 +376,22 @@ public class ResourceList {
     }
 
     /**
+     * True if the given class name corresponds to an enum.
+     *
+     * @param className the fully qualified class name
+     * @return true if the class is an enum, false otherwise
+     * @throws IOException if an I/O error occurs
+     */
+    public boolean isClassEnum(String className) throws IOException {
+        try (InputStream input = getClassAsStream(className)) {
+            if (input == null) {
+                return false;
+            }
+            return isClassEnum(input);
+        }
+    }
+
+    /**
      * True if the given class is testable.
      *
      * @param className the fully qualified class name
@@ -387,7 +403,42 @@ public class ResourceList {
             if (input == null) {
                 return false;
             }
-            return isClassTestable(input);
+            // Check if it's an enum and if it has custom code
+            ClassReader reader = new ClassReader(input);
+            ClassNode cn = new ClassNode();
+            reader.accept(cn, ClassReader.SKIP_FRAMES);
+            boolean isEnum = (cn.access & Opcodes.ACC_ENUM) == Opcodes.ACC_ENUM;
+            
+            @SuppressWarnings("unchecked")
+            List<MethodNode> l = cn.methods;
+            for (MethodNode m : l) {
+                if ((m.access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC
+                        || (m.access & Opcodes.ACC_PROTECTED) == Opcodes.ACC_PROTECTED
+                        || (m.access & Opcodes.ACC_PRIVATE) == 0 /* default */) {
+                    
+                    if (isEnum) {
+                        // For enums, we skip the compiler generated methods
+                        if (m.name.equals("values") && m.desc.equals("()[L" + cn.name + ";")) {
+                            continue;
+                        }
+                        if (m.name.equals("valueOf") && m.desc.equals("(Ljava/lang/String;)L" + cn.name + ";")) {
+                            continue;
+                        }
+                        if (m.name.equals("<init>") && (m.access & Opcodes.ACC_PRIVATE) == Opcodes.ACC_PRIVATE) {
+                            // Enums always have at least one private constructor.
+                            // We only consider it "custom" if it has actual code beyond the super call.
+                            // However, enums usually have some code for the constants in <clinit>.
+                            // If there are ONLY these, we might still want to skip.
+                            continue;
+                        }
+                        if (m.name.equals("<clinit>")) {
+                            continue;
+                        }
+                    }
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -433,6 +484,10 @@ public class ResourceList {
         return analyzeClass(input, cn -> (cn.access & Opcodes.ACC_INTERFACE) == Opcodes.ACC_INTERFACE);
     }
 
+    private static boolean isClassEnum(InputStream input) throws IOException {
+        return analyzeClass(input, cn -> (cn.access & Opcodes.ACC_ENUM) == Opcodes.ACC_ENUM);
+    }
+
     /**
      * Returns {@code true} if the class is deprecated; returns {@code false} otherwise.
      *
@@ -442,28 +497,6 @@ public class ResourceList {
      */
     private static boolean isClassDeprecated(InputStream input) throws IOException {
         return analyzeClass(input, cn -> (cn.access & Opcodes.ACC_DEPRECATED) == Opcodes.ACC_DEPRECATED);
-    }
-
-    /**
-     * Returns {@code true} if there is at least one public method in the class; returns {@code false} otherwise.
-     *
-     * @param input the input stream
-     * @return {@code true} if there is at least one public method in the class, {@code false} otherwise
-     * @throws IOException if an error occurs while reading the input stream
-     */
-    private static boolean isClassTestable(InputStream input) throws IOException {
-        return analyzeClass(input, cn -> {
-            @SuppressWarnings("unchecked")
-            List<MethodNode> l = cn.methods;
-            for (MethodNode m : l) {
-                if ((m.access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC
-                        || (m.access & Opcodes.ACC_PROTECTED) == Opcodes.ACC_PROTECTED
-                        || (m.access & Opcodes.ACC_PRIVATE) == 0 /* default */) {
-                    return true;
-                }
-            }
-            return false;
-        });
     }
 
     /**

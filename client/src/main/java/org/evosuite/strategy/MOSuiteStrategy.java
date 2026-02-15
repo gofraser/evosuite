@@ -99,6 +99,13 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
                 ClientProcess.getPrettyPrintIdentifier(),
                 Properties.ALGORITHM.name(), fitnessFunctions.size());
 
+        if (fitnessFunctions.isEmpty() && !ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
+            LoggingUtils.getEvoLogger().info("* No coverage goals found for the target class {}",
+                    Properties.TARGET_CLASS);
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, 0);
+            return new TestSuiteChromosome();
+        }
+
         if (!canGenerateTestsForSUT()) {
             LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}",
                     Properties.TARGET_CLASS);

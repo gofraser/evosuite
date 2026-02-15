@@ -198,9 +198,24 @@ public class TestSuiteGenerator {
         sanitizeDebugInfoDependentCriteria();
         TestSuiteGeneratorHelper.printTestCriterion();
 
+        if (Properties.CRITERION.length == 0) {
+            return TestGenerationResultBuilder.buildErrorResult("No testable code found (no coverage goals)");
+        }
+
         if (!Properties.hasTargetClassBeenLoaded()) {
             // initialization failed, then build error message
             return TestGenerationResultBuilder.buildErrorResult("Could not load target class");
+        }
+
+        // Check if there are ANY goals across all criteria
+        int totalGoals = 0;
+        for (TestFitnessFactory<? extends TestFitnessFunction> factory : getFitnessFactories()) {
+            totalGoals += factory.getCoverageGoals().size();
+        }
+        if (totalGoals == 0 && !ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
+            LoggingUtils.getEvoLogger().info("* No coverage goals found for the target class {}",
+                    Properties.TARGET_CLASS);
+            return TestGenerationResultBuilder.buildErrorResult("No testable code found (no coverage goals)");
         }
 
         TestSuiteChromosome testCases = generateTests();
