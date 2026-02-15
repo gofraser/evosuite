@@ -22,6 +22,7 @@ package org.evosuite.coverage.line;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
+import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.slf4j.Logger;
@@ -95,11 +96,18 @@ public class LineCoverageFactory extends
                     continue;
                 }
                 Set<Integer> lines = LinePool.getLines(className, methodName);
+                BytecodeInstructionPool pool = BytecodeInstructionPool.getInstance(
+                        TestGenerationContext.getInstance().getClassLoaderForSUT());
                 for (Integer line : lines) {
                     if (line == null || line.intValue() <= 0) {
                         logger.info("Ignoring invalid line number {} for method {}.{} "
                                         + "(likely missing debug information).",
                                 line, className, methodName);
+                        continue;
+                    }
+                    if (pool.getFirstInstructionAtLineNumber(className, methodName, line) == null) {
+                        logger.debug("Skipping line goal for method {}.{}, Line {} as no instruction found",
+                                className, methodName, line);
                         continue;
                     }
                     logger.info("Adding goal for method {}.{}, Line {}.", className, methodName, line);

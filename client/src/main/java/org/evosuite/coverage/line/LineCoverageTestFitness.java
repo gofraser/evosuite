@@ -114,8 +114,9 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
             // If the instruction is not found, we cannot calculate fitness dependencies.
             // This might happen if there's a mismatch between LinePool and BytecodeInstructionPool
             // or if the code wasn't properly instrumented/analyzed.
-            throw new IllegalStateException("Instruction not found for " + className + "." + methodName + " line "
-                    + line);
+            logger.debug("Instruction not found for " + className + "." + methodName + " line "
+                    + line + ". Skipping this goal.");
+            return;
         }
 
         Set<ControlDependency> cds = goalInstruction.getControlDependencies();
@@ -131,14 +132,12 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
         }
 
         if (cds.isEmpty() && !goalInstruction.isRootBranchDependent()) {
-            throw new IllegalStateException(
-                    "expect control dependencies to be empty only for root dependent instructions: "
+            logger.warn("Expect control dependencies to be empty only for root dependent instructions: "
                             + this);
         }
 
         if (branchFitnesses.isEmpty()) {
-            throw new IllegalStateException(
-                    "an instruction is at least on the root branch of its method: " + this);
+            logger.warn("An instruction is at least on the root branch of its method: " + this);
         }
 
         branchFitnesses.sort(Comparator.naturalOrder());
@@ -146,6 +145,9 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
 
     @Override
     public boolean isCovered(ExecutionResult result) {
+        if (goalInstruction == null) {
+            return false;
+        }
         Stream<Integer> coveredLines = result.getTrace().getCoveredLines().stream();
         return coveredLines.anyMatch(coveredLine -> coveredLine.intValue() == this.line.intValue());
     }
@@ -161,6 +163,9 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
+        if (goalInstruction == null) {
+            return 1.0;
+        }
         double fitness = 1.0;
 
         // Deactivate coverage archive while measuring fitness, since branchcoverage fitness

@@ -624,7 +624,6 @@ public class BytecodeInstructionPool {
      * @return first instruction at line number, or null
      */
     public BytecodeInstruction getFirstInstructionAtLineNumber(String className, String methodName, int lineNumber) {
-        // TODO
         if (instructionMap.get(className) == null) {
             return null;
         }

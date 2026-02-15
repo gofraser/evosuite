@@ -66,15 +66,38 @@ public class ModifiedTargetStaticFields {
      * Adds a collection of final fields whose final modifier was removed by our
      * instrumentation.
      *
+     * @param className      the name of the class where the fields are declared
      * @param newFinalFields the collection of new final fields to add
      */
-    public void addFinalFields(Collection<String> newFinalFields) {
+    public void addFinalFields(String className, Collection<String> newFinalFields) {
         for (String finalField : newFinalFields) {
-            if (!finalFields.contains(finalField)) {
-                // logger.debug("Adding new field to ModifiedTargetStaticFields:" + newFinalFields);
-                finalFields.add(finalField);
-            }
+            addFinalField(className, finalField);
         }
+    }
+
+    /**
+     * Adds a final field whose final modifier was removed by our instrumentation.
+     *
+     * @param className the name of the class where the field is declared
+     * @param name      the name of the field
+     */
+    public void addFinalField(String className, String name) {
+        String fullName = className.replace('/', '.') + "." + name;
+        if (!finalFields.contains(fullName)) {
+            finalFields.add(fullName);
+        }
+    }
+
+    /**
+     * Checks if a given field is contained or not in this collection.
+     *
+     * @param className the name of the class where the field is declared
+     * @param name      the name of the field
+     * @return true if the field is contained in the collection, false otherwise
+     */
+    public boolean containsField(String className, String name) {
+        String fullName = className.replace('/', '.') + "." + name;
+        return finalFields.contains(fullName);
     }
 
     /**
@@ -82,10 +105,16 @@ public class ModifiedTargetStaticFields {
      *
      * @param name the name of the field
      * @return true if the field is contained in the collection, false otherwise
+     * @deprecated use {@link #containsField(String, String)} instead
      */
+    @Deprecated
     public boolean containsField(String name) {
-        // logger.debug("Checking if a static field was modified or not:" + name);
-        return finalFields.contains(name);
+        for (String field : finalFields) {
+            if (field.endsWith("." + name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

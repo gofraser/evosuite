@@ -41,7 +41,7 @@ public class LinePool {
      * @param methodName a {@link java.lang.String} object.
      * @param lineNo     a int.
      */
-    public static void addLine(String className, String methodName, int lineNo) {
+    public static synchronized void addLine(String className, String methodName, int lineNo) {
         if (!lineMap.containsKey(className)) {
             lineMap.put(className, new LinkedHashMap<>());
         }
@@ -60,10 +60,10 @@ public class LinePool {
      * @param methodName a {@link java.lang.String} object.
      * @return a {@link java.util.Set} object.
      */
-    public static Set<Integer> getLines(String className, String methodName) {
+    public static synchronized Set<Integer> getLines(String className, String methodName) {
         if (lineMap.containsKey(className)) {
             if (lineMap.get(className).containsKey(methodName)) {
-                return lineMap.get(className).get(methodName);
+                return new LinkedHashSet<>(lineMap.get(className).get(methodName));
             }
         }
 
@@ -76,7 +76,7 @@ public class LinePool {
      * @param className a {@link java.lang.String} object.
      * @return a {@link java.util.Set} object.
      */
-    public static Set<Integer> getLines(String className) {
+    public static synchronized Set<Integer> getLines(String className) {
         Set<Integer> lines = new LinkedHashSet<>();
         if (lineMap.containsKey(className)) {
             for (Set<Integer> methodLines : lineMap.get(className).values()) {
@@ -91,7 +91,7 @@ public class LinePool {
      *
      * @return a {@link java.util.Set} object.
      */
-    public static Set<Integer> getAllLines() {
+    public static synchronized Set<Integer> getAllLines() {
         Set<Integer> lines = new LinkedHashSet<>();
         for (String className : lineMap.keySet()) {
             for (Set<Integer> methodLines : lineMap.get(className).values()) {
@@ -106,7 +106,7 @@ public class LinePool {
      *
      * @return a {@link java.util.Set} object.
      */
-    public static int getNumLines() {
+    public static synchronized int getNumLines() {
         int num = 0;
         for (String className : lineMap.keySet()) {
             num += lineMap.get(className).size();
@@ -121,7 +121,7 @@ public class LinePool {
      *
      * @return a {@link java.util.Set} object.
      */
-    public static Set<String> getKnownClasses() {
+    public static synchronized Set<String> getKnownClasses() {
         return new HashSet<>(lineMap.keySet());
     }
 
@@ -131,11 +131,11 @@ public class LinePool {
      * @param className the name of the class.
      * @return a set of method names.
      */
-    public static Set<String> getKnownMethodsFor(String className) {
+    public static synchronized Set<String> getKnownMethodsFor(String className) {
         if (!lineMap.containsKey(className)) {
             return new HashSet<>();
         } else {
-            return lineMap.get(className).keySet();
+            return new LinkedHashSet<>(lineMap.get(className).keySet());
         }
     }
 
@@ -144,14 +144,14 @@ public class LinePool {
      *
      * @param className the name of the class.
      */
-    public static void removeClass(String className) {
+    public static synchronized void removeClass(String className) {
         lineMap.remove(className);
     }
 
     /**
      * Reset the line pool.
      */
-    public static void reset() {
+    public static synchronized void reset() {
         lineMap.clear();
     }
 }

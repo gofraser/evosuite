@@ -310,7 +310,7 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
             }
         }
         if (!modifiedStaticFields.isEmpty()) {
-            ModifiedTargetStaticFields.getInstance().addFinalFields(modifiedStaticFields);
+            ModifiedTargetStaticFields.getInstance().addFinalFields(className, modifiedStaticFields);
         }
         super.visitEnd();
     }
