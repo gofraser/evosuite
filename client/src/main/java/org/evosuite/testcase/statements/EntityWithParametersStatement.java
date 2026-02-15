@@ -274,6 +274,10 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
             objects.add(copy.getReturnValue());
         }
 
+        // Guard against false positives in candidate discovery for generics/owner types.
+        // Use the same compatibility rule as replaceParameterReference.
+        objects.removeIf(ref -> !GenericClassUtils.isAssignable(parameter.getType(), ref.getType()));
+
         if (objects.isEmpty()) {
             return false;
         }

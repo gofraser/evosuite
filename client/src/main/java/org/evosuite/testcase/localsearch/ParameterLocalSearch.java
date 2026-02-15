@@ -30,6 +30,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericClassUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,6 +99,7 @@ public class ParameterLocalSearch extends StatementLocalSearch {
             List<VariableReference> objects = test.getTestCase().getObjects(callee.getType(),
                     statement.getPosition());
             objects.remove(callee);
+            objects.removeIf(ref -> !ref.isAssignableTo(statement.getMethod().getOwnerType()));
             boolean done = false;
 
             for (VariableReference replacement : objects) {
@@ -137,6 +139,7 @@ public class ParameterLocalSearch extends StatementLocalSearch {
                 List<VariableReference> objects = test.getTestCase().getObjects(parameter.getType(),
                         statement.getPosition());
                 objects.remove(parameter);
+                objects.removeIf(ref -> !GenericClassUtils.isAssignable(parameter.getType(), ref.getType()));
                 for (VariableReference replacement : objects) {
                     statement.replaceParameterReference(replacement, numParameter);
                     logger.info("Resulting test: " + test.getTestCase().toCode());
@@ -190,6 +193,7 @@ public class ParameterLocalSearch extends StatementLocalSearch {
                 List<VariableReference> objects = test.getTestCase().getObjects(parameter.getType(),
                         statement.getPosition());
                 objects.remove(parameter);
+                objects.removeIf(ref -> !GenericClassUtils.isAssignable(parameter.getType(), ref.getType()));
                 for (VariableReference replacement : objects) {
                     statement.replaceParameterReference(replacement, numParameter);
                     if (objective.hasImproved(test)) {
@@ -225,6 +229,7 @@ public class ParameterLocalSearch extends StatementLocalSearch {
             List<VariableReference> objects = test.getTestCase().getObjects(source.getType(),
                     statement.getPosition());
             objects.remove(source);
+            objects.removeIf(ref -> !ref.isAssignableTo(statement.getField().getOwnerType()));
 
             for (VariableReference replacement : objects) {
                 statement.setSource(replacement);

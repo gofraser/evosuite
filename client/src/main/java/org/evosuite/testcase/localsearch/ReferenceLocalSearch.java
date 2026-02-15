@@ -29,6 +29,7 @@ import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.Randomness;
+import org.evosuite.utils.generic.GenericClassUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -249,6 +250,7 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
             List<VariableReference> objects = test.getTestCase().getObjects(callee.getType(),
                     statement.getPosition());
             objects.remove(callee);
+            objects.removeIf(ref -> !ref.isAssignableTo(statement.getMethod().getOwnerType()));
             if (objects.isEmpty()) {
                 return false;
             }
@@ -263,6 +265,7 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
                     statement.getPosition());
             objects.remove(parameter);
             objects.remove(statement.getReturnValue());
+            objects.removeIf(ref -> !GenericClassUtils.isAssignable(parameter.getType(), ref.getType()));
             NullStatement nullStatement = new NullStatement(test.getTestCase(),
                     parameter.getType());
             if (!parameter.isPrimitive()) {
@@ -306,6 +309,7 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
                 statement.getPosition());
         objects.remove(parameter);
         objects.remove(statement.getReturnValue());
+        objects.removeIf(ref -> !GenericClassUtils.isAssignable(parameter.getType(), ref.getType()));
 
         NullStatement nullStatement = new NullStatement(test.getTestCase(),
                 parameter.getType());
@@ -340,6 +344,7 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
             List<VariableReference> objects = test.getTestCase().getObjects(source.getType(),
                     statement.getPosition());
             objects.remove(source);
+            objects.removeIf(ref -> !ref.isAssignableTo(statement.getField().getOwnerType()));
 
             if (!objects.isEmpty()) {
                 statement.setSource(Randomness.choice(objects));
