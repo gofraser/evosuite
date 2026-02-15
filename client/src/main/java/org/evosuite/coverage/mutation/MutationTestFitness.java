@@ -325,9 +325,13 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
                 .getClassLoaderForSUT());
         this.mutation = pool.getMutant(mutantId);
         if (this.mutation == null) {
+            boolean hasFallbackMetadata = mutationClassName != null && mutationMethodName != null;
             if (pool.getMutantCounter() == 0) {
                 logger.debug("mutation id not found {} while deserializing; leaving mutation null (empty pool)",
                         mutantId);
+            } else if (hasFallbackMetadata) {
+                logger.debug("mutation id not found {} while deserializing; leaving mutation null (pool size: {})",
+                        mutantId, pool.getMutantCounter());
             } else {
                 logger.warn("mutation id not found {} while deserializing; leaving mutation null", mutantId);
             }
