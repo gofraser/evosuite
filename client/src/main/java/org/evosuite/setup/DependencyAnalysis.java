@@ -541,6 +541,11 @@ public class DependencyAnalysis {
         }
     }
 
+    /**
+     * <p>logClasspathAnalysisSummary.</p>
+     *
+     * @param classPath a {@link java.util.List} object.
+     */
     @SuppressWarnings("deprecation")
     public static void logClasspathAnalysisSummary(List<String> classPath) {
         long classpathEntries = classPath.stream().filter(entry -> entry != null && !entry.isEmpty()).count();

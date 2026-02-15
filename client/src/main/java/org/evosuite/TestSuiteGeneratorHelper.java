@@ -28,10 +28,10 @@ import org.evosuite.assertion.UnitAssertionGenerator;
 import org.evosuite.contracts.ContractChecker;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchPool;
+import org.evosuite.instrumentation.LinePool;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.strategy.*;
-import org.evosuite.instrumentation.LinePool;
 import org.evosuite.symbolic.dse.DSEStrategyFactory;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -47,6 +47,12 @@ import java.util.Set;
  */
 public class TestSuiteGeneratorHelper {
 
+    /**
+     * <p>getCriterionDisplayName.</p>
+     *
+     * @param criterion a {@link org.evosuite.Properties.Criterion} object.
+     * @return a {@link java.lang.String} object.
+     */
     public static String getCriterionDisplayName(Criterion criterion) {
         switch (criterion) {
             case WEAKMUTATION:

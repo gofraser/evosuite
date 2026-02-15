@@ -22,8 +22,8 @@ package org.evosuite.coverage;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.TestGenerationContext;
+import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.coverage.ambiguity.AmbiguityCoverageSuiteFitness;
 import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
 import org.evosuite.rmi.ClientServices;

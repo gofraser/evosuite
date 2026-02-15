@@ -20,8 +20,6 @@
 package org.evosuite.assertion;
 
 import org.evosuite.TestGenerationContext;
-import org.evosuite.setup.TestClusterUtils;
-import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Type;
 
 import java.io.IOException;
@@ -35,7 +33,7 @@ import java.lang.reflect.Method;
  * then calls an inner inspector on the result. This produces assertions like
  * {@code assertEquals(3, obj.getList().size())}.
  *
- * Exactly 2 levels deep — no arbitrary chaining.
+ * <p>Exactly 2 levels deep — no arbitrary chaining.
  */
 public class ChainedInspector extends Inspector {
 
@@ -45,6 +43,13 @@ public class ChainedInspector extends Inspector {
     private transient Class<?> outerClass;
     private final Inspector innerInspector;
 
+    /**
+     * <p>Constructor for ChainedInspector.</p>
+     *
+     * @param clazz a {@link java.lang.Class} object.
+     * @param outerMethod a {@link java.lang.reflect.Method} object.
+     * @param innerInspector a {@link org.evosuite.assertion.Inspector} object.
+     */
     public ChainedInspector(Class<?> clazz, Method outerMethod, Inspector innerInspector) {
         // Pass the outer class and outer method to the superclass.
         // We override getValue and getMethodCall to implement chaining.

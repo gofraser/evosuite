@@ -117,6 +117,13 @@ public class MethodStatement extends EntityWithParametersStatement {
         init(method, callee);
     }
 
+    /**
+     * <p>isCompatibleCalleeType.</p>
+     *
+     * @param method a {@link org.evosuite.utils.GenericMethod} object.
+     * @param calleeType a {@link java.lang.reflect.Type} object.
+     * @return a boolean.
+     */
     public static boolean isCompatibleCalleeType(GenericMethod method, java.lang.reflect.Type calleeType) {
         if (method == null || calleeType == null) {
             return false;

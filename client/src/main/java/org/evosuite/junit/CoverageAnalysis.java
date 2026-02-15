@@ -24,9 +24,9 @@ import junit.framework.TestCase;
 import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TestSuiteGenerator;
+import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.annotations.EvoSuiteTest;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.classpath.ResourceList;
@@ -590,7 +590,8 @@ public class CoverageAnalysis {
             Properties.TARGET_CLASS = targetClass;
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Target class "
                     + Properties.TARGET_CLASS);
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Resulting code coverage:");
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Resulting code coverage:");
             ClientServices.getInstance().getClientNode().updateProperty("TARGET_CLASS", Properties.TARGET_CLASS);
 
             for (Criterion c : criterion) {
