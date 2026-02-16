@@ -21,6 +21,7 @@ package org.evosuite.utils.generic;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
+import com.googlecode.gentyref.GenericTypeReflector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,30 +61,11 @@ public class GenericClassUtils {
          * type arguments (eg, ArrayList<String>), but avoids rejecting valid raw
          * assignments (eg, ArrayList<Object> -> ArrayList<E>).
          */
-        if (lhsType instanceof ParameterizedType) {
-            ParameterizedType lhsParam = (ParameterizedType) lhsType;
-            boolean allTypeVars = true;
-            for (Type t : lhsParam.getActualTypeArguments()) {
-                if (!(t instanceof TypeVariable)) {
-                    allTypeVars = false;
-                    break;
-                }
-            }
-            if (allTypeVars) {
-                Type lhsRaw = lhsParam.getRawType();
-                Class<?> lhsRawClass = (lhsRaw instanceof Class) ? (Class<?>) lhsRaw : null;
-                Class<?> rhsRawClass = null;
-                if (rhsType instanceof Class) {
-                    rhsRawClass = (Class<?>) rhsType;
-                } else if (rhsType instanceof ParameterizedType) {
-                    Type rhsRaw = ((ParameterizedType) rhsType).getRawType();
-                    if (rhsRaw instanceof Class) {
-                        rhsRawClass = (Class<?>) rhsRaw;
-                    }
-                }
-                if (lhsRawClass != null && rhsRawClass != null) {
-                    return lhsRawClass.isAssignableFrom(rhsRawClass);
-                }
+        if (isPurelyGeneric(lhsType)) {
+            Class<?> lhsRawClass = GenericTypeReflector.erase(lhsType);
+            Class<?> rhsRawClass = GenericTypeReflector.erase(rhsType);
+            if (lhsRawClass != null && rhsRawClass != null) {
+                return lhsRawClass.isAssignableFrom(rhsRawClass);
             }
         }
 
@@ -93,6 +75,25 @@ public class GenericClassUtils {
             logger.debug("Found unassignable type: " + e);
             return false;
         }
+    }
+
+    /**
+     * Returns true if the given type is a parameterized type or a generic array
+     * where all type arguments are type variables.
+     */
+    private static boolean isPurelyGeneric(Type type) {
+        if (type instanceof ParameterizedType) {
+            ParameterizedType paramType = (ParameterizedType) type;
+            for (Type t : paramType.getActualTypeArguments()) {
+                if (!(t instanceof TypeVariable)) {
+                    return false;
+                }
+            }
+            return true;
+        } else if (type instanceof GenericArrayType) {
+            return isPurelyGeneric(((GenericArrayType) type).getGenericComponentType());
+        }
+        return false;
     }
 
 
