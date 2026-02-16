@@ -458,7 +458,8 @@ public class TestFactory {
 
         }
 
-        VariableReference var = createOrReuseVariable(test, field.getFieldType(),
+        Type expectedFieldType = normalizeTypeVariablesToWildcardsIfNeeded(field.getFieldType());
+        VariableReference var = createOrReuseVariable(test, expectedFieldType,
                 position, recursionDepth, callee, true, false, false);
         int newLength = test.size();
         position += (newLength - length);
@@ -496,7 +497,8 @@ public class TestFactory {
 
         FieldReference fieldVar = new FieldReference(test, field, callee);
         int length = test.size();
-        VariableReference value = createOrReuseVariable(test, fieldVar.getType(),
+        Type expectedFieldType = normalizeTypeVariablesToWildcardsIfNeeded(fieldVar.getType());
+        VariableReference value = createOrReuseVariable(test, expectedFieldType,
                 position, 0, callee, true, false, true);
 
         int newLength = test.size();
@@ -509,6 +511,44 @@ public class TestFactory {
         assert (test.isValid());
 
         return ret;
+    }
+
+    private static Type normalizeTypeVariablesToWildcardsIfNeeded(Type type) {
+        GenericClass<?> parameterClass = GenericClassFactory.get(type);
+        Type normalizedType = type;
+        if (parameterClass.hasTypeVariables()) {
+            normalizedType = parameterClass.getWithWildcardTypes().getType();
+        }
+        return normalizeClassLiteralTypeArgumentByErasure(normalizedType);
+    }
+
+    /**
+     * Class literals are reified to raw classes (eg, LinkedList.class has type Class<LinkedList>).
+     * If a reflected field expects Class<SomeGenericType>, normalize it to Class<SomeRawType> so that
+     * generated class literals can be assigned without triggering false generic mismatches.
+     */
+    private static Type normalizeClassLiteralTypeArgumentByErasure(Type type) {
+        if (!(type instanceof ParameterizedType)) {
+            return type;
+        }
+
+        ParameterizedType parameterizedType = (ParameterizedType) type;
+        if (!(parameterizedType.getRawType() instanceof Class)
+                || !Class.class.equals(parameterizedType.getRawType())) {
+            return type;
+        }
+
+        Type[] args = parameterizedType.getActualTypeArguments();
+        if (args.length != 1) {
+            return type;
+        }
+
+        Class<?> erasedClassArgument = GenericClassFactory.get(args[0]).getRawClass();
+        if (erasedClassArgument == null) {
+            return type;
+        }
+
+        return GenericClassFactory.get(Class.class).getWithParameterTypes(new Type[]{erasedClassArgument}).getType();
     }
 
     /**
@@ -1512,11 +1552,12 @@ public class TestFactory {
                                                     boolean allowNull, boolean excludeCalleeGenerators,
                                                     boolean canUseMocks)
             throws ConstructionFailedException {
+        Type normalizedParameterType = normalizeTypeVariablesToWildcardsIfNeeded(parameterType);
         VariableReference ref = createOrReuseVariableInternal(test, parameterType, position, recursionDepth,
                 exclude, allowNull, excludeCalleeGenerators, canUseMocks);
-        if (!ref.isAssignableTo(parameterType)) {
-            String message = ref + " cannot be assigned to " + parameterType;
-            throwCannotAssignIfNeeded(message, test, position, parameterType, ref);
+        if (!ref.isAssignableTo(normalizedParameterType)) {
+            String message = ref + " cannot be assigned to " + normalizedParameterType;
+            throwCannotAssignIfNeeded(message, test, position, normalizedParameterType, ref);
             throw new ConstructionFailedException(message);
         }
         return ref;
@@ -2689,6 +2730,9 @@ public class TestFactory {
 
     private static void throwCannotAssignIfNeeded(String message, TestCase test, int position, Type expectedType,
                                                   VariableReference actualVar) {
+        if (actualVar != null && isClassLiteralAssignableByErasure(expectedType, actualVar.getType())) {
+            return;
+        }
         if (message != null && message.contains("cannot be assigned")) {
             StringBuilder diagnostic = new StringBuilder(512);
             diagnostic.append(message)
@@ -2699,6 +2743,31 @@ public class TestFactory {
                     .append("\nTest:\n").append(test.toCode());
             throw new IllegalStateException(diagnostic.toString());
         }
+    }
+
+    private static boolean isClassLiteralAssignableByErasure(Type expectedType, Type actualType) {
+        if (!(expectedType instanceof ParameterizedType) || !(actualType instanceof ParameterizedType)) {
+            return false;
+        }
+
+        ParameterizedType expected = (ParameterizedType) expectedType;
+        ParameterizedType actual = (ParameterizedType) actualType;
+        if (!(expected.getRawType() instanceof Class) || !(actual.getRawType() instanceof Class)) {
+            return false;
+        }
+        if (!Class.class.equals(expected.getRawType()) || !Class.class.equals(actual.getRawType())) {
+            return false;
+        }
+
+        Type[] expectedArgs = expected.getActualTypeArguments();
+        Type[] actualArgs = actual.getActualTypeArguments();
+        if (expectedArgs.length != 1 || actualArgs.length != 1) {
+            return false;
+        }
+
+        Class<?> expectedErased = GenericClassFactory.get(expectedArgs[0]).getRawClass();
+        Class<?> actualErased = GenericClassFactory.get(actualArgs[0]).getRawClass();
+        return expectedErased != null && actualErased != null && expectedErased.isAssignableFrom(actualErased);
     }
 
 }

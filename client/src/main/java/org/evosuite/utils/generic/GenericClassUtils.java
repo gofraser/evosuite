@@ -19,9 +19,9 @@
  */
 package org.evosuite.utils.generic;
 
+import com.googlecode.gentyref.CaptureType;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
-import com.googlecode.gentyref.GenericTypeReflector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,12 +61,16 @@ public class GenericClassUtils {
          * type arguments (eg, ArrayList<String>), but avoids rejecting valid raw
          * assignments (eg, ArrayList<Object> -> ArrayList<E>).
          */
-        if (isPurelyGeneric(lhsType)) {
-            Class<?> lhsRawClass = GenericTypeReflector.erase(lhsType);
-            Class<?> rhsRawClass = GenericTypeReflector.erase(rhsType);
+        if (isPurelyGeneric(lhsType) && isConcreteInstantiation(rhsType)) {
+            Class<?> lhsRawClass = getRawClass(lhsType);
+            Class<?> rhsRawClass = getRawClass(rhsType);
             if (lhsRawClass != null && rhsRawClass != null) {
                 return lhsRawClass.isAssignableFrom(rhsRawClass);
             }
+        }
+
+        if (isClassLiteralAssignable(lhsType, rhsType)) {
+            return true;
         }
 
         try {
@@ -79,21 +83,123 @@ public class GenericClassUtils {
 
     /**
      * Returns true if the given type is a parameterized type or a generic array
-     * where all type arguments are type variables.
+     * where all type arguments are "external" type variables (ie, not declared
+     * by the raw class itself).
      */
     private static boolean isPurelyGeneric(Type type) {
         if (type instanceof ParameterizedType) {
             ParameterizedType paramType = (ParameterizedType) type;
+            Type rawType = paramType.getRawType();
+            Class<?> rawClass = rawType instanceof Class ? (Class<?>) rawType : null;
+            boolean hasExternalTypeVariable = false;
             for (Type t : paramType.getActualTypeArguments()) {
-                if (!(t instanceof TypeVariable)) {
+                if (!isTypeVariableLike(t)) {
                     return false;
                 }
+                if (t instanceof CaptureType) {
+                    hasExternalTypeVariable = true;
+                } else if (rawClass != null
+                        && ((TypeVariable<?>) t).getGenericDeclaration() != rawClass) {
+                    hasExternalTypeVariable = true;
+                }
             }
-            return true;
+            return hasExternalTypeVariable;
         } else if (type instanceof GenericArrayType) {
             return isPurelyGeneric(((GenericArrayType) type).getGenericComponentType());
         }
         return false;
+    }
+
+    private static boolean isTypeVariableLike(Type type) {
+        return type instanceof TypeVariable || type instanceof CaptureType;
+    }
+
+    /**
+     * Returns the raw class for assignment compatibility checks.
+     * This intentionally ignores wildcard and type-variable erasure to avoid
+     * over-approximating assignability.
+     */
+    private static Class<?> getRawClass(Type type) {
+        if (type instanceof Class) {
+            return (Class<?>) type;
+        }
+        if (type instanceof ParameterizedType) {
+            Type rawType = ((ParameterizedType) type).getRawType();
+            if (rawType instanceof Class) {
+                return (Class<?>) rawType;
+            }
+        }
+        if (type instanceof GenericArrayType) {
+            Class<?> componentType = getRawClass(((GenericArrayType) type).getGenericComponentType());
+            if (componentType != null) {
+                return Array.newInstance(componentType, 0).getClass();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns true if the type is a concrete parameterized/generic-array instantiation.
+     * This excludes wildcard and type-variable based types to avoid over-approximating.
+     */
+    private static boolean isConcreteInstantiation(Type type) {
+        if (type instanceof ParameterizedType) {
+            for (Type argument : ((ParameterizedType) type).getActualTypeArguments()) {
+                if (!isConcreteTypeArgument(argument)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (type instanceof GenericArrayType) {
+            return isConcreteInstantiation(((GenericArrayType) type).getGenericComponentType());
+        }
+        return false;
+    }
+
+    private static boolean isConcreteTypeArgument(Type type) {
+        if (type instanceof Class) {
+            return true;
+        }
+        if (type instanceof ParameterizedType) {
+            return isConcreteInstantiation(type);
+        }
+        if (type instanceof GenericArrayType) {
+            return isConcreteInstantiation(type);
+        }
+        return false;
+    }
+
+    /**
+     * Class literals are reified only to raw classes (eg, LinkedList.class has type Class<LinkedList>).
+     * Allow assignment to Class<T> when both operands are Class<...> and the nested class erasures match
+     * the normal class-assignability relation.
+     */
+    private static boolean isClassLiteralAssignable(Type lhsType, Type rhsType) {
+        Class<?> lhsRawClass = getRawClass(lhsType);
+        Class<?> rhsRawClass = getRawClass(rhsType);
+        if (!Class.class.equals(lhsRawClass) || !Class.class.equals(rhsRawClass)) {
+            return false;
+        }
+
+        Class<?> lhsClassArg = getClassLiteralTypeArgument(lhsType);
+        Class<?> rhsClassArg = getClassLiteralTypeArgument(rhsType);
+        return lhsClassArg != null && rhsClassArg != null && lhsClassArg.isAssignableFrom(rhsClassArg);
+    }
+
+    private static Class<?> getClassLiteralTypeArgument(Type classType) {
+        if (!(classType instanceof ParameterizedType)) {
+            return null;
+        }
+        ParameterizedType parameterized = (ParameterizedType) classType;
+        if (!(parameterized.getRawType() instanceof Class) || !Class.class.equals(parameterized.getRawType())) {
+            return null;
+        }
+        Type[] actualArgs = parameterized.getActualTypeArguments();
+        if (actualArgs.length != 1) {
+            return null;
+        }
+        return getRawClass(actualArgs[0]);
     }
 
 

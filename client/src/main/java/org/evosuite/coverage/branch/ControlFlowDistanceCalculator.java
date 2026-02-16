@@ -36,9 +36,12 @@ import org.slf4j.LoggerFactory;
 import java.util.AbstractMap;
 import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 
@@ -77,6 +80,7 @@ public class ControlFlowDistanceCalculator {
     private static final Logger logger = LoggerFactory.getLogger(ControlFlowDistanceCalculator.class);
 
     private static final int TIMEOUT_APPROACH_LEVEL = 20;
+    private static final Map<Integer, Integer> CDG_DEPTH_CACHE = new ConcurrentHashMap<>();
 
     /**
      * Calculates the ControlFlowDistance indicating how far away the given
@@ -165,6 +169,12 @@ public class ControlFlowDistanceCalculator {
         return distance;
     }
 
+    private static ControlFlowDistance worstPossibleDistanceWithoutCDGComputation() {
+        ControlFlowDistance distance = new ControlFlowDistance();
+        distance.setApproachLevel(TIMEOUT_APPROACH_LEVEL);
+        return distance;
+    }
+
     /**
      * If there is an exception in a superconstructor, then the corresponding
      * constructor might not be included in the execution trace.
@@ -236,9 +246,10 @@ public class ControlFlowDistanceCalculator {
         for (MethodCall call : result.getTrace().getMethodCalls()) {
             if (call.className.equals(className) && call.methodName.equals(methodName)) {
                 ControlFlowDistance distance;
-                Set<Branch> handled = new HashSet<>();
+                Map<BranchOutcome, ControlFlowDistance> memoizedDistances = new HashMap<>();
+                Set<Integer> activeBranches = new HashSet<>();
                 distance = getNonRootDistance(result, call, branch, value, className,
-                        methodName, handled);
+                        methodName, memoizedDistances, activeBranches);
                 if (distance.compareTo(resultDistance) < 0) {
                     resultDistance = distance;
                 }
@@ -251,7 +262,9 @@ public class ControlFlowDistanceCalculator {
     private static ControlFlowDistance getNonRootDistance(ExecutionResult result,
                                                           MethodCall call, Branch branch, boolean value,
                                                           String className,
-                                                          String methodName, Set<Branch> handled) {
+                                                          String methodName,
+                                                          Map<BranchOutcome, ControlFlowDistance> memoizedDistances,
+                                                          Set<Integer> activeBranches) {
 
         if (branch == null) {
             throw new IllegalStateException(
@@ -261,61 +274,79 @@ public class ControlFlowDistanceCalculator {
             throw new IllegalArgumentException("null given");
         }
 
-        if (handled.contains(branch)) {
-            return worstPossibleDistanceForMethod(branch);
+        BranchOutcome branchOutcome = new BranchOutcome(branch.getActualBranchId(), value);
+        ControlFlowDistance memoizedDistance = memoizedDistances.get(branchOutcome);
+        if (memoizedDistance != null) {
+            return copyDistance(memoizedDistance);
         }
-        handled.add(branch);
 
-        List<Double> trueDistances = call.trueDistanceTrace;
-        List<Double> falseDistances = call.falseDistanceTrace;
+        if (!activeBranches.add(branch.getActualBranchId())) {
+            // Fast escape for cycles discovered during recursive distance expansion.
+            // Computing CDG depth here can be very expensive and does not improve
+            // guidance quality for cyclic dependencies.
+            return worstPossibleDistanceWithoutCDGComputation();
+        }
 
-        Set<Integer> branchTracePositions = determineBranchTracePositions(call, branch);
+        try {
+            List<Double> trueDistances = call.trueDistanceTrace;
+            List<Double> falseDistances = call.falseDistanceTrace;
 
-        if (!branchTracePositions.isEmpty()) {
+            Set<Integer> branchTracePositions = determineBranchTracePositions(call, branch);
 
-            // branch was traced in given path
-            ControlFlowDistance resultDistance = new ControlFlowDistance(0, Double.MAX_VALUE);
+            if (!branchTracePositions.isEmpty()) {
 
-            for (Integer branchTracePosition : branchTracePositions) {
-                if (value) {
-                    resultDistance.setBranchDistance(Math.min(resultDistance.getBranchDistance(),
-                            trueDistances.get(branchTracePosition)));
-                } else {
-                    resultDistance.setBranchDistance(Math.min(resultDistance.getBranchDistance(),
-                            falseDistances.get(branchTracePosition)));
+                // branch was traced in given path
+                ControlFlowDistance resultDistance = new ControlFlowDistance(0, Double.MAX_VALUE);
+
+                for (Integer branchTracePosition : branchTracePositions) {
+                    if (value) {
+                        resultDistance.setBranchDistance(Math.min(resultDistance.getBranchDistance(),
+                                trueDistances.get(branchTracePosition)));
+                    } else {
+                        resultDistance.setBranchDistance(Math.min(resultDistance.getBranchDistance(),
+                                falseDistances.get(branchTracePosition)));
+                    }
                 }
+
+                if (resultDistance.getBranchDistance() == Double.MAX_VALUE) {
+                    throw new IllegalStateException("should be impossible");
+                }
+
+                memoizedDistances.put(branchOutcome, copyDistance(resultDistance));
+                return resultDistance;
             }
 
-            if (resultDistance.getBranchDistance() == Double.MAX_VALUE) {
-                throw new IllegalStateException("should be impossible");
-            }
+            ControlFlowDistance controlDependenceDistance = getControlDependenceDistancesFor(
+                    result,
+                    call,
+                    branch.getInstruction(),
+                    className,
+                    methodName,
+                    memoizedDistances,
+                    activeBranches);
 
-            return resultDistance;
+            controlDependenceDistance.increaseApproachLevel();
+            memoizedDistances.put(branchOutcome, copyDistance(controlDependenceDistance));
+
+            return controlDependenceDistance;
+        } finally {
+            activeBranches.remove(branch.getActualBranchId());
         }
-
-        ControlFlowDistance controlDependenceDistance = getControlDependenceDistancesFor(
-                result,
-                call,
-                branch.getInstruction(),
-                className,
-                methodName,
-                handled);
-
-        controlDependenceDistance.increaseApproachLevel();
-
-        return controlDependenceDistance;
     }
 
     private static ControlFlowDistance getControlDependenceDistancesFor(
             ExecutionResult result, MethodCall call, BytecodeInstruction instruction,
-            String className, String methodName, Set<Branch> handled) {
+            String className, String methodName,
+            Map<BranchOutcome, ControlFlowDistance> memoizedDistances,
+            Set<Integer> activeBranches) {
 
         Set<ControlFlowDistance> cdDistances = getDistancesForControlDependentBranchesOf(result,
                 call,
                 instruction,
                 className,
                 methodName,
-                handled);
+                memoizedDistances,
+                activeBranches);
 
         if (cdDistances == null) {
             throw new IllegalStateException("expect cdDistances to never be null");
@@ -332,7 +363,9 @@ public class ControlFlowDistanceCalculator {
      */
     private static Set<ControlFlowDistance> getDistancesForControlDependentBranchesOf(
             ExecutionResult result, MethodCall call, BytecodeInstruction instruction,
-            String className, String methodName, Set<Branch> handled) {
+            String className, String methodName,
+            Map<BranchOutcome, ControlFlowDistance> memoizedDistances,
+            Set<Integer> activeBranches) {
 
         if (isExceptionHandlerEntry(instruction)) {
             Set<ControlFlowDistance> resultDistance = new HashSet<>();
@@ -352,7 +385,9 @@ public class ControlFlowDistanceCalculator {
             ControlFlowDistance nextDistance = getNonRootDistance(result, call,
                     next.getBranch(),
                     nextValue, className,
-                    methodName, handled);
+                    methodName,
+                    memoizedDistances,
+                    activeBranches);
             assert (nextDistance != null);
             resultDistance.add(nextDistance);
         }
@@ -373,8 +408,8 @@ public class ControlFlowDistanceCalculator {
      * @return the CDG depth, or {@link Integer#MAX_VALUE} if a cycle is detected or depth cannot be determined
      */
     static int getCDGDepth(Branch branch) {
-        BytecodeInstruction instruction = branch.getInstruction();
-        return computeCDGDepth(instruction);
+        return CDG_DEPTH_CACHE.computeIfAbsent(branch.getActualBranchId(),
+                ignored -> computeCDGDepth(branch.getInstruction()));
     }
 
     private static int computeCDGDepth(BytecodeInstruction startInstruction) {
@@ -446,6 +481,37 @@ public class ControlFlowDistanceCalculator {
             }
         }
         return positions;
+    }
+
+    private static ControlFlowDistance copyDistance(ControlFlowDistance original) {
+        return new ControlFlowDistance(original.getApproachLevel(), original.getBranchDistance());
+    }
+
+    private static final class BranchOutcome {
+        private final int branchId;
+        private final boolean branchValue;
+
+        private BranchOutcome(int branchId, boolean branchValue) {
+            this.branchId = branchId;
+            this.branchValue = branchValue;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof BranchOutcome)) {
+                return false;
+            }
+            BranchOutcome that = (BranchOutcome) o;
+            return branchId == that.branchId && branchValue == that.branchValue;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(branchId, branchValue);
+        }
     }
 
 }

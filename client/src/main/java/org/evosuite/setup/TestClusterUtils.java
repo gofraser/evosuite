@@ -29,6 +29,7 @@ import org.junit.runners.Suite;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -121,7 +122,7 @@ public class TestClusterUtils {
     public static void makeAccessible(Field field) {
         if (!Modifier.isPublic(field.getModifiers())
                 || !Modifier.isPublic(field.getDeclaringClass().getModifiers())) {
-            field.setAccessible(true);
+            makeAccessibleSafely(field);
         }
     }
 
@@ -133,7 +134,7 @@ public class TestClusterUtils {
     public static void makeAccessible(Method method) {
         if (!Modifier.isPublic(method.getModifiers())
                 || !Modifier.isPublic(method.getDeclaringClass().getModifiers())) {
-            method.setAccessible(true);
+            makeAccessibleSafely(method);
         }
     }
 
@@ -145,7 +146,15 @@ public class TestClusterUtils {
     public static void makeAccessible(Constructor<?> constructor) {
         if (!Modifier.isPublic(constructor.getModifiers())
                 || !Modifier.isPublic(constructor.getDeclaringClass().getModifiers())) {
-            constructor.setAccessible(true);
+            makeAccessibleSafely(constructor);
+        }
+    }
+
+    private static void makeAccessibleSafely(AccessibleObject object) {
+        try {
+            object.setAccessible(true);
+        } catch (RuntimeException e) {
+            logger.debug("Cannot make reflective object accessible: {}", object, e);
         }
     }
 

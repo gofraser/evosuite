@@ -654,8 +654,10 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     private static boolean shouldForceSubclassMockMaker() {
         int major = getJavaMajorVersion();
         if (major >= 25) {
-            // Default to subclass mock maker on Java 25+ unless explicitly overridden.
-            return !Boolean.getBoolean("evosuite.mockito.inline");
+            // Keep Mockito's default mock maker unless explicitly forced.
+            // For Java 25+, subclass mode remains available via fallback logic
+            // when plugin initialization fails, or via explicit opt-in.
+            return Boolean.getBoolean("evosuite.mockito.subclass");
         }
         return false;
     }
@@ -682,6 +684,22 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
         return msg.contains("MockMaker") || msg.contains("Mockito is unable to load");
+    }
+
+    private static Throwable getRootCause(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null && current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        return current;
+    }
+
+    private static boolean isCodeUnderTestInitializationFailure(Throwable throwable) {
+        Throwable rootCause = getRootCause(throwable);
+        return rootCause instanceof NoClassDefFoundError
+                || rootCause instanceof ExceptionInInitializerError
+                || rootCause instanceof ClassNotFoundException
+                || rootCause instanceof LinkageError;
     }
 
     @Override
@@ -877,6 +895,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                     } catch (Throwable t) {
                         AtMostOnceLogger.error(logger, "Failed to use Mockito on " + targetClass
                                 + ": " + t.getMessage());
+                        if (isCodeUnderTestInitializationFailure(t)) {
+                            throw new CodeUnderTestException(t);
+                        }
                         throw new EvosuiteError(t);
                     }
 

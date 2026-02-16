@@ -450,6 +450,15 @@ public class MethodCallReplacementCache {
                 continue;
             }
 
+            try {
+                Method mockMethod = mockClass.getMethod(m.getName(), m.getParameterTypes());
+                if (!Modifier.isStatic(mockMethod.getModifiers())) {
+                    continue;
+                }
+            } catch (NoSuchMethodException e) {
+                continue;
+            }
+
             String desc = Type.getMethodDescriptor(m);
             addReplacementCall(new MethodCallReplacement(target.getCanonicalName().replace('.', '/'), m.getName(), desc,
                     Opcodes.INVOKESTATIC, mockClass.getCanonicalName().replace('.', '/'), m.getName(), desc, false,

@@ -19,7 +19,13 @@
  */
 package org.evosuite.setup;
 
+import org.junit.Assume;
 import org.junit.Test;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -42,5 +48,52 @@ public class TestClusterUtilTest {
     @Test
     public void testIsAnonymousWithNameEndingWithDollar() {
         assertFalse(TestClusterUtils.isAnonymousClass("Option$None$"));
+    }
+
+    @Test
+    public void testMakeAccessibleHandlesInaccessibleJdkMembers() throws Exception {
+        Class<?> clazz;
+        try {
+            clazz = Class.forName("sun.print.RasterPrinterJob");
+        } catch (ClassNotFoundException e) {
+            Assume.assumeNoException(e);
+            return;
+        }
+
+        Field field;
+        try {
+            field = clazz.getDeclaredField("debugPrint");
+        } catch (NoSuchFieldException e) {
+            Assume.assumeNoException(e);
+            return;
+        }
+
+        Method method = null;
+        for (Method candidate : clazz.getDeclaredMethods()) {
+            if (!Modifier.isPublic(candidate.getModifiers())) {
+                method = candidate;
+                break;
+            }
+        }
+        if (method == null) {
+            Assume.assumeTrue("No non-public method available", false);
+            return;
+        }
+
+        Constructor<?> constructor = null;
+        for (Constructor<?> candidate : clazz.getDeclaredConstructors()) {
+            if (!Modifier.isPublic(candidate.getModifiers())) {
+                constructor = candidate;
+                break;
+            }
+        }
+        if (constructor == null) {
+            Assume.assumeTrue("No non-public constructor available", false);
+            return;
+        }
+
+        TestClusterUtils.makeAccessible(field);
+        TestClusterUtils.makeAccessible(method);
+        TestClusterUtils.makeAccessible(constructor);
     }
 }

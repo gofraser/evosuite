@@ -14,10 +14,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class EntityWithParametersStatementTest {
 
     private static class GenericOwner<E> {
+        public ArrayList<E> values;
+
         public void accept(ArrayList<E> value) {
             // no-op
         }
@@ -44,5 +47,14 @@ public class EntityWithParametersStatementTest {
 
         assertEquals(replacement, statement.getParameterReferences().get(0));
     }
-}
 
+    @Test
+    public void testRawOwnerGenericFieldAcceptsConcreteArrayListArgument() throws Exception {
+        Type fieldType = GenericOwner.class.getDeclaredField("values").getGenericType();
+        Type arrayListOfStringType = new ParameterizedTypeImpl(ArrayList.class,
+                new Type[]{String.class}, null);
+
+        VariableReference candidate = new VariableReferenceImpl(new DefaultTestCase(), arrayListOfStringType);
+        assertTrue(candidate.isAssignableTo(fieldType));
+    }
+}

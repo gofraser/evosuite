@@ -224,7 +224,12 @@ public class FieldStatement extends AbstractStatement {
                         throw new EvosuiteError(e);
                     }
 
-                    Object ret = field.getField().get(sourceObject);
+                    Object ret;
+                    try {
+                        ret = field.getField().get(sourceObject);
+                    } catch (IllegalAccessException e) {
+                        throw new CodeUnderTestException(e);
+                    }
                     if (ret != null && !retval.isAssignableFrom(ret.getClass())) {
                         throw new CodeUnderTestException(new ClassCastException());
                     }

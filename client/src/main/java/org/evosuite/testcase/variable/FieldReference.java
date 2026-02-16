@@ -23,7 +23,6 @@ package org.evosuite.testcase.variable;
 import org.evosuite.runtime.Reflection;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.CodeUnderTestException;
-import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.utils.generic.GenericField;
 import org.objectweb.asm.commons.GeneratorAdapter;
@@ -160,9 +159,9 @@ public class FieldReference extends VariableReferenceImpl {
                     + e, e);
             throw new CodeUnderTestException(e.getCause());
         } catch (IllegalAccessException e) {
-            logger.error("Error accessing field " + field + " of object " + source + ": "
+            logger.debug("Error accessing field " + field + " of object " + source + ": "
                     + e, e);
-            throw new EvosuiteError(e);
+            throw new CodeUnderTestException(e);
         } catch (NullPointerException | ExceptionInInitializerError | NoClassDefFoundError e) {
             throw new CodeUnderTestException(e);
         }
@@ -213,7 +212,7 @@ public class FieldReference extends VariableReferenceImpl {
                     + field.getField().toString()
                     + " of type: " + field.getField().getType().getCanonicalName()
                     + " " + e, e);
-            throw new EvosuiteError(e);
+            throw new CodeUnderTestException(e);
         } catch (NullPointerException | ExceptionInInitializerError | NoClassDefFoundError e) {
             throw new CodeUnderTestException(e);
         }

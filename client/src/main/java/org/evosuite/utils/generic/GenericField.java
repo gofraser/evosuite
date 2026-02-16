@@ -27,6 +27,8 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.utils.LoggingUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -41,8 +43,10 @@ import java.lang.reflect.*;
 public class GenericField extends GenericAccessibleObject<GenericField> {
 
     private static final long serialVersionUID = -2344346234923642901L;
+    private static final Logger logger = LoggerFactory.getLogger(GenericField.class);
 
     private transient Field field;
+    private transient boolean reflectionAccessible = true;
 
     /**
      * Constructor.
@@ -53,7 +57,7 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
     public GenericField(Field field, GenericClass<?> owner) {
         super(GenericClassFactory.get(owner));
         this.field = field;
-        field.setAccessible(true);
+        this.reflectionAccessible = makeFieldAccessible(field);
     }
 
     /**
@@ -65,7 +69,7 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
     public GenericField(Field field, Class<?> owner) {
         super(GenericClassFactory.get(owner));
         this.field = field;
-        field.setAccessible(true);
+        this.reflectionAccessible = makeFieldAccessible(field);
     }
 
     /**
@@ -77,7 +81,7 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
     public GenericField(Field field, Type owner) {
         super(GenericClassFactory.get(owner));
         this.field = field;
-        field.setAccessible(true);
+        this.reflectionAccessible = makeFieldAccessible(field);
     }
 
     @Override
@@ -185,7 +189,17 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
 
     @Override
     public boolean isAccessible() {
-        return TestUsageChecker.canUse(field);
+        return reflectionAccessible && TestUsageChecker.canUse(field);
+    }
+
+    private static boolean makeFieldAccessible(Field field) {
+        try {
+            field.setAccessible(true);
+            return true;
+        } catch (RuntimeException e) {
+            logger.debug("Cannot make field accessible: {}", field, e);
+            return false;
+        }
     }
 
     @Override
@@ -253,7 +267,7 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
 
         try {
             field = methodClass.getDeclaredField(fieldName);
-            field.setAccessible(true);
+            reflectionAccessible = makeFieldAccessible(field);
         } catch (SecurityException e) {
             throw new IllegalStateException("Unknown field for " + fieldName
                     + " in class " + methodClass.getCanonicalName());
@@ -271,7 +285,7 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
             Class<?> oldClass = field.getDeclaringClass();
             Class<?> newClass = loader.loadClass(oldClass.getName());
             this.field = newClass.getDeclaredField(field.getName());
-            this.field.setAccessible(true);
+            this.reflectionAccessible = makeFieldAccessible(this.field);
         } catch (ClassNotFoundException e) {
             LoggingUtils.getEvoLogger().info("Class not found - keeping old class loader ",
                     e);

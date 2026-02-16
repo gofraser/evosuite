@@ -111,6 +111,37 @@ public class TestGenericClassImpl {
         Assert.assertTrue(clazzConcrete.isAssignableTo(clazzWildcard));
     }
 
+    @Test
+    public void testAssignableClassLiteralToParameterizedClassType() {
+        Type linkedListOfString = new ParameterizedTypeImpl(java.util.LinkedList.class,
+                new Type[]{String.class}, null);
+        Type classOfLinkedListOfString = new ParameterizedTypeImpl(Class.class,
+                new Type[]{linkedListOfString}, null);
+        Type classOfLinkedList = new ParameterizedTypeImpl(Class.class,
+                new Type[]{java.util.LinkedList.class}, null);
+
+        GenericClass<?> expected = GenericClassFactory.get(classOfLinkedListOfString);
+        GenericClass<?> actualClassLiteralType = GenericClassFactory.get(classOfLinkedList);
+
+        Assert.assertTrue(actualClassLiteralType.isAssignableTo(expected));
+    }
+
+    public static class ClassLiteralHolder {
+        public Class<LinkedList<String>> value;
+    }
+
+    @Test
+    public void testAssignableClassLiteralToReflectedParameterizedClassType() throws Exception {
+        Type reflectedFieldType = ClassLiteralHolder.class.getField("value").getGenericType();
+        Type classOfLinkedList = new ParameterizedTypeImpl(Class.class,
+                new Type[]{java.util.LinkedList.class}, null);
+
+        GenericClass<?> expected = GenericClassFactory.get(reflectedFieldType);
+        GenericClass<?> actualClassLiteralType = GenericClassFactory.get(classOfLinkedList);
+
+        Assert.assertTrue(actualClassLiteralType.isAssignableTo(expected));
+    }
+
     private static class A {
     }
 
