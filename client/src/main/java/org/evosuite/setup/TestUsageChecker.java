@@ -177,7 +177,7 @@ public class TestUsageChecker {
             }
         }
 
-        if (c.isAnonymousClass()) {
+        if (c.isAnonymousClass() || c.isLocalClass() || c.isSynthetic()) {
             return false;
         }
 
@@ -226,14 +226,6 @@ public class TestUsageChecker {
             return false;
         }
 
-        // TODO: This should be unnecessary if Java reflection works...
-        // This is inefficient
-        if (TestClusterUtils.isAnonymousClass(c.getName())) {
-            String message = c + " looks like an anonymous class, ignoring it (although reflection says "
-                    + c.isAnonymousClass() + ") " + c.getSimpleName();
-            AtMostOnceLogger.warn(logger, message);
-            return false;
-        }
 
         if (Modifier.isPublic(c.getModifiers())) {
             return true;

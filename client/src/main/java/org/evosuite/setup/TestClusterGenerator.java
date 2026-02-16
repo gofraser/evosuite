@@ -713,7 +713,8 @@ public class TestClusterGenerator {
                 return true;
             } else {
                 String fieldName = field.getName();
-                final boolean isModifiedStaticField = ModifiedTargetStaticFields.getInstance().containsField(fieldName);
+                String className = field.getDeclaringClass().getName();
+                final boolean isModifiedStaticField = ModifiedTargetStaticFields.getInstance().containsField(className, fieldName);
                 return isModifiedStaticField;
             }
         } else {

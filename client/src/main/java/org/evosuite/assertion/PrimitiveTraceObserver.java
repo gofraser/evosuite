@@ -20,9 +20,11 @@
 package org.evosuite.assertion;
 
 import org.evosuite.Properties;
+import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
@@ -81,6 +83,13 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
             // We don't need assertions on constant values
             if (statement instanceof PrimitiveStatement<?>) {
                 return;
+            }
+
+            if (statement instanceof FieldStatement) {
+                FieldStatement fieldStatement = (FieldStatement) statement;
+                if (fieldStatement.getField().isStatic() && TestClusterGenerator.isFinalField(fieldStatement.getField().getField())) {
+                    return;
+                }
             }
 
             if (statement instanceof MethodStatement) {

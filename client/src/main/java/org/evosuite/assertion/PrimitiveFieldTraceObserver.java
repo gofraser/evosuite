@@ -19,6 +19,7 @@
  */
 package org.evosuite.assertion;
 
+import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
@@ -68,9 +69,10 @@ public class PrimitiveFieldTraceObserver extends
                 for (Field field : var.getVariableClass().getFields()) {
                     // TODO Check for wrapper types
                     if (Modifier.isPublic(field.getModifiers())
+                            && !Modifier.isStatic(field.getModifiers())
                             && !field.getType().equals(void.class)
                             && field.getType().isPrimitive()
-                            && !Modifier.isFinal(field.getModifiers())
+                            && !TestClusterGenerator.isFinalField(field)
                             && !field.isSynthetic()) {
                         try {
                             logger.debug("Keeping field " + field + " with value "
