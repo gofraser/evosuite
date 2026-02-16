@@ -19,6 +19,49 @@
  */
 package org.evosuite.runtime.mock.java.nio.channels;
 
-public class MockSocketChannel {
-    //TODO
+import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.runtime.mock.StaticReplacementMock;
+import org.evosuite.runtime.mock.java.io.MockIOException;
+
+import java.io.IOException;
+import java.net.SocketAddress;
+import java.nio.channels.SocketChannel;
+
+/**
+ * Static replacement for {@link SocketChannel} entry points.
+ */
+public class MockSocketChannel implements StaticReplacementMock {
+
+    @Override
+    public String getMockedClassName() {
+        return SocketChannel.class.getName();
+    }
+
+    public static SocketChannel open() throws IOException {
+        if (!MockFramework.isEnabled()) {
+            return SocketChannel.open();
+        }
+        throw new MockIOException("NIO socket channels are disabled in mocked execution");
+    }
+
+    public static SocketChannel open(SocketAddress remote) throws IOException {
+        if (!MockFramework.isEnabled()) {
+            return SocketChannel.open(remote);
+        }
+        throw new MockIOException("NIO socket channels are disabled in mocked execution");
+    }
+
+    public static boolean connect(SocketChannel channel, SocketAddress remote) throws IOException {
+        if (!MockFramework.isEnabled()) {
+            return channel.connect(remote);
+        }
+        throw new MockIOException("NIO socket channels are disabled in mocked execution");
+    }
+
+    public static SocketChannel bind(SocketChannel channel, SocketAddress local) throws IOException {
+        if (!MockFramework.isEnabled()) {
+            return channel.bind(local);
+        }
+        throw new MockIOException("NIO socket channels are disabled in mocked execution");
+    }
 }

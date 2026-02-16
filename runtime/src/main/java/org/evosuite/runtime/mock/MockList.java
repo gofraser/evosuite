@@ -31,6 +31,11 @@ import org.evosuite.runtime.mock.java.io.MockPrintWriter;
 import org.evosuite.runtime.mock.java.io.MockRandomAccessFile;
 import org.evosuite.runtime.mock.java.lang.*;
 import org.evosuite.runtime.mock.java.net.*;
+import org.evosuite.runtime.mock.java.nio.channels.MockAsynchronousServerSocketChannel;
+import org.evosuite.runtime.mock.java.nio.channels.MockAsynchronousSocketChannel;
+import org.evosuite.runtime.mock.java.nio.channels.MockDatagramChannel;
+import org.evosuite.runtime.mock.java.nio.channels.MockServerSocketChannel;
+import org.evosuite.runtime.mock.java.nio.channels.MockSocketChannel;
 import org.evosuite.runtime.mock.java.security.MockSecureRandom;
 import org.evosuite.runtime.mock.java.text.MockDateFormat;
 import org.evosuite.runtime.mock.java.text.MockSimpleDateFormat;
@@ -86,11 +91,18 @@ public class MockList {
             list.add(MockFileHandler.class);
             list.add(MockJFileChooser.class); // GUI Stuff?
             list.add(MockFileSystemView.class);
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.nio.file.MockFiles");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.nio.file.MockPaths");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.nio.file.MockFileSystems");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.nio.file.MockFileStore");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.nio.file.MockNioFileSystem");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.nio.file.MockNioPath");
         }
 
         if (RuntimeSettings.mockJVMNonDeterminism) {
 
             list.add(MockRuntime.class);
+            list.add(MockSystem.class);
             list.add(MockLogRecord.class);
 
             // Uses Object.hashCode
@@ -136,6 +148,22 @@ public class MockList {
             // thread related
             list.add(MockTimer.class);
             list.add(MockThread.class);
+            list.add(MockSplittableRandom.class);
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.MockThreadLocalRandom");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockExecutors");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockCompletableFuture");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.random.MockRandomGenerator");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.random.MockRandomGeneratorFactory");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.time.MockZoneId");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.time.MockZoneOffset");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.time.MockZoneRules");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.time.MockZoneRulesProvider");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockScopedValue");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockScopedValueCarrier");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockStructuredTaskScope");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockProcessBuilder");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockProcessHandle");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockProcess");
 
             // exceptions
             list.add(MockIOException.class);
@@ -162,8 +190,15 @@ public class MockList {
             list.add(MockURL.class);
             list.add(MockURLStreamHandler.class);
             list.add(MockURI.class);
-            // list.add(MockServerSocketChannel.class); //TODO
-            // list.add(MockSocketChannel.class); //TODO
+            list.add(MockServerSocketChannel.class);
+            list.add(MockSocketChannel.class);
+            list.add(MockDatagramChannel.class);
+            list.add(MockAsynchronousSocketChannel.class);
+            list.add(MockAsynchronousServerSocketChannel.class);
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.nio.channels.MockFileChannel");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.nio.channels.MockAsynchronousFileChannel");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.net.http.MockHttpClient");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.net.http.MockWebSocket");
         }
 
         if (RuntimeSettings.mockGUI) {
@@ -172,6 +207,18 @@ public class MockList {
         }
 
         return list;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void addMockIfPresent(List<Class<? extends EvoSuiteMock>> list, String className) {
+        try {
+            Class<?> klass = Class.forName(className);
+            if (EvoSuiteMock.class.isAssignableFrom(klass)) {
+                list.add((Class<? extends EvoSuiteMock>) klass);
+            }
+        } catch (ClassNotFoundException e) {
+            // optional mock for a newer JDK, ignore on older runtimes
+        }
     }
 
     /**

@@ -19,6 +19,43 @@
  */
 package org.evosuite.runtime.mock.java.nio.channels;
 
-public class MockServerSocketChannel {
-    //TODO  it is used in SF110, but directly just in 15ish classes
+import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.runtime.mock.StaticReplacementMock;
+import org.evosuite.runtime.mock.java.io.MockIOException;
+
+import java.io.IOException;
+import java.net.SocketAddress;
+import java.nio.channels.ServerSocketChannel;
+
+/**
+ * Static replacement for {@link ServerSocketChannel} entry points.
+ */
+public class MockServerSocketChannel implements StaticReplacementMock {
+
+    @Override
+    public String getMockedClassName() {
+        return ServerSocketChannel.class.getName();
+    }
+
+    public static ServerSocketChannel open() throws IOException {
+        if (!MockFramework.isEnabled()) {
+            return ServerSocketChannel.open();
+        }
+        throw new MockIOException("NIO server socket channels are disabled in mocked execution");
+    }
+
+    public static ServerSocketChannel bind(ServerSocketChannel channel, SocketAddress local) throws IOException {
+        if (!MockFramework.isEnabled()) {
+            return channel.bind(local);
+        }
+        throw new MockIOException("NIO server socket channels are disabled in mocked execution");
+    }
+
+    public static ServerSocketChannel bind(ServerSocketChannel channel, SocketAddress local, int backlog)
+            throws IOException {
+        if (!MockFramework.isEnabled()) {
+            return channel.bind(local, backlog);
+        }
+        throw new MockIOException("NIO server socket channels are disabled in mocked execution");
+    }
 }

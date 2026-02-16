@@ -20,8 +20,10 @@
 package org.evosuite.rmi;
 
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.net.ServerSocket;
 import java.rmi.NotBoundException;
 import java.rmi.Remote;
@@ -34,6 +36,8 @@ public class OpenRegistryTest {
 
     @Test
     public void openTest() throws RemoteException, NotBoundException {
+        Assume.assumeTrue("Socket binding is not permitted in this environment", canBindServerSocket());
+
         int port = 2000;
 
         for (int i = 0; i < 10000; i++) {
@@ -68,6 +72,14 @@ public class OpenRegistryTest {
 
         Ifoo lookedup = (Ifoo) registry.lookup(service);
         Assert.assertEquals("Hello World", lookedup.getString());
+    }
+
+    private static boolean canBindServerSocket() {
+        try (ServerSocket ignored = new ServerSocket(0)) {
+            return true;
+        } catch (IOException | SecurityException e) {
+            return false;
+        }
     }
 
     interface Ifoo extends Remote {

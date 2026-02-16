@@ -172,6 +172,7 @@
                 <jdk>[11,)</jdk>
             </activation>
             <properties>
+                <publish.classifier>jdk11plus</publish.classifier>
                 <compiler.target>1.8</compiler.target>
                 <compiler.source>1.8</compiler.source>
                 <exclude.tests.concolic>**/*Concolic*.java</exclude.tests.concolic>
@@ -676,7 +677,7 @@
                         <exclude>**/SandboxFromJUnitTest.java</exclude>
                         <exclude>com/examples/with/different/packagename/**/*.java</exclude>
                     </excludes>
-                    <argLine>-Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading -Xms512m -Xmx4096m --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
+                    <argLine>-javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${bytebuddy.version}/byte-buddy-agent-${bytebuddy.version}.jar -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading -Xms512m -Xmx4096m --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
                 </configuration>
             </plugin>
             <!-- pluging to run tests after 'package' phase in 'integration-test' -->
@@ -690,7 +691,7 @@
                         <include>${integrationTests}</include>
                         <include>${systemTests}</include>
                     </includes -->
-                    <argLine>-Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED</argLine>
+                    <argLine>-javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${bytebuddy.version}/byte-buddy-agent-${bytebuddy.version}.jar -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED</argLine>
                 </configuration>
                 <executions>
                     <execution>
@@ -859,6 +860,7 @@
         <mockito.version>4.11.0</mockito.version>
         <bytebuddy.version>1.12.23</bytebuddy.version>
         <logback.version>1.2.13</logback.version>
+        <publish.classifier></publish.classifier>
 
         <jaxb.version>2.3.0</jaxb.version>
         <activation.version>1.2.0</activation.version>

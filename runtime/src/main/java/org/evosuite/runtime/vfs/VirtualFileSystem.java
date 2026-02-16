@@ -381,6 +381,10 @@ public final class VirtualFileSystem {
     }
 
     private boolean createFile(String rawPath, boolean tmp) {
+        if (findFSObject(rawPath) != null) {
+            return false;
+        }
+
         String parent = new File(rawPath).getParent();
         boolean created = createFolder(parent);
         if (!created) {

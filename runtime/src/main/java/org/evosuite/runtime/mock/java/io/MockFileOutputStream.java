@@ -128,6 +128,9 @@ public class MockFileOutputStream extends FileOutputStream implements LeakingRes
 
         if (!append) {
             ((VFile) target).eraseData();
+        } else {
+            // Keep stream position at EOF when opened in append mode.
+            position.set(((VFile) target).getDataSize());
         }
     }
 

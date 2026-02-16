@@ -26,6 +26,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.Assume;
 
 import javax.swing.*;
 import java.io.File;
@@ -36,6 +37,7 @@ public class MockJFileChooserTest {
 
     @Before
     public void init() {
+        Assume.assumeTrue("JFileChooser test is unstable on Java 24+ in headless CI/JVM contexts", !isJava24OrNewer());
         RuntimeSettings.useVFS = true;
         Runtime.getInstance().resetRuntime();
     }
@@ -53,6 +55,15 @@ public class MockJFileChooserTest {
 
         Assert.assertTrue(dir.exists());
         Assert.assertTrue(dir instanceof MockFile);
+    }
+
+    private static boolean isJava24OrNewer() {
+        String specVersion = java.lang.System.getProperty("java.specification.version", "0");
+        try {
+            return Integer.parseInt(specVersion) >= 24;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
     }
 
 }

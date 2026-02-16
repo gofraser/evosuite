@@ -27,6 +27,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Map;
 import java.util.StringTokenizer;
 
 /**
@@ -220,14 +223,55 @@ public class MockRuntime implements StaticReplacementMock {
      */
     public static Process exec(Runtime runtime, String[] cmdarray, String[] envp, File dir)
             throws IOException {
-        /*
-        return new ProcessBuilder(cmdarray)
-        .environment(envp)
-        .directory(dir)
-        .start();
-        */
-        //TODO mock ProcessBuilder
-        throw new MockIOException("Cannot start processes in a unit test");
+        ProcessBuilder builder = new ProcessBuilder(cmdarray);
+        if (envp != null) {
+            applyEnvironment(builder.environment(), envp);
+        }
+        builder.directory(dir);
+        return startProcess(builder);
+    }
+
+    private static Process startProcess(ProcessBuilder builder) throws IOException {
+        try {
+            Class<?> mockProcessBuilder = Class.forName("org.evosuite.runtime.mock.java.lang.MockProcessBuilder");
+            Method start = mockProcessBuilder.getMethod("start", ProcessBuilder.class);
+            return (Process) start.invoke(null, builder);
+        } catch (ClassNotFoundException e) {
+            // Legacy Java 8 runtime artifact has no dedicated ProcessBuilder replacement.
+            throw new MockIOException("Cannot start processes in a unit test");
+        } catch (NoSuchMethodException e) {
+            throw new MockIOException("Invalid ProcessBuilder mock setup");
+        } catch (IllegalAccessException e) {
+            throw new MockIOException("Cannot access ProcessBuilder mock");
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException) {
+                throw (IOException) cause;
+            }
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            }
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+            throw new MockIOException("Cannot start processes in a unit test");
+        }
+    }
+
+    private static void applyEnvironment(Map<String, String> environment, String[] envp) {
+        environment.clear();
+        for (String envEntry : envp) {
+            if (envEntry == null) {
+                throw new NullPointerException("envp contains null entry");
+            }
+            int idx = envEntry.indexOf('=');
+            if (idx <= 0) {
+                throw new IllegalArgumentException("Invalid environment variable definition: " + envEntry);
+            }
+            String key = envEntry.substring(0, idx);
+            String value = envEntry.substring(idx + 1);
+            environment.put(key, value);
+        }
     }
 
     /**

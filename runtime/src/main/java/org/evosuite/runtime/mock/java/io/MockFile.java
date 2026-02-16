@@ -76,7 +76,7 @@ public class MockFile extends File implements OverrideMock {
         if (parent == null) {
             return child;
         }
-        if (parent.equals("")) {
+        if (parent.isEmpty()) {
             return VirtualFileSystem.getDefaultParent() + child;
         }
         return makeAbsolute(parent) + "/" + child;

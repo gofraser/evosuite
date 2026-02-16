@@ -31,8 +31,13 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.channels.NonWritableChannelException;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -42,6 +47,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author arcuri
  */
 public class EvoFileChannel extends FileChannel { //FIXME mock FileChannel
+
+    private static final Object FILE_LOCK_MONITOR = new Object();
+    private static final Map<String, List<LockToken>> ACTIVE_LOCKS = new HashMap<>();
 
     /**
      * The read/write position in the channel.
@@ -70,6 +78,7 @@ public class EvoFileChannel extends FileChannel { //FIXME mock FileChannel
     private volatile boolean closed;
 
     private final Object readWriteMonitor = new Object();
+    private final List<LockToken> heldLocks = new ArrayList<>();
 
     /**
      * Main constructor.
@@ -89,6 +98,13 @@ public class EvoFileChannel extends FileChannel { //FIXME mock FileChannel
         this.isOpenForWrite = isOpenForWrite;
 
         closed = false;
+    }
+
+    public static FileChannel create(String absolutePath, boolean openForRead, boolean openForWrite, int initialPosition) {
+        if (initialPosition < 0) {
+            throw new IllegalArgumentException("Negative position: " + initialPosition);
+        }
+        return new EvoFileChannel(new AtomicInteger(initialPosition), absolutePath, openForRead, openForWrite);
     }
 
     // -----  read --------
@@ -127,13 +143,13 @@ public class EvoFileChannel extends FileChannel { //FIXME mock FileChannel
         int counter = 0;
 
         synchronized (readWriteMonitor) {
-            for (int j = offset; j < length; j++) {
+            for (int j = offset; j < offset + length; j++) {
                 ByteBuffer dst = dsts[j];
                 int r = dst.remaining();
                 for (int i = 0; i < r; i++) {
                     int b = NativeMockedIO.read(path, posToUpdate);
-                    if (b < 0) { //end of stream
-                        return -1;
+                    if (b < 0) { // end of stream
+                        return counter == 0 ? -1 : counter;
                     }
 
                     if (closed) {
@@ -196,7 +212,7 @@ public class EvoFileChannel extends FileChannel { //FIXME mock FileChannel
         byte[] buffer = new byte[1];
 
         synchronized (readWriteMonitor) {
-            for (int j = offset; j < length; j++) {
+            for (int j = offset; j < offset + length; j++) {
                 ByteBuffer src = srcs[j];
                 int r = src.remaining();
                 for (int i = 0; i < r; i++) {
@@ -294,32 +310,165 @@ public class EvoFileChannel extends FileChannel { //FIXME mock FileChannel
     @Override
     public MappedByteBuffer map(MapMode mode, long position, long size)
             throws IOException {
-        // TODO
-        throw new MockIOException("MappedByteBuffer mocks are not supported yet");
+        throwExceptionIfClosed();
+        throw new MockIOException("MappedByteBuffer is disabled in mocked execution");
     }
 
     @Override
     public FileLock lock(long position, long size, boolean shared)
             throws IOException {
-        // TODO
-        throw new MockIOException("FileLock mocks are not supported yet");
+        return doLock(position, size, shared);
     }
 
     @Override
     public FileLock tryLock(long position, long size, boolean shared)
             throws IOException {
-        // TODO
-        throw new MockIOException("FileLock mocks are not supported yet");
+        return doLock(position, size, shared);
+    }
+
+    private FileLock doLock(long lockPosition, long lockSize, boolean shared)
+            throws IOException {
+        throwExceptionIfClosed();
+        validateLockArguments(lockPosition, lockSize, shared);
+
+        synchronized (FILE_LOCK_MONITOR) {
+            List<LockToken> pathLocks = ACTIVE_LOCKS.get(path);
+            if (pathLocks != null) {
+                for (LockToken token : pathLocks) {
+                    if (overlaps(token.position, token.size, lockPosition, lockSize)) {
+                        throw new OverlappingFileLockException();
+                    }
+                }
+            }
+
+            EvoFileLock lock = new EvoFileLock(lockPosition, lockSize, shared);
+            LockToken newToken = new LockToken(path, lockPosition, lockSize, lock);
+
+            if (pathLocks == null) {
+                pathLocks = new ArrayList<>();
+                ACTIVE_LOCKS.put(path, pathLocks);
+            }
+            pathLocks.add(newToken);
+            heldLocks.add(newToken);
+            return lock;
+        }
+    }
+
+    private void validateLockArguments(long lockPosition, long lockSize, boolean shared) {
+        if (lockPosition < 0 || lockSize < 0) {
+            throw new MockIllegalArgumentException("Negative lock region");
+        }
+        if (shared && !isOpenForRead) {
+            throw new NonReadableChannelException();
+        }
+        if (!shared && !isOpenForWrite) {
+            throw new NonWritableChannelException();
+        }
+    }
+
+    private static boolean overlaps(long leftPosition, long leftSize, long rightPosition, long rightSize) {
+        if (leftSize == 0 || rightSize == 0) {
+            return false;
+        }
+        long leftEnd = endOfRegion(leftPosition, leftSize);
+        long rightEnd = endOfRegion(rightPosition, rightSize);
+        return leftPosition < rightEnd && rightPosition < leftEnd;
+    }
+
+    private static long endOfRegion(long position, long size) {
+        if (Long.MAX_VALUE - position < size) {
+            return Long.MAX_VALUE;
+        }
+        return position + size;
+    }
+
+    private void releaseLock(EvoFileLock lock) {
+        synchronized (FILE_LOCK_MONITOR) {
+            LockToken target = null;
+            for (LockToken token : heldLocks) {
+                if (token.lock == lock) {
+                    target = token;
+                    break;
+                }
+            }
+
+            if (target == null) {
+                return;
+            }
+
+            heldLocks.remove(target);
+            List<LockToken> pathLocks = ACTIVE_LOCKS.get(target.path);
+            if (pathLocks != null) {
+                pathLocks.remove(target);
+                if (pathLocks.isEmpty()) {
+                    ACTIVE_LOCKS.remove(target.path);
+                }
+            }
+            lock.invalidate();
+        }
+    }
+
+    private void releaseAllLocks() {
+        synchronized (FILE_LOCK_MONITOR) {
+            for (LockToken token : heldLocks) {
+                List<LockToken> pathLocks = ACTIVE_LOCKS.get(token.path);
+                if (pathLocks != null) {
+                    pathLocks.remove(token);
+                    if (pathLocks.isEmpty()) {
+                        ACTIVE_LOCKS.remove(token.path);
+                    }
+                }
+                token.lock.invalidate();
+            }
+            heldLocks.clear();
+        }
     }
 
     @Override
     protected void implCloseChannel() throws IOException {
         closed = true;
+        releaseAllLocks();
     }
 
     private void throwExceptionIfClosed() throws ClosedChannelException {
         if (closed) {
             throw new ClosedChannelException();
+        }
+    }
+
+    private static final class LockToken {
+        private final String path;
+        private final long position;
+        private final long size;
+        private final EvoFileLock lock;
+
+        private LockToken(String path, long position, long size, EvoFileLock lock) {
+            this.path = path;
+            this.position = position;
+            this.size = size;
+            this.lock = lock;
+        }
+    }
+
+    private final class EvoFileLock extends FileLock {
+        private volatile boolean valid = true;
+
+        private EvoFileLock(long position, long size, boolean shared) {
+            super(EvoFileChannel.this, position, size, shared);
+        }
+
+        @Override
+        public boolean isValid() {
+            return valid && !closed;
+        }
+
+        @Override
+        public void release() throws IOException {
+            releaseLock(this);
+        }
+
+        private void invalidate() {
+            valid = false;
         }
     }
 }

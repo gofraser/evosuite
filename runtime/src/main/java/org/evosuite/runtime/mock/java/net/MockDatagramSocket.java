@@ -66,8 +66,8 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock {
             m = DatagramSocket.class.getDeclaredMethod("createImpl");
             m.setAccessible(true);
         } catch (NoSuchMethodException e) {
-            //should never happen
-            logger.error("Failed reflection on DatagramSocket: " + e.getMessage());
+            // On newer JDKs this internal method may not exist; only relevant when non-mocked path is used.
+            logger.debug("DatagramSocket#createImpl reflective access unavailable: {}", e.getMessage());
         }
 
         Field f = null;
@@ -75,8 +75,8 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock {
             f = DatagramSocket.class.getDeclaredField("impl");
             f.setAccessible(true);
         } catch (NoSuchFieldException e) {
-            //should never happen
-            logger.error("Failed reflection on DatagramSocket: " + e.getMessage());
+            // On newer JDKs this internal field may not exist; only relevant when non-mocked path is used.
+            logger.debug("DatagramSocket#impl reflective access unavailable: {}", e.getMessage());
         }
 
         CREATE_IMPL = m;
