@@ -142,6 +142,29 @@ public class TestGenericClassImpl {
         Assert.assertTrue(actualClassLiteralType.isAssignableTo(expected));
     }
 
+    @Test
+    public void testConstrainedGenericInstantiationForClassTypeArgument() throws Exception {
+        WildcardType requiredBounds = new WildcardTypeImpl(
+                new Type[]{new ParameterizedTypeImpl(Class.class, new Type[]{java.util.Date.class}, null)},
+                new Type[]{});
+        Type classOfSqlDate = new ParameterizedTypeImpl(Class.class,
+                new Type[]{java.sql.Date.class}, null);
+
+        GenericClass<?> concrete = GenericClassFactory.get(classOfSqlDate);
+        GenericClass<?> instantiated = concrete.getGenericInstantiation(new HashMap<>(), 0, requiredBounds);
+
+        Assert.assertTrue(instantiated.satisfiesBoundaries(requiredBounds));
+    }
+
+    @Test
+    public void testConstrainedGenericInstantiationWithNullBounds() throws Exception {
+        Type classOfSqlDate = new ParameterizedTypeImpl(Class.class, new Type[]{java.sql.Date.class}, null);
+        GenericClass<?> concrete = GenericClassFactory.get(classOfSqlDate);
+
+        GenericClass<?> instantiated = concrete.getGenericInstantiation(new HashMap<>(), 0, null);
+        Assert.assertTrue(instantiated.isAssignableTo(concrete));
+    }
+
     private static class A {
     }
 
@@ -478,6 +501,17 @@ public class TestGenericClassImpl {
         Assert.assertTrue(dateClass.satisfiesBoundaries(objectType));
         // Does not satisfy lower boundary
         Assert.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
+    }
+
+    @Test
+    public void testWildcardParameterizedUpperBoundRejectsWildcardArgumentCandidate() {
+        Type linkedListOfString = new ParameterizedTypeImpl(LinkedList.class, new Type[]{String.class}, null);
+        WildcardType wildcard = new WildcardTypeImpl(new Type[]{linkedListOfString}, new Type[]{});
+        Type linkedListOfWildcard = new ParameterizedTypeImpl(LinkedList.class,
+                new Type[]{new WildcardTypeImpl(new Type[]{Object.class}, new Type[]{})}, null);
+
+        GenericClass<?> candidate = GenericClassFactory.get(linkedListOfWildcard);
+        Assert.assertFalse(candidate.satisfiesBoundaries(wildcard));
     }
 
     @Test
@@ -840,5 +874,75 @@ public class TestGenericClassImpl {
         GenericClass<?> integerWildcardListInstantiation = numberWildcardListClass.getGenericInstantiation();
         System.out.println(integerWildcardListInstantiation.toString());
         Assert.assertTrue(numberWildcardListClass.isAssignableFrom(integerWildcardListInstantiation));
+    }
+
+    @Test
+    public void testWildcardWithConcreteParameterizedBoundAtRecursionLevelInstantiatesConcreteArgument()
+            throws ConstructionFailedException {
+        Type linkedListOfString = new ParameterizedTypeImpl(LinkedList.class, new Type[]{String.class}, null);
+        Type wildcard = new WildcardTypeImpl(new Type[]{linkedListOfString}, new Type[]{});
+        Type listOfWildcardBound = new ParameterizedTypeImpl(LinkedList.class, new Type[]{wildcard}, null);
+
+        GenericClass<?> genericClass = GenericClassFactory.get(listOfWildcardBound);
+        GenericClass<?> instantiated = genericClass.getGenericInstantiation(new HashMap<>(), 1);
+
+        Assert.assertTrue(instantiated.getType() instanceof ParameterizedType);
+        Type actualArgument = ((ParameterizedType) instantiated.getType()).getActualTypeArguments()[0];
+        Assert.assertFalse(actualArgument instanceof WildcardType);
+    }
+
+    @Test
+    public void testCollectionWildcardBoundDoesNotInstantiateNestedWildcardAtRecursionLevel()
+            throws ConstructionFailedException {
+        Type linkedListOfString = new ParameterizedTypeImpl(LinkedList.class, new Type[]{String.class}, null);
+        Type wildcardElement = new WildcardTypeImpl(new Type[]{linkedListOfString}, new Type[]{});
+        Type expectedCollection = new ParameterizedTypeImpl(Collection.class, new Type[]{wildcardElement}, null);
+
+        GenericClass<?> genericClass = GenericClassFactory.get(expectedCollection);
+        GenericClass<?> instantiated = genericClass.getGenericInstantiation(new HashMap<>(), 1);
+
+        Assert.assertTrue(instantiated.isAssignableTo(GenericClassFactory.get(expectedCollection)));
+        Assert.assertTrue(instantiated.getType() instanceof ParameterizedType);
+        Type collectionArg = ((ParameterizedType) instantiated.getType()).getActualTypeArguments()[0];
+        Assert.assertFalse(collectionArg instanceof WildcardType);
+        Assert.assertTrue(collectionArg instanceof ParameterizedType);
+        Type nestedArg = ((ParameterizedType) collectionArg).getActualTypeArguments()[0];
+        Assert.assertFalse(nestedArg instanceof WildcardType);
+    }
+
+    @Test
+    public void testMapClassWildcardBoundDoesNotInstantiateClassQuestionMarkAtRecursionLevel()
+            throws ConstructionFailedException {
+        Type classOfString = new ParameterizedTypeImpl(Class.class, new Type[]{String.class}, null);
+        Type classOfInteger = new ParameterizedTypeImpl(Class.class, new Type[]{Integer.class}, null);
+        Type wildcardKey = new WildcardTypeImpl(new Type[]{classOfString}, new Type[]{});
+        Type wildcardValue = new WildcardTypeImpl(new Type[]{classOfInteger}, new Type[]{});
+        Type expectedMap = new ParameterizedTypeImpl(Map.class, new Type[]{wildcardKey, wildcardValue}, null);
+
+        GenericClass<?> genericClass = GenericClassFactory.get(expectedMap);
+        GenericClass<?> instantiated = genericClass.getGenericInstantiation(new HashMap<>(), 1);
+
+        Assert.assertTrue("instantiated=" + instantiated.getType(),
+                instantiated.isAssignableTo(GenericClassFactory.get(expectedMap)));
+        Assert.assertTrue(instantiated.getType() instanceof ParameterizedType);
+        Type[] args = ((ParameterizedType) instantiated.getType()).getActualTypeArguments();
+        Assert.assertFalse(args[0] instanceof WildcardType);
+        Assert.assertFalse(args[1] instanceof WildcardType);
+        Assert.assertTrue(args[0] instanceof ParameterizedType);
+        Assert.assertTrue(args[1] instanceof ParameterizedType);
+        Type keyClassArg = ((ParameterizedType) args[0]).getActualTypeArguments()[0];
+        Type valueClassArg = ((ParameterizedType) args[1]).getActualTypeArguments()[0];
+        Assert.assertFalse(keyClassArg instanceof WildcardType);
+        Assert.assertFalse(valueClassArg instanceof WildcardType);
+    }
+
+    @Test
+    public void testClassStringDoesNotSatisfyWildcardUpperBoundClassInteger() {
+        Type classOfString = new ParameterizedTypeImpl(Class.class, new Type[]{String.class}, null);
+        Type classOfInteger = new ParameterizedTypeImpl(Class.class, new Type[]{Integer.class}, null);
+        WildcardType wildcard = new WildcardTypeImpl(new Type[]{classOfInteger}, new Type[]{});
+
+        GenericClass<?> candidate = GenericClassFactory.get(classOfString);
+        Assert.assertFalse(candidate.satisfiesBoundaries(wildcard));
     }
 }

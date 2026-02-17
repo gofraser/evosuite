@@ -24,6 +24,12 @@ public class MockAsynchronousSocketChannel implements StaticReplacementMock {
         return AsynchronousSocketChannel.class.getName();
     }
 
+    /**
+     * Replacement for {@link AsynchronousSocketChannel#open()}.
+     *
+     * @return the asynchronous socket channel
+     * @throws IOException if an I/O error occurs
+     */
     public static AsynchronousSocketChannel open() throws IOException {
         if (!MockFramework.isEnabled()) {
             return AsynchronousSocketChannel.open();
@@ -31,6 +37,13 @@ public class MockAsynchronousSocketChannel implements StaticReplacementMock {
         throw new MockIOException("Asynchronous socket channels are disabled in mocked execution");
     }
 
+    /**
+     * Replacement for {@link AsynchronousSocketChannel#open(AsynchronousChannelGroup)}.
+     *
+     * @param group the group
+     * @return the asynchronous socket channel
+     * @throws IOException if an I/O error occurs
+     */
     public static AsynchronousSocketChannel open(AsynchronousChannelGroup group) throws IOException {
         if (!MockFramework.isEnabled()) {
             return AsynchronousSocketChannel.open(group);

@@ -49,7 +49,9 @@ import org.slf4j.LoggerFactory;
  */
 public class ClientProcess {
 
-    private static final Logger logger = LoggerFactory.getLogger(ClientProcess.class);
+    private static Logger logger() {
+        return LoggerFactory.getLogger(ClientProcess.class);
+    }
 
     public static final String CLIENT_PREFIX = "Client-";
 
@@ -188,9 +190,7 @@ public class ClientProcess {
      *             is expected to be the client identifier.
      */
     public static void main(String[] args) {
-        System.setProperty("logback.statusListenerClass",
-                "ch.qos.logback.core.status.NopStatusListener");
-        LoggingUtils.changeLogbackFile(LoggingUtils.getLogbackFileName());
+        LoggingUtils.configureLoggingForClientProcess();
 
         /*
          * important to have it in a variable, otherwise
@@ -218,7 +218,7 @@ public class ClientProcess {
                 System.exit(0);
             }
         } catch (Throwable t) {
-            logger.error(getPrettyPrintIdentifier() + "Error when generating tests for: " + Properties.TARGET_CLASS
+            logger().error(getPrettyPrintIdentifier() + "Error when generating tests for: " + Properties.TARGET_CLASS
                     + " with seed " + Randomness.getSeed() + ". Configuration id : " + Properties.CONFIGURATION_ID, t);
             t.printStackTrace();
 
@@ -226,7 +226,7 @@ public class ClientProcess {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
-                logger.debug("Interrupted while sleeping: " + e.getMessage());
+                logger().debug("Interrupted while sleeping: " + e.getMessage());
             }
 
             if (!onThread) {

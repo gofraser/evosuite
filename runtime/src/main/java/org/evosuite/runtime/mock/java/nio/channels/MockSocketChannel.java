@@ -37,6 +37,12 @@ public class MockSocketChannel implements StaticReplacementMock {
         return SocketChannel.class.getName();
     }
 
+    /**
+     * Replacement for {@link SocketChannel#open()}.
+     *
+     * @return the socket channel
+     * @throws IOException if an I/O error occurs
+     */
     public static SocketChannel open() throws IOException {
         if (!MockFramework.isEnabled()) {
             return SocketChannel.open();
@@ -44,6 +50,13 @@ public class MockSocketChannel implements StaticReplacementMock {
         throw new MockIOException("NIO socket channels are disabled in mocked execution");
     }
 
+    /**
+     * Replacement for {@link SocketChannel#open(SocketAddress)}.
+     *
+     * @param remote the remote address
+     * @return the socket channel
+     * @throws IOException if an I/O error occurs
+     */
     public static SocketChannel open(SocketAddress remote) throws IOException {
         if (!MockFramework.isEnabled()) {
             return SocketChannel.open(remote);
@@ -51,6 +64,14 @@ public class MockSocketChannel implements StaticReplacementMock {
         throw new MockIOException("NIO socket channels are disabled in mocked execution");
     }
 
+    /**
+     * Replacement for {@link SocketChannel#connect(SocketAddress)}.
+     *
+     * @param channel the channel
+     * @param remote  the remote address
+     * @return true if connected
+     * @throws IOException if an I/O error occurs
+     */
     public static boolean connect(SocketChannel channel, SocketAddress remote) throws IOException {
         if (!MockFramework.isEnabled()) {
             return channel.connect(remote);
@@ -58,6 +79,14 @@ public class MockSocketChannel implements StaticReplacementMock {
         throw new MockIOException("NIO socket channels are disabled in mocked execution");
     }
 
+    /**
+     * Replacement for {@link SocketChannel#bind(SocketAddress)}.
+     *
+     * @param channel the channel
+     * @param local   the local address
+     * @return the socket channel
+     * @throws IOException if an I/O error occurs
+     */
     public static SocketChannel bind(SocketChannel channel, SocketAddress local) throws IOException {
         if (!MockFramework.isEnabled()) {
             return channel.bind(local);

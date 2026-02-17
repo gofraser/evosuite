@@ -42,6 +42,7 @@ import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.ClientStateInformation;
 import org.evosuite.runtime.util.AtMostOnceLogger;
+import org.evosuite.statistics.backend.CSVStatisticsBackend;
 import org.evosuite.statistics.backend.StatisticsBackend;
 import org.evosuite.statistics.backend.StatisticsBackendFactory;
 import org.evosuite.symbolic.dse.DSEStatistics;
@@ -480,14 +481,10 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             }
         }
 
-        if (bestIndividual == null) {
-            logger.error("No statistics has been saved because EvoSuite failed to generate any test case");
-            return false;
-        }
-
-        TestSuiteChromosome individual = bestIndividual;
-
-        Map<String, OutputVariable<?>> map = getOutputVariables(individual);
+        TestSuiteChromosome individual = bestIndividual != null ? bestIndividual : new TestSuiteChromosome();
+        Map<String, OutputVariable<?>> map = bestIndividual == null
+                ? getOutputVariables(individual, true)
+                : getOutputVariables(individual);
         if (map == null) {
 
             try {
@@ -500,7 +497,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                     .anyMatch(s -> s.equals(ClientState.DONE) || s.equals(ClientState.FINISHED));
 
 
-            if (couldBeFine) {
+            if (couldBeFine && bestIndividual != null) {
                 //maybe data just didn't arrive yet
 
                 int counter = 0;
@@ -526,6 +523,11 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 logger.error("Not going to write down statistics data, as some are missing");
                 return false;
             }
+        }
+
+        if (bestIndividual == null) {
+            logger.warn("No best individual available; writing partial statistics for failed generation");
+            setCoverageUnavailableIfMissing(map);
         }
 
         boolean valid = StatisticsValidator.validateRuntimeVariables(map);
@@ -555,6 +557,9 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
 
         TestSuiteChromosome individual = new TestSuiteChromosome();
         Map<String, OutputVariable<?>> map = getOutputVariables(individual);
+        if (map == null) {
+            map = getOutputVariables(individual, true);
+        }
         if (map == null) {
             logger.error("Not going to write down statistics data, as some are missing");
             return false;
@@ -596,6 +601,8 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             }
         }
 
+        setCoverageUnavailableIfMissing(map);
+
         boolean valid = StatisticsValidator.validateRuntimeVariables(map);
         if (!valid) {
             logger.error("Not going to write down statistics data, as some data is invalid");
@@ -625,6 +632,19 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             }
         }
         return null;
+    }
+
+    private void setCoverageUnavailableIfMissing(Map<String, OutputVariable<?>> map) {
+        OutputVariable<?> coverageVar = map.get(RuntimeVariable.Coverage.toString());
+        if (coverageVar == null || toDouble(coverageVar.getValue()) == null) {
+            if (backend instanceof CSVStatisticsBackend) {
+                map.put(RuntimeVariable.Coverage.toString(),
+                        new OutputVariable<>(RuntimeVariable.Coverage.toString(), "N/A"));
+            } else {
+                map.put(RuntimeVariable.Coverage.toString(),
+                        new OutputVariable<>(RuntimeVariable.Coverage.toString(), 0.0));
+            }
+        }
     }
 
     /**

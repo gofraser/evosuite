@@ -100,7 +100,17 @@ public class EvoFileChannel extends FileChannel { //FIXME mock FileChannel
         closed = false;
     }
 
-    public static FileChannel create(String absolutePath, boolean openForRead, boolean openForWrite, int initialPosition) {
+    /**
+     * Create a new EvoFileChannel.
+     *
+     * @param absolutePath    the absolute path
+     * @param openForRead     is open for read
+     * @param openForWrite    is open for write
+     * @param initialPosition initial position
+     * @return the file channel
+     */
+    public static FileChannel create(String absolutePath, boolean openForRead,
+            boolean openForWrite, int initialPosition) {
         if (initialPosition < 0) {
             throw new IllegalArgumentException("Negative position: " + initialPosition);
         }

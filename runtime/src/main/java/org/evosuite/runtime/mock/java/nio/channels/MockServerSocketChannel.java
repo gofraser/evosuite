@@ -37,6 +37,12 @@ public class MockServerSocketChannel implements StaticReplacementMock {
         return ServerSocketChannel.class.getName();
     }
 
+    /**
+     * Replacement for {@link ServerSocketChannel#open()}.
+     *
+     * @return the server socket channel
+     * @throws IOException if an I/O error occurs
+     */
     public static ServerSocketChannel open() throws IOException {
         if (!MockFramework.isEnabled()) {
             return ServerSocketChannel.open();
@@ -44,6 +50,14 @@ public class MockServerSocketChannel implements StaticReplacementMock {
         throw new MockIOException("NIO server socket channels are disabled in mocked execution");
     }
 
+    /**
+     * Replacement for {@link ServerSocketChannel#bind(SocketAddress)}.
+     *
+     * @param channel the channel
+     * @param local   the local address
+     * @return the server socket channel
+     * @throws IOException if an I/O error occurs
+     */
     public static ServerSocketChannel bind(ServerSocketChannel channel, SocketAddress local) throws IOException {
         if (!MockFramework.isEnabled()) {
             return channel.bind(local);
@@ -51,6 +65,15 @@ public class MockServerSocketChannel implements StaticReplacementMock {
         throw new MockIOException("NIO server socket channels are disabled in mocked execution");
     }
 
+    /**
+     * Replacement for {@link ServerSocketChannel#bind(SocketAddress, int)}.
+     *
+     * @param channel the channel
+     * @param local   the local address
+     * @param backlog the backlog
+     * @return the server socket channel
+     * @throws IOException if an I/O error occurs
+     */
     public static ServerSocketChannel bind(ServerSocketChannel channel, SocketAddress local, int backlog)
             throws IOException {
         if (!MockFramework.isEnabled()) {

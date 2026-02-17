@@ -21,6 +21,11 @@ public class MockSystem implements StaticReplacementMock {
         return java.lang.System.class.getName();
     }
 
+    /**
+     * Replacement for {@link java.lang.System#console()}.
+     *
+     * @return the console
+     */
     public static Console console() {
         if (!MockFramework.isEnabled()) {
             return java.lang.System.console();

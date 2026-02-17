@@ -19,13 +19,16 @@
  */
 package org.evosuite.seeding;
 
+import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.Properties;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
+import org.evosuite.utils.generic.WildcardTypeImpl;
 import org.junit.After;
 import org.junit.Test;
 
 import java.lang.reflect.Type;
+import java.lang.reflect.WildcardType;
 import java.util.*;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -187,5 +190,23 @@ public class TestCastClassManager {
         CastClassManager instance = CastClassManager.getInstance();
         Set<GenericClass<?>> castClasses = instance.getCastClasses();
         castClasses.add(GenericClassFactory.get(Double.class));
+    }
+
+    @Test
+    public void testSelectCastClassWildcardVectorAllowRecursionFindsAssignableClass() throws Exception {
+        CastClassManager instance = CastClassManager.getInstance();
+        WildcardType wildcardType = new WildcardTypeImpl(new Type[]{Vector.class}, new Type[]{});
+
+        GenericClass<?> selected = instance.selectCastClass(wildcardType, true, new HashMap<>());
+        assertNotNull(selected);
+        assertTrue(selected.satisfiesBoundaries(wildcardType, new HashMap<>()));
+    }
+
+    @Test(expected = ConstructionFailedException.class)
+    public void testSelectCastClassWildcardVectorWithoutRecursionFails() throws Exception {
+        CastClassManager instance = CastClassManager.getInstance();
+        WildcardType wildcardType = new WildcardTypeImpl(new Type[]{Vector.class}, new Type[]{});
+
+        instance.selectCastClass(wildcardType, false, new HashMap<>());
     }
 }

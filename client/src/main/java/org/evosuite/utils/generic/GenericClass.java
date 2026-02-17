@@ -159,6 +159,25 @@ public interface GenericClass<T extends GenericClass<T>> extends Serializable {
             throws ConstructionFailedException;
 
     /**
+     * Generate a possible instantiation of this generic class while ensuring that the resulting
+     * type satisfies the provided wildcard bounds.
+     *
+     * <p>This is useful when a candidate type is selected in one step and instantiated in another
+     * one: instantiation must not widen type arguments in a way that violates the original
+     * wildcard constraints.
+     *
+     * @param typeMap        constraints to the type variables of this generic class
+     * @param recursionLevel the maximal generic depth of the instantiation
+     * @param requiredBounds wildcard bounds that the result must satisfy; if {@code null}, behaves
+     *                       like {@link #getGenericInstantiation(Map, int)}
+     * @return an instantiation of this generic class satisfying {@code requiredBounds}
+     * @throws ConstructionFailedException if no valid instantiation could be constructed
+     */
+    GenericClass<?> getGenericInstantiation(Map<TypeVariable<?>, Type> typeMap, int recursionLevel,
+                                            WildcardType requiredBounds)
+            throws ConstructionFailedException;
+
+    /**
      * Get the interfaces, that this class implements.
      *
      * @return a List of {@link GenericClass}, each element represents one interface.

@@ -40,7 +40,7 @@ import java.util.List;
 /**
  * This singleton class handles the re-initialization of classes after an
  * evosuite test execution. The re-initialization will depend on the value of
- * the set of all initialized classes plus if we should re-initializate all
+ * the set of all initialized classes plus if we should re-initialize all
  * classes or just those that were affected by GETSTATIC or PUTSTATIC
  * instructions.
  *

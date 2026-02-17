@@ -24,6 +24,12 @@ public class MockDatagramChannel implements StaticReplacementMock {
         return DatagramChannel.class.getName();
     }
 
+    /**
+     * Replacement for {@link DatagramChannel#open()}.
+     *
+     * @return the datagram channel
+     * @throws IOException if an I/O error occurs
+     */
     public static DatagramChannel open() throws IOException {
         if (!MockFramework.isEnabled()) {
             return DatagramChannel.open();
@@ -31,6 +37,13 @@ public class MockDatagramChannel implements StaticReplacementMock {
         throw new MockIOException("NIO datagram channels are disabled in mocked execution");
     }
 
+    /**
+     * Replacement for {@link DatagramChannel#open(ProtocolFamily)}.
+     *
+     * @param family the family
+     * @return the datagram channel
+     * @throws IOException if an I/O error occurs
+     */
     public static DatagramChannel open(ProtocolFamily family) throws IOException {
         if (!MockFramework.isEnabled()) {
             return DatagramChannel.open(family);

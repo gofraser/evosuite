@@ -523,8 +523,8 @@ public class TestFactory {
     }
 
     /**
-     * Class literals are reified to raw classes (eg, LinkedList.class has type Class<LinkedList>).
-     * If a reflected field expects Class<SomeGenericType>, normalize it to Class<SomeRawType> so that
+     * Class literals are reified to raw classes (eg, LinkedList.class has type Class&lt;LinkedList&gt;).
+     * If a reflected field expects Class&lt;SomeGenericType&gt;, normalize it to Class&lt;SomeRawType&gt; so that
      * generated class literals can be assigned without triggering false generic mismatches.
      */
     private static Type normalizeClassLiteralTypeArgumentByErasure(Type type) {
@@ -540,6 +540,15 @@ public class TestFactory {
 
         Type[] args = parameterizedType.getActualTypeArguments();
         if (args.length != 1) {
+            return type;
+        }
+
+        // Only normalize the class-literal corner case where a reflected signature
+        // expects Class<SomeParameterizedType> but class literals are reified as
+        // Class<SomeRawType> (e.g. LinkedList.class -> Class<LinkedList>).
+        // Do not erase wildcard/type-variable based Class bounds such as
+        // Class<? extends Session>, otherwise they degrade to Class<Object>.
+        if (!(args[0] instanceof ParameterizedType)) {
             return type;
         }
 
@@ -1675,6 +1684,7 @@ public class TestFactory {
                                              boolean canReuseExistingVariables)
             throws ConstructionFailedException {
 
+        final Type expectedType = normalizeTypeVariablesToWildcardsIfNeeded(parameterType);
         GenericClass<?> clazz = GenericClassFactory.get(parameterType);
 
         if (clazz.hasWildcardOrTypeVariables()) {
@@ -1702,6 +1712,12 @@ public class TestFactory {
             VariableReference reference = attemptGeneration(test, parameterType,
                     position, recursionDepth,
                     allowNull, generatorRefToExclude, canUseMocks, canReuseExistingVariables);
+
+            if (!reference.isAssignableTo(expectedType)
+                    && !isClassLiteralAssignableByErasure(expectedType, reference.getType())) {
+                throw new ConstructionFailedException("Generated variable " + reference + " of type "
+                        + reference.getType() + " is not assignable to expected type " + expectedType);
+            }
 
             assert !(!allowNull && ConstraintHelper.isNull(reference, test));
             assert canUseMocks || !(test.getStatement(reference.getStPosition()) instanceof FunctionalMockStatement);

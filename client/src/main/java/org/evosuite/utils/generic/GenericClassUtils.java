@@ -171,8 +171,8 @@ public class GenericClassUtils {
     }
 
     /**
-     * Class literals are reified only to raw classes (eg, LinkedList.class has type Class<LinkedList>).
-     * Allow assignment to Class<T> when both operands are Class<...> and the nested class erasures match
+     * Class literals are reified only to raw classes (eg, LinkedList.class has type Class&lt;LinkedList&gt;).
+     * Allow assignment to Class&lt;T&gt; when both operands are Class&lt;...&gt; and the nested class erasures match
      * the normal class-assignability relation.
      */
     private static boolean isClassLiteralAssignable(Type lhsType, Type rhsType) {

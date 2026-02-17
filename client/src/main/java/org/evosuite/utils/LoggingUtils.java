@@ -21,9 +21,14 @@ package org.evosuite.utils;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.joran.JoranConfigurator;
+import ch.qos.logback.classic.net.SocketAppender;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.Appender;
+import ch.qos.logback.core.ConsoleAppender;
 import ch.qos.logback.core.joran.spi.JoranException;
+import ch.qos.logback.core.util.Duration;
 import ch.qos.logback.core.util.StatusPrinter;
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
@@ -45,7 +50,9 @@ import java.util.concurrent.Executors;
  */
 public class LoggingUtils {
 
-    private static final Logger logger = LoggerFactory.getLogger(LoggingUtils.class);
+    private static Logger logger() {
+        return LoggerFactory.getLogger(LoggingUtils.class);
+    }
 
     /**
      * Constant <code>DEFAULT_OUT</code>.
@@ -161,9 +168,9 @@ public class LoggingUtils {
                                     /*
                                      * TODO: unclear why it happens... need more investigation
                                      */
-                                    logger.error("Error in de-serialized log event: " + ice.getMessage());
+                                    logger().error("Error in de-serialized log event: " + ice.getMessage());
                                 } catch (Exception e) {
-                                    logger.error("Problem in reading loggings", e);
+                                    logger().error("Problem in reading loggings", e);
                                 }
                                 return null;
                             }
@@ -175,7 +182,7 @@ public class LoggingUtils {
 
             return true;
         } catch (Exception e) {
-            logger.error("Can't start log server", e);
+            logger().error("Can't start log server", e);
             return false;
         }
     }
@@ -215,7 +222,7 @@ public class LoggingUtils {
             try {
                 serverSocket.close();
             } catch (IOException e) {
-                logger.error("Error in closing log server", e);
+                logger().error("Error in closing log server", e);
             }
             serverSocket = null;
         }
@@ -310,6 +317,26 @@ public class LoggingUtils {
     }
 
     /**
+     * Configure logging in a client process. If XML-based Logback configuration fails
+     * (eg, due incompatible SAX parser from SUT dependencies), install a minimal
+     * programmatic fallback so EvoSuite can continue running.
+     */
+    public static void configureLoggingForClientProcess() {
+        System.setProperty("logback.statusListenerClass",
+                "ch.qos.logback.core.status.NopStatusListener");
+
+        boolean configured = false;
+        try {
+            configured = changeLogbackFile(getLogbackFileName());
+        } catch (Throwable t) {
+            System.err.println("Failed to configure Logback from XML: " + t.getMessage());
+        }
+        if (!configured) {
+            installProgrammaticFallbackLogging();
+        }
+    }
+
+    /**
      * Change the logback configuration file.
      *
      * @param resourceFilePath the path to the new configuration file
@@ -337,7 +364,7 @@ public class LoggingUtils {
             if (f == null) {
                 String msg = xmlFileName + " not found on classpath";
                 System.err.println(msg);
-                logger.error(msg);
+                logger().error(msg);
                 return false;
             } else {
                 context.reset();
@@ -349,6 +376,93 @@ public class LoggingUtils {
         }
 
         return true;
+    }
+
+    private static void installProgrammaticFallbackLogging() {
+        LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
+        context.reset();
+
+        Appender<ILoggingEvent> appender = createSocketAppenderIfConfigured(context);
+        if (appender == null) {
+            appender = createConsoleAppender(context);
+        }
+
+        ch.qos.logback.classic.Logger evoLogger =
+                context.getLogger(EVO_LOGGER);
+        evoLogger.setAdditive(false);
+        evoLogger.setLevel(Level.INFO);
+        evoLogger.addAppender(appender);
+
+        Level level = parseLevel(System.getProperty(LOG_LEVEL));
+        ch.qos.logback.classic.Logger evosuiteLogger = context.getLogger("org.evosuite");
+        evosuiteLogger.setAdditive(false);
+        evosuiteLogger.setLevel(level);
+        evosuiteLogger.addAppender(appender);
+
+        ch.qos.logback.classic.Logger shadedLogger = context.getLogger("shaded.org.evosuite");
+        shadedLogger.setAdditive(false);
+        shadedLogger.setLevel(level);
+        shadedLogger.addAppender(appender);
+
+        context.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME).setLevel(Level.OFF);
+        System.err.println("EvoSuite fallback logging enabled (programmatic configuration)");
+    }
+
+    private static Appender<ILoggingEvent> createSocketAppenderIfConfigured(LoggerContext context) {
+        String appenderKind = System.getProperty("evosuite.log.appender", "MASTER");
+        if (!"CLIENT".equalsIgnoreCase(appenderKind)) {
+            return null;
+        }
+
+        int port;
+        try {
+            port = Integer.parseInt(System.getProperty("master_log_port", "12345"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+
+        SocketAppender socketAppender = new SocketAppender();
+        socketAppender.setContext(context);
+        socketAppender.setRemoteHost(System.getProperty("master_host", "localhost"));
+        socketAppender.setPort(port);
+        socketAppender.setReconnectionDelay(new Duration(10000));
+        socketAppender.start();
+        return socketAppender.isStarted() ? socketAppender : null;
+    }
+
+    private static Appender<ILoggingEvent> createConsoleAppender(LoggerContext context) {
+        PatternLayoutEncoder encoder = new PatternLayoutEncoder();
+        encoder.setContext(context);
+        encoder.setPattern("[FALLBACK] %d{HH:mm:ss.SSS} [%thread] %-5level %logger{0} - %msg%n");
+        encoder.start();
+
+        ConsoleAppender<ILoggingEvent> consoleAppender = new ConsoleAppender<>();
+        consoleAppender.setContext(context);
+        consoleAppender.setTarget("System.err");
+        consoleAppender.setEncoder(encoder);
+        consoleAppender.start();
+        return consoleAppender;
+    }
+
+    private static Level parseLevel(String raw) {
+        if (raw == null) {
+            return Level.WARN;
+        }
+        String normalized = raw.trim().toUpperCase();
+        switch (normalized) {
+            case "TRACE":
+                return Level.TRACE;
+            case "DEBUG":
+                return Level.DEBUG;
+            case "INFO":
+                return Level.INFO;
+            case "WARN":
+                return Level.WARN;
+            case "ERROR":
+                return Level.ERROR;
+            default:
+                return Level.WARN;
+        }
     }
 
     public static String getLogbackFileName() {

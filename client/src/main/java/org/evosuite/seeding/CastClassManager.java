@@ -287,7 +287,15 @@ public class CastClassManager {
                 assignableClasses = getAssignableClasses(wildcardType, allowRecursion, ownerVariableMap);
 
                 if (assignableClasses.isEmpty()) {
-                    logger.warn("Nothing is assignable after adding {} for wildcard {}", genericClass, wildcardType);
+                    List<GenericClass<?>> recursiveAssignable = getAssignableClasses(wildcardType, true,
+                            ownerVariableMap);
+                    if (!allowRecursion && !recursiveAssignable.isEmpty()) {
+                        logger.debug("No non-recursive class assignable after adding {} for wildcard {}. "
+                                        + "Assignable classes exist only with recursion (likely depth-limited): {}",
+                                genericClass, wildcardType, recursiveAssignable);
+                    } else {
+                        logger.warn("Nothing is assignable after adding {} for wildcard {}", genericClass, wildcardType);
+                    }
                     throw new ConstructionFailedException("Nothing is assignable to " + wildcardType);
                 }
             } else {

@@ -55,18 +55,26 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.Iterator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 import static org.junit.platform.engine.discovery.ClassNameFilter.includeClassNamePatterns;
@@ -86,6 +94,7 @@ public abstract class JUnitAnalyzer {
 
     private static final String JAVA = ".java";
     private static final String CLASS = ".class";
+    private static final Map<String, String> SANITIZED_COMPILER_CLASSPATH_ENTRIES = new HashMap<>();
 
     private static NonInstrumentingClassLoader loader = new NonInstrumentingClassLoader();
 
@@ -372,6 +381,7 @@ public abstract class JUnitAnalyzer {
             }
 
             String classpath = targetProjectCP + File.pathSeparator + evosuiteCP;
+            classpath = sanitizeClasspathForCompiler(classpath);
 
             List<String> optionList = new ArrayList<>(Arrays.asList("-classpath", classpath));
 
@@ -415,6 +425,135 @@ public abstract class JUnitAnalyzer {
         } catch (IOException e) {
             logger.error("" + e, e);
             return null;
+        }
+    }
+
+    private static String sanitizeClasspathForCompiler(String classpath) {
+        if (classpath == null || classpath.trim().isEmpty()) {
+            return classpath;
+        }
+
+        String[] entries = classpath.split(File.pathSeparator);
+        List<String> sanitizedEntries = new ArrayList<>(entries.length);
+        for (String entry : entries) {
+            sanitizedEntries.add(sanitizeClasspathEntryForCompiler(entry));
+        }
+        return String.join(File.pathSeparator, sanitizedEntries);
+    }
+
+    private static String sanitizeClasspathEntryForCompiler(String entry) {
+        if (entry == null || entry.isEmpty()) {
+            return entry;
+        }
+
+        if (!entry.endsWith(".jar")) {
+            return entry;
+        }
+
+        File jarFile = new File(entry);
+        if (!jarFile.isFile()) {
+            return entry;
+        }
+
+        synchronized (SANITIZED_COMPILER_CLASSPATH_ENTRIES) {
+            String cached = SANITIZED_COMPILER_CLASSPATH_ENTRIES.get(jarFile.getAbsolutePath());
+            if (cached != null) {
+                return cached;
+            }
+        }
+
+        if (!containsDotSegmentEntry(jarFile)) {
+            synchronized (SANITIZED_COMPILER_CLASSPATH_ENTRIES) {
+                SANITIZED_COMPILER_CLASSPATH_ENTRIES.put(jarFile.getAbsolutePath(), jarFile.getAbsolutePath());
+            }
+            return jarFile.getAbsolutePath();
+        }
+
+        String sanitized = extractJarWithoutDotSegmentEntries(jarFile);
+        synchronized (SANITIZED_COMPILER_CLASSPATH_ENTRIES) {
+            SANITIZED_COMPILER_CLASSPATH_ENTRIES.put(jarFile.getAbsolutePath(), sanitized);
+        }
+        if (!jarFile.getAbsolutePath().equals(sanitized)) {
+            logger.warn("Using sanitized compiler classpath entry for malformed jar {} -> {}",
+                    jarFile.getAbsolutePath(), sanitized);
+        }
+        return sanitized;
+    }
+
+    private static boolean containsDotSegmentEntry(File jarFile) {
+        try (JarFile jar = new JarFile(jarFile)) {
+            Enumeration<JarEntry> entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                JarEntry entry = entries.nextElement();
+                if (hasDotSegment(entry.getName())) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            logger.debug("Could not inspect jar {} for compiler sanitization: {}", jarFile, e.getMessage());
+        }
+        return false;
+    }
+
+    private static boolean hasDotSegment(String entryName) {
+        if (entryName == null || entryName.isEmpty()) {
+            return false;
+        }
+        String normalized = entryName.startsWith("/") ? entryName.substring(1) : entryName;
+        String[] segments = normalized.split("/");
+        for (String segment : segments) {
+            if (segment.equals(".") || segment.equals("..")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String extractJarWithoutDotSegmentEntries(File jarFile) {
+        try {
+            File targetDir = Files.createTempDirectory("evosuite-compiler-cp-").toFile();
+            targetDir.deleteOnExit();
+
+            try (JarFile jar = new JarFile(jarFile)) {
+                Enumeration<JarEntry> entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry entry = entries.nextElement();
+                    String name = entry.getName();
+                    if (hasDotSegment(name)) {
+                        continue;
+                    }
+                    if (name.startsWith("/")) {
+                        name = name.substring(1);
+                    }
+                    if (name.isEmpty()) {
+                        continue;
+                    }
+
+                    File out = new File(targetDir, name);
+                    if (entry.isDirectory()) {
+                        if (!out.exists() && !out.mkdirs()) {
+                            logger.debug("Could not create directory while sanitizing jar: {}", out);
+                        }
+                        continue;
+                    }
+
+                    File parent = out.getParentFile();
+                    if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                        logger.debug("Could not create parent directory while sanitizing jar: {}", parent);
+                        continue;
+                    }
+
+                    try (InputStream in = jar.getInputStream(entry)) {
+                        Files.copy(in, out.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    out.deleteOnExit();
+                }
+            }
+            return targetDir.getAbsolutePath();
+        } catch (IOException e) {
+            logger.warn("Failed to sanitize malformed jar {} for compiler classpath: {}",
+                    jarFile.getAbsolutePath(), e.getMessage());
+            return jarFile.getAbsolutePath();
         }
     }
 

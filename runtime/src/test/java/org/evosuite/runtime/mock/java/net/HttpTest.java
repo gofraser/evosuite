@@ -24,11 +24,18 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Scanner;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 
 /**
  * Created by arcuri on 11/21/14.
@@ -88,5 +95,48 @@ public class HttpTest {
         Assert.assertEquals(text, result);
 
         Assert.assertEquals(1, VirtualNetwork.getInstance().getViewOfRemoteAccessedFiles().size());
+    }
+
+    @Test
+    public void testFileOpenStreamDelegatesToJdkHandler() throws Exception {
+        Path tmp = Files.createTempFile("evosuite-mockurl", ".txt");
+        Files.write(tmp, "hello".getBytes(StandardCharsets.UTF_8));
+
+        URL mocked = MockURL.URL(tmp.toUri().toURL().toExternalForm());
+        try (InputStream in = mocked.openStream(); Scanner scanner = new Scanner(in, StandardCharsets.UTF_8.name())) {
+            Assert.assertEquals("hello", scanner.nextLine());
+        }
+    }
+
+    @Test
+    public void testJarOpenConnectionDoesNotReturnNull() throws Exception {
+        Path jar = Files.createTempFile("evosuite-mockurl", ".jar");
+        try (OutputStream out = Files.newOutputStream(jar); JarOutputStream jout = new JarOutputStream(out)) {
+            JarEntry entry = new JarEntry("data.txt");
+            jout.putNextEntry(entry);
+            jout.write("jar-content".getBytes(StandardCharsets.UTF_8));
+            jout.closeEntry();
+        }
+
+        String spec = "jar:" + jar.toUri().toURL().toExternalForm() + "!/data.txt";
+        URL mocked = MockURL.URL(spec);
+        URLConnection connection = mocked.openConnection();
+        Assert.assertNotNull(connection);
+        try {
+            mocked.openStream();
+        } catch (IOException expected) {
+            // acceptable for jar entry resolution; key property is no NPE/null connection
+        }
+    }
+
+    @Test
+    public void testUnsupportedProtocolDoesNotReturnNullConnection() throws Exception {
+        URL mocked = MockURL.URL("ftp://example.org/file.txt");
+        try {
+            mocked.openStream();
+            Assert.fail("Expected IOException for unsupported protocol");
+        } catch (IOException expected) {
+            // expected
+        }
     }
 }

@@ -27,6 +27,7 @@ import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
+import org.evosuite.testcase.statements.ClassPrimitiveStatement;
 import org.evosuite.testcase.statements.EnumPrimitiveStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
@@ -42,6 +43,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.Set;
 
 import static org.junit.Assert.*;
@@ -57,6 +59,10 @@ public class TestCodeVisitorTest {
 
     public static <T> T bar(T obj) {
         return obj;
+    }
+
+    public static void consumeLinkedListIntegerClass(Class<LinkedList<Integer>> cls) {
+        // no-op
     }
 
     public static class ClassWithGeneric<T extends FakeAbstractClass> {
@@ -415,5 +421,23 @@ public class TestCodeVisitorTest {
         assertTrue(code.contains("int int0 = person0.getFixedId()"));
         assertFalse(code.contains("boolean adult = person.isAdult()"));
         assertTrue(code.contains("boolean boolean0 = person0.isAdult()"));
+    }
+
+    @Test
+    public void testClassLiteralParameterCastUsesRawClass() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference classVar = tc.addStatement(new ClassPrimitiveStatement(tc, LinkedList.class));
+
+        Method method = TestCodeVisitorTest.class.getDeclaredMethod("consumeLinkedListIntegerClass", Class.class);
+        GenericMethod genericMethod = new GenericMethod(method, TestCodeVisitorTest.class);
+        MethodStatement methodStatement = new MethodStatement(tc, genericMethod, null, Arrays.asList(classVar));
+        tc.addStatement(methodStatement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("(Class) "));
+        assertFalse(code.contains("(Class<LinkedList<Integer>>) "));
     }
 }

@@ -36,14 +36,14 @@ import org.slf4j.LoggerFactory;
 import java.util.AbstractMap;
 import java.util.ArrayDeque;
 import java.util.Collections;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This class holds static methods used to calculate ControlFlowDistances or in
@@ -358,8 +358,6 @@ public class ControlFlowDistanceCalculator {
     /**
      * Returns a set containing the ControlFlowDistances in the given result for
      * all branches the given instruction is control dependent on.
-     *
-     * @param handled a {@link java.util.Set} object.
      */
     private static Set<ControlFlowDistance> getDistancesForControlDependentBranchesOf(
             ExecutionResult result, MethodCall call, BytecodeInstruction instruction,

@@ -1121,13 +1121,16 @@ public class TestCodeVisitor extends TestVisitor {
             Type declaredParamType = parameterTypes[i];
             Type actualParamType = parameters.get(i).getType();
             String name = getVariableName(parameters.get(i));
+            boolean requiresRawClassCast = isClassType(declaredParamType)
+                    && isClassType(actualParamType)
+                    && !declaredParamType.equals(actualParamType);
             Class<?> rawParamClass = declaredParamType instanceof WildcardType ? Object.class
                     : safeErasure(declaredParamType);
             if (rawParamClass.isPrimitive() && name.equals("null")) {
                 parameterString += getPrimitiveNullCast(rawParamClass);
             } else if (isGenericMethod && !(declaredParamType instanceof WildcardType)) {
                 if (!declaredParamType.equals(actualParamType) || name.equals("null")) {
-                    parameterString += "(" + getTypeName(declaredParamType) + ") ";
+                    parameterString += "(" + getCastTypeName(declaredParamType, actualParamType) + ") ";
                     if (name.contains("(short")) {
                         name = name.replace("(short)", "");
                     }
@@ -1136,6 +1139,8 @@ public class TestCodeVisitor extends TestVisitor {
                     }
 
                 }
+            } else if (requiresRawClassCast) {
+                parameterString += "(" + getTypeName(Class.class) + ") ";
             } else if (name.equals("null")) {
                 parameterString += "(" + getTypeName(declaredParamType) + ") ";
             } else if (!GenericClassUtils.isAssignable(declaredParamType, actualParamType)) {
@@ -1159,7 +1164,7 @@ public class TestCodeVisitor extends TestVisitor {
                         parameterString += "(" + getTypeName(declaredParamType) + ") ";
                     }
                 } else if (!(actualParamType instanceof ParameterizedType)) {
-                    parameterString += "(" + getTypeName(declaredParamType) + ") ";
+                    parameterString += "(" + getCastTypeName(declaredParamType, actualParamType) + ") ";
                 }
                 if (name.contains("(short")) {
                     name = name.replace("(short)", "");
@@ -1181,7 +1186,7 @@ public class TestCodeVisitor extends TestVisitor {
                 } else if (isOverloaded) {
                     // If there is an overloaded method, we need to cast to make sure we use the right version
                     if (!declaredParamType.equals(actualParamType)) {
-                        parameterString += "(" + getTypeName(declaredParamType) + ") ";
+                        parameterString += "(" + getCastTypeName(declaredParamType, actualParamType) + ") ";
                     }
                 }
             }
@@ -1190,6 +1195,30 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         return parameterString;
+    }
+
+    /**
+     * For Class literals with nested generic arguments, casting to the fully parameterized
+     * type may be a compile-time error (e.g. Class&lt;LinkedList&gt; to Class&lt;LinkedList&lt;Integer&gt;&gt;).
+     * In those cases we fall back to a raw Class cast.
+     */
+    private String getCastTypeName(Type declaredParamType, Type actualParamType) {
+        if (isClassType(declaredParamType) && isClassType(actualParamType)
+                && !declaredParamType.equals(actualParamType)) {
+            return getTypeName(Class.class);
+        }
+        return getTypeName(declaredParamType);
+    }
+
+    private boolean isClassType(Type type) {
+        if (type instanceof Class<?>) {
+            return Class.class.equals(type);
+        }
+        if (type instanceof ParameterizedType) {
+            Type rawType = ((ParameterizedType) type).getRawType();
+            return rawType instanceof Class<?> && Class.class.equals(rawType);
+        }
+        return false;
     }
 
     private Class<?> safeErasure(Type type) {

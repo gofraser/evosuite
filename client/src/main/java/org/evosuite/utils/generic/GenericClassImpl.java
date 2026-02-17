@@ -49,6 +49,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             "byte");
 
     private static final long serialVersionUID = -3307107227790458308L;
+    private static final int MAX_CONSTRAINED_INSTANTIATION_ATTEMPTS = 32;
 
     /**
      * Set of wrapper classes.
@@ -597,6 +598,36 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return null;
     }
 
+    @Override
+    public GenericClass<?> getGenericInstantiation(Map<TypeVariable<?>, Type> typeMap, int recursionLevel,
+                                                   WildcardType requiredBounds)
+            throws ConstructionFailedException {
+        if (requiredBounds == null) {
+            return getGenericInstantiation(typeMap, recursionLevel);
+        }
+
+        ConstructionFailedException lastFailure = null;
+        for (int attempt = 0; attempt < MAX_CONSTRAINED_INSTANTIATION_ATTEMPTS; attempt++) {
+            Map<TypeVariable<?>, Type> trialMap = new HashMap<>(typeMap);
+            try {
+                GenericClass<?> instantiated = getGenericInstantiation(trialMap, recursionLevel);
+                if (instantiated.satisfiesBoundaries(requiredBounds, trialMap)) {
+                    typeMap.clear();
+                    typeMap.putAll(trialMap);
+                    return instantiated;
+                }
+            } catch (ConstructionFailedException e) {
+                lastFailure = e;
+            }
+        }
+
+        if (lastFailure != null) {
+            throw lastFailure;
+        }
+        throw new ConstructionFailedException("Could not instantiate " + this
+                + " while satisfying bounds " + requiredBounds);
+    }
+
     /**
      * Instantiate generic component type.
      *
@@ -702,8 +733,14 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             logger.debug("Wildcard instantiation: {} -> {} with typeMap {}",
                     type, selectedClass, GenericUtils.stableTypeVariableMapToString(typeMap));
         }
-        // Preserve any bound-derived type mappings when instantiating the selected class
-        return selectedClass.getGenericInstantiation(typeMap, recursionLevel + 1);
+        WildcardType wildcardBounds = (WildcardType) type;
+        GenericClass<?> instantiated = selectedClass.getGenericInstantiation(typeMap, recursionLevel + 1,
+                wildcardBounds);
+        if (!instantiated.satisfiesBoundaries(wildcardBounds, typeMap)) {
+            throw new ConstructionFailedException("Invalid wildcard instantiation: "
+                    + instantiated + " does not satisfy " + wildcardBounds);
+        }
+        return instantiated;
     }
 
     /**
@@ -803,11 +840,13 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                     logger.debug("Wildcard boundaries: " + parameterClass.getGenericBounds());
                     logger.debug("Boundaries of underlying var: "
                             + Arrays.asList(typeParameters.get(numParam).getBounds()));
-                    if (recursionLevel >= 1) {
-                        // NOTE: List<List<String>> cannot be assigned to List<List<?>>
+                    WildcardType wildcardType = (WildcardType) parameterClass.getType();
+                    boolean preserveWildcard = recursionLevel >= 1
+                            && parameterClass.satisfiesBoundaries(typeParameters.get(numParam), extendedMap)
+                            && !hasConcreteParameterizedBound(wildcardType);
+                    if (preserveWildcard) {
                         parameterTypes[numParam++] = parameterClass.getType();
                     } else {
-                        WildcardType wildcardType = (WildcardType) parameterClass.getType();
                         for (Type bound : wildcardType.getUpperBounds()) {
                             if (bound instanceof ParameterizedType) {
                                 extendedMap.putAll(TypeUtils.getTypeArguments((ParameterizedType) bound));
@@ -1790,6 +1829,10 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             }
 
             Type type = GenericUtils.replaceTypeVariables(theType, ownerVariableMap);
+            if (violatesConcreteParameterizedBound(getType(), type)) {
+                isAssignable = false;
+                break;
+            }
             //logger.debug("Bound after variable replacement: " + type);
             if (!isAssignableTo(type)) {
                 // If the boundary is not assignable it may still be possible
@@ -1859,6 +1902,107 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             }
         }
         return isAssignable;
+    }
+
+    private static boolean violatesConcreteParameterizedBound(Type candidateType, Type boundType) {
+        if (!(boundType instanceof ParameterizedType)) {
+            return false;
+        }
+
+        Class<?> boundRawClass = GenericTypeReflector.erase(boundType);
+        Type candidateAsBoundRaw = GenericTypeReflector.getExactSuperType(candidateType, boundRawClass);
+        if (!(candidateAsBoundRaw instanceof ParameterizedType)) {
+            return false;
+        }
+
+        return hasConcreteVsWildcardMismatch((ParameterizedType) boundType,
+                (ParameterizedType) candidateAsBoundRaw);
+    }
+
+    private static boolean hasConcreteParameterizedBound(WildcardType wildcardType) {
+        for (Type bound : wildcardType.getUpperBounds()) {
+            if (isConcreteType(bound)) {
+                return true;
+            }
+        }
+        for (Type bound : wildcardType.getLowerBounds()) {
+            if (isConcreteType(bound)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasConcreteVsWildcardMismatch(ParameterizedType expectedBound,
+                                                         ParameterizedType actualCandidate) {
+        Type[] expectedArgs = expectedBound.getActualTypeArguments();
+        Type[] actualArgs = actualCandidate.getActualTypeArguments();
+        int length = Math.min(expectedArgs.length, actualArgs.length);
+        for (int i = 0; i < length; i++) {
+            Type expected = expectedArgs[i];
+            Type actual = actualArgs[i];
+            if (isConcreteType(expected) && hasWildcardOrTypeVariable(actual)) {
+                return true;
+            }
+            if (isConcreteType(expected) && isConcreteType(actual) && !TypeUtils.equals(expected, actual)
+                    && !isClassLiteralSubtypeCompatibility(expectedBound, expected, actual)) {
+                return true;
+            }
+            if (expected instanceof ParameterizedType && actual instanceof ParameterizedType
+                    && hasConcreteVsWildcardMismatch((ParameterizedType) expected, (ParameterizedType) actual)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isClassLiteralSubtypeCompatibility(ParameterizedType expectedBound,
+                                                              Type expected,
+                                                              Type actual) {
+        if (!(expectedBound.getRawType() instanceof Class<?>)
+                || !Class.class.equals(expectedBound.getRawType())) {
+            return false;
+        }
+        if (!(expected instanceof Class<?>) || !(actual instanceof Class<?>)) {
+            return false;
+        }
+        return ((Class<?>) expected).isAssignableFrom((Class<?>) actual);
+    }
+
+    private static boolean isConcreteType(Type type) {
+        if (type instanceof Class<?>) {
+            return true;
+        }
+        if (type instanceof ParameterizedType) {
+            for (Type argument : ((ParameterizedType) type).getActualTypeArguments()) {
+                if (!isConcreteType(argument)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (type instanceof GenericArrayType) {
+            return isConcreteType(((GenericArrayType) type).getGenericComponentType());
+        }
+        return false;
+    }
+
+    private static boolean hasWildcardOrTypeVariable(Type type) {
+        if (type instanceof WildcardType || type instanceof TypeVariable || type instanceof CaptureType) {
+            return true;
+        }
+        if (type instanceof ParameterizedType) {
+            for (Type argument : ((ParameterizedType) type).getActualTypeArguments()) {
+                if (hasWildcardOrTypeVariable(argument)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (type instanceof GenericArrayType) {
+            return hasWildcardOrTypeVariable(((GenericArrayType) type).getGenericComponentType());
+        }
+        return false;
     }
 
     /**

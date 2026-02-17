@@ -432,7 +432,11 @@ public class MockURL implements StaticReplacementMock {
      * @throws java.io.IOException if an I/O error occurs
      */
     public static URLConnection openConnection(URL url) throws java.io.IOException {
-        return url.openConnection();
+        URLConnection connection = url.openConnection();
+        if (connection == null) {
+            throw new MockIOException("URL.openConnection() returned null for " + url);
+        }
+        return connection;
     }
 
     /**
@@ -453,7 +457,11 @@ public class MockURL implements StaticReplacementMock {
         // Create a copy of Proxy as a security measure
         //Proxy p = proxy == Proxy.NO_PROXY ? Proxy.NO_PROXY : sun.net.ApplicationProxy.create(proxy);
         try {
-            return URLStreamHandlerUtil.openConnection(URLUtil.getHandler(url), url, proxy);
+            URLConnection connection = URLStreamHandlerUtil.openConnection(URLUtil.getHandler(url), url, proxy);
+            if (connection == null) {
+                throw new MockIOException("URL.openConnection(proxy) returned null for " + url);
+            }
+            return connection;
         } catch (InvocationTargetException e) {
             throw new MockIOException(e.getCause());
         }
@@ -467,7 +475,7 @@ public class MockURL implements StaticReplacementMock {
      * @throws java.io.IOException if an I/O error occurs
      */
     public static InputStream openStream(URL url) throws java.io.IOException {
-        return url.openStream();
+        return openConnection(url).getInputStream();
     }
 
     /**

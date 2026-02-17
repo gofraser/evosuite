@@ -76,18 +76,12 @@ public class EvoURLStreamHandler extends MockURLStreamHandler {
             return new EvoHttpURLConnection(u);
         }
 
-        // TODO
+        if ("file".equals(protocol) || "jar".equals(protocol)) {
+            // Delegate local/resource protocols to the JDK implementation.
+            // Returning null here causes URL#openStream() to throw NPE.
+            return new URL(u.toExternalForm()).openConnection();
+        }
 
-        /*
-         * "http/https" need to be treated specially, look at
-         * source code of:
-         * http://grepcode.com/file/repository.grepcode.com/java/root/jdk/openjdk/7-b147/sun/net/www/protocol/http/HttpURLConnection.java
-         *
-         * also "jar", but it is very, very rare (so skip it?)
-         *
-         * "file" protocol needs to use VFS (if it is active)
-         */
-
-        return null;
+        throw new IOException("Unsupported protocol in EvoURLStreamHandler: " + protocol);
     }
 }

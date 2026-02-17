@@ -87,7 +87,8 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
 
             if (statement instanceof FieldStatement) {
                 FieldStatement fieldStatement = (FieldStatement) statement;
-                if (fieldStatement.getField().isStatic() && TestClusterGenerator.isFinalField(fieldStatement.getField().getField())) {
+                if (fieldStatement.getField().isStatic()
+                        && TestClusterGenerator.isFinalField(fieldStatement.getField().getField())) {
                     return;
                 }
             }
