@@ -180,9 +180,9 @@
                 <!-- Mockito 5+ requires Java 11+ -->
                 <mockito.version>5.21.0</mockito.version>
                 <!-- Byte Buddy 1.17.5+ required for Java 24/25 support -->
-                <bytebuddy.version>1.17.5</bytebuddy.version>
+                <bytebuddy.version>1.18.5</bytebuddy.version>
                 <!-- Logback 1.3+ requires Java 11+ -->
-                <logback.version>1.5.27</logback.version>
+                <logback.version>1.5.32</logback.version>
             </properties>
             <dependencyManagement>
                 <dependencies>
@@ -400,7 +400,7 @@
                 <!-- Apache 2 -->
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-exec</artifactId>
-                <version>1.3</version>
+                <version>1.6.0</version>
             </dependency>
             <dependency>
                 <groupId>com.github.stefanbirkner</groupId>
@@ -410,7 +410,7 @@
             <dependency>
                 <groupId>org.junit.platform</groupId>
                 <artifactId>junit-platform-runner</artifactId>
-                <version>1.8.0</version>
+                <version>1.14.3</version>
             </dependency>
             <dependency>
                 <groupId>org.junit.vintage</groupId>
