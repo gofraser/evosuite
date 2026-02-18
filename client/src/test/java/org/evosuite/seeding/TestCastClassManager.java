@@ -19,7 +19,6 @@
  */
 package org.evosuite.seeding;
 
-import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.Properties;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -202,11 +201,13 @@ public class TestCastClassManager {
         assertTrue(selected.satisfiesBoundaries(wildcardType, new HashMap<>()));
     }
 
-    @Test(expected = ConstructionFailedException.class)
-    public void testSelectCastClassWildcardVectorWithoutRecursionFails() throws Exception {
+    @Test
+    public void testSelectCastClassWildcardVectorWithoutRecursionMayUseRecursiveCandidate() throws Exception {
         CastClassManager instance = CastClassManager.getInstance();
         WildcardType wildcardType = new WildcardTypeImpl(new Type[]{Vector.class}, new Type[]{});
 
-        instance.selectCastClass(wildcardType, false, new HashMap<>());
+        GenericClass<?> selected = instance.selectCastClass(wildcardType, false, new HashMap<>());
+        assertNotNull(selected);
+        assertTrue(selected.satisfiesBoundaries(wildcardType, new HashMap<>()));
     }
 }
