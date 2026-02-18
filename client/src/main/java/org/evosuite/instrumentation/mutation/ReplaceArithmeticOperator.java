@@ -132,7 +132,7 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                             opcode, numVariable));
             mutations.add(mutationObject);
             if (opcodesLong.contains(node.getOpcode()) || opcodesDouble.contains(node.getOpcode())) {
-                numVariable += 2;
+                numVariable += 4; // 2 slots for each operand (both are category-2)
             }
         }
 
@@ -175,16 +175,23 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                     PackageInfo.getNameWithSlash(ReplaceArithmeticOperator.class),
                     "getInfectionDistanceInt", "(IIII)D", false));
         } else if (opcodesLong.contains(opcodeOrig)) {
-            distance.add(new InsnNode(Opcodes.DUP2_X2));
-            distance.add(new InsnNode(Opcodes.POP2));
-            distance.add(new InsnNode(Opcodes.DUP2_X2));
-            distance.add(new InsnNode(Opcodes.DUP2_X2));
+            // Store both operands in local variables, then reload them twice:
+            // once for the original instruction and once for the infection distance call.
+            // Stack before: [..., X, Y]
+            distance.add(new VarInsnNode(Opcodes.LSTORE, localVar + 2)); // store Y
+            distance.add(new VarInsnNode(Opcodes.LSTORE, localVar));     // store X
+            distance.add(new VarInsnNode(Opcodes.LLOAD, localVar));      // push X (for original op)
+            distance.add(new VarInsnNode(Opcodes.LLOAD, localVar + 2)); // push Y (for original op)
+            distance.add(new VarInsnNode(Opcodes.LLOAD, localVar));      // push X (for distance call)
+            distance.add(new VarInsnNode(Opcodes.LLOAD, localVar + 2)); // push Y (for distance call)
+            // Stack: [..., X, Y, X, Y]
             distance.add(new LdcInsnNode(opcodeOrig));
             distance.add(new LdcInsnNode(opcodeNew));
             distance.add(new MethodInsnNode(
                     Opcodes.INVOKESTATIC,
                     PackageInfo.getNameWithSlash(ReplaceArithmeticOperator.class),
                     "getInfectionDistanceLong", "(JJII)D", false));
+            // Stack after passedMutation: [..., X, Y] — preserved for original instruction
         } else if (opcodesFloat.contains(opcodeOrig)) {
             distance.add(new InsnNode(Opcodes.DUP2));
             distance.add(new LdcInsnNode(opcodeOrig));
@@ -194,16 +201,23 @@ public class ReplaceArithmeticOperator implements MutationOperator {
                     PackageInfo.getNameWithSlash(ReplaceArithmeticOperator.class),
                     "getInfectionDistanceFloat", "(FFII)D", false));
         } else if (opcodesDouble.contains(opcodeOrig)) {
-            distance.add(new InsnNode(Opcodes.DUP2_X2));
-            distance.add(new InsnNode(Opcodes.POP2));
-            distance.add(new InsnNode(Opcodes.DUP2_X2));
-            distance.add(new InsnNode(Opcodes.DUP2_X2));
+            // Store both operands in local variables, then reload them twice:
+            // once for the original instruction and once for the infection distance call.
+            // Stack before: [..., X, Y]
+            distance.add(new VarInsnNode(Opcodes.DSTORE, localVar + 2)); // store Y
+            distance.add(new VarInsnNode(Opcodes.DSTORE, localVar));     // store X
+            distance.add(new VarInsnNode(Opcodes.DLOAD, localVar));      // push X (for original op)
+            distance.add(new VarInsnNode(Opcodes.DLOAD, localVar + 2)); // push Y (for original op)
+            distance.add(new VarInsnNode(Opcodes.DLOAD, localVar));      // push X (for distance call)
+            distance.add(new VarInsnNode(Opcodes.DLOAD, localVar + 2)); // push Y (for distance call)
+            // Stack: [..., X, Y, X, Y]
             distance.add(new LdcInsnNode(opcodeOrig));
             distance.add(new LdcInsnNode(opcodeNew));
             distance.add(new MethodInsnNode(
                     Opcodes.INVOKESTATIC,
                     PackageInfo.getNameWithSlash(ReplaceArithmeticOperator.class),
                     "getInfectionDistanceDouble", "(DDII)D", false));
+            // Stack after passedMutation: [..., X, Y] — preserved for original instruction
         }
 
         return distance;
