@@ -19,7 +19,6 @@
  */
 package org.evosuite.assertion;
 
-import org.evosuite.Properties;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -32,13 +31,8 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 
 import java.lang.reflect.Modifier;
-import java.util.regex.Pattern;
 
 public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTraceEntry> {
-
-    // Matches Java's default Object.toString() format: e.g., "com.example.Foo@1a2b3c4d"
-    // or nested occurrences like "[Foo@abc, Bar@def]". Requires at least 2 hex chars after @.
-    private static final Pattern addressPattern = Pattern.compile("[A-Za-z_$][\\w.]*@[a-f\\d]{2,}", Pattern.MULTILINE);
 
     /**
      * {@inheritDoc}
@@ -115,25 +109,9 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
             if (object.getClass().isPrimitive() || object.getClass().isEnum()
                     || isWrapperType(object.getClass()) || object instanceof String) {
                 if (object instanceof String) {
-                    int length = ((String) object).length();
-                    // Maximum length of strings we look at
-                    if (length > Properties.MAX_STRING) {
+                    if (StringValueFilter.shouldFilter((String) object)) {
                         return;
                     }
-                    // String literals may not be longer than 32767
-                    if (length >= 32767) {
-                        return;
-                    }
-                    // Avoid asserting anything on values referring to mockito proxy objects
-                    if (((String) object).toLowerCase().contains("enhancerbymockito")) {
-                        return;
-                    }
-                    // Check if there is an object identity reference (e.g. ClassName@hex)
-                    // that would make the test nondeterministic across JVM runs
-                    if (addressPattern.matcher((String) object).find()) {
-                        return;
-                    }
-
                 }
                 logger.debug("Observed value " + object + " for statement "
                         + statement.getCode());
@@ -149,5 +127,10 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
     @Override
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         // do nothing
+    }
+
+    @Override
+    public Class<PrimitiveTraceEntry> getTraceEntryClass() {
+        return PrimitiveTraceEntry.class;
     }
 }

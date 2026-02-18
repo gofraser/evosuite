@@ -97,4 +97,10 @@ public class PrimitiveFieldTraceObserver extends
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         // do nothing
     }
+
+    @Override
+    public Class<PrimitiveFieldTraceEntry> getTraceEntryClass() {
+        return PrimitiveFieldTraceEntry.class;
+    }
+
 }

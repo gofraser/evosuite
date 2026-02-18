@@ -153,4 +153,10 @@ public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> 
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         // do nothing
     }
+
+    @Override
+    public Class<ArrayTraceEntry> getTraceEntryClass() {
+        return ArrayTraceEntry.class;
+    }
+
 }

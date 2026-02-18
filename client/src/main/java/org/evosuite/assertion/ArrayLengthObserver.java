@@ -126,4 +126,10 @@ public class ArrayLengthObserver extends AssertionTraceObserver<ArrayLengthTrace
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         // do nothing
     }
+
+    @Override
+    public Class<ArrayLengthTraceEntry> getTraceEntryClass() {
+        return ArrayLengthTraceEntry.class;
+    }
+
 }

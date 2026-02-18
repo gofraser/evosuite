@@ -123,4 +123,10 @@ public class ComparisonTraceObserver extends AssertionTraceObserver<ComparisonTr
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         // do nothing
     }
+
+    @Override
+    public Class<ComparisonTraceEntry> getTraceEntryClass() {
+        return ComparisonTraceEntry.class;
+    }
+
 }

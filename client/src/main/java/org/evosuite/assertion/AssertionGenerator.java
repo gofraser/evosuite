@@ -77,6 +77,20 @@ public abstract class AssertionGenerator {
 
     protected static final ContainsTraceObserver containsTraceObserver = new ContainsTraceObserver();
 
+    protected static final List<AssertionTraceObserver<?>> OBSERVERS = Collections.unmodifiableList(
+            Arrays.asList(
+                    primitiveObserver,
+                    comparisonObserver,
+                    sameObserver,
+                    inspectorObserver,
+                    fieldObserver,
+                    nullObserver,
+                    arrayObserver,
+                    arrayLengthObserver,
+                    containsTraceObserver
+            )
+    );
+
     protected static final Class<?>[] observerClasses = {PrimitiveTraceEntry.class, ComparisonTraceEntry.class,
             SameTraceEntry.class, InspectorTraceEntry.class, PrimitiveFieldTraceEntry.class, NullTraceEntry.class,
             ArrayTraceEntry.class, ArrayLengthTraceEntry.class, ContainsTraceEntry.class};
@@ -87,15 +101,25 @@ public abstract class AssertionGenerator {
      * </p>
      */
     public AssertionGenerator() {
-        TestCaseExecutor.getInstance().addObserver(primitiveObserver);
-        TestCaseExecutor.getInstance().addObserver(comparisonObserver);
-        TestCaseExecutor.getInstance().addObserver(inspectorObserver);
-        TestCaseExecutor.getInstance().addObserver(fieldObserver);
-        TestCaseExecutor.getInstance().addObserver(nullObserver);
-        TestCaseExecutor.getInstance().addObserver(sameObserver);
-        TestCaseExecutor.getInstance().addObserver(arrayObserver);
-        TestCaseExecutor.getInstance().addObserver(arrayLengthObserver);
-        TestCaseExecutor.getInstance().addObserver(containsTraceObserver);
+        registerObservers();
+    }
+
+    protected void registerObservers() {
+        for (AssertionTraceObserver<?> observer : OBSERVERS) {
+            TestCaseExecutor.getInstance().addObserver(observer);
+        }
+    }
+
+    protected void clearObservers() {
+        for (AssertionTraceObserver<?> observer : OBSERVERS) {
+            observer.clear();
+        }
+    }
+
+    protected void collectTraces(ExecutionResult result) {
+        for (AssertionTraceObserver<?> observer : OBSERVERS) {
+            result.setTrace(observer.getTrace(), observer.getTraceEntryClass());
+        }
     }
 
     /**
@@ -138,15 +162,7 @@ public abstract class AssertionGenerator {
             result = TestCaseExecutor.getInstance().execute(test);
             int num = test.size();
             MaxStatementsStoppingCondition.statementsExecuted(num);
-            result.setTrace(comparisonObserver.getTrace(), ComparisonTraceEntry.class);
-            result.setTrace(primitiveObserver.getTrace(), PrimitiveTraceEntry.class);
-            result.setTrace(inspectorObserver.getTrace(), InspectorTraceEntry.class);
-            result.setTrace(fieldObserver.getTrace(), PrimitiveFieldTraceEntry.class);
-            result.setTrace(nullObserver.getTrace(), NullTraceEntry.class);
-            result.setTrace(sameObserver.getTrace(), SameTraceEntry.class);
-            result.setTrace(arrayObserver.getTrace(), ArrayTraceEntry.class);
-            result.setTrace(arrayLengthObserver.getTrace(), ArrayLengthTraceEntry.class);
-            result.setTrace(containsTraceObserver.getTrace(), ContainsTraceEntry.class);
+            collectTraces(result);
         } catch (Exception e) {
             throw new Error(e);
         }

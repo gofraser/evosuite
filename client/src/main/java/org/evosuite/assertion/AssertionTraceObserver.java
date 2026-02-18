@@ -239,4 +239,11 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         return trace.clone();
     }
 
+    /**
+     * Returns the class of the trace entry handled by this observer.
+     *
+     * @return the trace entry class
+     */
+    public abstract Class<T> getTraceEntryClass();
+
 }

@@ -94,4 +94,10 @@ public class NullTraceObserver extends AssertionTraceObserver<NullTraceEntry> {
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         // do nothing
     }
+
+    @Override
+    public Class<NullTraceEntry> getTraceEntryClass() {
+        return NullTraceEntry.class;
+    }
+
 }

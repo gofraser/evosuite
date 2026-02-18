@@ -133,4 +133,10 @@ public class ContainsTraceObserver extends AssertionTraceObserver<ContainsTraceE
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         // do nothing
     }
+
+    @Override
+    public Class<ContainsTraceEntry> getTraceEntryClass() {
+        return ContainsTraceEntry.class;
+    }
+
 }

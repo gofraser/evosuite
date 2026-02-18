@@ -452,6 +452,28 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
         return haveAssertion;
     }
 
+    private static int assertionPriority(Assertion a) {
+        if (a instanceof PrimitiveAssertion) {
+            return 4; // Best: definite values
+        }
+        if (a instanceof ArrayLengthAssertion) {
+            return 3; // Structural info
+        }
+        if (a instanceof EqualsAssertion) {
+            return 2; // Object equality
+        }
+        if (a instanceof ContainsAssertion) {
+            return 2; // Membership
+        }
+        if (a instanceof InspectorAssertion) {
+            return 1; // Inspector calls
+        }
+        if (a instanceof NullAssertion) {
+            return 0; // Weakest standalone
+        }
+        return 1; // SameAssertion, CompareAssertion, etc.
+    }
+
     /**
      * Return a minimal subset of the assertions that covers all killable
      * mutants.
@@ -480,10 +502,10 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                 if (numKilled.equals(other.numKilled)) {
                     Assertion first = assertions.get(assertion);
                     Assertion second = assertions.get(other.assertion);
-                    if (first instanceof PrimitiveAssertion) {
-                        return 1;
-                    } else if (second instanceof PrimitiveAssertion) {
-                        return -1;
+                    int p1 = assertionPriority(first);
+                    int p2 = assertionPriority(second);
+                    if (p1 != p2) {
+                        return Integer.compare(p1, p2);
                     } else {
                         return assertion.compareTo(other.assertion);
                     }

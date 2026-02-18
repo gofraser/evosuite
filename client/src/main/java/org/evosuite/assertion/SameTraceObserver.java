@@ -115,4 +115,10 @@ public class SameTraceObserver extends AssertionTraceObserver<SameTraceEntry> {
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         // do nothing
     }
+
+    @Override
+    public Class<SameTraceEntry> getTraceEntryClass() {
+        return SameTraceEntry.class;
+    }
+
 }

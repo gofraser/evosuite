@@ -19,7 +19,6 @@
  */
 package org.evosuite.assertion;
 
-import org.evosuite.Properties;
 import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
@@ -28,16 +27,10 @@ import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 
-import java.net.URL;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-import java.util.regex.Pattern;
 
 public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTraceEntry> {
-
-    // Matches Java's default Object.toString() format: e.g., "com.example.Foo@1a2b3c4d"
-    private static final Pattern addressPattern = Pattern.compile("[A-Za-z_$][\\w.]*@[a-f\\d]{2,}", Pattern.MULTILINE);
-
 
     /* (non-Javadoc)
      * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
@@ -89,14 +82,14 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                 Object target = var.getObject(scope);
                 if (target != null) {
 
-                    if (isMockitoProxy(target)) {
+                    if (StringValueFilter.isMockitoProxy(target)) {
                         return;
                     }
 
                     Object value = i.getValue(target);
                     logger.debug("Inspector " + i.getMethodCall() + " is: " + value);
 
-                    if (isFilteredStringValue(value, target)) {
+                    if (value instanceof String && StringValueFilter.shouldFilter((String) value, target)) {
                         continue;
                     }
 
@@ -130,7 +123,7 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                 Object target = var.getObject(scope);
                 if (target != null) {
 
-                    if (isMockitoProxy(target)) {
+                    if (StringValueFilter.isMockitoProxy(target)) {
                         break;
                     }
 
@@ -140,7 +133,7 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                     }
                     logger.debug("Chained inspector " + ci.getMethodCall() + " is: " + value);
 
-                    if (isFilteredStringValue(value, target)) {
+                    if (value instanceof String && StringValueFilter.shouldFilter((String) value, target)) {
                         continue;
                     }
 
@@ -159,45 +152,16 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                 + " at statement " + statement.getPosition());
 
         trace.addEntry(statement.getPosition(), var, entry);
-
-    }
-
-    private boolean isFilteredStringValue(Object value, Object target) {
-        if (!(value instanceof String)) {
-            return false;
-        }
-        String s = (String) value;
-        if (s.length() >= 32767) {
-            return true;
-        }
-        if (s.length() > Properties.MAX_STRING) {
-            return true;
-        }
-        if (addressPattern.matcher(s).find()) {
-            return true;
-        }
-        if (s.toLowerCase().contains("enhancerbymockito")) {
-            return true;
-        }
-        if (s.toLowerCase().contains("$mockitomock$")) {
-            return true;
-        }
-        if (target instanceof URL) {
-            if (s.startsWith("/") || s.startsWith("file:/")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean isMockitoProxy(Object target) {
-        return target != null
-                && target.getClass().getCanonicalName() != null
-                && target.getClass().getCanonicalName().contains("EnhancerByMockito");
     }
 
     @Override
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         // do nothing
     }
+
+    @Override
+    public Class<InspectorTraceEntry> getTraceEntryClass() {
+        return InspectorTraceEntry.class;
+    }
+
 }

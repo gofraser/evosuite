@@ -71,15 +71,7 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
             mutants.put(m.getId(), m);
         }
         TestCaseExecutor.getInstance().newObservers();
-        TestCaseExecutor.getInstance().addObserver(primitiveObserver);
-        TestCaseExecutor.getInstance().addObserver(comparisonObserver);
-        TestCaseExecutor.getInstance().addObserver(sameObserver);
-        TestCaseExecutor.getInstance().addObserver(inspectorObserver);
-        TestCaseExecutor.getInstance().addObserver(fieldObserver);
-        TestCaseExecutor.getInstance().addObserver(nullObserver);
-        TestCaseExecutor.getInstance().addObserver(arrayObserver);
-        TestCaseExecutor.getInstance().addObserver(arrayLengthObserver);
-        TestCaseExecutor.getInstance().addObserver(containsTraceObserver);
+        registerObservers();
     }
 
     /**
@@ -101,15 +93,7 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
     protected ExecutionResult runTest(TestCase test, Mutation mutant) {
         ExecutionResult result = new ExecutionResult(test, mutant);
         // resetObservers();
-        comparisonObserver.clear();
-        sameObserver.clear();
-        primitiveObserver.clear();
-        inspectorObserver.clear();
-        fieldObserver.clear();
-        nullObserver.clear();
-        arrayObserver.clear();
-        arrayLengthObserver.clear();
-        containsTraceObserver.clear();
+        clearObservers();
         try {
             logger.debug("Executing test");
             if (mutant == null) {
@@ -123,15 +107,7 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
             int num = test.size();
             MaxStatementsStoppingCondition.statementsExecuted(num);
 
-            result.setTrace(comparisonObserver.getTrace(), ComparisonTraceEntry.class);
-            result.setTrace(sameObserver.getTrace(), SameTraceEntry.class);
-            result.setTrace(primitiveObserver.getTrace(), PrimitiveTraceEntry.class);
-            result.setTrace(inspectorObserver.getTrace(), InspectorTraceEntry.class);
-            result.setTrace(fieldObserver.getTrace(), PrimitiveFieldTraceEntry.class);
-            result.setTrace(nullObserver.getTrace(), NullTraceEntry.class);
-            result.setTrace(arrayObserver.getTrace(), ArrayTraceEntry.class);
-            result.setTrace(arrayLengthObserver.getTrace(), ArrayLengthTraceEntry.class);
-            result.setTrace(containsTraceObserver.getTrace(), ContainsTraceEntry.class);
+            collectTraces(result);
 
         } catch (Exception e) {
             throw new Error(e);
