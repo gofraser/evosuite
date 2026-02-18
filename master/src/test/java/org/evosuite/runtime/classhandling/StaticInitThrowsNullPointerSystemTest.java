@@ -27,6 +27,7 @@ import java.util.List;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
+import org.evosuite.result.TestGenerationResult;
 import org.junit.Test;
 
 import com.examples.with.different.packagename.reset.StaticInitThrowsNullPointer;
@@ -48,27 +49,17 @@ public class StaticInitThrowsNullPointerSystemTest extends SystemTestBase {
 
     @Test
     public void testWithNoReset() {
-        Properties.RESET_STATIC_FIELDS = false;
-
-        EvoSuite evosuite = new EvoSuite();
-
-        String targetClass = StaticInitThrowsNullPointer.class
-                .getCanonicalName();
-
-        Properties.TARGET_CLASS = targetClass;
-        String[] command = new String[]{"-generateSuite", "-class",
-                targetClass};
-
-        Object result = evosuite.parseCommandLine(command);
-        assertTrue(result instanceof List);
-        List<?> list = (List<?>) result;
-        assertEquals(0, list.size());
+        runTheTest(false);
     }
 
     @Test
     public void testWithReset() {
-        Properties.RESET_STATIC_FIELDS = true;
+        runTheTest(true);
+    }
 
+    @SuppressWarnings("unchecked")
+    private void runTheTest(boolean reset) {
+        Properties.RESET_STATIC_FIELDS = reset;
         EvoSuite evosuite = new EvoSuite();
 
         String targetClass = StaticInitThrowsNullPointer.class
@@ -80,7 +71,16 @@ public class StaticInitThrowsNullPointerSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
         assertTrue(result instanceof List);
-        List<?> list = (List<?>) result;
-        assertEquals(0, list.size());
+        List<List<TestGenerationResult<?>>> list = (List<List<TestGenerationResult<?>>>) result;
+        assertEquals(1, list.size());
+        assertEquals(1, list.get(0).size());
+
+        TestGenerationResult<?> generationResult = list.get(0).get(0);
+        assertEquals(TestGenerationResult.Status.ERROR, generationResult.getTestGenerationStatus());
+        assertTrue(generationResult.getErrorMessage() != null);
+        assertTrue(
+                generationResult.getErrorMessage().contains("NullPointerException")
+                        || generationResult.getErrorMessage().contains("ExceptionInInitializerError")
+                        || generationResult.getErrorMessage().contains("Could not load target class"));
     }
 }
