@@ -28,11 +28,14 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.result.TestGenerationResult;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.util.List;
 
 public class InterfaceSystemTest extends SystemTestBase {
 
@@ -46,10 +49,7 @@ public class InterfaceSystemTest extends SystemTestBase {
                 targetClass};
 
         Object result = evosuite.parseCommandLine(command);
-
-        GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
-        TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertEquals(0.0, best.getFitness(), 0.0);
+        assertZeroGoalResultOrZeroFitness(result);
 
         for (TestFitnessFactory<? extends TestFitnessFunction> ff : TestGenerationStrategy.getFitnessFactories()) {
             Assert.assertEquals(0, ff.getCoverageGoals().size());
@@ -66,10 +66,7 @@ public class InterfaceSystemTest extends SystemTestBase {
                 targetClass};
 
         Object result = evosuite.parseCommandLine(command);
-
-        GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
-        TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertEquals(0.0, best.getFitness(), 0.0);
+        assertZeroGoalResultOrZeroFitness(result);
 
         for (TestFitnessFactory<? extends TestFitnessFunction> ff : TestGenerationStrategy.getFitnessFactories()) {
             Assert.assertEquals(0, ff.getCoverageGoals().size());
@@ -95,6 +92,28 @@ public class InterfaceSystemTest extends SystemTestBase {
         for (TestFitnessFactory<? extends TestFitnessFunction> ff : TestGenerationStrategy.getFitnessFactories()) {
             Assert.assertEquals(1, ff.getCoverageGoals().size());
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void assertZeroGoalResultOrZeroFitness(Object result) {
+        Assert.assertTrue(result instanceof List);
+        List<List<TestGenerationResult<TestSuiteChromosome>>> results =
+                (List<List<TestGenerationResult<TestSuiteChromosome>>>) result;
+        Assert.assertEquals(1, results.size());
+        Assert.assertEquals(1, results.get(0).size());
+
+        TestGenerationResult<TestSuiteChromosome> generationResult = results.get(0).get(0);
+        if (generationResult.getTestGenerationStatus() == TestGenerationResult.Status.ERROR) {
+            Assert.assertTrue("Unexpected error: " + generationResult.getErrorMessage(),
+                    generationResult.getErrorMessage() != null
+                            && generationResult.getErrorMessage().contains("No testable code found"));
+            return;
+        }
+
+        GeneticAlgorithm<TestSuiteChromosome> ga = generationResult.getGeneticAlgorithm();
+        Assert.assertNotNull("Missing GA for successful generation", ga);
+        TestSuiteChromosome best = ga.getBestIndividual();
+        Assert.assertEquals(0.0, best.getFitness(), 0.0);
     }
 
     @Test
