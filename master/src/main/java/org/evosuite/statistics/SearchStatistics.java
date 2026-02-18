@@ -632,6 +632,12 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * @return the computed coverage value if available, otherwise null
      */
     private Double normalizeGoalsAndCoverage(Map<String, OutputVariable<?>> map, TestSuiteChromosome individual) {
+        OutputVariable<?> coverageVar = map.get(RuntimeVariable.Coverage.toString());
+        if (coverageVar == null) {
+            coverageVar = outputVariables.get(RuntimeVariable.Coverage.toString());
+        }
+        Double existingCoverage = coverageVar == null ? null : toDouble(coverageVar.getValue());
+
         OutputVariable<?> totalGoalsVar = map.get(RuntimeVariable.Total_Goals.toString());
         OutputVariable<?> coveredGoalsVar = map.get(RuntimeVariable.Covered_Goals.toString());
         if (totalGoalsVar == null) {
@@ -644,24 +650,41 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         Double totalGoals = totalGoalsVar == null ? null : toDouble(totalGoalsVar.getValue());
         Double coveredGoals = coveredGoalsVar == null ? null : toDouble(coveredGoalsVar.getValue());
 
-        if (totalGoals == null || coveredGoals == null) {
-            int covered = individual.getNumOfCoveredGoals();
-            int total = covered + individual.getNumOfNotCoveredGoals();
+        // Only normalize missing counters to 0/0. Do not derive from chromosome internals,
+        // as that can conflict with criterion-specific coverage semantics.
+        if (totalGoals == null && coveredGoals == null) {
+            totalGoals = 0.0;
+            coveredGoals = 0.0;
             map.put(RuntimeVariable.Covered_Goals.toString(),
-                    new OutputVariable<>(RuntimeVariable.Covered_Goals.toString(), covered));
+                    new OutputVariable<>(RuntimeVariable.Covered_Goals.toString(), 0));
             map.put(RuntimeVariable.Total_Goals.toString(),
-                    new OutputVariable<>(RuntimeVariable.Total_Goals.toString(), total));
-            coveredGoals = (double) covered;
-            totalGoals = (double) total;
+                    new OutputVariable<>(RuntimeVariable.Total_Goals.toString(), 0));
         }
 
         if (totalGoals != null && coveredGoals != null) {
+            if (coveredGoals > totalGoals) {
+                logger.warn("Sanitizing inconsistent goal counts before writing statistics: covered {} > total {}",
+                        coveredGoals, totalGoals);
+                totalGoals = coveredGoals;
+                map.put(RuntimeVariable.Total_Goals.toString(),
+                        new OutputVariable<>(RuntimeVariable.Total_Goals.toString(), totalGoals.intValue()));
+            }
+            // Preserve already computed aggregate coverage (e.g., averages across multiple criteria).
+            if (existingCoverage != null) {
+                if (totalGoals == 0.0 && coveredGoals == 0.0 && existingCoverage == 0.0) {
+                    map.put(RuntimeVariable.Coverage.toString(),
+                            new OutputVariable<>(RuntimeVariable.Coverage.toString(), 1.0));
+                    return 1.0;
+                }
+                return existingCoverage;
+            }
+
             Double coverageValue = totalGoals == 0.0 ? 1.0 : coveredGoals / totalGoals;
             map.put(RuntimeVariable.Coverage.toString(),
                     new OutputVariable<>(RuntimeVariable.Coverage.toString(), coverageValue));
             return coverageValue;
         }
-        return null;
+        return existingCoverage;
     }
 
     /**

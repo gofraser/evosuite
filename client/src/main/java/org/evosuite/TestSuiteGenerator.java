@@ -398,6 +398,12 @@ public class TestSuiteGenerator {
         }
 
         double coverage = testSuite.getCoverage();
+        if (coverage == 0.0 && Properties.CRITERION.length > 1) {
+            double recomputedCoverage = computeAverageCoverageFromCriteria(testSuite);
+            if (recomputedCoverage > 0.0) {
+                coverage = recomputedCoverage;
+            }
+        }
 
         if (ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)) {
@@ -591,6 +597,36 @@ public class TestSuiteGenerator {
             return JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
         }
         return 0;
+    }
+
+    /**
+     * Recompute average coverage from configured criteria by counting covered goals directly.
+     * This is used as a fallback when chromosome-level aggregate coverage is stale.
+     */
+    private static double computeAverageCoverageFromCriteria(TestSuiteChromosome testSuite) {
+        double sum = 0.0;
+        int count = 0;
+        for (Criterion criterion : Properties.CRITERION) {
+            TestFitnessFactory<? extends TestFitnessFunction> factory = FitnessFunctions.getFitnessFactory(criterion);
+            if (factory == null) {
+                continue;
+            }
+            List<? extends TestFitnessFunction> goals = factory.getCoverageGoals();
+            if (goals.isEmpty()) {
+                sum += 1.0;
+                count++;
+                continue;
+            }
+            int covered = 0;
+            for (TestFitnessFunction goal : goals) {
+                if (goal.isCoveredBy(testSuite)) {
+                    covered++;
+                }
+            }
+            sum += (double) covered / (double) goals.size();
+            count++;
+        }
+        return count == 0 ? 0.0 : sum / (double) count;
     }
 
     private TestSuiteChromosome generateTests() {
