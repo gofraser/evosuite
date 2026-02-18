@@ -606,6 +606,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             return getGenericInstantiation(typeMap, recursionLevel);
         }
 
+        if (isWildcardType()) {
+            WildcardType effectiveBounds = mergeWildcardBounds((WildcardType) type, requiredBounds);
+            return getGenericWildcardInstantiation(typeMap, recursionLevel, effectiveBounds);
+        }
+
         ConstructionFailedException lastFailure = null;
         for (int attempt = 0; attempt < MAX_CONSTRAINED_INSTANTIATION_ATTEMPTS; attempt++) {
             Map<TypeVariable<?>, Type> trialMap = new HashMap<>(typeMap);
@@ -723,17 +728,23 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      */
     public GenericClass<?> getGenericWildcardInstantiation(Map<TypeVariable<?>, Type> typeMap, int recursionLevel)
             throws ConstructionFailedException {
+        return getGenericWildcardInstantiation(typeMap, recursionLevel, (WildcardType) type);
+    }
+
+    private GenericClass<?> getGenericWildcardInstantiation(Map<TypeVariable<?>, Type> typeMap,
+                                                            int recursionLevel,
+                                                            WildcardType wildcardBounds)
+            throws ConstructionFailedException {
         // If we select a recursive type here, its parameter instantiation will happen at recursionLevel + 1.
         // Therefore, we must ensure that recursionLevel + 1 is still strictly less than MAX_GENERIC_DEPTH
         // to avoid exceeding the depth limit in the next step.
-        GenericClass<?> selectedClass = CastClassManager.getInstance().selectCastClass((WildcardType) type,
+        GenericClass<?> selectedClass = CastClassManager.getInstance().selectCastClass(wildcardBounds,
                 recursionLevel < Properties.MAX_GENERIC_DEPTH - 1,
                 typeMap);
         if (logger.isDebugEnabled()) {
             logger.debug("Wildcard instantiation: {} -> {} with typeMap {}",
-                    type, selectedClass, GenericUtils.stableTypeVariableMapToString(typeMap));
+                    wildcardBounds, selectedClass, GenericUtils.stableTypeVariableMapToString(typeMap));
         }
-        WildcardType wildcardBounds = (WildcardType) type;
         GenericClass<?> instantiated = selectedClass.getGenericInstantiation(typeMap, recursionLevel + 1,
                 wildcardBounds);
         if (!instantiated.satisfiesBoundaries(wildcardBounds, typeMap)) {
@@ -861,16 +872,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                                 logger.debug("bound is not parameterizedType");
                             }
                         }
-                        GenericClass<?> parameterInstance = parameterClass.getGenericWildcardInstantiation(
-                                extendedMap, recursionLevel + 1);
-                        //GenericClass parameterTypeClass = new GenericClass(typeParameters.get(numParam));
-                        //                  if(!parameterTypeClass.isAssignableFrom(parameterInstance)) {
-                        if (!parameterInstance.satisfiesBoundaries(typeParameters.get(numParam))) {
-                            throw new ConstructionFailedException("Invalid generic instance");
-                        }
-                        //GenericClass parameterInstance = new GenericClass(
-                        //        typeParameters.get(numParam)).getGenericInstantiation(extendedMap,
-                        //                                                              recursionLevel + 1);
+                        TypeVariable<?> requiredTypeVariable = typeParameters.get(numParam);
+                        WildcardType requiredBounds = new WildcardTypeImpl(
+                                requiredTypeVariable.getBounds(), new Type[0]);
+                        GenericClass<?> parameterInstance = parameterClass.getGenericInstantiation(extendedMap,
+                                recursionLevel + 1, requiredBounds);
                         parameterTypes[numParam++] = parameterInstance.getType();
                     }
                 } else {
@@ -885,13 +891,40 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
 
         if (hasOwnerType()) {
-            GenericClass<?> ownerClass = getOwnerType().getGenericInstantiation(typeMap,
-                    recursionLevel);
-            ownerType = ownerClass.getType();
+            Type declaredOwnerType = ((ParameterizedType) type).getOwnerType();
+            if (isStaticMemberClass()) {
+                // Static member classes do not depend on owner type arguments.
+                // Re-instantiating owner generics here can trigger recursive loops
+                // such as Outer<?>.Inner while resolving bounds.
+                ownerType = declaredOwnerType;
+            } else {
+                GenericClass<?> ownerClass = getOwnerType().getGenericInstantiation(typeMap,
+                        recursionLevel);
+                ownerType = ownerClass.getType();
+            }
         }
 
         return new GenericClassImpl(new ParameterizedTypeImpl(rawClass, parameterTypes,
                 ownerType));
+    }
+
+    private static WildcardType mergeWildcardBounds(WildcardType baseBounds, WildcardType requiredBounds) {
+        LinkedHashSet<Type> mergedUpper = new LinkedHashSet<>();
+        mergedUpper.addAll(Arrays.asList(baseBounds.getUpperBounds()));
+        mergedUpper.addAll(Arrays.asList(requiredBounds.getUpperBounds()));
+        if (mergedUpper.isEmpty()) {
+            mergedUpper.add(Object.class);
+        }
+
+        LinkedHashSet<Type> mergedLower = new LinkedHashSet<>();
+        mergedLower.addAll(Arrays.asList(baseBounds.getLowerBounds()));
+        mergedLower.addAll(Arrays.asList(requiredBounds.getLowerBounds()));
+
+        return new WildcardTypeImpl(mergedUpper.toArray(new Type[0]), mergedLower.toArray(new Type[0]));
+    }
+
+    private boolean isStaticMemberClass() {
+        return rawClass.isMemberClass() && Modifier.isStatic(rawClass.getModifiers());
     }
 
     /**

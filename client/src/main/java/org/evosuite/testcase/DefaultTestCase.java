@@ -178,15 +178,14 @@ public class DefaultTestCase implements TestCase, Serializable {
         if (!var.isPrimitive() && !(var instanceof NullReference)) {
             // add fields of this object to list
             for (Field field : TestClusterUtils.getAccessibleFields(var.getVariableClass())) {
-                Type fieldType = field.getType();
+                GenericField genericField = new GenericField(field, var.getGenericClass());
+                FieldReference f;
                 try {
-                    fieldType = field.getGenericType();
+                    f = new FieldReference(this, genericField, genericField.getFieldType(), var);
                 } catch (java.lang.reflect.GenericSignatureFormatError e) {
-                    // Ignore
-                    fieldType = field.getType();
+                    // Fall back to raw type for malformed generic signatures.
+                    f = new FieldReference(this, genericField, field.getType(), var);
                 }
-                FieldReference f = new FieldReference(this, new GenericField(field,
-                        var.getGenericClass()), fieldType, var);
                 if (f.getDepth() <= 2) {
                     if (type != null) {
                         if (f.isAssignableTo(type) && !variables.contains(f)) {
@@ -968,12 +967,24 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
 
         for (int i = var.getStPosition() + 1; i < statements.size(); i++) {
-            if (statements.get(i).references(var)) {
+            if (referencesSameVariable(statements.get(i).getVariableReferences(), var)) {
                 return true;
             }
         }
         for (Assertion assertion : statements.get(var.getStPosition()).getAssertions()) {
-            if (assertion.getReferencedVariables().contains(var)) {
+            if (referencesSameVariable(assertion.getReferencedVariables(), var)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean referencesSameVariable(Collection<VariableReference> references, VariableReference target) {
+        for (VariableReference reference : references) {
+            if (reference == null || target == null) {
+                continue;
+            }
+            if (reference.equals(target) || reference.same(target) || target.same(reference)) {
                 return true;
             }
         }
@@ -1086,10 +1097,51 @@ public class DefaultTestCase implements TestCase, Serializable {
             return;
         }
         statements.remove(position);
+        removeDanglingAssertions();
         assert (isValid());
         // for(Statement s : statements) {
         // for(Asss.assertions)
         // }
+    }
+
+    /**
+     * Remove assertions that reference variables no longer defined by this test.
+     * This can happen after statement removal/minimization when assertions still
+     * point to return values of deleted statements.
+     */
+    private void removeDanglingAssertions() {
+        for (Statement statement : statements) {
+            List<Assertion> toRemove = new ArrayList<>();
+            for (Assertion assertion : statement.getAssertions()) {
+                if (assertion == null || hasDanglingReference(assertion)) {
+                    toRemove.add(assertion);
+                }
+            }
+            for (Assertion assertion : toRemove) {
+                statement.removeAssertion(assertion);
+            }
+        }
+    }
+
+    private boolean hasDanglingReference(Assertion assertion) {
+        for (VariableReference variableReference : assertion.getReferencedVariables()) {
+            if (variableReference == null || !isDefinedInThisTest(variableReference)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isDefinedInThisTest(VariableReference variableReference) {
+        if (variableReference.getTestCase() != this) {
+            return false;
+        }
+        for (Statement statement : statements) {
+            if (statement.getReturnValue().equals(variableReference)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

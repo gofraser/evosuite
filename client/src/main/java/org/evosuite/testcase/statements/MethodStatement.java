@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -129,7 +130,20 @@ public class MethodStatement extends EntityWithParametersStatement {
             return false;
         }
 
-        if (GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)) {
+        // First enforce compatibility with the method owner type, including generic arguments.
+        if (GenericClassUtils.isAssignable(method.getOwnerType(), calleeType)) {
+            return true;
+        }
+
+        // Fall back to raw declaring-class compatibility when the callee type is raw/non-parameterized.
+        // This is needed for cloned statements where type arguments may be erased on the variable type.
+        if (!(method.getOwnerType() instanceof ParameterizedType)
+                && GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)) {
+            return true;
+        }
+        if (method.getOwnerType() instanceof ParameterizedType
+                && !(calleeType instanceof ParameterizedType)
+                && GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)) {
             return true;
         }
 

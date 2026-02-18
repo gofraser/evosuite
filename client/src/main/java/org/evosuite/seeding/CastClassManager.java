@@ -203,9 +203,10 @@ public class CastClassManager {
     public GenericClass<?> selectCastClass(final TypeVariable<?> typeVariable, final boolean allowRecursion,
                                            final Map<TypeVariable<?>, Type> ownerVariableMap)
             throws ConstructionFailedException {
+        final Map<TypeVariable<?>, Type> sanitizedOwnerVariableMap = sanitizeOwnerVariableMap(ownerVariableMap);
         logger.debug("Selecting cast class for type variable {} with bounds {}, owner var map: {}",
                 typeVariable, Arrays.toString(typeVariable.getBounds()),
-                GenericUtils.stableTypeVariableMapToString(ownerVariableMap));
+                GenericUtils.stableTypeVariableMapToString(sanitizedOwnerVariableMap));
         GenericDeclaration genericDeclaration = typeVariable.getGenericDeclaration();
         String declarationSimpleName = "<Unknown generic declaration>";
         if (genericDeclaration instanceof Class<?>) {
@@ -217,32 +218,32 @@ public class CastClassManager {
             declarationSimpleName = ((Constructor) genericDeclaration).getDeclaringClass().getSimpleName() + "#"
                     + "<init>";
         }
-        List<GenericClass<?>> assignableClasses = getAssignableClasses(typeVariable, allowRecursion, ownerVariableMap);
+        List<GenericClass<?>> assignableClasses = getAssignableClasses(typeVariable, allowRecursion,
+                sanitizedOwnerVariableMap);
 
         logger.debug("Found {} assignable classes for type variable {}", assignableClasses.size(), typeVariable);
 
-        // FIXME: If we disallow recursion immediately, then we will never actually
-        // do recursion since we always have Object, Integer, and String as candidates.
-        // Including recursion may influence performance negatively.
-        //
-        // If we were not able to find an assignable class without recursive types
-        // we try again but allowing recursion
-        // if(assignableClasses.isEmpty()) {
-        // assignableClasses = getAssignableClasses(typeVariable,
-        // allowRecursion,
-        // ownerVariableMap);
-        // }
+        // If no non-recursive candidate is found, retry with recursive candidates.
+        // This is necessary for owner-parameterized member types (e.g. Outer<E>.Inner),
+        // which can be valid bounds but are filtered out by the non-recursive check.
+        if (assignableClasses.isEmpty() && allowRecursion) {
+            assignableClasses = getAssignableClasses(typeVariable, true, sanitizedOwnerVariableMap);
+        }
 
         if (assignableClasses.isEmpty()) {
             logger.debug("No assignable classes found, attempting to add one for type variable {}", typeVariable);
-            GenericClass<?> genericClass = addAssignableClass(typeVariable, ownerVariableMap);
+            GenericClass<?> genericClass = addAssignableClass(typeVariable, sanitizedOwnerVariableMap);
             if (genericClass != null) {
-                assignableClasses = getAssignableClasses(typeVariable, allowRecursion, ownerVariableMap);
+                assignableClasses = getAssignableClasses(typeVariable, allowRecursion, sanitizedOwnerVariableMap);
+                if (assignableClasses.isEmpty() && allowRecursion) {
+                    assignableClasses = getAssignableClasses(typeVariable, true, sanitizedOwnerVariableMap);
+                }
                 if (assignableClasses.isEmpty()) {
                     logger.warn("No assignable class found after adding {} for type variable {} with bounds {} "
                                     + "of declaration {}. Owner var map: {}",
                             genericClass, typeVariable, Arrays.toString(typeVariable.getBounds()),
-                            declarationSimpleName, GenericUtils.stableTypeVariableMapToString(ownerVariableMap));
+                            declarationSimpleName,
+                            GenericUtils.stableTypeVariableMapToString(sanitizedOwnerVariableMap));
                     throw new ConstructionFailedException("Nothing is assignable to " + typeVariable);
                 }
             } else {
@@ -275,8 +276,15 @@ public class CastClassManager {
 
         // If we were not able to find an assignable class without recursive types
         // we try again but allowing recursion
-        if (assignableClasses.isEmpty() && allowRecursion) {
-            assignableClasses.addAll(getAssignableClasses(wildcardType, true, ownerVariableMap));
+        if (assignableClasses.isEmpty()) {
+            List<GenericClass<?>> recursiveAssignable = getAssignableClasses(wildcardType, true, ownerVariableMap);
+            if (allowRecursion) {
+                assignableClasses.addAll(recursiveAssignable);
+            } else if (!recursiveAssignable.isEmpty()) {
+                logger.debug("Falling back to recursive assignable classes for wildcard {} despite depth limit: {}",
+                        wildcardType, recursiveAssignable);
+                assignableClasses = recursiveAssignable;
+            }
         }
 
         if (assignableClasses.isEmpty()) {
@@ -289,14 +297,17 @@ public class CastClassManager {
                 if (assignableClasses.isEmpty()) {
                     List<GenericClass<?>> recursiveAssignable = getAssignableClasses(wildcardType, true,
                             ownerVariableMap);
-                    if (!allowRecursion && !recursiveAssignable.isEmpty()) {
+                    if (!recursiveAssignable.isEmpty()) {
                         logger.debug("No non-recursive class assignable after adding {} for wildcard {}. "
-                                        + "Assignable classes exist only with recursion (likely depth-limited): {}",
+                                        + "Using recursive assignable classes: {}",
                                 genericClass, wildcardType, recursiveAssignable);
+                        assignableClasses = recursiveAssignable;
                     } else {
                         logger.warn("Nothing is assignable after adding {} for wildcard {}", genericClass, wildcardType);
                     }
-                    throw new ConstructionFailedException("Nothing is assignable to " + wildcardType);
+                    if (assignableClasses.isEmpty()) {
+                        throw new ConstructionFailedException("Nothing is assignable to " + wildcardType);
+                    }
                 }
             } else {
                 logger.warn("No assignable class could be added for wildcard {}", wildcardType);
@@ -652,6 +663,16 @@ public class CastClassManager {
 
     private void putCastClass(GenericClass<?> clazz, int priority) {
         prioritization.add(clazz, priority);
+    }
+
+    /**
+     * Remove self-referential type-variable entries (e.g. E -> E) as they do not add information
+     * and can make assignability checks spuriously fail.
+     */
+    private static Map<TypeVariable<?>, Type> sanitizeOwnerVariableMap(Map<TypeVariable<?>, Type> ownerVariableMap) {
+        Map<TypeVariable<?>, Type> sanitized = new LinkedHashMap<>(ownerVariableMap);
+        sanitized.entrySet().removeIf(e -> e.getValue() instanceof TypeVariable<?> && e.getKey().equals(e.getValue()));
+        return sanitized;
     }
 
 }

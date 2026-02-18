@@ -458,7 +458,7 @@ public class TestFactory {
 
         }
 
-        Type expectedFieldType = normalizeTypeVariablesToWildcardsIfNeeded(field.getFieldType());
+        Type expectedFieldType = normalizeClassLiteralTypeArgumentByErasure(field.getFieldType());
         VariableReference var = createOrReuseVariable(test, expectedFieldType,
                 position, recursionDepth, callee, true, false, false);
         int newLength = test.size();
@@ -467,6 +467,11 @@ public class TestFactory {
         FieldReference f = new FieldReference(test, field, callee);
         if (f.equals(var)) {
             throw new ConstructionFailedException("Self assignment");
+        }
+        if (!var.isAssignableTo(f.getType())) {
+            String message = var + " cannot be assigned to " + f.getType();
+            throwCannotAssignIfNeeded(message, test, position, f.getType(), var);
+            throw new ConstructionFailedException(message);
         }
 
         Statement st = new AssignmentStatement(test, f, var);
@@ -497,12 +502,17 @@ public class TestFactory {
 
         FieldReference fieldVar = new FieldReference(test, field, callee);
         int length = test.size();
-        Type expectedFieldType = normalizeTypeVariablesToWildcardsIfNeeded(fieldVar.getType());
+        Type expectedFieldType = normalizeClassLiteralTypeArgumentByErasure(fieldVar.getType());
         VariableReference value = createOrReuseVariable(test, expectedFieldType,
                 position, 0, callee, true, false, true);
 
         int newLength = test.size();
         position += (newLength - length);
+        if (!value.isAssignableTo(fieldVar.getType())) {
+            String message = value + " cannot be assigned to " + fieldVar.getType();
+            throwCannotAssignIfNeeded(message, test, position, fieldVar.getType(), value);
+            throw new ConstructionFailedException(message);
+        }
 
         Statement st = new AssignmentStatement(test, fieldVar, value);
         VariableReference ret = test.addStatement(st, position);

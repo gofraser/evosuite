@@ -353,7 +353,7 @@ public class AssignmentStatement extends AbstractStatement {
                 }
             } else if (value instanceof ArrayIndex) {
                 // Don't need to add this because array indices are created for array statement?
-                if (value.isAssignableFrom(parameter.getType())) {
+                if (GenericClassUtils.isAssignable(value.getType(), parameter.getType())) {
                     variables.add(value);
                 }
             } else {
@@ -366,7 +366,7 @@ public class AssignmentStatement extends AbstractStatement {
                         FieldReference f = new FieldReference(tc, new GenericField(field,
                                 value.getGenericClass()), value);
                         if (f.getDepth() <= 2) {
-                            if (f.isAssignableFrom(parameter.getType())) {
+                            if (GenericClassUtils.isAssignable(f.getType(), parameter.getType())) {
                                 variables.add(f);
                             }
                         }
@@ -399,7 +399,7 @@ public class AssignmentStatement extends AbstractStatement {
                 // Need to double check, because we might try to replace e.g.
                 // a long with an int, which is assignable
                 // but if the long is assigned to a Long field, then it is not!
-                if (parameter.isAssignableTo(newRetVal)) {
+                if (GenericClassUtils.isAssignable(newRetVal.getType(), parameter.getType())) {
 
                     // Need to check array status because commons lang
                     // is sometimes confused about what is assignable
@@ -419,7 +419,7 @@ public class AssignmentStatement extends AbstractStatement {
             objects.remove(parameter);
             if (!objects.isEmpty()) {
                 VariableReference choice = Randomness.choice(objects);
-                if (choice.isAssignableTo(retval)) {
+                if (GenericClassUtils.isAssignable(retval.getType(), choice.getType())) {
 
                     // Need special care if it is a wrapper class
                     if (retval.getGenericClass().isWrapperType()) {

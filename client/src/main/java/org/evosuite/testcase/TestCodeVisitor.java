@@ -403,12 +403,79 @@ public class TestCodeVisitor extends TestVisitor {
             }
             return result;
         } else {
+            VariableReference normalized = normalizeVariableReference(var);
             if (VariableNameStrategyFactory.gatherInformation()) {
                 information.put("MethodNames", methodNames);
                 information.put("ArgumentNames", argumentNames);
                 variableNameStrategy.addVariableInformation(information);
             }
-            return variableNameStrategy.getNameForVariable(var);
+            return variableNameStrategy.getNameForVariable(normalized);
+        }
+    }
+
+    private VariableReference normalizeVariableReference(VariableReference var) {
+        if (var == null || test == null) {
+            return var;
+        }
+        int position = safePosition(var);
+        if (position >= 0 && position < test.size()) {
+            // For code emission we canonicalize by defining statement position.
+            // This avoids orphan variable names when assertions carry a cloned/stale
+            // VariableReference instance that points to the same logical statement.
+            return test.getStatement(position).getReturnValue();
+        }
+        VariableReference recovered = recoverByCompatibleType(var);
+        return recovered != null ? recovered : var;
+    }
+
+    private VariableReference recoverByCompatibleType(VariableReference var) {
+        List<VariableReference> matches = new ArrayList<>();
+        for (int i = 0; i < test.size(); i++) {
+            VariableReference candidate = test.getStatement(i).getReturnValue();
+            if (isRecoverableMatch(var, candidate)) {
+                matches.add(candidate);
+            }
+        }
+        if (matches.size() == 1) {
+            return matches.get(0);
+        }
+        return var;
+    }
+
+    private boolean sameVariableDefinition(VariableReference left, VariableReference right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        if (left.equals(right)) {
+            return true;
+        }
+        int leftPosition = safePosition(left);
+        int rightPosition = safePosition(right);
+        if (leftPosition < 0 || rightPosition < 0 || leftPosition != rightPosition) {
+            return false;
+        }
+        return isTypeCompatible(left, right);
+    }
+
+    private boolean isTypeCompatible(VariableReference left, VariableReference right) {
+        Class<?> leftClass = left.getVariableClass();
+        Class<?> rightClass = right.getVariableClass();
+        return leftClass.equals(rightClass)
+                || leftClass.isAssignableFrom(rightClass)
+                || rightClass.isAssignableFrom(leftClass);
+    }
+
+    private boolean isRecoverableMatch(VariableReference expected, VariableReference candidate) {
+        Class<?> expectedClass = expected.getVariableClass();
+        Class<?> candidateClass = candidate.getVariableClass();
+        return expectedClass.equals(candidateClass) || expectedClass.isAssignableFrom(candidateClass);
+    }
+
+    private int safePosition(VariableReference variableReference) {
+        try {
+            return variableReference.getStPosition();
+        } catch (AssertionError ignored) {
+            return -1;
         }
     }
 
@@ -915,6 +982,7 @@ public class TestCodeVisitor extends TestVisitor {
             // Assumption: The statement that throws an exception is the last statement of a test.
             VariableReference returnValue = statement.getReturnValue();
             for (Assertion assertion : statement.getAssertions()) {
+                canonicalizeAssertionSource(statement, assertion);
                 if (assertion != null
                         && !assertion.getReferencedVariables().contains(returnValue)) {
                     visitAssertion(assertion);
@@ -925,6 +993,7 @@ public class TestCodeVisitor extends TestVisitor {
         } else {
             for (Assertion assertion : statement.getAssertions()) {
                 if (assertion != null) {
+                    canonicalizeAssertionSource(statement, assertion);
                     visitAssertion(assertion);
                     testCode.append(NEWLINE);
                     assertionAdded = true;
@@ -934,6 +1003,37 @@ public class TestCodeVisitor extends TestVisitor {
         if (assertionAdded) {
             testCode.append(NEWLINE);
         }
+    }
+
+    private void canonicalizeAssertionSource(Statement statement, Assertion assertion) {
+        if (assertion == null || assertion.getSource() == null || test == null) {
+            return;
+        }
+
+        VariableReference source = assertion.getSource();
+        VariableReference normalized = normalizeVariableReference(source);
+        if (normalized != null && normalized != source) {
+            assertion.setSource(normalized);
+            source = normalized;
+        }
+
+        if (isDefinedInCurrentTest(source)) {
+            return;
+        }
+
+        VariableReference returnValue = statement.getReturnValue();
+        if (returnValue != null && isTypeCompatible(source, returnValue)) {
+            assertion.setSource(returnValue);
+        }
+    }
+
+    private boolean isDefinedInCurrentTest(VariableReference variableReference) {
+        int position = safePosition(variableReference);
+        if (position < 0 || position >= test.size()) {
+            return false;
+        }
+        VariableReference canonical = test.getStatement(position).getReturnValue();
+        return sameVariableDefinition(variableReference, canonical);
     }
 
     protected String getEnumValue(EnumPrimitiveStatement<?> statement) {
@@ -1163,7 +1263,7 @@ public class TestCodeVisitor extends TestVisitor {
                         // GenericTypeReflector.getArrayComponentType(actualParamType))) {
                         parameterString += "(" + getTypeName(declaredParamType) + ") ";
                     }
-                } else if (!(actualParamType instanceof ParameterizedType)) {
+                } else {
                     parameterString += "(" + getCastTypeName(declaredParamType, actualParamType) + ") ";
                 }
                 if (name.contains("(short")) {
@@ -1453,8 +1553,9 @@ public class TestCodeVisitor extends TestVisitor {
             result += "// Undeclared exception!" + NEWLINE;
         }
         boolean lastStatement = statement.getPosition() == statement.getTestCase().size() - 1;
-        boolean unused = !Properties.ASSERTIONS ? exception != null : test != null
-                && !test.hasReferences(retval);
+        boolean referenced = test != null && (test.hasReferences(retval)
+                || assertionReferencesReturnValue(statement, retval));
+        boolean unused = !Properties.ASSERTIONS ? exception != null : !referenced;
 
         if (!retval.isVoid() && retval.getAdditionalVariableReference() == null
                 && !unused) {
@@ -1586,6 +1687,20 @@ public class TestCodeVisitor extends TestVisitor {
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
+    }
+
+    private boolean assertionReferencesReturnValue(Statement statement, VariableReference returnValue) {
+        for (Assertion assertion : statement.getAssertions()) {
+            if (assertion == null) {
+                continue;
+            }
+            for (VariableReference referenced : assertion.getReferencedVariables()) {
+                if (sameVariableDefinition(referenced, returnValue)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
