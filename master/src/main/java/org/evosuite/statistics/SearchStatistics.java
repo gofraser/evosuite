@@ -525,6 +525,9 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             }
         }
 
+        Double coverageValue = normalizeGoalsAndCoverage(map, individual);
+        normalizeCriterionCoverage(map, coverageValue);
+
         if (bestIndividual == null) {
             logger.warn("No best individual available; writing partial statistics for failed generation");
             setCoverageUnavailableIfMissing(map);
@@ -565,24 +568,8 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             return false;
         }
 
-        OutputVariable<?> totalGoalsVar = map.get(RuntimeVariable.Total_Goals.toString());
-        OutputVariable<?> coveredGoalsVar = map.get(RuntimeVariable.Covered_Goals.toString());
-        if (totalGoalsVar == null) {
-            totalGoalsVar = outputVariables.get(RuntimeVariable.Total_Goals.toString());
-        }
-        if (coveredGoalsVar == null) {
-            coveredGoalsVar = outputVariables.get(RuntimeVariable.Covered_Goals.toString());
-        }
-        Double coverageValue = null;
-        if (totalGoalsVar != null && coveredGoalsVar != null) {
-            Double totalGoals = toDouble(totalGoalsVar.getValue());
-            Double coveredGoals = toDouble(coveredGoalsVar.getValue());
-            if (totalGoals != null && coveredGoals != null) {
-                coverageValue = totalGoals == 0.0 ? 1.0 : coveredGoals / totalGoals;
-                map.put(RuntimeVariable.Coverage.toString(),
-                        new OutputVariable<>(RuntimeVariable.Coverage.toString(), coverageValue));
-            }
-        }
+        Double coverageValue = normalizeGoalsAndCoverage(map, individual);
+        normalizeCriterionCoverage(map, coverageValue);
         if (coverageValue == null || coverageValue == 0.0) {
             OutputVariable<?> lineCoverageVar = map.get(RuntimeVariable.LineCoverage.name());
             if (lineCoverageVar == null) {
@@ -594,7 +581,12 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             boolean isLineCriterion = criterion.equalsIgnoreCase("LINE")
                     || criterion.equalsIgnoreCase("ONLYLINE")
                     || criterion.isEmpty();
-            boolean missingTotals = totalGoalsVar == null || coveredGoalsVar == null;
+            OutputVariable<?> totalGoalsOut = map.get(RuntimeVariable.Total_Goals.toString());
+            OutputVariable<?> coveredGoalsOut = map.get(RuntimeVariable.Covered_Goals.toString());
+            boolean missingTotals =
+                    totalGoalsOut == null || coveredGoalsOut == null
+                            || toDouble(totalGoalsOut.getValue()) == null
+                            || toDouble(coveredGoalsOut.getValue()) == null;
             if (lineCoverage != null && isLineCriterion && missingTotals) {
                 map.put(RuntimeVariable.Coverage.toString(),
                         new OutputVariable<>(RuntimeVariable.Coverage.toString(), lineCoverage));
@@ -632,6 +624,63 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             }
         }
         return null;
+    }
+
+    /**
+     * Ensure goal counters are present and derive aggregate coverage from them.
+     *
+     * @return the computed coverage value if available, otherwise null
+     */
+    private Double normalizeGoalsAndCoverage(Map<String, OutputVariable<?>> map, TestSuiteChromosome individual) {
+        OutputVariable<?> totalGoalsVar = map.get(RuntimeVariable.Total_Goals.toString());
+        OutputVariable<?> coveredGoalsVar = map.get(RuntimeVariable.Covered_Goals.toString());
+        if (totalGoalsVar == null) {
+            totalGoalsVar = outputVariables.get(RuntimeVariable.Total_Goals.toString());
+        }
+        if (coveredGoalsVar == null) {
+            coveredGoalsVar = outputVariables.get(RuntimeVariable.Covered_Goals.toString());
+        }
+
+        Double totalGoals = totalGoalsVar == null ? null : toDouble(totalGoalsVar.getValue());
+        Double coveredGoals = coveredGoalsVar == null ? null : toDouble(coveredGoalsVar.getValue());
+
+        if (totalGoals == null || coveredGoals == null) {
+            int covered = individual.getNumOfCoveredGoals();
+            int total = covered + individual.getNumOfNotCoveredGoals();
+            map.put(RuntimeVariable.Covered_Goals.toString(),
+                    new OutputVariable<>(RuntimeVariable.Covered_Goals.toString(), covered));
+            map.put(RuntimeVariable.Total_Goals.toString(),
+                    new OutputVariable<>(RuntimeVariable.Total_Goals.toString(), total));
+            coveredGoals = (double) covered;
+            totalGoals = (double) total;
+        }
+
+        if (totalGoals != null && coveredGoals != null) {
+            Double coverageValue = totalGoals == 0.0 ? 1.0 : coveredGoals / totalGoals;
+            map.put(RuntimeVariable.Coverage.toString(),
+                    new OutputVariable<>(RuntimeVariable.Coverage.toString(), coverageValue));
+            return coverageValue;
+        }
+        return null;
+    }
+
+    /**
+     * Fill criterion-specific coverage variables when they are missing.
+     */
+    private static void normalizeCriterionCoverage(Map<String, OutputVariable<?>> map, Double coverageValue) {
+        if (coverageValue == null) {
+            return;
+        }
+        OutputVariable<?> criterionVar = map.get("criterion");
+        String criterion = criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
+        if (criterion.equalsIgnoreCase("BRANCH")) {
+            OutputVariable<?> branchCoverageVar = map.get(RuntimeVariable.BranchCoverage.toString());
+            Double branchCoverage = branchCoverageVar == null ? null : toDouble(branchCoverageVar.getValue());
+            if (branchCoverage == null) {
+                map.put(RuntimeVariable.BranchCoverage.toString(),
+                        new OutputVariable<>(RuntimeVariable.BranchCoverage.toString(), coverageValue));
+            }
+        }
     }
 
     private void setCoverageUnavailableIfMissing(Map<String, OutputVariable<?>> map) {
