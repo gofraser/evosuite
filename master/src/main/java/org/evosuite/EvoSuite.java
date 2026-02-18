@@ -37,10 +37,15 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.FileSystems;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 /**
  * <p>
@@ -58,6 +63,7 @@ public class EvoSuite {
     }
 
     private static final String separator = FileSystems.getDefault().getSeparator();
+    private static final String UNKNOWN_VERSION = "unknown";
 
     static {
         System.setProperty("logback.statusListenerClass",
@@ -150,10 +156,8 @@ public class EvoSuite {
 
         List<String> javaOpts = new ArrayList<>();
 
-        String version = EvoSuite.class.getPackage().getImplementationVersion();
-        if (version == null) {
-            version = "";
-        }
+        String version = resolveVersion();
+        String commit = resolveCommit();
 
 
         // create the parser
@@ -285,7 +289,11 @@ public class EvoSuite {
              */
             if (!line.hasOption(ListClasses.NAME)) {
 
-                LoggingUtils.getEvoLogger().info("* EvoSuite " + version);
+                String banner = "* EvoSuite " + version;
+                if (!commit.isEmpty()) {
+                    banner += " (commit " + commit + ")";
+                }
+                LoggingUtils.getEvoLogger().info(banner);
 
                 String conf = Properties.CONFIGURATION_ID;
                 if (conf != null && !conf.isEmpty()) {
@@ -355,6 +363,74 @@ public class EvoSuite {
         }
 
         return null;
+    }
+
+    private static String resolveVersion() {
+        Package evoSuitePackage = EvoSuite.class.getPackage();
+        if (evoSuitePackage != null) {
+            String implementationVersion = evoSuitePackage.getImplementationVersion();
+            if (implementationVersion != null && !implementationVersion.trim().isEmpty()) {
+                return implementationVersion.trim();
+            }
+        }
+        return UNKNOWN_VERSION;
+    }
+
+    private static String resolveCommit() {
+        String fromSystem = System.getProperty("evosuite.build.commit");
+        if (fromSystem != null && !fromSystem.trim().isEmpty()) {
+            return fromSystem.trim();
+        }
+
+        String fromEnv = System.getenv("EVOSUITE_BUILD_COMMIT");
+        if (fromEnv != null && !fromEnv.trim().isEmpty()) {
+            return fromEnv.trim();
+        }
+
+        String fromManifest = readCommitFromManifest();
+        if (!fromManifest.isEmpty()) {
+            return fromManifest;
+        }
+
+        return "";
+    }
+
+    private static String readCommitFromManifest() {
+        try {
+            java.security.CodeSource codeSource = EvoSuite.class.getProtectionDomain().getCodeSource();
+            if (codeSource == null || codeSource.getLocation() == null) {
+                return "";
+            }
+
+            java.net.URI locationUri = codeSource.getLocation().toURI();
+            java.nio.file.Path locationPath = Paths.get(locationUri);
+            if (!locationPath.toString().endsWith(".jar")) {
+                return "";
+            }
+
+            try (JarFile jarFile = new JarFile(locationPath.toFile())) {
+                Manifest manifest = jarFile.getManifest();
+                if (manifest == null) {
+                    return "";
+                }
+                Attributes mainAttributes = manifest.getMainAttributes();
+                String[] keys = {
+                        "Build-Commit",
+                        "Git-Commit",
+                        "Implementation-Build",
+                        "SCM-Revision"
+                };
+                for (String key : keys) {
+                    String value = mainAttributes.getValue(key);
+                    if (value != null && !value.trim().isEmpty()) {
+                        return value.trim();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // best-effort lookup only
+        }
+        return "";
     }
 
     private static void checkProperties() {
