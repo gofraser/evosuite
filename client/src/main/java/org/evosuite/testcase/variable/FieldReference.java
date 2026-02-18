@@ -242,6 +242,7 @@ public class FieldReference extends VariableReferenceImpl {
             assert (false);
         }
         source = var;
+        updateTypeFromSource();
     }
 
     /**
@@ -259,10 +260,23 @@ public class FieldReference extends VariableReferenceImpl {
                     }
                 }
                 source = var2;
+                updateTypeFromSource();
             } else {
                 source.replaceAdditionalVariableReference(var1, var2);
             }
         }
+    }
+
+    /**
+     * Recompute this field reference type from the current source so that generic
+     * owner substitutions remain sound after variable replacement.
+     */
+    private void updateTypeFromSource() {
+        if (source == null || field.isStatic()) {
+            return;
+        }
+        GenericField reboundField = new GenericField(field.getField(), source.getGenericClass());
+        setType(reboundField.getFieldType());
     }
 
     /**
