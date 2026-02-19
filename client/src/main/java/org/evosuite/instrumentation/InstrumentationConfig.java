@@ -29,50 +29,72 @@ import org.evosuite.runtime.RuntimeSettings;
  */
 public class InstrumentationConfig {
 
-    public final boolean ttEnabled;
-    public final Properties.TransformationScope ttScope;
-    public final String targetClass;
-    public final String projectPrefix;
-    public final String targetClassPrefix;
-    public final boolean skipDebug;
-    public final boolean resetStaticFields;
-    public final boolean resetStaticFinalFields;
-    public final boolean pureInspectors;
-    public final long maxLoopIterations;
-    public final boolean testCarving;
-    public final boolean makeAccessible;
-    public final boolean exceptionBranches;
-    public final boolean errorBranches;
-    public final String classPrefix;
-    public final boolean stringReplacement;
-    public final boolean applyUidTransformation;
+    public boolean ttEnabled() {
+        return Properties.TT;
+    }
 
-    /**
-     * Constructor for InstrumentationConfig.
-     */
-    public InstrumentationConfig(boolean ttEnabled, Properties.TransformationScope ttScope, String targetClass,
-                                 String projectPrefix, String targetClassPrefix, boolean skipDebug,
-                                 boolean resetStaticFields, boolean resetStaticFinalFields,
-                                 boolean pureInspectors, long maxLoopIterations, boolean testCarving,
-                                 boolean makeAccessible, boolean exceptionBranches, boolean errorBranches,
-                                 String classPrefix, boolean stringReplacement, boolean applyUidTransformation) {
-        this.ttEnabled = ttEnabled;
-        this.ttScope = ttScope;
-        this.targetClass = targetClass;
-        this.projectPrefix = projectPrefix;
-        this.targetClassPrefix = targetClassPrefix;
-        this.skipDebug = skipDebug;
-        this.resetStaticFields = resetStaticFields;
-        this.resetStaticFinalFields = resetStaticFinalFields;
-        this.pureInspectors = pureInspectors;
-        this.maxLoopIterations = maxLoopIterations;
-        this.testCarving = testCarving;
-        this.makeAccessible = makeAccessible;
-        this.exceptionBranches = exceptionBranches;
-        this.errorBranches = errorBranches;
-        this.classPrefix = classPrefix;
-        this.stringReplacement = stringReplacement;
-        this.applyUidTransformation = applyUidTransformation;
+    public Properties.TransformationScope ttScope() {
+        return Properties.TT_SCOPE;
+    }
+
+    public String targetClass() {
+        return Properties.TARGET_CLASS;
+    }
+
+    public String projectPrefix() {
+        return Properties.PROJECT_PREFIX;
+    }
+
+    public String targetClassPrefix() {
+        return Properties.TARGET_CLASS_PREFIX;
+    }
+
+    public boolean skipDebug() {
+        return Properties.INSTRUMENTATION_SKIP_DEBUG;
+    }
+
+    public boolean resetStaticFields() {
+        return Properties.RESET_STATIC_FIELDS;
+    }
+
+    public boolean resetStaticFinalFields() {
+        return Properties.RESET_STATIC_FINAL_FIELDS;
+    }
+
+    public boolean pureInspectors() {
+        return Properties.PURE_INSPECTORS;
+    }
+
+    public long maxLoopIterations() {
+        return Properties.MAX_LOOP_ITERATIONS;
+    }
+
+    public boolean testCarving() {
+        return Properties.TEST_CARVING;
+    }
+
+    public boolean makeAccessible() {
+        return Properties.MAKE_ACCESSIBLE;
+    }
+
+    public boolean exceptionBranches() {
+        return Properties.EXCEPTION_BRANCHES;
+    }
+
+    public boolean errorBranches() {
+        return Properties.ERROR_BRANCHES;
+    }
+
+    public String classPrefix() {
+        return Properties.CLASS_PREFIX;
+    }
+
+    public boolean stringReplacement() {
+        return Properties.STRING_REPLACEMENT;
+    }
+
+    public boolean applyUidTransformation() {
+        return RuntimeSettings.applyUIDTransformation;
     }
 
     /**
@@ -81,24 +103,6 @@ public class InstrumentationConfig {
      * @return a new {@link InstrumentationConfig} instance.
      */
     public static InstrumentationConfig fromProperties() {
-        return new InstrumentationConfig(
-                Properties.TT,
-                Properties.TT_SCOPE,
-                Properties.TARGET_CLASS,
-                Properties.PROJECT_PREFIX,
-                Properties.TARGET_CLASS_PREFIX,
-                Properties.INSTRUMENTATION_SKIP_DEBUG,
-                Properties.RESET_STATIC_FIELDS,
-                Properties.RESET_STATIC_FINAL_FIELDS,
-                Properties.PURE_INSPECTORS,
-                Properties.MAX_LOOP_ITERATIONS,
-                Properties.TEST_CARVING,
-                Properties.MAKE_ACCESSIBLE,
-                Properties.EXCEPTION_BRANCHES,
-                Properties.ERROR_BRANCHES,
-                Properties.CLASS_PREFIX,
-                Properties.STRING_REPLACEMENT,
-                RuntimeSettings.applyUIDTransformation
-        );
+        return new InstrumentationConfig();
     }
 }

@@ -130,20 +130,20 @@ public class BytecodeInstrumentation {
      * @return a boolean.
      */
     public boolean shouldTransform(String className) {
-        if (!config.ttEnabled) {
+        if (!config.ttEnabled()) {
             return false;
         }
-        switch (config.ttScope) {
+        switch (config.ttScope()) {
             case ALL:
                 logger.info("Allowing transformation of " + className);
                 return true;
             case TARGET:
-                if (className.equals(config.targetClass) || className.startsWith(config.targetClass + "$")) {
+                if (className.equals(config.targetClass()) || className.startsWith(config.targetClass() + "$")) {
                     return true;
                 }
                 break;
             case PREFIX:
-                if (className.startsWith(config.projectPrefix)) {
+                if (className.startsWith(config.projectPrefix())) {
                     return true;
                 }
                 break;
@@ -174,7 +174,7 @@ public class BytecodeInstrumentation {
 
         int readFlags = ClassReader.SKIP_FRAMES;
 
-        if (config.skipDebug) {
+        if (config.skipDebug()) {
             readFlags |= ClassReader.SKIP_DEBUG;
         }
 
@@ -216,16 +216,16 @@ public class BytecodeInstrumentation {
 
     private ClassVisitor createAdapterChain(ClassVisitor cv, String className, String classNameWithDots,
                                             ClassLoader classLoader) {
-        if (config.resetStaticFields) {
+        if (config.resetStaticFields()) {
             cv = new StaticAccessClassAdapter(cv, className);
         }
 
-        if (config.pureInspectors) {
+        if (config.pureInspectors()) {
             CheapPurityAnalyzer purityAnalyzer = CheapPurityAnalyzer.getInstance();
             cv = new PurityAnalysisClassVisitor(cv, className, purityAnalyzer);
         }
 
-        if (config.maxLoopIterations >= 0) {
+        if (config.maxLoopIterations() >= 0) {
             cv = new LoopCounterClassAdapter(cv);
         }
 
@@ -241,7 +241,7 @@ public class BytecodeInstrumentation {
         // Collect constant values for the value pool
         cv = new PrimitiveClassAdapter(cv, className);
 
-        if (config.resetStaticFields) {
+        if (config.resetStaticFields()) {
             cv = handleStaticReset(className, cv);
         }
 
@@ -254,7 +254,7 @@ public class BytecodeInstrumentation {
     }
 
     private ClassVisitor addTargetTransformationAdapters(ClassVisitor cv, String className, ClassLoader classLoader) {
-        if (!config.testCarving && config.makeAccessible) {
+        if (!config.testCarving() && config.makeAccessible()) {
             cv = new AccessibleClassAdapter(cv, className);
         }
 
@@ -264,11 +264,11 @@ public class BytecodeInstrumentation {
 
         cv = new CFGClassAdapter(classLoader, cv, className);
 
-        if (config.exceptionBranches) {
+        if (config.exceptionBranches()) {
             cv = new ExceptionTransformationClassAdapter(cv, className);
         }
 
-        if (config.errorBranches) {
+        if (config.errorBranches()) {
             cv = new ErrorConditionClassAdapter(cv, className);
         }
         return cv;
@@ -278,13 +278,13 @@ public class BytecodeInstrumentation {
                                                             String classNameWithDots, ClassLoader classLoader) {
         cv = new NonTargetClassAdapter(cv, className);
 
-        if (config.makeAccessible) {
+        if (config.makeAccessible()) {
             cv = new AccessibleClassAdapter(cv, className);
         }
 
         // If we are doing testability transformation on all classes we need
         // to create the CFG first
-        if (config.ttEnabled && classNameWithDots.startsWith(config.classPrefix)) {
+        if (config.ttEnabled() && classNameWithDots.startsWith(config.classPrefix())) {
             cv = new CFGClassAdapter(classLoader, cv, className);
         }
         return cv;
@@ -300,7 +300,7 @@ public class BytecodeInstrumentation {
          * avoid problems in serialising the class, as reading Master will not do instrumentation.
          * The serialVersionUID HAS to be the same as the un-instrumented class
          */
-        if (config.applyUidTransformation) {
+        if (config.applyUidTransformation()) {
             cv = new SerialVersionUIDAdder(cv);
         }
         return cv;
@@ -310,14 +310,12 @@ public class BytecodeInstrumentation {
         if (shouldTransform(classNameWithDots)) {
             return true;
         }
-        if (config.ttEnabled) {
-            if (classNameWithDots.startsWith(config.projectPrefix)) {
-                return true;
-            }
-            if (!config.targetClassPrefix.isEmpty()
-                    && classNameWithDots.startsWith(config.targetClassPrefix)) {
-                return true;
-            }
+        if (classNameWithDots.startsWith(config.projectPrefix())) {
+            return true;
+        }
+        if (!config.targetClassPrefix().isEmpty()
+                && classNameWithDots.startsWith(config.targetClassPrefix())) {
+            return true;
         }
         return false;
     }
@@ -329,7 +327,7 @@ public class BytecodeInstrumentation {
         reader.accept(cn, readFlags);
         logger.info("Starting transformation of " + className);
 
-        if (config.stringReplacement) {
+        if (config.stringReplacement()) {
             StringTransformation st = new StringTransformation(cn);
             if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots)) {
                 cn = st.transform();
@@ -359,7 +357,7 @@ public class BytecodeInstrumentation {
         // -----
         cn.accept(cv);
 
-        if (config.testCarving && TransformerUtil.isClassConsideredForInstrumentation(className)) {
+        if (config.testCarving() && TransformerUtil.isClassConsideredForInstrumentation(className)) {
             return handleCarving(className, writer);
         }
 
@@ -397,7 +395,7 @@ public class BytecodeInstrumentation {
         // Create a __STATIC_RESET() cloning the original <clinit> method or
         // create one by default
         final CreateClassResetClassAdapter resetClassAdapter;
-        if (config.resetStaticFinalFields) {
+        if (config.resetStaticFinalFields()) {
             resetClassAdapter = new CreateClassResetClassAdapter(cv, className, true);
         } else {
             resetClassAdapter = new CreateClassResetClassAdapter(cv, className, false);
