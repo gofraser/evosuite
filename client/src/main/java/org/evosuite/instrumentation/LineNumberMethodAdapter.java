@@ -36,18 +36,12 @@ import java.util.List;
  *
  * @author Gordon Fraser
  */
-public class LineNumberMethodAdapter extends MethodVisitor {
+public class LineNumberMethodAdapter extends AbstractEvoMethodAdapter {
 
     @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(LineNumberMethodAdapter.class);
 
     private final String fullMethodName;
-
-    private final String methodName;
-
-    private final String className;
-
-    private boolean hadInvokeSpecial = false;
 
     private final List<Integer> skippedLines = new ArrayList<>();
 
@@ -57,20 +51,17 @@ public class LineNumberMethodAdapter extends MethodVisitor {
      * <p>Constructor for LineNumberMethodAdapter.</p>
      *
      * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
+     * @param access     a int.
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      * @param desc       a {@link java.lang.String} object.
      */
-    public LineNumberMethodAdapter(MethodVisitor mv, String className, String methodName,
+    public LineNumberMethodAdapter(MethodVisitor mv, int access, String className, String methodName,
                                    String desc) {
-        super(Opcodes.ASM9, mv);
+        super(mv, access, className, methodName, desc);
         fullMethodName = methodName + desc;
-        this.className = className;
-        this.methodName = methodName;
-        if (!methodName.equals("<init>")) {
-            hadInvokeSpecial = true;
-        }
     }
+
 
     private void addLineNumberInstrumentation(int line) {
         LinePool.addLine(className, fullMethodName, line);
@@ -82,6 +73,15 @@ public class LineNumberMethodAdapter extends MethodVisitor {
                 "passedLine", "(Ljava/lang/String;Ljava/lang/String;I)V", false);
     }
 
+    @Override
+    protected void onMethodEnter() {
+        super.onMethodEnter();
+        for (int line : skippedLines) {
+            addLineNumberInstrumentation(line);
+        }
+        skippedLines.clear();
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -90,11 +90,11 @@ public class LineNumberMethodAdapter extends MethodVisitor {
         super.visitLineNumber(line, start);
         currentLine = line;
 
-        if (methodName.equals("<clinit>")) {
+        if (shouldSkip()) {
             return;
         }
 
-        if (!hadInvokeSpecial) {
+        if (!isSuperCallDone) {
             skippedLines.add(line);
             return;
         }
@@ -102,37 +102,8 @@ public class LineNumberMethodAdapter extends MethodVisitor {
         addLineNumberInstrumentation(line);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodAdapter#visitMethodInsn(int, java.lang.String, java.lang.String, java.lang.String)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-        super.visitMethodInsn(opcode, owner, name, desc, itf);
-        if (opcode == Opcodes.INVOKESPECIAL) {
-            if (methodName.equals("<init>")) {
-                hadInvokeSpecial = true;
-                for (int line : skippedLines) {
-                    addLineNumberInstrumentation(line);
-                }
-                skippedLines.clear();
-            }
-        }
-    }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.commons.LocalVariablesSorter#visitMaxs(int, int)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void visitMaxs(int maxStack, int maxLocals) {
-        int maxNum = 3;
-        super.visitMaxs(Math.max(maxNum, maxStack), maxLocals);
+    protected int getExtraStackSlots() {
+        return 3;
     }
 }

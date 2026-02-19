@@ -25,39 +25,26 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * <p>YieldAtLineNumberMethodAdapter class.</p>
  *
  * @author fraser
  */
-public class YieldAtLineNumberMethodAdapter extends MethodVisitor {
-    @SuppressWarnings("unused")
-    private static final Logger logger = LoggerFactory.getLogger(LineNumberMethodAdapter.class);
-
-    private final String className;
-
-    private final String methodName;
-
-    private boolean hadInvokeSpecial = false;
+public class YieldAtLineNumberMethodAdapter extends AbstractEvoMethodAdapter {
 
     /**
      * <p>Constructor for YieldAtLineNumberMethodAdapter.</p>
      *
      * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
+     * @param access     a int.
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
+     * @param desc       a {@link java.lang.String} object.
      */
-    public YieldAtLineNumberMethodAdapter(MethodVisitor mv, String className,
-                                          String methodName) {
-        super(Opcodes.ASM9, mv);
-        this.className = className;
-        this.methodName = methodName;
-        if (!methodName.equals("<init>")) {
-            hadInvokeSpecial = true;
-        }
+    public YieldAtLineNumberMethodAdapter(MethodVisitor mv, int access, String className,
+                                          String methodName, String desc) {
+        super(mv, access, className, methodName, desc);
     }
 
     /**
@@ -67,11 +54,11 @@ public class YieldAtLineNumberMethodAdapter extends MethodVisitor {
     public void visitLineNumber(int line, Label start) {
         super.visitLineNumber(line, start);
 
-        if (methodName.equals("<clinit>")) {
+        if (shouldSkip()) {
             return;
         }
 
-        if (!hadInvokeSpecial) {
+        if (!isSuperCallDone) {
             return;
         }
 
@@ -80,32 +67,12 @@ public class YieldAtLineNumberMethodAdapter extends MethodVisitor {
                 "checkTimeout", "()V", false);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodAdapter#visitMethodInsn(int, java.lang.String, java.lang.String, java.lang.String)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-        if (opcode == Opcodes.INVOKESPECIAL) {
-            if (methodName.equals("<init>")) {
-                hadInvokeSpecial = true;
-            }
-        }
-        super.visitMethodInsn(opcode, owner, name, desc, itf);
-    }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitInsn(int)
-     */
-
     /**
      * {@inheritDoc}
      */
     @Override
     public void visitInsn(int opcode) {
+        // ATHROW instrumentation runs even in <clinit>, matching the original behavior.
         if (opcode == Opcodes.ATHROW) {
             super.visitInsn(Opcodes.DUP);
             this.visitLdcInsn(className);
@@ -116,5 +83,10 @@ public class YieldAtLineNumberMethodAdapter extends MethodVisitor {
                     "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;)V", false);
         }
         super.visitInsn(opcode);
+    }
+
+    @Override
+    protected int getExtraStackSlots() {
+        return 2;
     }
 }

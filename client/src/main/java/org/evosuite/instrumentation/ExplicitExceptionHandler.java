@@ -34,11 +34,9 @@ import org.objectweb.asm.Opcodes;
  *
  * @author gordon
  */
-public class ExplicitExceptionHandler extends MethodVisitor {
+public class ExplicitExceptionHandler extends AbstractEvoMethodAdapter {
 
     private final String fullMethodName;
-
-    private final String className;
 
     private boolean inErrorBranch = false;
 
@@ -48,20 +46,19 @@ public class ExplicitExceptionHandler extends MethodVisitor {
      * </p>
      *
      * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
+     * @param access     a int.
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      * @param desc       a {@link java.lang.String} object.
      */
-    public ExplicitExceptionHandler(MethodVisitor mv, String className,
+    public ExplicitExceptionHandler(MethodVisitor mv, int access, String className,
                                     String methodName, String desc) {
-        super(Opcodes.ASM9, mv);
+        super(mv, access, className, methodName, desc);
         fullMethodName = methodName + desc;
-        this.className = className;
+        // ExplicitExceptionHandler should instrument <clinit> too,
+        // since static initializers can throw exceptions.
+        this.skipStaticInitializer = false;
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitLabel(org.objectweb.asm.Label)
-     */
 
     /**
      * {@inheritDoc}
@@ -75,16 +72,12 @@ public class ExplicitExceptionHandler extends MethodVisitor {
         super.visitLabel(label);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitInsn(int)
-     */
-
     /**
      * {@inheritDoc}
      */
     @Override
     public void visitInsn(int opcode) {
-        if (opcode == Opcodes.ATHROW && !inErrorBranch) {
+        if (opcode == Opcodes.ATHROW && !inErrorBranch && !shouldSkip()) {
             super.visitInsn(Opcodes.DUP);
             this.visitLdcInsn(className);
             this.visitLdcInsn(fullMethodName);
@@ -94,5 +87,10 @@ public class ExplicitExceptionHandler extends MethodVisitor {
                     "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;)V", false);
         }
         super.visitInsn(opcode);
+    }
+
+    @Override
+    protected int getExtraStackSlots() {
+        return 3;
     }
 }

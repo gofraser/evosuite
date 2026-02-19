@@ -19,13 +19,10 @@
  */
 package org.evosuite.instrumentation;
 
-import org.evosuite.Properties;
-import org.evosuite.Properties.Criterion;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestClusterUtils;
-import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -40,12 +37,6 @@ import org.slf4j.LoggerFactory;
 public class ExecutionPathClassAdapter extends ClassVisitor {
 
     private final String className;
-
-    private static boolean isMutation() {
-        return ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.WEAKMUTATION);
-    }
 
     private static final Logger logger = LoggerFactory.getLogger(ExecutionPathClassAdapter.class);
 
@@ -125,14 +116,14 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
             return new MethodEntryAdapter(mv, methodAccess, className, name, descriptor);
         }
 
-        if (isMutation()) {
-            mv = new ReturnValueAdapter(mv, className, name, descriptor);
+        if (InstrumentationSelector.isMutation()) {
+            mv = new ReturnValueAdapter(mv, methodAccess, className, name, descriptor);
         }
         mv = new MethodEntryAdapter(mv, methodAccess, className, name, descriptor);
-        mv = new LineNumberMethodAdapter(mv, className, name, descriptor);
+        mv = new LineNumberMethodAdapter(mv, methodAccess, className, name, descriptor);
         mv = new ArrayAllocationLimitMethodAdapter(mv, className, name, methodAccess,
                 descriptor);
-        mv = new ExplicitExceptionHandler(mv, className, name, descriptor);
+        mv = new ExplicitExceptionHandler(mv, methodAccess, className, name, descriptor);
         return mv;
     }
 

@@ -20,17 +20,14 @@
 package org.evosuite.graphs.cfg;
 
 import org.evosuite.Properties;
-import org.evosuite.Properties.Criterion;
-import org.evosuite.coverage.branch.BranchPool;
+import org.evosuite.instrumentation.InstrumentationSelector;
 import org.evosuite.instrumentation.coverage.BranchInstrumentation;
-import org.evosuite.instrumentation.coverage.DefUseInstrumentation;
 import org.evosuite.instrumentation.coverage.MethodInstrumentation;
-import org.evosuite.instrumentation.coverage.MutationInstrumentation;
+import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.instrumentation.AnnotatedMethodNode;
 import org.evosuite.setup.DependencyAnalysis;
-import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
@@ -160,24 +157,8 @@ public class CFGMethodAdapter extends MethodVisitor {
         boolean isExcludedMethod = excludeMethod || EXCLUDE.contains(methodName);
         boolean isMainMethod = plainName.equals("main") && Modifier.isStatic(access);
 
-        List<MethodInstrumentation> instrumentations = new ArrayList<>();
-        if (DependencyAnalysis.shouldInstrument(className, methodName)) {
-            if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
-                    || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)) {
-                instrumentations.add(new BranchInstrumentation());
-                instrumentations.add(new DefUseInstrumentation());
-            } else if (ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
-                    || ArrayUtil.contains(Properties.CRITERION, Criterion.WEAKMUTATION)
-                    || ArrayUtil.contains(Properties.CRITERION, Criterion.ONLYMUTATION)
-                    || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)) {
-                instrumentations.add(new BranchInstrumentation());
-                instrumentations.add(new MutationInstrumentation());
-            } else {
-                instrumentations.add(new BranchInstrumentation());
-            }
-        } else {
-            //instrumentations.add(new BranchInstrumentation());
-        }
+        List<MethodInstrumentation> instrumentations = InstrumentationSelector.getInstrumentations(
+                className, methodName);
 
         boolean executeOnMain = false;
         boolean executeOnExcluded = false;

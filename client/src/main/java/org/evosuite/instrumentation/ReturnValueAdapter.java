@@ -23,39 +23,29 @@ import org.evosuite.PackageInfo;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Instrument classes to trace return values.
  *
  * @author Gordon Fraser
  */
-public class ReturnValueAdapter extends MethodVisitor {
-
-    @SuppressWarnings("unused")
-    private static final Logger logger = LoggerFactory.getLogger(LineNumberMethodAdapter.class);
+public class ReturnValueAdapter extends AbstractEvoMethodAdapter {
 
     private final String fullMethodName;
-
-    protected String className;
-
-    protected String methodName;
 
     /**
      * <p>Constructor for ReturnValueAdapter.</p>
      *
      * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
+     * @param access     a int.
      * @param className  a {@link java.lang.String} object.
      * @param methodName a {@link java.lang.String} object.
      * @param desc       a {@link java.lang.String} object.
      */
-    public ReturnValueAdapter(MethodVisitor mv, String className, String methodName,
+    public ReturnValueAdapter(MethodVisitor mv, int access, String className, String methodName,
                               String desc) {
-        super(Opcodes.ASM9, mv);
+        super(mv, access, className, methodName, desc);
         fullMethodName = methodName + desc;
-        this.methodName = methodName;
-        this.className = className;
     }
 
     // primitive data types
@@ -68,7 +58,7 @@ public class ReturnValueAdapter extends MethodVisitor {
      */
     @Override
     public void visitInsn(int opcode) {
-        if (!methodName.equals("<clinit>")) {
+        if (!shouldSkip()) {
             switch (opcode) {
                 case Opcodes.IRETURN:
                     callLogIReturn();
@@ -150,4 +140,9 @@ public class ReturnValueAdapter extends MethodVisitor {
         callLogPrototype("logFReturn", PDType.FLOAT);
     }
 
+    @Override
+    protected int getExtraStackSlots() {
+        // Worst case is LONG/DOUBLE return: DUP2(+2) + DUP2(+2) + BIPUSH(+1) + 2xLDC(+2) = 7 extra slots.
+        return 7;
+    }
 }

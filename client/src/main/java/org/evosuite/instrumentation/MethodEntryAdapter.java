@@ -23,24 +23,16 @@ import org.evosuite.PackageInfo;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.commons.AdviceAdapter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Instrument classes to keep track of method entry and exit.
  *
  * @author Gordon Fraser
  */
-public class MethodEntryAdapter extends AdviceAdapter {
+public class MethodEntryAdapter extends AbstractEvoMethodAdapter {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger = LoggerFactory.getLogger(MethodEntryAdapter.class);
-
-    String className;
-    String methodName;
-    String fullMethodName;
-    int access;
+    private final String fullMethodName;
+    private final int access;
 
     /**
      * <p>Constructor for MethodEntryAdapter.</p>
@@ -53,9 +45,7 @@ public class MethodEntryAdapter extends AdviceAdapter {
      */
     public MethodEntryAdapter(MethodVisitor mv, int access, String className,
                               String methodName, String desc) {
-        super(Opcodes.ASM9, mv, access, methodName, desc);
-        this.className = className;
-        this.methodName = methodName;
+        super(mv, access, className, methodName, desc);
         this.fullMethodName = methodName + desc;
         this.access = access;
     }
@@ -65,9 +55,9 @@ public class MethodEntryAdapter extends AdviceAdapter {
      */
     @Override
     public void onMethodEnter() {
-
-        if (methodName.equals("<clinit>")) {
-            return; // FIXXME: Should we call super.onMethodEnter() here?
+        if (shouldSkip()) {
+            super.onMethodEnter();
+            return;
         }
 
         mv.visitLdcInsn(className);
@@ -90,10 +80,12 @@ public class MethodEntryAdapter extends AdviceAdapter {
      */
     @Override
     public void onMethodExit(int opcode) {
-        // TODO: Check for <clinit>
+        if (shouldSkip()) {
+            super.onMethodExit(opcode);
+            return;
+        }
 
         if (opcode != Opcodes.ATHROW) {
-
             mv.visitLdcInsn(className);
             mv.visitLdcInsn(fullMethodName);
             mv.visitMethodInsn(Opcodes.INVOKESTATIC,
@@ -103,16 +95,8 @@ public class MethodEntryAdapter extends AdviceAdapter {
         super.onMethodExit(opcode);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.commons.LocalVariablesSorter#visitMaxs(int, int)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public void visitMaxs(int maxStack, int maxLocals) {
-        int maxNum = 3;
-        super.visitMaxs(Math.max(maxNum, maxStack), maxLocals);
+    protected int getExtraStackSlots() {
+        return 3;
     }
 }

@@ -20,7 +20,6 @@
 package org.evosuite.instrumentation;
 
 import org.evosuite.PackageInfo;
-import org.evosuite.Properties;
 import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.graphs.cfg.CFGClassAdapter;
@@ -30,7 +29,6 @@ import org.evosuite.instrumentation.testability.ComparisonTransformation;
 import org.evosuite.instrumentation.testability.ContainerTransformation;
 import org.evosuite.instrumentation.testability.StringTransformation;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
-import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.instrumentation.*;
 import org.evosuite.runtime.util.ComputeClassWriter;
 import org.evosuite.seeding.PrimitiveClassAdapter;
@@ -70,6 +68,7 @@ public class BytecodeInstrumentation {
     };
 
     private final Instrumenter testCarvingInstrumenter;
+    private final InstrumentationConfig config;
 
     /**
      * <p>
@@ -77,7 +76,19 @@ public class BytecodeInstrumentation {
      * </p>
      */
     public BytecodeInstrumentation() {
+        this(InstrumentationConfig.fromProperties());
+    }
+
+    /**
+     * <p>
+     * Constructor for BytecodeInstrumentation.
+     * </p>
+     *
+     * @param config The configuration to use for instrumentation.
+     */
+    public BytecodeInstrumentation(InstrumentationConfig config) {
         this.testCarvingInstrumenter = new Instrumenter();
+        this.config = config;
     }
 
     private static String[] getEvoSuitePackages() {
@@ -119,20 +130,20 @@ public class BytecodeInstrumentation {
      * @return a boolean.
      */
     public boolean shouldTransform(String className) {
-        if (!Properties.TT) {
+        if (!config.ttEnabled) {
             return false;
         }
-        switch (Properties.TT_SCOPE) {
+        switch (config.ttScope) {
             case ALL:
                 logger.info("Allowing transformation of " + className);
                 return true;
             case TARGET:
-                if (className.equals(Properties.TARGET_CLASS) || className.startsWith(Properties.TARGET_CLASS + "$")) {
+                if (className.equals(config.targetClass) || className.startsWith(config.targetClass + "$")) {
                     return true;
                 }
                 break;
             case PREFIX:
-                if (className.startsWith(Properties.PROJECT_PREFIX)) {
+                if (className.startsWith(config.projectPrefix)) {
                     return true;
                 }
                 break;
@@ -163,7 +174,7 @@ public class BytecodeInstrumentation {
 
         int readFlags = ClassReader.SKIP_FRAMES;
 
-        if (Properties.INSTRUMENTATION_SKIP_DEBUG) {
+        if (config.skipDebug) {
             readFlags |= ClassReader.SKIP_DEBUG;
         }
 
@@ -205,16 +216,16 @@ public class BytecodeInstrumentation {
 
     private ClassVisitor createAdapterChain(ClassVisitor cv, String className, String classNameWithDots,
                                             ClassLoader classLoader) {
-        if (Properties.RESET_STATIC_FIELDS) {
+        if (config.resetStaticFields) {
             cv = new StaticAccessClassAdapter(cv, className);
         }
 
-        if (Properties.PURE_INSPECTORS) {
+        if (config.pureInspectors) {
             CheapPurityAnalyzer purityAnalyzer = CheapPurityAnalyzer.getInstance();
             cv = new PurityAnalysisClassVisitor(cv, className, purityAnalyzer);
         }
 
-        if (Properties.MAX_LOOP_ITERATIONS >= 0) {
+        if (config.maxLoopIterations >= 0) {
             cv = new LoopCounterClassAdapter(cv);
         }
 
@@ -230,7 +241,7 @@ public class BytecodeInstrumentation {
         // Collect constant values for the value pool
         cv = new PrimitiveClassAdapter(cv, className);
 
-        if (Properties.RESET_STATIC_FIELDS) {
+        if (config.resetStaticFields) {
             cv = handleStaticReset(className, cv);
         }
 
@@ -243,7 +254,7 @@ public class BytecodeInstrumentation {
     }
 
     private ClassVisitor addTargetTransformationAdapters(ClassVisitor cv, String className, ClassLoader classLoader) {
-        if (!Properties.TEST_CARVING && Properties.MAKE_ACCESSIBLE) {
+        if (!config.testCarving && config.makeAccessible) {
             cv = new AccessibleClassAdapter(cv, className);
         }
 
@@ -253,11 +264,11 @@ public class BytecodeInstrumentation {
 
         cv = new CFGClassAdapter(classLoader, cv, className);
 
-        if (Properties.EXCEPTION_BRANCHES) {
+        if (config.exceptionBranches) {
             cv = new ExceptionTransformationClassAdapter(cv, className);
         }
 
-        if (Properties.ERROR_BRANCHES) {
+        if (config.errorBranches) {
             cv = new ErrorConditionClassAdapter(cv, className);
         }
         return cv;
@@ -267,13 +278,13 @@ public class BytecodeInstrumentation {
                                                             String classNameWithDots, ClassLoader classLoader) {
         cv = new NonTargetClassAdapter(cv, className);
 
-        if (Properties.MAKE_ACCESSIBLE) {
+        if (config.makeAccessible) {
             cv = new AccessibleClassAdapter(cv, className);
         }
 
         // If we are doing testability transformation on all classes we need
         // to create the CFG first
-        if (Properties.TT && classNameWithDots.startsWith(Properties.CLASS_PREFIX)) {
+        if (config.ttEnabled && classNameWithDots.startsWith(config.classPrefix)) {
             cv = new CFGClassAdapter(classLoader, cv, className);
         }
         return cv;
@@ -289,7 +300,7 @@ public class BytecodeInstrumentation {
          * avoid problems in serialising the class, as reading Master will not do instrumentation.
          * The serialVersionUID HAS to be the same as the un-instrumented class
          */
-        if (RuntimeSettings.applyUIDTransformation) {
+        if (config.applyUidTransformation) {
             cv = new SerialVersionUIDAdder(cv);
         }
         return cv;
@@ -299,12 +310,14 @@ public class BytecodeInstrumentation {
         if (shouldTransform(classNameWithDots)) {
             return true;
         }
-        if (classNameWithDots.startsWith(Properties.PROJECT_PREFIX)) {
-            return true;
-        }
-        if (!Properties.TARGET_CLASS_PREFIX.isEmpty()
-                && classNameWithDots.startsWith(Properties.TARGET_CLASS_PREFIX)) {
-            return true;
+        if (config.ttEnabled) {
+            if (classNameWithDots.startsWith(config.projectPrefix)) {
+                return true;
+            }
+            if (!config.targetClassPrefix.isEmpty()
+                    && classNameWithDots.startsWith(config.targetClassPrefix)) {
+                return true;
+            }
         }
         return false;
     }
@@ -316,7 +329,7 @@ public class BytecodeInstrumentation {
         reader.accept(cn, readFlags);
         logger.info("Starting transformation of " + className);
 
-        if (Properties.STRING_REPLACEMENT) {
+        if (config.stringReplacement) {
             StringTransformation st = new StringTransformation(cn);
             if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots)) {
                 cn = st.transform();
@@ -346,7 +359,7 @@ public class BytecodeInstrumentation {
         // -----
         cn.accept(cv);
 
-        if (Properties.TEST_CARVING && TransformerUtil.isClassConsideredForInstrumentation(className)) {
+        if (config.testCarving && TransformerUtil.isClassConsideredForInstrumentation(className)) {
             return handleCarving(className, writer);
         }
 
@@ -384,7 +397,7 @@ public class BytecodeInstrumentation {
         // Create a __STATIC_RESET() cloning the original <clinit> method or
         // create one by default
         final CreateClassResetClassAdapter resetClassAdapter;
-        if (Properties.RESET_STATIC_FINAL_FIELDS) {
+        if (config.resetStaticFinalFields) {
             resetClassAdapter = new CreateClassResetClassAdapter(cv, className, true);
         } else {
             resetClassAdapter = new CreateClassResetClassAdapter(cv, className, false);
