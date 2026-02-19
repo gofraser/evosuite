@@ -55,7 +55,7 @@ public class TargetMethodSystemTest extends SystemTestBase {
     @Test
     public void testTargetMethodWithTRYCATCH() {
         Properties.EXCEPTION_BRANCHES = true;
-        this.test(Properties.Criterion.TRYCATCH, "boo(Ljava/lang/Integer;)Z",
+        this.test(Properties.Criterion.TRYCATCH, "foo(Ljava/lang/Integer;)Z",
                 new String[]{"bar", "getY"});
     }
 
