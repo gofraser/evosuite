@@ -321,6 +321,18 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
     @Override
     public boolean doSearch(TestSuiteChromosome suite, LocalSearchObjective<TestSuiteChromosome> objective) {
 
+        Map<FitnessFunction<TestSuiteChromosome>, Double> originalFitnessValues =
+                new LinkedHashMap<>(suite.getFitnessValues());
+        Map<FitnessFunction<TestSuiteChromosome>, Double> originalPreviousFitnessValues =
+                new LinkedHashMap<>(suite.getPreviousFitnessValues());
+        Map<FitnessFunction<TestSuiteChromosome>, Double> originalCoverageValues =
+                new LinkedHashMap<>(suite.getCoverageValues());
+        Map<FitnessFunction<TestSuiteChromosome>, Integer> originalCoveredGoals =
+                new LinkedHashMap<>(suite.getNumsOfCoveredGoals());
+        Map<FitnessFunction<TestSuiteChromosome>, Integer> originalNotCoveredGoals =
+                new LinkedHashMap<>(suite.getNumsNotCoveredGoals());
+        boolean originalChanged = suite.isChanged();
+
         updateFitness(suite, objective.getFitnessFunctions());
         double fitnessBefore = suite.getFitness();
         // logger.info("Test suite before local search: " + individual);
@@ -377,6 +389,12 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
             // restore original tests
             suite.clearTests();
             suite.addTests(originalTests);
+            suite.setFitnessValues(originalFitnessValues);
+            suite.setPreviousFitnessValues(originalPreviousFitnessValues);
+            suite.setCoverageValues(originalCoverageValues);
+            suite.setNumsOfCoveredGoals(originalCoveredGoals);
+            suite.setNumsOfNotCoveredGoals(originalNotCoveredGoals);
+            suite.setChanged(originalChanged);
         }
         return hasImproved;
     }
