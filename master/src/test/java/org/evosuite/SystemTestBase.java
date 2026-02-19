@@ -335,11 +335,24 @@ public class SystemTestBase {
 
 
     protected <T extends Chromosome<T>> GeneticAlgorithm<T> getGAFromResult(Object result) {
-        assert (result instanceof List);
+        Assert.assertNotNull("EvoSuite returned null result", result);
+        Assert.assertTrue("EvoSuite returned unexpected result type: " + result.getClass(),
+                result instanceof List);
+
         List<List<TestGenerationResult<T>>> results = (List<List<TestGenerationResult<T>>>) result;
-        assert (results.size() == 1);
-        //return results.iterator().next().getGeneticAlgorithm();
-        return results.get(0).get(0).getGeneticAlgorithm();
+        Assert.assertFalse("EvoSuite returned an empty outer result list", results.isEmpty());
+        Assert.assertFalse("EvoSuite returned an empty inner result list", results.get(0).isEmpty());
+
+        TestGenerationResult<T> firstResult = results.get(0).get(0);
+        Assert.assertNotNull("EvoSuite returned a null TestGenerationResult", firstResult);
+
+        GeneticAlgorithm<T> ga = firstResult.getGeneticAlgorithm();
+        Assert.assertNotNull(
+                "EvoSuite returned no GA. status=" + firstResult.getTestGenerationStatus()
+                        + ", error=" + firstResult.getErrorMessage()
+                        + ", class=" + firstResult.getClassUnderTest(),
+                ga);
+        return ga;
     }
 
     protected ExplorationAlgorithmBase getDSEAFromResult(Object result) {
