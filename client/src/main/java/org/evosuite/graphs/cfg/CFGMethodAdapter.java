@@ -20,10 +20,9 @@
 package org.evosuite.graphs.cfg;
 
 import org.evosuite.Properties;
-import org.evosuite.instrumentation.InstrumentationSelector;
-import org.evosuite.instrumentation.coverage.BranchInstrumentation;
-import org.evosuite.instrumentation.coverage.MethodInstrumentation;
 import org.evosuite.coverage.branch.BranchPool;
+import org.evosuite.instrumentation.InstrumentationSelector;
+import org.evosuite.instrumentation.coverage.MethodInstrumentation;
 import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.instrumentation.AnnotatedMethodNode;

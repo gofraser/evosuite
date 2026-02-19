@@ -20,8 +20,10 @@
 package org.evosuite.setup;
 
 import org.evosuite.PackageInfo;
+import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.runtime.Reflection;
+import org.evosuite.runtime.classhandling.ModifiedTargetStaticFields;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.util.ReflectionUtils;
 import org.junit.Test;
@@ -368,6 +370,38 @@ public class TestClusterUtils {
         } catch (NoClassDefFoundError e) {
             // an ExceptionInInitializationError might have happened during class initialization.
             return null;
+        }
+    }
+
+
+    /**
+     * Determine if a given field is final or not.
+     *
+     * <p>
+     * Since we might have removed the <code>final</code> modifier
+     * during our instrumentation, we also check the list of those
+     * static fields we have modified during the instrumentation.
+     * </p>
+     *
+     * @param field field to check
+     * @return true if the field is final
+     */
+    public static boolean isFinalField(Field field) {
+        if (Properties.RESET_STATIC_FINAL_FIELDS) {
+            if (Modifier.isFinal(field.getModifiers())) {
+                return true;
+            } else {
+                String fieldName = field.getName();
+                String className = field.getDeclaringClass().getName();
+                final boolean isModifiedStaticField =
+                        ModifiedTargetStaticFields.getInstance()
+                                .containsField(className, fieldName);
+                return isModifiedStaticField;
+            }
+        } else {
+            final boolean isFinalField = Modifier.isFinal(
+                    field.getModifiers());
+            return isFinalField;
         }
     }
 }

@@ -303,7 +303,8 @@ public class CastClassManager {
                                 genericClass, wildcardType, recursiveAssignable);
                         assignableClasses = recursiveAssignable;
                     } else {
-                        logger.warn("Nothing is assignable after adding {} for wildcard {}", genericClass, wildcardType);
+                        logger.warn("Nothing is assignable after adding {} for wildcard {}",
+                                genericClass, wildcardType);
                     }
                     if (assignableClasses.isEmpty()) {
                         throw new ConstructionFailedException("Nothing is assignable to " + wildcardType);

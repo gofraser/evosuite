@@ -61,10 +61,15 @@ public class GenericClassUtils {
          * type arguments (eg, ArrayList<String>), but avoids rejecting valid raw
          * assignments (eg, ArrayList<Object> -> ArrayList<E>).
          */
-        if (isPurelyGeneric(lhsType) && isConcreteInstantiation(rhsType)) {
+        if ((isPurelyGeneric(lhsType) || isUninstantiatedClassTypeParameters(lhsType))
+                && isConcreteInstantiation(rhsType)) {
             Class<?> lhsRawClass = getRawClass(lhsType);
             Class<?> rhsRawClass = getRawClass(rhsType);
             if (lhsRawClass != null && rhsRawClass != null) {
+                // Keep Class<T> semantics strict: Class<Integer> is not assignable to Class<T>.
+                if (Class.class.equals(lhsRawClass) || Class.class.equals(rhsRawClass)) {
+                    return false;
+                }
                 return lhsRawClass.isAssignableFrom(rhsRawClass);
             }
         }
@@ -112,6 +117,51 @@ public class GenericClassUtils {
 
     private static boolean isTypeVariableLike(Type type) {
         return type instanceof TypeVariable || type instanceof CaptureType;
+    }
+
+    /**
+     * Returns true if the given type is parameterized only with type variables
+     * declared by the raw class (or one of its enclosing classes).
+     *
+     * <p>This models unresolved declarations such as {@code Hashtable<K,V>},
+     * where assignment should be checked using raw types because concrete
+     * bindings for {@code K} and {@code V} are unknown at this point.
+     */
+    private static boolean isUninstantiatedClassTypeParameters(Type type) {
+        if (!(type instanceof ParameterizedType)) {
+            return false;
+        }
+
+        ParameterizedType parameterizedType = (ParameterizedType) type;
+        if (!(parameterizedType.getRawType() instanceof Class)) {
+            return false;
+        }
+        Class<?> rawClass = (Class<?>) parameterizedType.getRawType();
+
+        boolean hasTypeVariableArgument = false;
+        for (Type argument : parameterizedType.getActualTypeArguments()) {
+            if (argument instanceof TypeVariable) {
+                hasTypeVariableArgument = true;
+                if (!isDeclaredByRawClassOrEnclosing(rawClass, (TypeVariable<?>) argument)) {
+                    return false;
+                }
+            } else if (argument instanceof CaptureType) {
+                return false;
+            } else {
+                return false;
+            }
+        }
+        return hasTypeVariableArgument;
+    }
+
+    private static boolean isDeclaredByRawClassOrEnclosing(Class<?> rawClass, TypeVariable<?> typeVariable) {
+        GenericDeclaration declaration = typeVariable.getGenericDeclaration();
+        for (Class<?> current = rawClass; current != null; current = current.getEnclosingClass()) {
+            if (declaration == current) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

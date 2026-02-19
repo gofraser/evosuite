@@ -130,6 +130,12 @@ public class MethodStatement extends EntityWithParametersStatement {
             return false;
         }
 
+        // Baseline safety: regardless of owner generic metadata, an instance-method
+        // callee must be assignable to the reflective declaring class.
+        if (!GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)) {
+            return false;
+        }
+
         // First enforce compatibility with the method owner type, including generic arguments.
         if (GenericClassUtils.isAssignable(method.getOwnerType(), calleeType)) {
             return true;
