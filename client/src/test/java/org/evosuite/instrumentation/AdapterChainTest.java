@@ -30,6 +30,7 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 
 public class AdapterChainTest {
 
@@ -81,5 +82,21 @@ public class AdapterChainTest {
             }
         }, 0);
         Assert.assertTrue("Should have found __STATIC_RESET", foundReset[0]);
+    }
+
+    @Test
+    public void testProjectPrefixStillAppliesTestabilityTransformationWhenTTDisabled() throws Exception {
+        Properties.TT = false;
+        Properties.PROJECT_PREFIX = "com.examples.with.different.packagename";
+        InstrumentationConfig config = InstrumentationConfig.fromProperties();
+        BytecodeInstrumentation instrumentation = new BytecodeInstrumentation(config);
+
+        Method method = BytecodeInstrumentation.class
+                .getDeclaredMethod("shouldApplyTestabilityTransformation", String.class);
+        method.setAccessible(true);
+        boolean applies = (boolean) method.invoke(instrumentation,
+                "com.examples.with.different.packagename.SimpleInteger");
+
+        Assert.assertTrue("Project prefix classes must still receive testability transformations", applies);
     }
 }
