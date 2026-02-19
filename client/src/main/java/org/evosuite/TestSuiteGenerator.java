@@ -215,7 +215,8 @@ public class TestSuiteGenerator {
         if (totalGoals == 0 && !ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
             LoggingUtils.getEvoLogger().info("* No coverage goals found for the target class {}",
                     Properties.TARGET_CLASS);
-            return TestGenerationResultBuilder.buildErrorResult("No testable code found (no coverage goals)");
+            // Do not fail fast here: strategies can gracefully handle zero goals
+            // by returning an empty suite while still exposing a GA in results.
         }
 
         TestSuiteChromosome testCases = generateTests();
