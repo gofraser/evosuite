@@ -440,7 +440,10 @@ public class VariableResolver {
             return testFactory.createNull(test, Object.class, position, context);
         }
 
-        List<GenericClass<?>> classes = CastClassManager.getInstance().getCastClasses().stream()
+        // Snapshot first to avoid ConcurrentModificationException when cast classes
+        // are extended while this method is filtering candidates.
+        Set<GenericClass<?>> castClassesSnapshot = new HashSet<>(CastClassManager.getInstance().getCastClasses());
+        List<GenericClass<?>> classes = castClassesSnapshot.stream()
                 .filter(c -> TestCluster.getInstance().hasGenerator(c) || c.isString())
                 .collect(Collectors.toList());
         classes.add(GenericClassFactory.get(Object.class));
