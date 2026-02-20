@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.*;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Utility class for {@code GenericClassImpl}.
@@ -61,8 +62,20 @@ public class GenericClassUtils {
          * type arguments (eg, ArrayList<String>), but avoids rejecting valid raw
          * assignments (eg, ArrayList<Object> -> ArrayList<E>).
          */
-        if ((isPurelyGeneric(lhsType) || isUninstantiatedClassTypeParameters(lhsType))
-                && isConcreteInstantiation(rhsType)) {
+        if (isPurelyGeneric(lhsType) && isConcreteInstantiation(rhsType)) {
+            Class<?> lhsRawClass = getRawClass(lhsType);
+            Class<?> rhsRawClass = getRawClass(rhsType);
+            if (lhsRawClass != null && rhsRawClass != null) {
+                // Keep Class<T> semantics strict: Class<Integer> is not assignable to Class<T>.
+                if (Class.class.equals(lhsRawClass) || Class.class.equals(rhsRawClass)) {
+                    return false;
+                }
+                return lhsRawClass.isAssignableFrom(rhsRawClass);
+            }
+        }
+
+        if (isUninstantiatedClassTypeParameters(lhsType)
+                && isRawCompatibleRightHandSide(lhsType, rhsType)) {
             Class<?> lhsRawClass = getRawClass(lhsType);
             Class<?> rhsRawClass = getRawClass(rhsType);
             if (lhsRawClass != null && rhsRawClass != null) {
@@ -204,6 +217,23 @@ public class GenericClassUtils {
         if (type instanceof GenericArrayType) {
             return isConcreteInstantiation(((GenericArrayType) type).getGenericComponentType());
         }
+        return false;
+    }
+
+    private static boolean isRawCompatibleRightHandSide(Type lhsType, Type rhsType) {
+        if (isConcreteInstantiation(rhsType)) {
+            return true;
+        }
+
+        if (rhsType instanceof Class) {
+            Class<?> lhsRawClass = getRawClass(lhsType);
+            // Raw runtime classes (eg, Properties.class) should be assignable to unresolved
+            // generic targets (eg, Map<K,V>) using raw type compatibility.
+            return lhsRawClass != null
+                    && Map.class.isAssignableFrom(lhsRawClass)
+                    && !isMissingTypeParameters(rhsType);
+        }
+
         return false;
     }
 

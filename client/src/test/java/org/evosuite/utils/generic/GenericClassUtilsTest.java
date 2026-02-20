@@ -7,6 +7,8 @@ import javax.swing.JMenu;
 import javax.swing.JSplitPane;
 import java.lang.reflect.Type;
 import java.util.Hashtable;
+import java.util.Map;
+import java.util.Properties;
 
 public class GenericClassUtilsTest {
 
@@ -25,6 +27,11 @@ public class GenericClassUtilsTest {
         Hashtable<String, Integer> table;
     }
 
+    private static class GenericMapHolder<K, V> {
+        @SuppressWarnings("unused")
+        Map<K, V> values;
+    }
+
     @Test
     public void testAssignableToUninstantiatedTypeVariablesUsesRawCompatibility() throws Exception {
         Type lhsType = GenericHolder.class.getDeclaredField("table").getGenericType();
@@ -39,5 +46,12 @@ public class GenericClassUtilsTest {
         Type rhsType = ConcreteHolder.class.getDeclaredField("table").getGenericType();
 
         Assert.assertFalse(GenericClassUtils.isAssignable(lhsType, rhsType));
+    }
+
+    @Test
+    public void testRawClassAssignableToUninstantiatedTypeVariablesUsesRawCompatibility() throws Exception {
+        Type lhsType = GenericMapHolder.class.getDeclaredField("values").getGenericType();
+
+        Assert.assertTrue(GenericClassUtils.isAssignable(lhsType, Properties.class));
     }
 }
