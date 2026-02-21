@@ -245,20 +245,14 @@
             you want to add, add a comment regarding its used license. -->
         <dependencies>
             <dependency>
-                <groupId>com.sun.xml.bind</groupId>
-                <artifactId>jaxb-core</artifactId>
-                <version>${jaxb.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.sun.xml.bind</groupId>
-                <artifactId>jaxb-impl</artifactId>
+                <groupId>org.glassfish.jaxb</groupId>
+                <artifactId>jaxb-runtime</artifactId>
                 <version>${jaxb.version}</version>
             </dependency>
             <dependency>
                 <!-- GPL, but classpath exception -->
-                <groupId>javax.xml.bind</groupId>
-                <artifactId>jaxb-api</artifactId>
+                <groupId>jakarta.xml.bind</groupId>
+                <artifactId>jakarta.xml.bind-api</artifactId>
                 <version>${jaxb.version}</version>
             </dependency>
             <dependency>
@@ -882,7 +876,7 @@
         <logback.version>1.2.13</logback.version>
         <publish.classifier></publish.classifier>
 
-        <jaxb.version>2.3.0</jaxb.version>
+        <jaxb.version>2.3.3</jaxb.version>
         <activation.version>1.2.0</activation.version>
     </properties>
 
