@@ -46,6 +46,8 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.mockito.Mockito;
 
+import javax.swing.DebugGraphics;
+import java.io.PrintStream;
 import java.util.*;
 
 import static org.evosuite.junit.writer.TestSuiteWriterUtils.*;
@@ -184,6 +186,11 @@ public class Scaffolding {
             list.add(java.util.concurrent.Executors.class.getCanonicalName());
             list.add(java.util.concurrent.Future.class.getCanonicalName());
             list.add(java.util.concurrent.TimeUnit.class.getCanonicalName());
+        }
+
+        if (Properties.RESET_STANDARD_STREAMS) {
+            list.add(PrintStream.class.getCanonicalName());
+            list.add(DebugGraphics.class.getCanonicalName());
         }
 
         return list;
@@ -807,7 +814,7 @@ public class Scaffolding {
         // threadsToIgnore.add(TestCaseExecutor.TEST_EXECUTION_THREAD);
         Set<String> threadsToIgnore = new LinkedHashSet<>(Arrays.asList(Properties.IGNORE_THREADS));
         for (String s : threadsToIgnore) {
-            bd.append(", ").append(s);
+            bd.append(", \"").append(StringEscapeUtils.escapeJava(s)).append("\"");
         }
         bd.append(");\n\n");
     }

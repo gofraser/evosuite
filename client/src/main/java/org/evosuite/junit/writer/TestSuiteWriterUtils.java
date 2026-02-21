@@ -63,7 +63,8 @@ public class TestSuiteWriterUtils {
      */
     public static boolean needToUseAgent() {
         return Properties.REPLACE_CALLS || Properties.VIRTUAL_FS
-                || Properties.RESET_STATIC_FIELDS || Properties.VIRTUAL_NET;
+                || Properties.RESET_STATIC_FIELDS || Properties.VIRTUAL_NET
+                || Properties.REPLACE_GUI;
     }
 
 

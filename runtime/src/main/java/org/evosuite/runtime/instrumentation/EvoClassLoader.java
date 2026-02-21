@@ -137,7 +137,7 @@ public class EvoClassLoader extends ClassLoader {
             logger.info("Keeping class: " + fullyQualifiedTargetClass);
             return result;
         } catch (Throwable t) {
-            logger.info("Error while loading class: " + t);
+            logger.error("Error while loading class: " + t.getMessage(), t);
             throw new ClassNotFoundException(t.getMessage(), t);
         } finally {
             if (is != null) {

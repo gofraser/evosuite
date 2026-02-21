@@ -3,16 +3,12 @@ package org.evosuite.ga.archive;
 import org.evosuite.Properties;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -26,15 +22,6 @@ public class ArchiveTest {
     @Mock
     private TestChromosome chromosome;
 
-    @Mock
-    private TestChromosome chromosome2;
-
-    @Mock
-    private ExecutionResult result;
-
-    @Mock
-    private TestCase testCase;
-
     private Properties.Criterion[] originalCriteria;
 
     @BeforeEach
@@ -43,12 +30,6 @@ public class ArchiveTest {
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.LINE};
         when(target.getTargetClass()).thenReturn("Foo");
         when(target.getTargetMethod()).thenReturn("bar");
-        when(chromosome.getLastExecutionResult()).thenReturn(result);
-        when(chromosome.getTestCase()).thenReturn(testCase);
-        when(testCase.iterator()).thenReturn(Collections.emptyIterator());
-
-        when(chromosome2.getLastExecutionResult()).thenReturn(result);
-        when(chromosome2.getTestCase()).thenReturn(testCase);
     }
 
     @AfterEach

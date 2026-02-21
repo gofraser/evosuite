@@ -184,12 +184,17 @@ public class RuntimeInstrumentation {
         cv = new JSRInlinerClassVisitor(cv);
 
         try {
-            cn.accept(cv);
+            applyClassVisitor(cn, cv);
         } catch (Throwable ex) {
             logger.error("Error while instrumenting class " + className + ": " + ex.getMessage(), ex);
+            throw new IllegalStateException("Failed to instrument class " + className, ex);
         }
 
         return writer.toByteArray();
+    }
+
+    protected void applyClassVisitor(ClassNode classNode, ClassVisitor classVisitor) {
+        classNode.accept(classVisitor);
     }
 
 }

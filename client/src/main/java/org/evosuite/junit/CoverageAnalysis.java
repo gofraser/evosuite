@@ -53,6 +53,10 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ExternalProcessUtilities;
 import org.evosuite.utils.LoggingUtils;
 import org.junit.Test;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.TestClass;
 import org.objectweb.asm.ClassReader;
@@ -687,6 +691,14 @@ public class CoverageAnalysis {
                 if (errors.isEmpty()) {
                     return true;
                 }
+            }
+
+            if (!tc.getAnnotatedMethods(org.junit.jupiter.api.Test.class).isEmpty()
+                    || !tc.getAnnotatedMethods(ParameterizedTest.class).isEmpty()
+                    || !tc.getAnnotatedMethods(RepeatedTest.class).isEmpty()
+                    || !tc.getAnnotatedMethods(TestFactory.class).isEmpty()
+                    || !tc.getAnnotatedMethods(TestTemplate.class).isEmpty()) {
+                return true;
             }
         } catch (IllegalArgumentException e) {
             return false;

@@ -193,6 +193,12 @@ public class TestSuiteWriter implements Opcodes {
             throw new IllegalArgumentException(
                     "Test classes should have name ending with 'Test'. Invalid input name: " + name);
         }
+        if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT3
+                && Properties.TEST_SCAFFOLDING
+                && !Properties.NO_RUNTIME_DEPENDENCY) {
+            throw new IllegalStateException("JUnit3 output with scaffolding is not supported. "
+                    + "Use JUNIT4/JUNIT5, disable scaffolding, or enable no_runtime_dependency.");
+        }
 
         List<File> generated = new ArrayList<>();
         String dir = TestSuiteWriterUtils.makeDirectory(directory);
@@ -362,7 +368,7 @@ public class TestSuiteWriter implements Opcodes {
 
         builder.append(getHeader(name + "_" + testId, name, results));
 
-        if (!Properties.TEST_SCAFFOLDING) {
+        if (!Properties.TEST_SCAFFOLDING && !Properties.NO_RUNTIME_DEPENDENCY) {
             builder.append(new Scaffolding().getBeforeAndAfterMethods(name + "_" + testId, wasSecurityException,
                     results));
         }
@@ -557,7 +563,9 @@ public class TestSuiteWriter implements Opcodes {
 
         builder.append(" {");
         builder.append(NEWLINE);
-        if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5) {
+        if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
+                && TestSuiteWriterUtils.needToUseAgent()
+                && !Properties.NO_RUNTIME_DEPENDENCY) {
             builder.append("@RegisterExtension").append(NEWLINE);
             builder.append(METHOD_SPACE).append("static EvoRunnerJUnit5 runner = new EvoRunnerJUnit5(")
                     .append(testName).append(".class);").append(NEWLINE);
