@@ -27,7 +27,6 @@ import java.io.File;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
 
 /**
  * When running tests from a build tool (eg  "mvn test" when using Maven)
@@ -64,6 +63,10 @@ public class InitializingListener extends RunListener {
      * File name of list of scaffolding files to use for initialization.
      */
     public static final String SCAFFOLDING_LIST_FILE_STRING = ".scaffolding_list.tmp";
+    /**
+     * File name for initialization metadata used by new output modes.
+     */
+    public static final String INITIALIZATION_METADATA_FILE_STRING = ".evosuite_init.tmp";
 
     /**
      * Property used for example in Ant to specify where the EvoSuite tests have been compiled.
@@ -75,6 +78,10 @@ public class InitializingListener extends RunListener {
     public static String getScaffoldingListFilePath() {
         //we could use a system property here if we want to change location
         return SCAFFOLDING_LIST_FILE_STRING;
+    }
+
+    public static String getInitializationMetadataFilePath() {
+        return INITIALIZATION_METADATA_FILE_STRING;
     }
 
     @Override
@@ -106,7 +113,7 @@ public class InitializingListener extends RunListener {
             TODO: we ll need to handle also Gradle, and possibly find a simpler, unified way
          */
         if (compiledTestsFolder == null) {
-            list = classesToInitFromScaffoldingFile();
+            list = classesToInitFromMetadataOrScaffoldingFile();
         } else {
             list = InitializingListenerUtils.scanClassesToInit(new File(compiledTestsFolder));
         }
@@ -147,28 +154,24 @@ public class InitializingListener extends RunListener {
     }
 
 
-    private List<String> classesToInitFromScaffoldingFile() {
+    private List<String> classesToInitFromMetadataOrScaffoldingFile() {
+        File metadata = new File(INITIALIZATION_METADATA_FILE_STRING);
+        File scaffolding = new File(SCAFFOLDING_LIST_FILE_STRING);
+        return readInitializationClasses(metadata, scaffolding);
+    }
 
-        List<String> list = new ArrayList<>();
-
-        File scaffolding = new File(InitializingListener.SCAFFOLDING_LIST_FILE_STRING);
-        if (!scaffolding.exists()) {
-            java.lang.System.out.println(
-                    "WARN: scaffolding file not found. If this module has tests, recall to call the preparation step "
-                            + "before executing the tests. For example, in Maven you need to make sure that "
-                            + "'evosuite:prepare' is called. See documentation at www.evosuite.org for "
-                            + "further details.");
-            return list;
+    static List<String> readInitializationClasses(File metadata, File scaffolding) {
+        if (metadata.exists()) {
+            return InitializingListenerUtils.readInitializationClassList(metadata);
         }
-
-        try (Scanner in = new Scanner(scaffolding)) {
-            while (in.hasNext()) {
-                list.add(in.next().trim());
-            }
-        } catch (Exception e) {
-            java.lang.System.out.println("ERROR while reading scaffolding list file: " + e.getMessage());
+        if (scaffolding.exists()) {
+            return InitializingListenerUtils.readInitializationClassList(scaffolding);
         }
-
-        return list;
+        java.lang.System.out.println(
+                "WARN: initialization metadata/scaffolding files not found. If this module has tests, "
+                        + "recall to call the preparation step before executing the tests. For example, in Maven "
+                        + "you need to make sure that 'evosuite:prepare' is called. See documentation at "
+                        + "www.evosuite.org for further details.");
+        return new ArrayList<>();
     }
 }

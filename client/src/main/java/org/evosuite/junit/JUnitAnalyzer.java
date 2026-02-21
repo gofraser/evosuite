@@ -28,6 +28,8 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.instrumentation.NonInstrumentingClassLoader;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
+import org.evosuite.runtime.InitializingListener;
+import org.evosuite.runtime.InitializingListenerUtils;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.JarPathing;
@@ -747,6 +749,13 @@ public abstract class JUnitAnalyzer {
      */
     private static Class<?>[] getClassesFromFiles(Collection<File> files) {
         /*
+         * new-mode metadata can explicitly list classes that must be initialized first
+         */
+        for (String className : extractClassesToInitialize(files)) {
+            loadClass(className);
+        }
+
+        /*
          * first load only the scaffolding files
          */
         for (File file : files) {
@@ -773,6 +782,26 @@ public abstract class JUnitAnalyzer {
         }
 
         return classes.toArray(new Class<?>[classes.size()]);
+    }
+
+    static List<String> extractClassesToInitialize(Collection<File> files) {
+        List<String> classesToInit = new ArrayList<>();
+        for (File file : files) {
+            String fileName = file.getName();
+            if (!file.isFile()) {
+                continue;
+            }
+            if (!InitializingListener.INITIALIZATION_METADATA_FILE_STRING.equals(fileName)
+                    && !InitializingListener.SCAFFOLDING_LIST_FILE_STRING.equals(fileName)) {
+                continue;
+            }
+            try {
+                classesToInit.addAll(InitializingListenerUtils.readInitializationClassList(file));
+            } catch (RuntimeException e) {
+                logger.warn("Could not read initialization metadata from {}: {}", file.getAbsolutePath(), e.getMessage());
+            }
+        }
+        return classesToInit;
     }
 
     private static boolean isScaffolding(File file) {
@@ -824,6 +853,16 @@ public abstract class JUnitAnalyzer {
                     + file.getAbsolutePath() + " , error " + e, e);
         }
         return testClass;
+    }
+
+    private static Class<?> loadClass(String className) {
+        try {
+            logger.info("Loading class {}", className);
+            return loader.loadClass(className);
+        } catch (ClassNotFoundException e) {
+            logger.error("Cannot load class: " + className, e);
+            return null;
+        }
     }
 
     /**

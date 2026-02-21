@@ -20,6 +20,8 @@
 package org.evosuite.runtime;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -29,6 +31,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Scanner;
 
 
 /**
@@ -72,6 +75,51 @@ public class InitializingListenerUtils {
         }
 
         return list;
+    }
+
+    /**
+     * Read initialization class names from a plain-text metadata file.
+     * Empty lines and lines starting with '#' are ignored.
+     *
+     * @param file metadata file
+     * @return list of class names, possibly empty
+     */
+    public static List<String> readInitializationClassList(File file) {
+        Objects.requireNonNull(file);
+        List<String> list = new ArrayList<>();
+        if (!file.exists()) {
+            return list;
+        }
+
+        try (Scanner in = new Scanner(file)) {
+            while (in.hasNextLine()) {
+                String line = in.nextLine().trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+                list.add(line);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("ERROR while reading initialization list file '"
+                    + file.getAbsolutePath() + "': " + e.getMessage(), e);
+        }
+        return list;
+    }
+
+    /**
+     * Write initialization class names to a plain-text metadata file.
+     *
+     * @param file target metadata file
+     * @param classNames class names to write
+     */
+    public static void writeInitializationClassList(File file, List<String> classNames) throws FileNotFoundException {
+        Objects.requireNonNull(file);
+        Objects.requireNonNull(classNames);
+        try (PrintWriter out = new PrintWriter(file)) {
+            for (String className : classNames) {
+                out.println(className);
+            }
+        }
     }
 
     /**

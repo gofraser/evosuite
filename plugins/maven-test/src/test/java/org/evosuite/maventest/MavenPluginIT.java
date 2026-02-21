@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class MavenPluginIT {
 
     private static final long timeoutInMs = 3 * 60 * 1_000;
+    private static final String INITIALIZATION_METADATA_FILE = ".evosuite_init.tmp";
 
     private final Path projects = Paths.get("projects");
     private final Path simple = projects.resolve("SimpleModule");
@@ -60,6 +61,7 @@ public class MavenPluginIT {
             FileUtils.deleteDirectory(p.resolve(srcEvo).toFile());
             FileUtils.deleteQuietly(p.resolve("log.txt").toFile());
             FileUtils.deleteQuietly(p.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
+            FileUtils.deleteQuietly(p.resolve(INITIALIZATION_METADATA_FILE).toFile());
             FileUtils.deleteQuietly(p.resolve("coverage.check.failed").toFile());
         }
     }
@@ -177,6 +179,7 @@ public class MavenPluginIT {
         String cut = "org.maven_test_project.mwod.OneDependencyClass";
         verifyLogFilesExist(dependency,cut);
         verifyESTestsRunFor(verifier,cut);
+        verifyInitializationArtifacts(dependency, false);
     }
 
     @Test
@@ -193,6 +196,25 @@ public class MavenPluginIT {
         String cut = "org.maven_test_project.mwod.OneDependencyClass";
         verifyLogFilesExist(dependency,cut);
         verifyESTestsRunFor(verifier,cut);
+        verifyInitializationArtifacts(dependency, false);
+    }
+
+    @Test
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testExportWithTestsWithAgentMetadataEnabled() throws Exception {
+
+        Verifier verifier  = getVerifier(dependency);
+        addGenerateAndExportOption(verifier);
+        verifier.addCliOption("-DforkCount=1");
+        verifier.addCliOption("-Devosuite.writeInitializationMetadata=true");
+
+        verifier.executeGoal("test");
+
+        Files.exists(dependency.resolve(srcEvo));
+        String cut = "org.maven_test_project.mwod.OneDependencyClass";
+        verifyLogFilesExist(dependency,cut);
+        verifyESTestsRunFor(verifier,cut);
+        verifyInitializationArtifacts(dependency, true);
     }
 
 
@@ -454,6 +476,13 @@ public class MavenPluginIT {
         assertTrue(Files.exists(logs.resolve("std_err_MASTER.log")));
         assertTrue(Files.exists(logs.resolve("std_out_CLIENT.log")));
         assertTrue(Files.exists(logs.resolve("std_out_MASTER.log")));
+    }
+
+    private void verifyInitializationArtifacts(Path targetProject, boolean metadataExpected) {
+        Path scaffoldingList = targetProject.resolve(InitializingListener.getScaffoldingListFilePath());
+        Path metadataList = targetProject.resolve(INITIALIZATION_METADATA_FILE);
+        assertTrue(Files.exists(scaffoldingList));
+        assertEquals(metadataExpected, Files.exists(metadataList));
     }
 
     private Path getESFolder(Path project){

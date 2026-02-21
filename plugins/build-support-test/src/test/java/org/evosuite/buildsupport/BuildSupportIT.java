@@ -36,6 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -48,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class BuildSupportIT {
 
     private final Path simple = Paths.get("projects","simple");
+    private static final String INITIALIZATION_METADATA_FILE = ".evosuite_init.tmp";
 
     private String getEvoSuiteVersion(){
         //update version if run from IDE instead of Maven
@@ -62,6 +64,7 @@ public class BuildSupportIT {
 
         FileUtils.deleteQuietly(simple.resolve("log.txt").toFile());
         FileUtils.deleteQuietly(simple.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
+        FileUtils.deleteQuietly(simple.resolve(INITIALIZATION_METADATA_FILE).toFile());
         FileUtils.deleteQuietly(simple.resolve("build").toFile());
     }
 
@@ -71,6 +74,8 @@ public class BuildSupportIT {
         maven.executeGoal("test");
         maven.verifyTextInLog("Running com.testbuild.support.FooTest");
         maven.verifyTextInLog("Tests run: 3, Failures: 0, Errors: 0, Skipped: 0");
+        assertTrue(simple.resolve(InitializingListener.getScaffoldingListFilePath()).toFile().isFile());
+        assertFalse(simple.resolve(INITIALIZATION_METADATA_FILE).toFile().exists());
     }
 
 
