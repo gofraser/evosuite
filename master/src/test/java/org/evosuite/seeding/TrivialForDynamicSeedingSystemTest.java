@@ -24,11 +24,10 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.TrivialForDynamicSeeding;
 import com.examples.with.different.packagename.TrivialForDynamicSeedingEndsWith;
 import com.examples.with.different.packagename.TrivialForDynamicSeedingRegex;
@@ -40,7 +39,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
 
     public static final double defaultDynamicPool = Properties.DYNAMIC_POOL;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.DYNAMIC_POOL = defaultDynamicPool;
     }
@@ -63,7 +62,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -85,7 +84,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Unexpected coverage: ", 2d / 3d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2d / 3d, best.getCoverage(), 0.001, "Unexpected coverage: ");
     }
 
     @Test
@@ -107,7 +106,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -129,7 +128,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Unexpected coverage: ", 2d / 3d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2d / 3d, best.getCoverage(), 0.001, "Unexpected coverage: ");
     }
 
     @Test
@@ -151,7 +150,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -173,7 +172,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Unexpected coverage: ", 2d / 3d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2d / 3d, best.getCoverage(), 0.001, "Unexpected coverage: ");
     }
 
     @Test
@@ -195,7 +194,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -217,7 +216,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Unexpected coverage: ", 2d / 3d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2d / 3d, best.getCoverage(), 0.001, "Unexpected coverage: ");
     }
 
     @Test
@@ -239,7 +238,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -261,7 +260,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Unexpected coverage: ", 2d / 3d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2d / 3d, best.getCoverage(), 0.001, "Unexpected coverage: ");
     }
 
     @Test
@@ -269,7 +268,7 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
 
         //first check whether the regex is feasible
         final String example = "-@0.AA";
-        Assert.assertTrue(example.matches(TrivialForDynamicSeedingRegex.REGEX));
+        Assertions.assertTrue(example.matches(TrivialForDynamicSeedingRegex.REGEX));
 
         EvoSuite evosuite = new EvoSuite();
 
@@ -290,10 +289,10 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
 
         ConstantPoolManager foo = ConstantPoolManager.getInstance();
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
-    @Ignore // It is actually not so difficult to achieve this. Maybe the regex should be more complex?
+    @Disabled // It is actually not so difficult to achieve this. Maybe the regex should be more complex?
     @Test
     public void testRegexStringMatchesWithoutSeeding() {
         EvoSuite evosuite = new EvoSuite();
@@ -313,6 +312,6 @@ public class TrivialForDynamicSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Unexpected coverage: ", 2d / 3d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2d / 3d, best.getCoverage(), 0.001, "Unexpected coverage: ");
     }
 }

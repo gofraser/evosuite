@@ -19,17 +19,17 @@
  */
 package org.evosuite.ga.metaheuristics;
 
-import static org.junit.Assert.assertEquals;
-
 import java.util.ArrayList;
 import java.util.List;
 
 import org.evosuite.Properties;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.evosuite.ga.Neighbourhood;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for Neighbourhood's functions (i.e, part of Cellular GA functions)

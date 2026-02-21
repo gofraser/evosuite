@@ -24,9 +24,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.mock.javax.swing.AskUser;
 import com.examples.with.different.packagename.mock.javax.swing.AskUserShowConfirmDialogs0;
 import com.examples.with.different.packagename.mock.javax.swing.AskUserShowConfirmDialogs1;
@@ -63,8 +62,8 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
 
     }
 
@@ -88,9 +87,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
     }
 
     @Test
@@ -113,9 +112,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
     }
 
     @Test
@@ -138,9 +137,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
 
     }
 
@@ -164,9 +163,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
 
     }
 
@@ -190,9 +189,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
 
     }
 
@@ -216,9 +215,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
 
     }
 
@@ -242,9 +241,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
 
     }
 
@@ -268,9 +267,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
 
     }
 
@@ -294,9 +293,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
 
     }
 
@@ -320,9 +319,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
 
     }
 
@@ -346,9 +345,9 @@ public class MockJOptionPaneSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal fitness: ", 0d, best.getFitness(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0d, best.getFitness(), 0.001, "Non-optimal fitness: ");
     }
 
 

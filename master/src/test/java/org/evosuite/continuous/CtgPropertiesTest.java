@@ -20,10 +20,9 @@
 package org.evosuite.continuous;
 
 import org.evosuite.Properties;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * Created by Andrea Arcuri on 21/11/15.

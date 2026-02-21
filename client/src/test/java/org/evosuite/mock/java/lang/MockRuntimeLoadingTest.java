@@ -25,23 +25,23 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.MockFramework;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class MockRuntimeLoadingTest {
 
     private static final boolean DEFAULT_JVM = RuntimeSettings.mockJVMNonDeterminism;
     private static final boolean DEFAULT_REPLACE_CALLS = Properties.REPLACE_CALLS;
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         String cp = System.getProperty("user.dir") + "/target/test-classes";
         ClassPathHandler.getInstance().addElementToTargetProjectClassPath(cp);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeSettings.mockJVMNonDeterminism = DEFAULT_JVM;
         Properties.REPLACE_CALLS = DEFAULT_REPLACE_CALLS;
@@ -58,7 +58,7 @@ public class MockRuntimeLoadingTest {
 
         Object mc = clazz.newInstance();
         String expected = "500"; //this is hard coded in the mock
-        Assert.assertEquals(expected, mc.toString());
+        Assertions.assertEquals(expected, mc.toString());
     }
 
 }

@@ -22,8 +22,8 @@ package org.evosuite.dse;
 import com.examples.with.different.packagename.solver.MazeClientArrays;
 import org.evosuite.Properties;
 import org.evosuite.symbolic.dse.algorithm.DSEAlgorithms;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * DFS exploration algorithm related system tests.
@@ -34,7 +34,7 @@ import org.junit.Test;
  */
 public class DSEAlgorithmDFSSystemTest extends DSESystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         super.init();
 

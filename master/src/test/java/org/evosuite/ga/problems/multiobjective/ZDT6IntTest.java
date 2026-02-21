@@ -37,9 +37,9 @@ import org.evosuite.ga.problems.Problem;
 import org.evosuite.ga.problems.metrics.GenerationalDistance;
 import org.evosuite.ga.problems.metrics.Metrics;
 import org.evosuite.ga.problems.metrics.Spacing;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static java.util.Comparator.*;
 
@@ -47,7 +47,7 @@ import static java.util.Comparator.*;
  * @author José Campos
  */
 public class ZDT6IntTest {
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.POPULATION = 100;
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXGENERATIONS;
@@ -65,8 +65,8 @@ public class ZDT6IntTest {
         double[] values = {0.541, 0.585, 0.915, 0.624, 0.493, 0.142, 0.971, 0.836, 0.763, 0.323};
         NSGAChromosome c = new NSGAChromosome(0.0, 1.0, values);
 
-        Assert.assertEquals(f1.getFitness(c), 0.9866973935066625, 0.0);
-        Assert.assertEquals(f2.getFitness(c), 8.903810335418541, 0.0);
+        Assertions.assertEquals(f1.getFitness(c), 0.9866973935066625, 0.0);
+        Assertions.assertEquals(f2.getFitness(c), 8.903810335418541, 0.0);
     }
 
     /**
@@ -118,7 +118,7 @@ public class ZDT6IntTest {
         GenerationalDistance gd = new GenerationalDistance();
         double gdd = gd.evaluate(front, trueParetoFront);
         System.out.println("GenerationalDistance: " + gdd);
-        Assert.assertTrue(gdd < 0.001);
+        Assertions.assertTrue(gdd < 0.001);
 
         Spacing sp = new Spacing();
         double spd = sp.evaluate(front);
@@ -128,6 +128,6 @@ public class ZDT6IntTest {
         // front is similar to a theoretical ideal front
         double diff = Math.abs(spd - spdt);
         System.out.println("SpacingFront (" + spd + ") - SpacingTrueFront (" + spdt + ") = " + diff);
-        Assert.assertTrue(diff < 0.15);
+        Assertions.assertTrue(diff < 0.15);
     }
 }

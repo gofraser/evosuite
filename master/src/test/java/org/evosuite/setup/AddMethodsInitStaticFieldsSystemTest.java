@@ -24,11 +24,10 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.staticusage.Class1;
 import com.examples.with.different.packagename.staticusage.DirectAccessStaticField;
 
@@ -36,7 +35,7 @@ public class AddMethodsInitStaticFieldsSystemTest extends SystemTestBase {
 
     private boolean ADD_METHODS_INITIALIZING_STATIC_FIELDS;
 
-    @Before
+    @BeforeEach
     public void prepareTest() {
         ADD_METHODS_INITIALIZING_STATIC_FIELDS = Properties.HANDLE_STATIC_FIELDS;
         Properties.HANDLE_STATIC_FIELDS = true;
@@ -57,7 +56,7 @@ public class AddMethodsInitStaticFieldsSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
         double best_fitness = best.getFitness();
-        Assert.assertEquals("Optimal coverage not reached: " + best_fitness, 0.0, best_fitness, 0.0);
+        Assertions.assertEquals(0.0, best_fitness, 0.0, "Optimal coverage not reached: " + best_fitness);
     }
 
     @Test
@@ -75,10 +74,10 @@ public class AddMethodsInitStaticFieldsSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
         double best_fitness = best.getFitness();
-        Assert.assertEquals("Optimal coverage not reached: " + best_fitness, 0.0, best_fitness, 0.0);
+        Assertions.assertEquals(0.0, best_fitness, 0.0, "Optimal coverage not reached: " + best_fitness);
     }
 
-    @After
+    @AfterEach
     public void restore() {
         Properties.HANDLE_STATIC_FIELDS = ADD_METHODS_INITIALIZING_STATIC_FIELDS;
     }

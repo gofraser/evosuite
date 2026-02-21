@@ -23,8 +23,9 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.BMICalculator;
 
 /**
@@ -34,7 +35,7 @@ import com.examples.with.different.packagename.BMICalculator;
  */
 public class MIOSystemTest extends SystemTestBase {
 
-    @org.junit.Before
+    @BeforeEach
     public void cleanupProperties() {
         // Avoid properties being overwritten by evosuite.properties
         java.io.File evoProp = new java.io.File(Properties.OUTPUT_DIR + java.io.File.separator + "evosuite.properties");
@@ -57,16 +58,16 @@ public class MIOSystemTest extends SystemTestBase {
         EvoSuite evoSuite = new EvoSuite();
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(evoSuite.parseCommandLine(command));
-        Assert.assertEquals(MIOTestSuiteAdapter.class, ga.getClass());
+        Assertions.assertEquals(MIOTestSuiteAdapter.class, ga.getClass());
 
         @SuppressWarnings("unchecked")
         MIOTestSuiteAdapter mio = (MIOTestSuiteAdapter) ga;
 
-        Assert.assertEquals(MIO.class, mio.getAlgorithm().getClass());
+        Assertions.assertEquals(MIO.class, mio.getAlgorithm().getClass());
 
         TestSuiteChromosome best = mio.getBestIndividual();
-        Assert.assertEquals(0.0, best.getFitness(), 0.0);
-        Assert.assertEquals(1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(0.0, best.getFitness(), 0.0);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001);
     }
 
     @Test

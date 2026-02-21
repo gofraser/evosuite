@@ -19,8 +19,6 @@
  */
 package org.evosuite.ga.metaheuristics;
 
-import static org.junit.Assert.assertEquals;
-
 import org.evosuite.Properties;
 import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
@@ -36,12 +34,14 @@ import org.evosuite.ga.problems.metrics.Metrics;
 import org.evosuite.ga.problems.metrics.Spacing;
 import org.evosuite.ga.problems.multiobjective.ZDT4;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit tests for SPEA2's functions.

@@ -19,28 +19,24 @@
  */
 package org.evosuite.instrumentation.error;
 
-import org.junit.Assume;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.objectweb.asm.Opcodes;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@RunWith(Parameterized.class)
 public class TestFloatUnderflow {
 
     private float x;
     private float y;
 
     // Creates the test data
-    @Parameters
     public static Collection<Object[]> data() {
         Object[] values = new Object[]{(-Float.MAX_VALUE), (-Float.MAX_VALUE) / 2, 0, Float.MAX_VALUE / 2, Float.MAX_VALUE};
         List<Object[]> valuePairs = new ArrayList<>();
@@ -52,7 +48,7 @@ public class TestFloatUnderflow {
         return valuePairs;
     }
 
-    public TestFloatUnderflow(float x, float y) {
+    public void initTestFloatUnderflow(float x, float y) {
         this.x = x;
         this.y = y;
     }
@@ -60,35 +56,43 @@ public class TestFloatUnderflow {
 
     private void assertUnderflow(double doubleResult, int distance, float floatResult) {
         if (doubleResult < -Float.MAX_VALUE) {
-            assertTrue("Expected negative value for " + x + " and " + y + ": " + distance, distance < 0);
+            assertTrue(distance < 0, "Expected negative value for " + x + " and " + y + ": " + distance);
             assertEquals(Float.NEGATIVE_INFINITY, floatResult, 0.0F);
         } else {
-            assertTrue("Expected positive value for " + x + " and " + y + ": " + distance, distance >= 0);
+            assertTrue(distance >= 0, "Expected positive value for " + x + " and " + y + ": " + distance);
         }
     }
 
 
-    @Test
-    public void testAddUnderflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testAddUnderflow(float x, float y) {
+        initTestFloatUnderflow(x, y);
         int result = ErrorConditionChecker.underflowDistance(x, y, Opcodes.FADD);
         assertUnderflow((double) x + (double) y, result, x + y);
     }
 
-    @Test
-    public void testSubUnderflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testSubUnderflow(float x, float y) {
+        initTestFloatUnderflow(x, y);
         int result = ErrorConditionChecker.underflowDistance(x, y, Opcodes.FSUB);
         assertUnderflow((double) x - (double) y, result, x - y);
     }
 
-    @Test
-    public void testMulUnderflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testMulUnderflow(float x, float y) {
+        initTestFloatUnderflow(x, y);
         int result = ErrorConditionChecker.underflowDistance(x, y, Opcodes.FMUL);
         assertUnderflow((double) x * (double) y, result, x * y);
     }
 
-    @Test
-    public void testDivUnderflow() {
-        Assume.assumeTrue(y != 0F);
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testDivUnderflow(float x, float y) {
+        initTestFloatUnderflow(x, y);
+        Assumptions.assumeTrue(y != 0F);
 
         int result = ErrorConditionChecker.underflowDistance(x, y, Opcodes.FDIV);
         assertUnderflow((double) x / (double) y, result, x / y);

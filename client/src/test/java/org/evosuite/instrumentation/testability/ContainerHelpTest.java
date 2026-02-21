@@ -19,8 +19,8 @@
  */
 package org.evosuite.instrumentation.testability;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.*;
 
@@ -34,9 +34,9 @@ public class ContainerHelpTest {
         Set<Integer> firstSet = new HashSet<>();
         firstSet.add(17);
         firstSet.add(626);
-        Assert.assertEquals(1, ContainerHelper.collectionContains(firstSet, 17));
-        Assert.assertEquals(1, ContainerHelper.collectionContains(firstSet, 626));
-        Assert.assertTrue(ContainerHelper.collectionContains(firstSet, 100) < 0);
+        Assertions.assertEquals(1, ContainerHelper.collectionContains(firstSet, 17));
+        Assertions.assertEquals(1, ContainerHelper.collectionContains(firstSet, 626));
+        Assertions.assertTrue(ContainerHelper.collectionContains(firstSet, 100) < 0);
     }
 
     @Test
@@ -45,9 +45,9 @@ public class ContainerHelpTest {
         list.add(17);
         list.add(626);
         list.add(17);
-        Assert.assertEquals(2, ContainerHelper.collectionContains(list, 17));
-        Assert.assertEquals(1, ContainerHelper.collectionContains(list, 626));
-        Assert.assertTrue(ContainerHelper.collectionContains(list, 100) < 0);
+        Assertions.assertEquals(2, ContainerHelper.collectionContains(list, 17));
+        Assertions.assertEquals(1, ContainerHelper.collectionContains(list, 626));
+        Assertions.assertTrue(ContainerHelper.collectionContains(list, 100) < 0);
     }
 
     @Test
@@ -55,9 +55,9 @@ public class ContainerHelpTest {
         Set<String> firstSet = new HashSet<>();
         firstSet.add("foo");
         firstSet.add("bar");
-        Assert.assertEquals(1, ContainerHelper.collectionContains(firstSet, "foo"));
-        Assert.assertEquals(1, ContainerHelper.collectionContains(firstSet, "bar"));
-        Assert.assertTrue(ContainerHelper.collectionContains(firstSet, "zoo") < 0);
+        Assertions.assertEquals(1, ContainerHelper.collectionContains(firstSet, "foo"));
+        Assertions.assertEquals(1, ContainerHelper.collectionContains(firstSet, "bar"));
+        Assertions.assertTrue(ContainerHelper.collectionContains(firstSet, "zoo") < 0);
     }
 
     @Test
@@ -66,9 +66,9 @@ public class ContainerHelpTest {
         list.add("foo");
         list.add("bar");
         list.add("foo");
-        Assert.assertEquals(2, ContainerHelper.collectionContains(list, "foo"));
-        Assert.assertEquals(1, ContainerHelper.collectionContains(list, "bar"));
-        Assert.assertTrue(ContainerHelper.collectionContains(list, "zoo") < 0);
+        Assertions.assertEquals(2, ContainerHelper.collectionContains(list, "foo"));
+        Assertions.assertEquals(1, ContainerHelper.collectionContains(list, "bar"));
+        Assertions.assertTrue(ContainerHelper.collectionContains(list, "zoo") < 0);
     }
 
     @Test
@@ -76,9 +76,9 @@ public class ContainerHelpTest {
         Set<Integer> firstSet = new HashSet<>();
         firstSet.add(17);
         firstSet.add(626);
-        Assert.assertEquals(1, ContainerHelper.collectionContains(firstSet, 17));
-        Assert.assertEquals(1, ContainerHelper.collectionContains(firstSet, 626));
-        Assert.assertTrue(ContainerHelper.collectionContains(firstSet, 100) < 0);
+        Assertions.assertEquals(1, ContainerHelper.collectionContains(firstSet, 17));
+        Assertions.assertEquals(1, ContainerHelper.collectionContains(firstSet, 626));
+        Assertions.assertTrue(ContainerHelper.collectionContains(firstSet, 100) < 0);
     }
 
     @Test
@@ -87,9 +87,9 @@ public class ContainerHelpTest {
         list.add(17);
         list.add(626);
         list.add(17);
-        Assert.assertEquals(2, ContainerHelper.collectionContains(list, 17));
-        Assert.assertEquals(1, ContainerHelper.collectionContains(list, 626));
-        Assert.assertTrue(ContainerHelper.collectionContains(list, 100) < 0);
+        Assertions.assertEquals(2, ContainerHelper.collectionContains(list, 17));
+        Assertions.assertEquals(1, ContainerHelper.collectionContains(list, 626));
+        Assertions.assertTrue(ContainerHelper.collectionContains(list, 100) < 0);
     }
 
     @Test
@@ -97,20 +97,20 @@ public class ContainerHelpTest {
         Set<Integer> firstSet = new HashSet<>();
         firstSet.add(17);
         firstSet.add(626);
-        Assert.assertEquals(-2, ContainerHelper.collectionIsEmpty(firstSet));
+        Assertions.assertEquals(-2, ContainerHelper.collectionIsEmpty(firstSet));
     }
 
     @Test
     public void testCollectionEmptyTransformation1() {
         List<String> list = new LinkedList<>();
         list.add("test");
-        Assert.assertEquals(-1, ContainerHelper.collectionIsEmpty(list));
+        Assertions.assertEquals(-1, ContainerHelper.collectionIsEmpty(list));
     }
 
     @Test
     public void testCollectionEmptyTransformation0() {
         Set<Integer> firstSet = new HashSet<>();
-        Assert.assertEquals(Integer.MAX_VALUE - 2, ContainerHelper.collectionIsEmpty(firstSet));
+        Assertions.assertEquals(Integer.MAX_VALUE - 2, ContainerHelper.collectionIsEmpty(firstSet));
     }
 
     @Test
@@ -118,9 +118,9 @@ public class ContainerHelpTest {
         Map<Integer, Integer> map = new HashMap<>();
         map.put(17, 235235);
         map.put(23, 233);
-        Assert.assertEquals(1, ContainerHelper.mapContainsKey(map, 17));
-        Assert.assertEquals(1, ContainerHelper.mapContainsKey(map, 23));
-        Assert.assertTrue(ContainerHelper.mapContainsKey(map, 24) < 0);
+        Assertions.assertEquals(1, ContainerHelper.mapContainsKey(map, 17));
+        Assertions.assertEquals(1, ContainerHelper.mapContainsKey(map, 23));
+        Assertions.assertTrue(ContainerHelper.mapContainsKey(map, 24) < 0);
     }
 
     @Test
@@ -128,8 +128,8 @@ public class ContainerHelpTest {
         Map<Integer, Integer> map = new HashMap<>();
         map.put(17, 235235);
         map.put(23, 233);
-        Assert.assertEquals(1, ContainerHelper.mapContainsValue(map, 235235));
-        Assert.assertEquals(1, ContainerHelper.mapContainsValue(map, 233));
-        Assert.assertTrue(ContainerHelper.mapContainsValue(map, 24) < 0);
+        Assertions.assertEquals(1, ContainerHelper.mapContainsValue(map, 235235));
+        Assertions.assertEquals(1, ContainerHelper.mapContainsValue(map, 233));
+        Assertions.assertTrue(ContainerHelper.mapContainsValue(map, 24) < 0);
     }
 }

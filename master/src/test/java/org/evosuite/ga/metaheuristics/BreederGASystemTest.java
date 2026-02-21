@@ -24,8 +24,8 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class BreederGASystemTest extends SystemTestBase {
 
@@ -46,11 +46,11 @@ public class BreederGASystemTest extends SystemTestBase {
 
         GeneticAlgorithm<?> ga = getGAFromResult(result);
 
-        Assert.assertEquals(BreederGA.class, ga.getClass());
+        Assertions.assertEquals(BreederGA.class, ga.getClass());
 
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertEquals(0.0, best.getFitness(), 0.0);
-        Assert.assertEquals(1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(0.0, best.getFitness(), 0.0);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001);
     }
 }

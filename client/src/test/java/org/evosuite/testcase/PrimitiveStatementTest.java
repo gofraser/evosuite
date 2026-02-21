@@ -22,8 +22,8 @@ package org.evosuite.testcase;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class PrimitiveStatementTest {
 
@@ -32,15 +32,15 @@ public class PrimitiveStatementTest {
 
         TestCase tc = new DefaultTestCase();
         PrimitiveStatement<?> aInt = new IntPrimitiveStatement(tc, 42);
-        Assert.assertTrue(aInt.same(aInt));
-        Assert.assertFalse(aInt.same(null));
+        Assertions.assertTrue(aInt.same(aInt));
+        Assertions.assertFalse(aInt.same(null));
 
         PrimitiveStatement<?> fooString = new StringPrimitiveStatement(tc, "foo");
-        Assert.assertFalse(aInt.same(fooString));
+        Assertions.assertFalse(aInt.same(fooString));
 
         PrimitiveStatement<?> nullString = new StringPrimitiveStatement(tc, null);
-        Assert.assertFalse(nullString.same(fooString));
-        Assert.assertFalse(fooString.same(nullString));
+        Assertions.assertFalse(nullString.same(fooString));
+        Assertions.assertFalse(fooString.same(nullString));
 
 
         //TODO: how to make it work?

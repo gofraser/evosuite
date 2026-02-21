@@ -25,8 +25,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Created by gordon on 04/01/2017.
@@ -49,6 +49,6 @@ public class StaticFinalFieldAssignmentSystemTest extends SystemTestBase {
 
         String code = best.toString();
 
-        Assert.assertFalse("Contains illegal assignment to final variable: " + code, code.contains(".FOO = "));
+        Assertions.assertFalse(code.contains(".FOO = "), "Contains illegal assignment to final variable: " + code);
     }
 }

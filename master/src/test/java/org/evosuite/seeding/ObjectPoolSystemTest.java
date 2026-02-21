@@ -25,13 +25,14 @@ import org.evosuite.Properties.TestFactory;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.testcarver.ArrayConverterTestCase;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.examples.with.different.packagename.testcarver.DifficultClassTest;
 import com.examples.with.different.packagename.testcarver.DifficultClassWithoutCarving;
 import com.examples.with.different.packagename.testcarver.DifficultClassWithoutCarvingTest;
@@ -43,12 +44,12 @@ public class ObjectPoolSystemTest extends SystemTestBase {
     private final String SELECTED_JUNIT = Properties.SELECTED_JUNIT;
     private final TestFactory FACTORY = Properties.TEST_FACTORY;
 
-    @Before
+    @BeforeEach
     public void initProperties() {
         Properties.SEARCH_BUDGET = 20000;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.P_OBJECT_POOL = P_POOL;
         Properties.CARVE_OBJECT_POOL = CARVE_POOL;
@@ -56,7 +57,7 @@ public class ObjectPoolSystemTest extends SystemTestBase {
         Properties.TEST_FACTORY = FACTORY;
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testDifficultClassWithoutPoolFails() {
         EvoSuite evosuite = new EvoSuite();
@@ -73,10 +74,10 @@ public class ObjectPoolSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         // Passes now....
-        Assert.assertTrue("Did not expect optimal coverage: ", best.getCoverage() < 1d);
+        assertTrue(best.getCoverage() < 1d, "Did not expect optimal coverage: ");
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testDifficultClassWithWrongPoolFails() {
         EvoSuite evosuite = new EvoSuite();
@@ -94,7 +95,7 @@ public class ObjectPoolSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertTrue("Did not expect optimal coverage: ", best.getCoverage() < 1d);
+        assertTrue(best.getCoverage() < 1d, "Did not expect optimal coverage: ");
     }
 
     @Test
@@ -114,7 +115,7 @@ public class ObjectPoolSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Expected optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(1d, best.getCoverage(), 0.001, "Expected optimal coverage: ");
     }
 
     @Test
@@ -134,7 +135,7 @@ public class ObjectPoolSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Expected optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(1d, best.getCoverage(), 0.001, "Expected optimal coverage: ");
     }
 
 

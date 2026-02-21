@@ -19,11 +19,11 @@
  */
 package org.evosuite.assertion.purity;
 
-import static org.junit.Assert.assertFalse;
-
 import java.util.Map;
 
 import org.evosuite.EvoSuite;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.assertion.CheapPurityAnalyzer;
@@ -32,10 +32,10 @@ import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 
 import com.examples.with.different.packagename.purity.ImpureRandomness;
@@ -50,7 +50,7 @@ public class ImpureRandomnessSystemTest extends SystemTestBase {
     private final boolean DEFAULT_JUNIT_TESTS = Properties.JUNIT_TESTS;
     private final boolean DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS = Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS;
 
-    @Before
+    @BeforeEach
     public void saveProperties() {
         Properties.SANDBOX = true;
         Properties.ASSERTIONS = false;
@@ -62,7 +62,7 @@ public class ImpureRandomnessSystemTest extends SystemTestBase {
         Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.SANDBOX = DEFAULT_SANDBOX;
         Properties.ASSERTIONS = DEFAULT_ASSERTIONS;
@@ -91,7 +91,7 @@ public class ImpureRandomnessSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
         double best_fitness = best.getFitness();
-        Assert.assertEquals("Optimal coverage was not achieved ", 0.0, best_fitness, 0.0);
+        Assertions.assertEquals(0.0, best_fitness, 0.0, "Optimal coverage was not achieved ");
 
         CheapPurityAnalyzer purityAnalyzer = CheapPurityAnalyzer.getInstance();
 
@@ -117,10 +117,10 @@ public class ImpureRandomnessSystemTest extends SystemTestBase {
         assertFalse(randomMath);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
     }
 
 }

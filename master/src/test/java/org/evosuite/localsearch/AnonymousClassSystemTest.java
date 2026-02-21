@@ -27,10 +27,9 @@ import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.sette.AnonymousClass;
 
 /**
@@ -38,7 +37,7 @@ import com.examples.with.different.packagename.sette.AnonymousClass;
  */
 public class AnonymousClassSystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.LOCAL_SEARCH_PROBABILITY = 1.0;
         Properties.LOCAL_SEARCH_RATE = 1;
@@ -49,7 +48,7 @@ public class AnonymousClassSystemTest extends SystemTestBase {
     @Test
     public void testZ3() {
 
-        Assume.assumeTrue(System.getenv("z3_path") != null);
+        Assumptions.assumeTrue(System.getenv("z3_path") != null);
 
         String targetClass = AnonymousClass.class.getCanonicalName();
 
@@ -77,14 +76,14 @@ public class AnonymousClassSystemTest extends SystemTestBase {
 
     }
 
-    @Before
+    @BeforeEach
     public void before() {
     }
 
     @Test
     public void testCVC4() {
 
-        Assume.assumeTrue(System.getenv("cvc4_path") != null);
+        Assumptions.assumeTrue(System.getenv("cvc4_path") != null);
 
         String targetClass = AnonymousClass.class.getCanonicalName();
 

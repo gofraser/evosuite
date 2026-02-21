@@ -19,12 +19,12 @@
  */
 package org.evosuite.xsd;
 
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * @author José Campos
@@ -42,7 +42,7 @@ public class CUTUtilTest {
         cut.getGeneration().add(generation);
         assertEquals(0, CUTUtil.getNumberStatements(cut));
         assertEquals(0, CUTUtil.getNumberTests(cut));
-        Assert.assertTrue(CUTUtil.getCriteria(cut).isEmpty());
+        Assertions.assertTrue(CUTUtil.getCriteria(cut).isEmpty());
         assertEquals(0.0, CUTUtil.getCriterionCoverage(cut, ""), 0.0);
         assertEquals(0.0, CUTUtil.getOverallCoverage(cut), 0.0);
     }
@@ -84,8 +84,8 @@ public class CUTUtilTest {
         assertEquals(7, CUTUtil.getNumberTests(cut));
         Set<String> criteria = CUTUtil.getCriteria(cut);
         assertEquals(2, criteria.size());
-        Assert.assertTrue(criteria.contains("Branch"));
-        Assert.assertTrue(criteria.contains("Exception"));
+        Assertions.assertTrue(criteria.contains("Branch"));
+        Assertions.assertTrue(criteria.contains("Exception"));
         assertEquals(0.8, CUTUtil.getCriterionCoverage(cut, "Branch"), 0.0);
         assertEquals(0.3, CUTUtil.getCriterionCoverage(cut, "Exception"), 0.0);
         assertEquals(0.55, CUTUtil.getOverallCoverage(cut), 0.0);
@@ -115,7 +115,7 @@ public class CUTUtilTest {
         generation.setModified(true);
 
         cut.getGeneration().add(generation);
-        Assert.assertNull(CUTUtil.getLatestSuccessfulGeneration(cut));
+        Assertions.assertNull(CUTUtil.getLatestSuccessfulGeneration(cut));
     }
 
     @Test
@@ -127,7 +127,7 @@ public class CUTUtilTest {
         generation.setModified(false);
 
         cut.getGeneration().add(generation);
-        Assert.assertNull(CUTUtil.getLatestSuccessfulGeneration(cut));
+        Assertions.assertNull(CUTUtil.getLatestSuccessfulGeneration(cut));
     }
 
     @Test
@@ -139,7 +139,7 @@ public class CUTUtilTest {
         generation.setSuite(null);
 
         cut.getGeneration().add(generation);
-        Assert.assertNull(CUTUtil.getLatestSuccessfulGeneration(cut));
+        Assertions.assertNull(CUTUtil.getLatestSuccessfulGeneration(cut));
     }
 
     @Test
@@ -151,6 +151,6 @@ public class CUTUtilTest {
         generation.setSuite(new TestSuite());
 
         cut.getGeneration().add(generation);
-        Assert.assertNotNull(CUTUtil.getLatestSuccessfulGeneration(cut));
+        Assertions.assertNotNull(CUTUtil.getLatestSuccessfulGeneration(cut));
     }
 }

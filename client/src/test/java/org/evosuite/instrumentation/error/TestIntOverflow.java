@@ -19,27 +19,23 @@
  */
 package org.evosuite.instrumentation.error;
 
-import org.junit.Assume;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.objectweb.asm.Opcodes;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@RunWith(Parameterized.class)
 public class TestIntOverflow {
 
     private int x;
     private int y;
 
     // Creates the test data
-    @Parameters
     public static Collection<Object[]> data() {
         Object[] values = new Object[]{Integer.MIN_VALUE, Integer.MIN_VALUE / 2, 0, Integer.MAX_VALUE / 2, Integer.MAX_VALUE};
         List<Object[]> valuePairs = new ArrayList<>();
@@ -51,7 +47,7 @@ public class TestIntOverflow {
         return valuePairs;
     }
 
-    public TestIntOverflow(int x, int y) {
+    public void initTestIntOverflow(int x, int y) {
         this.x = x;
         this.y = y;
     }
@@ -59,34 +55,42 @@ public class TestIntOverflow {
 
     private void assertOverflow(long longResult, int intResult) {
         if (longResult > Integer.MAX_VALUE) {
-            assertTrue("Expected negative value for " + x + " and " + y + ": " + intResult, intResult <= 0);
+            assertTrue(intResult <= 0, "Expected negative value for " + x + " and " + y + ": " + intResult);
         } else {
-            assertTrue("Expected positive value for " + x + " and " + y + ": " + intResult, intResult > 0);
+            assertTrue(intResult > 0, "Expected positive value for " + x + " and " + y + ": " + intResult);
         }
     }
 
 
-    @Test
-    public void testAddOverflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testAddOverflow(int x, int y) {
+        initTestIntOverflow(x, y);
         int result = ErrorConditionChecker.overflowDistance(x, y, Opcodes.IADD);
         assertOverflow((long) x + (long) y, result);
     }
 
-    @Test
-    public void testSubOverflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testSubOverflow(int x, int y) {
+        initTestIntOverflow(x, y);
         int result = ErrorConditionChecker.overflowDistance(x, y, Opcodes.ISUB);
         assertOverflow((long) x - (long) y, result);
     }
 
-    @Test
-    public void testMulOverflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testMulOverflow(int x, int y) {
+        initTestIntOverflow(x, y);
         int result = ErrorConditionChecker.overflowDistance(x, y, Opcodes.IMUL);
         assertOverflow((long) x * (long) y, result);
     }
 
-    @Test
-    public void testDivOverflow() {
-        Assume.assumeTrue(y != 0);
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testDivOverflow(int x, int y) {
+        initTestIntOverflow(x, y);
+        Assumptions.assumeTrue(y != 0);
 
         int result = ErrorConditionChecker.overflowDistance(x, y, Opcodes.IDIV);
         assertOverflow((long) x / (long) y, result);

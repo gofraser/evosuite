@@ -22,8 +22,8 @@ package org.evosuite.setup;
 import com.examples.with.different.packagename.otherpackage.ExampleWithInnerClass;
 import com.examples.with.different.packagename.otherpackage.ExampleWithStaticPackagePrivateInnerClass;
 import org.evosuite.Properties;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 
 /**
@@ -36,7 +36,7 @@ public class TestAccessClass {
         Properties.CLASS_PREFIX = "some.package";
         Properties.TARGET_CLASS = "some.package.Foo";
         boolean result = TestUsageChecker.canUse(ExampleWithStaticPackagePrivateInnerClass.class);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -44,7 +44,7 @@ public class TestAccessClass {
         Properties.CLASS_PREFIX = "some.package";
         Properties.TARGET_CLASS = "some.package.Foo";
         boolean result = TestUsageChecker.canUse(ExampleWithInnerClass.Foo.class);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -53,7 +53,7 @@ public class TestAccessClass {
         Properties.TARGET_CLASS = "some.package.Foo";
         Class<?> clazz = Class.forName("com.examples.with.different.packagename.otherpackage.ExampleWithStaticPackagePrivateInnerClass$Foo");
         boolean result = TestUsageChecker.canUse(clazz);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -62,6 +62,6 @@ public class TestAccessClass {
         Properties.TARGET_CLASS = "com.examples.with.different.packagename.otherpackage.ExampleWithStaticPackagePrivateInnerClass";
         Class<?> clazz = Class.forName("com.examples.with.different.packagename.otherpackage.ExampleWithStaticPackagePrivateInnerClass$Foo");
         boolean result = TestUsageChecker.canUse(clazz);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 }

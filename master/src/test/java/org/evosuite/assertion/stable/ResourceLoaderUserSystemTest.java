@@ -29,11 +29,10 @@ import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.stable.ResourceLoaderUser;
 
 public class ResourceLoaderUserSystemTest extends SystemTestBase {
@@ -45,7 +44,7 @@ public class ResourceLoaderUserSystemTest extends SystemTestBase {
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
 
-    @Before
+    @BeforeEach
     public void configureProperties() {
         Properties.SANDBOX = true;
         Properties.REPLACE_CALLS = true;
@@ -56,7 +55,7 @@ public class ResourceLoaderUserSystemTest extends SystemTestBase {
 
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS;
         Properties.SANDBOX = DEFAULT_SANDBOX;
@@ -83,10 +82,10 @@ public class ResourceLoaderUserSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
     }
 
 }

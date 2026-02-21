@@ -19,10 +19,10 @@
  */
 package org.evosuite.instrumentation.testability;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class StringHelperTest {
 
@@ -42,11 +42,13 @@ public class StringHelperTest {
         assertTrue(result < 0);
     }
 
-    @Test(expected = NullPointerException.class)
+    @Test
     public void testEqualsNullCallee() {
-        String str1 = null;
-        String str2 = "test";
-        StringHelper.StringEquals(str1, str2);
+        assertThrows(NullPointerException.class, () -> {
+            String str1 = null;
+            String str2 = "test";
+            StringHelper.StringEquals(str1, str2);
+        });
     }
 
     @Test
@@ -83,11 +85,13 @@ public class StringHelperTest {
         assertTrue(result < 0);
     }
 
-    @Test(expected = NullPointerException.class)
+    @Test
     public void testEqualsIgnoreCaseNullCallee() {
-        String str1 = null;
-        String str2 = "test";
-        StringHelper.StringEqualsIgnoreCase(str1, str2);
+        assertThrows(NullPointerException.class, () -> {
+            String str1 = null;
+            String str2 = "test";
+            StringHelper.StringEqualsIgnoreCase(str1, str2);
+        });
     }
 
     @Test
@@ -252,74 +256,74 @@ public class StringHelperTest {
     @Test
     public void testStringEquals() {
         int dist = StringHelper.StringEquals("foo", "foo");
-        Assert.assertTrue("Distance should be positive, but obtained " + dist, dist > 0);
+        Assertions.assertTrue(dist > 0, "Distance should be positive, but obtained " + dist);
 
         int nullDist = StringHelper.StringEquals("foo", null);
-        Assert.assertTrue("Distance should be negative, but obtained " + nullDist,
-                nullDist <= 0);
+        Assertions.assertTrue(nullDist <= 0,
+                "Distance should be negative, but obtained " + nullDist);
         int emptyDist = StringHelper.StringEquals("foo", "");
-        Assert.assertTrue("Distance should be negative, but obtained " + emptyDist,
-                emptyDist <= 0);
-        Assert.assertTrue("Empty string should be closer than null", nullDist < emptyDist);
+        Assertions.assertTrue(emptyDist <= 0,
+                "Distance should be negative, but obtained " + emptyDist);
+        Assertions.assertTrue(nullDist < emptyDist, "Empty string should be closer than null");
 
         try {
             dist = StringHelper.StringEquals(null, "foo");
-            Assert.fail();
+            Assertions.fail();
         } catch (NullPointerException e) {
         }
 
         int closer = StringHelper.StringEquals("foo1", "foo2");
         int larger = StringHelper.StringEquals("xyz", "foo");
-        Assert.assertTrue("Invalid distances " + closer + " and " + larger,
-                closer > larger && closer <= 0);
+        Assertions.assertTrue(closer > larger && closer <= 0,
+                "Invalid distances " + closer + " and " + larger);
 
         dist = StringHelper.StringEquals(" foo", "foo ");
-        Assert.assertTrue("Distance should be negative, but obtained " + dist, dist <= 0);
+        Assertions.assertTrue(dist <= 0, "Distance should be negative, but obtained " + dist);
 
         int first = StringHelper.StringEquals("foo123", "foo");
         int last = StringHelper.StringEquals("foo123", "123");
-        Assert.assertTrue("Invalid distances " + first + " and " + last, first >= last
-                && first <= 0);
+        Assertions.assertTrue(first >= last
+                && first <= 0, "Invalid distances " + first + " and " + last);
     }
 
     @Test
     public void testStringEquals2() {
         double dist = StringHelper.StringEqualsCharacterDistance("foo", "foo");
-        Assert.assertTrue("Distance should be positive, but obtained " + dist, dist > 0);
+        Assertions.assertTrue(dist > 0, "Distance should be positive, but obtained " + dist);
 
         double nullDist = StringHelper.StringEqualsCharacterDistance("foo", null);
-        Assert.assertTrue("Distance should be negative, but obtained " + nullDist,
-                nullDist <= 0);
+        Assertions.assertTrue(nullDist <= 0,
+                "Distance should be negative, but obtained " + nullDist);
         double emptyDist = StringHelper.StringEqualsCharacterDistance("foo", "");
-        Assert.assertTrue("Distance should be negative, but obtained " + emptyDist,
-                emptyDist <= 0);
-        Assert.assertTrue("Empty string should be closer than null", nullDist < emptyDist);
+        Assertions.assertTrue(emptyDist <= 0,
+                "Distance should be negative, but obtained " + emptyDist);
+        Assertions.assertTrue(nullDist < emptyDist, "Empty string should be closer than null");
 
         try {
             dist = StringHelper.StringEqualsCharacterDistance(null, "foo");
-            Assert.fail();
+            Assertions.fail();
         } catch (IllegalArgumentException e) {
         }
 
         double closer = StringHelper.StringEqualsCharacterDistance("foo1", "foo2");
         double larger = StringHelper.StringEqualsCharacterDistance("xyz", "foo");
-        Assert.assertTrue("Invalid distances " + closer + " and " + larger,
-                closer > larger && closer <= 0);
+        Assertions.assertTrue(closer > larger && closer <= 0,
+                "Invalid distances " + closer + " and " + larger);
 
         closer = StringHelper.StringEqualsCharacterDistance("foo", "fop");
         larger = StringHelper.StringEqualsCharacterDistance("foo", "foq");
-        Assert.assertTrue(closer <= 0);
-        Assert.assertTrue(larger <= 0);
-        Assert.assertTrue("Invalid distances " + closer + " and " + larger,
-                closer > larger);
+        Assertions.assertTrue(closer <= 0);
+        Assertions.assertTrue(larger <= 0);
+        Assertions.assertTrue(closer > larger,
+                "Invalid distances " + closer + " and " + larger);
 
         dist = StringHelper.StringEqualsCharacterDistance(" foo", "foo ");
-        Assert.assertTrue("Distance should be negative, but obtained " + dist, dist <= 0);
+        Assertions.assertTrue(dist <= 0, "Distance should be negative, but obtained " + dist);
 
         double first = StringHelper.StringEqualsCharacterDistance("foo123", "foo");
         double last = StringHelper.StringEqualsCharacterDistance("foo123", "123");
-        Assert.assertTrue("Invalid distances " + first + " and " + last, first >= last
-                && first <= 0);
+        Assertions.assertTrue(first >= last
+                && first <= 0, "Invalid distances " + first + " and " + last);
     }
 
     @Test

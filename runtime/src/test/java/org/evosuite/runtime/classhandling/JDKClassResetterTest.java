@@ -20,11 +20,11 @@
 package org.evosuite.runtime.classhandling;
 
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.awt.*;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Created by Andrea Arcuri on 08/11/15.

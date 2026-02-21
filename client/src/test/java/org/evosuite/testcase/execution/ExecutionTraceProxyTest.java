@@ -19,8 +19,8 @@
  */
 package org.evosuite.testcase.execution;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -37,7 +37,7 @@ public class ExecutionTraceProxyTest {
         Map<Integer, Double> falseDistances = proxy.getFalseDistancesSum();
         Map<Integer, Double> trueDistances = proxy.getTrueDistancesSum();
 
-        Assert.assertEquals("Should return false distances", 20.0, falseDistances.get(1), 0.001);
-        Assert.assertEquals("Should return true distances", 10.0, trueDistances.get(1), 0.001);
+        Assertions.assertEquals(20.0, falseDistances.get(1), 0.001, "Should return false distances");
+        Assertions.assertEquals(10.0, trueDistances.get(1), 0.001, "Should return true distances");
     }
 }

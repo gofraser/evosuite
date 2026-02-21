@@ -19,8 +19,8 @@
  */
 package org.evosuite;
 
-import junit.framework.Assert;
 import org.evosuite.instrumentation.testability.TestabilityTransformationClassLoader;
+import org.junit.jupiter.api.Assertions;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -31,11 +31,11 @@ public class TestUtil {
 
     public static void assertCorrectStart(Class<?> clazz) {
         String projectPrefix = clazz.getPackage().getName();
-        Assert.assertEquals("Must start test with '-DDPROJECT_PREFIX=" + projectPrefix + "'.",
-                Properties.PROJECT_PREFIX, projectPrefix);
+        Assertions.assertEquals(Properties.PROJECT_PREFIX,
+                projectPrefix, "Must start test with '-DDPROJECT_PREFIX=" + projectPrefix + "'.");
         String targetClass = clazz.getName();
-        Assert.assertEquals("Must start test with '-DTARGET_CLASS=" + targetClass + "'.", Properties.TARGET_CLASS,
-                targetClass);
+        Assertions.assertEquals(Properties.TARGET_CLASS, targetClass,
+                "Must start test with '-DTARGET_CLASS=" + targetClass + "'.");
     }
 
     public static void assertCorrectStart(String clazz) {
@@ -45,11 +45,11 @@ public class TestUtil {
         // TODO When doing so remember to also remove the -javaagent param from
         // the launch config
         String projectPrefix = clazz.substring(0, clazz.lastIndexOf("."));
-        Assert.assertEquals("Must start test with '-DDPROJECT_PREFIX=" + projectPrefix + "'.",
-                Properties.PROJECT_PREFIX, projectPrefix);
+        Assertions.assertEquals(Properties.PROJECT_PREFIX,
+                projectPrefix, "Must start test with '-DDPROJECT_PREFIX=" + projectPrefix + "'.");
         String targetClass = clazz;
-        Assert.assertEquals("Must start test with '-DTARGET_CLASS=" + targetClass + "'.", Properties.TARGET_CLASS,
-                targetClass);
+        Assertions.assertEquals(Properties.TARGET_CLASS, targetClass,
+                "Must start test with '-DTARGET_CLASS=" + targetClass + "'.");
     }
 
     public static String getPrefix(String fullyQualifiedClass) {

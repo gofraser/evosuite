@@ -40,12 +40,7 @@ import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericClassImpl;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-
+import org.junit.jupiter.api.*;
 import com.examples.with.different.packagename.pool.ClassDependingOnExceptionClass;
 import com.examples.with.different.packagename.pool.DependencyClass;
 import com.examples.with.different.packagename.pool.DependencyClassWithException;
@@ -60,14 +55,14 @@ public class PoolSystemTest extends SystemTestBase {
 
     private long budget = 0;
 
-    @Before
+    @BeforeEach
     public void storeProperties() {
         pools = Properties.OBJECT_POOLS;
         pPool = Properties.P_OBJECT_POOL;
         budget = Properties.SEARCH_BUDGET;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.OBJECT_POOLS = pools;
         Properties.P_OBJECT_POOL = pPool;
@@ -85,7 +80,7 @@ public class PoolSystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -128,13 +123,13 @@ public class PoolSystemTest extends SystemTestBase {
         TestSuiteChromosome best2 = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best2);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best2.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best2.getCoverage(), 0.001, "Non-optimal coverage: ");
         f = new File(filename);
         f.delete();
 
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testNoPool() throws IOException {
         EvoSuite evosuite = new EvoSuite();
@@ -150,7 +145,7 @@ public class PoolSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertTrue("Expected non-optimal coverage: ", best.getCoverage() < 1.0);
+        Assertions.assertTrue(best.getCoverage() < 1.0, "Expected non-optimal coverage: ");
         // Seems to pass now even without pool...
     }
 
@@ -193,7 +188,7 @@ public class PoolSystemTest extends SystemTestBase {
         best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
         f = new File(filename);
         f.delete();
 
@@ -248,13 +243,13 @@ public class PoolSystemTest extends SystemTestBase {
         best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
         f = new File(filename);
         f.delete();
 
     }
 
-    @Ignore // Can now pass even without pool...
+    @Disabled // Can now pass even without pool...
     @Test
     public void testNoPoolWithException() throws IOException {
         EvoSuite evosuite = new EvoSuite();
@@ -270,7 +265,7 @@ public class PoolSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertTrue("Non-optimal coverage: ", best.getCoverage() < 1.0);
+        Assertions.assertTrue(best.getCoverage() < 1.0, "Non-optimal coverage: ");
 
     }
 }

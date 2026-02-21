@@ -23,8 +23,8 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.BMICalculator;
 
 /**
@@ -52,7 +52,7 @@ public class StandardChemicalReactionSystemTest extends SystemTestBase {
 
         EvoSuite evoSuite = new EvoSuite();
         GeneticAlgorithm<?> ga = getGAFromResult(evoSuite.parseCommandLine(command));
-        Assert.assertEquals(StandardChemicalReaction.class, ga.getClass());
+        Assertions.assertEquals(StandardChemicalReaction.class, ga.getClass());
 
         return ga;
     }
@@ -63,7 +63,7 @@ public class StandardChemicalReactionSystemTest extends SystemTestBase {
 
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertTrue(Double.compare(best.getCoverage(), 7.0 / 9.0) > 0);
+        Assertions.assertTrue(Double.compare(best.getCoverage(), 7.0 / 9.0) > 0);
     }
 
     @Test
@@ -72,7 +72,7 @@ public class StandardChemicalReactionSystemTest extends SystemTestBase {
 
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertTrue(Double.compare(best.getCoverage(), 6.0 / 9.0) > 0);
+        Assertions.assertTrue(Double.compare(best.getCoverage(), 6.0 / 9.0) > 0);
     }
 
     @Test
@@ -81,7 +81,7 @@ public class StandardChemicalReactionSystemTest extends SystemTestBase {
 
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertTrue(Double.compare(best.getCoverage(), 6.0 / 9.0) > 0);
+        Assertions.assertTrue(Double.compare(best.getCoverage(), 6.0 / 9.0) > 0);
     }
 
     @Test
@@ -90,7 +90,7 @@ public class StandardChemicalReactionSystemTest extends SystemTestBase {
 
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertTrue(Double.compare(best.getCoverage(), 7.0 / 9.0) > 0);
+        Assertions.assertTrue(Double.compare(best.getCoverage(), 7.0 / 9.0) > 0);
     }
 
     @Test
@@ -100,7 +100,7 @@ public class StandardChemicalReactionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
         // the integration test must covers all goals as it uses all functionalities
-        Assert.assertEquals(0.0, best.getFitness(), 0.0);
-        Assert.assertEquals(1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(0.0, best.getFitness(), 0.0);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001);
     }
 }

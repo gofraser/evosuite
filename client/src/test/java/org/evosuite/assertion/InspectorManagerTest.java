@@ -1,19 +1,19 @@
 package org.evosuite.assertion;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for InspectorManager, focusing on chained inspector discovery.
  */
 public class InspectorManagerTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         InspectorManager.resetSingleton();
     }
@@ -35,8 +35,8 @@ public class InspectorManagerTest {
             if (i.getMethodCall().equals("isEmpty")) foundIsEmpty = true;
         }
 
-        assertTrue("size() should be found as inspector on ArrayList", foundSize);
-        assertTrue("isEmpty() should be found as inspector on ArrayList", foundIsEmpty);
+        assertTrue(foundSize, "size() should be found as inspector on ArrayList");
+        assertTrue(foundIsEmpty, "isEmpty() should be found as inspector on ArrayList");
     }
 
     @Test
@@ -46,8 +46,8 @@ public class InspectorManagerTest {
                 .getInspectors(ArrayList.class);
 
         for (Inspector i : inspectors) {
-            assertNotEquals("iterator should NOT be an inspector (complex return)",
-                    "iterator", i.getMethodCall());
+            assertNotEquals("iterator",
+                    i.getMethodCall(), "iterator should NOT be an inspector (complex return)");
         }
     }
 
@@ -71,10 +71,10 @@ public class InspectorManagerTest {
         // Object-level methods which are excluded), so this should be empty or
         // contain only valid chained inspectors
         for (ChainedInspector ci : chained) {
-            assertNotNull("Chained inspector method call should not be null",
-                    ci.getMethodCall());
-            assertTrue("Chained inspector method call should contain a dot",
-                    ci.getMethodCall().contains("."));
+            assertNotNull(ci.getMethodCall(),
+                    "Chained inspector method call should not be null");
+            assertTrue(ci.getMethodCall().contains("."),
+                    "Chained inspector method call should contain a dot");
         }
     }
 
@@ -84,7 +84,7 @@ public class InspectorManagerTest {
         List<ChainedInspector> chained = InspectorManager.getInstance()
                 .getChainedInspectors(Integer.class);
 
-        assertTrue("No chained inspectors for Integer", chained.isEmpty());
+        assertTrue(chained.isEmpty(), "No chained inspectors for Integer");
     }
 
     @Test
@@ -94,7 +94,7 @@ public class InspectorManagerTest {
         List<ChainedInspector> second = InspectorManager.getInstance()
                 .getChainedInspectors(ArrayList.class);
 
-        assertSame("Should return cached list on second call", first, second);
+        assertSame(first, second, "Should return cached list on second call");
     }
 
     @Test
@@ -104,10 +104,10 @@ public class InspectorManagerTest {
 
         for (ChainedInspector ci : chained) {
             Class<?> returnType = ci.getReturnType();
-            assertTrue("Chained inspector return type should be primitive/String/wrapper/enum: "
-                            + returnType + " for " + ci.getMethodCall(),
-                    returnType.isPrimitive() || returnType.equals(String.class)
-                            || returnType.isEnum() || isWrapperType(returnType));
+            assertTrue(returnType.isPrimitive() || returnType.equals(String.class)
+                            || returnType.isEnum() || isWrapperType(returnType),
+                    "Chained inspector return type should be primitive/String/wrapper/enum: "
+                            + returnType + " for " + ci.getMethodCall());
         }
     }
 
@@ -119,8 +119,8 @@ public class InspectorManagerTest {
         for (ChainedInspector ci : chained) {
             String methodCall = ci.getMethodCall();
             // Format should be "outerMethod().innerMethod"
-            assertTrue("Method call should contain '().' pattern: " + methodCall,
-                    methodCall.contains("()."));
+            assertTrue(methodCall.contains("()."),
+                    "Method call should contain '().' pattern: " + methodCall);
         }
     }
 
@@ -148,8 +148,8 @@ public class InspectorManagerTest {
                 try {
                     Object value = ci.getValue(list);
                     // Just verify it doesn't throw
-                    assertNotNull("Chained inspector " + ci.getMethodCall()
-                            + " returned null on non-empty list", value);
+                    assertNotNull(value, "Chained inspector " + ci.getMethodCall()
+                            + " returned null on non-empty list");
                 } catch (Exception e) {
                     // Some inspectors may fail on specific objects; that's ok
                 }

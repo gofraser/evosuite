@@ -24,17 +24,17 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * @author Jose Rojas
@@ -43,7 +43,7 @@ public class ClassWithProtectedConstructorSystemTest extends SystemTestBase {
 
     private Path testPath;
 
-    @Before
+    @BeforeEach
     public void setupTempDir() throws IOException {
         Properties.JUNIT_TESTS = true;
         testPath = Files.createTempDirectory("foobar");
@@ -69,16 +69,16 @@ public class ClassWithProtectedConstructorSystemTest extends SystemTestBase {
                 Properties.CLASS_PREFIX.replace('.', File.separatorChar) + File.separatorChar +
                 name + ".java";
         Path path = Paths.get(junitFile);
-        Assert.assertTrue("Test Suite does not exist: " + path, Files.exists(path));
+        Assertions.assertTrue(Files.exists(path), "Test Suite does not exist: " + path);
         System.out.println(path);
 
         String testCode = new String(Files.readAllBytes(path));
         Files.delete(path);
         System.out.println(testCode);
-        assertFalse("IllegalAccessException should not occur", testCode.contains("catch(IllegalAccessException e)"));
+        assertFalse(testCode.contains("catch(IllegalAccessException e)"), "IllegalAccessException should not occur");
     }
 
-    @After
+    @AfterEach
     public void removeTempDir() throws IOException {
         Files.walkFileTree(testPath, new SimpleFileVisitor<Path>() {
             @Override

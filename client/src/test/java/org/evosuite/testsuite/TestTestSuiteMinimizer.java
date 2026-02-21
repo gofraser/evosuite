@@ -42,22 +42,22 @@ import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SuppressWarnings("unused")
 public class TestTestSuiteMinimizer {
     private static java.util.Properties currentProperties;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.getInstance().resetToDefaults();
@@ -68,7 +68,7 @@ public class TestTestSuiteMinimizer {
         currentProperties = (java.util.Properties) System.getProperties().clone();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         TestGenerationContext.getInstance().resetContext();
         System.setProperties(currentProperties);

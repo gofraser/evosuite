@@ -19,8 +19,8 @@
  */
 package org.evosuite.runtime.vnet;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class DNSTest {
 
@@ -35,13 +35,13 @@ public class DNSTest {
         String google = dns.resolve("www.google.com");
         String evosuite = dns.resolve("www.evosuite.org");
 
-        Assert.assertEquals(lbAddr, lb);
+        Assertions.assertEquals(lbAddr, lb);
 
-        Assert.assertNotNull(google);
-        Assert.assertNotNull(evosuite);
+        Assertions.assertNotNull(google);
+        Assertions.assertNotNull(evosuite);
 
-        Assert.assertNotEquals(lb, google);
-        Assert.assertNotEquals(lb, evosuite);
-        Assert.assertNotEquals(google, evosuite);
+        Assertions.assertNotEquals(lb, google);
+        Assertions.assertNotEquals(lb, evosuite);
+        Assertions.assertNotEquals(google, evosuite);
     }
 }

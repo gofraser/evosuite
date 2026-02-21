@@ -19,11 +19,11 @@
  */
 package org.evosuite.assertion.stable;
 
-import static org.junit.Assert.assertFalse;
-
 import java.util.Map;
 
 import org.evosuite.EvoSuite;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.assertion.CheapPurityAnalyzer;
@@ -32,10 +32,10 @@ import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 
 import com.examples.with.different.packagename.stable.RandomUser;
@@ -49,7 +49,7 @@ public class RandomUserSystemTest extends SystemTestBase {
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
 
-    @Before
+    @BeforeEach
     public void configureProperties() {
         Properties.SANDBOX = true;
         Properties.RESET_STATIC_FIELDS = true;
@@ -61,7 +61,7 @@ public class RandomUserSystemTest extends SystemTestBase {
 
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS;
         Properties.SANDBOX = DEFAULT_SANDBOX;
@@ -104,10 +104,10 @@ public class RandomUserSystemTest extends SystemTestBase {
 
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
     }
 
 }

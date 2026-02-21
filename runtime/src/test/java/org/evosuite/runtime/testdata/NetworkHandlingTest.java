@@ -26,16 +26,14 @@ import org.evosuite.runtime.mock.java.net.MockInetAddress;
 import org.evosuite.runtime.mock.java.net.MockServerSocket;
 import org.evosuite.runtime.mock.java.net.MockURL;
 import org.evosuite.runtime.vnet.VirtualNetwork;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.*;
 
 import java.net.DatagramPacket;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by arcuri on 12/12/14.
@@ -44,20 +42,21 @@ public class NetworkHandlingTest {
 
     private static final boolean VNET = RuntimeSettings.useVNET;
 
-    @Before
+    @BeforeEach
     public void init() {
         RuntimeSettings.useVNET = true;
         VirtualNetwork.getInstance().reset();
         MockFramework.enable();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeSettings.useVNET = VNET;
         MockFramework.disable();
     }
 
-    @Test(timeout = 500)
+    @Test
+    @Timeout(value = 500, unit = TimeUnit.MILLISECONDS)
     public void testOpenedRemoteTCP() throws Exception {
 
         EvoSuiteLocalAddress addr = new EvoSuiteLocalAddress("127.42.42.42", 42);
@@ -66,10 +65,11 @@ public class NetworkHandlingTest {
         MockServerSocket sut = new MockServerSocket(addr.getPort(), 1,
                 MockInetAddress.getByName(addr.getHost()));
         Socket socket = sut.accept(); //should not block, should not timeout
-        Assert.assertNotNull(socket);
+        Assertions.assertNotNull(socket);
     }
 
-    @Test(timeout = 500)
+    @Test
+    @Timeout(value = 500, unit = TimeUnit.MILLISECONDS)
     public void testSendUdp() throws Exception {
 
         EvoSuiteLocalAddress sut = new EvoSuiteLocalAddress("127.42.42.42", 42);
@@ -84,9 +84,9 @@ public class NetworkHandlingTest {
                 MockInetAddress.getByName(sut.getHost()));
 
         socket.receive(packet); //no blocking, no exception
-        Assert.assertEquals(remote.getPort(), packet.getPort());
-        Assert.assertEquals(remote.getHost(), packet.getAddress().getHostAddress());
-        Assert.assertEquals(msg, new String(packet.getData()));
+        Assertions.assertEquals(remote.getPort(), packet.getPort());
+        Assertions.assertEquals(remote.getHost(), packet.getAddress().getHostAddress());
+        Assertions.assertEquals(msg, new String(packet.getData()));
     }
 
 
@@ -101,6 +101,6 @@ public class NetworkHandlingTest {
         URLConnection connection = mock.openConnection();
         Scanner in = new Scanner(connection.getInputStream());
         String res = in.nextLine();
-        Assert.assertEquals(text, res);
+        Assertions.assertEquals(text, res);
     }
 }

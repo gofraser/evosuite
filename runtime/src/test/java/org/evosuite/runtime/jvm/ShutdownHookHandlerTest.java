@@ -19,20 +19,20 @@
  */
 package org.evosuite.runtime.jvm;
 
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 
 public class ShutdownHookHandlerTest {
 
-    @Before
+    @BeforeEach
     public void init() {
         ShutdownHookHandler.getInstance().initHandler();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         //be sure no hook is left
         ShutdownHookHandler.getInstance().processWasHalted();
@@ -46,7 +46,7 @@ public class ShutdownHookHandlerTest {
         Runtime.getRuntime().addShutdownHook(new Thread() {
         });
 
-        Assert.assertEquals(n + 1, ShutdownHookHandler.getInstance().getNumberOfAllExistingHooks());
+        Assertions.assertEquals(n + 1, ShutdownHookHandler.getInstance().getNumberOfAllExistingHooks());
     }
 
     @Test
@@ -59,7 +59,7 @@ public class ShutdownHookHandlerTest {
         //this should remove the above hook thread
         ShutdownHookHandler.getInstance().initHandler();
 
-        Assert.assertEquals(n, ShutdownHookHandler.getInstance().getNumberOfAllExistingHooks());
+        Assertions.assertEquals(n, ShutdownHookHandler.getInstance().getNumberOfAllExistingHooks());
     }
 
     @Test
@@ -75,12 +75,12 @@ public class ShutdownHookHandlerTest {
         });
 
         //value not modified yet
-        Assert.assertNotEquals(value, array[0]);
+        Assertions.assertNotEquals(value, array[0]);
 
         ShutdownHookHandler.getInstance().executeAddedHooks();
 
         //hook should had modified the value by now
-        Assert.assertEquals(value, array[0]);
+        Assertions.assertEquals(value, array[0]);
     }
 
     @Test
@@ -95,12 +95,12 @@ public class ShutdownHookHandlerTest {
 
         try {
             ShutdownHookHandler.getInstance().executeAddedHooks();
-            Assert.fail();
+            Assertions.fail();
         } catch (IllegalStateException e) {
             //expected
         }
 
         //even if failed, hook should had been removed
-        Assert.assertEquals(n, ShutdownHookHandler.getInstance().getNumberOfAllExistingHooks());
+        Assertions.assertEquals(n, ShutdownHookHandler.getInstance().getNumberOfAllExistingHooks());
     }
 }

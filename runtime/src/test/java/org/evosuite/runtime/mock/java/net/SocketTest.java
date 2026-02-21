@@ -23,9 +23,9 @@ import org.evosuite.runtime.vnet.EndPointInfo;
 import org.evosuite.runtime.vnet.RemoteTcpServer;
 import org.evosuite.runtime.vnet.VirtualNetwork;
 import org.evosuite.runtime.vnet.VirtualNetwork.ConnectionType;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.*;
@@ -33,7 +33,7 @@ import java.util.Scanner;
 
 public class SocketTest {
 
-    @Before
+    @BeforeEach
     public void init() {
         VirtualNetwork.getInstance().init();
     }
@@ -58,7 +58,7 @@ public class SocketTest {
 
         try {
             s.connect(saddr);
-            Assert.fail();
+            Assertions.fail();
         } catch (IOException e) {
             //expected, as no listener
         }
@@ -84,8 +84,8 @@ public class SocketTest {
         s.getOutputStream().write(msgFromSUT.getBytes());
 
         String sutReceived = new Scanner(s.getInputStream()).nextLine();
-        Assert.assertEquals(msgFromServer, sutReceived);
-        Assert.assertEquals(msgFromSUT, server.getAllReceivedDataAsString());
+        Assertions.assertEquals(msgFromServer, sutReceived);
+        Assertions.assertEquals(msgFromSUT, server.getAllReceivedDataAsString());
 
         s.close();
     }

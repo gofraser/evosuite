@@ -20,7 +20,7 @@
 package org.evosuite;
 
 import org.evosuite.utils.Randomness;
-import org.junit.Before;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -36,7 +36,7 @@ import java.util.GregorianCalendar;
 public abstract class RandomizedTC {
 
 
-    @Before
+    @BeforeEach
     public void forceADeterministicSeed() {
         //change seed every month
         long seed = new GregorianCalendar().get(Calendar.MONTH);

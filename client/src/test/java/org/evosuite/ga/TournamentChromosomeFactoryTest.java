@@ -1,8 +1,10 @@
 package org.evosuite.ga;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TournamentChromosomeFactoryTest {
 
@@ -76,6 +78,6 @@ public class TournamentChromosomeFactoryTest {
 
         DummyChromosome best = tournamentFactory.getChromosome();
 
-        assertEquals("Should pick highest fitness for maximization", 20.0, best.getFitness(), 0.001);
+        assertEquals(20.0, best.getFitness(), 0.001, "Should pick highest fitness for maximization");
     }
 }

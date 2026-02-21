@@ -29,14 +29,14 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestDSETestSuiteCookie {
 
@@ -75,7 +75,7 @@ public class TestDSETestSuiteCookie {
     private static final Properties.DSEType DEFAULT_LOCAL_SEARCH_DSE = Properties.LOCAL_SEARCH_DSE;
     private static final double DEFAULT_DSE_PROBABILITY = Properties.DSE_PROBABILITY;
 
-    @Before
+    @BeforeEach
     public void init() {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.LOCAL_SEARCH_BUDGET = Integer.MAX_VALUE;
@@ -84,7 +84,7 @@ public class TestDSETestSuiteCookie {
         Properties.LOCAL_SEARCH_DSE = Properties.DSEType.SUITE;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.LOCAL_SEARCH_BUDGET = DEFAULT_LOCAL_SEARCH_BUDGET;
         Properties.LOCAL_SEARCH_BUDGET_TYPE = DEFAULT_LOCAL_SEARCH_BUDGET_TYPE;
@@ -153,7 +153,7 @@ public class TestDSETestSuiteCookie {
         if (cvc4_path != null) {
             Properties.CVC4_PATH = cvc4_path;
         }
-        Assume.assumeTrue(Properties.CVC4_PATH != null);
+        Assumptions.assumeTrue(Properties.CVC4_PATH != null);
         Properties.DSE_SOLVER = Properties.SolverType.CVC4_SOLVER;
         Properties.CRITERION = new Properties.Criterion[]{Criterion.BRANCH};
         Properties.TARGET_CLASS = Foo.class.getName();

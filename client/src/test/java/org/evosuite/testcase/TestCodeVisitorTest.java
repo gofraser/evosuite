@@ -36,8 +36,8 @@ import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
 import org.evosuite.utils.generic.Person;
 import org.evosuite.utils.generic.WildcardTypeImpl;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
@@ -46,7 +46,7 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Created by Andrea Arcuri on 02/07/15.
@@ -118,7 +118,7 @@ public class TestCodeVisitorTest {
         Type[] types = gm.getParameterTypes();
         assertEquals(1, types.length); //only 1 input
         Type type = types[0];
-        Assert.assertNotNull(type);
+        Assertions.assertNotNull(type);
         TypeVariable<?> tv = (TypeVariable<?>) type;
         assertEquals(1, tv.getBounds().length);
 
@@ -149,7 +149,7 @@ public class TestCodeVisitorTest {
 
         assertEquals(1, types.length); //only 1 input
         Type type = types[0];
-        Assert.assertNotNull(type);
+        Assertions.assertNotNull(type);
         WildcardTypeImpl wt = (WildcardTypeImpl) type;
         assertEquals(0, wt.getLowerBounds().length);
         assertEquals(1, wt.getUpperBounds().length);
@@ -180,7 +180,7 @@ public class TestCodeVisitorTest {
         Type[] types = gm.getParameterTypes();
         assertEquals(1, types.length); //only 1 input
         Type type = types[0];
-        Assert.assertNotNull(type);
+        Assertions.assertNotNull(type);
         WildcardTypeImpl wt = (WildcardTypeImpl) type;
         assertEquals(0, wt.getLowerBounds().length);
         assertEquals(1, wt.getUpperBounds().length);

@@ -19,12 +19,12 @@
  */
 package org.evosuite.testcase;
 
-import static org.junit.Assert.assertEquals;
-
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
 import org.evosuite.Properties;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.evosuite.SystemTestBase;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
@@ -36,9 +36,8 @@ import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.generic.*;
-import org.junit.After;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.TrivialInt;
 import com.examples.with.different.packagename.coverage.IntExampleWithNoElse;
 
@@ -49,7 +48,7 @@ public class ChangeMutationSystemTest extends SystemTestBase {
     private double oldPChange = Properties.P_TEST_CHANGE;
     private double oldPPool = Properties.PRIMITIVE_POOL;
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.P_TEST_INSERT = oldPInsert;
         Properties.P_TEST_DELETE = oldPDelete;

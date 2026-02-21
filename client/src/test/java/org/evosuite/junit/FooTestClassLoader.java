@@ -21,7 +21,7 @@ package org.evosuite.junit;
 
 import com.examples.with.different.packagename.junit.Foo;
 import org.apache.commons.io.FileUtils;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.tools.*;
 import javax.tools.JavaCompiler.CompilationTask;
@@ -36,7 +36,7 @@ import java.net.URLClassLoader;
 import java.nio.charset.Charset;
 import java.util.*;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class FooTestClassLoader {
 

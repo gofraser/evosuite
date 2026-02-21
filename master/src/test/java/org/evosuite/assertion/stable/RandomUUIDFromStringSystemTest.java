@@ -19,19 +19,18 @@
  */
 package org.evosuite.assertion.stable;
 
-import static org.junit.Assert.assertEquals;
-
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.stable.RandomUUIDFromStringUser;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class RandomUUIDFromStringSystemTest extends SystemTestBase {
     private final boolean DEFAULT_REPLACE_CALLS = Properties.REPLACE_CALLS;
@@ -40,7 +39,7 @@ public class RandomUUIDFromStringSystemTest extends SystemTestBase {
     private final boolean DEFAULT_PURE_INSPECTORS = Properties.PURE_INSPECTORS;
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
-    @Before
+    @BeforeEach
     public void configureProperties() {
         Properties.SANDBOX = true;
         Properties.REPLACE_CALLS = true;
@@ -50,7 +49,7 @@ public class RandomUUIDFromStringSystemTest extends SystemTestBase {
 
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.SANDBOX = DEFAULT_SANDBOX;
         Properties.REPLACE_CALLS = DEFAULT_REPLACE_CALLS;
@@ -75,7 +74,7 @@ public class RandomUUIDFromStringSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        assertEquals("Sub optiomal coverage", 1.0d, best.getCoverage(), 0.00001);
+        assertEquals(1.0d, best.getCoverage(), 0.00001, "Sub optiomal coverage");
     }
 
 }

@@ -21,10 +21,10 @@ package org.evosuite.symbolic.solver;
 
 import org.evosuite.Properties;
 import org.evosuite.symbolic.expr.Constraint;
-import org.junit.AfterClass;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -36,7 +36,7 @@ public abstract class TestSolver {
 
     private static final String DEFAULT_CVC4_PATH = Properties.CVC4_PATH;
 
-    @BeforeClass
+    @BeforeAll
     public static void configureSolverPath() {
         String z3_path = System.getenv("z3_path");
         if (z3_path != null) {
@@ -48,16 +48,16 @@ public abstract class TestSolver {
         }
     }
 
-    @AfterClass
+    @AfterAll
     public static void restorePaths() {
         Properties.Z3_PATH = DEFAULT_Z3_PATH;
         Properties.CVC4_PATH = DEFAULT_CVC4_PATH;
     }
 
-    @Before
+    @BeforeEach
     public void checkSolverPaths() {
-        Assume.assumeTrue(Properties.Z3_PATH != null);
-        Assume.assumeTrue(Properties.CVC4_PATH != null);
+        Assumptions.assumeTrue(Properties.Z3_PATH != null);
+        Assumptions.assumeTrue(Properties.CVC4_PATH != null);
     }
 
     public abstract Solver getSolver();

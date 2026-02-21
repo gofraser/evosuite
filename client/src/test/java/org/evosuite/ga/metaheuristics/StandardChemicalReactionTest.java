@@ -25,20 +25,20 @@ import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class StandardChemicalReactionTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.NEW_STATISTICS = false;
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         Properties.getInstance().resetToDefaults();
     }
@@ -110,7 +110,7 @@ public class StandardChemicalReactionTest {
         try {
             cro.generateSolution();
         } catch (RuntimeException e) {
-            Assert.fail("Should not crash when LS improves fitness: " + e.getMessage());
+            Assertions.fail("Should not crash when LS improves fitness: " + e.getMessage());
         }
         TestChromosome.improve = false;
     }

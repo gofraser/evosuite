@@ -9,10 +9,10 @@ package org.evosuite.runtime.mock.java.modern;
 import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.MockFramework;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystem;
@@ -35,13 +35,13 @@ public class ModernWatchServiceTest {
     private boolean oldUseVfs;
     private boolean oldMockFramework;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         oldUseVfs = RuntimeSettings.useVFS;
         oldMockFramework = MockFramework.isEnabled();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeSettings.useVFS = oldUseVfs;
         if (oldMockFramework) {
@@ -70,20 +70,20 @@ public class ModernWatchServiceTest {
             emit(watcher, watchedDir, StandardWatchEventKinds.ENTRY_CREATE, Paths.get("b.txt"));
 
             WatchKey firstSignal = watcher.poll(1L, TimeUnit.SECONDS);
-            Assert.assertNotNull(firstSignal);
-            Assert.assertEquals(key, firstSignal);
+            Assertions.assertNotNull(firstSignal);
+            Assertions.assertEquals(key, firstSignal);
             List<WatchEvent<?>> firstEvents = firstSignal.pollEvents();
-            Assert.assertEquals(2, firstEvents.size());
+            Assertions.assertEquals(2, firstEvents.size());
 
             emit(watcher, watchedDir, StandardWatchEventKinds.ENTRY_CREATE, Paths.get("c.txt"));
-            Assert.assertTrue(firstSignal.reset());
+            Assertions.assertTrue(firstSignal.reset());
 
             WatchKey secondSignal = watcher.poll(1L, TimeUnit.SECONDS);
-            Assert.assertNotNull(secondSignal);
+            Assertions.assertNotNull(secondSignal);
             List<WatchEvent<?>> secondEvents = secondSignal.pollEvents();
-            Assert.assertEquals(1, secondEvents.size());
-            Assert.assertEquals(Paths.get("c.txt"), secondEvents.get(0).context());
-            Assert.assertTrue(secondSignal.reset());
+            Assertions.assertEquals(1, secondEvents.size());
+            Assertions.assertEquals(Paths.get("c.txt"), secondEvents.get(0).context());
+            Assertions.assertTrue(secondSignal.reset());
         }
     }
 
@@ -103,15 +103,15 @@ public class ModernWatchServiceTest {
         WatchKey key = registerCreateWatcher(watchedDir, watcher);
 
         key.cancel();
-        Assert.assertFalse(key.isValid());
+        Assertions.assertFalse(key.isValid());
 
         emit(watcher, watchedDir, StandardWatchEventKinds.ENTRY_CREATE, Paths.get("ignored.txt"));
-        Assert.assertNull(watcher.poll());
+        Assertions.assertNull(watcher.poll());
 
         watcher.close();
         try {
             watcher.poll();
-            Assert.fail("Expected poll() on closed watcher to throw");
+            Assertions.fail("Expected poll() on closed watcher to throw");
         } catch (ClosedWatchServiceException expected) {
             // expected
         }
@@ -136,14 +136,14 @@ public class ModernWatchServiceTest {
 
             emit(watcher, watchedDir, StandardWatchEventKinds.OVERFLOW, null);
             WatchKey signalled = watcher.poll(1L, TimeUnit.SECONDS);
-            Assert.assertNotNull(signalled);
-            Assert.assertEquals(key, signalled);
+            Assertions.assertNotNull(signalled);
+            Assertions.assertEquals(key, signalled);
 
             List<WatchEvent<?>> events = signalled.pollEvents();
-            Assert.assertEquals(1, events.size());
-            Assert.assertEquals(StandardWatchEventKinds.OVERFLOW, events.get(0).kind());
-            Assert.assertNull(events.get(0).context());
-            Assert.assertTrue(signalled.reset());
+            Assertions.assertEquals(1, events.size());
+            Assertions.assertEquals(StandardWatchEventKinds.OVERFLOW, events.get(0).kind());
+            Assertions.assertNull(events.get(0).context());
+            Assertions.assertTrue(signalled.reset());
         }
     }
 
@@ -170,13 +170,13 @@ public class ModernWatchServiceTest {
             emit(watcher, watchedDir, StandardWatchEventKinds.ENTRY_CREATE, Paths.get("take.txt"));
 
             WatchKey key = waitTask.get(1L, TimeUnit.SECONDS);
-            Assert.assertNotNull(key);
+            Assertions.assertNotNull(key);
             List<WatchEvent<?>> events = key.pollEvents();
-            Assert.assertEquals(1, events.size());
-            Assert.assertEquals(Paths.get("take.txt"), events.get(0).context());
-            Assert.assertTrue(key.reset());
+            Assertions.assertEquals(1, events.size());
+            Assertions.assertEquals(Paths.get("take.txt"), events.get(0).context());
+            Assertions.assertTrue(key.reset());
             t.join(1000L);
-            Assert.assertFalse(t.isAlive());
+            Assertions.assertFalse(t.isAlive());
         }
     }
 

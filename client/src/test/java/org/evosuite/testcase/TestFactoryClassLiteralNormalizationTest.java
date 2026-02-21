@@ -22,7 +22,7 @@ package org.evosuite.testcase;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.WildcardTypeImpl;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -30,8 +30,8 @@ import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.LinkedList;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestFactoryClassLiteralNormalizationTest {
 

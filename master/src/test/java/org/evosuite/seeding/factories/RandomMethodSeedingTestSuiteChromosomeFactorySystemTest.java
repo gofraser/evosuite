@@ -19,8 +19,8 @@
  */
 package org.evosuite.seeding.factories;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
@@ -28,9 +28,8 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.staticusage.Class1;
 
 
@@ -40,7 +39,7 @@ public class RandomMethodSeedingTestSuiteChromosomeFactorySystemTest extends Sys
     TestSuiteChromosome bestIndividual;
     GeneticAlgorithm<TestSuiteChromosome> ga;
 
-    @Before
+    @BeforeEach
     public void setup() {
         EvoSuite evosuite = new EvoSuite();
 

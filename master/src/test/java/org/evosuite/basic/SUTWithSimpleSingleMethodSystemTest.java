@@ -23,8 +23,8 @@ import org.evosuite.EvoSuite;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.*;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import com.examples.with.different.packagename.SingleMethod;
 
 
@@ -36,8 +36,8 @@ public class SUTWithSimpleSingleMethodSystemTest extends SystemTestBase {
     /*
      * for now ignore it, as long as we don't fix the issue with serialization
      */
-    @Ignore
-    @Test
+    @Disabled
+    @org.junit.jupiter.api.Test
     public void testSingleMethod() {
         EvoSuite evosuite = new EvoSuite();
         int generations = 1;
@@ -58,10 +58,10 @@ public class SUTWithSimpleSingleMethodSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
-        Assert.assertEquals("Wrong number of generations: ", 0, ga.getAge());
+        Assertions.assertEquals(0, ga.getAge(), "Wrong number of generations: ");
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertEquals("Wrong number of test cases: ", 1, best.size());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Wrong number of statements: ", 2, best.getTestChromosome(0).getTestCase().size());
+        Assertions.assertEquals(1, best.size(), "Wrong number of test cases: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(2, best.getTestChromosome(0).getTestCase().size(), "Wrong number of statements: ");
     }
 }

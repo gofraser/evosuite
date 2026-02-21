@@ -22,10 +22,11 @@ package org.evosuite.ga.stoppingconditions;
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class StoppingConditionsTest {
 
@@ -52,7 +53,7 @@ public class StoppingConditionsTest {
         // forceCurrentValue sets startTime such that (now - startTime) == value.
         // But execution time passes between forceCurrentValue and getCurrentValue.
         // So val should be >= 1.
-        assertTrue("Expected >= 1, got " + val, val >= 1);
+        assertTrue(val >= 1, "Expected >= 1, got " + val);
 
         condition.forceCurrentValue(3);
         assertTrue(condition.isFinished());

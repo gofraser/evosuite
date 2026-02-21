@@ -29,9 +29,9 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -44,7 +44,7 @@ public class ExceptionInstrumentationSystemTest extends SystemTestBase {
 
     private static final boolean defaultArchive = Properties.TEST_ARCHIVE;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.CRITERION = defaultCriterion;
     }
@@ -69,11 +69,11 @@ public class ExceptionInstrumentationSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals(branchGoals, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
-        Assert.assertEquals(exceptionGoals, TestGenerationStrategy.getFitnessFactories().get(1).getCoverageGoals().size());
+        Assertions.assertEquals(branchGoals, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
+        Assertions.assertEquals(exceptionGoals, TestGenerationStrategy.getFitnessFactories().get(1).getCoverageGoals().size());
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<Double> tryCatchCoverage = (OutputVariable<Double>) map.get(RuntimeVariable.TryCatchCoverage.toString());
 
         double branchCoverageFitness = 1; // Since all the branches are always covered
@@ -81,7 +81,7 @@ public class ExceptionInstrumentationSystemTest extends SystemTestBase {
         double coverage = (branchCoverageFitness + tryCatchCoverageFitness) * 0.5;
 
 //        Assert.assertEquals("Non-optimal TryCatchCoverage: ", 1, tryCatchCoverage.getValue(), 0.001);
-        Assert.assertEquals("Non-optimal coverage: ", coverage, best.getCoverage(), 0.001);
+        Assertions.assertEquals(coverage, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
 

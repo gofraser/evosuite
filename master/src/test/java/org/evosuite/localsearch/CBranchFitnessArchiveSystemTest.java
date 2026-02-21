@@ -19,14 +19,14 @@
  */
 package org.evosuite.localsearch;
 
-import static org.junit.Assert.assertTrue;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.evosuite.Properties;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.SystemTestBase;
 import org.evosuite.TestGenerationContext;
@@ -38,8 +38,7 @@ import org.evosuite.symbolic.TestCaseBuilder;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.cbranch.CBranchExample;
 
 public class CBranchFitnessArchiveSystemTest extends SystemTestBase {

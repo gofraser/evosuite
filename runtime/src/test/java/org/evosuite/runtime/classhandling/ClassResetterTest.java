@@ -22,9 +22,9 @@ package org.evosuite.runtime.classhandling;
 import com.examples.with.different.packagename.classhandling.MutableEnum;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.instrumentation.EvoClassLoader;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 
@@ -48,18 +48,18 @@ public class ClassResetterTest {
         boolean val = false;
 
         val = (Boolean) m.invoke(null);
-        Assert.assertTrue(val);
+        Assertions.assertTrue(val);
 
         ClassResetter.getInstance().reset(cut);
 
         //make sure that the reset does not create new enum instance values
         val = (Boolean) m.invoke(null);
         RuntimeSettings.resetStaticState = resetValue;
-        Assert.assertTrue(val);
+        Assertions.assertTrue(val);
     }
 
     // TODO: We could consider providing a workaround to reset mutable enums.
-    @Ignore
+    @Disabled
     @Test
     public void testResetOfMutableEnum() throws Exception {
 
@@ -72,19 +72,19 @@ public class ClassResetterTest {
 
         Class<?> klass = loader.loadClass(cut);
         Object[] enums = klass.getEnumConstants();
-        Assert.assertEquals(2, enums.length);
+        Assertions.assertEquals(2, enums.length);
         Method getter = klass.getDeclaredMethod("getLetter");
-        Assert.assertEquals("a", getter.invoke(enums[0]));
-        Assert.assertEquals("b", getter.invoke(enums[1]));
+        Assertions.assertEquals("a", getter.invoke(enums[0]));
+        Assertions.assertEquals("b", getter.invoke(enums[1]));
 
         Method m = klass.getDeclaredMethod("changeLetter");
         m.invoke(enums[0]);
-        Assert.assertEquals("X", getter.invoke(enums[0]));
-        Assert.assertEquals("b", getter.invoke(enums[1]));
+        Assertions.assertEquals("X", getter.invoke(enums[0]));
+        Assertions.assertEquals("b", getter.invoke(enums[1]));
 
         ClassResetter.getInstance().reset(cut);
 
-        Assert.assertEquals("a", getter.invoke(enums[0]));
-        Assert.assertEquals("b", getter.invoke(enums[1]));
+        Assertions.assertEquals("a", getter.invoke(enums[0]));
+        Assertions.assertEquals("b", getter.invoke(enums[1]));
     }
 }

@@ -20,15 +20,15 @@
 package org.evosuite.setup;
 
 import org.evosuite.Properties;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.Set;
 
 public class TestAccessMethod {
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.CLASS_PREFIX = "";
         Properties.TARGET_CLASS = "";
@@ -40,7 +40,7 @@ public class TestAccessMethod {
             if (m.getName().equals(name))
                 return m;
         }
-        Assert.fail("No such method: " + name);
+        Assertions.fail("No such method: " + name);
         return null;
     }
 
@@ -51,7 +51,7 @@ public class TestAccessMethod {
         Method f = getMethod(com.examples.with.different.packagename.AccessExamples.class,
                 "publicMethod");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -61,7 +61,7 @@ public class TestAccessMethod {
         Method f = getMethod(com.examples.with.different.packagename.AccessExamples.class,
                 "defaultMethod");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -71,7 +71,7 @@ public class TestAccessMethod {
         Method f = getMethod(com.examples.with.different.packagename.AccessExamples.class,
                 "protectedMethod");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -81,7 +81,7 @@ public class TestAccessMethod {
         Method f = getMethod(com.examples.with.different.packagename.AccessExamples.class,
                 "privateMethod");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -91,7 +91,7 @@ public class TestAccessMethod {
         Method f = getMethod(com.examples.with.different.packagename.AccessExamples.class,
                 "publicMethod");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -101,7 +101,7 @@ public class TestAccessMethod {
         Method f = getMethod(com.examples.with.different.packagename.AccessExamples.class,
                 "defaultMethod");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -111,7 +111,7 @@ public class TestAccessMethod {
         Method f = getMethod(com.examples.with.different.packagename.AccessExamples.class,
                 "defaultMethodInSuperClass");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -121,7 +121,7 @@ public class TestAccessMethod {
         Method f = getMethod(com.examples.with.different.packagename.AccessExamples.class,
                 "protectedMethod");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -131,7 +131,7 @@ public class TestAccessMethod {
         Method f = getMethod(com.examples.with.different.packagename.AccessExamples.class,
                 "privateMethod");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -142,7 +142,7 @@ public class TestAccessMethod {
                 "publicMethod");
         boolean result = TestUsageChecker.canUse(f,
                 com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -153,7 +153,7 @@ public class TestAccessMethod {
                 "protectedMethod");
         boolean result = TestUsageChecker.canUse(f,
                 com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -164,7 +164,7 @@ public class TestAccessMethod {
                 "defaultMethod");
         boolean result = TestUsageChecker.canUse(f,
                 com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -175,7 +175,7 @@ public class TestAccessMethod {
                 "privateMethod");
         boolean result = TestUsageChecker.canUse(f,
                 com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -186,7 +186,7 @@ public class TestAccessMethod {
                 "publicMethod");
         boolean result = TestUsageChecker.canUse(f,
                 com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -197,7 +197,7 @@ public class TestAccessMethod {
                 "protectedMethod");
         boolean result = TestUsageChecker.canUse(f,
                 com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -208,7 +208,7 @@ public class TestAccessMethod {
                 "defaultMethod");
         boolean result = TestUsageChecker.canUse(f,
                 com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -219,7 +219,7 @@ public class TestAccessMethod {
                 "privateMethod");
         boolean result = TestUsageChecker.canUse(f,
                 com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -230,7 +230,7 @@ public class TestAccessMethod {
             Method m = getMethod(java.util.ArrayList.class, "elementData");
             boolean result = TestUsageChecker.canUse(m,
                     com.examples.with.different.packagename.ArrayStack.class);
-            Assert.assertFalse(result);
+            Assertions.assertFalse(result);
         } catch (Throwable e) {
             // Method elementData only exists in Java 7
         }
@@ -245,7 +245,7 @@ public class TestAccessMethod {
                 "getFoo");
         boolean result = TestUsageChecker.canUse(m,
                 com.examples.with.different.packagename.otherpackage.ExampleWithStaticPackagePrivateInnerClass.class);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -256,7 +256,7 @@ public class TestAccessMethod {
         Class<?> clazz = Class.forName("com.examples.with.different.packagename.ClassWithPrivateInnerClass");
         Method m = getMethod(clazz, "getProperty");
         boolean result = TestUsageChecker.canUse(m, clazz);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -267,7 +267,7 @@ public class TestAccessMethod {
         Class<?> clazz = Class.forName("com.examples.with.different.packagename.ClassWithPrivateInnerClass");
         Method m = getMethod(clazz, "getPropertyList");
         boolean result = TestUsageChecker.canUse(m, clazz);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
 
@@ -280,7 +280,7 @@ public class TestAccessMethod {
                 "setFoo");
         boolean result = TestUsageChecker.canUse(m,
                 com.examples.with.different.packagename.otherpackage.ExampleWithStaticPackagePrivateInnerClass.class);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -292,6 +292,6 @@ public class TestAccessMethod {
                 "bar");
         boolean result = TestUsageChecker.canUse(m,
                 com.examples.with.different.packagename.otherpackage.ExampleWithStaticPackagePrivateInnerClass.class);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 }

@@ -19,12 +19,12 @@
  */
 package org.evosuite.localsearch;
 
-import static org.junit.Assert.assertEquals;
-
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
 import org.evosuite.Properties;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.evosuite.Properties.LocalSearchBudgetType;
 import org.evosuite.SystemTestBase;
 import org.evosuite.TestGenerationContext;
@@ -44,9 +44,8 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.localsearch.TestSuiteLocalSearch;
 import org.evosuite.utils.generic.*;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.localsearch.BasicDoubleExample;
 import com.examples.with.different.packagename.localsearch.BasicFloatExample;
 import com.examples.with.different.packagename.localsearch.BasicIntegerExample;
@@ -56,7 +55,7 @@ import com.examples.with.different.packagename.localsearch.IntegerLocalSearchExa
 
 public class LocalSearchNumericSystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.DSE_PROBABILITY = 0.0;
         Properties.PRIMITIVE_POOL = 0.0;

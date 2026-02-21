@@ -29,11 +29,10 @@ import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.stable.BooleanArrayDefault;
 import com.examples.with.different.packagename.stable.DoubleArrayDefault;
 import com.examples.with.different.packagename.stable.FloatArrayDefault;
@@ -50,7 +49,7 @@ public class ArrayDefaultSystemTest extends SystemTestBase {
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
 
-    @Before
+    @BeforeEach
     public void saveProperties() {
         Properties.SANDBOX = true;
         Properties.RESET_STATIC_FIELDS = true;
@@ -60,7 +59,7 @@ public class ArrayDefaultSystemTest extends SystemTestBase {
         Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS;
         Properties.SANDBOX = DEFAULT_SANDBOX;
@@ -87,10 +86,10 @@ public class ArrayDefaultSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
 
 
     }
@@ -112,10 +111,10 @@ public class ArrayDefaultSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
 
     }
 
@@ -136,10 +135,10 @@ public class ArrayDefaultSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
 
 
     }
@@ -161,10 +160,10 @@ public class ArrayDefaultSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
 
 //		Assert.assertTrue("Optimal coverage was not achieved ",
 //				best_fitness == 0.0);
@@ -188,10 +187,10 @@ public class ArrayDefaultSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
 
 //		Assert.assertTrue("Optimal coverage was not achieved ",
 //				best_fitness == 0.0);
@@ -215,10 +214,10 @@ public class ArrayDefaultSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
 
 
     }

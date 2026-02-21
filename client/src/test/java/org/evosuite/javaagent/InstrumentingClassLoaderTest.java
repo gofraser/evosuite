@@ -26,14 +26,14 @@ import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.testability.TestabilityTransformationClassLoader;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.ExecutionTracer;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 public class InstrumentingClassLoaderTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void initClass() {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
     }
@@ -49,7 +49,7 @@ public class InstrumentingClassLoaderTest {
     /*
      * Tests the child-first/parent-last property of the classloader.
      */
-    @Ignore
+    @Disabled
     @Test
     public void testDependingInstrumentation() throws Exception {
         Class<?> originalClass = DependentClassLoaderTestSubject.class;
@@ -58,19 +58,19 @@ public class InstrumentingClassLoaderTest {
         Properties.TARGET_CLASS_PREFIX = Properties.PROJECT_PREFIX;
         TestabilityTransformationClassLoader instrumentingClassLoader = new TestabilityTransformationClassLoader();
         Class<?> changedClass = instrumentingClassLoader.loadClass(ClassLoaderTestSubject.class.getName());
-        Assert.assertEquals(instrumentingClassLoader, changedClass.getClassLoader());
+        Assertions.assertEquals(instrumentingClassLoader, changedClass.getClassLoader());
         Object changed = changedClass.getConstructor().newInstance();
         ExecutionTracer.enable();
         ExecutionTracer.getExecutionTracer().clear();
         TestUtil.invokeMethod(changed, "trySomethingElse");
         ExecutionTrace execTrace = ExecutionTracer.getExecutionTracer().getTrace();
         execTrace = ExecutionTracer.getExecutionTracer().getTrace();
-        Assert.assertFalse(execTrace.getTrueDistances().isEmpty());
-        Assert.assertFalse(execTrace.getFalseDistances().isEmpty());
+        Assertions.assertFalse(execTrace.getTrueDistances().isEmpty());
+        Assertions.assertFalse(execTrace.getFalseDistances().isEmpty());
         ExecutionTracer.getExecutionTracer().clear();
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testDirectInstrumentation() throws Exception {
         Class<?> originalClass = ClassLoaderTestSubject.class;
@@ -81,31 +81,31 @@ public class InstrumentingClassLoaderTest {
         ExecutionTracer.getExecutionTracer().clear();
         original.assess(6);
         ExecutionTrace execTrace = ExecutionTracer.getExecutionTracer().getTrace();
-        Assert.assertTrue(execTrace.getTrueDistances().isEmpty());
-        Assert.assertTrue(execTrace.getFalseDistances().isEmpty());
+        Assertions.assertTrue(execTrace.getTrueDistances().isEmpty());
+        Assertions.assertTrue(execTrace.getFalseDistances().isEmpty());
 
         TestabilityTransformationClassLoader instrumentingClassLoader = new TestabilityTransformationClassLoader();
         Class<?> changedClass = instrumentingClassLoader.loadClass(ClassLoaderTestSubject.class.getName());
-        Assert.assertEquals(instrumentingClassLoader, changedClass.getClassLoader());
-        Assert.assertTrue(changedClass.hashCode() != originalClass.hashCode());
-        Assert.assertNotEquals(changedClass, originalClass);
+        Assertions.assertEquals(instrumentingClassLoader, changedClass.getClassLoader());
+        Assertions.assertTrue(changedClass.hashCode() != originalClass.hashCode());
+        Assertions.assertNotEquals(changedClass, originalClass);
         Object changed = changedClass.getConstructor().newInstance();
         try {
             @SuppressWarnings("unused")
             ClassLoaderTestSubject casted = (ClassLoaderTestSubject) changed;
-            Assert.fail();
+            Assertions.fail();
         } catch (ClassCastException exc) {
             // expected
         }
         ExecutionTracer.getExecutionTracer().clear();
         TestUtil.invokeMethod(changed, "assess", 6);
         execTrace = ExecutionTracer.getExecutionTracer().getTrace();
-        Assert.assertFalse(execTrace.getTrueDistances().isEmpty());
-        Assert.assertFalse(execTrace.getFalseDistances().isEmpty());
+        Assertions.assertFalse(execTrace.getTrueDistances().isEmpty());
+        Assertions.assertFalse(execTrace.getFalseDistances().isEmpty());
         ExecutionTracer.getExecutionTracer().clear();
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testInnerClasses() throws Exception {
         Class<? extends InnerClassesTestSubject> originalClass = InnerClassesTestSubject.class;
@@ -116,13 +116,13 @@ public class InstrumentingClassLoaderTest {
 
         Class<?> changedClass = instrumentingClassLoader.loadClass(InnerClassesTestSubject.class.getName());
 
-        Assert.assertEquals(instrumentingClassLoader, changedClass.getClassLoader());
-        Assert.assertTrue(changedClass.hashCode() != originalClass.hashCode());
+        Assertions.assertEquals(instrumentingClassLoader, changedClass.getClassLoader());
+        Assertions.assertTrue(changedClass.hashCode() != originalClass.hashCode());
 
         InnerClassesTestSubject original = originalClass.newInstance();
-        Assert.assertEquals("abcd", original.toString());
+        Assertions.assertEquals("abcd", original.toString());
 
         Object modified = changedClass.newInstance();
-        Assert.assertEquals("abcd", modified.toString());
+        Assertions.assertEquals("abcd", modified.toString());
     }
 }

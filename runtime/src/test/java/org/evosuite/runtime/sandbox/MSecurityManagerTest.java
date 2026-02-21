@@ -19,7 +19,13 @@
  */
 package org.evosuite.runtime.sandbox;
 
-import org.junit.*;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.io.*;
 import java.net.URL;
@@ -32,24 +38,24 @@ public class MSecurityManagerTest {
     private static ExecutorService executor;
     private static MSecurityManager securityManager;
 
-    @BeforeClass
+    @BeforeAll
     public static void initClass() {
         executor = Executors.newCachedThreadPool();
         securityManager = new MSecurityManager();
     }
 
-    @AfterClass
+    @AfterAll
     public static void doneWithClass() {
         executor.shutdownNow();
     }
 
-    @Before
+    @BeforeEach
     public void initTest() {
         securityManager.apply();
         securityManager.goingToExecuteTestCase();
     }
 
-    @After
+    @AfterEach
     public void doneWithTestCase() {
         securityManager.goingToEndTestCase();
         securityManager.restoreDefaultManager();
@@ -80,7 +86,7 @@ public class MSecurityManagerTest {
 
                         BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
                         String input = in.readLine();
-                        Assert.assertEquals(text, input);
+                        Assertions.assertEquals(text, input);
                         in.close();
                     } catch (Exception e) {
                         throw new Error(e);
@@ -118,10 +124,10 @@ public class MSecurityManagerTest {
             });
             try {
                 future.get(1000, TimeUnit.MILLISECONDS);
-                Assert.fail();
+                Assertions.fail();
             } catch (ExecutionException e) {
                 if (!(e.getCause().getCause() instanceof java.net.UnknownServiceException)) {
-                    Assert.fail("Cause is " + e.getCause().getCause().getMessage());
+                    Assertions.fail("Cause is " + e.getCause().getCause().getMessage());
                 }
             }
 
@@ -162,7 +168,7 @@ public class MSecurityManagerTest {
                         File reading = new File(fileName);
                         BufferedReader in = new BufferedReader(new FileReader(reading));
                         String input = in.readLine();
-                        Assert.assertEquals(text, input);
+                        Assertions.assertEquals(text, input);
                         in.close();
                     } catch (Exception e) {
                         throw new Error(e);
@@ -191,10 +197,10 @@ public class MSecurityManagerTest {
             });
             try {
                 future.get(1000, TimeUnit.MILLISECONDS);
-                Assert.fail();
+                Assertions.fail();
             } catch (ExecutionException e) {
                 if (!(e.getCause() instanceof SecurityException)) {
-                    Assert.fail();
+                    Assertions.fail();
                 }
             }
 
@@ -231,28 +237,28 @@ public class MSecurityManagerTest {
 
         File dir = createTempDir();
         dir.deleteOnExit();
-        Assert.assertTrue(dir.exists());
+        Assertions.assertTrue(dir.exists());
         dir.delete();
         Thread.sleep(100);
-        Assert.assertFalse(dir.exists());
+        Assertions.assertFalse(dir.exists());
 
         final File toDelete = createTempDir();
         toDelete.deleteOnExit();
-        Assert.assertTrue(toDelete.exists());
+        Assertions.assertTrue(toDelete.exists());
 
         Future<?> future = executor.submit(new Runnable() {
             @Override
             public void run() {
                 try {
                     createTempDir();
-                    Assert.fail("Failed to block creating a new dir");
+                    Assertions.fail("Failed to block creating a new dir");
                 } catch (SecurityException e) {
                     //EvoSuite should block creating a new folder
                 }
 
                 try {
                     toDelete.delete();
-                    Assert.fail("Failed to block deleting an existing dir");
+                    Assertions.fail("Failed to block deleting an existing dir");
                 } catch (SecurityException e) {
                     //EvoSuite should block deleting folder
                 }
@@ -261,7 +267,7 @@ public class MSecurityManagerTest {
         });
         future.get(1000, TimeUnit.MILLISECONDS);
 
-        Assert.assertTrue(toDelete.exists());
+        Assertions.assertTrue(toDelete.exists());
         toDelete.delete();
     }
 
@@ -269,14 +275,14 @@ public class MSecurityManagerTest {
      * System permissions are now forbidden to modify.
      * they are handled in REPLACE_CALLS
      */
-    @Ignore
+    @Disabled
     @Test
     public void testReadAndWriteOfProperties() throws InterruptedException, ExecutionException, TimeoutException {
         final String userDir = System.getProperty("user.dir");
-        Assert.assertNotNull(userDir);
+        Assertions.assertNotNull(userDir);
 
         final String rocks = "EvoSuite Rocks!";
-        Assert.assertNotSame(rocks, userDir);
+        Assertions.assertNotSame(rocks, userDir);
 
 
         //check that reading is fine
@@ -284,20 +290,20 @@ public class MSecurityManagerTest {
             @Override
             public void run() {
                 String readUserDir = System.getProperty("user.dir");
-                Assert.assertEquals(userDir, readUserDir);
+                Assertions.assertEquals(userDir, readUserDir);
                 System.setProperty("user.dir", rocks);
             }
         });
         future.get(1000, TimeUnit.MILLISECONDS);
 
         String modified = System.getProperty("user.dir");
-        Assert.assertEquals(rocks, modified);
+        Assertions.assertEquals(rocks, modified);
 
         //now, "stopping" the test case should re-store value
         try {
             securityManager.goingToEndTestCase();
             modified = System.getProperty("user.dir");
-            Assert.assertEquals(userDir, modified);
+            Assertions.assertEquals(userDir, modified);
         } finally {
             securityManager.goingToExecuteTestCase(); //needed
         }

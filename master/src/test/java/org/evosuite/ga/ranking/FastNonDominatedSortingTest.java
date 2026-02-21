@@ -23,8 +23,8 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.operators.ranking.FastNonDominatedSorting;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.HashSet;
@@ -32,14 +32,14 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class FastNonDominatedSortingTest {
 
     public static Set<FitnessFunction<TestChromosome>> ff;
     public static List<TestChromosome> front;
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         // create the set of fitness functions
         FitnessFunction<TestChromosome> f1 = Mockito.mock(TestFitnessFunction.class);

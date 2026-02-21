@@ -24,9 +24,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.gui.FontCUT;
 
 public class FontSystemTest extends SystemTestBase {
@@ -45,12 +44,12 @@ public class FontSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<?> ga = getGAFromResult(result);
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

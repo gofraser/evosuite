@@ -37,9 +37,9 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.Randomness;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -48,14 +48,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestLocalSearchMIMEType {
 
     private final static boolean DEFAULT_IS_TRACE_ENABLED = ExecutionTracer.isTraceCallsEnabled();
     private java.util.Properties currentProperties;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
 
@@ -78,7 +78,7 @@ public class TestLocalSearchMIMEType {
 
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         if (DEFAULT_IS_TRACE_ENABLED) {
             ExecutionTracer.enableTraceCalls();

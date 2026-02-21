@@ -27,23 +27,23 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestDefaultValue {
 
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.SANDBOX = false;
     }
 
-    @After
+    @AfterEach
     public void reset() {
         Properties.SANDBOX = DEFAULT_SANDBOX;
         ClassPathHandler.resetSingleton();

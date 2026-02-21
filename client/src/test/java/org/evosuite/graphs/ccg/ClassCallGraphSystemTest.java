@@ -2,18 +2,16 @@ package org.evosuite.graphs.ccg;
 
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.CFGClassAdapter;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ClassCallGraphSystemTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         GraphPool.getInstance(getClass().getClassLoader()).clear();
     }
@@ -43,18 +41,18 @@ public class ClassCallGraphSystemTest {
         ClassCallGraph ccg = new ClassCallGraph(getClass().getClassLoader(), className);
 
         // methodA, methodB, methodC, <init>
-        assertEquals("Should have 4 vertices (3 methods + init)", 4, ccg.vertexCount());
+        assertEquals(4, ccg.vertexCount(), "Should have 4 vertices (3 methods + init)");
 
         ClassCallNode nodeA = ccg.getNodeByMethodName("methodA()V");
         ClassCallNode nodeB = ccg.getNodeByMethodName("methodB()V");
         ClassCallNode nodeC = ccg.getNodeByMethodName("methodC()V");
 
-        assertNotNull("methodA should be in the graph", nodeA);
-        assertNotNull("methodB should be in the graph", nodeB);
-        assertNotNull("methodC should be in the graph", nodeC);
+        assertNotNull(nodeA, "methodA should be in the graph");
+        assertNotNull(nodeB, "methodB should be in the graph");
+        assertNotNull(nodeC, "methodC should be in the graph");
 
-        assertTrue("Edge methodA -> methodB should exist", ccg.containsEdge(nodeA, nodeB));
-        assertTrue("Edge methodB -> methodC should exist", ccg.containsEdge(nodeB, nodeC));
+        assertTrue(ccg.containsEdge(nodeA, nodeB), "Edge methodA -> methodB should exist");
+        assertTrue(ccg.containsEdge(nodeB, nodeC), "Edge methodB -> methodC should exist");
     }
 
     static class CyclicCalls {
@@ -73,7 +71,7 @@ public class ClassCallGraphSystemTest {
         ClassCallGraph ccg = new ClassCallGraph(getClass().getClassLoader(), className);
 
         // methodA, methodB, <init>
-        assertEquals("Should have 3 vertices (2 methods + init)", 3, ccg.vertexCount());
+        assertEquals(3, ccg.vertexCount(), "Should have 3 vertices (2 methods + init)");
 
         ClassCallNode nodeA = ccg.getNodeByMethodName("methodA()V");
         ClassCallNode nodeB = ccg.getNodeByMethodName("methodB()V");
@@ -81,8 +79,8 @@ public class ClassCallGraphSystemTest {
         assertNotNull(nodeA);
         assertNotNull(nodeB);
 
-        assertTrue("Edge methodA -> methodB should exist", ccg.containsEdge(nodeA, nodeB));
-        assertTrue("Edge methodB -> methodA should exist", ccg.containsEdge(nodeB, nodeA));
+        assertTrue(ccg.containsEdge(nodeA, nodeB), "Edge methodA -> methodB should exist");
+        assertTrue(ccg.containsEdge(nodeB, nodeA), "Edge methodB -> methodA should exist");
     }
 
     static class SelfLoop {
@@ -103,7 +101,7 @@ public class ClassCallGraphSystemTest {
         ClassCallNode nodeA = ccg.getNodeByMethodName("methodA()V");
         assertNotNull(nodeA);
 
-        assertTrue("Edge methodA -> methodA should exist", ccg.containsEdge(nodeA, nodeA));
+        assertTrue(ccg.containsEdge(nodeA, nodeA), "Edge methodA -> methodA should exist");
     }
 
     static class DisconnectedCalls {
@@ -137,15 +135,15 @@ public class ClassCallGraphSystemTest {
         assertNotNull(nodeC);
         assertNotNull(nodeD);
 
-        assertTrue("Edge methodA -> methodB should exist", ccg.containsEdge(nodeA, nodeB));
-        assertTrue("Edge methodC -> methodD should exist", ccg.containsEdge(nodeC, nodeD));
+        assertTrue(ccg.containsEdge(nodeA, nodeB), "Edge methodA -> methodB should exist");
+        assertTrue(ccg.containsEdge(nodeC, nodeD), "Edge methodC -> methodD should exist");
 
         // Check that there are no edges between the two components
-        assertEquals("methodA should only call methodB", 1, ccg.outDegreeOf(nodeA));
-        assertEquals("methodC should only call methodD", 1, ccg.outDegreeOf(nodeC));
+        assertEquals(1, ccg.outDegreeOf(nodeA), "methodA should only call methodB");
+        assertEquals(1, ccg.outDegreeOf(nodeC), "methodC should only call methodD");
 
         // Also ensure methods don't have unexpected incoming edges
-        assertEquals("methodB should be called once", 1, ccg.inDegreeOf(nodeB));
-        assertEquals("methodD should be called once", 1, ccg.inDegreeOf(nodeD));
+        assertEquals(1, ccg.inDegreeOf(nodeB), "methodB should be called once");
+        assertEquals(1, ccg.inDegreeOf(nodeD), "methodD should be called once");
     }
 }

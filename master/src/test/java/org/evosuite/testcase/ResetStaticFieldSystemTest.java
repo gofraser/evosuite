@@ -24,25 +24,24 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.staticfield.StaticFoo;
 
 public class ResetStaticFieldSystemTest extends SystemTestBase {
 
     private boolean reset_static_field__property;
 
-    @Before
+    @BeforeEach
     public void saveProperties() {
         reset_static_field__property = Properties.RESET_STATIC_FIELDS;
         Properties.RESET_STATIC_FIELDS = true;
         Properties.RESET_STATIC_FIELD_GETS = true;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.RESET_STATIC_FIELDS = reset_static_field__property;
     }
@@ -61,7 +60,7 @@ public class ResetStaticFieldSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
         double best_fitness = best.getFitness();
-        Assert.assertEquals("Optimal coverage was not achieved ", 0.0, best_fitness, 0.0);
+        Assertions.assertEquals(0.0, best_fitness, 0.0, "Optimal coverage was not achieved ");
 
     }
 

@@ -19,8 +19,8 @@
  */
 package org.evosuite.junit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.FileReader;
@@ -39,11 +39,10 @@ import org.evosuite.Properties.StatisticsBackend;
 import org.evosuite.SystemTestBase;
 import org.evosuite.continuous.persistency.CsvJUnitData;
 import org.evosuite.statistics.SearchStatistics;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.Calculator;
 import com.examples.with.different.packagename.CalculatorTest;
 import com.examples.with.different.packagename.ClassNumberUtils;
@@ -66,12 +65,12 @@ public class CoverageAnalysisOfProjectSystemTest extends SystemTestBase {
     private File classes_directory = null;
     private File tests_directory = null;
 
-    @Before
+    @BeforeEach
     public void prepare() {
         try {
             FileUtils.deleteDirectory(new File("evosuite-report"));
         } catch (IOException e) {
-            Assert.fail(e.getMessage());
+            Assertions.fail(e.getMessage());
         }
 
         Properties.TARGET_CLASS = "";
@@ -83,7 +82,7 @@ public class CoverageAnalysisOfProjectSystemTest extends SystemTestBase {
         CoverageAnalysis.reset();
     }
 
-    @After
+    @AfterEach
     public void clean() {
         try {
             if (this.classes_directory != null && this.classes_directory.exists()) {
@@ -93,7 +92,7 @@ public class CoverageAnalysisOfProjectSystemTest extends SystemTestBase {
                 FileUtils.deleteDirectory(this.tests_directory);
             }
         } catch (IOException e) {
-            Assert.fail(e.getMessage());
+            Assertions.fail(e.getMessage());
         }
 
         this.classes_directory = null;
@@ -119,7 +118,7 @@ public class CoverageAnalysisOfProjectSystemTest extends SystemTestBase {
         };
 
         SearchStatistics statistics = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(statistics);
+        Assertions.assertNotNull(statistics);
 
         String statistics_file = System.getProperty("user.dir") + File.separator + Properties.REPORT_DIR + File.separator + "statistics.csv";
 
@@ -171,7 +170,7 @@ public class CoverageAnalysisOfProjectSystemTest extends SystemTestBase {
         };
 
         SearchStatistics statistics = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(statistics);
+        Assertions.assertNotNull(statistics);
 
         String statistics_file = System.getProperty("user.dir") + File.separator + Properties.REPORT_DIR + File.separator + "statistics.csv";
 

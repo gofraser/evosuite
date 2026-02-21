@@ -37,9 +37,9 @@ import org.evosuite.ga.problems.metrics.GenerationalDistance;
 import org.evosuite.ga.problems.metrics.Metrics;
 import org.evosuite.ga.problems.metrics.Spacing;
 import org.evosuite.ga.variables.DoubleVariable;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static java.util.Comparator.comparingDouble;
 
@@ -47,7 +47,7 @@ import static java.util.Comparator.comparingDouble;
  * @author José Campos
  */
 public class SCH2IntTest {
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.POPULATION = 100;
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXGENERATIONS;
@@ -64,21 +64,21 @@ public class SCH2IntTest {
 
         double[] values_n = {-3.0};
         NSGAChromosome c = new NSGAChromosome(-5.0, 10.0, values_n);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), -3.0, 0.0);
-        Assert.assertEquals(f1.getFitness(c), 3.0, 0.0);
-        Assert.assertEquals(f2.getFitness(c), 64.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), -3.0, 0.0);
+        Assertions.assertEquals(f1.getFitness(c), 3.0, 0.0);
+        Assertions.assertEquals(f2.getFitness(c), 64.0, 0.0);
 
         double[] values_z = {0.0};
         c = new NSGAChromosome(-5.0, 10.0, values_z);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), 0.0, 0.0);
-        Assert.assertEquals(f1.getFitness(c), 0.0, 0.0);
-        Assert.assertEquals(f2.getFitness(c), 25.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), 0.0, 0.0);
+        Assertions.assertEquals(f1.getFitness(c), 0.0, 0.0);
+        Assertions.assertEquals(f2.getFitness(c), 25.0, 0.0);
 
         double[] values_p = {9.0};
         c = new NSGAChromosome(-5.0, 10.0, values_p);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), 9.0, 0.0);
-        Assert.assertEquals(f1.getFitness(c), 5.0, 0.0);
-        Assert.assertEquals(f2.getFitness(c), 16.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), 9.0, 0.0);
+        Assertions.assertEquals(f1.getFitness(c), 5.0, 0.0);
+        Assertions.assertEquals(f2.getFitness(c), 16.0, 0.0);
     }
 
     /**
@@ -129,7 +129,7 @@ public class SCH2IntTest {
         GenerationalDistance gd = new GenerationalDistance();
         double gdd = gd.evaluate(front, trueParetoFront);
         System.out.println("GenerationalDistance: " + gdd);
-        Assert.assertTrue(gdd < 0.001);
+        Assertions.assertTrue(gdd < 0.001);
 
         Spacing sp = new Spacing();
         double spd = sp.evaluate(front);
@@ -139,6 +139,6 @@ public class SCH2IntTest {
         // front is similar to a theoretical ideal front
         double diff = Math.abs(spd - spdt);
         System.out.println("SpacingFront (" + spd + ") - SpacingTrueFront (" + spdt + ") = " + diff);
-        Assert.assertTrue(diff < 0.60);
+        Assertions.assertTrue(diff < 0.60);
     }
 }

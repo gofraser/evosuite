@@ -23,6 +23,8 @@ package org.evosuite.testcase;
 import java.util.List;
 
 import org.evosuite.EvoSuite;
+
+import static org.junit.jupiter.api.Assertions.*;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.TestGenerationContext;
@@ -35,13 +37,10 @@ import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.FactoryExample;
-
-import static org.junit.Assert.*;
 
 /**
  * @author Gordon Fraser
@@ -52,14 +51,14 @@ public class FactoryTestSystemTest extends SystemTestBase {
     private double P_PRIMITIVE_REUSE = Properties.PRIMITIVE_REUSE_PROBABILITY;
     private boolean ARCHIVE = Properties.TEST_ARCHIVE;
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.OBJECT_REUSE_PROBABILITY = P_OBJECT_REUSE;
         Properties.PRIMITIVE_REUSE_PROBABILITY = P_PRIMITIVE_REUSE;
         Properties.TEST_ARCHIVE = ARCHIVE;
     }
 
-    @Before
+    @BeforeEach
     public void setupCluster() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -86,8 +85,8 @@ public class FactoryTestSystemTest extends SystemTestBase {
             NoSuchMethodException, SecurityException {
         List<GenericAccessibleObject<?>> testCalls = TestCluster.getInstance().getTestCalls();
         System.out.println(testCalls.toString());
-        assertEquals("Expected 5 test calls, but got: " + testCalls.size() + ": "
-                + testCalls, 4, testCalls.size());
+        assertEquals(4, testCalls.size(), "Expected 5 test calls, but got: " + testCalls.size() + ": "
+                + testCalls);
     }
 
     @Test
@@ -202,20 +201,22 @@ public class FactoryTestSystemTest extends SystemTestBase {
         assertTrue(code.contains("factoryExample1.testByte"));
     }
 
-    @Test(expected = ConstructionFailedException.class)
-    public void testMethodForWrongPosition() throws ConstructionFailedException,
+    @Test
+    public void testMethodForWrongPosition() throws
             NoSuchMethodException, SecurityException, ClassNotFoundException {
-        TestFactory testFactory = TestFactory.getInstance();
-        Class<?> sut = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(FactoryExample.class.getCanonicalName());
+        assertThrows(ConstructionFailedException.class, () -> {
+            TestFactory testFactory = TestFactory.getInstance();
+            Class<?> sut = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(FactoryExample.class.getCanonicalName());
 
-        GenericConstructor constructor = new GenericConstructor(sut.getConstructor(), sut);
-        GenericMethod method = new GenericMethod(sut.getMethod("testByte", byte.class, byte.class), sut);
-        DefaultTestCase test = new DefaultTestCase();
-        Properties.PRIMITIVE_REUSE_PROBABILITY = 0.0;
-        Properties.OBJECT_REUSE_PROBABILITY = 0.0;
-        VariableReference var1 = testFactory.addConstructor(test, constructor, 0, 0);
-        testFactory.reset();
-        testFactory.addMethodFor(test, var1, method, 0);
+            GenericConstructor constructor = new GenericConstructor(sut.getConstructor(), sut);
+            GenericMethod method = new GenericMethod(sut.getMethod("testByte", byte.class, byte.class), sut);
+            DefaultTestCase test = new DefaultTestCase();
+            Properties.PRIMITIVE_REUSE_PROBABILITY = 0.0;
+            Properties.OBJECT_REUSE_PROBABILITY = 0.0;
+            VariableReference var1 = testFactory.addConstructor(test, constructor, 0, 0);
+            testFactory.reset();
+            testFactory.addMethodFor(test, var1, method, 0);
+        });
     }
 
     @Test
@@ -335,20 +336,22 @@ public class FactoryTestSystemTest extends SystemTestBase {
         assertTrue(code.contains("factoryExample1.setMe"));
     }
 
-    @Test(expected = ConstructionFailedException.class)
-    public void testFieldForWrongPosition() throws ConstructionFailedException,
+    @Test
+    public void testFieldForWrongPosition() throws
             NoSuchMethodException, SecurityException, ClassNotFoundException, NoSuchFieldException {
-        TestFactory testFactory = TestFactory.getInstance();
-        Class<?> sut = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(FactoryExample.class.getCanonicalName());
+        assertThrows(ConstructionFailedException.class, () -> {
+            TestFactory testFactory = TestFactory.getInstance();
+            Class<?> sut = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(FactoryExample.class.getCanonicalName());
 
-        GenericConstructor constructor = new GenericConstructor(sut.getConstructor(), sut);
-        GenericField field = new GenericField(sut.getField("setMe"), sut);
-        DefaultTestCase test = new DefaultTestCase();
-        Properties.PRIMITIVE_REUSE_PROBABILITY = 0.0;
-        Properties.OBJECT_REUSE_PROBABILITY = 0.0;
-        VariableReference var1 = testFactory.addConstructor(test, constructor, 0, 0);
-        testFactory.reset();
-        testFactory.addFieldFor(test, var1, field, 0);
+            GenericConstructor constructor = new GenericConstructor(sut.getConstructor(), sut);
+            GenericField field = new GenericField(sut.getField("setMe"), sut);
+            DefaultTestCase test = new DefaultTestCase();
+            Properties.PRIMITIVE_REUSE_PROBABILITY = 0.0;
+            Properties.OBJECT_REUSE_PROBABILITY = 0.0;
+            VariableReference var1 = testFactory.addConstructor(test, constructor, 0, 0);
+            testFactory.reset();
+            testFactory.addFieldFor(test, var1, field, 0);
+        });
     }
 
     @Test
@@ -436,8 +439,8 @@ public class FactoryTestSystemTest extends SystemTestBase {
 
         MethodStatement stmt = (MethodStatement) test.getStatement(test.size() - 1);
         VariableReference var = stmt.getParameterReferences().get(0);
-        assertNotEquals("Char should not be passed as Integer", var.getType(), char.class);
-        assertEquals("Incorrect test size", 4, test.size());
+        assertNotEquals(var.getType(), char.class, "Char should not be passed as Integer");
+        assertEquals(4, test.size(), "Incorrect test size");
 
     }
 }

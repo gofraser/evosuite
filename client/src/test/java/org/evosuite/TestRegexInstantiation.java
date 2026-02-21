@@ -20,10 +20,10 @@
 package org.evosuite;
 
 import org.evosuite.instrumentation.RegexDistance;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestRegexInstantiation {
 
@@ -32,8 +32,8 @@ public class TestRegexInstantiation {
         String FAILING_PATTERN = "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
         String matchingInstance = RegexDistance.getRegexInstance(FAILING_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(FAILING_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(FAILING_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(FAILING_PATTERN));
+        assertTrue(matchingInstance.matches(FAILING_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(FAILING_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, FAILING_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, FAILING_PATTERN) > 0);
     }
@@ -47,8 +47,8 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(EMAIL_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(EMAIL_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(EMAIL_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(EMAIL_PATTERN));
+        assertTrue(matchingInstance.matches(EMAIL_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(EMAIL_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, EMAIL_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, EMAIL_PATTERN) > 0);
 
@@ -60,14 +60,14 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(USERNAME_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(USERNAME_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(USERNAME_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(USERNAME_PATTERN));
+        assertTrue(matchingInstance.matches(USERNAME_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(USERNAME_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, USERNAME_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, USERNAME_PATTERN) > 0);
 
     }
 
-    @Ignore
+    @Disabled
     @Test
     // dk.brics.automaton runs out of memory on this one, need to investigate why
     public void testPasswordRegex() {
@@ -76,8 +76,8 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(PASSWORD_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(PASSWORD_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(PASSWORD_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(PASSWORD_PATTERN));
+        assertTrue(matchingInstance.matches(PASSWORD_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(PASSWORD_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, PASSWORD_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, PASSWORD_PATTERN) > 0);
 
@@ -89,8 +89,8 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(HEX_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(HEX_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(HEX_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(HEX_PATTERN));
+        assertTrue(matchingInstance.matches(HEX_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(HEX_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, HEX_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, HEX_PATTERN) > 0);
 
@@ -104,8 +104,8 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(IMAGE_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(IMAGE_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(IMAGE_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(IMAGE_PATTERN));
+        assertTrue(matchingInstance.matches(IMAGE_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(IMAGE_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, IMAGE_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, IMAGE_PATTERN) > 0);
 
@@ -121,8 +121,8 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(IPADDRESS_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(IPADDRESS_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(IPADDRESS_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(IPADDRESS_PATTERN));
+        assertTrue(matchingInstance.matches(IPADDRESS_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(IPADDRESS_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, IPADDRESS_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, IPADDRESS_PATTERN) > 0);
 
@@ -135,8 +135,8 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(TIME12HOURS_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(TIME12HOURS_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(TIME12HOURS_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(TIME12HOURS_PATTERN));
+        assertTrue(matchingInstance.matches(TIME12HOURS_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(TIME12HOURS_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, TIME12HOURS_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, TIME12HOURS_PATTERN) > 0);
 
@@ -149,8 +149,8 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(TIME24HOURS_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(TIME24HOURS_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(TIME24HOURS_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(TIME24HOURS_PATTERN));
+        assertTrue(matchingInstance.matches(TIME24HOURS_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(TIME24HOURS_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, TIME24HOURS_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, TIME24HOURS_PATTERN) > 0);
 
@@ -163,8 +163,8 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(DATE_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(DATE_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(DATE_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(DATE_PATTERN));
+        assertTrue(matchingInstance.matches(DATE_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(DATE_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, DATE_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, DATE_PATTERN) > 0);
 
@@ -176,8 +176,8 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(HTML_TAG_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(HTML_TAG_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(HTML_TAG_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(HTML_TAG_PATTERN));
+        assertTrue(matchingInstance.matches(HTML_TAG_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(HTML_TAG_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, HTML_TAG_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, HTML_TAG_PATTERN) > 0);
 
@@ -189,14 +189,14 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(HTML_A_TAG_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(HTML_A_TAG_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(HTML_A_TAG_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(HTML_A_TAG_PATTERN));
+        assertTrue(matchingInstance.matches(HTML_A_TAG_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(HTML_A_TAG_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, HTML_A_TAG_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, HTML_A_TAG_PATTERN) > 0);
 
     }
 
-    @Ignore
+    @Disabled
     @Test
     // I don't know what's happening in here
     public void testHTMLHrefRegex() {
@@ -205,8 +205,8 @@ public class TestRegexInstantiation {
 
         String matchingInstance = RegexDistance.getRegexInstance(HTML_A_HREF_TAG_PATTERN);
         String nonMatchingInstance = RegexDistance.getNonMatchingRegexInstance(HTML_A_HREF_TAG_PATTERN);
-        assertTrue("String does not match regex: " + matchingInstance, matchingInstance.matches(HTML_A_HREF_TAG_PATTERN));
-        assertFalse("String matches regex but shouldn't: " + nonMatchingInstance, nonMatchingInstance.matches(HTML_A_HREF_TAG_PATTERN));
+        assertTrue(matchingInstance.matches(HTML_A_HREF_TAG_PATTERN), "String does not match regex: " + matchingInstance);
+        assertFalse(nonMatchingInstance.matches(HTML_A_HREF_TAG_PATTERN), "String matches regex but shouldn't: " + nonMatchingInstance);
         assertEquals(0, RegexDistance.getDistance(matchingInstance, HTML_A_HREF_TAG_PATTERN));
         assertTrue(RegexDistance.getDistance(nonMatchingInstance, HTML_A_HREF_TAG_PATTERN) > 0);
 

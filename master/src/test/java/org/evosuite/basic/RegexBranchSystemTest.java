@@ -24,17 +24,16 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.RegexBranch;
 
 public class RegexBranchSystemTest extends SystemTestBase {
 
     public static final double defaultDynamicPool = Properties.DYNAMIC_POOL;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.DYNAMIC_POOL = defaultDynamicPool;
     }
@@ -56,6 +55,6 @@ public class RegexBranchSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

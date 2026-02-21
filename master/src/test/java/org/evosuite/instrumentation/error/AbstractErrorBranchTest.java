@@ -28,7 +28,7 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 
 import java.util.Map;
 
@@ -76,7 +76,7 @@ public class AbstractErrorBranchTest extends SystemTestBase {
 
     private void assertBranchStats(int realBranches, int instrumentedBranches, int coveredRealBranches, int coveredInstrumentedBranches) {
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
 
         OutputVariable<Double> coverage = (OutputVariable<Double>) map.get(RuntimeVariable.Coverage.toString());
         OutputVariable<Double> branchCoverage = (OutputVariable<Double>) map.get(RuntimeVariable.BranchCoverage.toString());
@@ -102,20 +102,20 @@ public class AbstractErrorBranchTest extends SystemTestBase {
         }
         meanCoverage /= 2.0;
 
-        Assert.assertEquals("Incorrect value for " + coverage, meanCoverage, coverage.getValue(), 0.0);
-        Assert.assertEquals("Incorrect value for " + branchCoverage, (double) (coveredRealBranches) / (double) (realBranches), branchCoverage.getValue(), 0.0);
-        Assert.assertEquals("Incorrect value for " + totalGoals, realBranches + instrumentedBranches, (int) totalGoals.getValue());
-        Assert.assertEquals("Incorrect value for " + coveredGoals, coveredRealBranches + coveredInstrumentedBranches, (int) coveredGoals.getValue());
-        Assert.assertEquals("Incorrect value for " + coveredBranches, coveredRealBranches + coveredInstrumentedBranches, coveredBranches.getValue() + coveredBranchlessMethods.getValue());
-        Assert.assertEquals("Incorrect value for " + coveredBranchesInstrumented, coveredInstrumentedBranches, (int) coveredBranchesInstrumented.getValue());
-        Assert.assertEquals("Incorrect value for " + coveredBranchesReal, coveredRealBranches, coveredBranchesReal.getValue() + coveredBranchlessMethods.getValue());
+        Assertions.assertEquals(meanCoverage, coverage.getValue(), 0.0, "Incorrect value for " + coverage);
+        Assertions.assertEquals((double) (coveredRealBranches) / (double) (realBranches), branchCoverage.getValue(), 0.0, "Incorrect value for " + branchCoverage);
+        Assertions.assertEquals(realBranches + instrumentedBranches, (int) totalGoals.getValue(), "Incorrect value for " + totalGoals);
+        Assertions.assertEquals(coveredRealBranches + coveredInstrumentedBranches, (int) coveredGoals.getValue(), "Incorrect value for " + coveredGoals);
+        Assertions.assertEquals(coveredRealBranches + coveredInstrumentedBranches, coveredBranches.getValue() + coveredBranchlessMethods.getValue(), "Incorrect value for " + coveredBranches);
+        Assertions.assertEquals(coveredInstrumentedBranches, (int) coveredBranchesInstrumented.getValue(), "Incorrect value for " + coveredBranchesInstrumented);
+        Assertions.assertEquals(coveredRealBranches, coveredBranchesReal.getValue() + coveredBranchlessMethods.getValue(), "Incorrect value for " + coveredBranchesReal);
     }
 
     protected void checkErrorBranches(Class<?> targetClass, int realBranches, int instrumentedBranches, int coveredRealBranches, int coveredInstrumentedBranches) {
         TestSuiteChromosome best = runEvoSuite(targetClass);
         assertBranchStats(realBranches, instrumentedBranches, coveredRealBranches, coveredInstrumentedBranches);
-        Assert.assertEquals(realBranches, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
-        Assert.assertEquals(instrumentedBranches, TestGenerationStrategy.getFitnessFactories().get(1).getCoverageGoals().size());
+        Assertions.assertEquals(realBranches, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
+        Assertions.assertEquals(instrumentedBranches, TestGenerationStrategy.getFitnessFactories().get(1).getCoverageGoals().size());
         double meanCoverage = 0.0;
         if (instrumentedBranches > 0) {
             meanCoverage += (double) coveredInstrumentedBranches / instrumentedBranches;
@@ -128,7 +128,7 @@ public class AbstractErrorBranchTest extends SystemTestBase {
             meanCoverage += 1.0;
         }
         meanCoverage /= 2.0;
-        Assert.assertEquals("Non-optimal coverage: ", meanCoverage, best.getCoverage(), 0.001);
+        Assertions.assertEquals(meanCoverage, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
 }

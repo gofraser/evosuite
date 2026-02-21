@@ -19,12 +19,12 @@
  */
 package org.evosuite.localsearch;
 
-import static org.junit.Assert.assertEquals;
-
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
 import org.evosuite.EvoSuite;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.LocalSearchBudgetType;
@@ -46,10 +46,9 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.localsearch.TestSuiteLocalSearch;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.localsearch.DseBar;
 import com.examples.with.different.packagename.localsearch.DseFoo;
 
@@ -58,7 +57,7 @@ import com.examples.with.different.packagename.localsearch.DseFoo;
  */
 public class Issre13SystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.LOCAL_SEARCH_PROBABILITY = 1.0;
         Properties.LOCAL_SEARCH_RATE = 1;
@@ -89,8 +88,8 @@ public class Issre13SystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(),
-                0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001,
+                "Non-optimal coverage: ");
     }
 
     @Test
@@ -174,8 +173,8 @@ public class Issre13SystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(),
-                0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001,
+                "Non-optimal coverage: ");
     }
 
     @Test

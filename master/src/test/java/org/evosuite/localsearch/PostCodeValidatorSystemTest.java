@@ -27,10 +27,9 @@ import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.concolic.PostCodeValidator;
 
 /**
@@ -39,9 +38,9 @@ import com.examples.with.different.packagename.concolic.PostCodeValidator;
 public class PostCodeValidatorSystemTest extends SystemTestBase {
 
 
-    @Before
+    @BeforeEach
     public void checkZ3() {
-        Assume.assumeTrue(System.getenv("z3_str2_path") != null);
+        Assumptions.assumeTrue(System.getenv("z3_str2_path") != null);
     }
 
     @Test

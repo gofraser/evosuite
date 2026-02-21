@@ -1,21 +1,21 @@
 package org.evosuite.instrumentation;
 
 import org.evosuite.Properties;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class BytecodeInstrumentationTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.getInstance().resetToDefaults();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         Properties.getInstance().resetToDefaults();
     }

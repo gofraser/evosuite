@@ -6,7 +6,7 @@ import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -470,8 +470,8 @@ public class AssertionBugFixesTest {
         // checks getAssertions().isEmpty(), so the block is still entered.
         // This test documents that returnValueWithoutAssertion alone is not
         // sufficient — the empty-assertions check is also needed.
-        assertTrue("Void method with no assertions should trigger fallback",
-                stmt.getAssertions().isEmpty());
+        assertTrue(stmt.getAssertions().isEmpty(),
+                "Void method with no assertions should trigger fallback");
     }
 
     // -----------------------------------------------------------------------

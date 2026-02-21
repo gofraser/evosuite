@@ -29,16 +29,15 @@ import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.staticfield.StaticIntField;
 
 public class StaticIntFieldSystemTest extends SystemTestBase {
 
 
-    @Before
+    @BeforeEach
     public void setUpProperties() {
         Properties.RESET_STATIC_FIELDS = true;
         Properties.RESET_STATIC_FIELD_GETS = true;
@@ -63,13 +62,13 @@ public class StaticIntFieldSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals("Unexpected unstabled test cases were generated", Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue(), "Unexpected unstabled test cases were generated");
 
         double best_fitness = best.getFitness();
-        Assert.assertEquals("Optimal coverage was not achieved ", 0.0, best_fitness, 0.0);
+        Assertions.assertEquals(0.0, best_fitness, 0.0, "Optimal coverage was not achieved ");
 
 
     }

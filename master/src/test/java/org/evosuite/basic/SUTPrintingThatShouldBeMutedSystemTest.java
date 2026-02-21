@@ -27,8 +27,10 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.utils.LoggingUtils;
-import org.junit.*;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import com.examples.with.different.packagename.InfiniteLoops;
 import com.examples.with.different.packagename.PrintingThatShouldBeMuted;
 import com.examples.with.different.packagename.StaticPrinting;
@@ -41,12 +43,12 @@ public class SUTPrintingThatShouldBeMutedSystemTest extends SystemTestBase {
 
     public static final PrintStream defaultOut = System.out;
 
-    @Before
+    @BeforeEach
     public void init() {
         LoggingUtils.changeLogbackFile(LoggingUtils.getLogbackFileName());
     }
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.TIMEOUT = defaultTimeout;
         Properties.PRINT_TO_SYSTEM = defaultPrintToSystem;
@@ -81,8 +83,8 @@ public class SUTPrintingThatShouldBeMutedSystemTest extends SystemTestBase {
         evosuite.parseCommandLine(command);
 
         String printed = byteStream.toString();
-        Assert.assertTrue("PRINTED:\n" + printed, printed.contains("Starting Client"));
-        Assert.assertTrue("PRINTED:\n" + printed, printed.contains(msgSUT));
+        Assertions.assertTrue(printed.contains("Starting Client"), "PRINTED:\n" + printed);
+        Assertions.assertTrue(printed.contains(msgSUT), "PRINTED:\n" + printed);
 
         //Properties.PRINT_TO_SYSTEM = false;
 
@@ -97,18 +99,18 @@ public class SUTPrintingThatShouldBeMutedSystemTest extends SystemTestBase {
         evosuite.parseCommandLine(command);
 
         printed = byteStream.toString();
-        Assert.assertTrue("PRINTED:\n" + printed, printed.contains("Starting Client"));
-        Assert.assertFalse("PRINTED:\n" + printed, printed.contains(msgSUT));
-        Assert.assertFalse("PRINTED:\n" + printed, printed.contains("ERROR"));
+        Assertions.assertTrue(printed.contains("Starting Client"), "PRINTED:\n" + printed);
+        Assertions.assertFalse(printed.contains(msgSUT), "PRINTED:\n" + printed);
+        Assertions.assertFalse(printed.contains("ERROR"), "PRINTED:\n" + printed);
     }
 
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testBase() throws IOException {
         checkIfMuted(PrintingThatShouldBeMuted.class.getCanonicalName(), "Greater");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testStatic() throws IOException {
         checkIfMuted(StaticPrinting.class.getCanonicalName(), "this should not be printed");
     }
@@ -118,8 +120,8 @@ public class SUTPrintingThatShouldBeMutedSystemTest extends SystemTestBase {
      *
      * @throws IOException
      */
-    @Ignore
-    @Test
+    @Disabled
+    @org.junit.jupiter.api.Test
     public void testInfiniteLoops() throws IOException {
         checkIfMuted(InfiniteLoops.class.getCanonicalName(), "This should not be printed");
     }

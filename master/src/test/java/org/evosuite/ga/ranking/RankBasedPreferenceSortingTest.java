@@ -27,21 +27,21 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.statements.numeric.BooleanPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.*;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RankBasedPreferenceSortingTest {
 
     public static Set<TestFitnessFunction> ff;
     public static List<TestChromosome> front;
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         // create the set of fitness functions
         TestFitnessFunction f1 = Mockito.mock(TestFitnessFunction.class);

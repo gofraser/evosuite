@@ -21,7 +21,7 @@ package org.evosuite.instrumentation.error;
 
 import com.examples.with.different.packagename.errorbranch.*;
 import org.evosuite.Properties;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class DequeInstrumentationSystemTest extends AbstractErrorBranchTest {
 

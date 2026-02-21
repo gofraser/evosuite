@@ -27,11 +27,10 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.Compositional;
 import com.examples.with.different.packagename.instrumentation.testability.FlagExample3;
 import com.examples.with.different.packagename.SingleMethod;
@@ -45,13 +44,13 @@ public class MethodTraceCoverageFitnessFunctionSystemTest extends SystemTestBase
 
     private static final boolean defaultArchive = Properties.TEST_ARCHIVE;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.CRITERION = defaultCriterion;
         Properties.TEST_ARCHIVE = defaultArchive;
     }
 
-    @Before
+    @BeforeEach
     public void beforeTest() {
         Properties.CRITERION[0] = Criterion.METHODTRACE;
         //Properties.MINIMIZE = false;
@@ -82,8 +81,8 @@ public class MethodTraceCoverageFitnessFunctionSystemTest extends SystemTestBase
 
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(2, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -111,8 +110,8 @@ public class MethodTraceCoverageFitnessFunctionSystemTest extends SystemTestBase
 
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(2, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -140,8 +139,8 @@ public class MethodTraceCoverageFitnessFunctionSystemTest extends SystemTestBase
 
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(4, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(4, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -158,8 +157,8 @@ public class MethodTraceCoverageFitnessFunctionSystemTest extends SystemTestBase
         TestSuiteChromosome best = ga.getBestIndividual();
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
-        Assert.assertEquals(4, goals);
+        Assertions.assertEquals(4, goals);
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

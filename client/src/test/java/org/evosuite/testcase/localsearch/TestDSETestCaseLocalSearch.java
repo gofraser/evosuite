@@ -31,15 +31,15 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.localsearch.TestSuiteLocalSearchObjective;
-import org.junit.After;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.Collections;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestDSETestCaseLocalSearch {
 
@@ -76,14 +76,14 @@ public class TestDSETestCaseLocalSearch {
 
     private static final Properties.SolverType DEFAULT_DSE_SOLVER = Properties.DSE_SOLVER;
 
-    @Before
+    @BeforeEach
     public void init() {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.LOCAL_SEARCH_BUDGET = Integer.MAX_VALUE;
         Properties.LOCAL_SEARCH_BUDGET_TYPE = Properties.LocalSearchBudgetType.TESTS;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.LOCAL_SEARCH_BUDGET = DEFAULT_LOCAL_SEARCH_BUDGET;
         Properties.LOCAL_SEARCH_BUDGET_TYPE = DEFAULT_LOCAL_SEARCH_BUDGET_TYPE;
@@ -146,7 +146,7 @@ public class TestDSETestCaseLocalSearch {
         if (cvc4_path != null) {
             Properties.CVC4_PATH = cvc4_path;
         }
-        Assume.assumeTrue(Properties.CVC4_PATH != null);
+        Assumptions.assumeTrue(Properties.CVC4_PATH != null);
         Properties.DSE_SOLVER = Properties.SolverType.CVC4_SOLVER;
         Properties.CRITERION = new Properties.Criterion[]{Criterion.BRANCH};
         Properties.TARGET_CLASS = Foo.class.getName();

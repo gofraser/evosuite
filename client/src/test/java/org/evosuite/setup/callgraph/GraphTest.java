@@ -1,8 +1,10 @@
 package org.evosuite.setup.callgraph;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+
 import java.util.Iterator;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class GraphTest {
 
@@ -24,10 +26,10 @@ public class GraphTest {
 
         // Check dangling edges in A
         Iterator<String> neighborsA = graph.getNeighbors("A").iterator();
-        assertFalse("A should not have neighbors after B is removed", neighborsA.hasNext());
+        assertFalse(neighborsA.hasNext(), "A should not have neighbors after B is removed");
 
         // Check dangling reverse edges in C
         Iterator<String> reverseNeighborsC = graph.getReverseNeighbors("C").iterator();
-        assertFalse("C should not have reverse neighbors after B is removed", reverseNeighborsC.hasNext());
+        assertFalse(reverseNeighborsC.hasNext(), "C should not have reverse neighbors after B is removed");
     }
 }

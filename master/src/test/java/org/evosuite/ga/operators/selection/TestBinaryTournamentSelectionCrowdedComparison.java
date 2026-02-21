@@ -25,9 +25,9 @@ import java.util.List;
 import org.evosuite.Properties;
 import org.evosuite.ga.NSGAChromosome;
 import org.evosuite.ga.metaheuristics.NSGAII;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test Binary Tournament Selection using Crowded Comparison
@@ -35,7 +35,7 @@ import org.junit.Test;
  * @author José Campos
  */
 public class TestBinaryTournamentSelectionCrowdedComparison {
-    @BeforeClass
+    @BeforeAll
     public static void setUp() {
         Properties.RANDOM_SEED = 1L;
     }
@@ -57,7 +57,7 @@ public class TestBinaryTournamentSelectionCrowdedComparison {
         population.add(c1);
         population.add(c2);
 
-        Assert.assertEquals(1, ts.getIndex(population));
+        Assertions.assertEquals(1, ts.getIndex(population));
     }
 
     @Test
@@ -82,6 +82,6 @@ public class TestBinaryTournamentSelectionCrowdedComparison {
         population.add(c1);
         population.add(c2);
 
-        Assert.assertEquals(1, ts.getIndex(population));
+        Assertions.assertEquals(1, ts.getIndex(population));
     }
 }

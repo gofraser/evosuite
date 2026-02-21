@@ -25,14 +25,14 @@ import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SPEA2Test {
 
@@ -141,7 +141,7 @@ public class SPEA2Test {
         spea2.computeStrength(union);
 
         for(TestChromosome t : union) {
-            assertTrue("Should be non-dominated", t.getDistance() < 1.0);
+            assertTrue(t.getDistance() < 1.0, "Should be non-dominated");
         }
 
         List<TestChromosome> result = spea2.environmentalSelection(union);
@@ -151,6 +151,6 @@ public class SPEA2Test {
         // With BUG, logic suggests it returns A.
         // Without BUG, logic suggests it returns D.
         System.out.println("Result: " + result.get(0).toString());
-        assertEquals("Should return D if bug is fixed", "D", result.get(0).toString());
+        assertEquals("D", result.get(0).toString(), "Should return D if bug is fixed");
     }
 }

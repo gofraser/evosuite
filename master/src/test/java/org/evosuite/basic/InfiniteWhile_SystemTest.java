@@ -27,20 +27,23 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.instrumentation.EvoClassLoader;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Created by Andrea Arcuri on 29/03/15.
  */
 public class InfiniteWhile_SystemTest extends SystemTestBase {
 
-    @Test(timeout = 5000)
+    @Test
+    @Timeout(value = 5000, unit = TimeUnit.MILLISECONDS)
     public void testLoading() throws Exception {
         EvoClassLoader loader = new EvoClassLoader();
         Class<?> clazz = loader.loadClass(InfiniteWhile.class.getCanonicalName());
@@ -50,11 +53,12 @@ public class InfiniteWhile_SystemTest extends SystemTestBase {
             fail();
         } catch (InvocationTargetException e) {
             //expected
-            Assert.assertTrue(e.getCause() instanceof TooManyResourcesException);
+            Assertions.assertTrue(e.getCause() instanceof TooManyResourcesException);
         }
     }
 
-    @Test(timeout = 30_000)
+    @Test
+    @Timeout(value = 30_000, unit = TimeUnit.MILLISECONDS)
     public void systemTest() {
 
         EvoSuite evosuite = new EvoSuite();
@@ -72,10 +76,11 @@ public class InfiniteWhile_SystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
-    @Test(timeout = 30_000)
+    @Test
+    @Timeout(value = 30_000, unit = TimeUnit.MILLISECONDS)
     public void systemTestJUnit() {
 
         EvoSuite evosuite = new EvoSuite();
@@ -94,7 +99,7 @@ public class InfiniteWhile_SystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertEquals("Should contain two tests: ", 2, best.size());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, best.size(), "Should contain two tests: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

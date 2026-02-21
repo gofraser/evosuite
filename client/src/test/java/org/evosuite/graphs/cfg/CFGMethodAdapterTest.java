@@ -1,12 +1,14 @@
 package org.evosuite.graphs.cfg;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import static org.junit.Assert.*;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class CFGMethodAdapterTest {
 
@@ -26,11 +28,11 @@ public class CFGMethodAdapterTest {
         classMap.put("Class1", methodSet);
         methods.put(cl, classMap);
 
-        assertTrue("Should have methods before clear", CFGMethodAdapter.getNumMethods(cl) > 0);
+        assertTrue(CFGMethodAdapter.getNumMethods(cl) > 0, "Should have methods before clear");
 
         CFGMethodAdapter.clear();
 
-        assertEquals("Should have 0 methods after clear", 0, CFGMethodAdapter.getNumMethods(cl));
-        assertTrue("Map should be empty", methods.isEmpty());
+        assertEquals(0, CFGMethodAdapter.getNumMethods(cl), "Should have 0 methods after clear");
+        assertTrue(methods.isEmpty(), "Map should be empty");
     }
 }

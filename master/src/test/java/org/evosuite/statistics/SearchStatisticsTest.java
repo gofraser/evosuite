@@ -19,7 +19,7 @@
  */
 package org.evosuite.statistics;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class SearchStatisticsTest {
 

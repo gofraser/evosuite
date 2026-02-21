@@ -22,9 +22,9 @@ package org.evosuite.continuous.persistency;
 import java.io.File;
 
 import org.evosuite.xsd.Project;
-import org.junit.Assert;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class StorageManagerTest {
 
@@ -36,7 +36,7 @@ public class StorageManagerTest {
 
         try {
             Project project = StorageManager.getDatabaseProject();
-            Assert.assertNotNull(project);
+            Assertions.assertNotNull(project);
         } finally {
             sm.clean();
         }
@@ -54,6 +54,6 @@ public class StorageManagerTest {
         StorageManager storage = new StorageManager();
         String result = storage.extractClassName(new File(base), new File(full));
 
-        Assert.assertEquals(packageName + "." + className, result);
+        Assertions.assertEquals(packageName + "." + className, result);
     }
 }

@@ -25,14 +25,14 @@ import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.symbolic.solver.DefaultTestCaseConcolicExecutor;
 import org.evosuite.symbolic.solver.SolverTimeoutException;
 import org.evosuite.testcase.DefaultTestCase;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.Collection;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestMIMEType {
 
@@ -43,10 +43,10 @@ public class TestMIMEType {
         return tc.getDefaultTestCase();
     }
 
-    @Before
+    @BeforeEach
     public void before() {
         final Integer javaVersion = Integer.valueOf(SystemUtils.JAVA_VERSION.split("\\.")[0]);
-        Assume.assumeTrue(javaVersion < 9);
+        Assumptions.assumeTrue(javaVersion < 9);
     }
 
     @Test

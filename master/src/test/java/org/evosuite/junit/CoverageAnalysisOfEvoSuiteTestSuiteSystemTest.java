@@ -19,19 +19,18 @@
  */
 package org.evosuite.junit;
 
-import static org.junit.Assert.assertEquals;
-
 import java.util.Map;
 
 import org.evosuite.EvoSuite;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.SearchStatistics;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.Euclidean;
 
 /**
@@ -54,7 +53,7 @@ public class CoverageAnalysisOfEvoSuiteTestSuiteSystemTest extends SystemTestBas
         };
 
         SearchStatistics statistics = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(statistics);
+        Assertions.assertNotNull(statistics);
 
         Map<String, OutputVariable<?>> data = statistics.getOutputVariables();
         assertEquals(5, (Integer) data.get("Total_Goals").getValue(), 0.0);

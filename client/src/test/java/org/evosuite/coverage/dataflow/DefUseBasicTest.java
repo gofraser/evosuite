@@ -9,10 +9,9 @@ import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
@@ -26,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -34,13 +33,13 @@ public class DefUseBasicTest {
 
     private ClassLoader classLoader;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
         resetStaticState();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         resetStaticState();
     }
@@ -274,7 +273,7 @@ public class DefUseBasicTest {
             results.add(result);
 
             boolean found = DefUseCoverageFactory.detectAliasingGoals(results);
-            assertTrue("Should find aliasing goals", found);
+            assertTrue(found, "Should find aliasing goals");
 
             List<DefUseCoverageTestFitness> currentGoals = (List<DefUseCoverageTestFitness>) duGoalsField.get(null);
             boolean newGoalFound = false;
@@ -284,7 +283,7 @@ public class DefUseBasicTest {
                     break;
                 }
             }
-            assertTrue("New goal (DefA, UseB) should be created", newGoalFound);
+            assertTrue(newGoalFound, "New goal (DefA, UseB) should be created");
 
         } catch (Exception e) {
             e.printStackTrace();

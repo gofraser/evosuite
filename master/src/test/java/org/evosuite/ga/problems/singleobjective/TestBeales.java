@@ -34,14 +34,14 @@ import org.evosuite.ga.operators.crossover.SBXCrossover;
 import org.evosuite.ga.operators.selection.BinaryTournamentSelectionCrowdedComparison;
 import org.evosuite.ga.problems.Problem;
 import org.evosuite.ga.variables.DoubleVariable;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static java.util.Comparator.comparingDouble;
 
 public class TestBeales {
-    @BeforeClass
+    @BeforeAll
     public static void setUp() {
         Properties.POPULATION = 100;
         Properties.SEARCH_BUDGET = 250;
@@ -56,10 +56,10 @@ public class TestBeales {
 
         double[] values = {-2.0, 1.0};
         NSGAChromosome c = new NSGAChromosome(-4.5, 4.5, values);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), -2.0, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(1)).getValue(), 1.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), -2.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(1)).getValue(), 1.0, 0.0);
 
-        Assert.assertEquals(f1.getFitness(c), 81.703125, 0.0);
+        Assertions.assertEquals(f1.getFitness(c), 81.703125, 0.0);
     }
 
     /**
@@ -92,7 +92,7 @@ public class TestBeales {
         chromosomes.sort(comparingDouble(chr -> chr.getFitness(f1)));
 
         for (NSGAChromosome chromosome : chromosomes)
-            Assert.assertEquals(chromosome.getFitness(f1), 0.29, 0.01);
+            Assertions.assertEquals(chromosome.getFitness(f1), 0.29, 0.01);
 
         for (NSGAChromosome chromosome : chromosomes) {
             DoubleVariable x = (DoubleVariable) chromosome.getVariables().get(0);

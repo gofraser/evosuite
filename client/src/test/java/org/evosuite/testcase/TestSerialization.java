@@ -20,8 +20,8 @@
 package org.evosuite.testcase;
 
 import org.evosuite.testcase.statements.PrimitiveStatement;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.*;
 
@@ -42,7 +42,7 @@ public class TestSerialization {
         ByteArrayInputStream bais = new ByteArrayInputStream(baSerialized);
         ObjectInputStream ois = new ObjectInputStream(bais);
         TestChromosome copy = (TestChromosome) ois.readObject();
-        Assert.assertEquals(chromosome.getFitness(), copy.getFitness(), 0.0);
+        Assertions.assertEquals(chromosome.getFitness(), copy.getFitness(), 0.0);
     }
 
     @Test
@@ -63,7 +63,7 @@ public class TestSerialization {
         ByteArrayInputStream bais = new ByteArrayInputStream(baSerialized);
         ObjectInputStream ois = new ObjectInputStream(bais);
         TestChromosome copy = (TestChromosome) ois.readObject();
-        Assert.assertEquals(chromosome.getFitness(), copy.getFitness(), 0.0);
+        Assertions.assertEquals(chromosome.getFitness(), copy.getFitness(), 0.0);
     }
 
 }

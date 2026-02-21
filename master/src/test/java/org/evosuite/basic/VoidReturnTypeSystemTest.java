@@ -24,9 +24,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.VoidExample;
 
 public class VoidReturnTypeSystemTest extends SystemTestBase {
@@ -48,7 +47,7 @@ public class VoidReturnTypeSystemTest extends SystemTestBase {
         String code = best.toString();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertFalse(code.contains("Void "));
-        Assert.assertFalse(code.contains("void0"));
+        Assertions.assertFalse(code.contains("Void "));
+        Assertions.assertFalse(code.contains("void0"));
     }
 }

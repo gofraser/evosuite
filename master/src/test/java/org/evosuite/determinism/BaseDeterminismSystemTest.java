@@ -24,9 +24,9 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.utils.LoggingUtils;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -34,20 +34,20 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Created by Andrea Arcuri on 19/10/15.
  */
 public class BaseDeterminismSystemTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void initClass() {
         LoggingUtils.changeLogbackFile("logback_for_determinism_check.xml");
         Properties.IS_RUNNING_A_SYSTEM_TEST = true;
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownClass() {
         LoggingUtils.changeLogbackFile("logback.xml");
         Properties.IS_RUNNING_A_SYSTEM_TEST = false;

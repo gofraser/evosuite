@@ -20,16 +20,16 @@
 package org.evosuite.testcase.fm;
 
 import org.evosuite.utils.ParameterizedTypeImpl;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.*;
@@ -72,7 +72,7 @@ public class EvoInvocationListenerTest {
         assertTrue(b);
 
         List<MethodDescriptor> list = listener.getCopyOfMethodDescriptors();
-        Assert.assertEquals(1, list.size());
+        Assertions.assertEquals(1, list.size());
     }
 
     @Test
@@ -97,7 +97,7 @@ public class EvoInvocationListenerTest {
         List<MethodDescriptor> list = listener.getCopyOfMethodDescriptors();
         // With Mockito 5, final methods are mocked/intercepted by default if the inline mock maker is active or supported
         // Assert.assertEquals(0, list.size());
-        Assert.assertEquals(1, list.size());
+        Assertions.assertEquals(1, list.size());
     }
 
 
@@ -113,28 +113,28 @@ public class EvoInvocationListenerTest {
         when(foo.parseString(any(), ArgumentMatchers.nullable(Foo.class))).thenReturn(4);
 
         List<MethodDescriptor> list = listener.getCopyOfMethodDescriptors();
-        Assert.assertEquals(0, list.size()); //not active yet
+        Assertions.assertEquals(0, list.size()); //not active yet
         listener.activate();
 
         int res = foo.parseString("foo");
-        Assert.assertEquals(1, res);
+        Assertions.assertEquals(1, res);
 
         res = foo.parseString("bar", true);
-        Assert.assertEquals(2, res);
+        Assertions.assertEquals(2, res);
 
         res = foo.parseString("foo");
-        Assert.assertEquals(1, res);
+        Assertions.assertEquals(1, res);
 
         res = foo.parseString("bar", new Object());
-        Assert.assertEquals(3, res);
+        Assertions.assertEquals(3, res);
 
         res = foo.parseString("bar", foo);
-        Assert.assertEquals(4, res);
+        Assertions.assertEquals(4, res);
 
         res = foo.parseString("bar", null);
-        Assert.assertEquals(4, res);
+        Assertions.assertEquals(4, res);
 
         list = listener.getCopyOfMethodDescriptors();
-        Assert.assertEquals(4, list.size());
+        Assertions.assertEquals(4, list.size());
     }
 }

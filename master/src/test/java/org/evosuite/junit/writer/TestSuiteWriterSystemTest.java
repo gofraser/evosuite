@@ -24,9 +24,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.junit.writer.Foo;
 
 import java.io.IOException;
@@ -54,14 +53,14 @@ public class TestSuiteWriterSystemTest extends SystemTestBase {
         Properties.WRITE_COVERED_GOALS_FILE = true;
         test();
         Path path = Paths.get(Properties.COVERED_GOALS_FILE);
-        Assert.assertTrue("Covered goals file does not exist", Files.exists(path));
-        Assert.assertEquals("Covered goals file with 2 lines was expected", 2, Files.readAllLines(path).size());
+        Assertions.assertTrue(Files.exists(path), "Covered goals file does not exist");
+        Assertions.assertEquals(2, Files.readAllLines(path).size(), "Covered goals file with 2 lines was expected");
     }
 
 
     public void test() {
 
-        Assert.assertNull(System.getSecurityManager());
+        Assertions.assertNull(System.getSecurityManager());
 
         String targetClass = Foo.class.getCanonicalName();
         Properties.TARGET_CLASS = targetClass;
@@ -73,11 +72,11 @@ public class TestSuiteWriterSystemTest extends SystemTestBase {
         EvoSuite evosuite = new EvoSuite();
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

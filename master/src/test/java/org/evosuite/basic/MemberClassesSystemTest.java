@@ -24,9 +24,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.MemberClassWithParameter;
 
 public class MemberClassesSystemTest extends SystemTestBase {
@@ -47,6 +46,6 @@ public class MemberClassesSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

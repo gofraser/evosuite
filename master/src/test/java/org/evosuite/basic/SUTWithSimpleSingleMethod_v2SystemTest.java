@@ -24,8 +24,7 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.*;
-
+import org.junit.jupiter.api.Assertions;
 import com.examples.with.different.packagename.SingleMethod;
 
 
@@ -34,7 +33,7 @@ import com.examples.with.different.packagename.SingleMethod;
  */
 public class SUTWithSimpleSingleMethod_v2SystemTest extends SystemTestBase {
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testSingleMethod() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -51,10 +50,10 @@ public class SUTWithSimpleSingleMethod_v2SystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
 
         GeneticAlgorithm<?> ga = getGAFromResult(result);
-        Assert.assertEquals("Wrong number of generations: ", 0, ga.getAge());
+        Assertions.assertEquals(0, ga.getAge(), "Wrong number of generations: ");
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
-        Assert.assertEquals("Wrong number of test cases: ", 1, best.size());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Wrong number of statements: ", 2, best.getTestChromosome(0).getTestCase().size());
+        Assertions.assertEquals(1, best.size(), "Wrong number of test cases: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(2, best.getTestChromosome(0).getTestCase().size(), "Wrong number of statements: ");
     }
 }

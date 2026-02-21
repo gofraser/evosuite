@@ -27,10 +27,9 @@ import org.evosuite.continuous.CtgConfiguration;
 import org.evosuite.Properties.AvailableSchedule;
 import org.evosuite.continuous.project.ProjectAnalyzer;
 import org.evosuite.continuous.project.ProjectStaticData;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.continuous.BaseForSeeding;
 import com.examples.with.different.packagename.continuous.MoreBranches;
 import com.examples.with.different.packagename.continuous.NoBranches;
@@ -45,7 +44,7 @@ import com.examples.with.different.packagename.continuous.UsingSimpleAndTrivial;
 
 public class JobSchedulerTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void initClass() {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
     }
@@ -69,26 +68,26 @@ public class JobSchedulerTest {
         JobScheduler scheduler = new JobScheduler(data, conf);
 
         List<JobDefinition> jobs = scheduler.createNewSchedule();
-        Assert.assertNotNull(jobs);
+        Assertions.assertNotNull(jobs);
         //we have 4 classes, but one is an interface
-        Assert.assertEquals(3, jobs.size());
+        Assertions.assertEquals(3, jobs.size());
 
         for (JobDefinition job : jobs) {
-            Assert.assertEquals(700, job.memoryInMB);
+            Assertions.assertEquals(700, job.memoryInMB);
         }
 
-        Assert.assertEquals(MoreBranches.class.getName(), jobs.get(0).cut);
-        Assert.assertEquals(SomeBranches.class.getName(), jobs.get(1).cut);
-        Assert.assertEquals(NoBranches.class.getName(), jobs.get(2).cut);
+        Assertions.assertEquals(MoreBranches.class.getName(), jobs.get(0).cut);
+        Assertions.assertEquals(SomeBranches.class.getName(), jobs.get(1).cut);
+        Assertions.assertEquals(NoBranches.class.getName(), jobs.get(2).cut);
 
         long dif01 = jobs.get(0).seconds - jobs.get(1).seconds;
         long dif12 = jobs.get(1).seconds - jobs.get(2).seconds;
 
-        Assert.assertTrue("" + dif01, dif01 > 0);
-        Assert.assertTrue("" + dif12, dif12 > 0);
+        Assertions.assertTrue(dif01 > 0, "" + dif01);
+        Assertions.assertTrue(dif12 > 0, "" + dif12);
 
         int sum = jobs.get(0).seconds + jobs.get(1).seconds + jobs.get(2).seconds;
-        Assert.assertTrue("wrong value " + sum, sum <= (cores * budget * 60));
+        Assertions.assertTrue(sum <= (cores * budget * 60), "wrong value " + sum);
     }
 
     @Test
@@ -111,28 +110,28 @@ public class JobSchedulerTest {
         JobScheduler scheduler = new JobScheduler(data, conf);
 
         List<JobDefinition> jobs = scheduler.createNewSchedule();
-        Assert.assertNotNull(jobs);
-        Assert.assertEquals(3, jobs.size());
+        Assertions.assertNotNull(jobs);
+        Assertions.assertEquals(3, jobs.size());
 
         for (JobDefinition job : jobs) {
-            Assert.assertEquals(700, job.memoryInMB);
+            Assertions.assertEquals(700, job.memoryInMB);
         }
 
-        Assert.assertEquals(MoreBranches.class.getName(), jobs.get(0).cut);
-        Assert.assertEquals(Trivial.class.getName(), jobs.get(1).cut);
-        Assert.assertEquals(NoBranches.class.getName(), jobs.get(2).cut);
+        Assertions.assertEquals(MoreBranches.class.getName(), jobs.get(0).cut);
+        Assertions.assertEquals(Trivial.class.getName(), jobs.get(1).cut);
+        Assertions.assertEquals(NoBranches.class.getName(), jobs.get(2).cut);
 
         long dif01 = jobs.get(0).seconds - jobs.get(1).seconds;
         long dif12 = jobs.get(1).seconds - jobs.get(2).seconds;
 
-        Assert.assertTrue("" + dif01, dif01 > 0);
-        Assert.assertTrue("" + dif12, dif12 > 0);
+        Assertions.assertTrue(dif01 > 0, "" + dif01);
+        Assertions.assertTrue(dif12 > 0, "" + dif12);
 
         int sum = jobs.get(0).seconds + jobs.get(1).seconds + jobs.get(2).seconds;
-        Assert.assertTrue("wrong value " + sum, sum <= (cores * budget * 60));
+        Assertions.assertTrue(sum <= (cores * budget * 60), "wrong value " + sum);
 
         for (JobDefinition job : jobs) {
-            Assert.assertTrue("wrong " + job.seconds, job.seconds <= budget * 60);
+            Assertions.assertTrue(job.seconds <= budget * 60, "wrong " + job.seconds);
         }
     }
 
@@ -155,19 +154,19 @@ public class JobSchedulerTest {
 
 
         List<JobDefinition> jobs = scheduler.createNewSchedule();
-        Assert.assertNotNull(jobs);
+        Assertions.assertNotNull(jobs);
         //we have 4 classes, but one is an interface
-        Assert.assertEquals(3, jobs.size());
+        Assertions.assertEquals(3, jobs.size());
 
         for (JobDefinition job : jobs) {
-            Assert.assertEquals(700, job.memoryInMB);
+            Assertions.assertEquals(700, job.memoryInMB);
         }
 
-        Assert.assertEquals(jobs.get(0).seconds, jobs.get(1).seconds);
-        Assert.assertEquals(jobs.get(2).seconds, jobs.get(1).seconds);
+        Assertions.assertEquals(jobs.get(0).seconds, jobs.get(1).seconds);
+        Assertions.assertEquals(jobs.get(2).seconds, jobs.get(1).seconds);
 
         int sum = jobs.get(0).seconds + jobs.get(1).seconds + jobs.get(2).seconds;
-        Assert.assertTrue("wrong value " + sum, sum <= (cores * budget * 60));
+        Assertions.assertTrue(sum <= (cores * budget * 60), "wrong value " + sum);
     }
 
     @Test
@@ -190,10 +189,10 @@ public class JobSchedulerTest {
         JobScheduler scheduler = new JobScheduler(data, conf);
 
         List<JobDefinition> jobs = scheduler.createNewSchedule();
-        Assert.assertNotNull(jobs);
+        Assertions.assertNotNull(jobs);
 
         for (JobDefinition job : jobs) {
-            Assert.assertEquals(600, job.memoryInMB);
+            Assertions.assertEquals(600, job.memoryInMB);
         }
 
         /*
@@ -203,7 +202,7 @@ public class JobSchedulerTest {
          */
 
         //we have 9 classes, but 2 have no code
-        Assert.assertEquals("Wrong number of jobs: " + jobs.toString(), 8, jobs.size()); //FIXME should be 7
+        Assertions.assertEquals(8, jobs.size(), "Wrong number of jobs: " + jobs.toString()); //FIXME should be 7
 
         JobDefinition seeding = null;
         for (JobDefinition job : jobs) {
@@ -212,16 +211,16 @@ public class JobSchedulerTest {
                 break;
             }
         }
-        Assert.assertNotNull(seeding);
+        Assertions.assertNotNull(seeding);
 
         Set<String> in = seeding.inputClasses;
-        Assert.assertNotNull(in);
+        Assertions.assertNotNull(in);
         System.out.println(in.toString());
-        Assert.assertTrue(in.contains(NoBranches.class.getName()));
-        Assert.assertTrue(in.contains(SomeBranches.class.getName()));
-        Assert.assertTrue(in.contains(SomeInterfaceImpl.class.getName()));
-        Assert.assertTrue(in.contains(OnlyAbstractImpl.class.getName()));
-        Assert.assertEquals(5, in.size()); //FIXME should be 4
+        Assertions.assertTrue(in.contains(NoBranches.class.getName()));
+        Assertions.assertTrue(in.contains(SomeBranches.class.getName()));
+        Assertions.assertTrue(in.contains(SomeInterfaceImpl.class.getName()));
+        Assertions.assertTrue(in.contains(OnlyAbstractImpl.class.getName()));
+        Assertions.assertEquals(5, in.size()); //FIXME should be 4
     }
 
     @Test
@@ -244,21 +243,21 @@ public class JobSchedulerTest {
         JobScheduler scheduler = new JobScheduler(data, conf);
 
         List<JobDefinition> jobs = scheduler.createNewSchedule();
-        Assert.assertNotNull(jobs);
+        Assertions.assertNotNull(jobs);
 
-        Assert.assertEquals("Wrong number of jobs: " + jobs.toString(), 3, jobs.size());
+        Assertions.assertEquals(3, jobs.size(), "Wrong number of jobs: " + jobs.toString());
 
         //UsingSimpleAndTrivial should be the last in the schedule, as it depends on the first 2
         JobDefinition seeding = jobs.get(2);
-        Assert.assertNotNull(seeding);
-        Assert.assertEquals(UsingSimpleAndTrivial.class.getName(), seeding.cut);
+        Assertions.assertNotNull(seeding);
+        Assertions.assertEquals(UsingSimpleAndTrivial.class.getName(), seeding.cut);
 
         Set<String> in = seeding.inputClasses;
-        Assert.assertNotNull(in);
+        Assertions.assertNotNull(in);
         System.out.println(in.toString());
-        Assert.assertTrue(in.contains(Simple.class.getName()));
-        Assert.assertTrue(in.contains(Trivial.class.getName()));
-        Assert.assertEquals(2, in.size());
+        Assertions.assertTrue(in.contains(Simple.class.getName()));
+        Assertions.assertTrue(in.contains(Trivial.class.getName()));
+        Assertions.assertEquals(2, in.size());
     }
 
 
@@ -282,26 +281,26 @@ public class JobSchedulerTest {
         JobScheduler scheduler = new JobScheduler(data, conf);
 
         List<JobDefinition> jobs = scheduler.createNewSchedule();
-        Assert.assertNotNull(jobs);
+        Assertions.assertNotNull(jobs);
 
-        Assert.assertEquals("Wrong number of jobs: " + jobs.toString(), 3, jobs.size());
+        Assertions.assertEquals(3, jobs.size(), "Wrong number of jobs: " + jobs.toString());
 
         //UsingSimpleAndTrivial should be the last in the schedule, as it depends on the other 2
         JobDefinition seeding = jobs.get(2);
-        Assert.assertNotNull(seeding);
-        Assert.assertEquals(UsingSimpleAndTrivial.class.getName(), seeding.cut);
+        Assertions.assertNotNull(seeding);
+        Assertions.assertEquals(UsingSimpleAndTrivial.class.getName(), seeding.cut);
 
         Set<String> in = seeding.inputClasses;
-        Assert.assertNotNull(in);
+        Assertions.assertNotNull(in);
         System.out.println(in.toString());
-        Assert.assertTrue(in.contains(Simple.class.getName()));
-        Assert.assertTrue(in.contains(Trivial.class.getName()));
-        Assert.assertEquals(2, in.size());
+        Assertions.assertTrue(in.contains(Simple.class.getName()));
+        Assertions.assertTrue(in.contains(Trivial.class.getName()));
+        Assertions.assertEquals(2, in.size());
 
 
         JobDefinition simple = jobs.get(0); //should be the first, as it has the highest number of branches among the jobs with no depencencies
-        Assert.assertNotNull(simple);
-        Assert.assertEquals(Simple.class.getName(), simple.cut);
+        Assertions.assertNotNull(simple);
+        Assertions.assertEquals(Simple.class.getName(), simple.cut);
 
         int simpleTime = jobs.get(0).seconds;
         int trivialTime = jobs.get(1).seconds;
@@ -309,9 +308,9 @@ public class JobSchedulerTest {
 
         System.out.println("Ordered times: " + simpleTime + ", " + trivialTime + ", " + seedingTime);
 
-        Assert.assertTrue(simpleTime > trivialTime);
-        Assert.assertTrue(simpleTime < seedingTime);  //seeding, even if last, it should have more time, as it has most branches
-        Assert.assertTrue(trivialTime < seedingTime);
+        Assertions.assertTrue(simpleTime > trivialTime);
+        Assertions.assertTrue(simpleTime < seedingTime);  //seeding, even if last, it should have more time, as it has most branches
+        Assertions.assertTrue(trivialTime < seedingTime);
     }
 
 

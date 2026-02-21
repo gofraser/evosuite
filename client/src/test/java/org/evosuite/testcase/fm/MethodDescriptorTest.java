@@ -20,13 +20,13 @@
 package org.evosuite.testcase.fm;
 
 import org.evosuite.utils.generic.GenericClassFactory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.awt.*;
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Created by foo on 20/12/15.
@@ -42,10 +42,10 @@ public class MethodDescriptorTest {
         MethodDescriptor md = new MethodDescriptor(m, GenericClassFactory.get(m.getReturnType()));
 
         String res = md.getInputParameterMatchers();
-        assertTrue(res, res.contains("any("));
-        assertTrue(res, res.contains("RenderingHints"));
-        assertTrue(res, res.contains("Key"));
+        assertTrue(res.contains("any("), res);
+        assertTrue(res.contains("RenderingHints"), res);
+        assertTrue(res.contains("Key"), res);
 
-        assertFalse(res, res.contains("$"));
+        assertFalse(res.contains("$"), res);
     }
 }

@@ -29,12 +29,12 @@ import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.mock.java.util.RandomUser;
+
 //import org.evosuite.testsuite.SearchStatistics;
 
 public class MockRandomSystemTest extends SystemTestBase {
@@ -43,14 +43,14 @@ public class MockRandomSystemTest extends SystemTestBase {
     private static final boolean JUNIT_TESTS = Properties.JUNIT_TESTS;
     private static final Properties.JUnitCheckValues JUNIT_CHECK = Properties.JUNIT_CHECK;
 
-    @Before
+    @BeforeEach
     public void setProperties() {
         Properties.REPLACE_CALLS = true;
         Properties.JUNIT_TESTS = true;
         Properties.JUNIT_CHECK = Properties.JUnitCheckValues.TRUE;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.REPLACE_CALLS = REPLACE_CALLS;
         Properties.JUNIT_TESTS = JUNIT_TESTS;
@@ -71,20 +71,20 @@ public class MockRandomSystemTest extends SystemTestBase {
                 targetClass};
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<?> ga = getGAFromResult(result);
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(),
-                0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001,
+                "Non-optimal coverage: ");
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
     }
 
 }

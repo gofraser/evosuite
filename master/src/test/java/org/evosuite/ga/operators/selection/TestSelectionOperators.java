@@ -25,7 +25,8 @@ import org.evosuite.ga.operators.selection.RankSelection;
 import org.evosuite.ga.operators.selection.SelectionFunction;
 import org.evosuite.ga.operators.selection.TournamentSelection;
 import org.evosuite.testcase.*;
-import org.junit.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 
 import java.util.*;
 
@@ -34,7 +35,7 @@ import java.util.*;
  * @author Andrea Arcuri
  */
 public class TestSelectionOperators {
-    @Test
+    @org.junit.jupiter.api.Test
     public void testMaximizeVariable() {
         SelectionFunction<?>[] v = new SelectionFunction[]{
                 new TournamentSelection<>(),
@@ -44,14 +45,14 @@ public class TestSelectionOperators {
 
         for (SelectionFunction<?> sf : v) {
             sf.setMaximize(true);
-            Assert.assertTrue(sf.isMaximize());
+            Assertions.assertTrue(sf.isMaximize());
             sf.setMaximize(false);
-            Assert.assertFalse(sf.isMaximize());
+            Assertions.assertFalse(sf.isMaximize());
         }
     }
 
-    @Ignore
-    @Test
+    @Disabled
+    @org.junit.jupiter.api.Test
     public void testProportions() {
         boolean[] maximize = new boolean[]{false, true};
 
@@ -85,10 +86,10 @@ public class TestSelectionOperators {
                 }
 
                 for (int j = 0; j < N - 1; j++) {
-                    Assert.assertTrue("" + counter[j] + " " + counter[j + 1], counter[j] > counter[j + 1]);
+                    Assertions.assertTrue(counter[j] > counter[j + 1], "" + counter[j] + " " + counter[j + 1]);
                 }
 
-                Assert.assertTrue(counter[N - 1] > 0);
+                Assertions.assertTrue(counter[N - 1] > 0);
             }
         }
     }

@@ -23,8 +23,8 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.NSGAChromosome;
 import org.evosuite.ga.problems.Problem;
 import org.evosuite.ga.problems.singleobjective.Booths;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,11 +52,11 @@ public class TestSortByFitness {
 
         population.sort(new SortByFitness<>(ff, true));
 
-        Assert.assertSame(population.get(0), c1);
-        Assert.assertEquals(0.7, population.get(0).getFitness(ff), 0.0);
+        Assertions.assertSame(population.get(0), c1);
+        Assertions.assertEquals(0.7, population.get(0).getFitness(ff), 0.0);
 
-        Assert.assertSame(population.get(1), c2);
-        Assert.assertEquals(0.3, population.get(1).getFitness(ff), 0.0);
+        Assertions.assertSame(population.get(1), c2);
+        Assertions.assertEquals(0.3, population.get(1).getFitness(ff), 0.0);
     }
 
     @Test
@@ -78,11 +78,11 @@ public class TestSortByFitness {
 
         population.sort(new SortByFitness<>(ff, true));
 
-        Assert.assertSame(population.get(0), c2);
-        Assert.assertEquals(0.7, population.get(0).getFitness(ff), 0.0);
+        Assertions.assertSame(population.get(0), c2);
+        Assertions.assertEquals(0.7, population.get(0).getFitness(ff), 0.0);
 
-        Assert.assertEquals(0.3, population.get(1).getFitness(ff), 0.0);
-        Assert.assertSame(population.get(1), c1);
+        Assertions.assertEquals(0.3, population.get(1).getFitness(ff), 0.0);
+        Assertions.assertSame(population.get(1), c1);
     }
 
     @Test
@@ -104,10 +104,10 @@ public class TestSortByFitness {
 
         population.sort(new SortByFitness<>(ff, true));
 
-        Assert.assertSame(population.get(0), c1);
-        Assert.assertEquals(0.5, population.get(0).getFitness(ff), 0.0);
+        Assertions.assertSame(population.get(0), c1);
+        Assertions.assertEquals(0.5, population.get(0).getFitness(ff), 0.0);
 
-        Assert.assertEquals(0.5, population.get(1).getFitness(ff), 0.0);
-        Assert.assertSame(population.get(1), c2);
+        Assertions.assertEquals(0.5, population.get(1).getFitness(ff), 0.0);
+        Assertions.assertSame(population.get(1), c2);
     }
 }

@@ -1,10 +1,10 @@
 package org.evosuite.coverage.branch;
 
 import org.evosuite.graphs.cfg.BytecodeInstruction;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class BranchCoverageGoalTest {
 
@@ -60,16 +60,16 @@ public class BranchCoverageGoalTest {
         BranchCoverageGoal g2 = new BranchCoverageGoal(b2, true, "Class", "Method");
 
         // g1 line 10, g2 line 20
-        assertTrue("Expected g1 < g2 because line 10 < 20", g1.compareTo(g2) < 0);
-        assertTrue("Expected g2 > g1 because line 20 > 10", g2.compareTo(g1) > 0);
+        assertTrue(g1.compareTo(g2) < 0, "Expected g1 < g2 because line 10 < 20");
+        assertTrue(g2.compareTo(g1) > 0, "Expected g2 > g1 because line 20 > 10");
 
         // Same line, same branch, diff value
         BranchCoverageGoal g1False = new BranchCoverageGoal(b1, false, "Class", "Method");
 
         // g1 is true, g1False is false.
         // value comparison: true(1) > false(0)
-        assertTrue("Expected true > false", g1.compareTo(g1False) > 0);
-        assertTrue("Expected false < true", g1False.compareTo(g1) < 0);
+        assertTrue(g1.compareTo(g1False) > 0, "Expected true > false");
+        assertTrue(g1False.compareTo(g1) < 0, "Expected false < true");
 
         assertEquals(0, g1.compareTo(g1));
     }
@@ -99,8 +99,8 @@ public class BranchCoverageGoalTest {
         BranchCoverageGoal g2 = new BranchCoverageGoal(b2, true, "Class", "Method");
 
         // g1 id 1, g2 id 2. 1 < 2.
-        assertTrue("Expected g1 < g2 because id 1 < 2", g1.compareTo(g2) < 0);
-        assertTrue("Expected g2 > g1 because id 2 > 1", g2.compareTo(g1) > 0);
+        assertTrue(g1.compareTo(g2) < 0, "Expected g1 < g2 because id 1 < 2");
+        assertTrue(g2.compareTo(g1) > 0, "Expected g2 > g1 because id 2 > 1");
     }
 
     @Test

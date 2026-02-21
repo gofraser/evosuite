@@ -1,9 +1,11 @@
 package org.evosuite.statistics;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
 import org.evosuite.Properties;
+import org.junit.jupiter.api.Test;
+
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class SequenceOutputVariableFactoryTest {
 

@@ -25,8 +25,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class MethodWithClassParameterSystemTest extends SystemTestBase {
 
@@ -45,8 +45,8 @@ public class MethodWithClassParameterSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
 //        System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertFalse(best.toString().contains("Class<Foo> class0 = Class.class;"));
-        Assert.assertTrue(best.toString().contains("Class<Foo> class0 = Foo.class;"));
+        Assertions.assertFalse(best.toString().contains("Class<Foo> class0 = Class.class;"));
+        Assertions.assertTrue(best.toString().contains("Class<Foo> class0 = Foo.class;"));
 
     }
 }

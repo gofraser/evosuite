@@ -23,21 +23,21 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CrowdingDistanceTest {
 
     public static List<FitnessFunction<TestChromosome>> ff;
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         // create the set of fitness functions
         TestFitnessFunction f1 = Mockito.mock(TestFitnessFunction.class);

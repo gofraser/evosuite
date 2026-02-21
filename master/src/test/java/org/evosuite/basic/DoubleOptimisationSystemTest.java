@@ -24,10 +24,9 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.DoubleExample;
 import com.examples.with.different.packagename.DoubleExample2;
 
@@ -35,7 +34,7 @@ public class DoubleOptimisationSystemTest extends SystemTestBase {
 
     private double seedConstants = Properties.PRIMITIVE_POOL;
 
-    @After
+    @AfterEach
     public void resetSeedConstants() {
         Properties.PRIMITIVE_POOL = seedConstants;
     }
@@ -54,13 +53,13 @@ public class DoubleOptimisationSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -78,12 +77,12 @@ public class DoubleOptimisationSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

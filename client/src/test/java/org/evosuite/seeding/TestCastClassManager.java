@@ -23,8 +23,8 @@ import org.evosuite.Properties;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.WildcardTypeImpl;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
@@ -33,12 +33,12 @@ import java.util.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsCollectionContaining.hasItem;
 import static org.hamcrest.core.IsEqual.equalTo;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 public class TestCastClassManager {
 
-    @After
+    @AfterEach
     public void tearDown() {
         CastClassManager.getInstance().clear();
     }
@@ -53,9 +53,10 @@ public class TestCastClassManager {
         assertThat(genericClass, equalTo(intClass));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testSelectClassEmptyListThrowsException() {
-        CastClassManager.selectClass(Collections.emptyList());
+        assertThrows(IllegalArgumentException.class, () ->
+            CastClassManager.selectClass(Collections.emptyList()));
     }
 
     @Test
@@ -69,8 +70,8 @@ public class TestCastClassManager {
         for (int i = 0; i < 1000; i++) {
             GenericClass<?> selected = CastClassManager.selectClass(candidates);
             assertNotNull(selected);
-            assertTrue("Selected class should be one of the candidates",
-                    candidates.contains(selected));
+            assertTrue(candidates.contains(selected),
+                    "Selected class should be one of the candidates");
         }
     }
 
@@ -184,11 +185,13 @@ public class TestCastClassManager {
 
     // --- getCastClasses immutability ---
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void testGetCastClassesReturnsUnmodifiableView() {
-        CastClassManager instance = CastClassManager.getInstance();
-        Set<GenericClass<?>> castClasses = instance.getCastClasses();
-        castClasses.add(GenericClassFactory.get(Double.class));
+        assertThrows(UnsupportedOperationException.class, () -> {
+            CastClassManager instance = CastClassManager.getInstance();
+            Set<GenericClass<?>> castClasses = instance.getCastClasses();
+            castClasses.add(GenericClassFactory.get(Double.class));
+        });
     }
 
     @Test

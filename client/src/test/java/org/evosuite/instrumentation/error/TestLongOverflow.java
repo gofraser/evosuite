@@ -19,11 +19,9 @@
  */
 package org.evosuite.instrumentation.error;
 
-import org.junit.Assume;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.objectweb.asm.Opcodes;
 
 import java.math.BigDecimal;
@@ -32,16 +30,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@RunWith(Parameterized.class)
 public class TestLongOverflow {
 
     private long x;
     private long y;
 
     // Creates the test data
-    @Parameters
     public static Collection<Object[]> data() {
         Object[] values = new Object[]{Long.MIN_VALUE, Long.MIN_VALUE / 2, 0, Long.MAX_VALUE / 2, Long.MAX_VALUE};
         List<Object[]> valuePairs = new ArrayList<>();
@@ -53,7 +49,7 @@ public class TestLongOverflow {
         return valuePairs;
     }
 
-    public TestLongOverflow(long x, long y) {
+    public void initTestLongOverflow(long x, long y) {
         this.x = x;
         this.y = y;
     }
@@ -62,35 +58,43 @@ public class TestLongOverflow {
     private void assertOverflow(BigDecimal preciseResult, int distance, long longResult) {
         BigDecimal maxResult = new BigDecimal(Long.MAX_VALUE);
         if (preciseResult.compareTo(maxResult) > 0) {
-            assertTrue("Expected negative value for " + x + " and " + y + ": " + distance + " for " + longResult, distance <= 0);
+            assertTrue(distance <= 0, "Expected negative value for " + x + " and " + y + ": " + distance + " for " + longResult);
 
         } else {
-            assertTrue("Expected positive value for " + x + " and " + y + ": " + distance + " for " + longResult, distance > 0);
+            assertTrue(distance > 0, "Expected positive value for " + x + " and " + y + ": " + distance + " for " + longResult);
         }
     }
 
 
-    @Test
-    public void testAddOverflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testAddOverflow(long x, long y) {
+        initTestLongOverflow(x, y);
         int result = ErrorConditionChecker.overflowDistance(x, y, Opcodes.LADD);
         assertOverflow(new BigDecimal(x).add(new BigDecimal(y)), result, x + y);
     }
 
-    @Test
-    public void testSubOverflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testSubOverflow(long x, long y) {
+        initTestLongOverflow(x, y);
         int result = ErrorConditionChecker.overflowDistance(x, y, Opcodes.LSUB);
         assertOverflow(new BigDecimal(x).subtract(new BigDecimal(y)), result, x - y);
     }
 
-    @Test
-    public void testMulOverflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testMulOverflow(long x, long y) {
+        initTestLongOverflow(x, y);
         int result = ErrorConditionChecker.overflowDistance(x, y, Opcodes.LMUL);
         assertOverflow(new BigDecimal(x).multiply(new BigDecimal(y)), result, x * y);
     }
 
-    @Test
-    public void testDivOverflow() {
-        Assume.assumeTrue(y != 0L);
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testDivOverflow(long x, long y) {
+        initTestLongOverflow(x, y);
+        Assumptions.assumeTrue(y != 0L);
         int result = ErrorConditionChecker.overflowDistance(x, y, Opcodes.LDIV);
         assertOverflow(new BigDecimal(x).divide(new BigDecimal(y), 10, RoundingMode.HALF_UP), result, x / y);
     }

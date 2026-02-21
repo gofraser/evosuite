@@ -34,7 +34,7 @@ import org.evosuite.symbolic.expr.str.StringConstant;
 import org.evosuite.symbolic.expr.str.StringUnaryExpression;
 import org.evosuite.symbolic.expr.str.StringVariable;
 import org.evosuite.symbolic.solver.SolverTimeoutException;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.evosuite.symbolic.solver.TestSolver.solve;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestStringSearch extends RandomizedTC {
 
@@ -542,8 +542,8 @@ public class TestStringSearch extends RandomizedTC {
             result = solve(skr, constraints);
             assertNotNull(result);
             assertNotNull(result.get("test1"));
-            assertFalse("Result should not match TEST: " + result.get("test1").toString(),
-                    result.get("test1").toString().matches(const2));
+            assertFalse(result.get("test1").toString().matches(const2),
+                    "Result should not match TEST: " + result.get("test1").toString());
         } catch (SolverTimeoutException e) {
             fail();
         }
@@ -619,8 +619,8 @@ public class TestStringSearch extends RandomizedTC {
             String result = solution.get("var0").toString();
             int colonPos = result.indexOf(':');
             int numeralPos = result.indexOf('#');
-            assertTrue("Colon not found in " + result, colonPos >= 0);
-            assertTrue("Numeral not found in " + result, numeralPos >= 0);
+            assertTrue(colonPos >= 0, "Colon not found in " + result);
+            assertTrue(numeralPos >= 0, "Numeral not found in " + result);
             assertTrue(colonPos > numeralPos);
         } catch (SolverTimeoutException e) {
             fail();

@@ -20,16 +20,16 @@
 package org.evosuite.symbolic.solver.cvc4;
 
 import org.evosuite.Properties;
-import org.junit.AfterClass;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 
 public abstract class TestCVC4 {
 
     private static final String DEFAULT_CVC4_PATH = Properties.CVC4_PATH;
 
-    @BeforeClass
+    @BeforeAll
     public static void configureCVC4Path() {
         String cvc4_path = System.getenv("cvc4_path");
         if (cvc4_path != null) {
@@ -37,12 +37,12 @@ public abstract class TestCVC4 {
         }
     }
 
-    @Before
+    @BeforeEach
     public void checkCVC4() {
-        Assume.assumeTrue(Properties.CVC4_PATH != null);
+        Assumptions.assumeTrue(Properties.CVC4_PATH != null);
     }
 
-    @AfterClass
+    @AfterAll
     public static void restoreCVC4Path() {
         Properties.CVC4_PATH = DEFAULT_CVC4_PATH;
     }

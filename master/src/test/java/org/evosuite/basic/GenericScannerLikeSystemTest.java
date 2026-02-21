@@ -7,8 +7,8 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class GenericScannerLikeSystemTest extends SystemTestBase {
 
@@ -26,14 +26,14 @@ public class GenericScannerLikeSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
         System.out.println("GENERIC_SCANNER_LIKE_TEST: goals=" + goals + " coverage=" + best.getCoverage());
 
-        Assert.assertTrue("Expected at least one branch goal", goals > 0);
-        Assert.assertTrue("Expected non-zero branch coverage for reproduction target", best.getCoverage() > 0.0d);
+        Assertions.assertTrue(goals > 0, "Expected at least one branch goal");
+        Assertions.assertTrue(best.getCoverage() > 0.0d, "Expected non-zero branch coverage for reproduction target");
     }
 }

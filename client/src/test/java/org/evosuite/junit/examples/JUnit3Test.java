@@ -19,8 +19,11 @@
  */
 package org.evosuite.junit.examples;
 
+import org.junit.jupiter.api.Test;
+
 public class JUnit3Test extends AbstractJUnit3Test {
 
+    @Test
     public void testFoo() {
 
     }

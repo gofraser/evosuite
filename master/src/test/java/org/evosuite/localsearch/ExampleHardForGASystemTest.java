@@ -25,11 +25,10 @@ import org.evosuite.Properties.SolverType;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.localsearch.ExampleHardForGA;
 
 /**
@@ -37,7 +36,7 @@ import com.examples.with.different.packagename.localsearch.ExampleHardForGA;
  */
 public class ExampleHardForGASystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.RESET_STATIC_FIELD_GETS = true;
         Properties.P_FUNCTIONAL_MOCKING = 0.0;
@@ -48,7 +47,7 @@ public class ExampleHardForGASystemTest extends SystemTestBase {
 
     @Test
     public void testZ3() {
-        Assume.assumeTrue(System.getenv("z3_path") != null);
+        Assumptions.assumeTrue(System.getenv("z3_path") != null);
         Properties.Z3_PATH = System.getenv("z3_path");
         Properties.DSE_SOLVER = SolverType.Z3_SOLVER;
 
@@ -70,7 +69,7 @@ public class ExampleHardForGASystemTest extends SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     /**
@@ -97,12 +96,12 @@ public class ExampleHardForGASystemTest extends SystemTestBase {
          * We expect the coverage will not be 100% branch, since there is at
          * least one branch that is particularly hard for GA
          */
-        Assert.assertTrue(best.getCoverage() < 1d);
+        Assertions.assertTrue(best.getCoverage() < 1d);
     }
 
     @Test
     public void testCVC4() {
-        Assume.assumeTrue(System.getenv("cvc4_path") != null);
+        Assumptions.assumeTrue(System.getenv("cvc4_path") != null);
         Properties.CVC4_PATH = System.getenv("cvc4_path");
         Properties.DSE_SOLVER = SolverType.CVC4_SOLVER;
 
@@ -124,7 +123,7 @@ public class ExampleHardForGASystemTest extends SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
 }

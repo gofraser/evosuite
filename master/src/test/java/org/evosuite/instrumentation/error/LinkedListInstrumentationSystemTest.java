@@ -22,7 +22,7 @@ package org.evosuite.instrumentation.error;
 import com.examples.with.different.packagename.errorbranch.LinkedListAccess;
 import com.examples.with.different.packagename.errorbranch.LinkedListAccessIndex;
 import org.evosuite.Properties;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class LinkedListInstrumentationSystemTest extends AbstractErrorBranchTest {
 

@@ -25,8 +25,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Created by arcuri on 12/24/14.
@@ -58,6 +58,6 @@ public class CompositeFitnessSystemTest extends SystemTestBase {
             2) return false
             3) NPE
          */
-        Assert.assertEquals(3, best.getTests().size());
+        Assertions.assertEquals(3, best.getTests().size());
     }
 }

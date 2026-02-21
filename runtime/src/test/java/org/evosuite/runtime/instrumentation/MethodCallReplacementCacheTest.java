@@ -1,22 +1,22 @@
 package org.evosuite.runtime.instrumentation;
 
 import org.evosuite.runtime.RuntimeSettings;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 
 import java.lang.reflect.Method;
 
 public class MethodCallReplacementCacheTest {
 
-    @Before
+    @BeforeEach
     public void enableJvmMocking() {
         RuntimeSettings.mockJVMNonDeterminism = true;
     }
 
-    @After
+    @AfterEach
     public void resetState() {
         RuntimeSettings.mockJVMNonDeterminism = false;
         MethodCallReplacementCache.resetSingleton();
@@ -37,7 +37,7 @@ public class MethodCallReplacementCacheTest {
         String arraycopyKey = arraycopy.getName() + Type.getMethodDescriptor(arraycopy);
 
         MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
-        Assert.assertTrue(cache.hasReplacementCall("java/lang/System", consoleKey));
-        Assert.assertFalse(cache.hasReplacementCall("java/lang/System", arraycopyKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/lang/System", consoleKey));
+        Assertions.assertFalse(cache.hasReplacementCall("java/lang/System", arraycopyKey));
     }
 }

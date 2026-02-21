@@ -25,21 +25,20 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.staticfield.StaticBlockCoverage;
 
 public class StaticBlockCoverageSystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void setUpProperties() {
         Properties.RESET_STATIC_FIELDS = true;
     }
 
-    @Ignore // We are not instrumenting static blocks for a reason. TODO: What was the reason?
+    @Disabled // We are not instrumenting static blocks for a reason. TODO: What was the reason?
     @Test
     public void test() {
         EvoSuite evosuite = new EvoSuite();
@@ -58,7 +57,7 @@ public class StaticBlockCoverageSystemTest extends SystemTestBase {
         System.out.println(best.toString());
 
         double best_fitness = best.getFitness();
-        Assert.assertEquals("Optimal coverage was not achieved ", 0.0, best_fitness, 0.0001);
+        Assertions.assertEquals(0.0, best_fitness, 0.0001, "Optimal coverage was not achieved ");
 
     }
 

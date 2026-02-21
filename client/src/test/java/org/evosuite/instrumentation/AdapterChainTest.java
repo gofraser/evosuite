@@ -22,9 +22,9 @@ package org.evosuite.instrumentation;
 
 import org.evosuite.Properties;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.util.CheckClassAdapter;
 
@@ -34,7 +34,7 @@ import java.lang.reflect.Method;
 
 public class AdapterChainTest {
 
-    @Before
+    @BeforeEach
     public void setup() {
         Properties.getInstance().resetToDefaults();
     }
@@ -44,11 +44,11 @@ public class AdapterChainTest {
         BytecodeInstrumentation instrumentation = new BytecodeInstrumentation();
         String className = "com/examples/with/different/packagename/SimpleInteger";
         InputStream is = getClass().getResourceAsStream("/" + className + ".class");
-        Assert.assertNotNull(is);
+        Assertions.assertNotNull(is);
         ClassReader reader = new ClassReader(is);
         
         byte[] transformed = instrumentation.transformBytes(getClass().getClassLoader(), className, reader);
-        Assert.assertNotNull(transformed);
+        Assertions.assertNotNull(transformed);
         
         // Verify with ASM CheckClassAdapter
         ClassReader resultReader = new ClassReader(transformed);
@@ -63,11 +63,11 @@ public class AdapterChainTest {
         
         String className = "com/examples/with/different/packagename/SimpleInteger";
         InputStream is = getClass().getResourceAsStream("/" + className + ".class");
-        Assert.assertNotNull(is);
+        Assertions.assertNotNull(is);
         ClassReader reader = new ClassReader(is);
         
         byte[] transformed = instrumentation.transformBytes(getClass().getClassLoader(), className, reader);
-        Assert.assertNotNull(transformed);
+        Assertions.assertNotNull(transformed);
         
         // Check if __STATIC_RESET exists in transformed bytecode
         ClassReader resultReader = new ClassReader(transformed);
@@ -81,7 +81,7 @@ public class AdapterChainTest {
                 return null;
             }
         }, 0);
-        Assert.assertTrue("Should have found __STATIC_RESET", foundReset[0]);
+        Assertions.assertTrue(foundReset[0], "Should have found __STATIC_RESET");
     }
 
     @Test
@@ -97,6 +97,6 @@ public class AdapterChainTest {
         boolean applies = (boolean) method.invoke(instrumentation,
                 "com.examples.with.different.packagename.SimpleInteger");
 
-        Assert.assertTrue("Project prefix classes must still receive testability transformations", applies);
+        Assertions.assertTrue(applies, "Project prefix classes must still receive testability transformations");
     }
 }

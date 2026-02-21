@@ -26,11 +26,10 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.SystemTestBase;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.coverage.IndirectlyCoverableBranches;
 
 public class CBranchSystemTest extends SystemTestBase {
@@ -39,13 +38,13 @@ public class CBranchSystemTest extends SystemTestBase {
 
     private static final boolean defaultArchive = Properties.TEST_ARCHIVE;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.CRITERION = defaultCriterion;
         Properties.TEST_ARCHIVE = defaultArchive;
     }
 
-    @Before
+    @BeforeEach
     public void beforeTest() {
         Properties.CRITERION[0] = Criterion.CBRANCH;
     }
@@ -76,9 +75,9 @@ public class CBranchSystemTest extends SystemTestBase {
 
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(7, goals);
-        Assert.assertEquals(5, best.size());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(7, goals);
+        Assertions.assertEquals(5, best.size());
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
 }

@@ -30,14 +30,14 @@ import org.evosuite.graphs.cfg.ControlDependency;
 import org.evosuite.graphs.cfg.ControlFlowEdge;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.*;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests that build CDGs from real Java bytecode via
@@ -46,7 +46,7 @@ import static org.junit.Assert.*;
  */
 public class ControlDependenceGraphIntegrationTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.getInstance().resetToDefaults();
@@ -55,7 +55,7 @@ public class ControlDependenceGraphIntegrationTest {
         ClassReInitializer.resetSingleton();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         TestGenerationContext.getInstance().resetContext();
         ClassReInitializer.resetSingleton();
@@ -168,7 +168,7 @@ public class ControlDependenceGraphIntegrationTest {
         //   line 25:         return x;          <-- dependent on branch (true)
         //   line 27:         return -x;         <-- dependent on branch (false)
         ControlDependenceGraph cdg = loadAndGetCDG(SimpleIfElse.class, "abs(I)I");
-        assertNotNull("CDG should not be null", cdg);
+        assertNotNull(cdg, "CDG should not be null");
 
         String dump = dumpCDG(cdg);
 
@@ -177,33 +177,33 @@ public class ControlDependenceGraphIntegrationTest {
         BasicBlock thenBlock = findBlockAtLine(cdg, 25);
         BasicBlock elseBlock = findBlockAtLine(cdg, 27);
 
-        assertNotNull("Should find block for 'return x' (line 25): " + dump, thenBlock);
-        assertNotNull("Should find block for 'return -x' (line 27): " + dump, elseBlock);
+        assertNotNull(thenBlock, "Should find block for 'return x' (line 25): " + dump);
+        assertNotNull(elseBlock, "Should find block for 'return -x' (line 27): " + dump);
 
         // Both then and else should NOT be root dependent
-        assertFalse("Then block should not be root dependent: " + dump,
-                cdg.isRootDependent(thenBlock));
-        assertFalse("Else block should not be root dependent: " + dump,
-                cdg.isRootDependent(elseBlock));
+        assertFalse(cdg.isRootDependent(thenBlock),
+                "Then block should not be root dependent: " + dump);
+        assertFalse(cdg.isRootDependent(elseBlock),
+                "Else block should not be root dependent: " + dump);
 
         // Both should be control dependent on the same branch (the if condition)
         Set<ControlDependency> thenDeps = cdg.getControlDependentBranches(thenBlock);
         Set<ControlDependency> elseDeps = cdg.getControlDependentBranches(elseBlock);
 
-        assertFalse("Then block should have control dependencies: " + dump, thenDeps.isEmpty());
-        assertFalse("Else block should have control dependencies: " + dump, elseDeps.isEmpty());
+        assertFalse(thenDeps.isEmpty(), "Then block should have control dependencies: " + dump);
+        assertFalse(elseDeps.isEmpty(), "Else block should have control dependencies: " + dump);
 
         // The branch instruction for both should be on the same line (the if condition)
         Set<Integer> thenBranchLines = getControllingBranchLines(cdg, thenBlock);
         Set<Integer> elseBranchLines = getControllingBranchLines(cdg, elseBlock);
-        assertEquals("Then and else should depend on same branch lines: " + dump,
-                thenBranchLines, elseBranchLines);
+        assertEquals(thenBranchLines,
+                elseBranchLines, "Then and else should depend on same branch lines: " + dump);
 
         // They should have opposite branch expression values
         boolean thenValue = thenDeps.iterator().next().getBranchExpressionValue();
         boolean elseValue = elseDeps.iterator().next().getBranchExpressionValue();
-        assertNotEquals("Then and else should have opposite branch values: " + dump,
-                thenValue, elseValue);
+        assertNotEquals(thenValue,
+                elseValue, "Then and else should have opposite branch values: " + dump);
     }
 
     // ── Test: NestedConditions ──────────────────────────────────────
@@ -217,7 +217,7 @@ public class ControlDependenceGraphIntegrationTest {
         //   line 28:             return "small";    <-- dependent on inner
         //   line 31:         return "non-positive"; <-- dependent on outer only
         ControlDependenceGraph cdg = loadAndGetCDG(NestedConditions.class, "classify(I)Ljava/lang/String;");
-        assertNotNull("CDG should not be null", cdg);
+        assertNotNull(cdg, "CDG should not be null");
 
         String dump = dumpCDG(cdg);
 
@@ -225,26 +225,26 @@ public class ControlDependenceGraphIntegrationTest {
         BasicBlock smallBlock = findBlockAtLine(cdg, 28);
         BasicBlock nonPosBlock = findBlockAtLine(cdg, 31);
 
-        assertNotNull("Should find block for 'big' (line 26): " + dump, bigBlock);
-        assertNotNull("Should find block for 'small' (line 28): " + dump, smallBlock);
-        assertNotNull("Should find block for 'non-positive' (line 31): " + dump, nonPosBlock);
+        assertNotNull(bigBlock, "Should find block for 'big' (line 26): " + dump);
+        assertNotNull(smallBlock, "Should find block for 'small' (line 28): " + dump);
+        assertNotNull(nonPosBlock, "Should find block for 'non-positive' (line 31): " + dump);
 
         // "big" and "small" should both depend on the inner branch (line 25)
         Set<Integer> bigBranchLines = getControllingBranchLines(cdg, bigBlock);
         Set<Integer> smallBranchLines = getControllingBranchLines(cdg, smallBlock);
-        assertTrue("'big' should depend on inner branch at line 25: " + dump,
-                bigBranchLines.contains(25));
-        assertTrue("'small' should depend on inner branch at line 25: " + dump,
-                smallBranchLines.contains(25));
+        assertTrue(bigBranchLines.contains(25),
+                "'big' should depend on inner branch at line 25: " + dump);
+        assertTrue(smallBranchLines.contains(25),
+                "'small' should depend on inner branch at line 25: " + dump);
 
         // "non-positive" should depend on the outer branch (line 24)
         Set<Integer> nonPosBranchLines = getControllingBranchLines(cdg, nonPosBlock);
-        assertTrue("'non-positive' should depend on outer branch at line 24: " + dump,
-                nonPosBranchLines.contains(24));
+        assertTrue(nonPosBranchLines.contains(24),
+                "'non-positive' should depend on outer branch at line 24: " + dump);
 
         // "non-positive" should NOT depend on the inner branch
-        assertFalse("'non-positive' should not depend on inner branch: " + dump,
-                nonPosBranchLines.contains(25));
+        assertFalse(nonPosBranchLines.contains(25),
+                "'non-positive' should not depend on inner branch: " + dump);
     }
 
     // ── Test: WhileLoop ─────────────────────────────────────────────
@@ -259,27 +259,27 @@ public class ControlDependenceGraphIntegrationTest {
         //   line 28:         i++;
         //   line 30:     return sum;           <-- root dependent
         ControlDependenceGraph cdg = loadAndGetCDG(WhileLoop.class, "sumUpTo(I)I");
-        assertNotNull("CDG should not be null", cdg);
+        assertNotNull(cdg, "CDG should not be null");
 
         String dump = dumpCDG(cdg);
 
         // The loop body (line 27-28) should be control dependent on the while condition
         BasicBlock loopBody = findBlockAtLine(cdg, 27);
-        assertNotNull("Should find block for loop body (line 27): " + dump, loopBody);
-        assertFalse("Loop body should not be root dependent: " + dump,
-                cdg.isRootDependent(loopBody));
+        assertNotNull(loopBody, "Should find block for loop body (line 27): " + dump);
+        assertFalse(cdg.isRootDependent(loopBody),
+                "Loop body should not be root dependent: " + dump);
 
         Set<Integer> loopBodyBranches = getControllingBranchLines(cdg, loopBody);
-        assertTrue("Loop body should depend on while condition at line 26: " + dump,
-                loopBodyBranches.contains(26));
+        assertTrue(loopBodyBranches.contains(26),
+                "Loop body should depend on while condition at line 26: " + dump);
 
         // The return statement (after the loop) is control dependent on the
         // while condition — when the condition evaluates to true (loop exits),
         // execution reaches the return. It is NOT root dependent.
         BasicBlock returnBlock = findBlockAtLine(cdg, 30);
-        assertNotNull("Should find block for return (line 30): " + dump, returnBlock);
-        assertFalse("Return should not be root dependent (it depends on loop exit): " + dump,
-                cdg.isRootDependent(returnBlock));
+        assertNotNull(returnBlock, "Should find block for return (line 30): " + dump);
+        assertFalse(cdg.isRootDependent(returnBlock),
+                "Return should not be root dependent (it depends on loop exit): " + dump);
     }
 
     // ── Test: SwitchMethod ──────────────────────────────────────────
@@ -293,7 +293,7 @@ public class ControlDependenceGraphIntegrationTest {
         //   line 27:         case 3: return "Wednesday";
         //   line 28:         default: return "other";
         ControlDependenceGraph cdg = loadAndGetCDG(SwitchMethod.class, "dayType(I)Ljava/lang/String;");
-        assertNotNull("CDG should not be null", cdg);
+        assertNotNull(cdg, "CDG should not be null");
 
         String dump = dumpCDG(cdg);
 
@@ -303,30 +303,30 @@ public class ControlDependenceGraphIntegrationTest {
         BasicBlock wednesdayBlock = findBlockAtLine(cdg, 27);
         BasicBlock defaultBlock = findBlockAtLine(cdg, 28);
 
-        assertNotNull("Should find block for Monday (line 25): " + dump, mondayBlock);
-        assertNotNull("Should find block for Tuesday (line 26): " + dump, tuesdayBlock);
-        assertNotNull("Should find block for Wednesday (line 27): " + dump, wednesdayBlock);
-        assertNotNull("Should find block for default (line 28): " + dump, defaultBlock);
+        assertNotNull(mondayBlock, "Should find block for Monday (line 25): " + dump);
+        assertNotNull(tuesdayBlock, "Should find block for Tuesday (line 26): " + dump);
+        assertNotNull(wednesdayBlock, "Should find block for Wednesday (line 27): " + dump);
+        assertNotNull(defaultBlock, "Should find block for default (line 28): " + dump);
 
         // All case blocks should not be root dependent
-        assertFalse("Monday should not be root dependent: " + dump,
-                cdg.isRootDependent(mondayBlock));
-        assertFalse("Tuesday should not be root dependent: " + dump,
-                cdg.isRootDependent(tuesdayBlock));
-        assertFalse("Wednesday should not be root dependent: " + dump,
-                cdg.isRootDependent(wednesdayBlock));
-        assertFalse("Default should not be root dependent: " + dump,
-                cdg.isRootDependent(defaultBlock));
+        assertFalse(cdg.isRootDependent(mondayBlock),
+                "Monday should not be root dependent: " + dump);
+        assertFalse(cdg.isRootDependent(tuesdayBlock),
+                "Tuesday should not be root dependent: " + dump);
+        assertFalse(cdg.isRootDependent(wednesdayBlock),
+                "Wednesday should not be root dependent: " + dump);
+        assertFalse(cdg.isRootDependent(defaultBlock),
+                "Default should not be root dependent: " + dump);
 
         // All case blocks should have control dependencies
-        assertFalse("Monday should have control deps: " + dump,
-                cdg.getControlDependentBranches(mondayBlock).isEmpty());
-        assertFalse("Tuesday should have control deps: " + dump,
-                cdg.getControlDependentBranches(tuesdayBlock).isEmpty());
-        assertFalse("Wednesday should have control deps: " + dump,
-                cdg.getControlDependentBranches(wednesdayBlock).isEmpty());
-        assertFalse("Default should have control deps: " + dump,
-                cdg.getControlDependentBranches(defaultBlock).isEmpty());
+        assertFalse(cdg.getControlDependentBranches(mondayBlock).isEmpty(),
+                "Monday should have control deps: " + dump);
+        assertFalse(cdg.getControlDependentBranches(tuesdayBlock).isEmpty(),
+                "Tuesday should have control deps: " + dump);
+        assertFalse(cdg.getControlDependentBranches(wednesdayBlock).isEmpty(),
+                "Wednesday should have control deps: " + dump);
+        assertFalse(cdg.getControlDependentBranches(defaultBlock).isEmpty(),
+                "Default should have control deps: " + dump);
     }
 
     // ── Test: SequentialBranches ─────────────────────────────────────
@@ -343,7 +343,7 @@ public class ControlDependenceGraphIntegrationTest {
         //   line 33:         result -= 10;        <-- dependent on branch 2
         //   line 35:     return result;            <-- root dependent
         ControlDependenceGraph cdg = loadAndGetCDG(SequentialBranches.class, "process(II)I");
-        assertNotNull("CDG should not be null", cdg);
+        assertNotNull(cdg, "CDG should not be null");
 
         String dump = dumpCDG(cdg);
 
@@ -353,50 +353,50 @@ public class ControlDependenceGraphIntegrationTest {
         BasicBlock subTenBlock = findBlockAtLine(cdg, 33);
         BasicBlock returnBlock = findBlockAtLine(cdg, 35);
 
-        assertNotNull("Should find block for result += 1 (line 26): " + dump, addOneBlock);
-        assertNotNull("Should find block for result -= 1 (line 28): " + dump, subOneBlock);
-        assertNotNull("Should find block for result += 10 (line 31): " + dump, addTenBlock);
-        assertNotNull("Should find block for result -= 10 (line 33): " + dump, subTenBlock);
-        assertNotNull("Should find block for return (line 35): " + dump, returnBlock);
+        assertNotNull(addOneBlock, "Should find block for result += 1 (line 26): " + dump);
+        assertNotNull(subOneBlock, "Should find block for result -= 1 (line 28): " + dump);
+        assertNotNull(addTenBlock, "Should find block for result += 10 (line 31): " + dump);
+        assertNotNull(subTenBlock, "Should find block for result -= 10 (line 33): " + dump);
+        assertNotNull(returnBlock, "Should find block for return (line 35): " + dump);
 
         // First if branches depend on branch 1 (line 25)
         Set<Integer> addOneBranches = getControllingBranchLines(cdg, addOneBlock);
         Set<Integer> subOneBranches = getControllingBranchLines(cdg, subOneBlock);
-        assertTrue("result += 1 should depend on branch 1 at line 25: " + dump,
-                addOneBranches.contains(25));
-        assertTrue("result -= 1 should depend on branch 1 at line 25: " + dump,
-                subOneBranches.contains(25));
+        assertTrue(addOneBranches.contains(25),
+                "result += 1 should depend on branch 1 at line 25: " + dump);
+        assertTrue(subOneBranches.contains(25),
+                "result -= 1 should depend on branch 1 at line 25: " + dump);
 
         // Second if branches depend on branch 2 (line 30)
         Set<Integer> addTenBranches = getControllingBranchLines(cdg, addTenBlock);
         Set<Integer> subTenBranches = getControllingBranchLines(cdg, subTenBlock);
-        assertTrue("result += 10 should depend on branch 2 at line 30: " + dump,
-                addTenBranches.contains(30));
-        assertTrue("result -= 10 should depend on branch 2 at line 30: " + dump,
-                subTenBranches.contains(30));
+        assertTrue(addTenBranches.contains(30),
+                "result += 10 should depend on branch 2 at line 30: " + dump);
+        assertTrue(subTenBranches.contains(30),
+                "result -= 10 should depend on branch 2 at line 30: " + dump);
 
         // First if branches should NOT depend on branch 2
-        assertFalse("result += 1 should not depend on branch 2: " + dump,
-                addOneBranches.contains(30));
-        assertFalse("result -= 1 should not depend on branch 2: " + dump,
-                subOneBranches.contains(30));
+        assertFalse(addOneBranches.contains(30),
+                "result += 1 should not depend on branch 2: " + dump);
+        assertFalse(subOneBranches.contains(30),
+                "result -= 1 should not depend on branch 2: " + dump);
 
         // Second if branches should NOT depend on branch 1
-        assertFalse("result += 10 should not depend on branch 1: " + dump,
-                addTenBranches.contains(25));
-        assertFalse("result -= 10 should not depend on branch 1: " + dump,
-                subTenBranches.contains(25));
+        assertFalse(addTenBranches.contains(25),
+                "result += 10 should not depend on branch 1: " + dump);
+        assertFalse(subTenBranches.contains(25),
+                "result -= 10 should not depend on branch 1: " + dump);
 
         // The return block is NOT root dependent — in the CDG it has no
         // incoming edges (it's at a join point after the second if-else).
         // Verify it has no control dependencies from either branch.
-        assertFalse("return should not be root dependent: " + dump,
-                cdg.isRootDependent(returnBlock));
+        assertFalse(cdg.isRootDependent(returnBlock),
+                "return should not be root dependent: " + dump);
         Set<Integer> returnBranches = getControllingBranchLines(cdg, returnBlock);
-        assertFalse("return should not depend on branch 1: " + dump,
-                returnBranches.contains(25));
-        assertFalse("return should not depend on branch 2: " + dump,
-                returnBranches.contains(30));
+        assertFalse(returnBranches.contains(25),
+                "return should not depend on branch 1: " + dump);
+        assertFalse(returnBranches.contains(30),
+                "return should not depend on branch 2: " + dump);
     }
 
     // ── Test: ExceptionalControlFlow ───────────────────────────────
@@ -408,7 +408,7 @@ public class ControlDependenceGraphIntegrationTest {
         //   line 28: if (x == 0) { return "zero"; }
         //   line 33: if (x < -10) { return "very-neg"; }
         ControlDependenceGraph cdg = loadAndGetCDG(ExceptionalControlFlow.class, "classify(I)Ljava/lang/String;");
-        assertNotNull("CDG should not be null", cdg);
+        assertNotNull(cdg, "CDG should not be null");
 
         String dump = dumpCDG(cdg);
 
@@ -417,26 +417,26 @@ public class ControlDependenceGraphIntegrationTest {
         BasicBlock veryNegBlock = findBlockAtLine(cdg, 34);
         BasicBlock negBlock = findBlockAtLine(cdg, 36);
 
-        assertNotNull("Should find block for 'zero' (line 29): " + dump, zeroBlock);
-        assertNotNull("Should find block for 'pos' (line 31): " + dump, posBlock);
-        assertNotNull("Should find block for 'very-neg' (line 34): " + dump, veryNegBlock);
-        assertNotNull("Should find block for 'neg' (line 36): " + dump, negBlock);
+        assertNotNull(zeroBlock, "Should find block for 'zero' (line 29): " + dump);
+        assertNotNull(posBlock, "Should find block for 'pos' (line 31): " + dump);
+        assertNotNull(veryNegBlock, "Should find block for 'very-neg' (line 34): " + dump);
+        assertNotNull(negBlock, "Should find block for 'neg' (line 36): " + dump);
 
         Set<Integer> zeroDeps = getControllingBranchLines(cdg, zeroBlock);
-        assertTrue("'zero' should depend on try guard (line 25): " + dump, zeroDeps.contains(25));
-        assertTrue("'zero' should depend on zero-check (line 28): " + dump, zeroDeps.contains(28));
+        assertTrue(zeroDeps.contains(25), "'zero' should depend on try guard (line 25): " + dump);
+        assertTrue(zeroDeps.contains(28), "'zero' should depend on zero-check (line 28): " + dump);
 
         Set<Integer> posDeps = getControllingBranchLines(cdg, posBlock);
-        assertTrue("'pos' should depend on try guard (line 25): " + dump, posDeps.contains(25));
-        assertTrue("'pos' should depend on zero-check (line 28): " + dump, posDeps.contains(28));
+        assertTrue(posDeps.contains(25), "'pos' should depend on try guard (line 25): " + dump);
+        assertTrue(posDeps.contains(28), "'pos' should depend on zero-check (line 28): " + dump);
 
         Set<Integer> veryNegDeps = getControllingBranchLines(cdg, veryNegBlock);
-        assertTrue("'very-neg' should depend on catch guard (line 33): " + dump, veryNegDeps.contains(33));
-        assertTrue("'very-neg' should depend on try guard (line 25): " + dump, veryNegDeps.contains(25));
+        assertTrue(veryNegDeps.contains(33), "'very-neg' should depend on catch guard (line 33): " + dump);
+        assertTrue(veryNegDeps.contains(25), "'very-neg' should depend on try guard (line 25): " + dump);
 
         Set<Integer> negDeps = getControllingBranchLines(cdg, negBlock);
-        assertTrue("'neg' should depend on catch guard (line 33): " + dump, negDeps.contains(33));
-        assertTrue("'neg' should depend on try guard (line 25): " + dump, negDeps.contains(25));
+        assertTrue(negDeps.contains(33), "'neg' should depend on catch guard (line 33): " + dump);
+        assertTrue(negDeps.contains(25), "'neg' should depend on try guard (line 25): " + dump);
     }
 
     // ── Test: ImplicitExceptionControlFlow ─────────────────────────
@@ -447,14 +447,14 @@ public class ControlDependenceGraphIntegrationTest {
         //   line 25: if (flag) { s.length(); }  <-- implicit NPE
         //   line 31: catch returns "npe"
         ControlDependenceGraph cdg = loadAndGetCDG(ImplicitExceptionControlFlow.class, "classify(Z)Ljava/lang/String;");
-        assertNotNull("CDG should not be null", cdg);
+        assertNotNull(cdg, "CDG should not be null");
 
         String dump = dumpCDG(cdg);
 
         BasicBlock npeBlock = findBlockAtLine(cdg, 31);
-        assertNotNull("Should find block for 'npe' (line 31): " + dump, npeBlock);
+        assertNotNull(npeBlock, "Should find block for 'npe' (line 31): " + dump);
 
         Set<Integer> npeDeps = getControllingBranchLines(cdg, npeBlock);
-        assertTrue("'npe' should depend on flag branch (line 25): " + dump, npeDeps.contains(25));
+        assertTrue(npeDeps.contains(25), "'npe' should depend on flag branch (line 25): " + dump);
     }
 }

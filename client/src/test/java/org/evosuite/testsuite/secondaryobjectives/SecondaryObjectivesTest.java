@@ -24,12 +24,9 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class SecondaryObjectivesTest {
 
@@ -87,7 +84,7 @@ public class SecondaryObjectivesTest {
         // Sum(Children) = 5 + 100 = 105
         // Result = 30 - 105 = -75.
 
-        Assert.assertTrue("Should favor parents because sum of parents (30) is less than sum of children (105). Result was: " + result, result < 0);
+        Assertions.assertTrue(result < 0, "Should favor parents because sum of parents (30) is less than sum of children (105). Result was: " + result);
     }
 
     @Test
@@ -105,7 +102,7 @@ public class SecondaryObjectivesTest {
         // Result: 1 - 0 = 1.
 
         int result = obj.compareGenerations(p1, p2, c1, c2);
-        Assert.assertEquals(1, result);
+        Assertions.assertEquals(1, result);
     }
 
      @Test
@@ -127,7 +124,7 @@ public class SecondaryObjectivesTest {
         // Result: 1 - 0 = 1.
 
         int result = obj.compareGenerations(p1, p2, c1, c2);
-        Assert.assertEquals(1, result);
+        Assertions.assertEquals(1, result);
     }
 
     @Test
@@ -149,6 +146,6 @@ public class SecondaryObjectivesTest {
         // Result: 5
 
         int result = obj.compareGenerations(p1, p2, c1, c2);
-        Assert.assertTrue("Should be positive", result > 0);
+        Assertions.assertTrue(result > 0, "Should be positive");
     }
 }

@@ -25,8 +25,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class ArrayReferenceSystemTest extends SystemTestBase {
 
@@ -50,13 +50,13 @@ public class ArrayReferenceSystemTest extends SystemTestBase {
     @Test
     public void testArrayReferenceWithoutMinimization() {
         TestSuiteChromosome best = generateTest(false);
-        Assert.assertFalse("Array reference should not be assigned to its first element", best.toString().contains("constructorArray0[0] = (Constructor<Insets>) constructorArray0;"));
+        Assertions.assertFalse(best.toString().contains("constructorArray0[0] = (Constructor<Insets>) constructorArray0;"), "Array reference should not be assigned to its first element");
     }
 
     @Test
     public void testArrayReferenceWithMinimization() {
         TestSuiteChromosome best = generateTest(true);
-        Assert.assertFalse("Array reference should not be assigned to its first element", best.toString().contains("constructorArray0[0] = (Constructor<Insets>) constructorArray0;"));
+        Assertions.assertFalse(best.toString().contains("constructorArray0[0] = (Constructor<Insets>) constructorArray0;"), "Array reference should not be assigned to its first element");
     }
 
 }

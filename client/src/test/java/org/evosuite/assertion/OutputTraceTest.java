@@ -1,10 +1,11 @@
 package org.evosuite.assertion;
 
 import org.evosuite.testcase.variable.VariableReference;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for OutputTrace, focusing on null-safety fixes when

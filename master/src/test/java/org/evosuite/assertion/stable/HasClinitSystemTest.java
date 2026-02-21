@@ -29,11 +29,10 @@ import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.stable.HasClinit;
 
 public class HasClinitSystemTest extends SystemTestBase {
@@ -46,7 +45,7 @@ public class HasClinitSystemTest extends SystemTestBase {
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
 
-    @Before
+    @BeforeEach
     public void configureProperties() {
         Properties.RESET_STATIC_FIELDS = true;
         Properties.SANDBOX = true;
@@ -58,7 +57,7 @@ public class HasClinitSystemTest extends SystemTestBase {
 
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.RESET_STATIC_FIELDS = DEFAULT_RESET_STATIC_FIELDS;
         Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS;
@@ -86,10 +85,10 @@ public class HasClinitSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
     }
 
 }

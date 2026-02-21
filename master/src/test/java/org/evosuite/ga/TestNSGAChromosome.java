@@ -21,15 +21,15 @@ package org.evosuite.ga;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.variables.DoubleVariable;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author José Campos
  */
 public class TestNSGAChromosome {
-    @BeforeClass
+    @BeforeAll
     public static void setUp() {
         Properties.POPULATION = 100;
         Properties.SEARCH_BUDGET = 250;
@@ -41,13 +41,13 @@ public class TestNSGAChromosome {
     public void testMutation() {
         double[] values = {-3.0};
         NSGAChromosome nsga = new NSGAChromosome(-5.0, 10.0, values);
-        Assert.assertEquals(1, nsga.getNumberOfVariables());
+        Assertions.assertEquals(1, nsga.getNumberOfVariables());
 
         double v = ((DoubleVariable) nsga.getVariable(0)).getValue();
-        Assert.assertEquals(v, -3.0, 0.0);
+        Assertions.assertEquals(v, -3.0, 0.0);
 
         nsga.mutate();
         v = ((DoubleVariable) nsga.getVariable(0)).getValue();
-        Assert.assertEquals(-2.2283152443192074, v, 0.000001);
+        Assertions.assertEquals(-2.2283152443192074, v, 0.000001);
     }
 }

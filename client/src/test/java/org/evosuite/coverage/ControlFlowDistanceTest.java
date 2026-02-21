@@ -1,7 +1,8 @@
 package org.evosuite.coverage;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ControlFlowDistanceTest {
 
@@ -19,14 +20,18 @@ public class ControlFlowDistanceTest {
         assertEquals(10.5, distance.getBranchDistance(), 0.001);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testConstructorWithNegativeApproachLevel() {
-        new ControlFlowDistance(-1, 0.0);
+        assertThrows(IllegalArgumentException.class, () -> {
+            new ControlFlowDistance(-1, 0.0);
+        });
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testConstructorWithNegativeBranchDistance() {
-        new ControlFlowDistance(0, -1.0);
+        assertThrows(IllegalArgumentException.class, () -> {
+            new ControlFlowDistance(0, -1.0);
+        });
     }
 
     @Test
@@ -39,16 +44,20 @@ public class ControlFlowDistanceTest {
         assertEquals(2.5, distance.getBranchDistance(), 0.001);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testSetApproachLevelNegative() {
-        ControlFlowDistance distance = new ControlFlowDistance();
-        distance.setApproachLevel(-1);
+        assertThrows(IllegalArgumentException.class, () -> {
+            ControlFlowDistance distance = new ControlFlowDistance();
+            distance.setApproachLevel(-1);
+        });
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testSetBranchDistanceNegative() {
-        ControlFlowDistance distance = new ControlFlowDistance();
-        distance.setBranchDistance(-1.0);
+        assertThrows(IllegalArgumentException.class, () -> {
+            ControlFlowDistance distance = new ControlFlowDistance();
+            distance.setBranchDistance(-1.0);
+        });
     }
 
     @Test

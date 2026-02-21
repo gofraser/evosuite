@@ -25,10 +25,10 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.java.io.MockFile;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
@@ -36,13 +36,13 @@ public class ParentReplacementTest {
 
     private static final boolean USING_VFS = Properties.VIRTUAL_FS;
 
-    @After
+    @AfterEach
     public void reset() {
         RuntimeSettings.useVFS = USING_VFS;
         Properties.VIRTUAL_FS = USING_VFS;
     }
 
-    @Before
+    @BeforeEach
     public void init() {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
     }
@@ -56,7 +56,7 @@ public class ParentReplacementTest {
         Class<?> clazz = cl.loadClass(ExtendingFile.class.getCanonicalName());
 
         Class<?> parent = clazz.getSuperclass();
-        Assert.assertEquals(File.class.getCanonicalName(), parent.getCanonicalName());
+        Assertions.assertEquals(File.class.getCanonicalName(), parent.getCanonicalName());
     }
 
     @Test
@@ -68,7 +68,7 @@ public class ParentReplacementTest {
         Class<?> clazz = cl.loadClass(ExtendingFile.class.getCanonicalName());
 
         Class<?> parent = clazz.getSuperclass();
-        Assert.assertEquals(MockFile.class.getCanonicalName(), parent.getCanonicalName());
+        Assertions.assertEquals(MockFile.class.getCanonicalName(), parent.getCanonicalName());
     }
 
 }

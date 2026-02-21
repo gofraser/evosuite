@@ -5,13 +5,14 @@ import org.evosuite.graphs.ccg.ClassCallGraph;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.ControlFlowEdge;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.*;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class ClassControlFlowGraphExtendedTest {
 
@@ -19,7 +20,7 @@ public class ClassControlFlowGraphExtendedTest {
     private GraphPool graphPool;
     private String className = "TestClass";
 
-    @Before
+    @BeforeEach
     public void setUp() {
         classLoader = new ClassLoader() {};
         graphPool = GraphPool.getInstance(classLoader);
@@ -124,8 +125,8 @@ public class ClassControlFlowGraphExtendedTest {
         CCFGFrameNode callFrame = ccfg.getFrameNode(ClassControlFlowGraph.FrameNodeType.CALL);
         Set<CCFGNode> calledFromFrame = ccfg.getChildren(callFrame);
         // A and B are public, so both should be reachable from CALL
-        assertTrue("A should be reachable from Frame CALL", calledFromFrame.stream().anyMatch(n -> n instanceof CCFGMethodEntryNode && ((CCFGMethodEntryNode)n).getMethod().equals(methodA)));
-        assertTrue("B should be reachable from Frame CALL", calledFromFrame.stream().anyMatch(n -> n instanceof CCFGMethodEntryNode && ((CCFGMethodEntryNode)n).getMethod().equals(methodB)));
+        assertTrue(calledFromFrame.stream().anyMatch(n -> n instanceof CCFGMethodEntryNode && ((CCFGMethodEntryNode)n).getMethod().equals(methodA)), "A should be reachable from Frame CALL");
+        assertTrue(calledFromFrame.stream().anyMatch(n -> n instanceof CCFGMethodEntryNode && ((CCFGMethodEntryNode)n).getMethod().equals(methodB)), "B should be reachable from Frame CALL");
 
         // Check A calls B
         // We expect: Call(B) -> Entry(B)
@@ -210,10 +211,10 @@ public class ClassControlFlowGraphExtendedTest {
         Set<CCFGNode> calledFromFrame = ccfg.getChildren(callFrame);
 
         // A is public, should be reachable
-        assertTrue("A should be reachable from Frame CALL", calledFromFrame.stream().anyMatch(n -> n instanceof CCFGMethodEntryNode && ((CCFGMethodEntryNode)n).getMethod().equals(methodA)));
+        assertTrue(calledFromFrame.stream().anyMatch(n -> n instanceof CCFGMethodEntryNode && ((CCFGMethodEntryNode)n).getMethod().equals(methodA)), "A should be reachable from Frame CALL");
 
         // B is private, should NOT be reachable from Frame CALL
-        assertFalse("B should NOT be reachable from Frame CALL", calledFromFrame.stream().anyMatch(n -> n instanceof CCFGMethodEntryNode && ((CCFGMethodEntryNode)n).getMethod().equals(methodB)));
+        assertFalse(calledFromFrame.stream().anyMatch(n -> n instanceof CCFGMethodEntryNode && ((CCFGMethodEntryNode)n).getMethod().equals(methodB)), "B should NOT be reachable from Frame CALL");
 
         // But B should be reachable from A
         CCFGMethodEntryNode entryNodeA = (CCFGMethodEntryNode) calledFromFrame.stream().filter(n -> n instanceof CCFGMethodEntryNode && ((CCFGMethodEntryNode)n).getMethod().equals(methodA)).findFirst().orElse(null);
@@ -222,7 +223,7 @@ public class ClassControlFlowGraphExtendedTest {
         assertTrue(callNodeB instanceof CCFGMethodCallNode);
 
         CCFGNode entryNodeB_target = ccfg.getChildren(callNodeB).stream().filter(n -> n instanceof CCFGMethodEntryNode).findFirst().orElse(null);
-        assertNotNull("Entry(B) should be reachable from Call(B)", entryNodeB_target);
+        assertNotNull(entryNodeB_target, "Entry(B) should be reachable from Call(B)");
         assertEquals(methodB, ((CCFGMethodEntryNode)entryNodeB_target).getMethod());
     }
 
@@ -263,7 +264,7 @@ public class ClassControlFlowGraphExtendedTest {
         assertTrue(callNodeA instanceof CCFGMethodCallNode);
 
         // Call(A) should point to Entry(A)
-        assertTrue("Call(A) should point to Entry(A)", ccfg.getChildren(callNodeA).contains(entryNodeA));
+        assertTrue(ccfg.getChildren(callNodeA).contains(entryNodeA), "Call(A) should point to Entry(A)");
     }
 
     @Test

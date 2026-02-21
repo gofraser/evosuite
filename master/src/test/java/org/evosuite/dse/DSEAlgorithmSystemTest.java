@@ -47,17 +47,15 @@ import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.symbolic.dse.algorithm.DSEAlgorithms;
 import org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithmBase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class DSEAlgorithmSystemTest extends DSESystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         super.init();
 
@@ -327,7 +325,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
 
     // Not supported so far
     @Test
-    @Ignore
+    @Disabled
     public void testMaxTestsStoppingCondition() {
 
         EvoSuite evosuite = new EvoSuite();
@@ -351,7 +349,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
 
     // Not supported so far
     @Test
-    @Ignore
+    @Disabled
     public void testMaxFitnessEvaluationStoppingCondition() {
 
         EvoSuite evosuite = new EvoSuite();
@@ -373,7 +371,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
     }
 
     @Test
-    @Ignore
+    @Disabled
 //    Not supported so far
     public void testMaxTimeStoppingCondition() {
 
@@ -395,7 +393,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
     }
 
     @Test
-    @Ignore
+    @Disabled
 //    Not supported so far
     public void testMaxStatementsStoppingCondition() {
 
@@ -604,7 +602,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
      * TODO: String arrays support not yet implemented
      */
     @Test
-    @Ignore
+    @Disabled
     public void testStringArrayAssignment() {
         EvoSuite evosuite = new EvoSuite();
         String targetClass = StringArrayAssignmentExample.class.getCanonicalName();

@@ -24,9 +24,8 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Algorithm;
 import org.evosuite.SystemTestBase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.BMICalculator;
 
 /**
@@ -52,8 +51,8 @@ public class OnePlusOneEASystemTest extends SystemTestBase {
 
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertEquals(0.0, best.getFitness(), 0.0);
-        Assert.assertEquals(1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(0.0, best.getFitness(), 0.0);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001);
     }
 
 }

@@ -19,8 +19,8 @@
  */
 package org.evosuite.instrumentation.error;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
@@ -31,7 +31,7 @@ public class TestErrorInstrumentation {
     private ErrorConditionMethodAdapter mv;
     private NullPointerExceptionInstrumentation npeInstrumentation;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         mv = mock(ErrorConditionMethodAdapter.class);
         npeInstrumentation = new NullPointerExceptionInstrumentation(mv);

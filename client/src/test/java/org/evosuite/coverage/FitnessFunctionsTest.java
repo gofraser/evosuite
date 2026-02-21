@@ -8,10 +8,10 @@ import org.evosuite.coverage.mutation.MutationFactory;
 import org.evosuite.coverage.mutation.StrongMutationSuiteFitness;
 import org.evosuite.coverage.mutation.StrongMutationTestFitness;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FitnessFunctionsTest {
 

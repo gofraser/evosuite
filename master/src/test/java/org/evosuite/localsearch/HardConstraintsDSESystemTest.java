@@ -26,11 +26,10 @@ import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.concolic.HardConstraints;
 
 /**
@@ -38,7 +37,7 @@ import com.examples.with.different.packagename.concolic.HardConstraints;
  */
 public class HardConstraintsDSESystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void prepareTest() {
         Properties.LOCAL_SEARCH_PROBABILITY = 1.0;
         Properties.LOCAL_SEARCH_RATE = 1;
@@ -56,7 +55,7 @@ public class HardConstraintsDSESystemTest extends SystemTestBase {
     @Test
     public void testCVC4() {
         String cvc4Path = System.getenv("cvc4_path");
-        Assume.assumeTrue(cvc4Path != null);
+        Assumptions.assumeTrue(cvc4Path != null);
         Properties.CVC4_PATH = cvc4Path;
         Properties.DSE_SOLVER = Properties.SolverType.CVC4_SOLVER;
 
@@ -73,15 +72,15 @@ public class HardConstraintsDSESystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(),
-                0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001,
+                "Non-optimal coverage: ");
 
     }
 
     @Test
     public void testZ3() {
         String z3Path = System.getenv("z3_path");
-        Assume.assumeTrue(z3Path != null);
+        Assumptions.assumeTrue(z3Path != null);
         Properties.Z3_PATH = z3Path;
         Properties.DSE_SOLVER = Properties.SolverType.Z3_SOLVER;
 
@@ -98,8 +97,8 @@ public class HardConstraintsDSESystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(),
-                0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001,
+                "Non-optimal coverage: ");
 
     }
 

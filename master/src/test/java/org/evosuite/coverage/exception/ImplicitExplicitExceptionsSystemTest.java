@@ -29,10 +29,9 @@ import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ImplicitExplicitException;
 
 import java.util.Map;
@@ -44,7 +43,7 @@ public class ImplicitExplicitExceptionsSystemTest extends SystemTestBase {
 
     private static final boolean defaultArchive = Properties.TEST_ARCHIVE;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.CRITERION = defaultCriterion;
         Properties.TEST_ARCHIVE = defaultArchive;
@@ -89,14 +88,14 @@ public class ImplicitExplicitExceptionsSystemTest extends SystemTestBase {
          * there are 2 undeclared exceptions (both implicit and explicit),
          * and 3 declared: so fit = 1 / (1+5)
          */
-        Assert.assertEquals("Wrong fitness: ", 1d / 6d, fitness, 0.0000001);
+        Assertions.assertEquals(1d / 6d, fitness, 0.0000001, "Wrong fitness: ");
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
-        Assert.assertEquals(1, map.get(RuntimeVariable.Explicit_MethodExceptions.toString()).getValue());
-        Assert.assertEquals(1, map.get(RuntimeVariable.Explicit_TypeExceptions.toString()).getValue());
-        Assert.assertEquals(1, map.get(RuntimeVariable.Implicit_MethodExceptions.toString()).getValue());
-        Assert.assertEquals(1, map.get(RuntimeVariable.Implicit_TypeExceptions.toString()).getValue());
+        Assertions.assertNotNull(map);
+        Assertions.assertEquals(1, map.get(RuntimeVariable.Explicit_MethodExceptions.toString()).getValue());
+        Assertions.assertEquals(1, map.get(RuntimeVariable.Explicit_TypeExceptions.toString()).getValue());
+        Assertions.assertEquals(1, map.get(RuntimeVariable.Implicit_MethodExceptions.toString()).getValue());
+        Assertions.assertEquals(1, map.get(RuntimeVariable.Implicit_TypeExceptions.toString()).getValue());
     }
 
     @Test
@@ -123,7 +122,7 @@ public class ImplicitExplicitExceptionsSystemTest extends SystemTestBase {
          * fit = 1 / (1+3)
          *
          */
-        Assert.assertEquals("Wrong fitness: ", 1d / 4d, fitness, 0.001);
+        Assertions.assertEquals(1d / 4d, fitness, 0.001, "Wrong fitness: ");
     }
 
 }

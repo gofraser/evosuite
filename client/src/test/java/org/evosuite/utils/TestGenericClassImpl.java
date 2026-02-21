@@ -29,16 +29,16 @@ import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.WildcardTypeImpl;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestGenericClassImpl {
 
@@ -54,39 +54,39 @@ public class TestGenericClassImpl {
     public void testAssignablePrimitives() {
         GenericClass<?> clazz1 = GenericClassFactory.get(int.class);
         GenericClass<?> clazz2 = GenericClassFactory.get(int.class);
-        Assert.assertTrue(clazz1.isAssignableTo(clazz2));
-        Assert.assertTrue(clazz1.isAssignableFrom(clazz2));
+        Assertions.assertTrue(clazz1.isAssignableTo(clazz2));
+        Assertions.assertTrue(clazz1.isAssignableFrom(clazz2));
     }
 
     @Test
     public void testAssignableObject() {
         GenericClass<?> clazz1 = GenericClassFactory.get(Object.class);
         GenericClass<?> clazz2 = GenericClassFactory.get(Object.class);
-        Assert.assertTrue(clazz1.isAssignableTo(clazz2));
+        Assertions.assertTrue(clazz1.isAssignableTo(clazz2));
     }
 
     @Test
     public void testAssignableIntegerObject() {
         GenericClass<?> clazz1 = GenericClassFactory.get(Integer.class);
         GenericClass<?> clazz2 = GenericClassFactory.get(Object.class);
-        Assert.assertTrue(clazz1.isAssignableTo(clazz2));
-        Assert.assertFalse(clazz1.isAssignableFrom(clazz2));
+        Assertions.assertTrue(clazz1.isAssignableTo(clazz2));
+        Assertions.assertFalse(clazz1.isAssignableFrom(clazz2));
     }
 
     @Test
     public void testAssignableIntegerNumber() {
         GenericClass<?> clazz1 = GenericClassFactory.get(Integer.class);
         GenericClass<?> clazz2 = GenericClassFactory.get(Number.class);
-        Assert.assertTrue(clazz1.isAssignableTo(clazz2));
-        Assert.assertFalse(clazz1.isAssignableFrom(clazz2));
+        Assertions.assertTrue(clazz1.isAssignableTo(clazz2));
+        Assertions.assertFalse(clazz1.isAssignableFrom(clazz2));
     }
 
     @Test
     public void testAssignableIntInteger() {
         GenericClass<?> clazz1 = GenericClassFactory.get(Integer.class);
         GenericClass<?> clazz2 = GenericClassFactory.get(int.class);
-        Assert.assertTrue(clazz1.isAssignableTo(clazz2));
-        Assert.assertTrue(clazz1.isAssignableFrom(clazz2));
+        Assertions.assertTrue(clazz1.isAssignableTo(clazz2));
+        Assertions.assertTrue(clazz1.isAssignableFrom(clazz2));
     }
 
     @Test
@@ -98,17 +98,17 @@ public class TestGenericClassImpl {
                 new Type[]{Integer.class}, null);
         GenericClass<?> clazzConcrete = GenericClassFactory.get(type);
 
-        Assert.assertFalse(clazzWildcard.isAssignableTo(clazzConcrete));
-        Assert.assertFalse(clazzWildcard.isAssignableTo(clazzTypeVar));
-        Assert.assertTrue(clazzWildcard.isAssignableTo(clazzWildcard));
+        Assertions.assertFalse(clazzWildcard.isAssignableTo(clazzConcrete));
+        Assertions.assertFalse(clazzWildcard.isAssignableTo(clazzTypeVar));
+        Assertions.assertTrue(clazzWildcard.isAssignableTo(clazzWildcard));
 
-        Assert.assertFalse(clazzTypeVar.isAssignableTo(clazzConcrete));
-        Assert.assertTrue(clazzTypeVar.isAssignableTo(clazzTypeVar));
-        Assert.assertTrue(clazzTypeVar.isAssignableTo(clazzWildcard));
+        Assertions.assertFalse(clazzTypeVar.isAssignableTo(clazzConcrete));
+        Assertions.assertTrue(clazzTypeVar.isAssignableTo(clazzTypeVar));
+        Assertions.assertTrue(clazzTypeVar.isAssignableTo(clazzWildcard));
 
-        Assert.assertTrue(clazzConcrete.isAssignableTo(clazzConcrete));
-        Assert.assertFalse(clazzConcrete.isAssignableTo(clazzTypeVar));
-        Assert.assertTrue(clazzConcrete.isAssignableTo(clazzWildcard));
+        Assertions.assertTrue(clazzConcrete.isAssignableTo(clazzConcrete));
+        Assertions.assertFalse(clazzConcrete.isAssignableTo(clazzTypeVar));
+        Assertions.assertTrue(clazzConcrete.isAssignableTo(clazzWildcard));
     }
 
     @Test
@@ -123,7 +123,7 @@ public class TestGenericClassImpl {
         GenericClass<?> expected = GenericClassFactory.get(classOfLinkedListOfString);
         GenericClass<?> actualClassLiteralType = GenericClassFactory.get(classOfLinkedList);
 
-        Assert.assertTrue(actualClassLiteralType.isAssignableTo(expected));
+        Assertions.assertTrue(actualClassLiteralType.isAssignableTo(expected));
     }
 
     public static class ClassLiteralHolder {
@@ -139,7 +139,7 @@ public class TestGenericClassImpl {
         GenericClass<?> expected = GenericClassFactory.get(reflectedFieldType);
         GenericClass<?> actualClassLiteralType = GenericClassFactory.get(classOfLinkedList);
 
-        Assert.assertTrue(actualClassLiteralType.isAssignableTo(expected));
+        Assertions.assertTrue(actualClassLiteralType.isAssignableTo(expected));
     }
 
     @Test
@@ -153,7 +153,7 @@ public class TestGenericClassImpl {
         GenericClass<?> concrete = GenericClassFactory.get(classOfSqlDate);
         GenericClass<?> instantiated = concrete.getGenericInstantiation(new HashMap<>(), 0, requiredBounds);
 
-        Assert.assertTrue(instantiated.satisfiesBoundaries(requiredBounds));
+        Assertions.assertTrue(instantiated.satisfiesBoundaries(requiredBounds));
     }
 
     @Test
@@ -162,7 +162,7 @@ public class TestGenericClassImpl {
         GenericClass<?> concrete = GenericClassFactory.get(classOfSqlDate);
 
         GenericClass<?> instantiated = concrete.getGenericInstantiation(new HashMap<>(), 0, null);
-        Assert.assertTrue(instantiated.isAssignableTo(concrete));
+        Assertions.assertTrue(instantiated.isAssignableTo(concrete));
     }
 
     private static class A {
@@ -200,10 +200,10 @@ public class TestGenericClassImpl {
 
         GenericClass<?> stack = GenericClassFactory.get(Stack.class).getWithWildcardTypes();
         GenericClass<?> collection = GenericClassFactory.get(Collection.class).getWithWildcardTypes();
-        Assert.assertTrue(stack.isAssignableTo(collection));
+        Assertions.assertTrue(stack.isAssignableTo(collection));
 
         GenericClass<?> objectStack = GenericClassFactory.get(col0.getClass());
-        Assert.assertTrue(objectStack.isAssignableTo(collection));
+        Assertions.assertTrue(objectStack.isAssignableTo(collection));
 
         Type typeColA = new TypeToken<Collection<A>>() {
         }.getType();
@@ -216,9 +216,9 @@ public class TestGenericClassImpl {
         GenericClass<?> classStack = GenericClassFactory.get(typeStack).getWithWildcardTypes();
         GenericClass<?> classObjectStack = GenericClassFactory.get(typeObjectStack);
 
-        Assert.assertFalse(classStack.isAssignableTo(classColA));
-        Assert.assertFalse(classObjectStack.isAssignableTo(classColA));
-        Assert.assertFalse(classColA.isAssignableFrom(classObjectStack));
+        Assertions.assertFalse(classStack.isAssignableTo(classColA));
+        Assertions.assertFalse(classObjectStack.isAssignableTo(classColA));
+        Assertions.assertFalse(classColA.isAssignableFrom(classObjectStack));
     }
 
     @Test
@@ -231,8 +231,8 @@ public class TestGenericClassImpl {
         GenericClass<?> listOfStringClass = GenericClassFactory.get(listOfString);
         GenericClass<?> listOfIntegerClass = GenericClassFactory.get(listOfInteger);
 
-        Assert.assertFalse(listOfStringClass.isAssignableFrom(listOfIntegerClass));
-        Assert.assertFalse(listOfStringClass.isAssignableTo(listOfIntegerClass));
+        Assertions.assertFalse(listOfStringClass.isAssignableFrom(listOfIntegerClass));
+        Assertions.assertFalse(listOfStringClass.isAssignableTo(listOfIntegerClass));
     }
 
 
@@ -257,10 +257,10 @@ public class TestGenericClassImpl {
          *  does not compile
          */
 
-        Assert.assertFalse(listOfStringClass.isAssignableTo(objectListClass));
+        Assertions.assertFalse(listOfStringClass.isAssignableTo(objectListClass));
 
-        Assert.assertFalse(listOfStringClass.isAssignableFrom(plainListClass));
-        Assert.assertTrue(listOfStringClass.isAssignableTo(plainListClass));
+        Assertions.assertFalse(listOfStringClass.isAssignableFrom(plainListClass));
+        Assertions.assertTrue(listOfStringClass.isAssignableTo(plainListClass));
     }
 
     @Test
@@ -273,11 +273,11 @@ public class TestGenericClassImpl {
         GenericClass<?> listOfIntegerClass = GenericClassFactory.get(listOfInteger);
         GenericClass<?> listOfSerializableClass = GenericClassFactory.get(listOfSerializable);
 
-        Assert.assertFalse(listOfIntegerClass.isAssignableFrom(listOfSerializableClass));
-        Assert.assertFalse(listOfSerializableClass.isAssignableFrom(listOfIntegerClass));
+        Assertions.assertFalse(listOfIntegerClass.isAssignableFrom(listOfSerializableClass));
+        Assertions.assertFalse(listOfSerializableClass.isAssignableFrom(listOfIntegerClass));
 
-        Assert.assertTrue(listOfIntegerClass.isAssignableFrom(listOfIntegerClass));
-        Assert.assertTrue(listOfSerializableClass.isAssignableFrom(listOfSerializableClass));
+        Assertions.assertTrue(listOfIntegerClass.isAssignableFrom(listOfIntegerClass));
+        Assertions.assertTrue(listOfSerializableClass.isAssignableFrom(listOfSerializableClass));
     }
 
     private class NumberBoundary<T extends Number> {
@@ -297,8 +297,8 @@ public class TestGenericClassImpl {
         GenericClass<?> listOfIntegerClass = GenericClassFactory.get(Integer.class);
         GenericClass<?> listOfSerializableClass = GenericClassFactory.get(Serializable.class);
 
-        Assert.assertTrue(listOfIntegerClass.satisfiesBoundaries(numberTypeVariable));
-        Assert.assertFalse(listOfSerializableClass.satisfiesBoundaries(numberTypeVariable));
+        Assertions.assertTrue(listOfIntegerClass.satisfiesBoundaries(numberTypeVariable));
+        Assertions.assertFalse(listOfSerializableClass.satisfiesBoundaries(numberTypeVariable));
     }
 
     @Test
@@ -308,8 +308,8 @@ public class TestGenericClassImpl {
         GenericClass<?> listOfIntegerClass = GenericClassFactory.get(Integer.class);
         GenericClass<?> listOfSerializableClass = GenericClassFactory.get(Serializable.class);
 
-        Assert.assertTrue(listOfIntegerClass.satisfiesBoundaries(comparableTypeVariable));
-        Assert.assertFalse(listOfSerializableClass.satisfiesBoundaries(comparableTypeVariable));
+        Assertions.assertTrue(listOfIntegerClass.satisfiesBoundaries(comparableTypeVariable));
+        Assertions.assertFalse(listOfSerializableClass.satisfiesBoundaries(comparableTypeVariable));
     }
 
     @Test
@@ -322,9 +322,9 @@ public class TestGenericClassImpl {
         GenericClass<?> abstractClass = GenericClassFactory.get(abstractGuavaExampleString);
         GenericClass<?> concreteClass = GenericClassFactory.get(guavaExample5);
 
-        Assert.assertTrue(TypeUtils.isAssignable(concreteClass.getType(), abstractClass.getType()));
-        Assert.assertTrue("Cannot assign " + concreteClass + " to " + abstractClass, abstractClass.isAssignableFrom(concreteClass));
-        Assert.assertTrue(concreteClass.isAssignableTo(abstractClass));
+        Assertions.assertTrue(TypeUtils.isAssignable(concreteClass.getType(), abstractClass.getType()));
+        Assertions.assertTrue(abstractClass.isAssignableFrom(concreteClass), "Cannot assign " + concreteClass + " to " + abstractClass);
+        Assertions.assertTrue(concreteClass.isAssignableTo(abstractClass));
     }
 
     @Test
@@ -337,14 +337,14 @@ public class TestGenericClassImpl {
         GenericClass<?> listOfDateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> listOfSqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertFalse(listOfIntegerClass.satisfiesBoundaries(dateTypeVariable));
-        Assert.assertFalse(listOfComparableClass.satisfiesBoundaries(dateTypeVariable));
-        Assert.assertTrue(listOfDateClass.satisfiesBoundaries(dateTypeVariable));
-        Assert.assertTrue(listOfSqlDateClass.satisfiesBoundaries(dateTypeVariable));
+        Assertions.assertFalse(listOfIntegerClass.satisfiesBoundaries(dateTypeVariable));
+        Assertions.assertFalse(listOfComparableClass.satisfiesBoundaries(dateTypeVariable));
+        Assertions.assertTrue(listOfDateClass.satisfiesBoundaries(dateTypeVariable));
+        Assertions.assertTrue(listOfSqlDateClass.satisfiesBoundaries(dateTypeVariable));
 
-        Assert.assertTrue(listOfIntegerClass.satisfiesBoundaries(comparableTypeVariable));
+        Assertions.assertTrue(listOfIntegerClass.satisfiesBoundaries(comparableTypeVariable));
         //		Assert.assertTrue(listOfComparableClass.satisfiesBoundaries(comparableTypeVariable));
-        Assert.assertTrue(listOfDateClass.satisfiesBoundaries(comparableTypeVariable));
+        Assertions.assertTrue(listOfDateClass.satisfiesBoundaries(comparableTypeVariable));
         // Assert.assertTrue(listOfSqlDateClass.satisfiesBoundaries(comparableTypeVariable));
     }
 
@@ -359,10 +359,10 @@ public class TestGenericClassImpl {
         GenericClass<?> dateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> sqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertTrue(integerClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(comparableClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(dateClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(sqlDateClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(integerClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(comparableClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(dateClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(sqlDateClass.satisfiesBoundaries(objectType));
     }
 
     @Test
@@ -376,10 +376,10 @@ public class TestGenericClassImpl {
         GenericClass<?> dateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> sqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertTrue(integerClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(comparableClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(dateClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(integerClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(comparableClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(dateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
     }
 
     @Test
@@ -393,10 +393,10 @@ public class TestGenericClassImpl {
         GenericClass<?> dateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> sqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertTrue(integerClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(comparableClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(dateClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(integerClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(comparableClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(dateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
     }
 
     @Test
@@ -410,10 +410,10 @@ public class TestGenericClassImpl {
         GenericClass<?> dateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> sqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertTrue(integerClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(comparableClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(dateClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(sqlDateClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(integerClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(comparableClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(dateClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(sqlDateClass.satisfiesBoundaries(objectType));
     }
 
     @Test
@@ -427,10 +427,10 @@ public class TestGenericClassImpl {
         GenericClass<?> dateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> sqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertFalse(integerClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(comparableClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(dateClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(sqlDateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(integerClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(comparableClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(dateClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(sqlDateClass.satisfiesBoundaries(objectType));
     }
 
     @Test
@@ -444,10 +444,10 @@ public class TestGenericClassImpl {
         GenericClass<?> dateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> sqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertFalse(integerClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(comparableClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(dateClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(sqlDateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(integerClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(comparableClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(dateClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(sqlDateClass.satisfiesBoundaries(objectType));
     }
 
     @Test
@@ -461,10 +461,10 @@ public class TestGenericClassImpl {
         GenericClass<?> dateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> sqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertFalse(integerClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(comparableClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(dateClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(integerClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(comparableClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(dateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
     }
 
     @Test
@@ -478,11 +478,11 @@ public class TestGenericClassImpl {
         GenericClass<?> dateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> sqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertFalse(integerClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(comparableClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(dateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(integerClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(comparableClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(dateClass.satisfiesBoundaries(objectType));
         // Does not satisfy lower bound, so needs to be false
-        Assert.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
     }
 
     @Test
@@ -496,11 +496,11 @@ public class TestGenericClassImpl {
         GenericClass<?> dateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> sqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertFalse(integerClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(comparableClass.satisfiesBoundaries(objectType));
-        Assert.assertTrue(dateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(integerClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(comparableClass.satisfiesBoundaries(objectType));
+        Assertions.assertTrue(dateClass.satisfiesBoundaries(objectType));
         // Does not satisfy lower boundary
-        Assert.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
     }
 
     @Test
@@ -511,7 +511,7 @@ public class TestGenericClassImpl {
                 new Type[]{new WildcardTypeImpl(new Type[]{Object.class}, new Type[]{})}, null);
 
         GenericClass<?> candidate = GenericClassFactory.get(linkedListOfWildcard);
-        Assert.assertFalse(candidate.satisfiesBoundaries(wildcard));
+        Assertions.assertFalse(candidate.satisfiesBoundaries(wildcard));
     }
 
     @Test
@@ -525,10 +525,10 @@ public class TestGenericClassImpl {
         GenericClass<?> dateClass = GenericClassFactory.get(java.util.Date.class);
         GenericClass<?> sqlDateClass = GenericClassFactory.get(java.sql.Date.class);
 
-        Assert.assertFalse(integerClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(comparableClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(dateClass.satisfiesBoundaries(objectType));
-        Assert.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(integerClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(comparableClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(dateClass.satisfiesBoundaries(objectType));
+        Assertions.assertFalse(sqlDateClass.satisfiesBoundaries(objectType));
     }
 
     @Test
@@ -538,20 +538,20 @@ public class TestGenericClassImpl {
         GenericClass<?> listOfWildcard = GenericClassFactory.get(new TypeToken<List<?>>() {
         }.getType());
 
-        Assert.assertTrue(listOfWildcard.isGenericSuperTypeOf(listOfInteger));
-        Assert.assertFalse(listOfInteger.isGenericSuperTypeOf(listOfWildcard));
-        Assert.assertTrue(listOfInteger.hasGenericSuperType(listOfWildcard));
-        Assert.assertFalse(listOfWildcard.hasGenericSuperType(listOfInteger));
+        Assertions.assertTrue(listOfWildcard.isGenericSuperTypeOf(listOfInteger));
+        Assertions.assertFalse(listOfInteger.isGenericSuperTypeOf(listOfWildcard));
+        Assertions.assertTrue(listOfInteger.hasGenericSuperType(listOfWildcard));
+        Assertions.assertFalse(listOfWildcard.hasGenericSuperType(listOfInteger));
 
         GenericClass<?> mapOfInteger = GenericClassFactory.get(
                 new TypeToken<Map<Integer, String>>() {
                 }.getType());
         GenericClass<?> mapOfWildcard = GenericClassFactory.get(new TypeToken<Map<?, ?>>() {
         }.getType());
-        Assert.assertTrue(mapOfWildcard.isGenericSuperTypeOf(mapOfInteger));
-        Assert.assertFalse(mapOfInteger.isGenericSuperTypeOf(mapOfWildcard));
-        Assert.assertTrue(mapOfInteger.hasGenericSuperType(mapOfWildcard));
-        Assert.assertFalse(mapOfWildcard.hasGenericSuperType(mapOfInteger));
+        Assertions.assertTrue(mapOfWildcard.isGenericSuperTypeOf(mapOfInteger));
+        Assertions.assertFalse(mapOfInteger.isGenericSuperTypeOf(mapOfWildcard));
+        Assertions.assertTrue(mapOfInteger.hasGenericSuperType(mapOfWildcard));
+        Assertions.assertFalse(mapOfWildcard.hasGenericSuperType(mapOfInteger));
     }
 
     @Test
@@ -562,8 +562,8 @@ public class TestGenericClassImpl {
                 new TypeToken<LinkedList<Integer>>() {
                 }.getType());
 
-        Assert.assertTrue(linkedlistOfInteger.canBeInstantiatedTo(listOfInteger));
-        Assert.assertFalse(listOfInteger.canBeInstantiatedTo(linkedlistOfInteger));
+        Assertions.assertTrue(linkedlistOfInteger.canBeInstantiatedTo(listOfInteger));
+        Assertions.assertFalse(listOfInteger.canBeInstantiatedTo(linkedlistOfInteger));
     }
 
     @Test
@@ -574,8 +574,8 @@ public class TestGenericClassImpl {
                 new TypeToken<LinkedList<Integer>>() {
                 }.getType());
 
-        Assert.assertTrue(linkedlistOfInteger.canBeInstantiatedTo(listOfWildcard));
-        Assert.assertFalse(listOfWildcard.canBeInstantiatedTo(linkedlistOfInteger));
+        Assertions.assertTrue(linkedlistOfInteger.canBeInstantiatedTo(listOfWildcard));
+        Assertions.assertFalse(listOfWildcard.canBeInstantiatedTo(linkedlistOfInteger));
     }
 
     @Test
@@ -586,8 +586,8 @@ public class TestGenericClassImpl {
                 new TypeToken<LinkedList<Integer>>() {
                 }.getType()).getWithWildcardTypes();
 
-        Assert.assertTrue(linkedlistOfWildcard.canBeInstantiatedTo(listOfInteger));
-        Assert.assertFalse(listOfInteger.canBeInstantiatedTo(linkedlistOfWildcard));
+        Assertions.assertTrue(linkedlistOfWildcard.canBeInstantiatedTo(listOfInteger));
+        Assertions.assertFalse(listOfInteger.canBeInstantiatedTo(linkedlistOfWildcard));
     }
 
 
@@ -599,8 +599,8 @@ public class TestGenericClassImpl {
                 new TypeToken<LinkedList<Integer>>() {
                 }.getType());
 
-        Assert.assertTrue(linkedlistOfInteger.canBeInstantiatedTo(listOfTypeVariable));
-        Assert.assertFalse(listOfTypeVariable.canBeInstantiatedTo(linkedlistOfInteger));
+        Assertions.assertTrue(linkedlistOfInteger.canBeInstantiatedTo(listOfTypeVariable));
+        Assertions.assertFalse(listOfTypeVariable.canBeInstantiatedTo(linkedlistOfInteger));
     }
 
 
@@ -612,8 +612,8 @@ public class TestGenericClassImpl {
                 new TypeToken<LinkedList>() {
                 }.getType());
 
-        Assert.assertTrue(linkedlistOfTypeVariable.canBeInstantiatedTo(listOfInteger));
-        Assert.assertFalse(listOfInteger.canBeInstantiatedTo(linkedlistOfTypeVariable));
+        Assertions.assertTrue(linkedlistOfTypeVariable.canBeInstantiatedTo(listOfInteger));
+        Assertions.assertFalse(listOfInteger.canBeInstantiatedTo(linkedlistOfTypeVariable));
     }
 
     @Test
@@ -621,8 +621,8 @@ public class TestGenericClassImpl {
         GenericClass<?> integerClass = GenericClassFactory.get(Integer.class);
         GenericClass<?> intClass = GenericClassFactory.get(int.class);
 
-        Assert.assertTrue(integerClass.canBeInstantiatedTo(intClass));
-        Assert.assertFalse(intClass.canBeInstantiatedTo(integerClass));
+        Assertions.assertTrue(integerClass.canBeInstantiatedTo(intClass));
+        Assertions.assertFalse(intClass.canBeInstantiatedTo(integerClass));
     }
 
 
@@ -636,7 +636,7 @@ public class TestGenericClassImpl {
 
         GenericClass<?> instantiatedClass = linkedlistOfTypeVariable.getWithParametersFromSuperclass(listOfInteger);
         //GenericClass instantiatedClass = linkedlistOfTypeVariable.getGenericInstantiation(listOfInteger.getTypeVariableMap());
-        Assert.assertEquals(Integer.class, instantiatedClass.getParameterTypes().get(0));
+        Assertions.assertEquals(Integer.class, instantiatedClass.getParameterTypes().get(0));
     }
 
 
@@ -651,10 +651,10 @@ public class TestGenericClassImpl {
         GenericClass<?> instantiatedClass = hashMapClass.getWithParametersFromSuperclass(mapOfStringAndWildcard);
         //GenericClass instantiatedClass = linkedlistOfTypeVariable.getGenericInstantiation(listOfInteger.getTypeVariableMap());
         System.out.println(instantiatedClass.toString());
-        Assert.assertEquals(String.class, instantiatedClass.getParameterTypes().get(0));
+        Assertions.assertEquals(String.class, instantiatedClass.getParameterTypes().get(0));
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testGenericInstantiationMapType() throws ConstructionFailedException {
         GenericClass<?> genericClass = GenericClassFactory.get(
@@ -663,11 +663,11 @@ public class TestGenericClassImpl {
         //GenericClass instantiatedClass = linkedlistOfTypeVariable.getGenericInstantiation(listOfInteger.getTypeVariableMap());
         System.out.println(instantiatedClass.toString());
         Type parameterType = instantiatedClass.getParameterTypes().get(0);
-        Assert.assertTrue(TypeUtils.isAssignable(parameterType, Map.class));
-        Assert.assertTrue(parameterType instanceof ParameterizedType);
+        Assertions.assertTrue(TypeUtils.isAssignable(parameterType, Map.class));
+        Assertions.assertTrue(parameterType instanceof ParameterizedType);
 
         ParameterizedType parameterizedType = (ParameterizedType) parameterType;
-        Assert.assertEquals(String.class, parameterizedType.getActualTypeArguments()[0]);
+        Assertions.assertEquals(String.class, parameterizedType.getActualTypeArguments()[0]);
     }
 
     @Test
@@ -677,13 +677,13 @@ public class TestGenericClassImpl {
                 }.getType());
         GenericClass<?> arrayListClass = GenericClassFactory.get(java.util.ArrayList.class);
 
-        Assert.assertTrue(arrayListClass.canBeInstantiatedTo(iterableIntegerClass));
-        Assert.assertFalse(iterableIntegerClass.canBeInstantiatedTo(arrayListClass));
+        Assertions.assertTrue(arrayListClass.canBeInstantiatedTo(iterableIntegerClass));
+        Assertions.assertFalse(iterableIntegerClass.canBeInstantiatedTo(arrayListClass));
 
         GenericClass<?> instantiatedList = arrayListClass.getWithParametersFromSuperclass(iterableIntegerClass);
 
         Type parameterType = instantiatedList.getParameterTypes().get(0);
-        Assert.assertEquals(Integer.class, GenericTypeReflector.erase(parameterType));
+        Assertions.assertEquals(Integer.class, GenericTypeReflector.erase(parameterType));
     }
 
 
@@ -752,13 +752,13 @@ public class TestGenericClassImpl {
                 new TypeToken<java.util.ArrayList<String>>() {
                 }.getType());
 
-        Assert.assertFalse(arrayListClass.satisfiesBoundaries(var, typeMap));
+        Assertions.assertFalse(arrayListClass.satisfiesBoundaries(var, typeMap));
 
         arrayListClass = GenericClassFactory.get(
                 new TypeToken<java.util.ArrayList<Integer>>() {
                 }.getType());
 
-        Assert.assertTrue(arrayListClass.satisfiesBoundaries(var, typeMap));
+        Assertions.assertTrue(arrayListClass.satisfiesBoundaries(var, typeMap));
 
     }
 
@@ -776,12 +776,12 @@ public class TestGenericClassImpl {
                 com.examples.with.different.packagename.generic.GuavaExample4.class);
 
         // Object bound
-        Assert.assertTrue(iterableIntegerClass.satisfiesBoundaries(typeVariable));
-        Assert.assertTrue(listOfIntegerClass.satisfiesBoundaries(typeVariable));
+        Assertions.assertTrue(iterableIntegerClass.satisfiesBoundaries(typeVariable));
+        Assertions.assertTrue(listOfIntegerClass.satisfiesBoundaries(typeVariable));
 
         // Iterable bound
-        Assert.assertTrue(iterableIntegerClass.satisfiesBoundaries(iterableTypeVariable));
-        Assert.assertTrue(listOfIntegerClass.satisfiesBoundaries(iterableTypeVariable));
+        Assertions.assertTrue(iterableIntegerClass.satisfiesBoundaries(iterableTypeVariable));
+        Assertions.assertTrue(listOfIntegerClass.satisfiesBoundaries(iterableTypeVariable));
 
     }
 
@@ -791,7 +791,7 @@ public class TestGenericClassImpl {
         ClassLoader loader = new InstrumentingClassLoader();
         arrayClass.changeClassLoader(loader);
         Class<?> rawClass = arrayClass.getRawClass();
-        Assert.assertTrue(rawClass.isArray());
+        Assertions.assertTrue(rawClass.isArray());
 
     }
 
@@ -801,7 +801,7 @@ public class TestGenericClassImpl {
         ClassLoader loader = new InstrumentingClassLoader();
         arrayClass.changeClassLoader(loader);
         Class<?> rawClass = arrayClass.getRawClass();
-        Assert.assertFalse(rawClass.isArray());
+        Assertions.assertFalse(rawClass.isArray());
     }
 
     @Test
@@ -818,11 +818,11 @@ public class TestGenericClassImpl {
                 new TypeToken<java.util.List<Object>>() {
                 }.getType());
 
-        Assert.assertTrue(integerWildcardListClass.isAssignableFrom(integerListClass));
-        Assert.assertFalse(integerWildcardListClass.isAssignableFrom(objectListClass));
+        Assertions.assertTrue(integerWildcardListClass.isAssignableFrom(integerListClass));
+        Assertions.assertFalse(integerWildcardListClass.isAssignableFrom(objectListClass));
 
         GenericClass<?> integerWildcardListInstantiation = integerWildcardListClass.getGenericInstantiation();
-        Assert.assertTrue(integerWildcardListClass.isAssignableFrom(integerWildcardListInstantiation));
+        Assertions.assertTrue(integerWildcardListClass.isAssignableFrom(integerWildcardListInstantiation));
     }
 
     @Test
@@ -842,12 +842,12 @@ public class TestGenericClassImpl {
                 new TypeToken<java.util.List<Object>>() {
                 }.getType());
 
-        Assert.assertTrue(integerWildcardListClass.isAssignableFrom(integerListClass));
-        Assert.assertTrue(integerWildcardListClass.isAssignableFrom(numberListClass));
-        Assert.assertTrue(integerWildcardListClass.isAssignableFrom(objectListClass));
+        Assertions.assertTrue(integerWildcardListClass.isAssignableFrom(integerListClass));
+        Assertions.assertTrue(integerWildcardListClass.isAssignableFrom(numberListClass));
+        Assertions.assertTrue(integerWildcardListClass.isAssignableFrom(objectListClass));
 
         GenericClass<?> integerWildcardListInstantiation = integerWildcardListClass.getGenericInstantiation();
-        Assert.assertTrue(integerWildcardListClass.isAssignableFrom(integerWildcardListInstantiation));
+        Assertions.assertTrue(integerWildcardListClass.isAssignableFrom(integerWildcardListInstantiation));
     }
 
     @Test
@@ -867,13 +867,13 @@ public class TestGenericClassImpl {
                 new TypeToken<java.util.List<Object>>() {
                 }.getType());
 
-        Assert.assertFalse(numberWildcardListClass.isAssignableFrom(integerListClass));
-        Assert.assertTrue(numberWildcardListClass.isAssignableFrom(numberListClass));
-        Assert.assertTrue(numberWildcardListClass.isAssignableFrom(objectListClass));
+        Assertions.assertFalse(numberWildcardListClass.isAssignableFrom(integerListClass));
+        Assertions.assertTrue(numberWildcardListClass.isAssignableFrom(numberListClass));
+        Assertions.assertTrue(numberWildcardListClass.isAssignableFrom(objectListClass));
 
         GenericClass<?> integerWildcardListInstantiation = numberWildcardListClass.getGenericInstantiation();
         System.out.println(integerWildcardListInstantiation.toString());
-        Assert.assertTrue(numberWildcardListClass.isAssignableFrom(integerWildcardListInstantiation));
+        Assertions.assertTrue(numberWildcardListClass.isAssignableFrom(integerWildcardListInstantiation));
     }
 
     @Test
@@ -886,9 +886,9 @@ public class TestGenericClassImpl {
         GenericClass<?> genericClass = GenericClassFactory.get(listOfWildcardBound);
         GenericClass<?> instantiated = genericClass.getGenericInstantiation(new HashMap<>(), 1);
 
-        Assert.assertTrue(instantiated.getType() instanceof ParameterizedType);
+        Assertions.assertTrue(instantiated.getType() instanceof ParameterizedType);
         Type actualArgument = ((ParameterizedType) instantiated.getType()).getActualTypeArguments()[0];
-        Assert.assertFalse(actualArgument instanceof WildcardType);
+        Assertions.assertFalse(actualArgument instanceof WildcardType);
     }
 
     @Test
@@ -901,13 +901,13 @@ public class TestGenericClassImpl {
         GenericClass<?> genericClass = GenericClassFactory.get(expectedCollection);
         GenericClass<?> instantiated = genericClass.getGenericInstantiation(new HashMap<>(), 1);
 
-        Assert.assertTrue(instantiated.isAssignableTo(GenericClassFactory.get(expectedCollection)));
-        Assert.assertTrue(instantiated.getType() instanceof ParameterizedType);
+        Assertions.assertTrue(instantiated.isAssignableTo(GenericClassFactory.get(expectedCollection)));
+        Assertions.assertTrue(instantiated.getType() instanceof ParameterizedType);
         Type collectionArg = ((ParameterizedType) instantiated.getType()).getActualTypeArguments()[0];
-        Assert.assertFalse(collectionArg instanceof WildcardType);
-        Assert.assertTrue(collectionArg instanceof ParameterizedType);
+        Assertions.assertFalse(collectionArg instanceof WildcardType);
+        Assertions.assertTrue(collectionArg instanceof ParameterizedType);
         Type nestedArg = ((ParameterizedType) collectionArg).getActualTypeArguments()[0];
-        Assert.assertFalse(nestedArg instanceof WildcardType);
+        Assertions.assertFalse(nestedArg instanceof WildcardType);
     }
 
     @Test
@@ -922,18 +922,18 @@ public class TestGenericClassImpl {
         GenericClass<?> genericClass = GenericClassFactory.get(expectedMap);
         GenericClass<?> instantiated = genericClass.getGenericInstantiation(new HashMap<>(), 1);
 
-        Assert.assertTrue("instantiated=" + instantiated.getType(),
-                instantiated.isAssignableTo(GenericClassFactory.get(expectedMap)));
-        Assert.assertTrue(instantiated.getType() instanceof ParameterizedType);
+        Assertions.assertTrue(instantiated.isAssignableTo(GenericClassFactory.get(expectedMap)),
+                "instantiated=" + instantiated.getType());
+        Assertions.assertTrue(instantiated.getType() instanceof ParameterizedType);
         Type[] args = ((ParameterizedType) instantiated.getType()).getActualTypeArguments();
-        Assert.assertFalse(args[0] instanceof WildcardType);
-        Assert.assertFalse(args[1] instanceof WildcardType);
-        Assert.assertTrue(args[0] instanceof ParameterizedType);
-        Assert.assertTrue(args[1] instanceof ParameterizedType);
+        Assertions.assertFalse(args[0] instanceof WildcardType);
+        Assertions.assertFalse(args[1] instanceof WildcardType);
+        Assertions.assertTrue(args[0] instanceof ParameterizedType);
+        Assertions.assertTrue(args[1] instanceof ParameterizedType);
         Type keyClassArg = ((ParameterizedType) args[0]).getActualTypeArguments()[0];
         Type valueClassArg = ((ParameterizedType) args[1]).getActualTypeArguments()[0];
-        Assert.assertFalse(keyClassArg instanceof WildcardType);
-        Assert.assertFalse(valueClassArg instanceof WildcardType);
+        Assertions.assertFalse(keyClassArg instanceof WildcardType);
+        Assertions.assertFalse(valueClassArg instanceof WildcardType);
     }
 
     @Test
@@ -943,6 +943,6 @@ public class TestGenericClassImpl {
         WildcardType wildcard = new WildcardTypeImpl(new Type[]{classOfInteger}, new Type[]{});
 
         GenericClass<?> candidate = GenericClassFactory.get(classOfString);
-        Assert.assertFalse(candidate.satisfiesBoundaries(wildcard));
+        Assertions.assertFalse(candidate.satisfiesBoundaries(wildcard));
     }
 }

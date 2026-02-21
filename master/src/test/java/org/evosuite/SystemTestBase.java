@@ -21,10 +21,13 @@ package org.evosuite;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.evosuite.Properties.Criterion;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.evosuite.Properties.StatisticsBackend;
 import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.coverage.exception.ExceptionCoverageFactory;
@@ -46,13 +49,10 @@ import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.rules.TestName;
-
-import static org.junit.Assert.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * @author Andrea Arcuri
@@ -80,17 +80,17 @@ public class SystemTestBase {
     private static final Map<String, Integer> executionCounter = new ConcurrentHashMap<>();
 
 
-    @Rule
-    public TestName name = new TestName();
+    
+    public String name;
 
 
-    @Before
+    @BeforeEach
     public void checkIfValidName() {
         String name = this.getClass().getName();
-        assertTrue("Invalid name for system test: " + name, name.endsWith("SystemTest"));
+        assertTrue(name.endsWith("SystemTest"), "Invalid name for system test: " + name);
     }
 
-    @After
+    @AfterEach
     public void resetStaticVariables() {
         RuntimeInstrumentation.setAvoidInstrumentingShadedClasses(false);
         RuntimeSettings.applyUIDTransformation = false;
@@ -106,8 +106,18 @@ public class SystemTestBase {
         SearchStatistics.clearAllInstances();
     }
 
-    @Before
     public void setDefaultPropertiesForTestCases() {
+        setDefaultPropertiesForTestCases(null);
+    }
+
+    @BeforeEach
+    public void setDefaultPropertiesForTestCases(TestInfo testInfo) {
+        if (testInfo != null) {
+            Optional<Method> testMethod = testInfo.getTestMethod();
+            if (testMethod.isPresent()) {
+                this.name = testMethod.get().getName();
+            }
+        }
 
         Properties.getInstance().resetToDefaults();
 
@@ -169,7 +179,7 @@ public class SystemTestBase {
 
         double cov = best.getCoverageInstanceOf(LineCoverageSuiteFitness.class);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, cov, 0.001);
+        Assertions.assertEquals(1d, cov, 0.001, "Non-optimal coverage: ");
 
         return ga;
     }
@@ -190,7 +200,7 @@ public class SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
 
         return ga;
     }
@@ -210,7 +220,7 @@ public class SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertNotEquals("Unexpected optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertNotEquals(1d, best.getCoverage(), 0.001, "Unexpected optimal coverage: ");
 
         return ga;
     }
@@ -221,7 +231,7 @@ public class SystemTestBase {
             throw new IllegalStateException("Properties.OUTPUT_VARIABLES needs to contain " + rv.toString());
         }
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> out = map.get(rv.toString());
         return out;
     }
@@ -229,8 +239,8 @@ public class SystemTestBase {
 
     protected void checkUnstable() throws IllegalStateException {
         OutputVariable<?> unstable = getOutputVariable(RuntimeVariable.HadUnstableTests);
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
     }
 
     /*
@@ -258,11 +268,11 @@ public class SystemTestBase {
         String[] command = new String[]{"-setup", master, runtime, client, external};
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNull(result);
+        Assertions.assertNull(result);
         File evoProp = new File(Properties.OUTPUT_DIR + File.separator
                 + "evosuite.properties");
-        assertTrue("It was not created: " + evoProp.getAbsolutePath(),
-                evoProp.exists());
+        assertTrue(evoProp.exists(),
+                "It was not created: " + evoProp.getAbsolutePath());
 
         hasBeenAlreadyRun = true;
     }
@@ -311,10 +321,10 @@ public class SystemTestBase {
     private static void checkFile(String target) {
         File targetDir = new File(target);
         try {
-            assertTrue("Target directory does not exist: "
-                    + targetDir.getCanonicalPath(), targetDir.exists());
+            assertTrue(targetDir.exists(), "Target directory does not exist: "
+                    + targetDir.getCanonicalPath());
         } catch (IOException e) {
-            Assert.fail(e.getMessage());
+            Assertions.fail(e.getMessage());
         }
         assertTrue(targetDir.isDirectory());
     }
@@ -328,30 +338,30 @@ public class SystemTestBase {
             org.apache.commons.io.FileUtils.deleteDirectory(new File("evosuite-report"));
             org.apache.commons.io.FileUtils.deleteDirectory(new File("evosuite-tests"));
         } catch (IOException e) {
-            Assert.fail(e.getMessage());
+            Assertions.fail(e.getMessage());
         }
         hasBeenAlreadyRun = false;
     }
 
 
     protected <T extends Chromosome<T>> GeneticAlgorithm<T> getGAFromResult(Object result) {
-        Assert.assertNotNull("EvoSuite returned null result", result);
-        Assert.assertTrue("EvoSuite returned unexpected result type: " + result.getClass(),
-                result instanceof List);
+        Assertions.assertNotNull(result, "EvoSuite returned null result");
+        Assertions.assertTrue(result instanceof List,
+                "EvoSuite returned unexpected result type: " + result.getClass());
 
         List<List<TestGenerationResult<T>>> results = (List<List<TestGenerationResult<T>>>) result;
-        Assert.assertFalse("EvoSuite returned an empty outer result list", results.isEmpty());
-        Assert.assertFalse("EvoSuite returned an empty inner result list", results.get(0).isEmpty());
+        Assertions.assertFalse(results.isEmpty(), "EvoSuite returned an empty outer result list");
+        Assertions.assertFalse(results.get(0).isEmpty(), "EvoSuite returned an empty inner result list");
 
         TestGenerationResult<T> firstResult = results.get(0).get(0);
-        Assert.assertNotNull("EvoSuite returned a null TestGenerationResult", firstResult);
+        Assertions.assertNotNull(firstResult, "EvoSuite returned a null TestGenerationResult");
 
         GeneticAlgorithm<T> ga = firstResult.getGeneticAlgorithm();
-        Assert.assertNotNull(
+        Assertions.assertNotNull(
+                ga,
                 "EvoSuite returned no GA. status=" + firstResult.getTestGenerationStatus()
                         + ", error=" + firstResult.getErrorMessage()
-                        + ", class=" + firstResult.getClassUnderTest(),
-                ga);
+                        + ", class=" + firstResult.getClassUnderTest());
         return ga;
     }
 

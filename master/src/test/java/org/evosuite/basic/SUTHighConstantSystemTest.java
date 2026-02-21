@@ -24,8 +24,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.*;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import com.examples.with.different.packagename.HighConstant;
 
 
@@ -36,12 +36,12 @@ public class SUTHighConstantSystemTest extends SystemTestBase {
 
     public static final double defaultPrimitivePool = Properties.PRIMITIVE_POOL;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.PRIMITIVE_POOL = defaultPrimitivePool;
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testNoPrimitivePool() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -63,21 +63,21 @@ public class SUTHighConstantSystemTest extends SystemTestBase {
         /*
          * there are 2 branches and one method, so 3 targets, of which we cover only 2
          */
-        Assert.assertEquals("Non-expected coverage: ", 2d / 3d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2d / 3d, best.getCoverage(), 0.001, "Non-expected coverage: ");
 
-        Assert.assertEquals("Wrong number of test cases: ", 1, best.size());
+        Assertions.assertEquals(1, best.size(), "Wrong number of test cases: ");
         /*
          * - Constructor
          * - variable init
          * - method call
          */
         if (Properties.INLINE)
-            Assert.assertEquals("Wrong number of statements: ", 2, best.getTestChromosome(0).getTestCase().size());
+            Assertions.assertEquals(2, best.getTestChromosome(0).getTestCase().size(), "Wrong number of statements: ");
         else
-            Assert.assertEquals("Wrong number of statements: ", 3, best.getTestChromosome(0).getTestCase().size());
+            Assertions.assertEquals(3, best.getTestChromosome(0).getTestCase().size(), "Wrong number of statements: ");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testUsingPrimitivePool() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -95,10 +95,10 @@ public class SUTHighConstantSystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
 
-        Assert.assertEquals("Wrong number of generations: ", 0, ga.getAge());
+        Assertions.assertEquals(0, ga.getAge(), "Wrong number of generations: ");
         TestSuiteChromosome best = ga.getBestIndividual();
         //Assert.assertEquals("Wrong number of test cases: ",2 , best.size());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
         //Assert.assertEquals("Wrong number of statements: ",3,best.getTestChromosome(0).getTestCase().size());
         //Assert.assertEquals("Wrong number of statements: ",3,best.getTestChromosome(1).getTestCase().size());
     }

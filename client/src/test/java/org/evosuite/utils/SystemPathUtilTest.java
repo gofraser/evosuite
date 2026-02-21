@@ -19,12 +19,12 @@
  */
 package org.evosuite.utils;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import static org.evosuite.utils.SystemPathUtil.DELIMITER_MUST_NOT_BE_NULL_EXCEPTION_MESSAGE;
 import static org.evosuite.utils.SystemPathUtil.ELEMENTS_MUST_NOT_BE_NULL_EXCEPTION_MESSAGE;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author Ignacio Lebrero
@@ -37,7 +37,7 @@ public class SystemPathUtilTest {
         String b = "element2";
         String c = "element3";
 
-        Assert.assertEquals("element1_element2_element3", SystemPathUtil.joinWithDelimiter("_", a, b, c));
+        Assertions.assertEquals("element1_element2_element3", SystemPathUtil.joinWithDelimiter("_", a, b, c));
     }
 
     @Test
@@ -46,7 +46,7 @@ public class SystemPathUtilTest {
         String b = "element2";
         String c = "element3";
 
-        Assert.assertEquals("element1element2element3", SystemPathUtil.joinWithDelimiter("", a, b, c));
+        Assertions.assertEquals("element1element2element3", SystemPathUtil.joinWithDelimiter("", a, b, c));
     }
 
     @Test
@@ -84,6 +84,6 @@ public class SystemPathUtilTest {
 
     @Test
     public void testJoinWithDelimiterEmptyString() {
-        Assert.assertEquals("", SystemPathUtil.joinWithDelimiter("_"));
+        Assertions.assertEquals("", SystemPathUtil.joinWithDelimiter("_"));
     }
 }

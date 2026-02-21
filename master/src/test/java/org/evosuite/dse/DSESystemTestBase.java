@@ -24,15 +24,14 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithmBase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Before;
+import org.junit.jupiter.api.BeforeEach;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public abstract class DSESystemTestBase extends SystemTestBase {
-    @Before
+    @BeforeEach
     public void init() {
         Properties.VIRTUAL_FS = true;
         Properties.VIRTUAL_NET = true;

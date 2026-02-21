@@ -1,16 +1,14 @@
 package org.evosuite.testcase;
 
 import org.evosuite.testcase.variable.VariableReference;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.*;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 public class TestFactoryBugFixTest {
@@ -29,7 +27,7 @@ public class TestFactoryBugFixTest {
 
         boolean result = invokeDependenciesSatisfied(dependencies, objects);
         
-        assertTrue("ArrayList should satisfy List dependency", result);
+        assertTrue(result, "ArrayList should satisfy List dependency");
     }
 
     @Test
@@ -45,7 +43,7 @@ public class TestFactoryBugFixTest {
 
         boolean result = invokeDependenciesSatisfied(dependencies, objects);
         
-        assertTrue("Exact type should satisfy dependency", result);
+        assertTrue(result, "Exact type should satisfy dependency");
     }
 
     private boolean invokeDependenciesSatisfied(Set<Type> dependencies, List<VariableReference> objects) throws Exception {

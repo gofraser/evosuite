@@ -24,14 +24,14 @@ import org.evosuite.Properties;
 import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.variable.VariableReference;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class TestConcolicReflection {
 
@@ -87,12 +87,12 @@ public class TestConcolicReflection {
 
     private static final int DEFAULT_CONCOLIC_TIMEOUT = Properties.CONCOLIC_TIMEOUT;
 
-    @After
+    @AfterEach
     public void restoreSettings() {
         Properties.CONCOLIC_TIMEOUT = DEFAULT_CONCOLIC_TIMEOUT;
     }
 
-    @Before
+    @BeforeEach
     public void setMaxConcolicTime() {
         Properties.CONCOLIC_TIMEOUT = Integer.MAX_VALUE;
     }

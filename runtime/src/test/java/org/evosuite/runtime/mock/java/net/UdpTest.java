@@ -24,10 +24,10 @@ import org.evosuite.runtime.testdata.EvoSuiteLocalAddress;
 import org.evosuite.runtime.testdata.NetworkHandling;
 import org.evosuite.runtime.vnet.EndPointInfo;
 import org.evosuite.runtime.vnet.VirtualNetwork;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -40,12 +40,12 @@ import java.util.Map;
  */
 public class UdpTest {
 
-    @Before
+    @BeforeEach
     public void setupMock() {
         MockFramework.enable();
     }
 
-    @After
+    @AfterEach
     public void tearDownMock() {
         MockFramework.disable();
     }
@@ -82,8 +82,8 @@ public class UdpTest {
         socket.receive(p);
 
         byte[] received = p.getData();
-        Assert.assertNotNull(received);
-        Assert.assertEquals(42, received[0]);
+        Assertions.assertNotNull(received);
+        Assertions.assertEquals(42, received[0]);
     }
 
     @Test
@@ -96,7 +96,7 @@ public class UdpTest {
 
         try {
             socket.receive(p); //no incoming package, but still should not block
-            Assert.fail();
+            Assertions.fail();
         } catch (Exception e) {
             //expected
         }
@@ -125,15 +125,15 @@ public class UdpTest {
         socket.send(packet);
 
         Map<EndPointInfo, Integer> map = VirtualNetwork.getInstance().getCopyOfSentUDP();
-        Assert.assertEquals(2, map.size());
+        Assertions.assertEquals(2, map.size());
 
         for (Map.Entry<EndPointInfo, Integer> entry : map.entrySet()) {
             if (entry.getKey().getHost().equals(first)) {
-                Assert.assertEquals(1, entry.getValue().intValue());
+                Assertions.assertEquals(1, entry.getValue().intValue());
             } else if (entry.getKey().getHost().equals(second)) {
-                Assert.assertEquals(3, entry.getValue().intValue());
+                Assertions.assertEquals(3, entry.getValue().intValue());
             } else {
-                Assert.fail();
+                Assertions.fail();
             }
         }
     }

@@ -28,7 +28,9 @@ import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
  * @author Jose Miguel Rojas
@@ -39,24 +41,24 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
     private static final boolean defaultArchive = Properties.TEST_ARCHIVE;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.CRITERION = defaultCriterion;
         Properties.TEST_ARCHIVE = defaultArchive;
     }
 
-    @Before
+    @BeforeEach
     public void beforeTest() {
         Properties.CRITERION = new Properties.Criterion[]{Criterion.BRANCH, Criterion.OUTPUT};
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testOutputCoveragePrimitiveTypesWithArchive() {
         Properties.TEST_ARCHIVE = true;
         testOutputCoveragePrimitiveTypes();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testOutputCoveragePrimitiveTypesWithoutArchive() {
         Properties.TEST_ARCHIVE = false;
         testOutputCoveragePrimitiveTypes();
@@ -76,12 +78,12 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         int goals = 0;
         for (TestFitnessFactory<?> ff : TestGenerationStrategy.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
-        Assert.assertEquals("Unexpected number of goals", 24, goals);
-        Assert.assertEquals("Non-optimal fitness: ", 0.0, best.getFitness(), 0.001);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(24, goals, "Unexpected number of goals");
+        Assertions.assertEquals(0.0, best.getFitness(), 0.001, "Non-optimal fitness: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testOutputCoverageWrapperTypes() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -96,11 +98,11 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         int goals = 0;
         for (TestFitnessFactory ff : TestGenerationStrategy.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
-        Assert.assertEquals("Unexpected number of goals", 29, goals);
-        Assert.assertEquals("Non-optimal fitness: ", 2.5, best.getFitness(), 0.001);
+        Assertions.assertEquals(29, goals, "Unexpected number of goals");
+        Assertions.assertEquals(2.5, best.getFitness(), 0.001, "Non-optimal fitness: ");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testOutputCoverageObjectType() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -115,11 +117,11 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         int goals = 0;
         for (TestFitnessFactory ff : TestGenerationStrategy.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
-        Assert.assertEquals("Unexpected number of goals", 12, goals);
-        Assert.assertEquals("Unexpected coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(12, goals, "Unexpected number of goals");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Unexpected coverage: ");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testOutputCoverageArray() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -133,12 +135,12 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         int goals = 0;
         for (TestFitnessFactory ff : TestGenerationStrategy.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
-        Assert.assertEquals("Unexpected number of goals", 15, goals);
-        Assert.assertEquals("Non-optimal fitness: ", 0.0, best.getFitness(), 0.001);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(15, goals, "Unexpected number of goals");
+        Assertions.assertEquals(0.0, best.getFitness(), 0.001, "Non-optimal fitness: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testOutputCoverageIgnoreHashCode() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -152,8 +154,8 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         int goals = 0;
         for (TestFitnessFactory ff : TestGenerationStrategy.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
-        Assert.assertEquals("Unexpected number of goals", 2, goals);
-        Assert.assertEquals("Non-optimal fitness: ", 0.0, best.getFitness(), 0.001);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, goals, "Unexpected number of goals");
+        Assertions.assertEquals(0.0, best.getFitness(), 0.001, "Non-optimal fitness: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

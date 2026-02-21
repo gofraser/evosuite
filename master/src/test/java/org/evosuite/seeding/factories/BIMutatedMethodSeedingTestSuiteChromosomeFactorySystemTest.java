@@ -19,8 +19,8 @@
  */
 package org.evosuite.seeding.factories;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
@@ -28,10 +28,9 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.staticusage.Class1;
 
 public class BIMutatedMethodSeedingTestSuiteChromosomeFactorySystemTest extends SystemTestBase {
@@ -42,7 +41,7 @@ public class BIMutatedMethodSeedingTestSuiteChromosomeFactorySystemTest extends 
     private final static double SEED_PROBABILITY = Properties.SEED_PROBABILITY;
     private final static int SEED_MUTATIONS = Properties.SEED_MUTATIONS;
 
-    @Before
+    @BeforeEach
     public void setup() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -57,7 +56,7 @@ public class BIMutatedMethodSeedingTestSuiteChromosomeFactorySystemTest extends 
         bestIndividual = ga.getBestIndividual();
     }
 
-    @After
+    @AfterEach
     public void restore() {
         Properties.SEED_PROBABILITY = SEED_PROBABILITY;
         Properties.SEED_MUTATIONS = SEED_MUTATIONS;

@@ -24,10 +24,9 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.localsearch.IsstaFoo;
 
 /**
@@ -35,7 +34,7 @@ import com.examples.with.different.packagename.localsearch.IsstaFoo;
  */
 public class Issta14SystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.LOCAL_SEARCH_PROBABILITY = 1.0;
         Properties.LOCAL_SEARCH_RATE = 1;
@@ -65,8 +64,8 @@ public class Issta14SystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(),
-                0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001,
+                "Non-optimal coverage: ");
     }
 
     @Test
@@ -88,8 +87,8 @@ public class Issta14SystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(),
-                0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001,
+                "Non-optimal coverage: ");
     }
 
 }

@@ -28,11 +28,7 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.*;
 
 /**
  * @author Jose Miguel Rojas
@@ -43,19 +39,19 @@ public class MethodNoExceptionCoverageFitnessFunctionSystemTest extends SystemTe
 
     private static final boolean defaultArchive = Properties.TEST_ARCHIVE;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.CRITERION = defaultCriterion;
         Properties.TEST_ARCHIVE = defaultArchive;
     }
 
-    @Before
+    @BeforeEach
     public void beforeTest() {
         Properties.CRITERION[0] = Criterion.METHODNOEXCEPTION;
         //Properties.MINIMIZE = false;
     }
 
-    @Ignore
+    @Disabled
     public void testMethodNoExceptionFitnessOnlyExceptionExample() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -69,11 +65,11 @@ public class MethodNoExceptionCoverageFitnessFunctionSystemTest extends SystemTe
 
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(2, goals);
-        Assert.assertEquals("Not expected coverage: ", 0.5d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, goals);
+        Assertions.assertEquals(0.5d, best.getCoverage(), 0.001, "Not expected coverage: ");
     }
 
-    @Ignore
+    @Disabled
     public void testMethodNoExceptionFitnessUnlikelyNoExceptionExample() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -88,8 +84,8 @@ public class MethodNoExceptionCoverageFitnessFunctionSystemTest extends SystemTe
 
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(2, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -118,8 +114,8 @@ public class MethodNoExceptionCoverageFitnessFunctionSystemTest extends SystemTe
 
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(6, goals);
-        Assert.assertEquals("Not expected coverage: ", 0.83d, best.getCoverage(), 0.1);
+        Assertions.assertEquals(6, goals);
+        Assertions.assertEquals(0.83d, best.getCoverage(), 0.1, "Not expected coverage: ");
     }
 
     @Test
@@ -147,8 +143,8 @@ public class MethodNoExceptionCoverageFitnessFunctionSystemTest extends SystemTe
 
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(4, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(4, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -165,8 +161,8 @@ public class MethodNoExceptionCoverageFitnessFunctionSystemTest extends SystemTe
         TestSuiteChromosome best = ga.getBestIndividual();
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
-        Assert.assertEquals(4, goals);
+        Assertions.assertEquals(4, goals);
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

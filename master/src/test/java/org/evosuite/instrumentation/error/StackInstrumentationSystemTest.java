@@ -22,7 +22,7 @@ package org.evosuite.instrumentation.error;
 import com.examples.with.different.packagename.errorbranch.StackPeek;
 import com.examples.with.different.packagename.errorbranch.StackPop;
 import org.evosuite.Properties;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class StackInstrumentationSystemTest extends AbstractErrorBranchTest {
 

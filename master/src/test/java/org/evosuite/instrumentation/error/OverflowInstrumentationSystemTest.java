@@ -20,8 +20,7 @@
 package org.evosuite.instrumentation.error;
 
 import org.evosuite.Properties;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.errorbranch.IntAddOverflow;
 import com.examples.with.different.packagename.errorbranch.IntDivOverflow;
 import com.examples.with.different.packagename.errorbranch.IntMulOverflow;

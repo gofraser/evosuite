@@ -38,9 +38,9 @@ import org.evosuite.ga.problems.metrics.GenerationalDistance;
 import org.evosuite.ga.problems.metrics.Metrics;
 import org.evosuite.ga.problems.metrics.Spacing;
 import org.evosuite.ga.variables.DoubleVariable;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static java.util.Comparator.comparingDouble;
 
@@ -48,7 +48,7 @@ import static java.util.Comparator.comparingDouble;
  * @author José Campos
  */
 public class ZDT4IntTest {
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.POPULATION = 100;
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXGENERATIONS;
@@ -65,19 +65,19 @@ public class ZDT4IntTest {
 
         double[] values = {0.5, -5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0};
         NSGAChromosome c = new NSGAChromosome(-5, 5, values);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), 0.5, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(1)).getValue(), -5.0, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(2)).getValue(), -4.0, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(3)).getValue(), -3.0, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(4)).getValue(), -2.0, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(5)).getValue(), -1.0, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(6)).getValue(), 0.0, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(7)).getValue(), 1.0, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(8)).getValue(), 2.0, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(9)).getValue(), 3.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), 0.5, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(1)).getValue(), -5.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(2)).getValue(), -4.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(3)).getValue(), -3.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(4)).getValue(), -2.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(5)).getValue(), -1.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(6)).getValue(), 0.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(7)).getValue(), 1.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(8)).getValue(), 2.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(9)).getValue(), 3.0, 0.0);
 
-        Assert.assertEquals(f1.getFitness(c), 0.5, 0.0);
-        Assert.assertEquals(f2.getFitness(c), 64.08392021690038, 0.0);
+        Assertions.assertEquals(f1.getFitness(c), 0.5, 0.0);
+        Assertions.assertEquals(f2.getFitness(c), 64.08392021690038, 0.0);
     }
 
     /**
@@ -128,7 +128,7 @@ public class ZDT4IntTest {
         GenerationalDistance gd = new GenerationalDistance();
         double gdd = gd.evaluate(front, trueParetoFront);
         System.out.println("GenerationalDistance: " + gdd);
-        Assert.assertTrue(gdd < 0.001);
+        Assertions.assertTrue(gdd < 0.001);
 
         Spacing sp = new Spacing();
         double spd = sp.evaluate(front);
@@ -138,6 +138,6 @@ public class ZDT4IntTest {
         // front is similar to a theoretical ideal front
         double diff = Math.abs(spd - spdt);
         System.out.println("SpacingFront (" + spd + ") - SpacingTrueFront (" + spdt + ") = " + diff);
-        Assert.assertTrue(diff < 0.20);
+        Assertions.assertTrue(diff < 0.20);
     }
 }

@@ -20,8 +20,8 @@
 package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.vnet.VirtualNetwork;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,8 +47,8 @@ public class HttpTest {
 
         String location = "http://www.evosuite.org/index.html";
         URL url = MockURL.URL(location);
-        Assert.assertEquals("/index.html", url.getFile());
-        Assert.assertEquals("http", url.getProtocol());
+        Assertions.assertEquals("/index.html", url.getFile());
+        Assertions.assertEquals("http", url.getProtocol());
     }
 
     @Test
@@ -57,16 +57,16 @@ public class HttpTest {
         String location = "http://www.evosuite.org/index.html";
         URL url = MockURL.URL(location);
         URLConnection connection = url.openConnection();
-        Assert.assertTrue(connection instanceof HttpURLConnection);
+        Assertions.assertTrue(connection instanceof HttpURLConnection);
 
         EvoHttpURLConnection evo = (EvoHttpURLConnection) connection;
         evo.connect();
 
-        Assert.assertEquals(HttpURLConnection.HTTP_NOT_FOUND, evo.getResponseCode());
+        Assertions.assertEquals(HttpURLConnection.HTTP_NOT_FOUND, evo.getResponseCode());
 
         try {
             evo.getInputStream();
-            Assert.fail();
+            Assertions.fail();
         } catch (IOException e) {
             //expected
         }
@@ -75,7 +75,7 @@ public class HttpTest {
     @Test
     public void testHttpOK() throws Exception {
         VirtualNetwork.getInstance().reset();
-        Assert.assertEquals(0, VirtualNetwork.getInstance().getViewOfRemoteAccessedFiles().size());
+        Assertions.assertEquals(0, VirtualNetwork.getInstance().getViewOfRemoteAccessedFiles().size());
 
         String text = "<html>Hello World!</html>";
         String location = "http://www.evosuite.org/index.html";
@@ -84,17 +84,17 @@ public class HttpTest {
         VirtualNetwork.getInstance().addRemoteTextFile(url.toString(), text);
 
         URLConnection connection = url.openConnection();
-        Assert.assertTrue(connection instanceof HttpURLConnection);
+        Assertions.assertTrue(connection instanceof HttpURLConnection);
 
         EvoHttpURLConnection evo = (EvoHttpURLConnection) connection;
         evo.connect();
 
-        Assert.assertEquals(HttpURLConnection.HTTP_OK, evo.getResponseCode());
+        Assertions.assertEquals(HttpURLConnection.HTTP_OK, evo.getResponseCode());
         Scanner in = new Scanner(evo.getInputStream());
         String result = in.nextLine();
-        Assert.assertEquals(text, result);
+        Assertions.assertEquals(text, result);
 
-        Assert.assertEquals(1, VirtualNetwork.getInstance().getViewOfRemoteAccessedFiles().size());
+        Assertions.assertEquals(1, VirtualNetwork.getInstance().getViewOfRemoteAccessedFiles().size());
     }
 
     @Test
@@ -104,7 +104,7 @@ public class HttpTest {
 
         URL mocked = MockURL.URL(tmp.toUri().toURL().toExternalForm());
         try (InputStream in = mocked.openStream(); Scanner scanner = new Scanner(in, StandardCharsets.UTF_8.name())) {
-            Assert.assertEquals("hello", scanner.nextLine());
+            Assertions.assertEquals("hello", scanner.nextLine());
         }
     }
 
@@ -121,7 +121,7 @@ public class HttpTest {
         String spec = "jar:" + jar.toUri().toURL().toExternalForm() + "!/data.txt";
         URL mocked = MockURL.URL(spec);
         URLConnection connection = mocked.openConnection();
-        Assert.assertNotNull(connection);
+        Assertions.assertNotNull(connection);
         try {
             mocked.openStream();
         } catch (IOException expected) {
@@ -134,7 +134,7 @@ public class HttpTest {
         URL mocked = MockURL.URL("ftp://example.org/file.txt");
         try {
             mocked.openStream();
-            Assert.fail("Expected IOException for unsupported protocol");
+            Assertions.fail("Expected IOException for unsupported protocol");
         } catch (IOException expected) {
             // expected
         }

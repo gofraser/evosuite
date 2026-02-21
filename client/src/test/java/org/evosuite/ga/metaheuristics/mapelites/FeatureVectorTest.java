@@ -1,8 +1,8 @@
 package org.evosuite.ga.metaheuristics.mapelites;
 
 import org.evosuite.assertion.Inspector;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 
@@ -41,7 +41,7 @@ public class FeatureVectorTest {
         // Enum: 3 (A, B, C)
 
         double count = FeatureVector.getPossibilityCount(new Inspector[]{iInt, iBool, iString, iChar, iEnum});
-        Assert.assertEquals(3.0 * 2.0 * 2.0 * 2.0 * 3.0, count, 0.0001);
+        Assertions.assertEquals(3.0 * 2.0 * 2.0 * 2.0 * 3.0, count, 0.0001);
     }
 
     @Test
@@ -55,8 +55,8 @@ public class FeatureVectorTest {
         FeatureVector fv1 = new FeatureVector(new Inspector[]{iInt}, instance1);
         FeatureVector fv2 = new FeatureVector(new Inspector[]{iInt}, instance2);
 
-        Assert.assertEquals(fv1, fv2);
-        Assert.assertEquals(fv1.hashCode(), fv2.hashCode());
+        Assertions.assertEquals(fv1, fv2);
+        Assertions.assertEquals(fv1.hashCode(), fv2.hashCode());
     }
 
     @Test
@@ -73,7 +73,7 @@ public class FeatureVectorTest {
         }
 
         double count = FeatureVector.getPossibilityCount(inspectors);
-        Assert.assertTrue(count > Integer.MAX_VALUE);
-        Assert.assertEquals(Math.pow(3.0, n), count, 1.0);
+        Assertions.assertTrue(count > Integer.MAX_VALUE);
+        Assertions.assertEquals(Math.pow(3.0, n), count, 1.0);
     }
 }

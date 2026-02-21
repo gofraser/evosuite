@@ -25,11 +25,10 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ClassUsingRandomParameter;
 import com.examples.with.different.packagename.RandomBranch;
 
@@ -37,12 +36,12 @@ public class RandomCallSystemTest extends SystemTestBase {
 
     private boolean replaceCalls = Properties.REPLACE_CALLS;
 
-    @Before
+    @BeforeEach
     public void storeValues() {
         replaceCalls = Properties.REPLACE_CALLS;
     }
 
-    @After
+    @AfterEach
     public void resetValues() {
         Properties.REPLACE_CALLS = replaceCalls;
     }
@@ -63,8 +62,8 @@ public class RandomCallSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 5, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(5, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -83,7 +82,7 @@ public class RandomCallSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

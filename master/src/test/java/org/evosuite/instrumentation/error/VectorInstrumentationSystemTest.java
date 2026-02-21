@@ -22,7 +22,7 @@ package org.evosuite.instrumentation.error;
 import com.examples.with.different.packagename.errorbranch.VectorAccess;
 import com.examples.with.different.packagename.errorbranch.VectorAccessIndex;
 import org.evosuite.Properties;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class VectorInstrumentationSystemTest extends AbstractErrorBranchTest {
 

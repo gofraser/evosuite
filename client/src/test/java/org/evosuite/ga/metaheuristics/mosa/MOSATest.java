@@ -3,18 +3,18 @@ package org.evosuite.ga.metaheuristics.mosa;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.testcase.TestChromosome;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 public class MOSATest {
 
     private ChromosomeFactory<TestChromosome> factory;
     private MOSA mosa;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         factory = mock(ChromosomeFactory.class);
         mosa = new MOSA(factory);

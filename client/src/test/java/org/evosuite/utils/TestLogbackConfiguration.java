@@ -19,9 +19,9 @@
  */
 package org.evosuite.utils;
 
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -31,7 +31,7 @@ public class TestLogbackConfiguration {
     public static final PrintStream defaultOut = System.out;
     public static final PrintStream defaultErr = System.err;
 
-    @After
+    @AfterEach
     public void resetDefaultPrinters() {
         System.setOut(defaultOut);
         System.setErr(defaultErr);
@@ -47,7 +47,7 @@ public class TestLogbackConfiguration {
         System.setErr(new PrintStream(err));
 
         boolean loaded = LoggingUtils.changeLogbackFile(LoggingUtils.getLogbackFileName());
-        Assert.assertTrue(loaded);
+        Assertions.assertTrue(loaded);
         org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestLogbackConfiguration.class);
 
         final String warnMsg = "this should go to std out";
@@ -59,12 +59,12 @@ public class TestLogbackConfiguration {
         String printedOut = out.toString();
         String printedErr = err.toString();
 
-        Assert.assertTrue("Content of std out is: " + printedOut,
-                printedOut.contains(warnMsg));
-        Assert.assertTrue("Content of std err is: " + printedErr,
-                printedErr.contains(errMsg));
-        Assert.assertFalse("Content of std out is: " + printedOut, printedOut.contains(errMsg));
-        Assert.assertFalse("Content of std err is: " + printedErr, printedErr.contains(warnMsg));
+        Assertions.assertTrue(printedOut.contains(warnMsg),
+                "Content of std out is: " + printedOut);
+        Assertions.assertTrue(printedErr.contains(errMsg),
+                "Content of std err is: " + printedErr);
+        Assertions.assertFalse(printedOut.contains(errMsg), "Content of std out is: " + printedOut);
+        Assertions.assertFalse(printedErr.contains(warnMsg), "Content of std err is: " + printedErr);
     }
 
 }

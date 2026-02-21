@@ -19,8 +19,8 @@
  */
 package org.evosuite.testcase.fm;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -57,11 +57,11 @@ public class SpecifiedValuesAnswerTest {
         when(s.getString()).thenAnswer(new SpecifiedValuesAnswer<>("foo"));
         boolean res = checkString_3different(s);
         //should fail
-        Assert.assertFalse(res);
+        Assertions.assertFalse(res);
 
         when(s.getString()).thenAnswer(new SpecifiedValuesAnswer<>("foo", "bar", "42"));
         res = checkString_3different(s);
-        Assert.assertTrue(res);
+        Assertions.assertTrue(res);
     }
 
 
@@ -72,11 +72,11 @@ public class SpecifiedValuesAnswerTest {
         when(s.getString()).thenAnswer(new SpecifiedValuesAnswer<>("bar"));
         boolean res = checkString_allSame(s);
         //should fail
-        Assert.assertFalse(res);
+        Assertions.assertFalse(res);
 
         when(s.getString()).thenAnswer(new SpecifiedValuesAnswer<>("foo")); //1 "foo" should be enough
         res = checkString_allSame(s);
-        Assert.assertTrue(res);
+        Assertions.assertTrue(res);
     }
 
 
@@ -95,15 +95,15 @@ public class SpecifiedValuesAnswerTest {
         BaseInteger i = mock(BaseInteger.class);
         when(i.getInteger()).thenAnswer(new SpecifiedValuesAnswer<>(7));
         boolean res = checkInteger(i);
-        Assert.assertFalse(res);
+        Assertions.assertFalse(res);
 
         when(i.getInteger()).thenAnswer(new SpecifiedValuesAnswer<Integer>()); //note: here it is important to specify <Integer>
         res = checkInteger(i);
-        Assert.assertFalse(res); //still should fail, as default is 0
+        Assertions.assertFalse(res); //still should fail, as default is 0
 
         when(i.getInteger()).thenAnswer(new SpecifiedValuesAnswer<>(42));
         res = checkInteger(i);
-        Assert.assertTrue(res);
+        Assertions.assertTrue(res);
     }
 
     public interface BaseInt {
@@ -121,14 +121,14 @@ public class SpecifiedValuesAnswerTest {
         BaseInt i = mock(BaseInt.class);
         when(i.getInt()).thenAnswer(new SpecifiedValuesAnswer<>(7));
         boolean res = checkInt(i);
-        Assert.assertFalse(res);
+        Assertions.assertFalse(res);
 
         when(i.getInt()).thenAnswer(new SpecifiedValuesAnswer<Integer>()); //note: here it is important to specify <Integer>
         res = checkInt(i);
-        Assert.assertFalse(res); //still should fail, as default is 0
+        Assertions.assertFalse(res); //still should fail, as default is 0
 
         when(i.getInt()).thenAnswer(new SpecifiedValuesAnswer<>(42));
         res = checkInt(i);
-        Assert.assertTrue(res);
+        Assertions.assertTrue(res);
     }
 }

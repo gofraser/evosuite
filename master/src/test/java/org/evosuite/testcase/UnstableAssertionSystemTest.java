@@ -30,12 +30,10 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 //import org.evosuite.testsuite.SearchStatistics;
 import org.evosuite.testsuite.TestSuiteChromosome;
-//import org.evosuite.utils.ReportGenerator.StatisticEntry;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.staticfield.UnstableAssertion;
 
 public class UnstableAssertionSystemTest extends SystemTestBase {
@@ -46,7 +44,7 @@ public class UnstableAssertionSystemTest extends SystemTestBase {
     private final boolean DEFAULT_JUNIT_TESTS = Properties.JUNIT_TESTS;
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
-    @Before
+    @BeforeEach
     public void saveProperties() {
         // Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = true;
         Properties.RESET_STATIC_FIELDS = true;
@@ -55,7 +53,7 @@ public class UnstableAssertionSystemTest extends SystemTestBase {
         Properties.SANDBOX = true;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         // Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS;
         Properties.RESET_STATIC_FIELDS = DEFAULT_RESET_STATIC_FIELDS;
@@ -80,13 +78,13 @@ public class UnstableAssertionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
         double best_fitness = best.getFitness();
-        Assert.assertEquals("Optimal coverage was not achieved ", 0.0, best_fitness, 0.0);
+        Assertions.assertEquals(0.0, best_fitness, 0.0, "Optimal coverage was not achieved ");
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
     }
 
 }

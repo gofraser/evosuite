@@ -4,12 +4,13 @@ import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
-import org.junit.Before;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 import org.evosuite.utils.generic.GenericAccessibleObject;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class RemoveDirectCycleTest {
 
@@ -21,7 +22,7 @@ public class RemoveDirectCycleTest {
         public Y getY() { return new Y(); }
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         TestCluster.reset();
     }
@@ -52,9 +53,9 @@ public class RemoveDirectCycleTest {
         cluster.removeUnusableGenerators();
 
         // Verification after clean up
-        assertTrue("X should still have generators", cluster.hasGenerator(typeX));
+        assertTrue(cluster.hasGenerator(typeX), "X should still have generators");
 
         // This is expected to FAIL with current buggy implementation
-        assertTrue("Y should still have generator because X has a no-arg constructor", cluster.hasGenerator(typeY));
+        assertTrue(cluster.hasGenerator(typeY), "Y should still have generator because X has a no-arg constructor");
     }
 }

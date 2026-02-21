@@ -23,18 +23,18 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.setup.DependencyAnalysis;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class DependencyAnalysisTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void initialize() {
         Properties.TARGET_CLASS = "com.examples.with.different.packagename.context.complex.EntryPointsClass";
         Properties.CRITERION = new Criterion[1];
@@ -49,7 +49,7 @@ public class DependencyAnalysisTest {
                             "com.examples.with.different.packagename.context.complex.EntryPointsClass",
                             classpath);
         } catch (ClassNotFoundException | RuntimeException e) {
-            Assert.fail(e.toString());
+            Assertions.fail(e.toString());
         }
     }
 

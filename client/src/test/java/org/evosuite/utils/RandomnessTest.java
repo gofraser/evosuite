@@ -19,14 +19,14 @@
  */
 package org.evosuite.utils;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * @author José Campos
@@ -55,8 +55,8 @@ public class RandomnessTest {
         for (int i = 0; i < 1_000_000; i++) {
             double r = Randomness.nextDouble(min, max);
             assertTrue(
-                    "random double (" + r + ") value has to be in the range [" + min + ", " + max + "]",
-                    (Double.compare(r, min) >= 0) && (Double.compare(r, max) <= 0));
+                    (Double.compare(r, min) >= 0) && (Double.compare(r, max) <= 0),
+                    "random double (" + r + ") value has to be in the range [" + min + ", " + max + "]");
         }
     }
 }

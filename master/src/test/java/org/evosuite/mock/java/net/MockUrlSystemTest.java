@@ -33,17 +33,20 @@ import org.evosuite.runtime.testdata.EvoSuiteURL;
 import org.evosuite.runtime.testdata.NetworkHandling;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.lang.reflect.Method;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by arcuri on 12/19/14.
  */
 public class MockUrlSystemTest extends SystemTestBase {
 
-    @Test(timeout = 5000)
+    @Test
+    @Timeout(value = 5000, unit = TimeUnit.MILLISECONDS)
     public void testLoading_ReadFromURL() throws Exception {
         //for some reason, this class failed when using loop limit in the search
 
@@ -58,12 +61,12 @@ public class MockUrlSystemTest extends SystemTestBase {
 
         Method m = clazz.getMethod("checkResource");
         boolean b = (Boolean) m.invoke(null);
-        Assert.assertFalse(b);
+        Assertions.assertFalse(b);
 
         EvoSuiteURL evoURL = new EvoSuiteURL("http://www.evosuite.org/index.html");
         NetworkHandling.createRemoteTextFile(evoURL, "foo");
         b = (Boolean) m.invoke(null);
-        Assert.assertTrue(b);
+        Assertions.assertTrue(b);
     }
 
 
@@ -81,15 +84,15 @@ public class MockUrlSystemTest extends SystemTestBase {
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -105,15 +108,15 @@ public class MockUrlSystemTest extends SystemTestBase {
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 5, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(5, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
 

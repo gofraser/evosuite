@@ -26,11 +26,10 @@ import org.evosuite.Properties.LocalSearchBudgetType;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.localsearch.ArrayLocalSearchExample;
 import com.examples.with.different.packagename.localsearch.DoubleLocalSearchExample;
 import com.examples.with.different.packagename.localsearch.FloatLocalSearchExample;
@@ -39,7 +38,7 @@ import com.examples.with.different.packagename.localsearch.StringLocalSearchExam
 
 public class LocalSearchSystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.DSE_PROBABILITY = 0.0;
         Properties.PRIMITIVE_POOL = 0.0;
@@ -47,7 +46,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
 
     }
 
-    @Ignore // This seems to be trivial now?
+    @Disabled // This seems to be trivial now?
     @Test
     public void testIntegerGlobalSearch() {
         EvoSuite evosuite = new EvoSuite();
@@ -66,7 +65,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertTrue("Did not expect optimal coverage", best.getCoverage() < 1.0);
+        Assertions.assertTrue(best.getCoverage() < 1.0, "Did not expect optimal coverage");
     }
 
     @Test
@@ -97,7 +96,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -127,7 +126,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -148,7 +147,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertTrue("Did not expect optimal coverage", best.getCoverage() < 1.0);
+        Assertions.assertTrue(best.getCoverage() < 1.0, "Did not expect optimal coverage");
     }
 
     @Test
@@ -177,7 +176,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -198,7 +197,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertTrue("Did not expect optimal coverage", best.getCoverage() < 1.0);
+        Assertions.assertTrue(best.getCoverage() < 1.0, "Did not expect optimal coverage");
     }
 
     @Test
@@ -227,7 +226,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -248,7 +247,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertTrue("Did not expect optimal coverage", best.getCoverage() < 1.0);
+        Assertions.assertTrue(best.getCoverage() < 1.0, "Did not expect optimal coverage");
     }
 
     @Test
@@ -278,6 +277,6 @@ public class LocalSearchSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

@@ -26,9 +26,8 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.generic.AbstractGenericClass;
 import com.examples.with.different.packagename.generic.AbstractGuavaExample;
 import com.examples.with.different.packagename.generic.DelayedQueueExample;
@@ -96,14 +95,14 @@ public class GenericsSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 7, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(7, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -118,14 +117,14 @@ public class GenericsSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -140,14 +139,14 @@ public class GenericsSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 5, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(5, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -163,14 +162,14 @@ public class GenericsSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 5, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(5, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -186,14 +185,14 @@ public class GenericsSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 5, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(5, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -214,8 +213,8 @@ public class GenericsSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 5, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(5, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -234,8 +233,8 @@ public class GenericsSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -254,8 +253,8 @@ public class GenericsSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -274,8 +273,8 @@ public class GenericsSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -295,8 +294,8 @@ public class GenericsSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 4, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(4, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -315,8 +314,8 @@ public class GenericsSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -336,7 +335,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -356,7 +355,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -376,7 +375,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -396,7 +395,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -416,7 +415,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -437,9 +436,9 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertFalse(testSuite.contains("? listArray"));
+        Assertions.assertFalse(testSuite.contains("? listArray"));
         // Assert.assertFalse(testSuite.contains("List<?>"));
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -460,9 +459,9 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertFalse(testSuite.contains("? listArray"));
-        Assert.assertFalse(testSuite.contains("List<?>"));
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertFalse(testSuite.contains("? listArray"));
+        Assertions.assertFalse(testSuite.contains("List<?>"));
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -483,7 +482,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -504,7 +503,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -525,7 +524,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -547,7 +546,7 @@ public class GenericsSystemTest extends SystemTestBase {
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
         // Is this valid or not:
         // Assert.assertFalse(testSuite.contains("List<?>"));
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -567,7 +566,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -587,7 +586,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -607,7 +606,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -627,7 +626,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -648,7 +647,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -669,7 +668,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -690,7 +689,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -711,7 +710,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -732,7 +731,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -753,7 +752,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -774,7 +773,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -795,7 +794,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -816,7 +815,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -838,7 +837,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -859,7 +858,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -880,7 +879,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -901,7 +900,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -922,7 +921,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -943,7 +942,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -963,7 +962,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -983,7 +982,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -1003,7 +1002,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -1023,7 +1022,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -1043,7 +1042,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -1063,7 +1062,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -1083,7 +1082,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -1103,7 +1102,7 @@ public class GenericsSystemTest extends SystemTestBase {
 
         // int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
         // Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
 }

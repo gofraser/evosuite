@@ -19,27 +19,23 @@
  */
 package org.evosuite.instrumentation.error;
 
-import org.junit.Assume;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.objectweb.asm.Opcodes;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@RunWith(Parameterized.class)
 public class TestIntUnderflow {
 
     private int x;
     private int y;
 
     // Creates the test data
-    @Parameters
     public static Collection<Object[]> data() {
         Object[] values = new Object[]{Integer.MIN_VALUE, Integer.MIN_VALUE / 2, 0, Integer.MAX_VALUE / 2, Integer.MAX_VALUE};
         List<Object[]> valuePairs = new ArrayList<>();
@@ -51,41 +47,49 @@ public class TestIntUnderflow {
         return valuePairs;
     }
 
-    public TestIntUnderflow(int x, int y) {
+    public void initTestIntUnderflow(int x, int y) {
         this.x = x;
         this.y = y;
     }
 
     private void assertUnderflow(long longResult, int intResult) {
         if (longResult < Integer.MIN_VALUE) {
-            assertTrue("Expected negative value for " + x + " and " + y + ": " + intResult, intResult < 0);
+            assertTrue(intResult < 0, "Expected negative value for " + x + " and " + y + ": " + intResult);
         } else {
-            assertTrue("Expected positive value for " + x + " and " + y + ": " + intResult, intResult >= 0);
+            assertTrue(intResult >= 0, "Expected positive value for " + x + " and " + y + ": " + intResult);
         }
     }
 
 
-    @Test
-    public void testAddUnderflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testAddUnderflow(int x, int y) {
+        initTestIntUnderflow(x, y);
         int result = ErrorConditionChecker.underflowDistance(x, y, Opcodes.IADD);
         assertUnderflow((long) x + (long) y, result);
     }
 
-    @Test
-    public void testSubUnderflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testSubUnderflow(int x, int y) {
+        initTestIntUnderflow(x, y);
         int result = ErrorConditionChecker.underflowDistance(x, y, Opcodes.ISUB);
         assertUnderflow((long) x - (long) y, result);
     }
 
-    @Test
-    public void testMulUnderflow() {
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testMulUnderflow(int x, int y) {
+        initTestIntUnderflow(x, y);
         int result = ErrorConditionChecker.underflowDistance(x, y, Opcodes.IMUL);
         assertUnderflow((long) x * (long) y, result);
     }
 
-    @Test
-    public void testDivUnderflow() {
-        Assume.assumeTrue(y != 0);
+    @MethodSource("data")
+    @ParameterizedTest
+    public void testDivUnderflow(int x, int y) {
+        initTestIntUnderflow(x, y);
+        Assumptions.assumeTrue(y != 0);
         int result = ErrorConditionChecker.underflowDistance(x, y, Opcodes.IDIV);
         assertUnderflow((long) x / (long) y, result);
     }

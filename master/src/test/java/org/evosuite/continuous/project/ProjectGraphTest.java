@@ -24,13 +24,13 @@ import java.util.Set;
 
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.continuous.project.ProjectStaticData.ClassInfo;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class ProjectGraphTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void initClass() {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
     }
@@ -57,13 +57,13 @@ public class ProjectGraphTest {
         Set<String> forF = graph.getAllCUTsParents(F.class.getName());
         Set<String> forG = graph.getAllCUTsParents(G.class.getName());
 
-        Assert.assertEquals(0, forA.size());
-        Assert.assertEquals(1, forB.size());
-        Assert.assertEquals(0, forC.size());
-        Assert.assertEquals(0, forD.size());
-        Assert.assertEquals(0, forE.size());
-        Assert.assertEquals(0, forF.size());
-        Assert.assertEquals(1, forG.size());
+        Assertions.assertEquals(0, forA.size());
+        Assertions.assertEquals(1, forB.size());
+        Assertions.assertEquals(0, forC.size());
+        Assertions.assertEquals(0, forD.size());
+        Assertions.assertEquals(0, forE.size());
+        Assertions.assertEquals(0, forF.size());
+        Assertions.assertEquals(1, forG.size());
     }
 
     @Test
@@ -79,13 +79,13 @@ public class ProjectGraphTest {
 
         ProjectGraph graph = data.getProjectGraph();
 
-        Assert.assertTrue(graph.isConcrete(A.class.getName()));
-        Assert.assertTrue(graph.isConcrete(B.class.getName()));
-        Assert.assertTrue(graph.isInterface(C.class.getName()));
-        Assert.assertTrue(graph.isInterface(D.class.getName()));
-        Assert.assertTrue(graph.isAbstract(E.class.getName()));
-        Assert.assertTrue(graph.isInterface(F.class.getName()));
-        Assert.assertTrue(graph.isAbstract(G.class.getName()));
+        Assertions.assertTrue(graph.isConcrete(A.class.getName()));
+        Assertions.assertTrue(graph.isConcrete(B.class.getName()));
+        Assertions.assertTrue(graph.isInterface(C.class.getName()));
+        Assertions.assertTrue(graph.isInterface(D.class.getName()));
+        Assertions.assertTrue(graph.isAbstract(E.class.getName()));
+        Assertions.assertTrue(graph.isInterface(F.class.getName()));
+        Assertions.assertTrue(graph.isAbstract(G.class.getName()));
     }
 
     class A {

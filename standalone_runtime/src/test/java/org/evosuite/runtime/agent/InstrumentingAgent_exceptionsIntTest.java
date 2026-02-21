@@ -25,12 +25,7 @@ import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
 import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.java.lang.MockThrowable;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
+import org.junit.jupiter.api.*;
 import com.examples.with.different.packagename.agent.ExceptionHolder;
 
 public class InstrumentingAgent_exceptionsIntTest {
@@ -42,19 +37,19 @@ public class InstrumentingAgent_exceptionsIntTest {
 	}
 
 
-	@BeforeClass
+	@BeforeAll
 	public static void initClass(){
 		InstrumentingAgent.initialize();
 	}
 
-	@Before
+	@BeforeEach
 	public void storeValues() {
 		RuntimeSettings.mockJVMNonDeterminism = true;
         MethodCallReplacementCache.resetSingleton();
 		Runtime.getInstance().resetRuntime();
 	}
 
-	@After
+	@AfterEach
 	public void resetValues() {
 		RuntimeSettings.mockJVMNonDeterminism = replaceCalls;
 	}
@@ -76,13 +71,13 @@ public class InstrumentingAgent_exceptionsIntTest {
 			MockFramework.enable();
 			ExceptionHolder eh = (ExceptionHolder) obj;
 
-			Assert.assertFalse(eh.getNonMockedNPE() instanceof EvoSuiteMock);
-			Assert.assertTrue(eh.getMockedThrowable() instanceof EvoSuiteMock);
+			Assertions.assertFalse(eh.getNonMockedNPE() instanceof EvoSuiteMock);
+			Assertions.assertTrue(eh.getMockedThrowable() instanceof EvoSuiteMock);
 
 			StackTraceElement[] traces = new MockThrowable().getStackTrace();
 
 			StackTraceElement[] a = eh.getTracesWhenCast();
-			Assert.assertEquals(traces[1], a[1]);
+			Assertions.assertEquals(traces[1], a[1]);
 			
 		} finally{
 			MockFramework.disable();
@@ -106,7 +101,7 @@ public class InstrumentingAgent_exceptionsIntTest {
 			MockFramework.enable();
 
 			Exception foo = (ExceptionHolder.StaticPublicException) obj;
-			Assert.assertTrue(foo instanceof EvoSuiteMock);		
+			Assertions.assertTrue(foo instanceof EvoSuiteMock);		
 		} finally{
 			MockFramework.disable();
 		}
@@ -130,7 +125,7 @@ public class InstrumentingAgent_exceptionsIntTest {
 			
 			ExceptionHolder eh = (ExceptionHolder) obj;
 			StackTraceElement[] b = eh.getTraces();
-			Assert.assertEquals(traces[1], b[1]);
+			Assertions.assertEquals(traces[1], b[1]);
 
 		} finally{
 			MockFramework.disable();

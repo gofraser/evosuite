@@ -5,19 +5,19 @@ import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.NoveltyFunction;
 import org.evosuite.ga.populationlimit.IndividualPopulationLimit;
 import org.evosuite.testcase.TestChromosome;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.evosuite.ga.operators.selection.SelectionFunction;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class NoveltySearchTest {
 
-    @Before
+    @BeforeEach
     public void setup() {
         Properties.CROSSOVER_RATE = 1.0;
         Properties.POPULATION = 10;
@@ -50,7 +50,7 @@ public class NoveltySearchTest {
         search.evolve();
 
         List<TestChromosome> newPop = search.getPopulation();
-        assertEquals("Population size should match limit", 11, newPop.size());
+        assertEquals(11, newPop.size(), "Population size should match limit");
     }
 
     @Test

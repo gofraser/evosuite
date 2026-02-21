@@ -35,14 +35,14 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
@@ -51,7 +51,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
     private static final double defaultSeedClone = Properties.SEED_CLONE;
     private static final boolean defaultChopExceptions = Properties.CHOP_CARVED_EXCEPTIONS;
 
-    @After
+    @AfterEach
     public void reset() {
         Properties.SELECTED_JUNIT = defaultSelectedJUnit;
         Properties.SEED_MUTATIONS = defaultSeedMutations;
@@ -69,7 +69,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
         try {
             JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                     null);
-            Assert.fail("Expected IllegalStateException");
+            fail("Expected IllegalStateException");
         } catch (IllegalStateException e) {
             //expected
         }
@@ -87,9 +87,9 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
                 null);
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
-        Assert.assertEquals("Should be: constructor, method, 2 variables, method, 1 variable, method",
-                7, carved.test.size());
+        assertNotNull(carved);
+        assertEquals(7,
+                carved.test.size(), "Should be: constructor, method, 2 variables, method, 1 variable, method");
     }
 
     @Test
@@ -102,11 +102,11 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
-        Assert.assertEquals("", 13, carved.test.size());
+        assertNotNull(carved);
+        assertEquals(13, carved.test.size(), "");
     }
 
     @Test
@@ -119,11 +119,11 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
-        Assert.assertEquals("", 6, carved.test.size());
+        assertNotNull(carved);
+        assertEquals(6, carved.test.size(), "");
     }
 
     @Test
@@ -136,11 +136,11 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
-        Assert.assertEquals("", 13, carved.test.size());
+        assertNotNull(carved);
+        assertEquals(13, carved.test.size(), "");
     }
 
     @Test
@@ -156,8 +156,8 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
-        Assert.assertEquals("Expected one carved test per selected JUnit class", 3, factory.getNumCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
+        assertEquals(3, factory.getNumCarvedTestCases(), "Expected one carved test per selected JUnit class");
     }
 
     @Test
@@ -172,8 +172,8 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
-        Assert.assertEquals("Expected one carved test per selected JUnit class", 2, factory.getNumCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
+        assertEquals(2, factory.getNumCarvedTestCases(), "Expected one carved test per selected JUnit class");
     }
 
     @Test
@@ -186,22 +186,22 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
-        Assert.assertEquals("", 5, carved.test.size());
+        assertNotNull(carved);
+        assertEquals(5, carved.test.size(), "");
 
         for (int i = 0; i < carved.test.size(); i++) {
             Statement stmt = carved.test.getStatement(i);
             boolean valid = stmt.isValid();
-            Assert.assertTrue("Invalid stmt at position " + i, valid);
+            assertTrue(valid, "Invalid stmt at position " + i);
         }
 
         String code = carved.toString();
         String setLong = "HashSet<Long>";
-        Assert.assertTrue("generated code does not contain " + setLong + "\n" + code,
-                code.contains(setLong));
+        assertTrue(code.contains(setLong),
+                "generated code does not contain " + setLong + "\n" + code);
     }
 
     @Test
@@ -214,27 +214,27 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
-        Assert.assertEquals("", 13, carved.test.size());
+        assertNotNull(carved);
+        assertEquals(13, carved.test.size(), "");
 
         for (int i = 0; i < carved.test.size(); i++) {
             Statement stmt = carved.test.getStatement(i);
             boolean valid = stmt.isValid();
-            Assert.assertTrue("Invalid stmt at position " + i, valid);
+            assertTrue(valid, "Invalid stmt at position " + i);
         }
 
         String code = carved.toString();
         String setLong = "GenericObjectWrapper<HashSet<Long>>";
-        Assert.assertTrue("generated code does not contain " + setLong + "\n" + code,
-                code.contains(setLong));
+        assertTrue(code.contains(setLong),
+                "generated code does not contain " + setLong + "\n" + code);
 
         code = carved.toString();
         setLong = "(Object)";
-        Assert.assertFalse("generated code contains object cast " + setLong + "\n" + code,
-                code.contains(setLong));
+        assertFalse(code.contains(setLong),
+                "generated code contains object cast " + setLong + "\n" + code);
 
     }
 
@@ -248,20 +248,20 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
+        assertNotNull(carved);
 
         String code = carved.toString();
-        Assert.assertNotNull(code);
+        assertNotNull(code);
 
-        Assert.assertEquals(code, 2, carved.test.size());
+        assertEquals(2, carved.test.size(), code);
 
         for (int i = 0; i < carved.test.size(); i++) {
             Statement stmt = carved.test.getStatement(i);
             boolean valid = stmt.isValid();
-            Assert.assertTrue("Invalid stmt at position " + i, valid);
+            assertTrue(valid, "Invalid stmt at position " + i);
         }
 
         System.out.println(code);
@@ -277,20 +277,20 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
+        assertNotNull(carved);
 
         String code = carved.toString();
-        Assert.assertNotNull(code);
+        assertNotNull(code);
 
-        Assert.assertEquals(code, 4, carved.test.size());
+        assertEquals(4, carved.test.size(), code);
 
         for (int i = 0; i < carved.test.size(); i++) {
             Statement stmt = carved.test.getStatement(i);
             boolean valid = stmt.isValid();
-            Assert.assertTrue("Invalid stmt at position " + i, valid);
+            assertTrue(valid, "Invalid stmt at position " + i);
         }
 
         System.out.println(code);
@@ -306,27 +306,27 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
-        Assert.assertEquals("", 6, carved.test.size());
+        assertNotNull(carved);
+        assertEquals(6, carved.test.size(), "");
 
         for (int i = 0; i < carved.test.size(); i++) {
             Statement stmt = carved.test.getStatement(i);
             boolean valid = stmt.isValid();
-            Assert.assertTrue("Invalid stmt at position " + i, valid);
+            assertTrue(valid, "Invalid stmt at position " + i);
         }
 
         String code = carved.toString();
         String setLong = "GenericObjectWrapper<GenericObjectWrapperSequenceTest.Foo>";
-        Assert.assertTrue("generated code does not contain " + setLong + "\n" + code,
-                code.contains(setLong));
+        assertTrue(code.contains(setLong),
+                "generated code does not contain " + setLong + "\n" + code);
 
         code = carved.toString();
         setLong = "(Object)";
-        Assert.assertFalse("generated code contains object cast " + setLong + "\n" + code,
-                code.contains(setLong));
+        assertFalse(code.contains(setLong),
+                "generated code contains object cast " + setLong + "\n" + code);
 
     }
 
@@ -340,22 +340,22 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
-        Assert.assertEquals("", 13, carved.test.size());
+        assertNotNull(carved);
+        assertEquals(13, carved.test.size(), "");
 
         for (int i = 0; i < carved.test.size(); i++) {
             Statement stmt = carved.test.getStatement(i);
             boolean valid = stmt.isValid();
-            Assert.assertTrue("Invalid stmt at position " + i, valid);
+            assertTrue(valid, "Invalid stmt at position " + i);
         }
 
         String code = carved.toString();
         String setLong = "GenericObjectWrapper<Long[]>";
-        Assert.assertTrue("generated code does not contain " + setLong + "\n" + code,
-                code.contains(setLong));
+        assertTrue(code.contains(setLong),
+                "generated code does not contain " + setLong + "\n" + code);
     }
 
     @Test
@@ -368,22 +368,22 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
-        Assert.assertEquals("", 10, carved.test.size());
+        assertNotNull(carved);
+        assertEquals(10, carved.test.size(), "");
 
         for (int i = 0; i < carved.test.size(); i++) {
             Statement stmt = carved.test.getStatement(i);
             boolean valid = stmt.isValid();
-            Assert.assertTrue("Invalid stmt at position " + i, valid);
+            assertTrue(valid, "Invalid stmt at position " + i);
         }
 
         String code = carved.toString();
         String setLong = "GenericObjectWrapperWithList<GenericObjectWrapperWithListTest.Foo>";
-        Assert.assertTrue("generated code does not contain " + setLong + "\n" + code,
-                code.contains(setLong));
+        assertTrue(code.contains(setLong),
+                "generated code does not contain " + setLong + "\n" + code);
     }
 
     @Test
@@ -396,22 +396,22 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
 
-        Assert.assertNotNull(carved);
-        Assert.assertEquals("", 8, carved.test.size());
+        assertNotNull(carved);
+        assertEquals(8, carved.test.size(), "");
 
         for (int i = 0; i < carved.test.size(); i++) {
             Statement stmt = carved.test.getStatement(i);
             boolean valid = stmt.isValid();
-            Assert.assertTrue("Invalid stmt at position " + i, valid);
+            assertTrue(valid, "Invalid stmt at position " + i);
         }
 
         String code = carved.toString();
         String setLong = "GenericObjectWrapperTwoParameter<String, String>";
-        Assert.assertTrue("generated code does not contain " + setLong + "\n" + code,
-                code.contains(setLong));
+        assertTrue(code.contains(setLong),
+                "generated code does not contain " + setLong + "\n" + code);
     }
 
     @Test
@@ -424,17 +424,17 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
-        Assert.assertNotNull(carved);
+        assertNotNull(carved);
 
         String code = carved.toString();
 
-        Assert.assertEquals(code, 19, carved.test.size());
+        assertEquals(19, carved.test.size(), code);
 
         String concatenated = "0123.04.0567";
-        Assert.assertTrue("generated code does not contain " + concatenated + "\n" + code,
-                code.contains(concatenated));
+        assertTrue(code.contains(concatenated),
+                "generated code does not contain " + concatenated + "\n" + code);
     }
 
     @Test
@@ -447,10 +447,10 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
 
         for (TestCase test : factory.getCarvedTestCases()) {
-            Assert.assertEquals(test.toCode(), 3, test.size());
+            assertEquals(3, test.size(), test.toCode());
         }
     }
 
@@ -465,12 +465,12 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
-        Assert.assertTrue(code.contains("step1"));
-        Assert.assertFalse(code.contains("boom"));
-        Assert.assertFalse(code.contains("step2"));
+        assertTrue(code.contains("step1"));
+        assertFalse(code.contains("boom"));
+        assertFalse(code.contains("step2"));
     }
 
     @Test
@@ -483,9 +483,9 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertFalse(factory.hasCarvedTestCases());
-        Assert.assertEquals(0, factory.getNumCarvedTestCases());
-        Assert.assertEquals(0, factory.getCarvedTestSuite().size());
+        assertFalse(factory.hasCarvedTestCases());
+        assertEquals(0, factory.getNumCarvedTestCases());
+        assertEquals(0, factory.getCarvedTestSuite().size());
     }
 
     @Test
@@ -498,13 +498,13 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
-        Assert.assertTrue(code.contains("new int[2]"));
-        Assert.assertTrue(code.contains("sumFirstTwo"));
-        Assert.assertTrue(code.contains("getAt"));
-        Assert.assertTrue(code.contains("set("));
+        assertTrue(code.contains("new int[2]"));
+        assertTrue(code.contains("sumFirstTwo"));
+        assertTrue(code.contains("getAt"));
+        assertTrue(code.contains("set("));
     }
 
     @Test
@@ -517,10 +517,10 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
-        Assert.assertTrue(code.contains("ping()"));
+        assertTrue(code.contains("ping()"));
     }
 
     @Test
@@ -533,7 +533,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         TestCase testCase = factory.getChromosome().getTestCase();
         int addCalls = 0;
@@ -560,10 +560,10 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
             }
         }
 
-        Assert.assertTrue("Expected at least 3 add calls, got " + addCalls + "\n" + testCase.toCode(),
-                addCalls >= 3);
-        Assert.assertTrue("Expected add arguments to include 0, 1, and 2. Actual: " + addArgs + "\n" + testCase.toCode(),
-                addArgs.containsAll(Arrays.asList(0, 1, 2)));
+        assertTrue(addCalls >= 3,
+                "Expected at least 3 add calls, got " + addCalls + "\n" + testCase.toCode());
+        assertTrue(addArgs.containsAll(Arrays.asList(0, 1, 2)),
+                "Expected add arguments to include 0, 1, and 2. Actual: " + addArgs + "\n" + testCase.toCode());
     }
 
     @Test
@@ -576,7 +576,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(2, factory.getNumCarvedTestCases());
+        assertEquals(2, factory.getNumCarvedTestCases());
 
         boolean sawPos = false;
         boolean sawNeg = false;
@@ -608,8 +608,8 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
                 }
             }
         }
-        Assert.assertTrue("Expected to carve a positive path", sawPos);
-        Assert.assertTrue("Expected to carve a negative path", sawNeg);
+        assertTrue(sawPos, "Expected to carve a positive path");
+        assertTrue(sawNeg, "Expected to carve a negative path");
     }
 
     private static Integer extractIntLiteral(TestCase test, VariableReference var) {
@@ -644,13 +644,13 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertTrue(factory.hasCarvedTestCases());
+        assertTrue(factory.hasCarvedTestCases());
         TestChromosome carved = factory.getChromosome();
-        Assert.assertNotNull(carved);
+        assertNotNull(carved);
 
         String code = carved.toString();
 
-        Assert.assertEquals(code, 3, carved.test.size());
+        assertEquals(3, carved.test.size(), code);
     }
 
     @Test
@@ -663,7 +663,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(6, factory.getNumCarvedTestCases());
+        assertEquals(6, factory.getNumCarvedTestCases());
     }
 
     @Test
@@ -676,7 +676,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(11, factory.getNumCarvedTestCases());
+        assertEquals(11, factory.getNumCarvedTestCases());
     }
 
     @Test
@@ -689,7 +689,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -705,7 +705,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -721,7 +721,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -737,7 +737,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -753,7 +753,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -769,7 +769,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -786,7 +786,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -802,7 +802,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -818,7 +818,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -834,7 +834,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -850,7 +850,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         String code = factory.getChromosome().getTestCase().toCode();
         System.out.println(code);
@@ -866,7 +866,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(18, factory.getNumCarvedTestCases());
+        assertEquals(18, factory.getNumCarvedTestCases());
 
     }
 
@@ -880,13 +880,13 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         TestChromosome test = factory.getChromosome();
         String code = test.getTestCase().toCode();
-        Assert.assertFalse(code.contains("XStream"));
+        assertFalse(code.contains("XStream"));
         System.out.println(code);
-        Assert.assertTrue(code.contains("classWithPublicField0.x"));
+        assertTrue(code.contains("classWithPublicField0.x"));
     }
 
     @Test
@@ -899,13 +899,13 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         TestChromosome test = factory.getChromosome();
         String code = test.getTestCase().toCode();
         System.out.println(code);
-        Assert.assertFalse(code.contains("XStream"));
-        Assert.assertTrue(code.contains("classWithPublicField0.x") || code.contains("Locale.CHINESE"));
+        assertFalse(code.contains("XStream"));
+        assertTrue(code.contains("classWithPublicField0.x") || code.contains("Locale.CHINESE"));
     }
 
     @Test
@@ -918,13 +918,13 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         TestChromosome test = factory.getChromosome();
         String code = test.getTestCase().toCode();
         System.out.println(code);
-        Assert.assertFalse(code.contains("XStream"));
-        Assert.assertTrue(code.contains("ClassWithPublicStaticField.x"));
+        assertFalse(code.contains("XStream"));
+        assertTrue(code.contains("ClassWithPublicStaticField.x"));
     }
 
     @Test
@@ -937,13 +937,13 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         TestChromosome test = factory.getChromosome();
         String code = test.getTestCase().toCode();
         System.out.println(code);
-        Assert.assertFalse(code.contains("XStream"));
-        Assert.assertTrue(code.contains("StaticFieldInOtherClass.x"));
+        assertFalse(code.contains("XStream"));
+        assertTrue(code.contains("StaticFieldInOtherClass.x"));
     }
 
     @Test
@@ -956,13 +956,13 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(1, factory.getNumCarvedTestCases());
+        assertEquals(1, factory.getNumCarvedTestCases());
 
         TestChromosome test = factory.getChromosome();
         String code = test.getTestCase().toCode();
         System.out.println(code);
-        Assert.assertFalse(code.contains("XStream"));
-        Assert.assertTrue(code.contains("classWithStaticMethod0.testMe"));
+        assertFalse(code.contains("XStream"));
+        assertTrue(code.contains("classWithStaticMethod0.testMe"));
     }
 
     @Test
@@ -981,7 +981,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Expected optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(1d, best.getCoverage(), 0.001, "Expected optimal coverage: ");
     }
 
     @Test
@@ -1000,7 +1000,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Expected optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(1d, best.getCoverage(), 0.001, "Expected optimal coverage: ");
     }
 
 
@@ -1014,13 +1014,13 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                 null);
-        Assert.assertEquals(2, factory.getNumCarvedTestCases());
+        assertEquals(2, factory.getNumCarvedTestCases());
 
         TestChromosome test = factory.getChromosome();
         String code = test.getTestCase().toCode();
         System.out.println(code);
-        Assert.assertFalse(code.contains("XStream"));
-        Assert.assertTrue(code.contains("concreteSubClassWithFields0"));
+        assertFalse(code.contains("XStream"));
+        assertTrue(code.contains("concreteSubClassWithFields0"));
     }
 
     @Test
@@ -1034,7 +1034,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(null);
 
-        Assert.assertEquals("Incorrect number of carved tests", 2, factory.getNumCarvedTestCases());
+        assertEquals(2, factory.getNumCarvedTestCases(), "Incorrect number of carved tests");
 
         java.util.Set<String> names = new java.util.HashSet<>();
         for (TestCase test : factory.getCarvedTestCases()) {
@@ -1044,7 +1044,7 @@ public class JUnitTestCarvedChromosomeFactorySystemTest extends SystemTestBase {
             System.out.println(tc.toCode());
         }
 
-        Assert.assertTrue("Should contain testWithArray", names.contains("testWithArray"));
-        Assert.assertTrue("Should contain testWithNull", names.contains("testWithNull"));
+        assertTrue(names.contains("testWithArray"), "Should contain testWithArray");
+        assertTrue(names.contains("testWithNull"), "Should contain testWithNull");
     }
 }

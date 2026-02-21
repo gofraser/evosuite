@@ -25,17 +25,16 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.coverage.MethodReturnsPrimitive;
 
 public class TestSuiteMinimizerSystemTest extends SystemTestBase {
 
     private final boolean oldMinimizeValues = Properties.MINIMIZE_VALUES;
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.MINIMIZE_VALUES = oldMinimizeValues;
     }
@@ -58,16 +57,16 @@ public class TestSuiteMinimizerSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome c = ga.getBestIndividual();
         System.out.println(c.toString());
 
-        Assert.assertEquals(0.0, c.getFitness(), 0.0);
-        Assert.assertEquals(1.0, c.getCoverage(), 0.0);
-        Assert.assertEquals(6.0, c.getNumOfCoveredGoals(ga.getFitnessFunction()), 0.0);
-        Assert.assertEquals(5, c.size());
+        Assertions.assertEquals(0.0, c.getFitness(), 0.0);
+        Assertions.assertEquals(1.0, c.getCoverage(), 0.0);
+        Assertions.assertEquals(6.0, c.getNumOfCoveredGoals(ga.getFitnessFunction()), 0.0);
+        Assertions.assertEquals(5, c.size());
     }
 
     @Test
@@ -89,16 +88,16 @@ public class TestSuiteMinimizerSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome c = ga.getBestIndividual();
         System.out.println(c.toString());
 
-        Assert.assertEquals(0.0, c.getFitness(), 0.0);
-        Assert.assertEquals(1.0, c.getCoverage(), 0.0);
-        Assert.assertEquals(6.0, c.getNumOfCoveredGoals(ga.getFitnessFunction()), 0.0);
-        Assert.assertEquals(5, c.size());
+        Assertions.assertEquals(0.0, c.getFitness(), 0.0);
+        Assertions.assertEquals(1.0, c.getCoverage(), 0.0);
+        Assertions.assertEquals(6.0, c.getNumOfCoveredGoals(ga.getFitnessFunction()), 0.0);
+        Assertions.assertEquals(5, c.size());
     }
 
     @Test
@@ -120,16 +119,16 @@ public class TestSuiteMinimizerSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome c = ga.getBestIndividual();
         System.out.println(c.toString());
 
-        Assert.assertEquals(0.0, c.getFitness(), 0.0);
-        Assert.assertEquals(1.0, c.getCoverage(), 0.0);
-        Assert.assertEquals(6.0, c.getNumOfCoveredGoals(ga.getFitnessFunction()), 0.0);
-        Assert.assertEquals(5, c.size());
+        Assertions.assertEquals(0.0, c.getFitness(), 0.0);
+        Assertions.assertEquals(1.0, c.getCoverage(), 0.0);
+        Assertions.assertEquals(6.0, c.getNumOfCoveredGoals(ga.getFitnessFunction()), 0.0);
+        Assertions.assertEquals(5, c.size());
     }
 
 
@@ -152,7 +151,7 @@ public class TestSuiteMinimizerSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
 
@@ -161,13 +160,13 @@ public class TestSuiteMinimizerSystemTest extends SystemTestBase {
         final FitnessFunction<TestSuiteChromosome> onlybranch = ga.getFitnessFunctions().get(0);
         final FitnessFunction<TestSuiteChromosome> line = ga.getFitnessFunctions().get(1);
 
-        Assert.assertEquals(0.0, c.getFitness(onlybranch), 0.0);
-        Assert.assertEquals(0.0, c.getFitness(line), 0.0);
+        Assertions.assertEquals(0.0, c.getFitness(onlybranch), 0.0);
+        Assertions.assertEquals(0.0, c.getFitness(line), 0.0);
 
-        Assert.assertEquals(1.0, c.getCoverage(onlybranch), 0.0);
-        Assert.assertEquals(1.0, c.getCoverage(line), 0.0);
+        Assertions.assertEquals(1.0, c.getCoverage(onlybranch), 0.0);
+        Assertions.assertEquals(1.0, c.getCoverage(line), 0.0);
 
-        Assert.assertEquals(6.0, c.getNumOfCoveredGoals(onlybranch), 0.0);
-        Assert.assertEquals(10.0, c.getNumOfCoveredGoals(line), 0.0);
+        Assertions.assertEquals(6.0, c.getNumOfCoveredGoals(onlybranch), 0.0);
+        Assertions.assertEquals(10.0, c.getNumOfCoveredGoals(line), 0.0);
     }
 }

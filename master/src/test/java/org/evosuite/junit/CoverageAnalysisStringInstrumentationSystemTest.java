@@ -19,8 +19,6 @@
  */
 package org.evosuite.junit;
 
-import static org.junit.Assert.assertEquals;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,15 +27,16 @@ import java.util.List;
 import java.util.Map;
 
 import org.evosuite.EvoSuite;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.evosuite.Properties;
 import org.evosuite.Properties.StatisticsBackend;
 import org.evosuite.SystemTestBase;
 import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.SearchStatistics;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ClassNumberUtils;
 import com.examples.with.different.packagename.ClassNumberUtilsTest;
 
@@ -67,7 +66,7 @@ public class CoverageAnalysisStringInstrumentationSystemTest extends SystemTestB
         };
 
         SearchStatistics statistics = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(statistics);
+        Assertions.assertNotNull(statistics);
 
         Map<String, OutputVariable<?>> outputVariables = statistics.getOutputVariables();
 

@@ -21,19 +21,19 @@ package org.evosuite.setup;
 
 import com.examples.with.different.packagename.staticusage.*;
 import org.evosuite.classpath.ClassPathHandler;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.*;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 public class TestGetStaticGraph {
 
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         String cp = System.getProperty("user.dir") + "/target/test-classes";
         ClassPathHandler.getInstance().addElementToTargetProjectClassPath(cp);

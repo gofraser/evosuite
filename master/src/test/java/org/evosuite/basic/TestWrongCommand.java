@@ -20,20 +20,24 @@
 package org.evosuite.basic;
 
 import org.evosuite.EvoSuite;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * @author Andrea Arcuri
  */
 public class TestWrongCommand {
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testWrongCommand() {
-        EvoSuite evosuite = new EvoSuite();
+        assertThrows(IllegalArgumentException.class, () -> {
+            EvoSuite evosuite = new EvoSuite();
 
-        Object result = evosuite.parseCommandLine(new String[]{"foo"});
+            Object result = evosuite.parseCommandLine(new String[]{"foo"});
 
-        Assert.assertNull(result);
+            Assertions.assertNull(result);
+        });
     }
 }

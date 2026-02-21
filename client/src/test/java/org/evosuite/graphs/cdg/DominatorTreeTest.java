@@ -1,8 +1,10 @@
 package org.evosuite.graphs.cdg;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+
 import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class DominatorTreeTest {
 
@@ -100,7 +102,7 @@ public class DominatorTreeTest {
 
         // All dominance frontiers empty in a linear chain
         for (int i = 0; i <= 4; i++) {
-            assertTrue("DF(" + i + ") should be empty", dt.getDominatingFrontiers(i).isEmpty());
+            assertTrue(dt.getDominatingFrontiers(i).isEmpty(), "DF(" + i + ") should be empty");
         }
     }
 

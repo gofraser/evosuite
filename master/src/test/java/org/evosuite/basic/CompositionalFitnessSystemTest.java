@@ -20,8 +20,6 @@
 
 package org.evosuite.basic;
 
-import static org.junit.Assert.assertEquals;
-
 import com.examples.with.different.packagename.Compositional;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
@@ -37,15 +35,16 @@ import org.evosuite.coverage.line.LineCoverageSuiteFitness;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.defuse.DefUseExample1;
 import com.examples.with.different.packagename.defuse.GCD;
 
 import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * @author Jose Miguel Rojas
@@ -59,7 +58,7 @@ public class CompositionalFitnessSystemTest extends SystemTestBase {
 
     private static final Criterion[] defaultCriterion = Properties.CRITERION;
 
-    @Before
+    @BeforeEach
     public void beforeTest() {
         Properties.ALGORITHM = Algorithm.MONOTONIC_GA;
         Properties.LOG_LEVEL = "debug";
@@ -68,7 +67,7 @@ public class CompositionalFitnessSystemTest extends SystemTestBase {
         Properties.ASSERTIONS = false;
     }
 
-    @After
+    @AfterEach
     public void afterTest() {
         Properties.CRITERION = defaultCriterion;
     }
@@ -101,9 +100,9 @@ public class CompositionalFitnessSystemTest extends SystemTestBase {
             assert (fitnesses.get(fitness) == best.getFitness(fitness));
         }
         cov = cov / best.getCoverageValues().size();
-        Assert.assertEquals("Inconsistent fitness: ", sum, best.getFitness(), 0.001);
-        Assert.assertEquals("Inconsistent coverage: ", cov, best.getCoverage(), 0.001);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(sum, best.getFitness(), 0.001, "Inconsistent fitness: ");
+        Assertions.assertEquals(cov, best.getCoverage(), 0.001, "Inconsistent coverage: ");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -127,7 +126,7 @@ public class CompositionalFitnessSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test

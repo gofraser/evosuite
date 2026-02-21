@@ -27,14 +27,14 @@ import org.evosuite.setup.InheritanceTree;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.utils.generic.GenericAccessibleObject;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestFinalReferenceFieldIsNotAddedToCluster {
 
@@ -59,7 +59,7 @@ public class TestFinalReferenceFieldIsNotAddedToCluster {
         assertNotNull(gen);
         TestCluster cluster = TestCluster.getInstance();
         List<GenericAccessibleObject<?>> testCalls = cluster.getTestCalls();
-        assertEquals("Unexpected number of TestCalls", 2, testCalls.size());
+        assertEquals(2, testCalls.size(), "Unexpected number of TestCalls");
     }
 
 }

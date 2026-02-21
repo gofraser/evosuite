@@ -20,35 +20,37 @@
 package org.evosuite.basic;
 
 
-import static org.junit.Assert.*;
-
 import java.util.List;
 
 import org.evosuite.EvoSuite;
+
+import static org.junit.jupiter.api.Assertions.*;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.result.TestGenerationResult;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 
 public class TestShouldNotWorkSystemTest extends SystemTestBase {
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testShouldNotWorkOnEvoSuitePackage() {
-        EvoSuite evosuite = new EvoSuite();
+        assertThrows(IllegalArgumentException.class, () -> {
+            EvoSuite evosuite = new EvoSuite();
 
-        String targetClass = SystemTestBase.class.getCanonicalName();
+            String targetClass = SystemTestBase.class.getCanonicalName();
 
-        Properties.TARGET_CLASS = targetClass;
+            Properties.TARGET_CLASS = targetClass;
 
-        String[] command = new String[]{
-                "-generateSuite",
-                "-class",
-                targetClass
-        };
+            String[] command = new String[]{
+                    "-generateSuite",
+                    "-class",
+                    targetClass
+            };
 
 
-        evosuite.parseCommandLine(command);
+            evosuite.parseCommandLine(command);
+        });
     }
 
 

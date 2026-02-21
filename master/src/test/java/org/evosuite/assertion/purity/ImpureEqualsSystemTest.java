@@ -19,11 +19,11 @@
  */
 package org.evosuite.assertion.purity;
 
-import static org.junit.Assert.assertFalse;
-
 import java.util.Map;
 
 import org.evosuite.EvoSuite;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.assertion.CheapPurityAnalyzer;
@@ -32,10 +32,10 @@ import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 
 import com.examples.with.different.packagename.purity.ImpureEqualsTarget;
@@ -48,7 +48,7 @@ public class ImpureEqualsSystemTest extends SystemTestBase {
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
     private final boolean DEFAULT_PURE_EQUALS = Properties.PURE_EQUALS;
 
-    @Before
+    @BeforeEach
     public void saveProperties() {
         Properties.SANDBOX = true;
         Properties.RESET_STATIC_FIELDS = true;
@@ -58,7 +58,7 @@ public class ImpureEqualsSystemTest extends SystemTestBase {
         Properties.PURE_EQUALS = true;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.SANDBOX = DEFAULT_SANDBOX;
         Properties.RESET_STATIC_FIELDS = DEFAULT_RESET_STATIC_FIELDS;
@@ -84,7 +84,7 @@ public class ImpureEqualsSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
         double best_fitness = best.getFitness();
-        Assert.assertEquals("Optimal coverage was not achieved ", 0.0, best_fitness, 0.0);
+        Assertions.assertEquals(0.0, best_fitness, 0.0, "Optimal coverage was not achieved ");
 
         CheapPurityAnalyzer purityAnalyzer = CheapPurityAnalyzer.getInstance();
 
@@ -95,10 +95,10 @@ public class ImpureEqualsSystemTest extends SystemTestBase {
         assertFalse(equals);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
     }
 
 }

@@ -19,9 +19,9 @@
  */
 package org.evosuite.runtime.mock.java.util;
 
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import java.util.TimeZone;
 
@@ -35,13 +35,13 @@ public class MockTimeZoneTest {
         TimeZone defaultTZ = TimeZone.getDefault();
 
         TimeZone gb = TimeZone.getTimeZone("GB"); //just need any non-GMT ones
-        Assume.assumeNotNull(gb); //No point if for some reason GB is null
+        Assumptions.assumeFalse(gb == null); //No point if for some reason GB is null
 
         try {
             TimeZone.setDefault(gb);
             MockTimeZone.reset();
             TimeZone res = TimeZone.getDefault();
-            Assert.assertEquals("GMT", res.getID());
+            Assertions.assertEquals("GMT", res.getID());
         } finally {
             TimeZone.setDefault(defaultTZ);
         }

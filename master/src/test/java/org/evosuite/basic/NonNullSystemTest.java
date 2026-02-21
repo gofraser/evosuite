@@ -25,8 +25,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class NonNullSystemTest extends SystemTestBase {
 
@@ -44,8 +44,8 @@ public class NonNullSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertFalse(best.toString().contains("(Object) null"));
-        Assert.assertFalse(best.toString().contains("null"));
+        Assertions.assertFalse(best.toString().contains("(Object) null"));
+        Assertions.assertFalse(best.toString().contains("null"));
 
     }
 }

@@ -22,15 +22,15 @@ package org.evosuite.setup;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.evosuite.Properties;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 
 public class TestAccessField {
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.CLASS_PREFIX = "";
         Properties.TARGET_CLASS = "";
@@ -42,7 +42,7 @@ public class TestAccessField {
         Properties.TARGET_CLASS = "some.package.Foo";
         Field f = FieldUtils.getField(com.examples.with.different.packagename.AccessExamples.class, "publicField");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -51,7 +51,7 @@ public class TestAccessField {
         Properties.TARGET_CLASS = "some.package.Foo";
         Field f = FieldUtils.getField(com.examples.with.different.packagename.AccessExamples.class, "defaultField", true);
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -60,7 +60,7 @@ public class TestAccessField {
         Properties.TARGET_CLASS = "some.package.Foo";
         Field f = FieldUtils.getField(com.examples.with.different.packagename.AccessExamples.class, "protectedField", true);
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -69,7 +69,7 @@ public class TestAccessField {
         Properties.TARGET_CLASS = "some.package.Foo";
         Field f = FieldUtils.getField(com.examples.with.different.packagename.AccessExamples.class, "privateField", true);
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -78,7 +78,7 @@ public class TestAccessField {
         Properties.TARGET_CLASS = "com.examples.with.different.packagename.Foo";
         Field f = FieldUtils.getField(com.examples.with.different.packagename.AccessExamples.class, "publicField");
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -87,7 +87,7 @@ public class TestAccessField {
         Properties.TARGET_CLASS = "com.examples.with.different.packagename.Foo";
         Field f = FieldUtils.getField(com.examples.with.different.packagename.AccessExamples.class, "defaultField", true);
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -96,7 +96,7 @@ public class TestAccessField {
         Properties.TARGET_CLASS = "com.examples.with.different.packagename.Foo";
         Field f = FieldUtils.getField(com.examples.with.different.packagename.AccessExamples.class, "protectedField", true);
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertTrue(result);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -105,7 +105,7 @@ public class TestAccessField {
         Properties.TARGET_CLASS = "com.examples.with.different.packagename.Foo";
         Field f = FieldUtils.getField(com.examples.with.different.packagename.AccessExamples.class, "privateField", true);
         boolean result = TestUsageChecker.canUse(f);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
 }

@@ -26,13 +26,13 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Created by gordon on 03/02/2016.
@@ -46,7 +46,7 @@ public class DoubleValuesSystemTest extends SystemTestBase {
     private final boolean DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS = Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS;
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
-    @Before
+    @BeforeEach
     public void before() {
         Properties.RESET_STATIC_FIELDS = true;
         Properties.SANDBOX = true;
@@ -56,7 +56,7 @@ public class DoubleValuesSystemTest extends SystemTestBase {
         Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
     }
 
-    @After
+    @AfterEach
     public void after() {
         Properties.RESET_STATIC_FIELDS = DEFAULT_RESET_STATIC_FIELDS;
         Properties.SANDBOX = DEFAULT_SANDBOX;

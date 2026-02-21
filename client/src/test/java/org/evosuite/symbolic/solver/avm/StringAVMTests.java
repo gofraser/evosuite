@@ -31,13 +31,13 @@ import org.evosuite.symbolic.expr.str.StringConstant;
 import org.evosuite.symbolic.expr.str.StringVariable;
 import org.evosuite.symbolic.solver.SolverTimeoutException;
 import org.evosuite.symbolic.vm.ExpressionFactory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class StringAVMTests extends RandomizedTC {
 
@@ -82,7 +82,7 @@ public class StringAVMTests extends RandomizedTC {
 
         String result = var.getConcreteValue();
         Integer value = Integer.parseInt(result);
-        assertTrue("Value=" + result, value >= 0 && value <= 999);
+        assertTrue(value >= 0 && value <= 999, "Value=" + result);
     }
 
     @Test
@@ -101,8 +101,8 @@ public class StringAVMTests extends RandomizedTC {
         assertTrue(succeded);
 
         String result = var.getConcreteValue();
-        assertEquals("Length=" + result.length(), 6, result.length());
-        assertTrue(result, result.endsWith(start));
+        assertEquals(6, result.length(), "Length=" + result.length());
+        assertTrue(result.endsWith(start), result);
     }
 
     @Test
@@ -122,8 +122,8 @@ public class StringAVMTests extends RandomizedTC {
         assertTrue(succeded);
 
         String result = var.getConcreteValue();
-        assertEquals("Length=" + result.length(), 6, result.length());
-        assertTrue(result, result.startsWith(start));
+        assertEquals(6, result.length(), "Length=" + result.length());
+        assertTrue(result.startsWith(start), result);
     }
 
 }

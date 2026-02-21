@@ -21,8 +21,8 @@ package org.evosuite.runtime.mock.java.io;
 
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.vfs.VirtualFileSystem;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -43,7 +43,7 @@ public class MockRandomAccessFileTest {
         RandomAccessFile ra = null;
         try {
             ra = new MockRandomAccessFile(fileName, "r");
-            Assert.fail();
+            Assertions.fail();
         } catch (FileNotFoundException e1) {
             //expected as file does not exist
         }
@@ -52,20 +52,20 @@ public class MockRandomAccessFileTest {
         try {
             file.createNewFile();
         } catch (IOException e1) {
-            Assert.fail(); //we should be able to create it
+            Assertions.fail(); //we should be able to create it
         }
 
         try {
             ra = new MockRandomAccessFile(fileName, "r");
         } catch (FileNotFoundException e1) {
-            Assert.fail(); //we should be able to open the stream
+            Assertions.fail(); //we should be able to open the stream
         }
 
         final int LENGTH = 10;
 
         try {
             ra.setLength(LENGTH);
-            Assert.fail();
+            Assertions.fail();
         } catch (IOException e) {
             //expected, as we do now have write permissions;
         }
@@ -79,9 +79,9 @@ public class MockRandomAccessFileTest {
             size = ra.length();
             ra.close();
         } catch (IOException e) {
-            Assert.fail();
+            Assertions.fail();
         }
 
-        Assert.assertEquals(LENGTH, size);
+        Assertions.assertEquals(LENGTH, size);
     }
 }

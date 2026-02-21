@@ -19,26 +19,26 @@
  */
 package org.evosuite.runtime;
 
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.Serializable;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Created by Andrea on 20/02/15.
  */
 public class PrivateAccessTest {
 
-    @Before
+    @BeforeEach
     public void init() {
         PrivateAccess.setShouldNotFailTest(false);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         PrivateAccess.setShouldNotFailTest(true);
     }
@@ -60,7 +60,7 @@ public class PrivateAccessTest {
         try {
             //it should fail
             PrivateAccess.setVariable(FooFields.class, null, "serialVersionUID", 42L);
-            Assert.fail();
+            Assertions.fail();
         } catch (IllegalArgumentException e) {
             //expected
         }
@@ -70,21 +70,21 @@ public class PrivateAccessTest {
     @Test
     public void testSetField_static() {
         PrivateAccess.setVariable(FooFields.class, null, "n", 42);
-        Assert.assertEquals(42, FooFields.getN());
+        Assertions.assertEquals(42, FooFields.getN());
     }
 
     @Test
     public void testSetField_instance() {
         FooFields foo = new FooFields();
         PrivateAccess.setVariable(FooFields.class, foo, "s", "bar");
-        Assert.assertEquals("bar", foo.getS());
+        Assertions.assertEquals("bar", foo.getS());
     }
 
     @Test
     public void testSetField_error() {
         PrivateAccess.setShouldNotFailTest(true);
         PrivateAccess.setVariable(FooFields.class, null, "a non-existing field", 42);
-        Assert.fail(); // this should never be reached, as failed "Assumption" inside setVariable
+        Assertions.fail(); // this should never be reached, as failed "Assumption" inside setVariable
     }
 
     @Test
@@ -92,9 +92,9 @@ public class PrivateAccessTest {
         PrivateAccess.setShouldNotFailTest(false);
         try {
             PrivateAccess.setVariable(FooFields.class, null, "a non-existing field", 42);
-            Assert.fail();
+            Assertions.fail();
         } catch (FalsePositiveException e) {
-            Assert.fail();
+            Assertions.fail();
         } catch (RuntimeException e) {
             //Ok, expected
         } finally {
@@ -106,14 +106,14 @@ public class PrivateAccessTest {
     public void testMethod_static() throws Throwable {
         FooMethods.n = 42;
         Integer res = (Integer) PrivateAccess.callMethod(FooMethods.class, null, "getN", new Object[0], new Class<?>[0]);
-        Assert.assertEquals(42, res.intValue());
+        Assertions.assertEquals(42, res.intValue());
     }
 
     @Test
     public void testMethod_error() throws Throwable {
         PrivateAccess.setShouldNotFailTest(true);
         PrivateAccess.callMethod(FooMethods.class, null, "a non-existing method", new Object[0], new Class<?>[0]);
-        Assert.fail();
+        Assertions.fail();
     }
 
     @Test
@@ -121,9 +121,9 @@ public class PrivateAccessTest {
         PrivateAccess.setShouldNotFailTest(false);
         try {
             PrivateAccess.callMethod(FooMethods.class, null, "a non-existing method", new Object[0], new Class<?>[0]);
-            Assert.fail();
+            Assertions.fail();
         } catch (FalsePositiveException e) {
-            Assert.fail();
+            Assertions.fail();
         } catch (Throwable e) {
             //Ok, expected
         } finally {
@@ -136,7 +136,7 @@ public class PrivateAccessTest {
         FooMethods foo = new FooMethods();
         foo.s = "bar";
         String s = (String) PrivateAccess.callMethod(FooMethods.class, foo, "getS", new Object[0], new Class<?>[0]);
-        Assert.assertEquals("bar", s);
+        Assertions.assertEquals("bar", s);
     }
 
     @Test
@@ -144,7 +144,7 @@ public class PrivateAccessTest {
         FooMethods foo = new FooMethods();
         PrivateAccess.callMethod(FooMethods.class, foo, "set",
                 new Object[]{"bar"}, new Class<?>[]{String.class});
-        Assert.assertEquals("bar", foo.s);
+        Assertions.assertEquals("bar", foo.s);
     }
 
     @Test
@@ -153,8 +153,8 @@ public class PrivateAccessTest {
         FooMethods.n = 0;
         PrivateAccess.callMethod(FooMethods.class, foo, "set",
                 new Object[]{"bar", 666}, new Class<?>[]{String.class, int.class});
-        Assert.assertEquals("bar", foo.s);
-        Assert.assertEquals(666, FooMethods.n);
+        Assertions.assertEquals("bar", foo.s);
+        Assertions.assertEquals(666, FooMethods.n);
     }
 
     @Test
@@ -162,14 +162,14 @@ public class PrivateAccessTest {
         FooMethods foo = new FooMethods();
         String res = (String) PrivateAccess.callMethod(FooMethods.class, foo, "compute",
                 new Object[]{"bar", 666}, new Class<?>[]{String.class, int.class});
-        Assert.assertEquals("bar666", res);
+        Assertions.assertEquals("bar666", res);
     }
 
     @Test
     public void testMethod_throwNPE() throws Throwable {
         try {
             PrivateAccess.callMethod(FooMethods.class, null, "throwNPE", new Object[0], new Class<?>[0]);
-            Assert.fail();
+            Assertions.fail();
         } catch (NullPointerException e) {
             //OK
         }

@@ -23,22 +23,21 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.runtime.sandbox.Sandbox;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.CallExit;
 
 import java.lang.*;
 import java.security.Permission;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class SUTWithSystemExitSystemTest extends SystemTestBase {
 
     private boolean securityManagerSupported;
 
-    @Before
+    @BeforeEach
     public void setFlag() {
         SafeExit.calledExit = false;
         securityManagerSupported = Sandbox.isSecurityManagerSupported();
@@ -77,7 +76,7 @@ public class SUTWithSystemExitSystemTest extends SystemTestBase {
         }
     }
 
-    @After
+    @AfterEach
     public void removeSecurity() {
         if (securityManagerSupported) {
             try {

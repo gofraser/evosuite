@@ -23,7 +23,7 @@ import com.examples.with.different.packagename.papers.vnet.Example_UDP_TCP;
 import com.examples.with.different.packagename.papers.vnet.Example_URL;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class VNET_SystemTest extends SystemTestBase {
 

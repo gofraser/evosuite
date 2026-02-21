@@ -1,15 +1,15 @@
 package org.evosuite.coverage.method;
 
 import org.evosuite.Properties;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 public class MethodCoverageFactoryTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.TARGET_CLASS = java.util.ArrayList.class.getName();
     }
@@ -18,7 +18,7 @@ public class MethodCoverageFactoryTest {
     public void testMethodCoverageFactory() {
         MethodCoverageFactory factory = new MethodCoverageFactory();
         List<MethodCoverageTestFitness> goals = factory.getCoverageGoals();
-        Assert.assertFalse(goals.isEmpty());
+        Assertions.assertFalse(goals.isEmpty());
 
         boolean foundConstructor = false;
         boolean foundAdd = false;
@@ -28,15 +28,15 @@ public class MethodCoverageFactoryTest {
             if (goal.getMethod().startsWith("add")) foundAdd = true;
         }
 
-        Assert.assertTrue("Constructor not found", foundConstructor);
-        Assert.assertTrue("add not found", foundAdd);
+        Assertions.assertTrue(foundConstructor, "Constructor not found");
+        Assertions.assertTrue(foundAdd, "add not found");
     }
 
     @Test
     public void testMethodNoExceptionCoverageFactory() {
         MethodNoExceptionCoverageFactory factory = new MethodNoExceptionCoverageFactory();
         List<MethodNoExceptionCoverageTestFitness> goals = factory.getCoverageGoals();
-        Assert.assertFalse(goals.isEmpty());
+        Assertions.assertFalse(goals.isEmpty());
 
         boolean foundConstructor = false;
         boolean foundAdd = false;
@@ -46,15 +46,15 @@ public class MethodCoverageFactoryTest {
             if (goal.getMethod().startsWith("add")) foundAdd = true;
         }
 
-        Assert.assertTrue("Constructor not found", foundConstructor);
-        Assert.assertTrue("add not found", foundAdd);
+        Assertions.assertTrue(foundConstructor, "Constructor not found");
+        Assertions.assertTrue(foundAdd, "add not found");
     }
 
     @Test
     public void testMethodTraceCoverageFactory() {
         MethodTraceCoverageFactory factory = new MethodTraceCoverageFactory();
         List<MethodTraceCoverageTestFitness> goals = factory.getCoverageGoals();
-        Assert.assertFalse(goals.isEmpty());
+        Assertions.assertFalse(goals.isEmpty());
 
         boolean foundConstructor = false;
         boolean foundAdd = false;
@@ -64,7 +64,7 @@ public class MethodCoverageFactoryTest {
             if (goal.getMethod().startsWith("add")) foundAdd = true;
         }
 
-        Assert.assertTrue("Constructor not found", foundConstructor);
-        Assert.assertTrue("add not found", foundAdd);
+        Assertions.assertTrue(foundConstructor, "Constructor not found");
+        Assertions.assertTrue(foundAdd, "add not found");
     }
 }

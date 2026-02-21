@@ -29,9 +29,8 @@ import org.evosuite.Properties.Algorithm;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.ga.Chromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ClassHierarchyIncludingInterfaces;
 import com.examples.with.different.packagename.XMLElement2;
 
@@ -58,7 +57,7 @@ public class CellularGASystemTest extends SystemTestBase {
         String[] command = new String[]{"-generateSuite", "-class", cut};
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<?> ga = getGAFromResult(result);
 
@@ -71,7 +70,7 @@ public class CellularGASystemTest extends SystemTestBase {
         List<Chromosome<?>> population = this.setup(StoppingCondition.MAXTIME, 15, XMLElement2.class.getCanonicalName());
 
         for (Chromosome<?> p : population) {
-            Assert.assertNotEquals(p.getCoverage(), 1.0);
+            Assertions.assertNotEquals(p.getCoverage(), 1.0);
         }
     }
 
@@ -81,7 +80,7 @@ public class CellularGASystemTest extends SystemTestBase {
         List<Chromosome<?>> population = this.setup(StoppingCondition.MAXGENERATIONS, 10, ClassHierarchyIncludingInterfaces.class.getCanonicalName());
 
         for (Chromosome<?> p : population) {
-            Assert.assertNotEquals(p.getCoverage(), 1.0);
+            Assertions.assertNotEquals(p.getCoverage(), 1.0);
         }
     }
 }

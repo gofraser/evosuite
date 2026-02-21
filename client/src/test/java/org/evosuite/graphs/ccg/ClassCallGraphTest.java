@@ -22,17 +22,14 @@ package org.evosuite.graphs.ccg;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -41,12 +38,12 @@ public class ClassCallGraphTest {
     private final String className = "com.example.TestClass";
     private final ClassLoader classLoader = getClass().getClassLoader();
 
-    @Before
+    @BeforeEach
     public void setUp() {
         GraphPool.getInstance(classLoader).clear();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         GraphPool.getInstance(classLoader).clear();
     }

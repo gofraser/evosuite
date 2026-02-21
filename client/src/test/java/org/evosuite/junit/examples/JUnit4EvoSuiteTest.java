@@ -20,9 +20,10 @@
 package org.evosuite.junit.examples;
 
 import org.evosuite.annotations.EvoSuiteTest;
-import org.junit.experimental.categories.Category;
+import org.junit.jupiter.api.Tag;
 
-@Category({SlowTests.class, FastTests.class})
+@Tag("SlowTests")
+@Tag("FastTests")
 public class JUnit4EvoSuiteTest {
 
 

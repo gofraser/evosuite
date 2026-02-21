@@ -24,13 +24,13 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
  */
 public class SimpleFM_SystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.P_FUNCTIONAL_MOCKING = 0.5;
         Properties.FUNCTIONAL_MOCKING_PERCENT = 0.0;
@@ -77,10 +77,10 @@ public class SimpleFM_SystemTest extends SystemTestBase {
         GeneticAlgorithm<?> ga = do100percentLineTest(SimpleFM_returnString.class);
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         String code = best.toString();
-        Assert.assertTrue(code, code.contains("doReturn"));
-        Assert.assertTrue(code, code.contains("when"));
-        Assert.assertTrue(code, code.contains("true"));
-        Assert.assertTrue(code, code.contains("false"));
+        Assertions.assertTrue(code.contains("doReturn"), code);
+        Assertions.assertTrue(code.contains("when"), code);
+        Assertions.assertTrue(code.contains("true"), code);
+        Assertions.assertTrue(code.contains("false"), code);
     }
 
     @Test
@@ -105,7 +105,7 @@ public class SimpleFM_SystemTest extends SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         String code = best.toString();
         // "null" should be casted to "String" (if at all) and not to "Object"
-        assertFalse(code, code.contains("(Object)"));
+        assertFalse(code.contains("(Object)"), code);
     }
 
     @Test
@@ -115,16 +115,16 @@ public class SimpleFM_SystemTest extends SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         String code = best.toString();
         // "null" should be casted to "String" (if at all) and not to "Object"
-        assertFalse(code, code.contains("(Object)"));
+        assertFalse(code.contains("(Object)"), code);
     }
 
-    @Ignore //FIXME once we handle package-level methods
+    @Disabled //FIXME once we handle package-level methods
     @Test
     public void testSimplePLM() {
         do100percentLineTest(SimpleFM_PackageMethod.class);
     }
 
-    @Ignore //FIXME once we handle package-level methods
+    @Disabled //FIXME once we handle package-level methods
     @Test
     public void testSimplePLMwithReturn() {
         do100percentLineTest(SimpleFM_PackageMethodWithReturn.class);

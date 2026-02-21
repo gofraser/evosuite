@@ -19,8 +19,8 @@
  */
 package org.evosuite.junit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.FileReader;
@@ -40,10 +40,9 @@ import org.evosuite.continuous.persistency.CsvJUnitData;
 import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.SearchStatistics;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ClassHierarchyIncludingInterfaces;
 import com.examples.with.different.packagename.ClassHierarchyIncludingInterfacesTest;
 import com.examples.with.different.packagename.ClassPublicInterface;
@@ -55,12 +54,12 @@ import com.opencsv.CSVReader;
 
 public class CoverageAnalysisWithRefectionSystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void prepare() {
         try {
             FileUtils.deleteDirectory(new File("evosuite-report"));
         } catch (IOException e) {
-            Assert.fail(e.getMessage());
+            Assertions.fail(e.getMessage());
         }
 
         Properties.TARGET_CLASS = "";
@@ -95,7 +94,7 @@ public class CoverageAnalysisWithRefectionSystemTest extends SystemTestBase {
         };
 
         Object statistics = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(statistics);
+        Assertions.assertNotNull(statistics);
 
         // Assert coverage
 
@@ -110,8 +109,8 @@ public class CoverageAnalysisWithRefectionSystemTest extends SystemTestBase {
         reader.close();
 
         String totalGoals = CsvJUnitData.getValue(rows, RuntimeVariable.Total_Goals.name());
-        assertTrue("Expected 13-14 goals, but found: " + totalGoals,
-                "13".equals(totalGoals) || "14".equals(totalGoals));
+        assertTrue("13".equals(totalGoals) || "14".equals(totalGoals),
+                "Expected 13-14 goals, but found: " + totalGoals);
         assertEquals(0.93, Double.valueOf(CsvJUnitData.getValue(rows, RuntimeVariable.LineCoverage.name())), 0.01);
 
         // Assert that all test cases have passed
@@ -154,7 +153,7 @@ public class CoverageAnalysisWithRefectionSystemTest extends SystemTestBase {
         };
 
         Object statistics = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(statistics);
+        Assertions.assertNotNull(statistics);
 
         // Assert coverage
 
@@ -169,10 +168,10 @@ public class CoverageAnalysisWithRefectionSystemTest extends SystemTestBase {
         reader.close();
 
         // The number of lines seems to be different depending on the compiler
-        assertTrue("Expected 32-34lines, but found: " + CsvJUnitData.getValue(rows, RuntimeVariable.Total_Goals.name()),
-                CsvJUnitData.getValue(rows, RuntimeVariable.Total_Goals.name()).equals("32") ||
+        assertTrue(CsvJUnitData.getValue(rows, RuntimeVariable.Total_Goals.name()).equals("32") ||
                         CsvJUnitData.getValue(rows, RuntimeVariable.Total_Goals.name()).equals("33") ||
-                        CsvJUnitData.getValue(rows, RuntimeVariable.Total_Goals.name()).equals("34"));
+                        CsvJUnitData.getValue(rows, RuntimeVariable.Total_Goals.name()).equals("34"),
+                "Expected 32-34lines, but found: " + CsvJUnitData.getValue(rows, RuntimeVariable.Total_Goals.name()));
 
         // Assert that all test cases have passed
 
@@ -186,8 +185,8 @@ public class CoverageAnalysisWithRefectionSystemTest extends SystemTestBase {
         assertEquals(1, lines.size());
 
         // The number of lines seems to be different depending on the compiler
-        assertTrue("Expected lines to be 32-34, but got: " + (lines.get(0).replace(" ", "").length()), 34 - lines.get(0).replace(" ", "").length() <= 2); // number of goals + test result ('+' pass, '-' fail)
-        assertTrue("Expected line to end with +, but line is: " + lines.get(0).replace(" ", ""), lines.get(0).replace(" ", "").endsWith("+"));
+        assertTrue(34 - lines.get(0).replace(" ", "").length() <= 2, "Expected lines to be 32-34, but got: " + (lines.get(0).replace(" ", "").length())); // number of goals + test result ('+' pass, '-' fail)
+        assertTrue(lines.get(0).replace(" ", "").endsWith("+"), "Expected line to end with +, but line is: " + lines.get(0).replace(" ", ""));
     }
 
     @Test
@@ -214,7 +213,7 @@ public class CoverageAnalysisWithRefectionSystemTest extends SystemTestBase {
         };
 
         SearchStatistics statistics = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(statistics);
+        Assertions.assertNotNull(statistics);
 
         Map<String, OutputVariable<?>> outputVariables = statistics.getOutputVariables();
 

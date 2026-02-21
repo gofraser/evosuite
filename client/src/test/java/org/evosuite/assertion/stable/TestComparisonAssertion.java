@@ -20,10 +20,10 @@
 package org.evosuite.assertion.stable;
 
 import org.evosuite.assertion.ComparisonTraceEntry;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static junit.framework.TestCase.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Created by gordon on 01/02/2016.

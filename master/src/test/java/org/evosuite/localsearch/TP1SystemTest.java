@@ -25,10 +25,9 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.concolic.TP1;
 
 /**
@@ -36,7 +35,7 @@ import com.examples.with.different.packagename.concolic.TP1;
  */
 public class TP1SystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.LOCAL_SEARCH_PROBABILITY = 1.0;
         Properties.LOCAL_SEARCH_RATE = 1;
@@ -71,7 +70,7 @@ public class TP1SystemTest extends SystemTestBase {
     @Test
     public void testZ3() {
 
-        Assume.assumeTrue(System.getenv("z3_path") != null);
+        Assumptions.assumeTrue(System.getenv("z3_path") != null);
         Properties.Z3_PATH = System.getenv("z3_path");
 
         Properties.LOCAL_SEARCH_BUDGET_TYPE = Properties.LocalSearchBudgetType.TIME;

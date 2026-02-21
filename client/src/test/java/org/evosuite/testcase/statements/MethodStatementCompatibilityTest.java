@@ -1,8 +1,8 @@
 package org.evosuite.testcase.statements;
 
 import org.evosuite.utils.generic.GenericMethod;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 
@@ -23,6 +23,6 @@ public class MethodStatementCompatibilityTest {
         Method method = DeclaringType.class.getDeclaredMethod("ping");
         GenericMethod genericMethod = new GenericMethod(method, Object.class);
 
-        Assert.assertFalse(MethodStatement.isCompatibleCalleeType(genericMethod, UnrelatedType.class));
+        Assertions.assertFalse(MethodStatement.isCompatibleCalleeType(genericMethod, UnrelatedType.class));
     }
 }

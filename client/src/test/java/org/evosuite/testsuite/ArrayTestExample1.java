@@ -20,20 +20,20 @@
 
 package org.evosuite.testsuite;
 
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Gordon Fraser
  */
 public class ArrayTestExample1 {
-    @Ignore
+    @Disabled
     @Test
     public void test1() {
         int[] test = new int[10];
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test2() {
         int[] test = new int[10];
@@ -42,7 +42,7 @@ public class ArrayTestExample1 {
         test[9] = 6;
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test3() {
         int[] test = new int[10];
@@ -52,7 +52,7 @@ public class ArrayTestExample1 {
         test[9] = 6;
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test4() {
         int[] test = new int[10];
@@ -67,7 +67,7 @@ public class ArrayTestExample1 {
         test[9] = 6;
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test5() {
         int[] test = new int[2];

@@ -27,8 +27,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Created by gordon on 26/12/2016.
@@ -49,8 +49,8 @@ public class PreferencesSystemTest extends SystemTestBase {
 
         System.out.println(best.toString());
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -67,8 +67,8 @@ public class PreferencesSystemTest extends SystemTestBase {
 
         System.out.println(best.toString());
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
 
@@ -86,8 +86,8 @@ public class PreferencesSystemTest extends SystemTestBase {
 
         System.out.println(best.toString());
 
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
 }

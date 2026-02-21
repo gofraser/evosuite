@@ -22,9 +22,6 @@ package org.evosuite.runtime.sandbox;
 import java.util.List;
 
 import com.examples.with.different.packagename.sandbox.ReadTimezone;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.BeforeClass;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
@@ -35,8 +32,11 @@ import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.sandbox.ReadWriteSystemProperties;
 
 public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
@@ -48,16 +48,16 @@ public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
 
     private final boolean DEFAULT_REPLACE_CALLS = Properties.REPLACE_CALLS;
 
-    @After
+    @AfterEach
     public void reset() {
         Properties.REPLACE_CALLS = DEFAULT_REPLACE_CALLS;
     }
 
-    @BeforeClass
+    @BeforeAll
     public static void checkStatus() {
-        org.junit.Assume.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
         //such property shouldn't exist
-        Assert.assertNull(aProperty);
+        Assertions.assertNull(aProperty);
     }
 
     @Test
@@ -79,12 +79,12 @@ public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
         double cov = best.getCoverage();
-        Assert.assertEquals("Non-optimal coverage: ", 1d, cov, 0.001);
+        Assertions.assertEquals(1d, cov, 0.001, "Non-optimal coverage: ");
 
         //now check the JUnit generation
         List<TestCase> list = best.getTests();
         int n = list.size();
-        Assert.assertTrue(n > 0);
+        Assertions.assertTrue(n > 0);
 
         TestCaseExecutor.initExecutor(); //needed because it gets pulled down after the search
 
@@ -94,11 +94,11 @@ public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
         } finally {
             Sandbox.resetDefaultSecurityManager();
         }
-        Assert.assertEquals(n, list.size());
+        Assertions.assertEquals(n, list.size());
 
         TestGenerationResult tgr = TestGenerationResultBuilder.buildSuccessResult();
         String code = tgr.getTestSuiteCode();
-        Assert.assertTrue("Test code:\n" + code, code.contains("user.timezone"));
+        Assertions.assertTrue(code.contains("user.timezone"), "Test code:\n" + code);
 
         /*
          * This is tricky. The property 'debug' is read, but it does not exist.
@@ -106,12 +106,12 @@ public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
          * is set to null. But that would lead to a lot of problems :( eg cases
          * in which we end up in reading hundreds of thousands variables that do not exist
          */
-        Assert.assertFalse("Test code:\n" + code, code.contains("debug"));
+        Assertions.assertFalse(code.contains("debug"), "Test code:\n" + code);
     }
 
     @Test
     public void testNoReplace() {
-        org.junit.Assume.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
 
         EvoSuite evosuite = new EvoSuite();
 
@@ -131,7 +131,7 @@ public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
         double cov = best.getCoverage();
         //without replace calls, we shouldn't be able to achieve full coverage
-        Assert.assertTrue(cov < 1d);
+        Assertions.assertTrue(cov < 1d);
     }
 
     @Test
@@ -154,7 +154,7 @@ public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
         double cov = best.getCoverage();
-        Assert.assertEquals("Non-optimal coverage: ", 1d, cov, 0.001);
+        Assertions.assertEquals(1d, cov, 0.001, "Non-optimal coverage: ");
 
         //now check if properties have been reset to their initial state
         String currentUserDir = System
@@ -162,33 +162,33 @@ public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
         String currentAProperty = System
                 .getProperty(ReadWriteSystemProperties.A_PROPERTY);
 
-        Assert.assertEquals(userDir, currentUserDir);
-        Assert.assertEquals(aProperty, currentAProperty);
+        Assertions.assertEquals(userDir, currentUserDir);
+        Assertions.assertEquals(aProperty, currentAProperty);
 
         //now check the JUnit generation
         List<TestCase> list = best.getTests();
         int n = list.size();
-        Assert.assertTrue(n > 0);
+        Assertions.assertTrue(n > 0);
 
         TestCaseExecutor.initExecutor(); //needed because it gets pulled down after the search
 
         try {
             Sandbox.initializeSecurityManagerForSUT();
             for (TestCase tc : list) {
-                Assert.assertFalse(tc.isUnstable());
+                Assertions.assertFalse(tc.isUnstable());
             }
 
             JUnitAnalyzer.removeTestsThatDoNotCompile(list);
-            Assert.assertEquals(n, list.size());
+            Assertions.assertEquals(n, list.size());
             JUnitAnalyzer.handleTestsThatAreUnstable(list);
-            Assert.assertEquals(n, list.size());
+            Assertions.assertEquals(n, list.size());
 
             for (TestCase tc : list) {
-                Assert.assertFalse(tc.isUnstable());
+                Assertions.assertFalse(tc.isUnstable());
             }
 
-            Assert.assertEquals(userDir, currentUserDir);
-            Assert.assertEquals(aProperty, currentAProperty);
+            Assertions.assertEquals(userDir, currentUserDir);
+            Assertions.assertEquals(aProperty, currentAProperty);
         } finally {
             Sandbox.resetDefaultSecurityManager();
         }

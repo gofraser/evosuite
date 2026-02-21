@@ -8,8 +8,8 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ public class TestChromosomeUtilsTest {
 
         Mockito.when(testCase.iterator()).thenReturn(Arrays.<Statement>asList(methodStatement).iterator());
 
-        Assert.assertTrue(TestChromosomeUtils.hasMethodCall(chromosome));
+        Assertions.assertTrue(TestChromosomeUtils.hasMethodCall(chromosome));
     }
 
     @Test
@@ -44,7 +44,7 @@ public class TestChromosomeUtilsTest {
 
         Mockito.when(testCase.iterator()).thenReturn(Arrays.<Statement>asList(primitiveStatement).iterator());
 
-        Assert.assertFalse(TestChromosomeUtils.hasMethodCall(chromosome));
+        Assertions.assertFalse(TestChromosomeUtils.hasMethodCall(chromosome));
     }
 
     @Test
@@ -74,7 +74,7 @@ public class TestChromosomeUtilsTest {
 
         boolean changed = TestChromosomeUtils.removeUnusedVariables(chromosome);
 
-        Assert.assertTrue(changed);
+        Assertions.assertTrue(changed);
         Mockito.verify(testCase).remove(0); // unused is at index 0
         Mockito.verify(testCase, Mockito.never()).remove(1); // used is at index 1
     }

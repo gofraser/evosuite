@@ -19,12 +19,12 @@
  */
 package org.evosuite.xsd;
 
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * @author José Campos
@@ -54,7 +54,7 @@ public class ProjectUtilTest {
         assertEquals(0, ProjectUtil.getTotalEffort(project));
         assertEquals(0, ProjectUtil.getTimeBudget(project));
         assertEquals(0, ProjectUtil.getNumberGeneratedTestSuites(project));
-        Assert.assertTrue(ProjectUtil.getUnionCriteria(project).isEmpty());
+        Assertions.assertTrue(ProjectUtil.getUnionCriteria(project).isEmpty());
         assertEquals(0.0, ProjectUtil.getAverageNumberStatements(project), 0.0);
         assertEquals(0.0, ProjectUtil.getOverallCoverage(project), 0.0);
         assertEquals(0.0, ProjectUtil.getAverageCriterionCoverage(project, ""), 0.0);
@@ -122,8 +122,8 @@ public class ProjectUtilTest {
 
         Set<String> criteria = ProjectUtil.getUnionCriteria(project);
         assertEquals(2, criteria.size());
-        Assert.assertTrue(criteria.contains("Branch"));
-        Assert.assertTrue(criteria.contains("Exception"));
+        Assertions.assertTrue(criteria.contains("Branch"));
+        Assertions.assertTrue(criteria.contains("Exception"));
         assertEquals(30, ProjectUtil.getAverageNumberStatements(project), 0.0);
         assertEquals(0.55, ProjectUtil.getOverallCoverage(project), 0.0);
         assertEquals(0.0, ProjectUtil.getAverageCriterionCoverage(project, ""), 0.0);
@@ -173,8 +173,8 @@ public class ProjectUtilTest {
         Project project = new Project();
         project.getCut().add(cut);
 
-        Assert.assertNull(ProjectUtil.getCUT(project, "invalid.ClassName"));
-        Assert.assertNotNull(ProjectUtil.getCUT(project, "foo.Bar"));
+        Assertions.assertNull(ProjectUtil.getCUT(project, "invalid.ClassName"));
+        Assertions.assertNotNull(ProjectUtil.getCUT(project, "foo.Bar"));
     }
 
     @Test
@@ -183,7 +183,7 @@ public class ProjectUtilTest {
 
         Project project = new Project();
         // no CUTs
-        Assert.assertTrue(ProjectUtil.getAllSuccessfulGenerations(project).isEmpty());
+        Assertions.assertTrue(ProjectUtil.getAllSuccessfulGenerations(project).isEmpty());
 
         // one generation that failed
         Generation g0 = new Generation();

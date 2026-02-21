@@ -21,8 +21,8 @@ package org.evosuite.runtime.classhandling;
 
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.instrumentation.EvoClassLoader;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Created by arcuri on 1/20/15.
@@ -38,12 +38,12 @@ public class ClassStateSupportTest {
         //no mocking
         RuntimeSettings.deactivateAllMocking();
         boolean problem = ClassStateSupport.initializeClasses(loader, className);
-        Assert.assertFalse(problem);
+        Assertions.assertFalse(problem);
 
         //with mocking
         RuntimeSettings.mockJVMNonDeterminism = true;
         className = "com.examples.with.different.packagename.classhandling.TimeB";
         problem = ClassStateSupport.initializeClasses(loader, className);
-        Assert.assertFalse(problem);
+        Assertions.assertFalse(problem);
     }
 }

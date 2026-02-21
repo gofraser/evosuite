@@ -25,10 +25,9 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.DivisionByZero;
 
 public class SUTDivisionByZeroSystemTest extends SystemTestBase {
@@ -41,7 +40,7 @@ public class SUTDivisionByZeroSystemTest extends SystemTestBase {
     public static final double defaultPrimitivePool = Properties.PRIMITIVE_POOL;
     public static final boolean defaultErrorBranches = Properties.ERROR_BRANCHES;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.PRIMITIVE_POOL = defaultPrimitivePool;
         Properties.ERROR_BRANCHES = defaultErrorBranches;
@@ -72,11 +71,11 @@ public class SUTDivisionByZeroSystemTest extends SystemTestBase {
          * 2: extra branch for division by 0
          * 2: for underflow
          */
-        Assert.assertEquals(2, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
-        Assert.assertEquals(4, TestGenerationStrategy.getFitnessFactories().get(1).getCoverageGoals().size());
+        Assertions.assertEquals(2, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
+        Assertions.assertEquals(4, TestGenerationStrategy.getFitnessFactories().get(1).getCoverageGoals().size());
 
         double coverage = best.getCoverage();
         //one of the underflow branches is difficult to get without DSE/LS
-        Assert.assertTrue("Not good enough coverage: " + coverage, coverage > 0.83d);
+        Assertions.assertTrue(coverage > 0.83d, "Not good enough coverage: " + coverage);
     }
 }

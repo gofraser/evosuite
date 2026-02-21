@@ -28,11 +28,10 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.mutation.SimpleMutationExample2;
 
 public class BranchSystemTest extends SystemTestBase {
@@ -41,7 +40,7 @@ public class BranchSystemTest extends SystemTestBase {
     private Properties.StoppingCondition oldStoppingCondition = Properties.STOPPING_CONDITION;
     private double oldPrimitivePool = Properties.PRIMITIVE_POOL;
 
-    @Before
+    @BeforeEach
     public void beforeTest() {
         oldCriteria = Arrays.copyOf(Properties.CRITERION, Properties.CRITERION.length);
         oldStoppingCondition = Properties.STOPPING_CONDITION;
@@ -49,7 +48,7 @@ public class BranchSystemTest extends SystemTestBase {
         //Properties.MINIMIZE = false;
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.CRITERION = oldCriteria;
         Properties.STOPPING_CONDITION = oldStoppingCondition;
@@ -75,8 +74,8 @@ public class BranchSystemTest extends SystemTestBase {
         System.out.println("CoveredGoals:\n" + best.getCoveredGoals());
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(2, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -97,8 +96,8 @@ public class BranchSystemTest extends SystemTestBase {
         System.out.println("CoveredGoals:\n" + best.getCoveredGoals());
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(2, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -119,8 +118,8 @@ public class BranchSystemTest extends SystemTestBase {
         System.out.println("CoveredGoals:\n" + best.getCoveredGoals());
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(3, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -141,8 +140,8 @@ public class BranchSystemTest extends SystemTestBase {
         System.out.println("CoveredGoals:\n" + best.getCoveredGoals());
         System.out.println("EvolvedTestSuite:\n" + best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(3, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
 }

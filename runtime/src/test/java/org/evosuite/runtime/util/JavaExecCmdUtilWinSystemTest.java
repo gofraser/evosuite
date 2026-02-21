@@ -22,14 +22,22 @@ package org.evosuite.runtime.util;
 import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.core.IsEqual;
 import org.hamcrest.core.StringStartsWith;
-import org.junit.*;
-import org.junit.contrib.java.lang.system.EnvironmentVariables;
-import org.junit.contrib.java.lang.system.ProvideSystemProperty;
-import org.junit.runners.MethodSorters;
+import org.hamcrest.junit.MatcherAssume;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.MethodOrderer.MethodName;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.extension.ExtendWith;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
+import uk.org.webcompere.systemstubs.jupiter.SystemStub;
+import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
+import uk.org.webcompere.systemstubs.properties.SystemProperties;
 
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+@ExtendWith(SystemStubsExtension.class)
+@TestMethodOrder(MethodName.class)
 public class JavaExecCmdUtilWinSystemTest {
 
     private static final String SEPARATOR = "\\";
@@ -39,44 +47,43 @@ public class JavaExecCmdUtilWinSystemTest {
     private static final String WIN_MOCK_OS = "Windows 10";
     private static final String ORIG_OS = System.getProperty("os.name");
 
-    @Rule
+    @SystemStub
     public EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
-    @Rule
-    public final ProvideSystemProperty properties =
-            new ProvideSystemProperty("os.name", WIN_MOCK_OS)
-                    .and("file.separator", SEPARATOR)
-                    .and("java.home", JAVA_HOME_MOCK_PATH);
+    @SystemStub
+    public SystemProperties systemProperties = new SystemProperties("os.name", WIN_MOCK_OS,
+                    "file.separator", SEPARATOR,
+                    "java.home", JAVA_HOME_MOCK_PATH);
 
-    @Before
+    @BeforeEach
     public void initTestEnvironment() {
         environmentVariables.set("JAVA_HOME", JAVA_HOME_MOCK_PATH);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void winNeverNull() {
         assertNotNull(JavaExecCmdUtil.getJavaBinExecutablePath());
         assertNotNull(JavaExecCmdUtil.getJavaBinExecutablePath(true));
         assertNotNull(JavaExecCmdUtil.getJavaBinExecutablePath(false));
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void winMockEnvIsOk() {
         // run test only on windows build
-        Assume.assumeThat(ORIG_OS.toLowerCase(), StringStartsWith.startsWith("win"));
+        MatcherAssume.assumeThat(ORIG_OS.toLowerCase(), StringStartsWith.startsWith("win"));
 
         assertThat(System.getenv("JAVA_HOME"), IsEqual.equalTo(JAVA_HOME_MOCK_PATH));
         assertThat(System.getProperty("os.name"), IsEqual.equalTo(WIN_MOCK_OS));
         assertFalse(StringUtils.isEmpty(JAVA_HOME_SYSTEM));
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void winOldBehaviorJava() {
         // return "java" value
         assertThat(JavaExecCmdUtil.getJavaBinExecutablePath(), IsEqual.equalTo("java"));
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void winOldBehaviorJavaCmd() {
         // return JAVA_CMD value
         assertThat(JavaExecCmdUtil.getJavaBinExecutablePath(true),
@@ -84,10 +91,10 @@ public class JavaExecCmdUtilWinSystemTest {
                         JAVA_HOME_MOCK_PATH + SEPARATOR + "bin" + SEPARATOR + "java"));
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void winNewBehavior() {
         // run test only on windows build
-        Assume.assumeThat(ORIG_OS.toLowerCase(), StringStartsWith.startsWith("win"));
+        MatcherAssume.assumeThat(ORIG_OS.toLowerCase(), StringStartsWith.startsWith("win"));
 
         JavaExecCmdUtil.getOsName().filter(osName -> osName.startsWith("Windows")).ifPresent(os ->
                 {

@@ -21,11 +21,11 @@
 package org.evosuite.javaagent;
 
 import org.evosuite.instrumentation.error.ErrorConditionChecker;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Opcodes;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author Gordon Fraser
@@ -71,26 +71,26 @@ public class ErrorConditionCheckerTest {
         assertEquals(Integer.MAX_VALUE, distance);
 
         int distance1 = ErrorConditionChecker.overflowDistance(10, 10, Opcodes.IADD);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.overflowDistance(1000, 1000, Opcodes.IADD);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance1 > distance2);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance1 > distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance1 = ErrorConditionChecker.overflowDistance(100, -100, Opcodes.IADD);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         distance2 = ErrorConditionChecker.overflowDistance(-100, 100, Opcodes.IADD);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
         assertEquals(distance1, distance2);
 
         int distance3 = ErrorConditionChecker.overflowDistance(-100, 10, Opcodes.IADD);
-        assertTrue("Expected value greater 0 but got " + distance3, distance3 > 0);
+        assertTrue(distance3 > 0, "Expected value greater 0 but got " + distance3);
         assertEquals(distance1, distance2);
 
         distance3 = ErrorConditionChecker.overflowDistance(-50, 10, Opcodes.IADD);
-        assertTrue("Expected value greater 0 but got " + distance3, distance3 > 0);
+        assertTrue(distance3 > 0, "Expected value greater 0 but got " + distance3);
         assertTrue(distance3 < distance2);
 
     }
@@ -121,12 +121,12 @@ public class ErrorConditionCheckerTest {
         assertTrue(distance > 0);
 
         int distance1 = ErrorConditionChecker.underflowDistance(10, 10, Opcodes.IADD);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.underflowDistance(1000, 1000, Opcodes.IADD);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance1 < distance2);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance1 < distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
     }
 
     @Test
@@ -160,26 +160,26 @@ public class ErrorConditionCheckerTest {
         assertEquals(Integer.MAX_VALUE - 1, distance);
 
         int distance1 = ErrorConditionChecker.overflowDistance(10, 10, Opcodes.ISUB);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.overflowDistance(10, 1000, Opcodes.ISUB);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance2 > distance1);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance2 > distance1,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance1 = ErrorConditionChecker.overflowDistance(100, -100, Opcodes.ISUB);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         distance2 = ErrorConditionChecker.overflowDistance(-100, 100, Opcodes.ISUB);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
         assertTrue(distance1 < distance2);
 
         int distance3 = ErrorConditionChecker.overflowDistance(-100, 10, Opcodes.ISUB);
-        assertTrue("Expected value greater 0 but got " + distance3, distance3 > 0);
+        assertTrue(distance3 > 0, "Expected value greater 0 but got " + distance3);
         assertTrue(distance3 < distance2);
 
         distance3 = ErrorConditionChecker.overflowDistance(-50, 10, Opcodes.ISUB);
-        assertTrue("Expected value greater 0 but got " + distance3, distance3 > 0);
+        assertTrue(distance3 > 0, "Expected value greater 0 but got " + distance3);
         assertTrue(distance3 < distance2);
 
     }
@@ -199,22 +199,22 @@ public class ErrorConditionCheckerTest {
         assertTrue(distance <= 0);
 
         int distance1 = ErrorConditionChecker.underflowDistance(10, 10, Opcodes.ISUB);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.underflowDistance(1000, 1000, Opcodes.ISUB);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
 
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance1 < distance2);
+        assertTrue(distance1 < distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance1 = ErrorConditionChecker.underflowDistance(10, -10, Opcodes.ISUB);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         distance2 = ErrorConditionChecker.underflowDistance(1000, -1000, Opcodes.ISUB);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
 
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance1 < distance2);
+        assertTrue(distance1 < distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
     }
 
     @Test
@@ -240,30 +240,30 @@ public class ErrorConditionCheckerTest {
         assertTrue(distance <= 0);
 
         int distance1 = ErrorConditionChecker.overflowDistance(10, 10, Opcodes.IMUL);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.overflowDistance(10, 1000, Opcodes.IMUL);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance2 < distance1);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance2 < distance1,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance2 = ErrorConditionChecker.overflowDistance(-10, 1000, Opcodes.IMUL);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance2 > distance1);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance2 > distance1,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         int distance3 = ErrorConditionChecker.overflowDistance(-100, 1000, Opcodes.IMUL);
-        assertTrue("Expected value greater 0 but got " + distance3, distance3 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance3 > distance2);
+        assertTrue(distance3 > 0, "Expected value greater 0 but got " + distance3);
+        assertTrue(distance3 > distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance1 = ErrorConditionChecker.overflowDistance(-100, -100, Opcodes.IMUL);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         distance2 = ErrorConditionChecker.overflowDistance(100, 1000, Opcodes.IMUL);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance2 < distance1);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance2 < distance1,
+                "Invalid ranking: " + distance1 + ", " + distance2);
     }
 
     @Test
@@ -286,17 +286,17 @@ public class ErrorConditionCheckerTest {
         assertTrue(distance > 0);
 
         int distance1 = ErrorConditionChecker.underflowDistance(10, 10, Opcodes.IMUL);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.underflowDistance(20, 1000, Opcodes.IMUL);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance1 < distance2);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance1 < distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance2 = ErrorConditionChecker.underflowDistance(3, 1000000, Opcodes.IMUL);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance2 < distance1);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance2 < distance1,
+                "Invalid ranking: " + distance1 + ", " + distance2);
     }
 
     @Test
@@ -307,7 +307,7 @@ public class ErrorConditionCheckerTest {
 
         distance = ErrorConditionChecker.overflowDistance(Integer.MIN_VALUE, 1,
                 Opcodes.IDIV);
-        assertTrue("Expected > 0 but got " + distance, distance > 0);
+        assertTrue(distance > 0, "Expected > 0 but got " + distance);
     }
 
     @Test
@@ -335,26 +335,26 @@ public class ErrorConditionCheckerTest {
         assertEquals(Integer.MAX_VALUE - 1, distance);
 
         int distance1 = ErrorConditionChecker.overflowDistance(10F, 10F, Opcodes.FADD);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.overflowDistance(1000F, 1000F, Opcodes.FADD);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance1 > distance2);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance1 > distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance1 = ErrorConditionChecker.overflowDistance(100F, -100F, Opcodes.FADD);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         distance2 = ErrorConditionChecker.overflowDistance(-100F, 100F, Opcodes.FADD);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
         assertEquals(distance1, distance2);
 
         int distance3 = ErrorConditionChecker.overflowDistance(-100F, 10F, Opcodes.FADD);
-        assertTrue("Expected value greater 0 but got " + distance3, distance3 > 0);
+        assertTrue(distance3 > 0, "Expected value greater 0 but got " + distance3);
         assertEquals(distance1, distance2);
 
         distance3 = ErrorConditionChecker.overflowDistance(-50F, 10F, Opcodes.FADD);
-        assertTrue("Expected value greater 0 but got " + distance3, distance3 > 0);
+        assertTrue(distance3 > 0, "Expected value greater 0 but got " + distance3);
         assertTrue(distance3 < distance2);
 
     }
@@ -382,13 +382,13 @@ public class ErrorConditionCheckerTest {
         assertTrue(distance > 0);
 
         int distance1 = ErrorConditionChecker.underflowDistance(10F, 10F, Opcodes.FADD);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.underflowDistance(1000F, 1000F,
                 Opcodes.FADD);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance1 < distance2);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance1 < distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
     }
 
     @Test
@@ -423,26 +423,26 @@ public class ErrorConditionCheckerTest {
         assertEquals(Integer.MAX_VALUE - 1, distance);
 
         int distance1 = ErrorConditionChecker.overflowDistance(10F, 10F, Opcodes.FSUB);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.overflowDistance(10F, 1000F, Opcodes.FSUB);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance2 > distance1);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance2 > distance1,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance1 = ErrorConditionChecker.overflowDistance(100F, -100F, Opcodes.FSUB);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         distance2 = ErrorConditionChecker.overflowDistance(-100F, 100F, Opcodes.FSUB);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
         assertTrue(distance1 < distance2);
 
         int distance3 = ErrorConditionChecker.overflowDistance(-100F, 10F, Opcodes.FSUB);
-        assertTrue("Expected value greater 0 but got " + distance3, distance3 > 0);
+        assertTrue(distance3 > 0, "Expected value greater 0 but got " + distance3);
         assertTrue(distance3 < distance2);
 
         distance3 = ErrorConditionChecker.overflowDistance(-50F, 10F, Opcodes.FSUB);
-        assertTrue("Expected value greater 0 but got " + distance3, distance3 > 0);
+        assertTrue(distance3 > 0, "Expected value greater 0 but got " + distance3);
         assertTrue(distance3 < distance2);
 
     }
@@ -463,23 +463,23 @@ public class ErrorConditionCheckerTest {
         assertTrue(distance <= 0);
 
         int distance1 = ErrorConditionChecker.underflowDistance(10F, 10F, Opcodes.FSUB);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.underflowDistance(1000F, 1000F,
                 Opcodes.FSUB);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
 
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance1 < distance2);
+        assertTrue(distance1 < distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance1 = ErrorConditionChecker.underflowDistance(10F, -10F, Opcodes.FSUB);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         distance2 = ErrorConditionChecker.underflowDistance(1000F, -1000F, Opcodes.FSUB);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
 
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance1 < distance2);
+        assertTrue(distance1 < distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
     }
 
     @Test
@@ -506,30 +506,30 @@ public class ErrorConditionCheckerTest {
         assertTrue(distance <= 0);
 
         int distance1 = ErrorConditionChecker.overflowDistance(10F, 10F, Opcodes.FMUL);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.overflowDistance(10F, 1000F, Opcodes.FMUL);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance2 < distance1);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance2 < distance1,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance2 = ErrorConditionChecker.overflowDistance(-10F, 1000F, Opcodes.FMUL);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance2 > distance1);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance2 > distance1,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         int distance3 = ErrorConditionChecker.overflowDistance(-100F, 1000F, Opcodes.FMUL);
-        assertTrue("Expected value greater 0 but got " + distance3, distance3 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance3 > distance2);
+        assertTrue(distance3 > 0, "Expected value greater 0 but got " + distance3);
+        assertTrue(distance3 > distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance1 = ErrorConditionChecker.overflowDistance(-100F, -100F, Opcodes.FMUL);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         distance2 = ErrorConditionChecker.overflowDistance(100F, 1000F, Opcodes.FMUL);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance2 < distance1);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance2 < distance1,
+                "Invalid ranking: " + distance1 + ", " + distance2);
     }
 
     @Test
@@ -551,17 +551,17 @@ public class ErrorConditionCheckerTest {
         assertTrue(distance > 0);
 
         int distance1 = ErrorConditionChecker.underflowDistance(10F, 10F, Opcodes.FMUL);
-        assertTrue("Expected value greater 0 but got " + distance1, distance1 > 0);
+        assertTrue(distance1 > 0, "Expected value greater 0 but got " + distance1);
 
         int distance2 = ErrorConditionChecker.underflowDistance(20F, 1000F, Opcodes.FMUL);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance1 < distance2);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance1 < distance2,
+                "Invalid ranking: " + distance1 + ", " + distance2);
 
         distance2 = ErrorConditionChecker.underflowDistance(3F, 1000000F, Opcodes.FMUL);
-        assertTrue("Expected value greater 0 but got " + distance2, distance2 > 0);
-        assertTrue("Invalid ranking: " + distance1 + ", " + distance2,
-                distance2 < distance1);
+        assertTrue(distance2 > 0, "Expected value greater 0 but got " + distance2);
+        assertTrue(distance2 < distance1,
+                "Invalid ranking: " + distance1 + ", " + distance2);
     }
 
     @Test
@@ -572,7 +572,7 @@ public class ErrorConditionCheckerTest {
 
         distance = ErrorConditionChecker.overflowDistance(-Float.MAX_VALUE, 1F,
                 Opcodes.FDIV);
-        assertTrue("Expected > 0 but got " + distance, distance > 0);
+        assertTrue(distance > 0, "Expected > 0 but got " + distance);
     }
 
 }

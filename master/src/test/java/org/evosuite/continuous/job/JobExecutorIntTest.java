@@ -24,11 +24,13 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.FileUtils;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.utils.FileIOUtils;
-import org.junit.Assert;
 
 import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHandler;
@@ -36,20 +38,19 @@ import org.evosuite.continuous.CtgConfiguration;
 import org.evosuite.Properties.AvailableSchedule;
 import org.evosuite.continuous.persistency.StorageManager;
 import org.evosuite.continuous.persistency.StorageManager.TestsOnDisk;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import com.examples.with.different.packagename.continuous.Simple;
 import com.examples.with.different.packagename.continuous.Trivial;
 import com.examples.with.different.packagename.continuous.UsingSimpleAndTrivial;
-
-import static org.junit.Assert.assertTrue;
 
 public class JobExecutorIntTest {
 
     private StorageManager storage;
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.CTG_DIR = ".tmp_for_testing_" + JobExecutorIntTest.class.getName();
         if (storage != null) {
@@ -61,7 +62,8 @@ public class JobExecutorIntTest {
         }
     }
 
-    @Test(timeout = 90_000)
+    @Test
+    @Timeout(value = 90_000, unit = TimeUnit.MILLISECONDS)
     public void testActualExecutionOfSchedule() throws IOException {
 
         Properties.TEST_SCAFFOLDING = true;
@@ -72,7 +74,7 @@ public class JobExecutorIntTest {
         assertTrue(storageOK);
 
         List<TestsOnDisk> data = storage.gatherGeneratedTestsOnDisk();
-        Assert.assertEquals(0, data.size());
+        Assertions.assertEquals(0, data.size());
 
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         String classpath = ClassPathHandler.getInstance().getTargetProjectClasspath();
@@ -136,11 +138,11 @@ public class JobExecutorIntTest {
             }
         }
 
-        Assert.assertEquals(msg, 2, data.size());
-        Assert.assertTrue(msg, areThereTests);
+        Assertions.assertEquals(2, data.size(), msg);
+        Assertions.assertTrue(areThereTests, msg);
 
         boolean deleted = storage.clean();
-        Assert.assertTrue(deleted);
+        Assertions.assertTrue(deleted);
     }
 
     @Test
@@ -152,7 +154,7 @@ public class JobExecutorIntTest {
         assertTrue(storageOK);
 
         List<TestsOnDisk> data = storage.gatherGeneratedTestsOnDisk();
-        Assert.assertEquals(0, data.size());
+        Assertions.assertEquals(0, data.size());
 
         // no need to specify it, as com.examples are compiled with EvoSuite
         String classpath = System.getProperty("java.class.path");
@@ -200,7 +202,7 @@ public class JobExecutorIntTest {
             JobDefinition last = exe.pollJob();
             exe.doneWithJob(last);
 
-            Assert.assertEquals(ust.cut, last.cut);
+            Assertions.assertEquals(ust.cut, last.cut);
         } finally {
             t.interrupt();
         }

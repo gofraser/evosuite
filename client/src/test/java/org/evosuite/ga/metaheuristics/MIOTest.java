@@ -5,23 +5,23 @@ import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.List;
 
 public class MIOTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.ARCHIVE_TYPE = Properties.ArchiveType.MIO;
         Archive.getArchiveInstance().reset();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         Archive.getArchiveInstance().reset();
     }
@@ -32,7 +32,7 @@ public class MIOTest {
         MIO mio = new MIO(factory);
 
         // Verify initial state
-        Assert.assertTrue(mio.getBestIndividuals().isEmpty());
+        Assertions.assertTrue(mio.getBestIndividuals().isEmpty());
 
         // We cannot easily add to MIOArchive without a valid Target and FitnessFunction.
         // But we can verify that MIO.getBestIndividuals() calls Archive.getArchiveInstance().getSolutions()

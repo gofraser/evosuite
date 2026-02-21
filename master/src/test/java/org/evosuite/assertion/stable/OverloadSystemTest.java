@@ -38,11 +38,10 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.stable.Overload;
 
 public class OverloadSystemTest extends SystemTestBase {
@@ -54,7 +53,7 @@ public class OverloadSystemTest extends SystemTestBase {
     private final boolean DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS = Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS;
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
-    @Before
+    @BeforeEach
     public void before() {
         Properties.SANDBOX = true;
         Properties.REPLACE_CALLS = true;
@@ -64,7 +63,7 @@ public class OverloadSystemTest extends SystemTestBase {
         Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
     }
 
-    @After
+    @AfterEach
     public void after() {
         Properties.SANDBOX = DEFAULT_SANDBOX;
         Properties.REPLACE_CALLS = DEFAULT_REPLACE_CALLS;
@@ -82,8 +81,8 @@ public class OverloadSystemTest extends SystemTestBase {
         GenericMethod gm1 = new GenericMethod(m1, Overload.class);
         GenericMethod gm2 = new GenericMethod(m2, Overload.class);
 
-        Assert.assertTrue(gm1.isOverloaded());
-        Assert.assertTrue(gm2.isOverloaded());
+        Assertions.assertTrue(gm1.isOverloaded());
+        Assertions.assertTrue(gm2.isOverloaded());
     }
 
     @Test
@@ -111,10 +110,10 @@ public class OverloadSystemTest extends SystemTestBase {
         vars2.add(overloadInstance);
         vars2.add(objectInstance);
 
-        Assert.assertFalse(gm1.isOverloaded(vars1));
-        Assert.assertTrue(gm2.isOverloaded(vars1));
-        Assert.assertTrue(gm1.isOverloaded(vars2));
-        Assert.assertFalse(gm2.isOverloaded(vars2));
+        Assertions.assertFalse(gm1.isOverloaded(vars1));
+        Assertions.assertTrue(gm2.isOverloaded(vars1));
+        Assertions.assertTrue(gm1.isOverloaded(vars2));
+        Assertions.assertFalse(gm2.isOverloaded(vars2));
     }
 
     @Test
@@ -134,10 +133,10 @@ public class OverloadSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> unstable = map.get(RuntimeVariable.HadUnstableTests.toString());
-        Assert.assertNotNull(unstable);
-        Assert.assertEquals(Boolean.FALSE, unstable.getValue());
+        Assertions.assertNotNull(unstable);
+        Assertions.assertEquals(Boolean.FALSE, unstable.getValue());
     }
 
 }

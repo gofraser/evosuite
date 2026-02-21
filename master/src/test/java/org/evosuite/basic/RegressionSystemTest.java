@@ -26,10 +26,9 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ExampleFieldClass;
 import com.examples.with.different.packagename.ExampleInheritedClass;
 import com.examples.with.different.packagename.test.AbsTest;
@@ -79,12 +78,12 @@ public class RegressionSystemTest extends SystemTestBase {
         System.out.println(best.toString());
         // TODO: Need to fix the check, some reset is not working
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of target goals", numGoals, goals);
-        Assert.assertEquals("Wrong number of covered goals", numGoals,
-                best.getNumOfCoveredGoals());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
-        Assert.assertEquals("Wrong fitness: ", 0.0, best.getFitness(), 0.00);
-        Assert.assertTrue("Wrong number of statements: ", best.size() > 0);
+        Assertions.assertEquals(numGoals, goals, "Wrong number of target goals");
+        Assertions.assertEquals(numGoals, best.getNumOfCoveredGoals(),
+                "Wrong number of covered goals");
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        Assertions.assertEquals(0.0, best.getFitness(), 0.00, "Wrong fitness: ");
+        Assertions.assertTrue(best.size() > 0, "Wrong number of statements: ");
     }
 
     @Test
@@ -112,7 +111,7 @@ public class RegressionSystemTest extends SystemTestBase {
 
     // Deprecated is now only applied to dependencies
     @Test
-    @Ignore
+    @Disabled
     public void testDependency_noDeprecated() {
         Properties.USE_DEPRECATED = false;
         testCovered(DepTest.class.getCanonicalName(), 2);

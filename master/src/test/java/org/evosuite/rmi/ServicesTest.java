@@ -24,21 +24,21 @@ import org.evosuite.Properties;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.MasterNodeLocal;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class ServicesTest {
 
     private int currentPort;
 
-    @Before
+    @BeforeEach
     public void init() {
         currentPort = Properties.PROCESS_COMMUNICATION_PORT;
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         Properties.PROCESS_COMMUNICATION_PORT = currentPort;
     }
@@ -60,8 +60,8 @@ public class ServicesTest {
         MasterNodeLocal masterNode = master.getMasterNode();
         String summary = masterNode.getSummaryOfClientStatuses();
 
-        Assert.assertNotNull(summary);
-        Assert.assertTrue("summary=" + summary, summary.contains(ClientState.STARTED.toString()));
+        Assertions.assertNotNull(summary);
+        Assertions.assertTrue(summary.contains(ClientState.STARTED.toString()), "summary=" + summary);
     }
 
 }

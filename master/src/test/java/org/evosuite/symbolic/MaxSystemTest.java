@@ -23,17 +23,16 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Strategy;
 import org.evosuite.SystemTestBase;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.symbolic.Max;
 
 public class MaxSystemTest extends SystemTestBase {
 
 
-    @Before
+    @BeforeEach
     public void setUpProperties() {
         Properties.RESET_STATIC_FIELDS = true;
         Properties.RESET_STATIC_FIELD_GETS = true;
@@ -49,7 +48,7 @@ public class MaxSystemTest extends SystemTestBase {
 
         Properties.STRATEGY = Strategy.DSE;
 
-        Assume.assumeTrue(System.getenv("z3_path") != null);
+        Assumptions.assumeTrue(System.getenv("z3_path") != null);
         Properties.Z3_PATH = System.getenv("z3_path");
 
         EvoSuite evosuite = new EvoSuite();
@@ -60,7 +59,7 @@ public class MaxSystemTest extends SystemTestBase {
 
         Object result = evosuite.parseCommandLine(command);
 
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
     }
 
 }

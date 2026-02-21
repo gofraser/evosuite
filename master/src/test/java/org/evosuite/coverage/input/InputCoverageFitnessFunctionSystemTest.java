@@ -42,16 +42,15 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 /**
@@ -63,13 +62,13 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
     private static final boolean defaultArchive = Properties.TEST_ARCHIVE;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.CRITERION = defaultCriterion;
         Properties.TEST_ARCHIVE = defaultArchive;
     }
 
-    @Before
+    @BeforeEach
     public void beforeTest() {
         Properties.CRITERION = new Properties.Criterion[]{Criterion.INPUT};
     }
@@ -88,8 +87,8 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         List<?> goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals();
-        Assert.assertEquals(12, goals.size());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(12, goals.size());
+        assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -103,8 +102,8 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         List<?> goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals();
-        Assert.assertEquals(23, goals.size());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(23, goals.size());
+        assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
 
@@ -119,8 +118,8 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         List<?> goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals();
-        Assert.assertEquals(31, goals.size());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(31, goals.size());
+        assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -151,8 +150,8 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         testSuite.addTest(tc);
 
         FitnessFunction ffunction = FitnessFunctions.getFitnessFunction(Properties.Criterion.INPUT);
-        assertEquals("Should be 0.0", 0.0, ffunction.getFitness(testSuite), 0.0);
-        assertEquals("Should be 1.0", 1.0, testSuite.getCoverage(ffunction), 0.0);
+        assertEquals(0.0, ffunction.getFitness(testSuite), 0.0, "Should be 0.0");
+        assertEquals(1.0, testSuite.getCoverage(ffunction), 0.0, "Should be 1.0");
 
     }
 

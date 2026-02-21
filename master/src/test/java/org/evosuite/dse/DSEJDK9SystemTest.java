@@ -28,7 +28,7 @@ import com.examples.with.different.packagename.dse.invokedynamic.LambdaExample;
 import com.examples.with.different.packagename.dse.invokedynamic.SingleMethodReference;
 import com.examples.with.different.packagename.dse.invokedynamic.TestClosureClass;
 import com.examples.with.different.packagename.dse.invokedynamic.TestSAMConversions;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for the invokedynamic usages on java (JDK9 for now)

@@ -20,18 +20,18 @@
 
 package org.evosuite.instrumentation.testability;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author fraser
  */
 public class BooleanHelperTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         BooleanHelper.clearStack();
     }
@@ -115,8 +115,8 @@ public class BooleanHelperTest {
         int distanceFalse3 = BooleanHelper.getDistance(1, 1, 0);
         int distanceTrue3 = BooleanHelper.getDistance(1, 1, 1);
 
-        assertEquals("Distances: " + distanceFalse2 + "/" + distanceFalse3, distanceFalse2, distanceFalse3);
-        assertEquals("Distances: " + distanceTrue2 + "/" + distanceTrue3, distanceTrue2, distanceTrue3);
+        assertEquals(distanceFalse2, distanceFalse3, "Distances: " + distanceFalse2 + "/" + distanceFalse3);
+        assertEquals(distanceTrue2, distanceTrue3, "Distances: " + distanceTrue2 + "/" + distanceTrue3);
 
         BooleanHelper.pushPredicate(-100, 1);
 
@@ -145,16 +145,16 @@ public class BooleanHelperTest {
         int distanceFalse3 = BooleanHelper.getDistance(1, 1, 0);
         int distanceTrue3 = BooleanHelper.getDistance(1, 1, 1);
 
-        assertEquals("Distances: " + distanceFalse2 + "/" + distanceFalse3, distanceFalse2, distanceFalse3);
-        assertEquals("Distances: " + distanceTrue2 + "/" + distanceTrue3, distanceTrue2, distanceTrue3);
+        assertEquals(distanceFalse2, distanceFalse3, "Distances: " + distanceFalse2 + "/" + distanceFalse3);
+        assertEquals(distanceTrue2, distanceTrue3, "Distances: " + distanceTrue2 + "/" + distanceTrue3);
 
         BooleanHelper.pushPredicate(1, 1);
 
         int distanceFalse4 = BooleanHelper.getDistance(1, 1, 0);
         int distanceTrue4 = BooleanHelper.getDistance(1, 1, 1);
 
-        assertEquals("Distances: " + distanceFalse4 + "/" + distanceFalse3, distanceFalse4, distanceFalse3);
-        assertEquals("Distances: " + distanceTrue4 + "/" + distanceTrue3, distanceTrue4, distanceTrue3);
+        assertEquals(distanceFalse4, distanceFalse3, "Distances: " + distanceFalse4 + "/" + distanceFalse3);
+        assertEquals(distanceTrue4, distanceTrue3, "Distances: " + distanceTrue4 + "/" + distanceTrue3);
     }
 
     @Test
@@ -166,8 +166,8 @@ public class BooleanHelperTest {
         for (int i = 2; i < 10; i++) {
             BooleanHelper.pushPredicate(i, 1);
             int distance = BooleanHelper.getDistance(1, 1, 1);
-            assertTrue("Iteration " + i + ": Expecting " + distance + " > "
-                    + lastDistance, distance > lastDistance);
+            assertTrue(distance > lastDistance, "Iteration " + i + ": Expecting " + distance + " > "
+                    + lastDistance);
             lastDistance = distance;
         }
     }
@@ -181,8 +181,8 @@ public class BooleanHelperTest {
         for (int i = 10; i < 100000; i += 100) {
             BooleanHelper.pushPredicate(i, 1);
             int distance = BooleanHelper.getDistance(1, 1, 1);
-            assertTrue("Iteration " + i + ": Expecting " + distance + " > "
-                    + lastDistance, distance > lastDistance);
+            assertTrue(distance > lastDistance, "Iteration " + i + ": Expecting " + distance + " > "
+                    + lastDistance);
             lastDistance = distance;
         }
     }
@@ -197,10 +197,10 @@ public class BooleanHelperTest {
         int distanceFalse2 = BooleanHelper.getDistance(1, 2, 0);
         int distanceTrue2 = BooleanHelper.getDistance(1, 2, 1);
 
-        assertTrue("Distances: " + distanceFalse1 + "/" + distanceFalse2,
-                distanceFalse1 < distanceFalse2);
-        assertTrue("Distances: " + distanceTrue1 + "/" + distanceTrue2,
-                distanceTrue1 > distanceTrue2);
+        assertTrue(distanceFalse1 < distanceFalse2,
+                "Distances: " + distanceFalse1 + "/" + distanceFalse2);
+        assertTrue(distanceTrue1 > distanceTrue2,
+                "Distances: " + distanceTrue1 + "/" + distanceTrue2);
     }
 
     @Test
@@ -214,10 +214,10 @@ public class BooleanHelperTest {
         int distanceFalse2 = BooleanHelper.getDistance(1, 1, 0);
         int distanceTrue2 = BooleanHelper.getDistance(1, 1, 1);
 
-        assertTrue("Distances: " + distanceFalse1 + "/" + distanceFalse2,
-                distanceFalse1 > distanceFalse2);
-        assertTrue("Distances: " + distanceTrue1 + "/" + distanceTrue2,
-                distanceTrue1 < distanceTrue2);
+        assertTrue(distanceFalse1 > distanceFalse2,
+                "Distances: " + distanceFalse1 + "/" + distanceFalse2);
+        assertTrue(distanceTrue1 < distanceTrue2,
+                "Distances: " + distanceTrue1 + "/" + distanceTrue2);
     }
 
 }

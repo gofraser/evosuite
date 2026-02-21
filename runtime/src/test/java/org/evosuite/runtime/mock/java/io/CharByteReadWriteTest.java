@@ -21,10 +21,10 @@ package org.evosuite.runtime.mock.java.io;
 
 import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.RuntimeSettings;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Scanner;
 
@@ -32,13 +32,13 @@ public class CharByteReadWriteTest {
 
     private static final boolean VFS = RuntimeSettings.useVFS;
 
-    @Before
+    @BeforeEach
     public void init() {
         RuntimeSettings.useVFS = true;
         Runtime.getInstance().resetRuntime();
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         RuntimeSettings.useVFS = VFS;
     }
@@ -61,7 +61,7 @@ public class CharByteReadWriteTest {
         in.close();
         String result = new String(buffer, 0, read);
 
-        Assert.assertEquals(expected, result);
+        Assertions.assertEquals(expected, result);
     }
 
     @Test
@@ -82,7 +82,7 @@ public class CharByteReadWriteTest {
         in.close();
         String result = new String(buffer, 0, read);
 
-        Assert.assertEquals(expected, result);
+        Assertions.assertEquals(expected, result);
     }
 
     @Test
@@ -99,7 +99,7 @@ public class CharByteReadWriteTest {
         String result = in.nextLine();
         in.close();
 
-        Assert.assertEquals(expected, result);
+        Assertions.assertEquals(expected, result);
     }
 
     @Test
@@ -116,7 +116,7 @@ public class CharByteReadWriteTest {
         String result = in.nextLine();
         in.close();
 
-        Assert.assertEquals(expected, result);
+        Assertions.assertEquals(expected, result);
     }
 
 

@@ -20,9 +20,9 @@
 package org.evosuite.setup;
 
 import org.evosuite.runtime.RuntimeSettings;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
@@ -30,7 +30,7 @@ public class TestClusterGeneratorTest {
 
     private static final boolean defaultVFS = RuntimeSettings.useVFS;
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeSettings.useVFS = defaultVFS;
     }
@@ -40,7 +40,7 @@ public class TestClusterGeneratorTest {
 
         RuntimeSettings.useVFS = false;
         boolean canUse = TestClusterUtils.checkIfCanUse(File.class.getCanonicalName());
-        Assert.assertTrue(canUse);
+        Assertions.assertTrue(canUse);
     }
 
     @Test
@@ -48,6 +48,6 @@ public class TestClusterGeneratorTest {
 
         RuntimeSettings.useVFS = true;
         boolean canUse = TestClusterUtils.checkIfCanUse(File.class.getCanonicalName());
-        Assert.assertFalse(canUse);
+        Assertions.assertFalse(canUse);
     }
 }

@@ -22,7 +22,7 @@ package org.evosuite.basic;
 import com.examples.with.different.packagename.InfeasibleFinalInt;
 import com.examples.with.different.packagename.InfeasibleFinalString;
 import org.evosuite.SystemTestBase;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class NoFinalModificationSystemTest extends SystemTestBase {
 

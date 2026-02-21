@@ -5,12 +5,12 @@ import org.evosuite.coverage.dataflow.DefUseCoverageTestFitness;
 import org.evosuite.graphs.ccfg.*;
 import org.evosuite.graphs.ccg.ClassCallGraph;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.util.*;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 

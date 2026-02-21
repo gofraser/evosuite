@@ -19,10 +19,9 @@
  */
 package org.evosuite.runtime;
 
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.*;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by Andrea Arcuri on 29/03/15.
@@ -31,23 +30,24 @@ public class LoopCounterTest {
 
     private boolean loopCounterState = false;
 
-    @Before
+    @BeforeEach
     public void init() {
         LoopCounter.getInstance().reset();
         loopCounterState = LoopCounter.getInstance().isActivated();
         LoopCounter.getInstance().setActive(true);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         LoopCounter.getInstance().reset();
         LoopCounter.getInstance().setActive(loopCounterState);
     }
 
-    @Test(timeout = 10000)
+    @Test
+    @Timeout(value = 10000, unit = TimeUnit.MILLISECONDS)
     public void testInfiniteLoop() {
 
-        Assert.assertTrue(RuntimeSettings.maxNumberOfIterationsPerLoop > 0);//should be on by default
+        Assertions.assertTrue(RuntimeSettings.maxNumberOfIterationsPerLoop > 0);//should be on by default
 
         int first = LoopCounter.getInstance().getNewIndex();
         int second = LoopCounter.getInstance().getNewIndex();

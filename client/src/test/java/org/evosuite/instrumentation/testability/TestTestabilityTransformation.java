@@ -22,13 +22,13 @@ package org.evosuite.instrumentation.testability;
 import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHandler;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestTestabilityTransformation {
 
@@ -37,7 +37,7 @@ public class TestTestabilityTransformation {
 
     // TODO: Not yet working
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         String cp = System.getProperty("user.dir") + "/target/test-classes";
         ClassPathHandler.getInstance().addElementToTargetProjectClassPath(cp);

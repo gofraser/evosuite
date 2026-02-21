@@ -1,8 +1,8 @@
 package org.evosuite.utils.generic;
 
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 
@@ -16,11 +16,11 @@ public class GenericFieldTest {
             declaringClass = Class.forName("sun.print.RasterPrinterJob");
             field = declaringClass.getDeclaredField("debugPrint");
         } catch (ClassNotFoundException | NoSuchFieldException e) {
-            Assume.assumeNoException(e);
+            Assumptions.assumeTrue(false, "Assume failed: " + e.getMessage());
             return;
         }
 
         GenericField genericField = new GenericField(field, declaringClass);
-        Assert.assertNotNull(genericField);
+        Assertions.assertNotNull(genericField);
     }
 }

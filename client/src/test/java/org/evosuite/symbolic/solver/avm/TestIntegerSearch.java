@@ -29,8 +29,8 @@ import org.evosuite.symbolic.expr.bv.*;
 import org.evosuite.symbolic.expr.constraint.IntegerConstraint;
 import org.evosuite.symbolic.expr.str.StringConstant;
 import org.evosuite.symbolic.solver.*;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,7 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * @author fraser
@@ -47,7 +47,7 @@ public class TestIntegerSearch extends RandomizedTC {
 
     private static final int DEFAULT_DSE_VARIABLE_RESETS = Properties.DSE_VARIABLE_RESETS;
 
-    @After
+    @AfterEach
     public void restoreDSEVariableResets() {
         Properties.DSE_VARIABLE_RESETS = DEFAULT_DSE_VARIABLE_RESETS;
     }

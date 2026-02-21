@@ -28,9 +28,8 @@ import java.nio.file.Paths;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.staticfield.FailingStaticInitializer;
 
 public class FailingStaticInitializerSystemTest extends SystemTestBase {
@@ -58,7 +57,7 @@ public class FailingStaticInitializerSystemTest extends SystemTestBase {
         Files.deleteIfExists(path);
 
         // check that the test suite does not exist
-        Assert.assertFalse("Test Suite needs to be deleted first", Files.exists(path));
+        Assertions.assertFalse(Files.exists(path), "Test Suite needs to be deleted first");
 
         EvoSuite evosuite = new EvoSuite();
 
@@ -67,7 +66,7 @@ public class FailingStaticInitializerSystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
 
         // check that the test suite was created
-        Assert.assertTrue("Test Suite does not exist", Files.exists(path));
+        Assertions.assertTrue(Files.exists(path), "Test Suite does not exist");
 
         // clean-up after test execution
         Files.deleteIfExists(path);

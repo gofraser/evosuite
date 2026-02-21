@@ -27,8 +27,8 @@ import org.evosuite.ga.NSGAChromosome;
 import org.evosuite.ga.problems.Problem;
 import org.evosuite.ga.problems.multiobjective.FON;
 import org.evosuite.ga.problems.singleobjective.Booths;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author José Campos
@@ -69,8 +69,8 @@ public class TestDominanceComparator {
         // After sorting, c1 (higher fitness) should come first for maximization
         population.sort(new DominanceComparator<>());
 
-        Assert.assertEquals(0.7, population.get(0).getFitness(ff), 0.0);
-        Assert.assertEquals(0.3, population.get(1).getFitness(ff), 0.0);
+        Assertions.assertEquals(0.7, population.get(0).getFitness(ff), 0.0);
+        Assertions.assertEquals(0.3, population.get(1).getFitness(ff), 0.0);
     }
 
     @Test
@@ -98,8 +98,8 @@ public class TestDominanceComparator {
         // After sorting, c1 should come first as it dominates c2
         population.sort(new DominanceComparator<>());
 
-        Assert.assertEquals(0.2, population.get(0).getFitness(ff_min), 0.0);
-        Assert.assertEquals(0.8, population.get(0).getFitness(ff_max), 0.0);
+        Assertions.assertEquals(0.2, population.get(0).getFitness(ff_min), 0.0);
+        Assertions.assertEquals(0.8, population.get(0).getFitness(ff_max), 0.0);
     }
 
     @Test
@@ -121,8 +121,8 @@ public class TestDominanceComparator {
 
         population.sort(new DominanceComparator<>());
 
-        Assert.assertEquals(0.3, population.get(0).getFitness(ff), 0.0);
-        Assert.assertEquals(0.7, population.get(1).getFitness(ff), 0.0);
+        Assertions.assertEquals(0.3, population.get(0).getFitness(ff), 0.0);
+        Assertions.assertEquals(0.7, population.get(1).getFitness(ff), 0.0);
     }
 
     @Test
@@ -147,10 +147,10 @@ public class TestDominanceComparator {
 
         population.sort(new DominanceComparator<>());
 
-        Assert.assertEquals(0.7, population.get(0).getFitness(ff_1), 0.0);
-        Assert.assertEquals(0.2, population.get(0).getFitness(ff_2), 0.0);
-        Assert.assertEquals(0.3, population.get(1).getFitness(ff_1), 0.0);
-        Assert.assertEquals(0.5, population.get(1).getFitness(ff_2), 0.0);
+        Assertions.assertEquals(0.7, population.get(0).getFitness(ff_1), 0.0);
+        Assertions.assertEquals(0.2, population.get(0).getFitness(ff_2), 0.0);
+        Assertions.assertEquals(0.3, population.get(1).getFitness(ff_1), 0.0);
+        Assertions.assertEquals(0.5, population.get(1).getFitness(ff_2), 0.0);
     }
 
     @Test
@@ -175,9 +175,9 @@ public class TestDominanceComparator {
 
         population.sort(new DominanceComparator<>());
 
-        Assert.assertEquals(0.3, population.get(0).getFitness(ff_1), 0.0);
-        Assert.assertEquals(0.5, population.get(0).getFitness(ff_2), 0.0);
-        Assert.assertEquals(0.7, population.get(1).getFitness(ff_1), 0.0);
-        Assert.assertEquals(0.6, population.get(1).getFitness(ff_2), 0.0);
+        Assertions.assertEquals(0.3, population.get(0).getFitness(ff_1), 0.0);
+        Assertions.assertEquals(0.5, population.get(0).getFitness(ff_2), 0.0);
+        Assertions.assertEquals(0.7, population.get(1).getFitness(ff_1), 0.0);
+        Assertions.assertEquals(0.6, population.get(1).getFitness(ff_2), 0.0);
     }
 }

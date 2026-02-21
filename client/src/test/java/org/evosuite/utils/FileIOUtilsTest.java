@@ -19,8 +19,8 @@
  */
 package org.evosuite.utils;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileReader;
@@ -60,24 +60,24 @@ public class FileIOUtilsTest {
         File destA = new File(dest, "a.txt");
         File destB = new File(dest, "b.txt");
         File destC = new File(new File(dest, "folder"), "c.txt");
-        Assert.assertFalse(destA.exists());
-        Assert.assertFalse(destB.exists());
-        Assert.assertFalse(destC.exists());
+        Assertions.assertFalse(destA.exists());
+        Assertions.assertFalse(destB.exists());
+        Assertions.assertFalse(destC.exists());
 
 
         FileIOUtils.copyDirectoryAndOverwriteFilesIfNeeded(src, dest);
 
-        Assert.assertTrue(destA.exists());
-        Assert.assertTrue(destB.exists());
-        Assert.assertTrue(destC.exists());
-        Assert.assertEquals(a.lastModified(), destA.lastModified());
-        Assert.assertEquals(b.lastModified(), destB.lastModified());
-        Assert.assertEquals(c.lastModified(), destC.lastModified());
+        Assertions.assertTrue(destA.exists());
+        Assertions.assertTrue(destB.exists());
+        Assertions.assertTrue(destC.exists());
+        Assertions.assertEquals(a.lastModified(), destA.lastModified());
+        Assertions.assertEquals(b.lastModified(), destB.lastModified());
+        Assertions.assertEquals(c.lastModified(), destC.lastModified());
 
         Thread.sleep(1000); // be sure time stamps ll be different
 
         boolean deleted = c.delete();
-        Assert.assertTrue(deleted);
+        Assertions.assertTrue(deleted);
 
         c.createNewFile();
         c.deleteOnExit();
@@ -87,14 +87,14 @@ public class FileIOUtilsTest {
         out.write(line + "\n");
         out.close();
 
-        Assert.assertNotEquals(c.lastModified(), destC.lastModified());
+        Assertions.assertNotEquals(c.lastModified(), destC.lastModified());
 
         FileIOUtils.copyDirectoryAndOverwriteFilesIfNeeded(src, dest);
 
-        Assert.assertEquals(c.lastModified(), destC.lastModified());
+        Assertions.assertEquals(c.lastModified(), destC.lastModified());
         Scanner in = new Scanner(new FileReader(destC));
         String read = in.nextLine();
         in.close();
-        Assert.assertEquals(line, read);
+        Assertions.assertEquals(line, read);
     }
 }

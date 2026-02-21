@@ -20,21 +20,20 @@
 
 package org.evosuite.runtime.sandbox;
 
-import static org.junit.Assert.assertTrue;
-
 import java.io.File;
 import java.io.IOException;
 
 import org.apache.commons.io.FileUtils;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assume;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.DeleteFileCommonsIO;
 import com.examples.with.different.packagename.DeleteFileExample;
 import com.examples.with.different.packagename.DeleteFileProcess;
@@ -48,7 +47,7 @@ public class DeleteFileSystemTest extends SystemTestBase {
 
     private static final boolean DEFAULT_RESET_STATIC = Properties.RESET_STATIC_FIELDS;
 
-    @After
+    @AfterEach
     public void tearDown() {
         Properties.RESET_STATIC_FIELDS = DEFAULT_RESET_STATIC;
     }
@@ -75,8 +74,8 @@ public class DeleteFileSystemTest extends SystemTestBase {
 
         evosuite.parseCommandLine(command);
 
-        assertTrue("File has been deleted: " + toDelete.getAbsolutePath(),
-                toDelete.exists());
+        assertTrue(toDelete.exists(),
+                "File has been deleted: " + toDelete.getAbsolutePath());
         toDelete.delete();
     }
 
@@ -102,8 +101,8 @@ public class DeleteFileSystemTest extends SystemTestBase {
 
         evosuite.parseCommandLine(command);
 
-        assertTrue("File has been deleted: " + toDelete.getAbsolutePath(),
-                toDelete.exists());
+        assertTrue(toDelete.exists(),
+                "File has been deleted: " + toDelete.getAbsolutePath());
         toDelete.delete();
     }
 
@@ -128,8 +127,8 @@ public class DeleteFileSystemTest extends SystemTestBase {
 
         evosuite.parseCommandLine(command);
 
-        assertTrue("File has been deleted: " + toDelete.getAbsolutePath(),
-                toDelete.exists());
+        assertTrue(toDelete.exists(),
+                "File has been deleted: " + toDelete.getAbsolutePath());
         toDelete.delete();
     }
 
@@ -153,14 +152,14 @@ public class DeleteFileSystemTest extends SystemTestBase {
 
         evosuite.parseCommandLine(command);
 
-        assertTrue("File has been deleted: " + toDelete.getAbsolutePath(),
-                toDelete.exists());
+        assertTrue(toDelete.exists(),
+                "File has been deleted: " + toDelete.getAbsolutePath());
         toDelete.delete();
     }
 
     @Test
     public void testDeleteOnProcess() throws IOException {
-        Assume.assumeTrue(new File("/bin/rm").exists());
+        Assumptions.assumeTrue(new File("/bin/rm").exists());
 
         String tmpdir = System.getProperty("java.io.tmpdir");
         File toDelete = new File(tmpdir + File.separator
@@ -179,14 +178,14 @@ public class DeleteFileSystemTest extends SystemTestBase {
 
         evosuite.parseCommandLine(command);
 
-        assertTrue("File has been deleted: " + toDelete.getAbsolutePath(),
-                toDelete.exists());
+        assertTrue(toDelete.exists(),
+                "File has been deleted: " + toDelete.getAbsolutePath());
         toDelete.delete();
     }
 
     @Test
     public void testDeleteCommonsIO() throws IOException {
-        Assume.assumeTrue(new File("/bin/rm").exists());
+        Assumptions.assumeTrue(new File("/bin/rm").exists());
 
         String tmpdir = System.getProperty("java.io.tmpdir");
         File toDelete = new File(tmpdir + File.separator
@@ -209,8 +208,8 @@ public class DeleteFileSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        assertTrue("File has been deleted: " + toDelete.getAbsolutePath(),
-                toDelete.exists());
+        assertTrue(toDelete.exists(),
+                "File has been deleted: " + toDelete.getAbsolutePath());
         toDelete.delete();
     }
 

@@ -7,20 +7,19 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.ga.populationlimit.IndividualPopulationLimit;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.evosuite.ga.operators.selection.SelectionFunction;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestGAVariants {
 
-    @Before
+    @BeforeEach
     public void setup() {
         Properties.CROSSOVER_RATE = 1.0;
         Properties.POPULATION = 10;
@@ -86,7 +85,7 @@ public class TestGAVariants {
 
         List<TestChromosome> newPop = ga.getPopulation();
         // If bug exists, size will be 12. If fixed, 11.
-        assertEquals("Population size should match limit", 11, newPop.size());
+        assertEquals(11, newPop.size(), "Population size should match limit");
     }
 
     @Test
@@ -122,7 +121,7 @@ public class TestGAVariants {
         // If bug exists: remove(victim) removes 1. remove(victim) returns false.
         // add(offspring1), add(offspring2).
         // Net: -1 + 2 = +1. Size 11.
-        assertEquals("Population size should not grow", 10, ga.getPopulation().size());
+        assertEquals(10, ga.getPopulation().size(), "Population size should not grow");
     }
 
     @Test
@@ -148,7 +147,7 @@ public class TestGAVariants {
 
         ga.evolve();
 
-        assertEquals("Population size should match limit", 11, ga.getPopulation().size());
+        assertEquals(11, ga.getPopulation().size(), "Population size should match limit");
     }
 
     private void setPopulation(GeneticAlgorithm<TestChromosome> ga, List<TestChromosome> population) {

@@ -20,8 +20,8 @@
 package org.evosuite.utils.generic;
 
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
@@ -64,7 +64,7 @@ public class GenericMethodTest {
         GenericMethod gm = new GenericMethod(m, B.class);
         Type res = gm.getExactReturnType(m, B.class);
 
-        Assert.assertEquals(Object.class, res);
+        Assertions.assertEquals(Object.class, res);
     }
 
     @Test
@@ -72,7 +72,7 @@ public class GenericMethodTest {
 
         try {
             Method m = C.class.getDeclaredMethod("bar", Object.class);
-            Assert.fail();
+            Assertions.fail();
         } catch (Exception e) {
             //expected
         }
@@ -81,7 +81,7 @@ public class GenericMethodTest {
 
         GenericMethod gm = new GenericMethod(m, C.class);
         Type res = gm.getExactReturnType(m, C.class);
-        Assert.assertEquals(A.class, res);
+        Assertions.assertEquals(A.class, res);
     }
 
     @Test
@@ -89,7 +89,7 @@ public class GenericMethodTest {
 
         try {
             Method m = D.class.getDeclaredMethod("bar", A.class);
-            Assert.fail();
+            Assertions.fail();
         } catch (Exception e) {
             //expected
         }
@@ -98,7 +98,7 @@ public class GenericMethodTest {
 
         GenericMethod gm = new GenericMethod(m, D.class);
         Type res = gm.getExactReturnType(m, D.class);
-        Assert.assertEquals(B.class, res);
+        Assertions.assertEquals(B.class, res);
     }
 
 
@@ -111,13 +111,13 @@ public class GenericMethodTest {
         Type res = gm.getExactReturnType(m, A.class);
 
         //Check if generic types were correctly analyzed/inferred
-        Assert.assertNotNull(res);
+        Assertions.assertNotNull(res);
         WildcardTypeImpl wt = (WildcardTypeImpl) res;
-        Assert.assertEquals(0, wt.getLowerBounds().length);
-        Assert.assertEquals(1, wt.getUpperBounds().length);
+        Assertions.assertEquals(0, wt.getLowerBounds().length);
+        Assertions.assertEquals(1, wt.getUpperBounds().length);
 
         Class<?> upper = (Class<?>) wt.getUpperBounds()[0];
-        Assert.assertEquals(Object.class, upper);
+        Assertions.assertEquals(Object.class, upper);
     }
 
     @Test
@@ -128,12 +128,12 @@ public class GenericMethodTest {
         Type res = gm.getExactParameterTypes(m, A.class)[0];
 
         //Check if generic types were correctly analyzed/inferred
-        Assert.assertNotNull(res);
+        Assertions.assertNotNull(res);
         WildcardTypeImpl wt = (WildcardTypeImpl) res;
-        Assert.assertEquals(0, wt.getLowerBounds().length);
-        Assert.assertEquals(1, wt.getUpperBounds().length);
+        Assertions.assertEquals(0, wt.getLowerBounds().length);
+        Assertions.assertEquals(1, wt.getUpperBounds().length);
 
         Class<?> upper = (Class<?>) wt.getUpperBounds()[0];
-        Assert.assertEquals(Object.class, upper);
+        Assertions.assertEquals(Object.class, upper);
     }
 }

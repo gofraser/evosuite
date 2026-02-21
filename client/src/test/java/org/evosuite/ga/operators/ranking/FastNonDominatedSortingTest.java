@@ -2,9 +2,11 @@ package org.evosuite.ga.operators.ranking;
 
 import org.evosuite.ga.DummyChromosome;
 import org.evosuite.ga.FitnessFunction;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
 import java.util.*;
-import static org.junit.Assert.*;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class FastNonDominatedSortingTest {
 
@@ -55,14 +57,14 @@ public class FastNonDominatedSortingTest {
 
         sorting.computeRankingAssignment(population, goals);
 
-        assertEquals("A should be rank 1", 1, A.getRank());
-        assertEquals("E should be rank 1", 1, E.getRank());
+        assertEquals(1, A.getRank(), "A should be rank 1");
+        assertEquals(1, E.getRank(), "E should be rank 1");
 
-        assertEquals("B should be rank 2", 2, B.getRank());
-        assertEquals("C should be rank 2", 2, C.getRank());
-        assertEquals("D should be rank 2", 2, D.getRank());
+        assertEquals(2, B.getRank(), "B should be rank 2");
+        assertEquals(2, C.getRank(), "C should be rank 2");
+        assertEquals(2, D.getRank(), "D should be rank 2");
 
-        assertEquals("Number of subfronts", 2, sorting.getNumberOfSubfronts());
+        assertEquals(2, sorting.getNumberOfSubfronts(), "Number of subfronts");
         List<DummyChromosome> front0 = sorting.getSubfront(0);
         assertTrue(front0.contains(A));
         assertTrue(front0.contains(E));

@@ -19,19 +19,18 @@
  */
 package org.evosuite.basic;
 
-import static org.junit.Assert.assertEquals;
-
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.TargetMethodPrefix;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TargetMethodPrefixSystemTest extends SystemTestBase {
 
@@ -39,7 +38,7 @@ public class TargetMethodPrefixSystemTest extends SystemTestBase {
     private String targetMethodList = "";
     private String targetMethodPrefix = "";
 
-    @Before
+    @BeforeEach
     public void backupValues() {
         targetMethod = Properties.TARGET_METHOD;
         targetMethodList = Properties.TARGET_METHOD_LIST;
@@ -47,7 +46,7 @@ public class TargetMethodPrefixSystemTest extends SystemTestBase {
         Properties.SEARCH_BUDGET = 50000;
     }
 
-    @After
+    @AfterEach
     public void restoreValues() {
         Properties.TARGET_METHOD = targetMethod;
         Properties.TARGET_METHOD_LIST = targetMethodList;
@@ -73,8 +72,8 @@ public class TargetMethodPrefixSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
-        assertEquals("Wrong number of goals:", 13, goals);
-        assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(13, goals, "Wrong number of goals:");
+        assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -98,8 +97,8 @@ public class TargetMethodPrefixSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
-        assertEquals("Wrong number of goals: ", 4, goals);
-        assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(4, goals, "Wrong number of goals: ");
+        assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
 
     }
 
@@ -124,8 +123,8 @@ public class TargetMethodPrefixSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
-        assertEquals("Wrong number of goals: ", 4, goals);
-        assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(4, goals, "Wrong number of goals: ");
+        assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
 
     }
 
@@ -150,8 +149,8 @@ public class TargetMethodPrefixSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
-        assertEquals("Wrong number of goals: ", 8, goals);
-        assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        assertEquals(8, goals, "Wrong number of goals: ");
+        assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
 
         Properties.TARGET_METHOD_PREFIX = "";
     }

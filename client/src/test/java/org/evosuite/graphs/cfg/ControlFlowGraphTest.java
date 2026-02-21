@@ -1,12 +1,12 @@
 package org.evosuite.graphs.cfg;
 
 import org.evosuite.graphs.GraphPool;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ControlFlowGraphTest {
 
@@ -35,7 +35,7 @@ public class ControlFlowGraphTest {
         }
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         GraphPool.clearAll();
     }
@@ -48,7 +48,7 @@ public class ControlFlowGraphTest {
         cr.accept(adapter, ClassReader.SKIP_FRAMES);
 
         ActualControlFlowGraph cfg = GraphPool.getInstance(getClass().getClassLoader()).getActualCFG(className, "simpleIf(I)I");
-        assertNotNull("CFG should not be null for simpleIf", cfg);
+        assertNotNull(cfg, "CFG should not be null for simpleIf");
 
         // Nodes:
         // 1. Entry
@@ -56,7 +56,7 @@ public class ControlFlowGraphTest {
         // 3. return 1
         // 4. return 0
         // 5. Exit
-        assertEquals("Number of vertices", 5, cfg.vertexCount());
+        assertEquals(5, cfg.vertexCount(), "Number of vertices");
 
         // Edges:
         // Entry -> if
@@ -65,10 +65,10 @@ public class ControlFlowGraphTest {
         // return 1 -> Exit
         // return 0 -> Exit
         // Entry -> Exit (auxiliary edge added by ActualControlFlowGraph)
-        assertEquals("Number of edges", 6, cfg.edgeCount());
+        assertEquals(6, cfg.edgeCount(), "Number of edges");
 
         // Cyclomatic complexity: E - N + 2 = 6 - 5 + 2 = 3.
-        assertEquals("Cyclomatic complexity", 3, cfg.getCyclomaticComplexity());
+        assertEquals(3, cfg.getCyclomaticComplexity(), "Cyclomatic complexity");
     }
 
     @Test
@@ -79,7 +79,7 @@ public class ControlFlowGraphTest {
         cr.accept(adapter, ClassReader.SKIP_FRAMES);
 
         ActualControlFlowGraph cfg = GraphPool.getInstance(getClass().getClassLoader()).getActualCFG(className, "loop(I)I");
-        assertNotNull("CFG should not be null for loop", cfg);
+        assertNotNull(cfg, "CFG should not be null for loop");
 
         // Loop structure is more complex and depends on compilation (javac vs ecj etc),
         // but typically:
@@ -88,11 +88,11 @@ public class ControlFlowGraphTest {
         // Test -> Return -> Exit
 
         // Vertices check: at least Entry, Exit, Test, Body, Return.
-        assertTrue("Should have at least 5 vertices", cfg.vertexCount() >= 5);
-        assertTrue("Should have at least 5 edges", cfg.edgeCount() >= 5);
+        assertTrue(cfg.vertexCount() >= 5, "Should have at least 5 vertices");
+        assertTrue(cfg.edgeCount() >= 5, "Should have at least 5 edges");
 
         // Cyclomatic Complexity for a simple loop should be 2 + 1 (auxiliary edge).
-        assertEquals("Cyclomatic complexity", 3, cfg.getCyclomaticComplexity());
+        assertEquals(3, cfg.getCyclomaticComplexity(), "Cyclomatic complexity");
     }
 
     @Test
@@ -103,7 +103,7 @@ public class ControlFlowGraphTest {
         cr.accept(adapter, ClassReader.SKIP_FRAMES);
 
         ActualControlFlowGraph cfg = GraphPool.getInstance(getClass().getClassLoader()).getActualCFG(className, "switchCase(I)I");
-        assertNotNull("CFG should not be null for switchCase", cfg);
+        assertNotNull(cfg, "CFG should not be null for switchCase");
 
         // Entry -> switch
         // case 0 -> return 1 -> Exit
@@ -111,7 +111,7 @@ public class ControlFlowGraphTest {
         // default -> return 3 -> Exit
 
         // Vertices: Entry, Switch, Ret1, Ret2, Ret3, Exit -> 6
-        assertEquals("Number of vertices", 6, cfg.vertexCount());
+        assertEquals(6, cfg.vertexCount(), "Number of vertices");
 
         // Edges:
         // Entry -> Switch (1)
@@ -123,10 +123,10 @@ public class ControlFlowGraphTest {
         // Ret3 -> Exit (1)
         // Entry -> Exit (auxiliary edge)
         // Total: 8 edges.
-        assertEquals("Number of edges", 8, cfg.edgeCount());
+        assertEquals(8, cfg.edgeCount(), "Number of edges");
 
         // Cyclomatic complexity: E - N + 2 = 8 - 6 + 2 = 4.
-        assertEquals("Cyclomatic complexity", 4, cfg.getCyclomaticComplexity());
+        assertEquals(4, cfg.getCyclomaticComplexity(), "Cyclomatic complexity");
     }
 
     @Test
@@ -137,14 +137,14 @@ public class ControlFlowGraphTest {
         cr.accept(adapter, ClassReader.SKIP_FRAMES);
 
         ActualControlFlowGraph cfg = GraphPool.getInstance(getClass().getClassLoader()).getActualCFG(className, "testMe(I)Z");
-        assertNotNull("CFG should not be null for FlagExample1", cfg);
+        assertNotNull(cfg, "CFG should not be null for FlagExample1");
 
         // Assert basic properties
-        assertTrue("Vertex count should be positive", cfg.vertexCount() > 0);
-        assertTrue("Edge count should be positive", cfg.edgeCount() > 0);
+        assertTrue(cfg.vertexCount() > 0, "Vertex count should be positive");
+        assertTrue(cfg.edgeCount() > 0, "Edge count should be positive");
 
         // For simple boolean flag logic, we expect at least an If and Returns.
         // Entry, Exit, If, Return(s).
-        assertTrue("Should have at least 4 vertices", cfg.vertexCount() >= 4);
+        assertTrue(cfg.vertexCount() >= 4, "Should have at least 4 vertices");
     }
 }

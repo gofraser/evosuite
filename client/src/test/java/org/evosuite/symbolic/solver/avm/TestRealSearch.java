@@ -29,14 +29,14 @@ import org.evosuite.symbolic.expr.fp.RealConstant;
 import org.evosuite.symbolic.expr.fp.RealVariable;
 import org.evosuite.symbolic.solver.DistanceEstimator;
 import org.evosuite.symbolic.solver.SolverTimeoutException;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static org.evosuite.symbolic.solver.TestSolver.solve;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestRealSearch extends RandomizedTC {
 

@@ -25,10 +25,9 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ClassWithInnerClass;
 import com.examples.with.different.packagename.ClassWithPrivateInnerClass;
 import com.examples.with.different.packagename.ClassWithPrivateNonStaticInnerClass;
@@ -37,7 +36,7 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
 
     private final double oldPPool = Properties.PRIMITIVE_POOL;
 
-    @Before
+    @BeforeEach
     public void resetStuff() {
         Properties.PRIMITIVE_POOL = oldPPool;
     }
@@ -60,8 +59,8 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
 
         System.out.println(best);
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(6, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(6, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -87,8 +86,8 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
         // lines of 'ClassWithInnerClass$AnInnerClass': 31, 33, 34, 36
         //
         // The number of lines actually differs dependent on the JVM platform...
-        Assert.assertTrue(9 <= goals && goals <= 10);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertTrue(9 <= goals && goals <= 10);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -113,10 +112,10 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         // If reflection is active, then the private constructor will be tested
         if (Properties.P_REFLECTION_ON_PRIVATE > 0.0)
-            Assert.assertEquals(6, goals);
+            Assertions.assertEquals(6, goals);
         else
-            Assert.assertEquals(5, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+            Assertions.assertEquals(5, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -145,8 +144,8 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
         // lines of 'ClassWithPrivateInnerClass$AnInnerClass': 30, 32, 33, 35
         //
         // The number of lines actually differs dependent on the JVM platform...
-        Assert.assertTrue(9 <= goals && goals <= 10);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertTrue(9 <= goals && goals <= 10);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -173,11 +172,11 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
 
         // If reflection is active, then the private constructor will be tested
         if (Properties.P_REFLECTION_ON_PRIVATE > 0.0)
-            Assert.assertEquals(6, goals);
+            Assertions.assertEquals(6, goals);
         else
-            Assert.assertEquals(5, goals);
+            Assertions.assertEquals(5, goals);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -206,7 +205,7 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
         // lines of 'ClassWithPrivateNonStaticInnerClass$AnInnerClass': 31, 33, 34, 36
         //
         // The number of lines actually differs dependent on the JVM platform...
-        Assert.assertTrue(9 <= goals && goals <= 10);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertTrue(9 <= goals && goals <= 10);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 }

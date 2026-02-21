@@ -38,9 +38,9 @@ import org.evosuite.ga.problems.metrics.GenerationalDistance;
 import org.evosuite.ga.problems.metrics.Metrics;
 import org.evosuite.ga.problems.metrics.Spacing;
 import org.evosuite.utils.Randomness;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static java.util.Comparator.comparingDouble;
 
@@ -48,7 +48,7 @@ import static java.util.Comparator.comparingDouble;
  * @author José Campos
  */
 public class POLIntTest {
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.POPULATION = 100;
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXGENERATIONS;
@@ -67,8 +67,8 @@ public class POLIntTest {
         double[] values = {-2.9272124303, 2.7365080818};
         NSGAChromosome c = new NSGAChromosome(-Math.PI, Math.PI, values);
 
-        Assert.assertEquals(f1.getFitness(c), 9.25, 0.1);
-        Assert.assertEquals(f2.getFitness(c), 13.97, 0.1);
+        Assertions.assertEquals(f1.getFitness(c), 9.25, 0.1);
+        Assertions.assertEquals(f2.getFitness(c), 13.97, 0.1);
     }
 
     /**
@@ -119,7 +119,7 @@ public class POLIntTest {
         GenerationalDistance gd = new GenerationalDistance();
         double gdd = gd.evaluate(front, trueParetoFront);
         System.out.println("GenerationalDistance: " + gdd);
-        Assert.assertTrue(gdd < 0.001);
+        Assertions.assertTrue(gdd < 0.001);
 
         Spacing sp = new Spacing();
         double spd = sp.evaluate(front);
@@ -129,6 +129,6 @@ public class POLIntTest {
         // front is similar to a theoretical ideal front
         double diff = Math.abs(spd - spdt);
         System.out.println("SpacingFront (" + spd + ") - SpacingTrueFront (" + spdt + ") = " + diff);
-        Assert.assertTrue(diff < 0.50);
+        Assertions.assertTrue(diff < 0.50);
     }
 }

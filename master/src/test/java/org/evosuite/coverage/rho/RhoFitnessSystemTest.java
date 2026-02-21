@@ -19,8 +19,8 @@
  */
 package org.evosuite.coverage.rho;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -39,10 +39,9 @@ import org.evosuite.Properties.Strategy;
 import org.evosuite.Properties.TestFactory;
 import org.evosuite.SystemTestBase;
 import org.evosuite.statistics.RuntimeVariable;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.Compositional;
 
 import com.opencsv.CSVReader;
@@ -69,7 +68,7 @@ public class RhoFitnessSystemTest extends SystemTestBase {
         }
     }
 
-    @Before
+    @BeforeEach
     public void prepare() {
         RhoCoverageFactory.reset();
         try {
@@ -111,7 +110,7 @@ public class RhoFitnessSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         List<?> goals = RhoCoverageFactory.getGoals();
         assertEquals(12, goals.size());
@@ -124,7 +123,7 @@ public class RhoFitnessSystemTest extends SystemTestBase {
         reader.close();
 
         double rhoScore = Double.parseDouble(rows.get(1)[0]);
-        assertTrue("RhoScore should be in [0, 0.5] but was " + rhoScore, rhoScore >= 0.0 && rhoScore <= 0.5);
+        assertTrue(rhoScore >= 0.0 && rhoScore <= 0.5, "RhoScore should be in [0, 0.5] but was " + rhoScore);
     }
 
     @Test
@@ -150,7 +149,7 @@ public class RhoFitnessSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         List<?> goals = RhoCoverageFactory.getGoals();
         assertEquals(12, goals.size());
@@ -166,6 +165,6 @@ public class RhoFitnessSystemTest extends SystemTestBase {
         reader.close();
 
         double rhoScore = Double.parseDouble(rows.get(1)[0]);
-        assertTrue("RhoScore should be in [0, 0.5] but was " + rhoScore, rhoScore >= 0.0 && rhoScore <= 0.5);
+        assertTrue(rhoScore >= 0.0 && rhoScore <= 0.5, "RhoScore should be in [0, 0.5] but was " + rhoScore);
     }
 }

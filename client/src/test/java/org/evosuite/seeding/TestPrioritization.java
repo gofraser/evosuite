@@ -21,15 +21,15 @@ package org.evosuite.seeding;
 
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassImpl;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.*;
 
 import static java.util.Comparator.comparingInt;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 public class TestPrioritization {
@@ -76,7 +76,7 @@ public class TestPrioritization {
         prioritization.add(new GenericClassImpl(Integer.class), 0);
 
         List<GenericClass<?>> result = prioritization.toSortedList();
-        Assert.assertEquals(3, result.size());
+        Assertions.assertEquals(3, result.size());
     }
 
     // --- New tests below ---
@@ -152,13 +152,15 @@ public class TestPrioritization {
         assertTrue(p.toSortedList().isEmpty());
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void testGetElementsReturnsUnmodifiableView() {
-        Prioritization<String> p = new Prioritization<>(Comparator.<String>naturalOrder());
-        p.add("a", 1);
+        assertThrows(UnsupportedOperationException.class, () -> {
+            Prioritization<String> p = new Prioritization<>(Comparator.<String>naturalOrder());
+            p.add("a", 1);
 
-        Set<String> elements = p.getElements();
-        elements.add("b");
+            Set<String> elements = p.getElements();
+            elements.add("b");
+        });
     }
 
     @Test

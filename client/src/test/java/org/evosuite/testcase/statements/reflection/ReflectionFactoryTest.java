@@ -19,8 +19,8 @@
  */
 package org.evosuite.testcase.statements.reflection;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 
@@ -40,9 +40,9 @@ public class ReflectionFactoryTest {
     public void testGetNumberOfUsableFields() throws Exception {
 
         ReflectionFactory rf = new ReflectionFactory(Foo.class);
-        Assert.assertEquals(1, rf.getNumberOfUsableFields());
+        Assertions.assertEquals(1, rf.getNumberOfUsableFields());
 
         Field f = rf.nextField();
-        Assert.assertEquals(Foo.class.getDeclaredField("x"), f);
+        Assertions.assertEquals(Foo.class.getDeclaredField("x"), f);
     }
 }

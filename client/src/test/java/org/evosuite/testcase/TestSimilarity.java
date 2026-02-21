@@ -25,8 +25,8 @@ import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.LongPrimitiveStatement;
 import org.evosuite.testsuite.similarity.DiversityObserver;
 import org.evosuite.utils.generic.GenericConstructor;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -41,7 +41,7 @@ public class TestSimilarity {
 
         TestCase test = new DefaultTestCase();
         double score = DiversityObserver.getNeedlemanWunschScore(test, test);
-        Assert.assertTrue(score <= 0.0);
+        Assertions.assertTrue(score <= 0.0);
     }
 
     @Test
@@ -53,7 +53,7 @@ public class TestSimilarity {
         test.addStatement(aInt);
 
         double score = DiversityObserver.getNeedlemanWunschScore(test, test);
-        Assert.assertTrue(score > 0);
+        Assertions.assertTrue(score > 0);
     }
 
     @Test
@@ -69,7 +69,7 @@ public class TestSimilarity {
         test2.addStatement(bInt);
 
         double score = DiversityObserver.getNeedlemanWunschScore(test1, test2);
-        Assert.assertTrue(score > 0);
+        Assertions.assertTrue(score > 0);
     }
 
     @Test
@@ -87,7 +87,7 @@ public class TestSimilarity {
         test2.addStatement(bInt);
 
         double score = DiversityObserver.getNeedlemanWunschScore(test1, test2);
-        Assert.assertTrue(score <= 0);
+        Assertions.assertTrue(score <= 0);
     }
 
     @Test
@@ -108,7 +108,7 @@ public class TestSimilarity {
         test2.addStatement(cs);
 
         double score = DiversityObserver.getNeedlemanWunschScore(test1, test2);
-        Assert.assertTrue(score <= 0);
+        Assertions.assertTrue(score <= 0);
     }
 
     @Test
@@ -129,6 +129,6 @@ public class TestSimilarity {
         test2.addStatement(cs);
 
         double score = DiversityObserver.getNeedlemanWunschScore(test1, test2);
-        Assert.assertTrue(score <= 0);
+        Assertions.assertTrue(score <= 0);
     }
 }

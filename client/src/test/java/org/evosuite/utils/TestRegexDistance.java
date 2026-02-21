@@ -20,13 +20,13 @@
 
 package org.evosuite.utils;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.regex.Pattern;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author Gordon Fraser
@@ -37,7 +37,7 @@ public class TestRegexDistance {
     public void testLongRegex() {
         final String example = "-@0.AA";
         final String REGEX = "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
-        Assert.assertTrue(example.matches(REGEX));
+        Assertions.assertTrue(example.matches(REGEX));
 
         assertEquals(0.0, RegexDistanceUtils.getDistanceTailoredForStringAVM(example, REGEX), 0.0);
     }

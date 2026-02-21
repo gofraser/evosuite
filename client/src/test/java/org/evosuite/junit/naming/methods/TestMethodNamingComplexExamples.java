@@ -30,13 +30,13 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 
 import java.util.ArrayList;
 
 import static org.evosuite.coverage.io.IOCoverageConstants.*;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Created by jmr on 31/07/15.
@@ -71,8 +71,8 @@ public class TestMethodNamingComplexExamples {
         CoverageGoalTestNameGenerationStrategy naming = new CoverageGoalTestNameGenerationStrategy(testCases);
         String nameTest1 = naming.getName(test1);
         String nameTest2 = naming.getName(test2);
-        assertEquals("Generated test name differs from expected", "testKeysTakingNoArgumentsReturningNegative", nameTest1); // TODO: testKeysReturningNegative?
-        assertEquals("Generated test name differs from expected", "testKeysTakingNoArgumentsReturningPositive", nameTest2); // TODO: testKeysReturningPositive?
+        assertEquals("testKeysTakingNoArgumentsReturningNegative", nameTest1, "Generated test name differs from expected"); // TODO: testKeysReturningNegative?
+        assertEquals("testKeysTakingNoArgumentsReturningPositive", nameTest2, "Generated test name differs from expected"); // TODO: testKeysReturningPositive?
     }
 
     @Test
@@ -110,9 +110,9 @@ public class TestMethodNamingComplexExamples {
         String nameTest1 = naming.getName(test1);
         String nameTest2 = naming.getName(test2);
         String nameTest3 = naming.getName(test3);
-        assertEquals("Generated test name differs from expected", "testMist", nameTest1);
-        assertEquals("Generated test name differs from expected", "testKeysReturningPositive", nameTest2);
-        assertEquals("Generated test name differs from expected", "testKeysReturningNegative", nameTest3);
+        assertEquals("testMist", nameTest1, "Generated test name differs from expected");
+        assertEquals("testKeysReturningPositive", nameTest2, "Generated test name differs from expected");
+        assertEquals("testKeysReturningNegative", nameTest3, "Generated test name differs from expected");
     }
 
     @Test
@@ -145,8 +145,8 @@ public class TestMethodNamingComplexExamples {
         CoverageGoalTestNameGenerationStrategy naming = new CoverageGoalTestNameGenerationStrategy(testCases);
         String nameTest1 = naming.getName(test1);
         String nameTest2 = naming.getName(test2);
-        assertEquals("Generated test name differs from expected", "testValuesTakingByteArray", nameTest1);
-        assertEquals("Generated test name differs from expected", "testValuesTakingIntArray", nameTest2);
+        assertEquals("testValuesTakingByteArray", nameTest1, "Generated test name differs from expected");
+        assertEquals("testValuesTakingIntArray", nameTest2, "Generated test name differs from expected");
     }
 
     @Test
@@ -179,8 +179,8 @@ public class TestMethodNamingComplexExamples {
         CoverageGoalTestNameGenerationStrategy naming = new CoverageGoalTestNameGenerationStrategy(testCases);
         String nameTest1 = naming.getName(test1);
         String nameTest2 = naming.getName(test2);
-        assertEquals("Generated test name differs from expected", "testValuesTakingByteArray", nameTest1);
-        assertEquals("Generated test name differs from expected", "testValuesTakingNoArguments", nameTest2);
+        assertEquals("testValuesTakingByteArray", nameTest1, "Generated test name differs from expected");
+        assertEquals("testValuesTakingNoArguments", nameTest2, "Generated test name differs from expected");
     }
 
 
@@ -208,8 +208,8 @@ public class TestMethodNamingComplexExamples {
         CoverageGoalTestNameGenerationStrategy naming = new CoverageGoalTestNameGenerationStrategy(testCases);
         String nameTest1 = naming.getName(test1);
         String nameTest2 = naming.getName(test2);
-        assertEquals("Generated test name differs from expected", "testCreatesFooClass", nameTest1);
-        assertEquals("Generated test name differs from expected", "testFailsToCreateFooClassThrowsArrayIndexOutOfBoundsException", nameTest2);
+        assertEquals("testCreatesFooClass", nameTest1, "Generated test name differs from expected");
+        assertEquals("testFailsToCreateFooClassThrowsArrayIndexOutOfBoundsException", nameTest2, "Generated test name differs from expected");
     }
 
 
@@ -244,8 +244,8 @@ public class TestMethodNamingComplexExamples {
         CoverageGoalTestNameGenerationStrategy naming = new CoverageGoalTestNameGenerationStrategy(testCases);
         String nameTest1 = naming.getName(test1);
         String nameTest2 = naming.getName(test2);
-        assertEquals("Generated test name differs from expected", "testValuesTakingNoArgumentsReturningNonEmptyArray", nameTest1);
-        assertEquals("Generated test name differs from expected", "testValuesTakingByteArrayReturningEmptyArray", nameTest2);
+        assertEquals("testValuesTakingNoArgumentsReturningNonEmptyArray", nameTest1, "Generated test name differs from expected");
+        assertEquals("testValuesTakingByteArrayReturningEmptyArray", nameTest2, "Generated test name differs from expected");
     }
 
     @Test
@@ -286,8 +286,8 @@ public class TestMethodNamingComplexExamples {
         CoverageGoalTestNameGenerationStrategy naming = new CoverageGoalTestNameGenerationStrategy(testCases);
         String nameTest1 = naming.getName(test1);
         String nameTest2 = naming.getName(test2);
-        assertEquals("Generated test name differs from expected", "testValuesTakingNoArgumentsReturningNonEmptyArray", nameTest1);
-        assertEquals("Generated test name differs from expected", "testFailsToCreateFooClassThrowsArrayIndexOutOfBoundsException", nameTest2);
+        assertEquals("testValuesTakingNoArgumentsReturningNonEmptyArray", nameTest1, "Generated test name differs from expected");
+        assertEquals("testFailsToCreateFooClassThrowsArrayIndexOutOfBoundsException", nameTest2, "Generated test name differs from expected");
     }
 
     @Test
@@ -322,8 +322,8 @@ public class TestMethodNamingComplexExamples {
         CoverageGoalTestNameGenerationStrategy naming = new CoverageGoalTestNameGenerationStrategy(testCases);
         String nameTest1 = naming.getName(test1);
         String nameTest2 = naming.getName(test2);
-        assertEquals("Generated test name differs from expected", "testGetPublicIDTakingNoArguments", nameTest1); // TODO: testGetPublicID ?
-        assertEquals("Generated test name differs from expected", "testSetPublicIDTakingString", nameTest2); // TODO: testSetPublicID ?
+        assertEquals("testGetPublicIDTakingNoArguments", nameTest1, "Generated test name differs from expected"); // TODO: testGetPublicID ?
+        assertEquals("testSetPublicIDTakingString", nameTest2, "Generated test name differs from expected"); // TODO: testSetPublicID ?
     }
 
     @Test
@@ -376,9 +376,9 @@ public class TestMethodNamingComplexExamples {
         String nameTest1 = naming.getName(test1);
         String nameTest2 = naming.getName(test2);
         String nameTest3 = naming.getName(test3);
-        assertEquals("Generated test name differs from expected", "testCreatesFooClassTaking3ArgumentsWithZeroAndZero", nameTest1);
-        assertEquals("Generated test name differs from expected", "testCreatesFooClassTakingFieldMatrixWithNull", nameTest2);
+        assertEquals("testCreatesFooClassTaking3ArgumentsWithZeroAndZero", nameTest1, "Generated test name differs from expected");
+        assertEquals("testCreatesFooClassTakingFieldMatrixWithNull", nameTest2, "Generated test name differs from expected");
         // TODO: Why is Positive vs nonnull nondeterministically chosen?
-        assertEquals("Generated test name differs from expected", "testCreatesFooClassTaking3ArgumentsWithNegative", nameTest3);
+        assertEquals("testCreatesFooClassTaking3ArgumentsWithNegative", nameTest3, "Generated test name differs from expected");
     }
 }

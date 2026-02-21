@@ -24,9 +24,9 @@ import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.ClassTransformer;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -39,67 +39,67 @@ public class TestExecutionTracer {
     private static final double DELTA = 0.0;
     private final ClassTransformer classTransformer = ClassTransformer.getInstance();
 
-    @Ignore
+    @Disabled
     @Test
     public void testGreaterEqual() {
         final Integer branchId = 1;
         final String methodName = "greaterEqual_IF_CMPLT";
         ExecutionTrace execTrace = execute(methodName, 5, 5);
-        Assert.assertEquals(methodName + signature,
+        Assertions.assertEquals(methodName + signature,
                 BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranch(branchId).getMethodName());
-        Assert.assertEquals(0.0, execTrace.getTrueDistance(branchId), DELTA);
-        Assert.assertEquals(1.0, execTrace.getFalseDistance(branchId), DELTA);
+        Assertions.assertEquals(0.0, execTrace.getTrueDistance(branchId), DELTA);
+        Assertions.assertEquals(1.0, execTrace.getFalseDistance(branchId), DELTA);
         execTrace = execute(methodName, 5, 6);
-        Assert.assertEquals(1.0, execTrace.getTrueDistance(branchId), DELTA);
-        Assert.assertEquals(0.0, execTrace.getFalseDistance(branchId), DELTA);
+        Assertions.assertEquals(1.0, execTrace.getTrueDistance(branchId), DELTA);
+        Assertions.assertEquals(0.0, execTrace.getFalseDistance(branchId), DELTA);
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testGreaterThan() {
         final Integer branchId = 2;
         final String methodName = "greaterThan_IF_CMPLE";
         ExecutionTrace execTrace = execute(methodName, 5, 5);
-        Assert.assertEquals(methodName + signature,
+        Assertions.assertEquals(methodName + signature,
                 BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranch(branchId).getMethodName());
-        Assert.assertEquals(1.0, execTrace.getTrueDistance(branchId), DELTA);
-        Assert.assertEquals(0.0, execTrace.getFalseDistance(branchId), DELTA);
+        Assertions.assertEquals(1.0, execTrace.getTrueDistance(branchId), DELTA);
+        Assertions.assertEquals(0.0, execTrace.getFalseDistance(branchId), DELTA);
         execTrace = execute(methodName, 6, 5);
-        Assert.assertEquals(0.0, execTrace.getTrueDistance(branchId), DELTA);
-        Assert.assertEquals(1.0, execTrace.getFalseDistance(branchId), DELTA);
+        Assertions.assertEquals(0.0, execTrace.getTrueDistance(branchId), DELTA);
+        Assertions.assertEquals(1.0, execTrace.getFalseDistance(branchId), DELTA);
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testLesserEqual() {
         final Integer branchId = 3;
         final String methodName = "lesserEqual_IF_CMPGT";
         ExecutionTrace execTrace = execute(methodName, 5, 5);
-        Assert.assertEquals(methodName + signature,
+        Assertions.assertEquals(methodName + signature,
                 BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranch(branchId).getMethodName());
-        Assert.assertEquals(0.0, execTrace.getTrueDistance(branchId), DELTA);
-        Assert.assertEquals(1.0, execTrace.getFalseDistance(branchId), DELTA);
+        Assertions.assertEquals(0.0, execTrace.getTrueDistance(branchId), DELTA);
+        Assertions.assertEquals(1.0, execTrace.getFalseDistance(branchId), DELTA);
         execTrace = execute(methodName, 6, 5);
-        Assert.assertEquals(1.0, execTrace.getTrueDistance(branchId), DELTA);
-        Assert.assertEquals(0.0, execTrace.getFalseDistance(branchId), DELTA);
+        Assertions.assertEquals(1.0, execTrace.getTrueDistance(branchId), DELTA);
+        Assertions.assertEquals(0.0, execTrace.getFalseDistance(branchId), DELTA);
         execTrace = execute(methodName, 5, 6);
-        Assert.assertEquals(0.0, execTrace.getTrueDistance(branchId), DELTA);
-        Assert.assertEquals(2.0, execTrace.getFalseDistance(branchId), DELTA);
+        Assertions.assertEquals(0.0, execTrace.getTrueDistance(branchId), DELTA);
+        Assertions.assertEquals(2.0, execTrace.getFalseDistance(branchId), DELTA);
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testLesserThan() {
         final Integer branchId = 4;
         final String methodName = "lesserThan_IF_CMPGE";
         ExecutionTrace execTrace = execute(methodName, 5, 5);
-        Assert.assertEquals(methodName + signature,
+        Assertions.assertEquals(methodName + signature,
                 BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getBranch(branchId).getMethodName());
-        Assert.assertEquals(0.0, execTrace.getTrueDistance(branchId), 1.0);
-        Assert.assertEquals(0.0, execTrace.getFalseDistance(branchId), 0.0);
+        Assertions.assertEquals(0.0, execTrace.getTrueDistance(branchId), 1.0);
+        Assertions.assertEquals(0.0, execTrace.getFalseDistance(branchId), 0.0);
         execTrace = execute(methodName, 5, 6);
-        Assert.assertEquals(0.0, execTrace.getTrueDistance(branchId), 0.0);
-        Assert.assertEquals(0.0, execTrace.getFalseDistance(branchId), 1.0);
+        Assertions.assertEquals(0.0, execTrace.getTrueDistance(branchId), 0.0);
+        Assertions.assertEquals(0.0, execTrace.getFalseDistance(branchId), 1.0);
     }
 
     private ExecutionTrace execute(String methodName, Integer val1, Integer val2) {

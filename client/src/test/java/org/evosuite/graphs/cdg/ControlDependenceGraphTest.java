@@ -3,18 +3,21 @@ package org.evosuite.graphs.cdg;
 import org.evosuite.graphs.cfg.ActualControlFlowGraph;
 import org.evosuite.graphs.cfg.BasicBlock;
 import org.evosuite.graphs.cfg.ControlFlowEdge;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.*;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@RunWith(MockitoJUnitRunner.Silent.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class ControlDependenceGraphTest {
 
     @Mock
@@ -279,15 +282,15 @@ public class ControlDependenceGraphTest {
         assertNotNull(cdg);
 
         // T1 and F1 control dependent on B1
-        assertTrue("T1 should be control dependent on B1", cdg.containsEdge(b1, t1));
-        assertTrue("F1 should be control dependent on B1", cdg.containsEdge(b1, f1));
+        assertTrue(cdg.containsEdge(b1, t1), "T1 should be control dependent on B1");
+        assertTrue(cdg.containsEdge(b1, f1), "F1 should be control dependent on B1");
 
         // T2 and F2 control dependent on B2
-        assertTrue("T2 should be control dependent on B2", cdg.containsEdge(b2, t2));
-        assertTrue("F2 should be control dependent on B2", cdg.containsEdge(b2, f2));
+        assertTrue(cdg.containsEdge(b2, t2), "T2 should be control dependent on B2");
+        assertTrue(cdg.containsEdge(b2, f2), "F2 should be control dependent on B2");
 
         // B1 and B2 should NOT have a control dependence edge between them
-        assertFalse("B1 should not be control dependent on B2", cdg.containsEdge(b2, b1));
-        assertFalse("B2 should not be control dependent on B1", cdg.containsEdge(b1, b2));
+        assertFalse(cdg.containsEdge(b2, b1), "B1 should not be control dependent on B2");
+        assertFalse(cdg.containsEdge(b1, b2), "B2 should not be control dependent on B1");
     }
 }

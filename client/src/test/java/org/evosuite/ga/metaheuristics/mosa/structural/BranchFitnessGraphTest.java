@@ -6,16 +6,17 @@ import org.evosuite.graphs.cfg.ActualControlFlowGraph;
 import org.evosuite.graphs.cfg.BasicBlock;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class BranchFitnessGraphTest {
 
@@ -72,7 +73,7 @@ public class BranchFitnessGraphTest {
         // In current implementation, if a fitness depends on something, it is NOT added to rootBranches.
         // So childFitness is not in rootBranches.
         Set<TestFitnessFunction> roots = graph.getRootBranches();
-        assertTrue("Child fitness should not be a root", !roots.contains(childFitness));
+        assertTrue(!roots.contains(childFitness), "Child fitness should not be a root");
     }
 
     @Test
@@ -163,6 +164,6 @@ public class BranchFitnessGraphTest {
         goals.add(fitness);
         BranchFitnessGraph graph = new BranchFitnessGraph(goals);
 
-        assertTrue("Should be detected as root", graph.getRootBranches().contains(fitness));
+        assertTrue(graph.getRootBranches().contains(fitness), "Should be detected as root");
     }
 }

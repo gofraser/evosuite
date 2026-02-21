@@ -1,14 +1,14 @@
 package org.evosuite.ga.localsearch;
 
 import org.evosuite.Properties;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class LocalSearchBudgetTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // Reset properties to default
         Properties.LOCAL_SEARCH_BUDGET = 5;
@@ -24,7 +24,7 @@ public class LocalSearchBudgetTest {
     public void testSingleton() {
         LocalSearchBudget<?> instance1 = LocalSearchBudget.getInstance();
         LocalSearchBudget<?> instance2 = LocalSearchBudget.getInstance();
-        assertSame("Instances should be the same", instance1, instance2);
+        assertSame(instance1, instance2, "Instances should be the same");
     }
 
     @Test
@@ -39,6 +39,6 @@ public class LocalSearchBudgetTest {
         budget.countFitnessEvaluation();
         assertFalse(budget.isFinished());
         budget.countFitnessEvaluation();
-        assertTrue("Budget should be finished after 2 evaluations", budget.isFinished());
+        assertTrue(budget.isFinished(), "Budget should be finished after 2 evaluations");
     }
 }

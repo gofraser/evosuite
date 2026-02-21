@@ -24,8 +24,8 @@ import org.evosuite.xsd.Generation;
 import org.evosuite.xsd.Project;
 import org.evosuite.xsd.TestSuite;
 import org.evosuite.xsd.XSDUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author José Campos
@@ -39,7 +39,7 @@ public class ProjectStaticDataTest {
         project.setTotalNumberOfTestableClasses(XSDUtils.convert(0));
 
         // there is not any data at all
-        Assert.assertTrue(new ProjectStaticData().isToTest("foo.Bar", 3));
+        Assertions.assertTrue(new ProjectStaticData().isToTest("foo.Bar", 3));
     }
 
     @Test
@@ -53,7 +53,7 @@ public class ProjectStaticDataTest {
 
         // there is not any generation for CUT,
         // so re-test it
-        Assert.assertTrue(data.isToTest("foo.Bar", 3));
+        Assertions.assertTrue(data.isToTest("foo.Bar", 3));
     }
 
     @Test
@@ -81,7 +81,7 @@ public class ProjectStaticDataTest {
         // for CUT and because we need to get N passing
         // generations to know whether the coverage improved
         // or not, this CUT has to be re-tested
-        Assert.assertTrue(data.isToTest("foo.Bar", 3));
+        Assertions.assertTrue(data.isToTest("foo.Bar", 3));
     }
 
     @Test
@@ -103,7 +103,7 @@ public class ProjectStaticDataTest {
         data.setProject(project);
 
         // not enough data to compare, re-test it
-        Assert.assertTrue(data.isToTest("foo.Bar", 3));
+        Assertions.assertTrue(data.isToTest("foo.Bar", 3));
     }
 
     @Test
@@ -133,7 +133,7 @@ public class ProjectStaticDataTest {
 
         // to be considered has improved, all N generations
         // have to end successfully
-        Assert.assertTrue(data.isToTest("foo.Bar", 3));
+        Assertions.assertTrue(data.isToTest("foo.Bar", 3));
     }
 
     @Test
@@ -180,7 +180,7 @@ public class ProjectStaticDataTest {
         data.setProject(project);
 
         // coverage has not improved
-        Assert.assertFalse(data.isToTest("foo.Bar", 3));
+        Assertions.assertFalse(data.isToTest("foo.Bar", 3));
     }
 
     @Test
@@ -219,6 +219,6 @@ public class ProjectStaticDataTest {
         data.setProject(project);
 
         // coverage has improved
-        Assert.assertTrue(data.isToTest("foo.Bar", 3));
+        Assertions.assertTrue(data.isToTest("foo.Bar", 3));
     }
 }

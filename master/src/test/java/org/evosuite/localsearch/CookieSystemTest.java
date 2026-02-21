@@ -27,9 +27,8 @@ import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.strings.Cookie;
 
 /**
@@ -38,7 +37,7 @@ import com.examples.with.different.packagename.strings.Cookie;
 public class CookieSystemTest extends SystemTestBase {
 
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.LOCAL_SEARCH_PROBABILITY = 1.0;
         Properties.LOCAL_SEARCH_RATE = 1;

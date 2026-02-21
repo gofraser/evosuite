@@ -19,10 +19,11 @@
  */
 package org.evosuite.junit.examples;
 
-import org.junit.Test;
-import org.junit.experimental.categories.Category;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 
-@Category({SlowTests.class, FastTests.class})
+@Tag("SlowTests")
+@Tag("FastTests")
 public class JUnit4Test {
 
     @Test
@@ -31,7 +32,7 @@ public class JUnit4Test {
     }
 
     @Test
-    @Category(SlowTests.class)
+    @Tag("SlowTests")
     public void bar() {
 
     }

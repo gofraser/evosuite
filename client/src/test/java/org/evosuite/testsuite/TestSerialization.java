@@ -23,8 +23,8 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.statements.PrimitiveStatement;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.*;
 
@@ -54,12 +54,12 @@ public class TestSerialization {
         ByteArrayInputStream bais = new ByteArrayInputStream(baSerialized);
         ObjectInputStream ois = new ObjectInputStream(bais);
         TestSuiteChromosome copy = (TestSuiteChromosome) ois.readObject();
-        Assert.assertEquals(chromosome.getFitness(), copy.getFitness(), 0.0);
-        Assert.assertEquals(chromosome.getAge(), copy.getAge());
-        Assert.assertEquals(chromosome.getCoverage(), copy.getCoverage(), 0.0);
-        Assert.assertEquals(chromosome.getCoveredGoals(), copy.getCoveredGoals());
-        Assert.assertEquals(chromosome.isChanged(), copy.isChanged());
+        Assertions.assertEquals(chromosome.getFitness(), copy.getFitness(), 0.0);
+        Assertions.assertEquals(chromosome.getAge(), copy.getAge());
+        Assertions.assertEquals(chromosome.getCoverage(), copy.getCoverage(), 0.0);
+        Assertions.assertEquals(chromosome.getCoveredGoals(), copy.getCoveredGoals());
+        Assertions.assertEquals(chromosome.isChanged(), copy.isChanged());
 
-        Assert.assertEquals(chromosome.getTestChromosome(0).getFitness(), copy.getTestChromosome(0).getFitness(), 0.0);
+        Assertions.assertEquals(chromosome.getTestChromosome(0).getFitness(), copy.getTestChromosome(0).getFitness(), 0.0);
     }
 }

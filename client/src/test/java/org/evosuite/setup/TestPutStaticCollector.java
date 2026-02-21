@@ -23,18 +23,18 @@ import com.examples.with.different.packagename.staticusage.FooBar1;
 import com.examples.with.different.packagename.staticusage.FooBar2;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.setup.PutStaticMethodCollector.MethodIdentifier;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 
 import java.util.Collections;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestPutStaticCollector {
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         String cp = System.getProperty("user.dir") + "/target/test-classes";
         ClassPathHandler.getInstance().addElementToTargetProjectClassPath(cp);

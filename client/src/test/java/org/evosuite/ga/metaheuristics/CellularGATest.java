@@ -23,8 +23,9 @@ import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.DummyChromosome;
 import org.evosuite.ga.FitnessFunction;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -58,13 +59,13 @@ public class CellularGATest {
         ga.addFitnessFunction(ff);
 
         ga.initializePopulation();
-        Assert.assertEquals(9, ga.getPopulation().size());
+        Assertions.assertEquals(9, ga.getPopulation().size());
 
         ga.run();
-        Assert.assertEquals(9, ga.getPopulation().size());
+        Assertions.assertEquals(9, ga.getPopulation().size());
 
         ga.run();
-        Assert.assertEquals(9, ga.getPopulation().size());
+        Assertions.assertEquals(9, ga.getPopulation().size());
     }
 
     @Test
@@ -117,9 +118,9 @@ public class CellularGATest {
         ga.replacePopulations(main, temp);
 
         // Index 0 should be replaced (5.0 < 10.0)
-        Assert.assertEquals(5.0, main.get(0).getFitness(), 0.001);
+        Assertions.assertEquals(5.0, main.get(0).getFitness(), 0.001);
 
         // Index 1 should NOT be replaced (15.0 > 10.0)
-        Assert.assertEquals(10.0, main.get(1).getFitness(), 0.001);
+        Assertions.assertEquals(10.0, main.get(1).getFitness(), 0.001);
     }
 }

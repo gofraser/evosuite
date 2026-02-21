@@ -25,8 +25,8 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class ContainsAssertionSystemTest extends SystemTestBase {
 
@@ -47,7 +47,7 @@ public class ContainsAssertionSystemTest extends SystemTestBase {
         TestSuiteChromosome suite = ga.getBestIndividual();
         System.out.println(suite.toString());
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
             boolean hasContainsAssertion = false;
             for (Assertion ass : test.getAssertions()) {
@@ -55,8 +55,8 @@ public class ContainsAssertionSystemTest extends SystemTestBase {
                     hasContainsAssertion = true;
                 }
             }
-            Assert.assertTrue("Test has no contains assertions: " + test.toCode(),
-                    hasContainsAssertion);
+            Assertions.assertTrue(hasContainsAssertion,
+                    "Test has no contains assertions: " + test.toCode());
         }
     }
 }

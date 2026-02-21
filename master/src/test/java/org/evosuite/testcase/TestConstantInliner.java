@@ -19,8 +19,8 @@
  */
 package org.evosuite.testcase;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,8 +32,7 @@ import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ObjectParameter;
 import com.examples.with.different.packagename.StringConstantInliningExample;
 

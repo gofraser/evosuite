@@ -27,9 +27,8 @@ import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.dse.DseWithServer;
 
 /**
@@ -37,7 +36,7 @@ import com.examples.with.different.packagename.dse.DseWithServer;
  */
 public class DseWithLocalAddressSystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.VIRTUAL_FS = true;
         Properties.VIRTUAL_NET = true;

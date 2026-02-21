@@ -25,9 +25,9 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.SearchStatistics;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * Created by jmr on 10/11/2015.
@@ -35,7 +35,7 @@ import org.junit.Test;
 public class CarverSystemTest extends SystemTestBase {
 
     // There doesn't seem to be an easy solution to this so let's ignore it for now
-    @Ignore
+    @Disabled
     @Test
     public void testPrivateStaticField() {
         EvoSuite evosuite = new EvoSuite();
@@ -59,9 +59,9 @@ public class CarverSystemTest extends SystemTestBase {
         };
 
         SearchStatistics result = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         OutputVariable coverage = result.getOutputVariables().get("Coverage");
-        Assert.assertEquals("Non-optimal coverage", 1d, (double) coverage.getValue(), 0.01);
+        Assertions.assertEquals(1d, (double) coverage.getValue(), 0.01, "Non-optimal coverage");
     }
 
     @Test
@@ -87,9 +87,9 @@ public class CarverSystemTest extends SystemTestBase {
         };
 
         SearchStatistics result = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         OutputVariable coverage = result.getOutputVariables().get("Coverage");
-        Assert.assertEquals("Non-optimal coverage", 1d, (double) coverage.getValue(), 0.01);
+        Assertions.assertEquals(1d, (double) coverage.getValue(), 0.01, "Non-optimal coverage");
     }
 
     @Test
@@ -119,13 +119,13 @@ public class CarverSystemTest extends SystemTestBase {
         };
 
         SearchStatistics result = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         OutputVariable coverage = result.getOutputVariables().get("MethodCoverage");
-        Assert.assertEquals("Non-optimal method coverage value", 1d, (double) coverage.getValue(), 0.01);
+        Assertions.assertEquals(1d, (double) coverage.getValue(), 0.01, "Non-optimal method coverage value");
     }
 
     // An exception is thrown in the constructor. There is nothing that can be carved...
-    @Ignore
+    @Disabled
     @Test
     public void testJodaTestScaledDurationFieldWithException() {
         EvoSuite evosuite = new EvoSuite();
@@ -153,9 +153,9 @@ public class CarverSystemTest extends SystemTestBase {
         };
 
         SearchStatistics result = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         OutputVariable coverage = result.getOutputVariables().get("MethodCoverage");
-        Assert.assertEquals("Non-optimal method coverage value", 1d, (double) coverage.getValue(), 0.01);
+        Assertions.assertEquals(1d, (double) coverage.getValue(), 0.01, "Non-optimal method coverage value");
     }
 
 }

@@ -19,12 +19,14 @@
  */
 package org.evosuite.coverage.line;
 
-import static org.junit.Assert.assertEquals;
-
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import org.evosuite.EvoSuite;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.StoppingCondition;
@@ -33,14 +35,11 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TestName;
-import org.junit.rules.TestWatcher;
-import org.junit.runner.Description;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 import com.examples.with.different.packagename.ClassWithAnonymousClass;
 import com.examples.with.different.packagename.instrumentation.testability.FlagExample3;
@@ -60,34 +59,35 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
     private boolean oldResetStaticFields = Properties.RESET_STATIC_FIELDS;
     private final int oldChromosomeLength = Properties.CHROMOSOME_LENGTH;
 
-    @Rule
-    public TestName name = new TestName();
+    
+    public String name;
 
-    @Rule
-    public TestWatcher watcher = new TestWatcher() {
+    private static class WatchdogExtension implements org.junit.jupiter.api.extension.TestWatcher {
         @Override
-        protected void starting(Description description) {
-            System.out.println("LINECOVERAGE_TEST: RUN START " + description.getMethodName()
-                    + " thread=" + Thread.currentThread().getName()
+        public void testSuccessful(org.junit.jupiter.api.extension.ExtensionContext context) {
+            String methodName = context.getRequiredTestMethod().getName();
+            System.out.println("LINECOVERAGE_TEST: RUN PASS " + methodName
                     + " timeMs=" + System.currentTimeMillis());
         }
 
         @Override
-        protected void succeeded(Description description) {
-            System.out.println("LINECOVERAGE_TEST: RUN PASS " + description.getMethodName()
+        public void testFailed(org.junit.jupiter.api.extension.ExtensionContext context, Throwable cause) {
+            String methodName = context.getRequiredTestMethod().getName();
+            System.err.println("LINECOVERAGE_TEST: RUN FAIL " + methodName
                     + " timeMs=" + System.currentTimeMillis());
+            System.err.println("LINECOVERAGE_TEST: RUN FAIL cause=" + cause);
         }
+    }
 
-        @Override
-        protected void failed(Throwable e, Description description) {
-            System.err.println("LINECOVERAGE_TEST: RUN FAIL " + description.getMethodName()
-                    + " timeMs=" + System.currentTimeMillis());
-            System.err.println("LINECOVERAGE_TEST: RUN FAIL cause=" + e);
+    @org.junit.jupiter.api.extension.RegisterExtension
+    WatchdogExtension watcher = new WatchdogExtension();
+
+    @BeforeEach
+    public void beforeTest(TestInfo testInfo) {
+        Optional<Method> testMethod = testInfo.getTestMethod();
+        if (testMethod.isPresent()) {
+            this.name = testMethod.get().getName();
         }
-    };
-
-    @Before
-    public void beforeTest() {
         oldCriteria = Arrays.copyOf(Properties.CRITERION, Properties.CRITERION.length);
         oldStoppingCondition = Properties.STOPPING_CONDITION;
         oldPrimitivePool = Properties.PRIMITIVE_POOL;
@@ -97,7 +97,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         GlobalTimeStoppingCondition.forceReset();
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.CRITERION = oldCriteria;
         Properties.STOPPING_CONDITION = oldStoppingCondition;
@@ -124,8 +124,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
-        Assert.assertEquals(2, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -145,8 +145,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
-        Assert.assertEquals(2, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -166,8 +166,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
-        Assert.assertEquals(2, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(2, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -189,8 +189,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
-        Assert.assertEquals(5, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(5, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -212,8 +212,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
-        Assert.assertEquals(5, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(5, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -239,8 +239,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
-        Assert.assertEquals(6, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(6, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -266,8 +266,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
-        Assert.assertEquals(6, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(6, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -294,8 +294,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
-        Assert.assertEquals(6, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(6, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
         // Assert.assertTrue("Did not expect optimal coverage: ", best.getCoverage() < 1);
     }
 
@@ -322,8 +322,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
-        Assert.assertEquals(6, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(6, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -349,8 +349,8 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
-        Assert.assertEquals(6, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(6, goals);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -421,7 +421,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         logGoalsList(targetClass, lines);
 
         // lines: 22, 24, 27, 30, 31, 32, 33, 35, 38
-        Assert.assertEquals(11, lines.size());
+        Assertions.assertEquals(11, lines.size());
     }
 
     @Test
@@ -445,12 +445,12 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         // lines: 22, 24, 27, 30, 31, 32, 33, 35, 38
         logCase(targetClass, best, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(),
                 Properties.TEST_ARCHIVE);
-        Assert.assertEquals(11, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(11, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     private void logCase(String targetClass, TestSuiteChromosome best, int goals, boolean archive) {
-        String testName = name.getMethodName();
+        String testName = name;
         System.out.println("LINECOVERAGE_TEST: START " + testName);
         System.out.println("LINECOVERAGE_TEST: target=" + targetClass);
         System.out.println("LINECOVERAGE_TEST: archive=" + archive);
@@ -472,7 +472,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
     }
 
     private void logGoalsList(String targetClass, List<?> goals) {
-        String testName = name.getMethodName();
+        String testName = name;
         System.out.println("LINECOVERAGE_TEST: GOALS START " + testName);
         System.out.println("LINECOVERAGE_TEST: target=" + targetClass);
         System.out.println("LINECOVERAGE_TEST: goalsCount=" + goals.size());
@@ -485,7 +485,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
     private Object runWithWatchdog(EvoSuite evosuite, String[] command) {
         final Thread testThread = Thread.currentThread();
         final long timeoutMs = Math.max(30_000L, Properties.GLOBAL_TIMEOUT * 1000L);
-        final String testName = name.getMethodName();
+        final String testName = name;
         final String commandLine = String.join(" ", command);
         final Thread watchdog = new Thread(() -> {
             try {

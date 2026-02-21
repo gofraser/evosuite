@@ -8,10 +8,12 @@ import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericField;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class VariableReferenceTest {
 
@@ -22,40 +24,42 @@ public class VariableReferenceTest {
         tc.addStatement(st1);
         VariableReference var1 = st1.getReturnValue();
 
-        Assert.assertEquals(0, var1.getStPosition());
+        Assertions.assertEquals(0, var1.getStPosition());
 
         // Check if caching works (we can't easily check internal state, but we check behavior)
-        Assert.assertEquals(0, var1.getStPosition());
+        Assertions.assertEquals(0, var1.getStPosition());
 
         StringPrimitiveStatement st2 = new StringPrimitiveStatement(tc, "test2");
         tc.addStatement(st2);
         VariableReference var2 = st2.getReturnValue();
 
-        Assert.assertEquals(1, var2.getStPosition());
-        Assert.assertEquals(0, var1.getStPosition());
+        Assertions.assertEquals(1, var2.getStPosition());
+        Assertions.assertEquals(0, var1.getStPosition());
 
         // Remove first statement, shifting indices
         tc.remove(0);
         // Now st2 is at 0
-        Assert.assertEquals(0, var2.getStPosition());
+        Assertions.assertEquals(0, var2.getStPosition());
     }
 
-    @Test(expected = AssertionError.class)
+    @Test
     public void testGetStPositionNotFound() {
-        DefaultTestCase tc = new DefaultTestCase();
-        StringPrimitiveStatement st1 = new StringPrimitiveStatement(tc, "test1");
-        // Don't add to test case
-        VariableReference var1 = st1.getReturnValue();
-        // This should fail
-        var1.getStPosition();
+        assertThrows(AssertionError.class, () -> {
+            DefaultTestCase tc = new DefaultTestCase();
+            StringPrimitiveStatement st1 = new StringPrimitiveStatement(tc, "test1");
+            // Don't add to test case
+            VariableReference var1 = st1.getReturnValue();
+            // This should fail
+            var1.getStPosition();
+        });
     }
 
     @Test
     public void testArrayReferenceLength() {
         DefaultTestCase tc = new DefaultTestCase();
         ArrayReference arrayRef = new ArrayReference(tc, GenericClassFactory.get(int.class), new int[]{5});
-        Assert.assertEquals(5, arrayRef.getArrayLength());
-        Assert.assertEquals(1, arrayRef.getArrayDimensions());
+        Assertions.assertEquals(5, arrayRef.getArrayLength());
+        Assertions.assertEquals(1, arrayRef.getArrayDimensions());
     }
 
     @Test
@@ -74,7 +78,7 @@ public class VariableReferenceTest {
 
         arrayIndex.setObject(scope, 42);
 
-        Assert.assertEquals(42, actualArray[2]);
+        Assertions.assertEquals(42, actualArray[2]);
     }
 
     @Test
@@ -92,7 +96,7 @@ public class VariableReferenceTest {
 
         arrayIndex.setObject(scope, 42);
 
-        Assert.assertEquals(Integer.valueOf(42), actualArray[2]);
+        Assertions.assertEquals(Integer.valueOf(42), actualArray[2]);
     }
 
 }

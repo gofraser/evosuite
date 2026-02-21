@@ -19,8 +19,8 @@
  */
 package org.evosuite;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Andrea Arcuri
@@ -37,7 +37,7 @@ public class TestEnabledAssertions {
 
         assert (enabled = true);
 
-        Assert.assertTrue(enabled);
+        Assertions.assertTrue(enabled);
     }
 
 }

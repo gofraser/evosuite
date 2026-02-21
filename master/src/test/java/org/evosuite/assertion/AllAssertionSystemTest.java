@@ -25,15 +25,13 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ExampleFieldClass;
 import com.examples.with.different.packagename.ExampleInheritedClass;
 import com.examples.with.different.packagename.ExampleObserverClass;
 import com.examples.with.different.packagename.ExampleStaticVoidSetterClass;
-
-import org.junit.Ignore;
 
 /**
  * @author fraser
@@ -59,51 +57,51 @@ public class AllAssertionSystemTest extends SystemTestBase {
         return ga.getBestIndividual();
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test1() {
         TestSuiteChromosome suite = generateSuite(ExampleObserverClass.class);
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
-            Assert.assertTrue("Test has no assertions: " + test.toCode(),
-                    test.hasAssertions());
+            Assertions.assertTrue(test.hasAssertions(),
+                    "Test has no assertions: " + test.toCode());
         }
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test2() {
         TestSuiteChromosome suite = generateSuite(ExampleFieldClass.class);
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
-            Assert.assertTrue("Test has no assertions: " + test.toCode(),
-                    test.hasAssertions());
+            Assertions.assertTrue(test.hasAssertions(),
+                    "Test has no assertions: " + test.toCode());
         }
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test3() {
         TestSuiteChromosome suite = generateSuite(ExampleInheritedClass.class);
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
-            Assert.assertTrue("Test has no assertions: " + test.toCode(),
-                    test.hasAssertions());
+            Assertions.assertTrue(test.hasAssertions(),
+                    "Test has no assertions: " + test.toCode());
         }
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test4() {
         TestSuiteChromosome suite = generateSuite(ExampleStaticVoidSetterClass.class);
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
-            Assert.assertTrue("Test has no assertions: " + test.toCode(),
-                    test.hasAssertions());
+            Assertions.assertTrue(test.hasAssertions(),
+                    "Test has no assertions: " + test.toCode());
         }
     }
 

@@ -5,17 +5,19 @@ import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 public class ArchiveTest {
 
     @Mock
@@ -35,9 +37,8 @@ public class ArchiveTest {
 
     private Properties.Criterion[] originalCriteria;
 
-    @Before
+    @BeforeEach
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
         originalCriteria = Properties.CRITERION;
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.LINE};
         when(target.getTargetClass()).thenReturn("Foo");
@@ -50,7 +51,7 @@ public class ArchiveTest {
         when(chromosome2.getTestCase()).thenReturn(testCase);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         Properties.CRITERION = originalCriteria;
     }

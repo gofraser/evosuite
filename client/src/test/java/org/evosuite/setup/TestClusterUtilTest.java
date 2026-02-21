@@ -19,16 +19,16 @@
  */
 package org.evosuite.setup;
 
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestClusterUtilTest {
 
@@ -56,7 +56,7 @@ public class TestClusterUtilTest {
         try {
             clazz = Class.forName("sun.print.RasterPrinterJob");
         } catch (ClassNotFoundException e) {
-            Assume.assumeNoException(e);
+            Assumptions.assumeTrue(false, "Assume failed: " + e.getMessage());
             return;
         }
 
@@ -64,7 +64,7 @@ public class TestClusterUtilTest {
         try {
             field = clazz.getDeclaredField("debugPrint");
         } catch (NoSuchFieldException e) {
-            Assume.assumeNoException(e);
+            Assumptions.assumeTrue(false, "Assume failed: " + e.getMessage());
             return;
         }
 
@@ -76,7 +76,7 @@ public class TestClusterUtilTest {
             }
         }
         if (method == null) {
-            Assume.assumeTrue("No non-public method available", false);
+            Assumptions.assumeTrue(false, "No non-public method available");
             return;
         }
 
@@ -88,7 +88,7 @@ public class TestClusterUtilTest {
             }
         }
         if (constructor == null) {
-            Assume.assumeTrue("No non-public constructor available", false);
+            Assumptions.assumeTrue(false, "No non-public constructor available");
             return;
         }
 

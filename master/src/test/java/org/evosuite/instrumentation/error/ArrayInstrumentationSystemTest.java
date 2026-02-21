@@ -22,7 +22,7 @@ package org.evosuite.instrumentation.error;
 import com.examples.with.different.packagename.errorbranch.ArrayAccess;
 import com.examples.with.different.packagename.errorbranch.ArrayCreation;
 import org.evosuite.Properties;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ArrayInstrumentationSystemTest extends AbstractErrorBranchTest {
 

@@ -26,8 +26,10 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.*;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import com.examples.with.different.packagename.assertion.ArrayObjects;
 import com.examples.with.different.packagename.assertion.ArrayPrimitiveWrapper;
 import com.examples.with.different.packagename.assertion.WrapperCreatingCopy;
@@ -41,14 +43,14 @@ public class SameAssertionSystemTest extends SystemTestBase {
 
     private double primitiveReuseProbability = Properties.PRIMITIVE_REUSE_PROBABILITY;
 
-    @Before
+    @BeforeEach
     public void storeAssertionStrategy() {
         strategy = Properties.ASSERTION_STRATEGY;
         nullProbability = Properties.NULL_PROBABILITY;
         primitiveReuseProbability = Properties.PRIMITIVE_REUSE_PROBABILITY;
     }
 
-    @After
+    @AfterEach
     public void restoreAssertionStrategy() {
         Properties.ASSERTION_STRATEGY = strategy;
         Properties.NULL_PROBABILITY = nullProbability;
@@ -59,7 +61,7 @@ public class SameAssertionSystemTest extends SystemTestBase {
      * SameAssertions on primitive/wrapper arrays are problematic,
      * so we do not want to have them at all.
      */
-    @Test
+    @org.junit.jupiter.api.Test
     public void testPrimitiveArray() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -85,10 +87,10 @@ public class SameAssertionSystemTest extends SystemTestBase {
             }
         }
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertFalse(hasSameAssertion);
+        Assertions.assertFalse(hasSameAssertion);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testObjectArray() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -109,19 +111,19 @@ public class SameAssertionSystemTest extends SystemTestBase {
             for (Assertion assertion : testChromosome.getTestCase().getAssertions()) {
                 if (assertion instanceof SameAssertion) {
                     hasSameAssertion = true;
-                    Assert.assertEquals(false, ((SameAssertion) assertion).value);
+                    Assertions.assertEquals(false, ((SameAssertion) assertion).value);
                 }
             }
         }
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertTrue(hasSameAssertion);
+        Assertions.assertTrue(hasSameAssertion);
 
     }
 
     // TODO: Same assertions are excluding wrapper classes for now, as there are issues
     //       when the values are inlined
-    @Ignore
-    @Test
+    @Disabled
+    @org.junit.jupiter.api.Test
     public void testWrapper() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -151,18 +153,18 @@ public class SameAssertionSystemTest extends SystemTestBase {
             for (Assertion assertion : testChromosome.getTestCase().getAssertions()) {
                 if (assertion instanceof SameAssertion) {
                     hasSameAssertion = true;
-                    Assert.assertEquals(true, ((SameAssertion) assertion).value);
+                    Assertions.assertEquals(true, ((SameAssertion) assertion).value);
                 }
             }
         }
-        Assert.assertTrue(hasSameAssertion);
+        Assertions.assertTrue(hasSameAssertion);
 
     }
 
     // TODO: Same assertions are excluding wrapper classes for now, as there are issues
     //       when the values are inlined
-    @Ignore
-    @Test
+    @Disabled
+    @org.junit.jupiter.api.Test
     public void testWrapperCopy() {
         EvoSuite evosuite = new EvoSuite();
 
@@ -191,12 +193,12 @@ public class SameAssertionSystemTest extends SystemTestBase {
             for (Assertion assertion : testChromosome.getTestCase().getAssertions()) {
                 if (assertion instanceof SameAssertion) {
                     hasSameAssertion = true;
-                    Assert.assertEquals(false, ((SameAssertion) assertion).value);
+                    Assertions.assertEquals(false, ((SameAssertion) assertion).value);
                 }
             }
         }
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertTrue(hasSameAssertion);
+        Assertions.assertTrue(hasSameAssertion);
 
     }
 }

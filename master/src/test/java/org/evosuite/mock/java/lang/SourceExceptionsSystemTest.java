@@ -28,8 +28,8 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Created by Andrea Arcuri on 19/08/15.
@@ -50,7 +50,7 @@ public class SourceExceptionsSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertNotNull(best);
+        Assertions.assertNotNull(best);
         TestCaseExecutor.initExecutor();
         for (TestChromosome test : best.getTestChromosomes()) {
             ExecutionResult executionResult = TestCaseExecutor.runTest(test.getTestCase());
@@ -58,7 +58,7 @@ public class SourceExceptionsSystemTest extends SystemTestBase {
         }
 
         String code = best.toString();
-        Assert.assertTrue("Code:\n" + code, code.contains("verifyException(\"com.examples.with.different.packagename.mock.java.lang.SourceExceptions\","));
-        Assert.assertTrue("Code:\n" + code, code.contains("verifyException(\"com.examples.with.different.packagename.mock.java.lang.SourceExceptions$Foo\","));
+        Assertions.assertTrue(code.contains("verifyException(\"com.examples.with.different.packagename.mock.java.lang.SourceExceptions\","), "Code:\n" + code);
+        Assertions.assertTrue(code.contains("verifyException(\"com.examples.with.different.packagename.mock.java.lang.SourceExceptions$Foo\","), "Code:\n" + code);
     }
 }

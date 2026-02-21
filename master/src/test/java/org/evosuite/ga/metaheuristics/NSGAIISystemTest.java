@@ -38,10 +38,9 @@ import org.evosuite.ga.problems.Problem;
 import org.evosuite.ga.problems.multiobjective.SCH;
 import org.evosuite.ga.problems.singleobjective.Booths;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.Calculator;
 
 /**
@@ -50,7 +49,7 @@ import com.examples.with.different.packagename.Calculator;
  * @author José Campos
  */
 public class NSGAIISystemTest extends SystemTestBase {
-    @BeforeClass
+    @BeforeAll
     public static void setUp() {
         Properties.CROSSOVER_RATE = 0.9;
         Properties.RANDOM_SEED = 1L;
@@ -64,7 +63,7 @@ public class NSGAIISystemTest extends SystemTestBase {
         List<NSGAChromosome> off = new ArrayList<>();
         List<NSGAChromosome> union = ga.union(pop, off);
 
-        Assert.assertTrue(union.isEmpty());
+        Assertions.assertTrue(union.isEmpty());
     }
 
     @Test
@@ -83,7 +82,7 @@ public class NSGAIISystemTest extends SystemTestBase {
         off.add(c3);
 
         List<NSGAChromosome> union = ga.union(pop, off);
-        Assert.assertEquals(union.size(), 3);
+        Assertions.assertEquals(union.size(), 3);
     }
 
     @Test
@@ -132,27 +131,27 @@ public class NSGAIISystemTest extends SystemTestBase {
         ga.getRankingFunction().computeRankingAssignment(population, new LinkedHashSet<>(fitnessFunctions));
 
         // Total number of Fronts
-        Assert.assertEquals(ga.getRankingFunction().getNumberOfSubfronts(), 5);
+        Assertions.assertEquals(ga.getRankingFunction().getNumberOfSubfronts(), 5);
 
         // Front 0
-        Assert.assertEquals(0.0, ga.getRankingFunction().getSubfront(0).get(0).getFitness(), 0.0);
+        Assertions.assertEquals(0.0, ga.getRankingFunction().getSubfront(0).get(0).getFitness(), 0.0);
         //Assert.assertTrue(ga.getRankingFunction().getSubfront(0).get(1).getFitness() == 0.0);
 
         // Front 1
-        Assert.assertEquals(0.2, ga.getRankingFunction().getSubfront(1).get(0).getFitness(), 0.0);
-        Assert.assertEquals(0.2, ga.getRankingFunction().getSubfront(1).get(1).getFitness(), 0.0);
+        Assertions.assertEquals(0.2, ga.getRankingFunction().getSubfront(1).get(0).getFitness(), 0.0);
+        Assertions.assertEquals(0.2, ga.getRankingFunction().getSubfront(1).get(1).getFitness(), 0.0);
 
         // Front 2
-        Assert.assertEquals(0.4, ga.getRankingFunction().getSubfront(2).get(0).getFitness(), 0.0);
-        Assert.assertEquals(0.4, ga.getRankingFunction().getSubfront(2).get(1).getFitness(), 0.0);
+        Assertions.assertEquals(0.4, ga.getRankingFunction().getSubfront(2).get(0).getFitness(), 0.0);
+        Assertions.assertEquals(0.4, ga.getRankingFunction().getSubfront(2).get(1).getFitness(), 0.0);
 
         // Front 3
-        Assert.assertEquals(0.6, ga.getRankingFunction().getSubfront(3).get(0).getFitness(), 0.0);
-        Assert.assertEquals(0.6, ga.getRankingFunction().getSubfront(3).get(1).getFitness(), 0.0);
+        Assertions.assertEquals(0.6, ga.getRankingFunction().getSubfront(3).get(0).getFitness(), 0.0);
+        Assertions.assertEquals(0.6, ga.getRankingFunction().getSubfront(3).get(1).getFitness(), 0.0);
 
         // Front 4
-        Assert.assertEquals(0.8, ga.getRankingFunction().getSubfront(4).get(0).getFitness(), 0.0);
-        Assert.assertEquals(0.8, ga.getRankingFunction().getSubfront(4).get(1).getFitness(), 0.0);
+        Assertions.assertEquals(0.8, ga.getRankingFunction().getSubfront(4).get(0).getFitness(), 0.0);
+        Assertions.assertEquals(0.8, ga.getRankingFunction().getSubfront(4).get(1).getFitness(), 0.0);
     }
 
     @Test
@@ -202,18 +201,18 @@ public class NSGAIISystemTest extends SystemTestBase {
         crowdingDistance.crowdingDistanceAssignment(population, fitnessFunctions);
         population.sort(new RankAndCrowdingDistanceComparator<NSGAChromosome>());
 
-        Assert.assertEquals(population.get(0).getDistance(), Double.POSITIVE_INFINITY, 0.0);
-        Assert.assertEquals(population.get(1).getDistance(), Double.POSITIVE_INFINITY, 0.0);
+        Assertions.assertEquals(population.get(0).getDistance(), Double.POSITIVE_INFINITY, 0.0);
+        Assertions.assertEquals(population.get(1).getDistance(), Double.POSITIVE_INFINITY, 0.0);
 
         double epsilon = 1e-10;
-        Assert.assertTrue(Math.abs(0.25 - population.get(2).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.25 - population.get(3).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.25 - population.get(4).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.25 - population.get(5).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.25 - population.get(6).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.25 - population.get(7).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.25 - population.get(8).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.25 - population.get(9).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.25 - population.get(2).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.25 - population.get(3).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.25 - population.get(4).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.25 - population.get(5).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.25 - population.get(6).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.25 - population.get(7).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.25 - population.get(8).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.25 - population.get(9).getDistance()) < epsilon);
     }
 
     @Test
@@ -275,18 +274,18 @@ public class NSGAIISystemTest extends SystemTestBase {
         crowdingDistance.crowdingDistanceAssignment(population, fitnessFunctions);
         population.sort(new RankAndCrowdingDistanceComparator<>());
 
-        Assert.assertEquals(population.get(0).getDistance(), Double.POSITIVE_INFINITY, 0.0);
-        Assert.assertEquals(population.get(1).getDistance(), Double.POSITIVE_INFINITY, 0.0);
+        Assertions.assertEquals(population.get(0).getDistance(), Double.POSITIVE_INFINITY, 0.0);
+        Assertions.assertEquals(population.get(1).getDistance(), Double.POSITIVE_INFINITY, 0.0);
 
         double epsilon = 1e-10;
-        Assert.assertTrue(Math.abs(0.5 - population.get(2).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.5 - population.get(3).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.5 - population.get(4).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.5 - population.get(5).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.5 - population.get(6).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.5 - population.get(7).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.5 - population.get(8).getDistance()) < epsilon);
-        Assert.assertTrue(Math.abs(0.5 - population.get(9).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.5 - population.get(2).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.5 - population.get(3).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.5 - population.get(4).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.5 - population.get(5).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.5 - population.get(6).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.5 - population.get(7).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.5 - population.get(8).getDistance()) < epsilon);
+        Assertions.assertTrue(Math.abs(0.5 - population.get(9).getDistance()) < epsilon);
     }
 
     @Test
@@ -313,7 +312,7 @@ public class NSGAIISystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         @SuppressWarnings("unchecked")
         GeneticAlgorithm<TestSuiteChromosome> ga =
@@ -336,10 +335,10 @@ public class NSGAIISystemTest extends SystemTestBase {
                 it.remove();
             }
         }
-        Assert.assertFalse(population.isEmpty());
+        Assertions.assertFalse(population.isEmpty());
 
         TestSuiteChromosome best = population.get(0);
-        Assert.assertEquals(0.0, best.getFitness(rho), 0.0);
-        Assert.assertEquals(0.0, best.getFitness(ag), 0.0);
+        Assertions.assertEquals(0.0, best.getFitness(rho), 0.0);
+        Assertions.assertEquals(0.0, best.getFitness(ag), 0.0);
     }
 }

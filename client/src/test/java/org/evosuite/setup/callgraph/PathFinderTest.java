@@ -1,10 +1,13 @@
 package org.evosuite.setup.callgraph;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
 import java.util.List;
 import java.util.Set;
+
 import java.util.HashSet;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class PathFinderTest {
 
@@ -40,7 +43,7 @@ public class PathFinderTest {
             if (path.toString().equals("[D, C, A]")) foundDCA = true;
         }
 
-        assertTrue("Should find path [D, B, A]", foundDBA);
-        assertTrue("Should find path [D, C, A]", foundDCA);
+        assertTrue(foundDBA, "Should find path [D, B, A]");
+        assertTrue(foundDCA, "Should find path [D, C, A]");
     }
 }

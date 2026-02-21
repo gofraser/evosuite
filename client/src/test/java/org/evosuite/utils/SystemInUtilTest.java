@@ -21,20 +21,23 @@ package org.evosuite.utils;
 
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.util.SystemInUtil;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 
 public class SystemInUtilTest {
 
-    @After
+    @AfterEach
     public void tearDown() {
         SystemInUtil.resetSingleton();
     }
 
-    @Test(timeout = 3000)
+    @Test
+    @Timeout(value = 3000, unit = TimeUnit.MILLISECONDS)
     public void testDoubleExecution() {
 
         RuntimeSettings.mockSystemIn = true;
@@ -45,14 +48,14 @@ public class SystemInUtilTest {
         Scanner scanner = new Scanner(System.in);
         String first = scanner.nextLine();
         scanner.close();
-        Assert.assertEquals(data, first);
+        Assertions.assertEquals(data, first);
 
         //now add the same again
         SystemInUtil.addInputLine(data);
         scanner = new Scanner(System.in);
         String second = scanner.nextLine();
         scanner.close();
-        Assert.assertEquals(data, second);
+        Assertions.assertEquals(data, second);
     }
 
 }

@@ -24,19 +24,18 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.staticusage.Class1;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class BestIndividualTestSuiteChromosomeFactorySystemTest extends SystemTestBase {
     ChromosomeSampleFactory defaultFactory = new ChromosomeSampleFactory();
     TestSuiteChromosome bestIndividual;
     GeneticAlgorithm<TestSuiteChromosome> ga;
 
-    @Before
+    @BeforeEach
     public void setup() {
         setDefaultPropertiesForTestCases();
 

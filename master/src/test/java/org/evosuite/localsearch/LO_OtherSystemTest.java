@@ -26,9 +26,8 @@ import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.sette.LO_Other;
 
 /**
@@ -56,7 +55,7 @@ public class LO_OtherSystemTest extends SystemTestBase {
 
     }
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.MINIMIZE = false;
         Properties.ASSERTIONS = false;

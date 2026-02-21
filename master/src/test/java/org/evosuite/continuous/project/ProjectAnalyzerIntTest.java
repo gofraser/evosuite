@@ -21,16 +21,15 @@ package org.evosuite.continuous.project;
 
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.continuous.project.ProjectStaticData.ClassInfo;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.continuous.Simple;
 import com.examples.with.different.packagename.continuous.Trivial;
 
 public class ProjectAnalyzerIntTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void initClass() {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
     }
@@ -44,7 +43,7 @@ public class ProjectAnalyzerIntTest {
 
         ProjectStaticData data = pa.analyze();
 
-        Assert.assertTrue(data.getTotalNumberOfClasses() > 0);
+        Assertions.assertTrue(data.getTotalNumberOfClasses() > 0);
     }
 
     @Test
@@ -56,7 +55,7 @@ public class ProjectAnalyzerIntTest {
 
         ProjectStaticData data = pa.analyze();
 
-        Assert.assertTrue(data.getTotalNumberOfClasses() > 0);
+        Assertions.assertTrue(data.getTotalNumberOfClasses() > 0);
     }
 
 
@@ -69,14 +68,14 @@ public class ProjectAnalyzerIntTest {
 
         ProjectStaticData data = pa.analyze();
 
-        Assert.assertEquals(2, data.getTotalNumberOfClasses());
+        Assertions.assertEquals(2, data.getTotalNumberOfClasses());
 
         ClassInfo simple = data.getClassInfo(Simple.class.getName());
-        Assert.assertNotNull(simple);
-        Assert.assertEquals(2, simple.numberOfBranches);
+        Assertions.assertNotNull(simple);
+        Assertions.assertEquals(2, simple.numberOfBranches);
 
         ClassInfo trivial = data.getClassInfo(Trivial.class.getName());
-        Assert.assertNotNull(trivial);
-        Assert.assertEquals(1, trivial.numberOfBranches);
+        Assertions.assertNotNull(trivial);
+        Assertions.assertEquals(1, trivial.numberOfBranches);
     }
 }

@@ -19,20 +19,19 @@
  */
 package org.evosuite.assertion.stable;
 
-import static org.junit.Assert.assertTrue;
-
 import java.util.List;
 
 import org.evosuite.EvoSuite;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.stable.CloneMe;
 
 public class CloneMeSystemTest extends SystemTestBase {
@@ -44,7 +43,7 @@ public class CloneMeSystemTest extends SystemTestBase {
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
 
-    @Before
+    @BeforeEach
     public void configureProperties() {
         Properties.SANDBOX = true;
         Properties.RESET_STATIC_FIELDS = true;
@@ -56,7 +55,7 @@ public class CloneMeSystemTest extends SystemTestBase {
 
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS;
         Properties.SANDBOX = DEFAULT_SANDBOX;

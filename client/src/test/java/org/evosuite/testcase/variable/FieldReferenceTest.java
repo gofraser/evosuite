@@ -6,15 +6,16 @@ import org.evosuite.testcase.execution.Scope;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericField;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FieldReferenceTest {
 
@@ -25,30 +26,32 @@ public class FieldReferenceTest {
         public ArrayList<T> fieldScope = new ArrayList<>();
     }
 
-    @Test(expected = CodeUnderTestException.class)
+    @Test
     public void testGetObjectHandlesInaccessibleStaticField() throws Exception {
-        Class<?> clazz;
-        Field staticField = null;
-        try {
-            clazz = Class.forName("sun.print.RasterPrinterJob");
-            for (Field candidate : clazz.getDeclaredFields()) {
-                if (Modifier.isStatic(candidate.getModifiers())) {
-                    staticField = candidate;
-                    break;
+        assertThrows(CodeUnderTestException.class, () -> {
+            Class<?> clazz;
+            Field staticField = null;
+            try {
+                clazz = Class.forName("sun.print.RasterPrinterJob");
+                for (Field candidate : clazz.getDeclaredFields()) {
+                    if (Modifier.isStatic(candidate.getModifiers())) {
+                        staticField = candidate;
+                        break;
+                    }
                 }
+            } catch (ClassNotFoundException e) {
+                Assumptions.assumeTrue(false, "Assume failed: " + e.getMessage());
+                return;
             }
-        } catch (ClassNotFoundException e) {
-            Assume.assumeNoException(e);
-            return;
-        }
 
-        if (staticField == null) {
-            Assume.assumeTrue("No static field available", false);
-            return;
-        }
+            if (staticField == null) {
+                Assumptions.assumeTrue(false, "No static field available");
+                return;
+            }
 
-        FieldReference ref = new FieldReference(new DefaultTestCase(), new GenericField(staticField, clazz));
-        ref.getObject(new Scope());
+            FieldReference ref = new FieldReference(new DefaultTestCase(), new GenericField(staticField, clazz));
+            ref.getObject(new Scope());
+        });
     }
 
     @Test

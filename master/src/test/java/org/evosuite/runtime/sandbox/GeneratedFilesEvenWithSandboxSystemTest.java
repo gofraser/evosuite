@@ -27,8 +27,10 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.*;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import com.examples.with.different.packagename.sandbox.OpenStream;
 import com.examples.with.different.packagename.sandbox.OpenStreamInATryCatch;
 import com.examples.with.different.packagename.sandbox.OpenStreamInSpecificTryCatch;
@@ -41,7 +43,7 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
 
     private final File file = new File(OpenStream.FILE_NAME);
 
-    @Before
+    @BeforeEach
     public void init() {
         if (file.exists()) {
             file.delete();
@@ -49,17 +51,17 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
         file.deleteOnExit();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         Properties.VIRTUAL_FS = DEFAULT_VFS;
         Properties.SANDBOX = DEFAULT_SANDBOX;
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testCreateWithNoCatch() {
-        Assume.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
 
-        Assert.assertFalse(file.exists());
+        Assertions.assertFalse(file.exists());
 
         EvoSuite evosuite = new EvoSuite();
 
@@ -78,17 +80,17 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertTrue("Should not achieve optimal coverage ", best.getCoverage() < 1);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertTrue(best.getCoverage() < 1, "Should not achieve optimal coverage ");
 
         //SUT should not generate the file
-        Assert.assertFalse(file.exists());
+        Assertions.assertFalse(file.exists());
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testCreateInATryCatch() {
-        Assume.assumeTrue(Sandbox.isSecurityManagerSupported());
-        Assert.assertFalse(file.exists());
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assertions.assertFalse(file.exists());
 
         EvoSuite evosuite = new EvoSuite();
 
@@ -106,20 +108,20 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 5, goals);
-        Assert.assertEquals("", 0.8d, best.getCoverage(), 0.001); //one branch is infeasible
+        Assertions.assertEquals(5, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(0.8d, best.getCoverage(), 0.001, ""); //one branch is infeasible
 
         System.out.println(best);
 
         //SUT should not generate the file, even if full coverage and SecurityException is catch in the SUT
-        Assert.assertFalse(file.exists());
+        Assertions.assertFalse(file.exists());
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testCreateInATryCatchThatDoesNotCatchSecurityException() {
-        Assume.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
 
-        Assert.assertFalse(file.exists());
+        Assertions.assertFalse(file.exists());
 
         EvoSuite evosuite = new EvoSuite();
 
@@ -137,12 +139,12 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertTrue("Should not achive optimala coverage ", best.getCoverage() < 1);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertTrue(best.getCoverage() < 1, "Should not achive optimala coverage ");
 
         System.out.println(best);
 
         //SUT should not generate the file, even if full coverage and SecurityException is catch in the SUT
-        Assert.assertFalse(file.exists());
+        Assertions.assertFalse(file.exists());
     }
 }

@@ -23,10 +23,10 @@ import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.java.io.MockFile;
 import org.evosuite.runtime.mock.java.io.MockFileInputStream;
 import org.evosuite.runtime.mock.java.io.MockFileOutputStream;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -35,14 +35,14 @@ import java.util.Arrays;
 
 public class VirtualFileSystemTest {
 
-    @Before
+    @BeforeEach
     public void init() {
         MockFramework.enable();
         VirtualFileSystem.getInstance().resetSingleton();
         VirtualFileSystem.getInstance().init();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         VirtualFileSystem.getInstance().resetSingleton();
     }
@@ -61,57 +61,57 @@ public class VirtualFileSystemTest {
         };
         for (String path : paths) {
             String[] tokens = VirtualFileSystem.tokenize(path, '\\');
-            Assert.assertEquals(Arrays.toString(tokens), 3, tokens.length);
+            Assertions.assertEquals(3, tokens.length, Arrays.toString(tokens));
             for (String token : tokens) {
-                Assert.assertFalse(token, token.contains("\\"));
+                Assertions.assertFalse(token.contains("\\"), token);
             }
         }
     }
 
     @Test
     public void testNoAccessByDefault() {
-        Assert.assertEquals(0, VirtualFileSystem.getInstance().getAccessedFiles().size());
+        Assertions.assertEquals(0, VirtualFileSystem.getInstance().getAccessedFiles().size());
     }
 
     @Test
     public void testRename() throws IOException {
         File bla = new MockFile("bla");
         File doh = new MockFile("doh");
-        Assert.assertFalse(bla.exists());
-        Assert.assertFalse(doh.exists());
+        Assertions.assertFalse(bla.exists());
+        Assertions.assertFalse(doh.exists());
 
         boolean created = bla.createNewFile();
-        Assert.assertTrue(created);
-        Assert.assertTrue(bla.exists());
-        Assert.assertFalse(doh.exists());
+        Assertions.assertTrue(created);
+        Assertions.assertTrue(bla.exists());
+        Assertions.assertFalse(doh.exists());
 
         boolean renamed = bla.renameTo(doh);
-        Assert.assertTrue(renamed);
-        Assert.assertFalse(bla.exists());
-        Assert.assertTrue(doh.exists());
+        Assertions.assertTrue(renamed);
+        Assertions.assertFalse(bla.exists());
+        Assertions.assertTrue(doh.exists());
 
         File inAnotherFolder = new MockFile("foo/hei/hello.tmp");
-        Assert.assertFalse(inAnotherFolder.exists());
+        Assertions.assertFalse(inAnotherFolder.exists());
         renamed = doh.renameTo(inAnotherFolder);
-        Assert.assertFalse(renamed);
-        Assert.assertFalse(inAnotherFolder.exists());
-        Assert.assertTrue(doh.exists());
+        Assertions.assertFalse(renamed);
+        Assertions.assertFalse(inAnotherFolder.exists());
+        Assertions.assertTrue(doh.exists());
 
         File de = new MockFile("deeee");
         File blup = new MockFile("blup");
-        Assert.assertFalse(de.exists());
-        Assert.assertFalse(blup.exists());
+        Assertions.assertFalse(de.exists());
+        Assertions.assertFalse(blup.exists());
         renamed = de.renameTo(blup);
-        Assert.assertFalse(renamed);
-        Assert.assertFalse(de.exists());
-        Assert.assertFalse(blup.exists());
+        Assertions.assertFalse(renamed);
+        Assertions.assertFalse(de.exists());
+        Assertions.assertFalse(blup.exists());
     }
 
     @Test
     public void testReadAfterWriteToFile() throws IOException {
 
         File file = MockFile.createTempFile("foo", ".tmp");
-        Assert.assertTrue(file.exists());
+        Assertions.assertTrue(file.exists());
 
         byte[] data = new byte[]{42, 66};
         MockFileOutputStream out = new MockFileOutputStream(file);
@@ -122,38 +122,38 @@ public class VirtualFileSystemTest {
         byte[] buffer = new byte[4];
         int count = in.read(buffer);
         in.close();
-        Assert.assertEquals("End of stream should had been reached", data.length, count);
-        Assert.assertEquals(data[0], buffer[0]);
-        Assert.assertEquals(data[1], buffer[1]);
-        Assert.assertEquals(0, buffer[2]);
-        Assert.assertEquals(0, buffer[3]);
+        Assertions.assertEquals(data.length, count, "End of stream should had been reached");
+        Assertions.assertEquals(data[0], buffer[0]);
+        Assertions.assertEquals(data[1], buffer[1]);
+        Assertions.assertEquals(0, buffer[2]);
+        Assertions.assertEquals(0, buffer[3]);
     }
 
     @Test
     public void testReadingNonExistingFile() throws IOException {
         String fileName = "this_file_should_not_exist";
         File realFile = new File(fileName);
-        Assert.assertFalse(realFile.exists());
+        Assertions.assertFalse(realFile.exists());
 
         try {
             MockFileInputStream in = new MockFileInputStream(realFile);
-            Assert.fail(); //real file does not exist
+            Assertions.fail(); //real file does not exist
         } catch (FileNotFoundException e) {
         }
 
         File mockFile = new MockFile(fileName);
-        Assert.assertFalse(mockFile.exists());
+        Assertions.assertFalse(mockFile.exists());
 
         try {
             MockFileInputStream in = new MockFileInputStream(mockFile);
-            Assert.fail(); // also the mock file does not exist (yet)
+            Assertions.fail(); // also the mock file does not exist (yet)
         } catch (FileNotFoundException e) {
         }
 
         boolean created = mockFile.createNewFile();
-        Assert.assertTrue(created);
-        Assert.assertTrue(mockFile.exists());
-        Assert.assertFalse(realFile.exists()); //real file shouldn's have been created
+        Assertions.assertTrue(created);
+        Assertions.assertTrue(mockFile.exists());
+        Assertions.assertFalse(realFile.exists()); //real file shouldn's have been created
 
         //following should work even if real file does not exist
         MockFileInputStream in = new MockFileInputStream(mockFile);
@@ -165,57 +165,57 @@ public class VirtualFileSystemTest {
         String fileName = "foo_written_with_FOS";
         File realFile = new File(fileName);
         realFile.deleteOnExit(); // be sure to get it deleted in case we accidently create it
-        Assert.assertFalse(realFile.exists());
+        Assertions.assertFalse(realFile.exists());
 
         File file = new MockFile(fileName);
-        Assert.assertFalse(file.exists());
+        Assertions.assertFalse(file.exists());
 
         byte[] data = new byte[]{42};
         MockFileOutputStream out = new MockFileOutputStream(file);
         out.write(data);
 
         //writing to such file should create it
-        Assert.assertTrue(file.exists());
+        Assertions.assertTrue(file.exists());
 
         out.close();
         try {
             out.write(data);
-            Assert.fail();
+            Assertions.fail();
         } catch (Exception e) {
             //this is expected, as the stream is closed
         }
 
         //be sure that no real file was created
-        Assert.assertFalse(realFile.exists());
+        Assertions.assertFalse(realFile.exists());
     }
 
     @Test
     public void testTmpFileCreation() throws IOException {
 
         File file = MockFile.createTempFile("foo", ".tmp");
-        Assert.assertTrue(file.exists());
+        Assertions.assertTrue(file.exists());
         String path = file.getAbsolutePath();
         java.lang.System.out.println(path);
-        Assert.assertTrue(path, path.contains("foo") & path.contains(".tmp"));
+        Assertions.assertTrue(path.contains("foo") & path.contains(".tmp"), path);
     }
 
     @Test
     public void testWorkingDirectoryExists() {
         MockFile workingDir = new MockFile(java.lang.System.getProperty("user.dir"));
-        Assert.assertTrue(workingDir.exists());
+        Assertions.assertTrue(workingDir.exists());
     }
 
     @Test
     public void testCreateDeleteFileDirectly() throws IOException {
 
         MockFile file = new MockFile("foo");
-        Assert.assertFalse(file.exists());
+        Assertions.assertFalse(file.exists());
         boolean created = file.createNewFile();
-        Assert.assertTrue(created);
-        Assert.assertTrue(file.exists());
+        Assertions.assertTrue(created);
+        Assertions.assertTrue(file.exists());
         boolean deleted = file.delete();
-        Assert.assertTrue(deleted);
-        Assert.assertFalse(file.exists());
+        Assertions.assertTrue(deleted);
+        Assertions.assertFalse(file.exists());
     }
 
 
@@ -223,33 +223,33 @@ public class VirtualFileSystemTest {
     public void testCreateDeleteFolderDirectly() throws IOException {
 
         MockFile folder = new MockFile("foo" + File.separator + "hello");
-        Assert.assertFalse(folder.exists());
+        Assertions.assertFalse(folder.exists());
         boolean created = folder.mkdir(); // parent doesn't exist, so should fail
-        Assert.assertFalse(created);
-        Assert.assertFalse(folder.exists());
+        Assertions.assertFalse(created);
+        Assertions.assertFalse(folder.exists());
 
         created = folder.mkdirs();
-        Assert.assertTrue(created);
-        Assert.assertTrue(folder.exists());
+        Assertions.assertTrue(created);
+        Assertions.assertTrue(folder.exists());
 
         MockFile file = new MockFile(folder.getAbsoluteFile() + File.separator + "evo");
         created = file.createNewFile();
-        Assert.assertTrue(created);
-        Assert.assertTrue(file.exists());
+        Assertions.assertTrue(created);
+        Assertions.assertTrue(file.exists());
 
         //deleting non-empty folder should fail
         boolean deleted = folder.delete();
-        Assert.assertFalse(deleted);
-        Assert.assertTrue(folder.exists());
+        Assertions.assertFalse(deleted);
+        Assertions.assertTrue(folder.exists());
 
         deleted = file.delete();
-        Assert.assertTrue(deleted);
-        Assert.assertFalse(file.exists());
+        Assertions.assertTrue(deleted);
+        Assertions.assertFalse(file.exists());
 
         //now we can delete the folder
         deleted = folder.delete();
-        Assert.assertTrue(deleted);
-        Assert.assertFalse(folder.exists());
+        Assertions.assertTrue(deleted);
+        Assertions.assertFalse(folder.exists());
     }
 
 }

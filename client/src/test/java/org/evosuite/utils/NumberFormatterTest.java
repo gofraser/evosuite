@@ -19,8 +19,8 @@
  */
 package org.evosuite.utils;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class NumberFormatterTest {
 
@@ -31,7 +31,7 @@ public class NumberFormatterTest {
 
         double value = Double.NEGATIVE_INFINITY;
         String code = NumberFormatter.getNumberString(value);
-        Assert.assertEquals("Double.NEGATIVE_INFINITY", code);
+        Assertions.assertEquals("Double.NEGATIVE_INFINITY", code);
     }
 
 }

@@ -19,7 +19,12 @@
  */
 package org.evosuite.runtime.sandbox;
 
-import org.junit.*;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,10 +36,10 @@ public class SandboxFromJUnitTest {
 
     private static ExecutorService executor;
 
-    @BeforeClass
+    @BeforeAll
     public static void initEvoSuiteFramework() {
         if (Sandbox.isSecurityManagerSupported()) {
-            Assert.assertNull(System.getSecurityManager());
+            Assertions.assertNull(System.getSecurityManager());
         }
 
         Sandbox.initializeSecurityManagerForSUT();
@@ -42,27 +47,27 @@ public class SandboxFromJUnitTest {
 
     }
 
-    @AfterClass
+    @AfterAll
     public static void clearEvoSuiteFramework() {
         if (Sandbox.isSecurityManagerSupported()) {
-            Assert.assertNotNull(System.getSecurityManager());
+            Assertions.assertNotNull(System.getSecurityManager());
         }
 
         executor.shutdownNow();
         Sandbox.resetDefaultSecurityManager();
 
         if (Sandbox.isSecurityManagerSupported()) {
-            Assert.assertNull(System.getSecurityManager());
+            Assertions.assertNull(System.getSecurityManager());
         }
     }
 
-    @Before
+    @BeforeEach
     public void initTest() {
         Sandbox.goingToExecuteSUTCode();
         //TestGenerationContext.getInstance().goingToExecuteSUTCode();
     }
 
-    @After
+    @AfterEach
     public void doneWithTestCase() {
         Sandbox.doneWithExecutingSUTCode();
     }
@@ -83,7 +88,7 @@ public class SandboxFromJUnitTest {
                 Foo foo = new Foo();
                 try {
                     foo.tryToExit();
-                    Assert.fail();
+                    Assertions.fail();
                 } catch (SecurityException e) {
                     //expected
                 }

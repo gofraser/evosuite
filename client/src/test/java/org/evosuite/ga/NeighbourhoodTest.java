@@ -20,8 +20,9 @@
 package org.evosuite.ga;
 
 import org.evosuite.Properties;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,12 +43,12 @@ public class NeighbourhoodTest {
 
         // First call
         List<DummyChromosome> neighbors1 = neighbourhood.getNeighbors(population, 0);
-        Assert.assertEquals("Expected 5 neighbors for Linear Five", 5, neighbors1.size());
+        Assertions.assertEquals(5, neighbors1.size(), "Expected 5 neighbors for Linear Five");
 
         // Second call
         List<DummyChromosome> neighbors2 = neighbourhood.getNeighbors(population, 0);
 
         // If memory leak exists, size will be 10 (5 + 5)
-        Assert.assertEquals("Expected 5 neighbors on second call, checking for memory leak", 5, neighbors2.size());
+        Assertions.assertEquals(5, neighbors2.size(), "Expected 5 neighbors on second call, checking for memory leak");
     }
 }

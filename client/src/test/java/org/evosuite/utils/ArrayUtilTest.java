@@ -1,7 +1,8 @@
 package org.evosuite.utils;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ArrayUtilTest {
 
@@ -24,6 +25,6 @@ public class ArrayUtilTest {
         // This test asserts the DESIRED behavior (strict checking).
         // It currently fails because of the bug/loose check in ArrayUtil.contains.
         Integer[] array = new Integer[] {1, 2, 3};
-        assertFalse("Should not match String '1' to Integer 1", ArrayUtil.contains(array, "1"));
+        assertFalse(ArrayUtil.contains(array, "1"), "Should not match String '1' to Integer 1");
     }
 }

@@ -25,10 +25,9 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ReadFromSystemIn;
 
 public class SystemInUtilSystemTest extends SystemTestBase {
@@ -41,7 +40,7 @@ public class SystemInUtilSystemTest extends SystemTestBase {
      */
     private static final boolean defaultVFS = Properties.VIRTUAL_FS;
 
-    @After
+    @AfterEach
     public void tearDown() {
         Properties.REPLACE_SYSTEM_IN = defaultSystemIn;
         Properties.VIRTUAL_FS = defaultVFS;
@@ -77,9 +76,9 @@ public class SystemInUtilSystemTest extends SystemTestBase {
         System.out.println("EvolvedTestSuite:\n" + best);
 
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
-        Assert.assertEquals(3, goals);
+        Assertions.assertEquals(3, goals);
         double coverage = best.getCoverage();
-        Assert.assertTrue("Not good enough coverage: " + coverage, coverage > 0.99d);
+        Assertions.assertTrue(coverage > 0.99d, "Not good enough coverage: " + coverage);
 
     }
 }

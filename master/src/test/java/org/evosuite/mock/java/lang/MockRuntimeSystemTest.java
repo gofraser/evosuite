@@ -25,9 +25,8 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.mock.java.lang.HookWithBranch;
 import com.examples.with.different.packagename.mock.java.lang.MemorySum;
 
@@ -49,8 +48,8 @@ public class MockRuntimeSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertNotNull(best);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertNotNull(best);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
 
         checkUnstable();
     }
@@ -73,9 +72,9 @@ public class MockRuntimeSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertNotNull(best);
+        Assertions.assertNotNull(best);
 
-        Assert.assertTrue("Non-optimal coverage: ", best.getCoverage() >= 0.8);
+        Assertions.assertTrue(best.getCoverage() >= 0.8, "Non-optimal coverage: ");
 
         checkUnstable();
     }

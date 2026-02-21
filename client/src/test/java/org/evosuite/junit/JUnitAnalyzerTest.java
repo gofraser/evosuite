@@ -27,10 +27,10 @@ import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,7 +54,7 @@ public class JUnitAnalyzerTest {
     private File file = new File(OpenStream.FILE_NAME);
 
 
-    @Before
+    @BeforeEach
     public void init() {
 
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
@@ -65,7 +65,7 @@ public class JUnitAnalyzerTest {
         file.deleteOnExit();
     }
 
-    @After
+    @AfterEach
     public void reset() {
         Properties.CRITERION = defaultCriterion;
         Properties.SELECTED_JUNIT = defaultSelectedJUnit;
@@ -103,7 +103,7 @@ public class JUnitAnalyzerTest {
         Sandbox.initializeSecurityManagerForSUT();
 
         //file should never be created
-        Assert.assertFalse(file.exists());
+        Assertions.assertFalse(file.exists());
 
         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(null);
         TestChromosome carved = factory.getChromosome();
@@ -113,13 +113,13 @@ public class JUnitAnalyzerTest {
          */
         Files.deleteIfExists(file.toPath());
 
-        Assert.assertFalse(file.exists());
+        Assertions.assertFalse(file.exists());
 
-        Assert.assertNotNull(carved);
+        Assertions.assertNotNull(carved);
 
         TestCase test = carved.getTestCase();
 
-        Assert.assertEquals("Should be: constructor, 1 variable and 1 method", 3, test.size());
+        Assertions.assertEquals(3, test.size(), "Should be: constructor, 1 variable and 1 method");
 
         //Now that we have a test case, we check its execution after
         //recompiling it to JUnit, and see if sandbox kicks in
@@ -127,7 +127,7 @@ public class JUnitAnalyzerTest {
         List<TestCase> list = new ArrayList<>();
         list.add(test);
 
-        Assert.assertFalse(file.exists());
+        Assertions.assertFalse(file.exists());
 
         //NOTE: following order of checks reflects what is done
         // in EvoSuite after the search is finished
@@ -135,36 +135,36 @@ public class JUnitAnalyzerTest {
         System.out.println("\n COMPILATION CHECK \n");
         //first try to compile (which implies execution)
         JUnitAnalyzer.removeTestsThatDoNotCompile(list);
-        Assert.assertEquals(1, list.size());
-        Assert.assertFalse(file.exists());
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertFalse(file.exists());
 
         System.out.println("\n FIRST STABILITY CHECK \n");
         //try once
         JUnitAnalyzer.handleTestsThatAreUnstable(list);
-        Assert.assertEquals(1, list.size());
-        Assert.assertFalse(file.exists());
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertFalse(file.exists());
 
         System.out.println("\n SECOND STABILITY CHECK \n");
         //try again
         JUnitAnalyzer.handleTestsThatAreUnstable(list);
-        Assert.assertEquals(1, list.size());
-        Assert.assertFalse(file.exists());
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertFalse(file.exists());
 
         System.out.println("\n FINAL VERIFICATION \n");
         JUnitAnalyzer.verifyCompilationAndExecution(list);
-        Assert.assertEquals(1, list.size());
-        Assert.assertFalse(file.exists());
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertFalse(file.exists());
     }
 
     @Test
     public void testCreationOfTmpDir() throws IOException {
 
         File dir = JUnitAnalyzer.createNewTmpDir();
-        Assert.assertNotNull(dir);
-        Assert.assertTrue(dir.exists());
+        Assertions.assertNotNull(dir);
+        Assertions.assertTrue(dir.exists());
 
         FileUtils.deleteDirectory(dir);
-        Assert.assertFalse(dir.exists());
+        Assertions.assertFalse(dir.exists());
     }
 
 

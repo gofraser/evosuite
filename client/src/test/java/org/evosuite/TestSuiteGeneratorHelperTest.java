@@ -2,22 +2,22 @@ package org.evosuite;
 
 import org.evosuite.Properties.Criterion;
 import org.evosuite.instrumentation.LinePool;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestSuiteGeneratorHelperTest {
 
     private String originalTargetClass;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         originalTargetClass = Properties.TARGET_CLASS;
         LinePool.reset();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         Properties.TARGET_CLASS = originalTargetClass;
         LinePool.reset();
@@ -32,7 +32,7 @@ public class TestSuiteGeneratorHelperTest {
         Criterion[] filtered = TestSuiteGeneratorHelper.removeDebugInfoDependentCriteriaIfMissing(
                 new Criterion[]{Criterion.LINE, Criterion.BRANCH, Criterion.ONLYLINE});
 
-        Assert.assertArrayEquals(new Criterion[]{Criterion.BRANCH}, filtered);
+        Assertions.assertArrayEquals(new Criterion[]{Criterion.BRANCH}, filtered);
     }
 
     @Test
@@ -44,7 +44,7 @@ public class TestSuiteGeneratorHelperTest {
         Criterion[] filtered = TestSuiteGeneratorHelper.removeDebugInfoDependentCriteriaIfMissing(
                 new Criterion[]{Criterion.LINE, Criterion.BRANCH});
 
-        Assert.assertArrayEquals(new Criterion[]{Criterion.LINE, Criterion.BRANCH}, filtered);
+        Assertions.assertArrayEquals(new Criterion[]{Criterion.LINE, Criterion.BRANCH}, filtered);
     }
 
     @Test
@@ -54,6 +54,6 @@ public class TestSuiteGeneratorHelperTest {
         Criterion[] filtered = TestSuiteGeneratorHelper.removeDebugInfoDependentCriteriaIfMissing(
                 new Criterion[]{Criterion.BRANCH, Criterion.EXCEPTION});
 
-        Assert.assertArrayEquals(new Criterion[]{Criterion.BRANCH, Criterion.EXCEPTION}, filtered);
+        Assertions.assertArrayEquals(new Criterion[]{Criterion.BRANCH, Criterion.EXCEPTION}, filtered);
     }
 }

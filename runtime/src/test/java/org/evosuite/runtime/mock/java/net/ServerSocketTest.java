@@ -24,9 +24,9 @@ import org.evosuite.runtime.testdata.EvoSuiteLocalAddress;
 import org.evosuite.runtime.testdata.NetworkHandling;
 import org.evosuite.runtime.vnet.NativeTcp;
 import org.evosuite.runtime.vnet.VirtualNetwork;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,7 +37,7 @@ import java.util.Scanner;
 
 public class ServerSocketTest {
 
-    @Before
+    @BeforeEach
     public void init() {
         MockFramework.enable();
         VirtualNetwork.getInstance().reset();
@@ -48,18 +48,18 @@ public class ServerSocketTest {
         MockServerSocket server = new MockServerSocket();
         try {
             server.accept();
-            Assert.fail();
+            Assertions.fail();
         } catch (Exception e) {
             //expected, because not bound
         }
 
         int port = 42;
         server.bind(new InetSocketAddress(port));
-        Assert.assertTrue(server.isBound());
+        Assertions.assertTrue(server.isBound());
 
         try {
             server.accept();
-            Assert.fail();
+            Assertions.fail();
         } catch (Exception e) {
             //expected. as there is no simulated inbound connection, the virtual network
             //should throw an IOE rather than blocking the test case
@@ -77,7 +77,7 @@ public class ServerSocketTest {
         MockServerSocket second = new MockServerSocket();
         try {
             second.bind(new InetSocketAddress(port));
-            Assert.fail();
+            Assertions.fail();
         } catch (IOException e) {
             //expected, as binding on same port/interface
         }
@@ -104,11 +104,11 @@ public class ServerSocketTest {
         VirtualNetwork.getInstance().registerIncomingTcpConnection(remoteAddress, remotePort, localAddress, localPort);
 
         Socket socket = server.accept();
-        Assert.assertNotNull(socket);
-        Assert.assertEquals(remoteAddress, socket.getInetAddress().getHostAddress());
-        Assert.assertEquals(remotePort, socket.getPort());
-        Assert.assertEquals(localAddress, socket.getLocalAddress().getHostAddress());
-        Assert.assertEquals(localPort, socket.getLocalPort());
+        Assertions.assertNotNull(socket);
+        Assertions.assertEquals(remoteAddress, socket.getInetAddress().getHostAddress());
+        Assertions.assertEquals(remotePort, socket.getPort());
+        Assertions.assertEquals(localAddress, socket.getLocalAddress().getHostAddress());
+        Assertions.assertEquals(localPort, socket.getLocalPort());
 
         server.close();
         socket.close();
@@ -118,7 +118,7 @@ public class ServerSocketTest {
     public void testReceiveAndReplyMessage() throws IOException {
 
         int n = VirtualNetwork.getInstance().getViewOfOpenedTcpConnections().size();
-        Assert.assertEquals(0, n);
+        Assertions.assertEquals(0, n);
 
         //first bind a listening server
         MockServerSocket server = new MockServerSocket();
@@ -127,7 +127,7 @@ public class ServerSocketTest {
         server.bind(new InetSocketAddress(localAddress, localPort));
 
         n = VirtualNetwork.getInstance().getViewOfOpenedTcpConnections().size();
-        Assert.assertEquals(0, n);
+        Assertions.assertEquals(0, n);
 
         //send a message on tcp connection, although SUT is not listening yet
         String msg = "Hello World! Sent from mocked TCP connection";
@@ -136,13 +136,13 @@ public class ServerSocketTest {
 
         //open listening port, and read message
         Socket socket = server.accept();
-        Assert.assertNotNull(socket);
+        Assertions.assertNotNull(socket);
         InputStream in = socket.getInputStream();
-        Assert.assertNotNull(in);
+        Assertions.assertNotNull(in);
         Scanner inScan = new Scanner(in);
         String received = inScan.nextLine();
         inScan.close();
-        Assert.assertEquals(msg, received);
+        Assertions.assertEquals(msg, received);
 
 
         //send a reply to remote host on same TCP connection
@@ -151,9 +151,9 @@ public class ServerSocketTest {
         out.write(reply.getBytes());
 
         n = VirtualNetwork.getInstance().getViewOfOpenedTcpConnections().size();
-        Assert.assertEquals(1, n);
+        Assertions.assertEquals(1, n);
         NativeTcp connection = VirtualNetwork.getInstance().getViewOfOpenedTcpConnections().iterator().next();
-        Assert.assertEquals(reply.length(), connection.getAmountOfDataInRemoteBuffer());
+        Assertions.assertEquals(reply.length(), connection.getAmountOfDataInRemoteBuffer());
 
         server.close();
     }

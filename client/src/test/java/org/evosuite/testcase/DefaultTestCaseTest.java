@@ -19,8 +19,8 @@
  */
 package org.evosuite.testcase;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class DefaultTestCaseTest {
 
@@ -29,6 +29,6 @@ public class DefaultTestCaseTest {
 
         DefaultTestCase tc = new DefaultTestCase();
         DefaultTestCase clone = tc.clone();
-        Assert.assertNotSame(tc.statements, clone.statements);
+        Assertions.assertNotSame(tc.statements, clone.statements);
     }
 }

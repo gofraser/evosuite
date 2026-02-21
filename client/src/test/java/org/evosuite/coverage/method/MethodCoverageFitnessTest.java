@@ -11,9 +11,9 @@ import org.evosuite.testcase.statements.EntityWithParametersStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericAccessibleObject;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -25,7 +25,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 
 public class MethodCoverageFitnessTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.BREAK_ON_EXCEPTION = true;
         Properties.TEST_ARCHIVE = false;
@@ -59,7 +59,7 @@ public class MethodCoverageFitnessTest {
         ExecutionResult result = new ExecutionResult(testCase);
 
         double fit = fitness.getFitness(chromosome, result);
-        Assert.assertEquals(0.0, fit, 0.001);
+        Assertions.assertEquals(0.0, fit, 0.001);
     }
 
     @Test
@@ -76,7 +76,7 @@ public class MethodCoverageFitnessTest {
         ExecutionResult result = new ExecutionResult(testCase);
 
         double fit = fitness.getFitness(chromosome, result);
-        Assert.assertEquals(1.0, fit, 0.001);
+        Assertions.assertEquals(1.0, fit, 0.001);
     }
 
     @Test
@@ -100,11 +100,11 @@ public class MethodCoverageFitnessTest {
 
         Properties.BREAK_ON_EXCEPTION = true;
         double fit = fitness.getFitness(chromosome, result);
-        Assert.assertEquals(1.0, fit, 0.001);
+        Assertions.assertEquals(1.0, fit, 0.001);
 
         Properties.BREAK_ON_EXCEPTION = false;
         fit = fitness.getFitness(chromosome, result);
-        Assert.assertEquals(0.0, fit, 0.001);
+        Assertions.assertEquals(0.0, fit, 0.001);
     }
 
     @Test
@@ -121,7 +121,7 @@ public class MethodCoverageFitnessTest {
         ExecutionResult result = new ExecutionResult(testCase);
 
         double fit = fitness.getFitness(chromosome, result);
-        Assert.assertEquals(0.0, fit, 0.001);
+        Assertions.assertEquals(0.0, fit, 0.001);
     }
 
     @Test
@@ -141,7 +141,7 @@ public class MethodCoverageFitnessTest {
         result.setThrownExceptions(exceptions);
 
         double fit = fitness.getFitness(chromosome, result);
-        Assert.assertEquals(1.0, fit, 0.001);
+        Assertions.assertEquals(1.0, fit, 0.001);
     }
 
     @Test
@@ -161,7 +161,7 @@ public class MethodCoverageFitnessTest {
         when(trace.getMethodExecutionCount()).thenReturn(methodCount);
 
         double fit = fitness.getFitness(chromosome, result);
-        Assert.assertEquals(0.0, fit, 0.001);
+        Assertions.assertEquals(0.0, fit, 0.001);
     }
 
     @Test
@@ -181,6 +181,6 @@ public class MethodCoverageFitnessTest {
         when(trace.getMethodExecutionCount()).thenReturn(methodCount);
 
         double fit = fitness.getFitness(chromosome, result);
-        Assert.assertEquals(0.0, fit, 0.001);
+        Assertions.assertEquals(0.0, fit, 0.001);
     }
 }

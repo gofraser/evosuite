@@ -1,7 +1,7 @@
 package org.evosuite.utils.generic;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import javax.swing.JMenu;
 import javax.swing.JSplitPane;
@@ -37,7 +37,7 @@ public class GenericClassUtilsTest {
         Type lhsType = GenericHolder.class.getDeclaredField("table").getGenericType();
         Type rhsType = ConcreteHolder.class.getDeclaredField("table").getGenericType();
 
-        Assert.assertTrue(GenericClassUtils.isAssignable(lhsType, rhsType));
+        Assertions.assertTrue(GenericClassUtils.isAssignable(lhsType, rhsType));
     }
 
     @Test
@@ -45,13 +45,13 @@ public class GenericClassUtilsTest {
         Type lhsType = StringIntegerHolder.class.getDeclaredField("table").getGenericType();
         Type rhsType = ConcreteHolder.class.getDeclaredField("table").getGenericType();
 
-        Assert.assertFalse(GenericClassUtils.isAssignable(lhsType, rhsType));
+        Assertions.assertFalse(GenericClassUtils.isAssignable(lhsType, rhsType));
     }
 
     @Test
     public void testRawClassAssignableToUninstantiatedTypeVariablesUsesRawCompatibility() throws Exception {
         Type lhsType = GenericMapHolder.class.getDeclaredField("values").getGenericType();
 
-        Assert.assertTrue(GenericClassUtils.isAssignable(lhsType, Properties.class));
+        Assertions.assertTrue(GenericClassUtils.isAssignable(lhsType, Properties.class));
     }
 }

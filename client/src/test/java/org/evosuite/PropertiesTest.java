@@ -20,21 +20,21 @@
 package org.evosuite;
 
 import org.evosuite.Properties.NoSuchParameterException;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class PropertiesTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void initClass() {
         Properties.getInstance();
     }
 
-    @After
+    @AfterEach
     public void reset() {
         Properties.getInstance().resetToDefaults();
     }
@@ -72,11 +72,11 @@ public class PropertiesTest {
         final boolean defaultValue = Properties.TEST_CARVING;
 
         boolean value = Properties.getBooleanValue("test_carving");
-        Assert.assertEquals(defaultValue, value);
+        Assertions.assertEquals(defaultValue, value);
 
         Properties.getInstance().setValue("test_carving", !defaultValue);
         value = Properties.getBooleanValue("test_carving");
-        Assert.assertNotEquals(defaultValue, value);
+        Assertions.assertNotEquals(defaultValue, value);
 
         try {
             Properties.getInstance().setValue("test_carving", "tru");
@@ -92,12 +92,12 @@ public class PropertiesTest {
         final String defaultValue = Properties.TARGET_CLASS;
 
         final String aString = "foo_foo_foo";
-        Assert.assertNotEquals(defaultValue, aString);
+        Assertions.assertNotEquals(defaultValue, aString);
 
         Properties.TARGET_CLASS = aString;
-        Assert.assertEquals(aString, Properties.TARGET_CLASS);
+        Assertions.assertEquals(aString, Properties.TARGET_CLASS);
 
         Properties.getInstance().resetToDefaults();
-        Assert.assertEquals(defaultValue, Properties.TARGET_CLASS);
+        Assertions.assertEquals(defaultValue, Properties.TARGET_CLASS);
     }
 }

@@ -25,9 +25,9 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.Arrays;
@@ -36,9 +36,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for {@link MemberAnalyzer}.
@@ -53,7 +51,7 @@ public class MemberAnalyzerTest {
     private Set<Class<?>> analyzedClasses;
     private InheritanceTree inheritanceTree;
 
-    @Before
+    @BeforeEach
     public void setUp() throws ClassNotFoundException {
         Properties.TARGET_CLASS =
                 MemberAnalyzerFixture.class.getCanonicalName();
@@ -79,7 +77,7 @@ public class MemberAnalyzerTest {
                 inheritanceTree);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         TestCluster.reset();
     }
@@ -95,11 +93,11 @@ public class MemberAnalyzerTest {
         boolean result = memberAnalyzer.analyze(
                 clazz, MemberAnalyzer.AnalysisMode.TARGET, 0);
 
-        assertTrue("analyze should return true for a usable class", result);
+        assertTrue(result, "analyze should return true for a usable class");
 
         List<GenericAccessibleObject<?>> testCalls = cluster.getTestCalls();
-        assertFalse("Test calls should not be empty in TARGET mode",
-                testCalls.isEmpty());
+        assertFalse(testCalls.isEmpty(),
+                "Test calls should not be empty in TARGET mode");
 
         // Should include constructors and methods declared in the fixture
         Set<String> callNames = testCalls.stream()
@@ -107,13 +105,13 @@ public class MemberAnalyzerTest {
                 .collect(Collectors.toSet());
 
         // Constructor.getName() returns the FQCN
-        assertTrue("Should include a constructor",
-                callNames.contains(
-                        MemberAnalyzerFixture.class.getName()));
-        assertTrue("Should include getValue method",
-                callNames.contains("getValue"));
-        assertTrue("Should include setValue method",
-                callNames.contains("setValue"));
+        assertTrue(callNames.contains(
+                        MemberAnalyzerFixture.class.getName()),
+                "Should include a constructor");
+        assertTrue(callNames.contains("getValue"),
+                "Should include getValue method");
+        assertTrue(callNames.contains("setValue"),
+                "Should include setValue method");
     }
 
     @Test
@@ -124,15 +122,15 @@ public class MemberAnalyzerTest {
                 clazz, MemberAnalyzer.AnalysisMode.TARGET, 0);
 
         Set<GenericAccessibleObject<?>> generators = cluster.getGenerators();
-        assertFalse("Generators should not be empty", generators.isEmpty());
+        assertFalse(generators.isEmpty(), "Generators should not be empty");
 
         // Constructors should be generators for the fixture class
         boolean hasConstructorGenerator = generators.stream()
                 .anyMatch(g -> g.isConstructor()
                         && g.getDeclaringClass()
                                 .equals(MemberAnalyzerFixture.class));
-        assertTrue("Should have a constructor generator",
-                hasConstructorGenerator);
+        assertTrue(hasConstructorGenerator,
+                "Should have a constructor generator");
     }
 
     @Test
@@ -148,7 +146,7 @@ public class MemberAnalyzerTest {
         // publicField is non-final and should also be a modifier
         boolean hasSetValueModifier = modifiers.stream()
                 .anyMatch(m -> m.getName().equals("setValue"));
-        assertTrue("Should have setValue as modifier", hasSetValueModifier);
+        assertTrue(hasSetValueModifier, "Should have setValue as modifier");
     }
 
     @Test
@@ -162,7 +160,7 @@ public class MemberAnalyzerTest {
         boolean hasFieldGenerator = generators.stream()
                 .anyMatch(g -> g.isField()
                         && g.getName().equals("publicField"));
-        assertTrue("Should have publicField as generator", hasFieldGenerator);
+        assertTrue(hasFieldGenerator, "Should have publicField as generator");
     }
 
     // -----------------------------------------------------------------------
@@ -176,11 +174,11 @@ public class MemberAnalyzerTest {
         boolean result = memberAnalyzer.analyze(
                 clazz, MemberAnalyzer.AnalysisMode.DEPENDENCY, 1);
 
-        assertTrue("analyze should return true for a usable class", result);
+        assertTrue(result, "analyze should return true for a usable class");
 
         List<GenericAccessibleObject<?>> testCalls = cluster.getTestCalls();
-        assertTrue("Test calls should be empty in DEPENDENCY mode",
-                testCalls.isEmpty());
+        assertTrue(testCalls.isEmpty(),
+                "Test calls should be empty in DEPENDENCY mode");
     }
 
     @Test
@@ -191,15 +189,15 @@ public class MemberAnalyzerTest {
                 clazz, MemberAnalyzer.AnalysisMode.DEPENDENCY, 1);
 
         Set<GenericAccessibleObject<?>> generators = cluster.getGenerators();
-        assertFalse("Generators should not be empty in DEPENDENCY mode",
-                generators.isEmpty());
+        assertFalse(generators.isEmpty(),
+                "Generators should not be empty in DEPENDENCY mode");
 
         boolean hasConstructorGenerator = generators.stream()
                 .anyMatch(g -> g.isConstructor()
                         && g.getDeclaringClass()
                                 .equals(MemberAnalyzerFixture.class));
-        assertTrue("Should have a constructor generator in DEPENDENCY mode",
-                hasConstructorGenerator);
+        assertTrue(hasConstructorGenerator,
+                "Should have a constructor generator in DEPENDENCY mode");
     }
 
     @Test
@@ -210,8 +208,8 @@ public class MemberAnalyzerTest {
                 clazz, MemberAnalyzer.AnalysisMode.DEPENDENCY, 1);
 
         Set<GenericAccessibleObject<?>> modifiers = cluster.getModifiers();
-        assertFalse("Modifiers should not be empty in DEPENDENCY mode",
-                modifiers.isEmpty());
+        assertFalse(modifiers.isEmpty(),
+                "Modifiers should not be empty in DEPENDENCY mode");
     }
 
     @Test
@@ -221,9 +219,9 @@ public class MemberAnalyzerTest {
         memberAnalyzer.analyze(
                 clazz, MemberAnalyzer.AnalysisMode.DEPENDENCY, 1);
 
-        assertTrue("Class should be marked as analyzed",
-                cluster.getAnalyzedClasses()
-                        .contains(MemberAnalyzerFixture.class));
+        assertTrue(cluster.getAnalyzedClasses()
+                        .contains(MemberAnalyzerFixture.class),
+                "Class should be marked as analyzed");
     }
 
     // -----------------------------------------------------------------------
@@ -247,8 +245,8 @@ public class MemberAnalyzerTest {
         GenericClass<?> intClass = GenericClassFactory.get(int.class);
         memberAnalyzer.addDependency(intClass, 0);
 
-        assertTrue("Primitives should not be added as dependencies",
-                dependencies.isEmpty());
+        assertTrue(dependencies.isEmpty(),
+                "Primitives should not be added as dependencies");
     }
 
     @Test
@@ -256,8 +254,8 @@ public class MemberAnalyzerTest {
         GenericClass<?> stringClass = GenericClassFactory.get(String.class);
         memberAnalyzer.addDependency(stringClass, 0);
 
-        assertTrue("Strings should not be added as dependencies",
-                dependencies.isEmpty());
+        assertTrue(dependencies.isEmpty(),
+                "Strings should not be added as dependencies");
     }
 
     @Test
@@ -265,8 +263,8 @@ public class MemberAnalyzerTest {
         GenericClass<?> enumClass = GenericClassFactory.get(Enum.class);
         memberAnalyzer.addDependency(enumClass, 0);
 
-        assertTrue("Enum base class should not be added as dependencies",
-                dependencies.isEmpty());
+        assertTrue(dependencies.isEmpty(),
+                "Enum base class should not be added as dependencies");
     }
 
     @Test
@@ -287,8 +285,8 @@ public class MemberAnalyzerTest {
                 || dependencies.stream().anyMatch(dp ->
                         dp.getDependencyClass()
                                 .equals(MemberAnalyzerFixture.class));
-        assertTrue("Array component type should be processed",
-                wasProcessed);
+        assertTrue(wasProcessed,
+                "Array component type should be processed");
     }
 
     @Test
@@ -302,8 +300,8 @@ public class MemberAnalyzerTest {
         memberAnalyzer.addDependency(clazz, 0);
         int sizeAfterSecond = dependencies.size();
 
-        assertEquals("Duplicate dependency should not be added",
-                sizeAfterFirst, sizeAfterSecond);
+        assertEquals(sizeAfterFirst,
+                sizeAfterSecond, "Duplicate dependency should not be added");
     }
 
     @Test
@@ -314,8 +312,8 @@ public class MemberAnalyzerTest {
 
         memberAnalyzer.addDependency(clazz, 0);
 
-        assertTrue("Already-analyzed classes should not be re-added",
-                dependencies.isEmpty());
+        assertTrue(dependencies.isEmpty(),
+                "Already-analyzed classes should not be re-added");
     }
 
     // -----------------------------------------------------------------------
@@ -332,14 +330,14 @@ public class MemberAnalyzerTest {
                 clazz, MemberAnalyzer.AnalysisMode.TARGET, 0);
 
         int cacheSize = dependencyCache.size();
-        assertTrue("Dependency cache should be populated after analysis",
-                cacheSize > 0);
+        assertTrue(cacheSize > 0,
+                "Dependency cache should be populated after analysis");
 
         // Re-analyzing the same constructors/methods should not grow cache
         memberAnalyzer.analyze(
                 clazz, MemberAnalyzer.AnalysisMode.TARGET, 0);
-        assertEquals("Cache should not grow on re-analysis",
-                cacheSize, dependencyCache.size());
+        assertEquals(cacheSize,
+                dependencyCache.size(), "Cache should not grow on re-analysis");
     }
 
     // -----------------------------------------------------------------------
@@ -358,8 +356,8 @@ public class MemberAnalyzerTest {
         // In TARGET mode, getValue() (returns int) should be a generator
         boolean hasGetValueGenerator = generators.stream()
                 .anyMatch(g -> g.getName().equals("getValue"));
-        assertTrue("TARGET mode should add primitive-returning methods "
-                + "as generators", hasGetValueGenerator);
+        assertTrue(hasGetValueGenerator, "TARGET mode should add primitive-returning methods "
+                + "as generators");
     }
 
     @Test
@@ -375,7 +373,7 @@ public class MemberAnalyzerTest {
         // be a generator because dependency mode skips primitive returns
         boolean hasGetValueGenerator = generators.stream()
                 .anyMatch(g -> g.getName().equals("getValue"));
-        assertFalse("DEPENDENCY mode should NOT add primitive-returning "
-                + "methods as generators", hasGetValueGenerator);
+        assertFalse(hasGetValueGenerator, "DEPENDENCY mode should NOT add primitive-returning "
+                + "methods as generators");
     }
 }

@@ -25,9 +25,9 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 public class TargetMethodSystemTest extends SystemTestBase {
 
@@ -46,8 +46,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -65,8 +65,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -84,8 +84,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -103,8 +103,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -122,8 +122,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -141,8 +141,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -160,8 +160,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -179,8 +179,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -199,8 +199,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println(best.toString());
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -218,8 +218,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -237,8 +237,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -256,8 +256,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
 
@@ -276,11 +276,11 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
-    @Ignore // Why?
+    @Disabled // Why?
     @Test
     public void testTargetMethodWithALLDEFCoverage() {
         EvoSuite evosuite = new EvoSuite();
@@ -296,8 +296,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     @Test
@@ -315,8 +315,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     //@Ignore
@@ -337,10 +337,10 @@ public class TargetMethodSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println(best.toString());
         System.out.println(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
-    @Ignore
+    @Disabled
     @Test // No goals generated
     public void testTargetMethodWithTryCatchCoverage() {
         EvoSuite evosuite = new EvoSuite();
@@ -357,8 +357,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     // @Ignore
@@ -378,8 +378,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println(best.toString());
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     // @Ignore
@@ -399,8 +399,8 @@ public class TargetMethodSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println(best.toString());
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 
     // @Ignore
@@ -420,7 +420,7 @@ public class TargetMethodSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println(best.toString());
-        Assert.assertTrue(best.toString().contains("foo"));
-        Assert.assertFalse(best.toString().contains("bar"));
+        Assertions.assertTrue(best.toString().contains("foo"));
+        Assertions.assertFalse(best.toString().contains("bar"));
     }
 }

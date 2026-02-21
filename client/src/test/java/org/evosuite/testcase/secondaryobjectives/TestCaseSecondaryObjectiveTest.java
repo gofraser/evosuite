@@ -2,22 +2,23 @@ package org.evosuite.testcase.secondaryobjectives;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.TestChromosome;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestCaseSecondaryObjectiveTest {
 
     private Properties.SecondaryObjective[] originalObjectives;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         originalObjectives = Properties.SECONDARY_OBJECTIVE;
         TestChromosome.getSecondaryObjectives().clear();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         Properties.SECONDARY_OBJECTIVE = originalObjectives;
         TestChromosome.getSecondaryObjectives().clear();

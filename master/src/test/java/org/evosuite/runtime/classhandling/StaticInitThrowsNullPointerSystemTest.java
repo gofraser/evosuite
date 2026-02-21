@@ -19,8 +19,8 @@
  */
 package org.evosuite.runtime.classhandling;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
@@ -28,8 +28,7 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.result.TestGenerationResult;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.reset.StaticInitThrowsNullPointer;
 
 public class StaticInitThrowsNullPointerSystemTest extends SystemTestBase {

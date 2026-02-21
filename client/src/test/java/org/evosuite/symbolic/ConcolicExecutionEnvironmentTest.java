@@ -39,10 +39,10 @@ import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.variable.VariableReference;
-import org.junit.After;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
@@ -50,8 +50,8 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ConcolicExecutionEnvironmentTest {
 
@@ -75,10 +75,10 @@ public class ConcolicExecutionEnvironmentTest {
         return branch_conditions;
     }
 
-    @Before
+    @BeforeEach
     public void before() {
         final Integer javaVersion = Integer.valueOf(SystemUtils.JAVA_VERSION.split("\\.")[0]);
-        Assume.assumeTrue(javaVersion < 9);
+        Assumptions.assumeTrue(javaVersion < 9);
     }
 
     @Test
@@ -113,7 +113,7 @@ public class ConcolicExecutionEnvironmentTest {
         assertEquals(1, branch_conditions.size());
     }
 
-    @After
+    @AfterEach
     public void restore() {
         TestGenerationContext.getInstance().resetContext();
         RuntimeSettings.useVFS = DEFAULT_VFS;
@@ -206,7 +206,7 @@ public class ConcolicExecutionEnvironmentTest {
         return tc.getDefaultTestCase();
     }
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.VIRTUAL_NET = true;
         Properties.REPLACE_CALLS = true;

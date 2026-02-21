@@ -19,9 +19,6 @@
  */
 package org.evosuite.junit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -29,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.opencsv.exceptions.CsvException;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.apache.commons.io.FileUtils;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
@@ -38,10 +37,9 @@ import org.evosuite.continuous.persistency.CsvJUnitData;
 import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.SearchStatistics;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.Calculator;
 import com.examples.with.different.packagename.CalculatorTest;
 import com.examples.with.different.packagename.coverage.MethodWithSeveralInputArguments;
@@ -51,12 +49,12 @@ import com.opencsv.CSVReader;
 
 public class CoverageAnalysisOfClassSystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void prepare() {
         try {
             FileUtils.deleteDirectory(new File("evosuite-report"));
         } catch (IOException e) {
-            Assert.fail(e.getMessage());
+            Assertions.fail(e.getMessage());
         }
 
         Properties.TARGET_CLASS = "";
@@ -88,7 +86,7 @@ public class CoverageAnalysisOfClassSystemTest extends SystemTestBase {
         };
 
         SearchStatistics statistics = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(statistics);
+        Assertions.assertNotNull(statistics);
 
         Map<String, OutputVariable<?>> outputVariables = statistics.getOutputVariables();
 
@@ -127,7 +125,7 @@ public class CoverageAnalysisOfClassSystemTest extends SystemTestBase {
         };
 
         SearchStatistics statistics = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(statistics);
+        Assertions.assertNotNull(statistics);
 
         String statistics_file = System.getProperty("user.dir") + File.separator + Properties.REPORT_DIR + File.separator + "statistics.csv";
         System.out.println(statistics_file);
@@ -174,13 +172,13 @@ public class CoverageAnalysisOfClassSystemTest extends SystemTestBase {
         };
 
         SearchStatistics result = (SearchStatistics) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
         OutputVariable<?> methodCoverage = result.getOutputVariables().get(RuntimeVariable.MethodCoverage.name());
         OutputVariable<?> inputCoverage = result.getOutputVariables().get(RuntimeVariable.InputCoverage.name());
         OutputVariable<?> outputCoverage = result.getOutputVariables().get(RuntimeVariable.OutputCoverage.name());
 
-        Assert.assertEquals("Unexpected method coverage value", 1d, (Double) methodCoverage.getValue(), 0.01);
-        Assert.assertEquals("Unexpected input coverage value", 0.67d, (Double) inputCoverage.getValue(), 0.01);
-        Assert.assertEquals("Unexpected output coverage value", 0.33d, (Double) outputCoverage.getValue(), 0.01);
+        Assertions.assertEquals(1d, (Double) methodCoverage.getValue(), 0.01, "Unexpected method coverage value");
+        Assertions.assertEquals(0.67d, (Double) inputCoverage.getValue(), 0.01, "Unexpected input coverage value");
+        Assertions.assertEquals(0.33d, (Double) outputCoverage.getValue(), 0.01, "Unexpected output coverage value");
     }
 }

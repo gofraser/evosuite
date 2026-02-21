@@ -30,11 +30,10 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.defuse.DefUseExample1;
 import com.examples.with.different.packagename.defuse.GCD;
 
@@ -45,7 +44,7 @@ public class DefUseAnalysisSystemTest extends SystemTestBase {
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
     private final String analysisCriteria = Properties.ANALYSIS_CRITERIA;
 
-    @Before
+    @BeforeEach
     public void beforeTest() {
         Properties.SANDBOX = true;
         Properties.CRITERION = new Criterion[]{Criterion.DEFUSE};
@@ -53,7 +52,7 @@ public class DefUseAnalysisSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = DefUseExample1.class.getCanonicalName();
     }
 
-    @After
+    @AfterEach
     public void afterTest() {
         Properties.CRITERION = oldCriterion;
         Properties.ASSERTIONS = oldAssertions;
@@ -82,11 +81,11 @@ public class DefUseAnalysisSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals(0, DefUseCoverageFactory.getInterMethodGoalsCount());
-        Assert.assertEquals(0, DefUseCoverageFactory.getIntraClassGoalsCount());
-        Assert.assertEquals(1, DefUseCoverageFactory.getParamGoalsCount());
-        Assert.assertEquals(3, DefUseCoverageFactory.getIntraMethodGoalsCount());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(0, DefUseCoverageFactory.getInterMethodGoalsCount());
+        Assertions.assertEquals(0, DefUseCoverageFactory.getIntraClassGoalsCount());
+        Assertions.assertEquals(1, DefUseCoverageFactory.getParamGoalsCount());
+        Assertions.assertEquals(3, DefUseCoverageFactory.getIntraMethodGoalsCount());
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -106,11 +105,11 @@ public class DefUseAnalysisSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertEquals(0, DefUseCoverageFactory.getInterMethodGoalsCount());
-        Assert.assertEquals(0, DefUseCoverageFactory.getIntraClassGoalsCount());
-        Assert.assertEquals(4, DefUseCoverageFactory.getParamGoalsCount()); // 3 or 4?
-        Assert.assertEquals(6, DefUseCoverageFactory.getIntraMethodGoalsCount());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(0, DefUseCoverageFactory.getInterMethodGoalsCount());
+        Assertions.assertEquals(0, DefUseCoverageFactory.getIntraClassGoalsCount());
+        Assertions.assertEquals(4, DefUseCoverageFactory.getParamGoalsCount()); // 3 or 4?
+        Assertions.assertEquals(6, DefUseCoverageFactory.getIntraMethodGoalsCount());
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -130,11 +129,11 @@ public class DefUseAnalysisSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertEquals(0, DefUseCoverageFactory.getInterMethodGoalsCount());
-        Assert.assertEquals(0, DefUseCoverageFactory.getIntraClassGoalsCount());
-        Assert.assertEquals(1, DefUseCoverageFactory.getParamGoalsCount());
-        Assert.assertEquals(3, DefUseCoverageFactory.getIntraMethodGoalsCount());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(0, DefUseCoverageFactory.getInterMethodGoalsCount());
+        Assertions.assertEquals(0, DefUseCoverageFactory.getIntraClassGoalsCount());
+        Assertions.assertEquals(1, DefUseCoverageFactory.getParamGoalsCount());
+        Assertions.assertEquals(3, DefUseCoverageFactory.getIntraMethodGoalsCount());
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -154,11 +153,11 @@ public class DefUseAnalysisSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
-        Assert.assertEquals(1, DefUseCoverageFactory.getInterMethodGoalsCount());
-        Assert.assertEquals(1, DefUseCoverageFactory.getIntraClassGoalsCount());
-        Assert.assertEquals(0, DefUseCoverageFactory.getParamGoalsCount());
-        Assert.assertEquals(0, DefUseCoverageFactory.getIntraMethodGoalsCount());
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1, DefUseCoverageFactory.getInterMethodGoalsCount());
+        Assertions.assertEquals(1, DefUseCoverageFactory.getIntraClassGoalsCount());
+        Assertions.assertEquals(0, DefUseCoverageFactory.getParamGoalsCount());
+        Assertions.assertEquals(0, DefUseCoverageFactory.getIntraMethodGoalsCount());
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -173,11 +172,11 @@ public class DefUseAnalysisSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.print("EvolvedTestSuite:\n" + best.toString());
-        Assert.assertEquals(0, DefUseCoverageFactory.getInterMethodGoalsCount());
-        Assert.assertEquals(0, DefUseCoverageFactory.getIntraClassGoalsCount());
-        Assert.assertEquals(3, DefUseCoverageFactory.getParamGoalsCount());
+        Assertions.assertEquals(0, DefUseCoverageFactory.getInterMethodGoalsCount());
+        Assertions.assertEquals(0, DefUseCoverageFactory.getIntraClassGoalsCount());
+        Assertions.assertEquals(3, DefUseCoverageFactory.getParamGoalsCount());
         //Assert.assertEquals(0, DefUseCoverageFactory.getIntraMethodGoalsCount()); Difficult to expect the correct "expected" value as the method in CUT has a loop.
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
 
     }
 }

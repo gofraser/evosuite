@@ -25,8 +25,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class Java9ExcludedPackagesSystemTest extends SystemTestBase {
     @Test
@@ -41,7 +41,7 @@ public class Java9ExcludedPackagesSystemTest extends SystemTestBase {
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        Assert.assertFalse(best.toString().contains("SunGraphics2D"));
-        Assert.assertTrue(best.toString().contains("testMe"));
+        Assertions.assertFalse(best.toString().contains("SunGraphics2D"));
+        Assertions.assertTrue(best.toString().contains("testMe"));
     }
 }

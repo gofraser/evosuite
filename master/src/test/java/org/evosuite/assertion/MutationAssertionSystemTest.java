@@ -27,10 +27,9 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
-import org.junit.Ignore;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author fraser
@@ -55,52 +54,52 @@ public class MutationAssertionSystemTest extends SystemTestBase {
         return ga.getBestIndividual();
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test1() {
         TestSuiteChromosome suite = generateSuite(ExampleObserverClass.class);
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
-            Assert.assertTrue("Test has no assertions: " + test.toCode(),
-                    test.hasAssertions());
+            Assertions.assertTrue(test.hasAssertions(),
+                    "Test has no assertions: " + test.toCode());
         }
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test2() {
         TestSuiteChromosome suite = generateSuite(ExampleFieldClass.class);
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
-            Assert.assertTrue("Test has no assertions: " + test.toCode(),
-                    test.hasAssertions());
+            Assertions.assertTrue(test.hasAssertions(),
+                    "Test has no assertions: " + test.toCode());
         }
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test3() {
         TestSuiteChromosome suite = generateSuite(ExampleInheritedClass.class);
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
-            Assert.assertTrue("Test has no assertions: " + test.toCode(),
-                    test.hasAssertions());
+            Assertions.assertTrue(test.hasAssertions(),
+                    "Test has no assertions: " + test.toCode());
         }
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void test4() {
         TestSuiteChromosome suite = generateSuite(ExampleStaticVoidSetterClass.class);
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
             if (test.size() > 1)
-                Assert.assertTrue("Test has no assertions: " + test.toCode(),
-                        test.hasAssertions());
+                Assertions.assertTrue(test.hasAssertions(),
+                        "Test has no assertions: " + test.toCode());
         }
     }
 
@@ -122,14 +121,14 @@ public class MutationAssertionSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome suite = ga.getBestIndividual();
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
             if (test.size() > 1)
-                Assert.assertTrue("Test has no assertions: " + test.toCode(),
-                        test.hasAssertions());
+                Assertions.assertTrue(test.hasAssertions(),
+                        "Test has no assertions: " + test.toCode());
         }
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, suite.getCoverage(), 0.05);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, suite.getCoverage(), 0.05, "Non-optimal coverage: ");
     }
 }

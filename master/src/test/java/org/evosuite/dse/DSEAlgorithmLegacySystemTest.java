@@ -19,10 +19,8 @@
  */
 package org.evosuite.dse;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.examples.with.different.packagename.dse.PathDivergeUsingHashExample;
 import org.evosuite.EvoSuite;
@@ -34,10 +32,9 @@ import org.evosuite.Properties.Strategy;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.dse.Add;
 import com.examples.with.different.packagename.dse.array.ArrayLengthExample;
 import com.examples.with.different.packagename.dse.BooleanExample;
@@ -54,11 +51,11 @@ import com.examples.with.different.packagename.dse.ObjectExample;
 import com.examples.with.different.packagename.dse.ShortExample;
 import com.examples.with.different.packagename.dse.StringExample;
 
-@Ignore
+@Disabled
 @Deprecated
 public class DSEAlgorithmLegacySystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.VIRTUAL_FS = true;
         Properties.VIRTUAL_NET = true;
@@ -505,7 +502,7 @@ public class DSEAlgorithmLegacySystemTest extends SystemTestBase {
     }
 
     // No longer relevant for legacy algorthm
-    @Ignore
+    @Disabled
     @Test
     public void testArrayLength() {
 

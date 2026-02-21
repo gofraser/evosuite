@@ -27,10 +27,9 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.statistics.MultiThreads;
 import com.examples.with.different.packagename.statistics.NoThreads;
 
@@ -51,13 +50,13 @@ public class SearchStatisticsSystemTest extends SystemTestBase {
         evosuite.parseCommandLine(command);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> threads = map.get(RuntimeVariable.Threads.toString());
-        Assert.assertNotNull(threads);
-        Assert.assertEquals(1, threads.getValue());
+        Assertions.assertNotNull(threads);
+        Assertions.assertEquals(1, threads.getValue());
     }
 
-    @Ignore
+    @Disabled
     //ignored due to problems of JVM8 crashing on MacOS, and anyway we do not really need to check for threads any more
     @Test
     public void testHandlingOfMultiThreads() {
@@ -74,10 +73,10 @@ public class SearchStatisticsSystemTest extends SystemTestBase {
         evosuite.parseCommandLine(command);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> threads = map.get(RuntimeVariable.Threads.toString());
-        Assert.assertNotNull(threads);
-        Assert.assertEquals(3, threads.getValue());
+        Assertions.assertNotNull(threads);
+        Assertions.assertEquals(3, threads.getValue());
         // TODO: This test currently fails because MSecurityManager does not set the number
         //       of threads correctly to avoid a JVM8 crash on MacOS:
         // PermissionStatistics.getInstance().countThreads(Thread.currentThread().getThreadGroup().activeCount());
@@ -98,13 +97,13 @@ public class SearchStatisticsSystemTest extends SystemTestBase {
         evosuite.parseCommandLine(command);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> branchlessMethods = map.get(RuntimeVariable.Branchless_Methods.toString());
         OutputVariable<?> coveredBranchlessMethods = map.get(RuntimeVariable.Covered_Branchless_Methods.toString());
-        Assert.assertNotNull(branchlessMethods);
-        Assert.assertNotNull(coveredBranchlessMethods);
-        Assert.assertEquals(5, branchlessMethods.getValue());
-        Assert.assertEquals(5, coveredBranchlessMethods.getValue());
+        Assertions.assertNotNull(branchlessMethods);
+        Assertions.assertNotNull(coveredBranchlessMethods);
+        Assertions.assertEquals(5, branchlessMethods.getValue());
+        Assertions.assertEquals(5, coveredBranchlessMethods.getValue());
     }
 
     @Test
@@ -123,13 +122,13 @@ public class SearchStatisticsSystemTest extends SystemTestBase {
         evosuite.parseCommandLine(command);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
         OutputVariable<?> coverage = map.get(RuntimeVariable.Coverage.toString());
-        Assert.assertNotNull(coverage);
-        Assert.assertEquals(1.0, coverage.getValue());
+        Assertions.assertNotNull(coverage);
+        Assertions.assertEquals(1.0, coverage.getValue());
         OutputVariable<?> gradientBranches = map.get(RuntimeVariable.Gradient_Branches.toString());
-        Assert.assertNotNull(gradientBranches);
-        Assert.assertEquals(4, gradientBranches.getValue());
+        Assertions.assertNotNull(gradientBranches);
+        Assertions.assertEquals(4, gradientBranches.getValue());
     }
 
     @SuppressWarnings("unused")

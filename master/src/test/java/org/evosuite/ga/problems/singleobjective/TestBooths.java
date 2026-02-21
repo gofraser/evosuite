@@ -34,14 +34,14 @@ import org.evosuite.ga.operators.crossover.SBXCrossover;
 import org.evosuite.ga.operators.selection.BinaryTournamentSelectionCrowdedComparison;
 import org.evosuite.ga.problems.Problem;
 import org.evosuite.ga.variables.DoubleVariable;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static java.util.Comparator.comparingDouble;
 
 public class TestBooths {
-    @BeforeClass
+    @BeforeAll
     public static void setUp() {
         Properties.POPULATION = 100;
         Properties.SEARCH_BUDGET = 250;
@@ -56,14 +56,14 @@ public class TestBooths {
 
         double[] values = {-2.0, 1.0};
         NSGAChromosome c = new NSGAChromosome(-10.0, 10.0, values);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), -2.0, 0.0);
-        Assert.assertEquals(((DoubleVariable) c.getVariables().get(1)).getValue(), 1.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(0)).getValue(), -2.0, 0.0);
+        Assertions.assertEquals(((DoubleVariable) c.getVariables().get(1)).getValue(), 1.0, 0.0);
 
-        Assert.assertEquals(f1.getFitness(c), 113.0, 0.0);
+        Assertions.assertEquals(f1.getFitness(c), 113.0, 0.0);
 
         double[] values_m = {1.0, 3.0};
         c = new NSGAChromosome(-10.0, 10.0, values_m);
-        Assert.assertEquals(f1.getFitness(c), 0.0, 0.0);
+        Assertions.assertEquals(f1.getFitness(c), 0.0, 0.0);
     }
 
     /**
@@ -96,7 +96,7 @@ public class TestBooths {
         chromosomes.sort(comparingDouble(chr -> chr.getFitness(f1)));
 
         for (NSGAChromosome chromosome : chromosomes)
-            Assert.assertEquals(chromosome.getFitness(f1), 0.000, 0.001);
+            Assertions.assertEquals(chromosome.getFitness(f1), 0.000, 0.001);
 
         for (NSGAChromosome chromosome : chromosomes) {
             DoubleVariable x = (DoubleVariable) chromosome.getVariables().get(0);

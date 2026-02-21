@@ -19,8 +19,8 @@
  */
 package org.evosuite.runtime.mock.java.net;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -36,9 +36,9 @@ public class InetAddressTest {
         InetAddress google = MockInetAddress.getByName(googleAddr);
         InetAddress evosuite = MockInetAddress.getByName(evosuiteAddr);
 
-        Assert.assertEquals(googleAddr, google.getHostName());
-        Assert.assertEquals(evosuiteAddr, evosuite.getHostName());
+        Assertions.assertEquals(googleAddr, google.getHostName());
+        Assertions.assertEquals(evosuiteAddr, evosuite.getHostName());
 
-        Assert.assertNotEquals(google.getHostAddress(), evosuite.getHostAddress());
+        Assertions.assertNotEquals(google.getHostAddress(), evosuite.getHostAddress());
     }
 }

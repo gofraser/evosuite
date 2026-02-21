@@ -19,9 +19,9 @@
  */
 package org.evosuite.rmi;
 
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -36,7 +36,7 @@ public class OpenRegistryTest {
 
     @Test
     public void openTest() throws RemoteException, NotBoundException {
-        Assume.assumeTrue("Socket binding is not permitted in this environment", canBindServerSocket());
+        Assumptions.assumeTrue(canBindServerSocket(), "Socket binding is not permitted in this environment");
 
         int port = 2000;
 
@@ -51,17 +51,17 @@ public class OpenRegistryTest {
         }
 
         Registry registry = LocateRegistry.getRegistry(port);
-        Assert.assertNotNull(registry);
+        Assertions.assertNotNull(registry);
 
         try {
             LocateRegistry.createRegistry(port);
-            Assert.fail();
+            Assertions.fail();
         } catch (Exception e) {
         }
 
         try {
             ServerSocket socket = new ServerSocket(port);
-            Assert.fail();
+            Assertions.fail();
         } catch (Exception e) {
         }
 
@@ -71,7 +71,7 @@ public class OpenRegistryTest {
         registry.rebind(service, stub);
 
         Ifoo lookedup = (Ifoo) registry.lookup(service);
-        Assert.assertEquals("Hello World", lookedup.getString());
+        Assertions.assertEquals("Hello World", lookedup.getString());
     }
 
     private static boolean canBindServerSocket() {

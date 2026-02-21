@@ -26,12 +26,7 @@ import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.thread.KillSwitchHandler;
 import org.evosuite.runtime.thread.ThreadStopper;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
+import org.junit.jupiter.api.*;
 import com.examples.with.different.packagename.agent.InfiniteLoop;
 import com.examples.with.different.packagename.agent.TimerClass;
 
@@ -39,12 +34,12 @@ public class InstrumentingAgent_threadIntTest {
 
 	private final boolean replaceCalls = RuntimeSettings.mockJVMNonDeterminism;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void initClass(){
 		InstrumentingAgent.initialize();
 	}
 	
-	@Before
+	@BeforeEach
 	public void storeValues() {
 		KillSwitchHandler.getInstance().setKillSwitch(false);
 		RuntimeSettings.mockJVMNonDeterminism = true;
@@ -52,7 +47,7 @@ public class InstrumentingAgent_threadIntTest {
 		Runtime.getInstance().resetRuntime();
 	}
 
-	@After
+	@AfterEach
 	public void resetValues() {
 		RuntimeSettings.mockJVMNonDeterminism = replaceCalls;
 		KillSwitchHandler.getInstance().setKillSwitch(false);
@@ -86,7 +81,7 @@ public class InstrumentingAgent_threadIntTest {
             MockFramework.enable();
 
             st.exe(2); // now exception
-            Assert.fail();
+            Assertions.fail();
 
         } catch(RuntimeException e){
           //expected
@@ -115,18 +110,18 @@ public class InstrumentingAgent_threadIntTest {
 		t.start();
 		
 		t.join(200);
-		Assert.assertTrue(t.isAlive());
+		Assertions.assertTrue(t.isAlive());
 		
 		//interrupting should fail to kill
 		t.interrupt();
 		t.join(200);
-		Assert.assertTrue(t.isAlive());
+		Assertions.assertTrue(t.isAlive());
 
 		KillSwitchHandler.getInstance().setKillSwitch(true);
 		t.interrupt();
 		t.join(500);
 		//should be dead now 
-		Assert.assertFalse(t.isAlive());
+		Assertions.assertFalse(t.isAlive());
 	}
 	
 	@Test
@@ -147,20 +142,20 @@ public class InstrumentingAgent_threadIntTest {
 		
 		Thread.sleep(100); // just to be sure the thread has been started
 		
-		Assert.assertTrue(isThreadRunning(TimerClass.NAME));
+		Assertions.assertTrue(isThreadRunning(TimerClass.NAME));
 		
 		//this would disable the handling of MockTimer
 		RuntimeSettings.mockJVMNonDeterminism = false;		
 		//this should not be enough
 		stopper.killAndJoinClientThreads();
-		Assert.assertTrue(isThreadRunning(TimerClass.NAME));
+		Assertions.assertTrue(isThreadRunning(TimerClass.NAME));
 		
 		//now, be sure MockTimer is used
 		RuntimeSettings.mockJVMNonDeterminism = true;
 		stopper.storeCurrentThreads();
 		stopper.startRecordingTime();
 		stopper.killAndJoinClientThreads();
-		Assert.assertFalse(isThreadRunning(TimerClass.NAME));
+		Assertions.assertFalse(isThreadRunning(TimerClass.NAME));
 	}
 	
 	private boolean isThreadRunning(String name){

@@ -5,8 +5,8 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.Properties;
 import org.evosuite.testcase.execution.ExecutionResult;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 
 import java.util.LinkedHashMap;
@@ -46,7 +46,7 @@ public class InputCoverageTestFitnessTest {
         // If the current implementation is broken (contains check fails), it returns 1.0.
         // If correct, it should return distance > 1.0 (approx 101.0).
 
-        Assert.assertNotEquals("Fitness should reflect distance, not just covered/uncovered status", 1.0, val, 0.001);
-        Assert.assertTrue("Fitness should be > 1.0 for large distance", val > 100.0);
+        Assertions.assertNotEquals(1.0, val, 0.001, "Fitness should reflect distance, not just covered/uncovered status");
+        Assertions.assertTrue(val > 100.0, "Fitness should be > 1.0 for large distance");
     }
 }

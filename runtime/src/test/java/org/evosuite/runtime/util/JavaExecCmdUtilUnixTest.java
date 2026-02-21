@@ -22,17 +22,22 @@ package org.evosuite.runtime.util;
 import java.nio.file.Paths;
 import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.core.IsEqual;
-import org.junit.Before;
-import org.junit.FixMethodOrder;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.contrib.java.lang.system.EnvironmentVariables;
-import org.junit.contrib.java.lang.system.RestoreSystemProperties;
-import org.junit.runners.MethodSorters;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.MethodOrderer.MethodName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.extension.ExtendWith;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
+import uk.org.webcompere.systemstubs.jupiter.SystemStub;
+import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
+import uk.org.webcompere.systemstubs.properties.SystemProperties;
 
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+@ExtendWith(SystemStubsExtension.class)
+@TestMethodOrder(MethodName.class)
 public class JavaExecCmdUtilUnixTest {
 
     private static final String SEPARATOR = "/";
@@ -41,13 +46,13 @@ public class JavaExecCmdUtilUnixTest {
             SEPARATOR + "usr" + SEPARATOR + "home" + SEPARATOR + "jdk_8";
     private static final String MOCK_OS = "Mac OS X";
 
-    @Rule
+    @SystemStub
     public EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
-    @Rule
-    public final RestoreSystemProperties restoreSystemProperties = new RestoreSystemProperties();
-
-    @Before
+    @SystemStub
+    public SystemProperties systemProperties = new SystemProperties();
+    
+    @BeforeEach
     public void initTestEnvironment() {
         environmentVariables.set("JAVA_HOME", JAVA_HOME_MOCK_PATH);
     }

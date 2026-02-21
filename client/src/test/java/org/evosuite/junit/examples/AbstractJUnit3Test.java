@@ -19,10 +19,11 @@
  */
 package org.evosuite.junit.examples;
 
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
-public abstract class AbstractJUnit3Test extends TestCase {
+public abstract class AbstractJUnit3Test {
 
+    @Test
     public void testFoo() {
 
     }

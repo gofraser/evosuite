@@ -5,9 +5,11 @@ import org.evosuite.ga.DummyChromosome;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;
 import org.evosuite.utils.Randomness;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
 import java.util.List;
-import static org.junit.Assert.*;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class MuLambdaTest {
 
@@ -53,11 +55,11 @@ public class MuLambdaTest {
         ea.addFitnessFunction(new MaximizeFitness());
 
         ea.initializePopulation();
-        assertEquals("Initial population size should be mu", mu, ea.getPopulation().size());
+        assertEquals(mu, ea.getPopulation().size(), "Initial population size should be mu");
 
         ea.evolve();
 
-        assertEquals("Population size should remain mu after evolve", mu, ea.getPopulation().size());
+        assertEquals(mu, ea.getPopulation().size(), "Population size should remain mu after evolve");
     }
 
     @Test
@@ -71,7 +73,7 @@ public class MuLambdaTest {
 
         ea.evolve();
 
-        assertEquals("Population size should remain mu", mu, ea.getPopulation().size());
+        assertEquals(mu, ea.getPopulation().size(), "Population size should remain mu");
     }
 
     @Test
@@ -92,7 +94,7 @@ public class MuLambdaTest {
         ea.evolve();
 
         double bestFit = ea.getBestIndividual().getFitness();
-        assertTrue("Best fitness should be >= 100, got " + bestFit, bestFit >= 100.0);
+        assertTrue(bestFit >= 100.0, "Best fitness should be >= 100, got " + bestFit);
     }
 
     @Test
@@ -106,7 +108,7 @@ public class MuLambdaTest {
         assertEquals(1, ea.getPopulation().size());
 
         ea.evolve();
-        assertEquals("Population size should remain 1", 1, ea.getPopulation().size());
+        assertEquals(1, ea.getPopulation().size(), "Population size should remain 1");
     }
 
     @Test
@@ -121,7 +123,7 @@ public class MuLambdaTest {
         assertEquals(0, ea.getAge());
 
         ea.evolve();
-        assertEquals("Age should increment after evolve", 1, ea.getAge());
+        assertEquals(1, ea.getAge(), "Age should increment after evolve");
     }
 
     @Test
@@ -136,7 +138,7 @@ public class MuLambdaTest {
         assertEquals(0, ea.getAge());
 
         ea.evolve();
-        assertEquals("Age should increment after evolve", 1, ea.getAge());
+        assertEquals(1, ea.getAge(), "Age should increment after evolve");
     }
 
     @Test
@@ -150,6 +152,6 @@ public class MuLambdaTest {
         assertEquals(0, ea.getAge());
 
         ea.evolve();
-        assertEquals("Age should increment after evolve", 1, ea.getAge());
+        assertEquals(1, ea.getAge(), "Age should increment after evolve");
     }
 }

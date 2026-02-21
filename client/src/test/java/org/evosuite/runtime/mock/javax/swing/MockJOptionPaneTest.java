@@ -37,14 +37,17 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class MockJOptionPaneTest {
 
@@ -52,13 +55,13 @@ public class MockJOptionPaneTest {
     private static final boolean DEFAULT_MOCK_GUI = RuntimeSettings.mockGUI;
     private static final boolean DEFAULT_REPLACE_GUI = Properties.REPLACE_GUI;
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         String cp = System.getProperty("user.dir") + "/target/test-classes";
         ClassPathHandler.getInstance().addElementToTargetProjectClassPath(cp);
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.CRITERION = new Properties.Criterion[]{Criterion.BRANCH};
         Properties.TARGET_CLASS = TARGET_CLASS;
@@ -67,20 +70,20 @@ public class MockJOptionPaneTest {
         TestGenerationContext.getInstance().resetContext();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeSettings.mockGUI = DEFAULT_MOCK_GUI;
         Properties.REPLACE_GUI = DEFAULT_REPLACE_GUI;
         TestGenerationContext.getInstance().resetContext();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testNoDialogBeforeExecution() {
         boolean hasStringDialog0 = JOptionPaneInputs.getInstance().hasDialog(GUIAction.STRING_INPUT);
         assertFalse(hasStringDialog0);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testShowInputDialogWasFound() throws Exception {
 
         boolean hasStringDialog0 = JOptionPaneInputs.getInstance().hasDialog(GUIAction.STRING_INPUT);
@@ -94,7 +97,7 @@ public class MockJOptionPaneTest {
         assertTrue(hasStringDialog);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testCoveredGoals() throws Exception {
 
         Properties.TIMEOUT = Integer.MAX_VALUE;
@@ -111,7 +114,7 @@ public class MockJOptionPaneTest {
         ff.getFitness(suite);
 
         Set<TestFitnessFunction> coveredGoals = suite.getCoveredGoals();
-        Assert.assertEquals(3, coveredGoals.size());
+        Assertions.assertEquals(3, coveredGoals.size());
 
     }
 
@@ -150,7 +153,7 @@ public class MockJOptionPaneTest {
         return builder.getDefaultTestCase();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testInlinerBug() throws Exception {
 
         Properties.TIMEOUT = Integer.MAX_VALUE;

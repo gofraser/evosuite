@@ -23,7 +23,7 @@ import com.examples.with.different.packagename.errorbranch.DoubleDivisionByZero;
 import com.examples.with.different.packagename.errorbranch.IntDivisionByZero;
 import com.examples.with.different.packagename.errorbranch.LongDivisionByZero;
 import org.evosuite.Properties;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class DivisionByZeroInstrumentationSystemTest extends AbstractErrorBranchTest {
 

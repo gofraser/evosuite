@@ -20,40 +20,39 @@
 package org.evosuite.junit.examples;
 
 import com.examples.with.different.packagename.FlagExample1;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.Collection;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@RunWith(Parameterized.class)
 public class JUnit4ParameterizedTest {
 
     private Integer input;
     private Boolean output;
     private FlagExample1 cut;
 
-    @Before
+    @BeforeEach
     public void initialize() {
         this.cut = new FlagExample1();
     }
 
-    public JUnit4ParameterizedTest(Integer a, Boolean b) {
+    public void initJUnit4ParameterizedTest(Integer a, Boolean b) {
         this.input = a;
         this.output = b;
     }
 
-    @Parameterized.Parameters
     public static Collection<Object[]> primeNumbers() {
         return Arrays.asList(new Object[][]{{7, false}, {28241, true}});
     }
 
-    @Test
-    public void test() {
+    @MethodSource("primeNumbers")
+    @ParameterizedTest
+    public void test(Integer a, Boolean b) {
+        initJUnit4ParameterizedTest(a, b);
         assertEquals(output, cut.testMe(input));
     }
 }

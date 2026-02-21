@@ -24,8 +24,8 @@ import java.util.Collections;
 import java.util.List;
 
 import org.evosuite.ga.NSGAChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author José Campos
@@ -57,14 +57,14 @@ public class TestCrowdingComparator {
         population.sort(cc);
 
         // assert by Rank
-        Assert.assertEquals(0, population.get(0).getRank());
-        Assert.assertEquals(0, population.get(1).getRank());
-        Assert.assertEquals(1, population.get(2).getRank());
+        Assertions.assertEquals(0, population.get(0).getRank());
+        Assertions.assertEquals(0, population.get(1).getRank());
+        Assertions.assertEquals(1, population.get(2).getRank());
 
         // assert by Distance
-        Assert.assertEquals(0.5, population.get(0).getDistance(), 0.0);
-        Assert.assertEquals(0.4, population.get(1).getDistance(), 0.0);
-        Assert.assertEquals(0.1, population.get(2).getDistance(), 0.0);
+        Assertions.assertEquals(0.5, population.get(0).getDistance(), 0.0);
+        Assertions.assertEquals(0.4, population.get(1).getDistance(), 0.0);
+        Assertions.assertEquals(0.1, population.get(2).getDistance(), 0.0);
     }
 
     @Test
@@ -93,13 +93,13 @@ public class TestCrowdingComparator {
         population.sort(cc);
 
         // assert by Rank
-        Assert.assertEquals(0, population.get(0).getRank());
-        Assert.assertEquals(0, population.get(1).getRank());
-        Assert.assertEquals(1, population.get(2).getRank());
+        Assertions.assertEquals(0, population.get(0).getRank());
+        Assertions.assertEquals(0, population.get(1).getRank());
+        Assertions.assertEquals(1, population.get(2).getRank());
 
         // assert by Distance
-        Assert.assertEquals(0.5, population.get(0).getDistance(), 0.0);
-        Assert.assertEquals(0.4, population.get(1).getDistance(), 0.0);
-        Assert.assertEquals(0.1, population.get(2).getDistance(), 0.0);
+        Assertions.assertEquals(0.5, population.get(0).getDistance(), 0.0);
+        Assertions.assertEquals(0.4, population.get(1).getDistance(), 0.0);
+        Assertions.assertEquals(0.1, population.get(2).getDistance(), 0.0);
     }
 }

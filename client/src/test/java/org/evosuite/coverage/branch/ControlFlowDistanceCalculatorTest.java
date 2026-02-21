@@ -31,14 +31,14 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testcase.execution.MethodCall;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.*;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -69,7 +69,7 @@ public class ControlFlowDistanceCalculatorTest {
     private static final int TRY_ZERO_LINE = 28;
     private static final int CATCH_LINE = 33;
 
-    @Before
+    @BeforeEach
     public void setUp() throws ClassNotFoundException {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.getInstance().resetToDefaults();
@@ -80,7 +80,7 @@ public class ControlFlowDistanceCalculatorTest {
         analyzeClass(NestedConditions.class);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         TestGenerationContext.getInstance().resetContext();
         ClassReInitializer.resetSingleton();
@@ -185,7 +185,7 @@ public class ControlFlowDistanceCalculatorTest {
                 result, outer, false, CLASS_NAME, METHOD_NAME);
 
         assertEquals(0, d.getApproachLevel());
-        assertTrue("Branch distance should be > 0", d.getBranchDistance() > 0);
+        assertTrue(d.getBranchDistance() > 0, "Branch distance should be > 0");
     }
 
     @Test

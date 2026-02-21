@@ -24,10 +24,9 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.ArrayLimit;
 
 
@@ -35,7 +34,7 @@ public class SUTArrayLimitSystemTest extends SystemTestBase {
 
     public static final int defaultArrayLimit = Properties.ARRAY_LIMIT;
 
-    @After
+    @AfterEach
     public void resetProperties() {
         Properties.ARRAY_LIMIT = defaultArrayLimit;
     }
@@ -60,7 +59,7 @@ public class SUTArrayLimitSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     @Test
@@ -83,7 +82,7 @@ public class SUTArrayLimitSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assert.assertTrue("Optimal coverage: " + best.getCoverage(), best.getCoverage() < 0.99);
+        Assertions.assertTrue(best.getCoverage() < 0.99, "Optimal coverage: " + best.getCoverage());
     }
 
 }

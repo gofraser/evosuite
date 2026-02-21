@@ -12,10 +12,10 @@ import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.mock.java.io.MockIOException;
 import org.evosuite.runtime.mock.java.lang.MockRuntime;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -76,7 +76,7 @@ public class ModernMocksTest {
     private boolean oldMockJvm;
     private boolean oldMockFramework;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         oldUseVfs = RuntimeSettings.useVFS;
         oldUseVnet = RuntimeSettings.useVNET;
@@ -84,7 +84,7 @@ public class ModernMocksTest {
         oldMockFramework = MockFramework.isEnabled();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeSettings.useVFS = oldUseVfs;
         RuntimeSettings.useVNET = oldUseVnet;
@@ -106,53 +106,53 @@ public class ModernMocksTest {
         RuntimeSettings.useVNET = true;
         RuntimeSettings.mockJVMNonDeterminism = true;
 
-        Assert.assertTrue(MockList.shouldBeMocked("java.util.concurrent.ThreadLocalRandom"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.util.SplittableRandom"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.lang.System"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.util.concurrent.ThreadLocalRandom"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.util.SplittableRandom"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.lang.System"));
         if (isPresent("org.evosuite.runtime.mock.java.util.random.MockRandomGenerator")) {
-            Assert.assertTrue(MockList.shouldBeMocked("java.util.random.RandomGenerator"));
+            Assertions.assertTrue(MockList.shouldBeMocked("java.util.random.RandomGenerator"));
         }
         if (isPresent("org.evosuite.runtime.mock.java.util.random.MockRandomGeneratorFactory")) {
-            Assert.assertTrue(MockList.shouldBeMocked("java.util.random.RandomGeneratorFactory"));
+            Assertions.assertTrue(MockList.shouldBeMocked("java.util.random.RandomGeneratorFactory"));
         }
         if (isPresent("org.evosuite.runtime.mock.java.time.MockZoneId")) {
-            Assert.assertTrue(MockList.shouldBeMocked("java.time.ZoneId"));
+            Assertions.assertTrue(MockList.shouldBeMocked("java.time.ZoneId"));
         }
         if (isPresent("org.evosuite.runtime.mock.java.time.MockZoneOffset")) {
-            Assert.assertTrue(MockList.shouldBeMocked("java.time.ZoneOffset"));
+            Assertions.assertTrue(MockList.shouldBeMocked("java.time.ZoneOffset"));
         }
         if (isPresent("org.evosuite.runtime.mock.java.time.MockZoneRules")) {
-            Assert.assertTrue(MockList.shouldBeMocked("java.time.zone.ZoneRules"));
+            Assertions.assertTrue(MockList.shouldBeMocked("java.time.zone.ZoneRules"));
         }
         if (isPresent("org.evosuite.runtime.mock.java.time.MockZoneRulesProvider")) {
-            Assert.assertTrue(MockList.shouldBeMocked("java.time.zone.ZoneRulesProvider"));
+            Assertions.assertTrue(MockList.shouldBeMocked("java.time.zone.ZoneRulesProvider"));
         }
         if (isPresent("org.evosuite.runtime.mock.java.lang.MockScopedValue")) {
-            Assert.assertTrue(MockList.shouldBeMocked("java.lang.ScopedValue"));
+            Assertions.assertTrue(MockList.shouldBeMocked("java.lang.ScopedValue"));
         }
         if (isPresent("org.evosuite.runtime.mock.java.lang.MockScopedValueCarrier")) {
-            Assert.assertTrue(MockList.shouldBeMocked("java.lang.ScopedValue$Carrier"));
+            Assertions.assertTrue(MockList.shouldBeMocked("java.lang.ScopedValue$Carrier"));
         }
         if (isPresent("org.evosuite.runtime.mock.java.util.concurrent.MockStructuredTaskScope")) {
-            Assert.assertTrue(MockList.shouldBeMocked("java.util.concurrent.StructuredTaskScope"));
+            Assertions.assertTrue(MockList.shouldBeMocked("java.util.concurrent.StructuredTaskScope"));
         }
-        Assert.assertTrue(MockList.shouldBeMocked("java.nio.file.Files"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.nio.file.Paths"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.nio.file.FileSystems"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.nio.file.FileStore"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.nio.file.FileSystem"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.nio.file.Path"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.net.http.HttpClient"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.nio.file.Files"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.nio.file.Paths"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.nio.file.FileSystems"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.nio.file.FileStore"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.nio.file.FileSystem"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.nio.file.Path"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.net.http.HttpClient"));
         if (isPresent("org.evosuite.runtime.mock.java.net.http.MockWebSocket")) {
-            Assert.assertTrue(MockList.shouldBeMocked("java.net.http.WebSocket"));
+            Assertions.assertTrue(MockList.shouldBeMocked("java.net.http.WebSocket"));
         }
-        Assert.assertTrue(MockList.shouldBeMocked("java.util.concurrent.Executors"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.util.concurrent.CompletableFuture"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.lang.ProcessBuilder"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.lang.ProcessHandle"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.lang.Process"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.nio.channels.FileChannel"));
-        Assert.assertTrue(MockList.shouldBeMocked("java.nio.channels.AsynchronousFileChannel"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.util.concurrent.Executors"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.util.concurrent.CompletableFuture"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.lang.ProcessBuilder"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.lang.ProcessHandle"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.lang.Process"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.nio.channels.FileChannel"));
+        Assertions.assertTrue(MockList.shouldBeMocked("java.nio.channels.AsynchronousFileChannel"));
     }
 
     @Test
@@ -174,7 +174,7 @@ public class ModernMocksTest {
         writeString.invoke(null, p, "hello-modern", (Object) new java.nio.file.OpenOption[0]);
         String text = (String) readString.invoke(null, p);
 
-        Assert.assertEquals("hello-modern", text);
+        Assertions.assertEquals("hello-modern", text);
     }
 
     @Test
@@ -210,7 +210,7 @@ public class ModernMocksTest {
             names.add(p.getFileName().toString());
         }
         stream.close();
-        Assert.assertEquals(Arrays.asList("a.txt", "b.log", "c.txt"), names);
+        Assertions.assertEquals(Arrays.asList("a.txt", "b.log", "c.txt"), names);
 
         DirectoryStream<Path> txtStream = (DirectoryStream<Path>) mockFiles
                 .getMethod("newDirectoryStream", Path.class, String.class)
@@ -220,7 +220,7 @@ public class ModernMocksTest {
             txtNames.add(p.getFileName().toString());
         }
         txtStream.close();
-        Assert.assertEquals(Arrays.asList("a.txt", "c.txt"), txtNames);
+        Assertions.assertEquals(Arrays.asList("a.txt", "c.txt"), txtNames);
     }
 
     @Test
@@ -254,7 +254,7 @@ public class ModernMocksTest {
 
         try (Stream<Path> list = (Stream<Path>) mockFiles.getMethod("list", Path.class).invoke(null, root)) {
             List<String> listed = list.map(p -> p.getFileName().toString()).collect(Collectors.toList());
-            Assert.assertEquals(Arrays.asList("a", "b", "z.txt"), listed);
+            Assertions.assertEquals(Arrays.asList("a", "b", "z.txt"), listed);
         }
 
         try (Stream<Path> walk = (Stream<Path>) mockFiles
@@ -263,7 +263,7 @@ public class ModernMocksTest {
             List<String> walked = walk
                     .map(p -> root.equals(p) ? "." : root.relativize(p).toString())
                     .collect(Collectors.toList());
-            Assert.assertEquals(Arrays.asList(".", "a", "b", "z.txt"), walked);
+            Assertions.assertEquals(Arrays.asList(".", "a", "b", "z.txt"), walked);
         }
     }
 
@@ -302,7 +302,7 @@ public class ModernMocksTest {
             List<String> names = found
                     .map(p -> root.equals(p) ? "." : root.relativize(p).toString())
                     .collect(Collectors.toList());
-            Assert.assertEquals(Arrays.asList("a/nested.txt", "top.txt"), names);
+            Assertions.assertEquals(Arrays.asList("a/nested.txt", "top.txt"), names);
         }
 
         try (Stream<Path> shallow = (Stream<Path>) mockFiles
@@ -311,7 +311,7 @@ public class ModernMocksTest {
             List<String> names = shallow
                     .map(p -> root.equals(p) ? "." : root.relativize(p).toString())
                     .collect(Collectors.toList());
-            Assert.assertEquals(Arrays.asList("top.txt"), names);
+            Assertions.assertEquals(Arrays.asList("top.txt"), names);
         }
     }
 
@@ -366,7 +366,7 @@ public class ModernMocksTest {
         mockFiles.getMethod("walkFileTree", Path.class, Set.class, int.class, java.nio.file.FileVisitor.class)
                 .invoke(null, root, EnumSet.noneOf(FileVisitOption.class), 2, visitor);
 
-        Assert.assertEquals(Arrays.asList(
+        Assertions.assertEquals(Arrays.asList(
                 "pre:.",
                 "pre:a",
                 "file:a/1.txt",
@@ -428,7 +428,7 @@ public class ModernMocksTest {
         mockFiles.getMethod("walkFileTree", Path.class, Set.class, int.class, java.nio.file.FileVisitor.class)
                 .invoke(null, root, EnumSet.noneOf(FileVisitOption.class), 1, visitor);
 
-        Assert.assertEquals(Arrays.asList(
+        Assertions.assertEquals(Arrays.asList(
                 "pre:.",
                 "pre:a",
                 "post:a",
@@ -475,8 +475,8 @@ public class ModernMocksTest {
         mockFiles.getMethod("walkFileTree", Path.class, Set.class, int.class, java.nio.file.FileVisitor.class)
                 .invoke(null, root, EnumSet.noneOf(FileVisitOption.class), Integer.MAX_VALUE, visitor);
 
-        Assert.assertTrue(events.contains("pre:."));
-        Assert.assertEquals(3, events.size());
+        Assertions.assertTrue(events.contains("pre:."));
+        Assertions.assertEquals(3, events.size());
     }
 
     @Test
@@ -498,11 +498,11 @@ public class ModernMocksTest {
                 .invoke(null, path, expected, (Object) new java.nio.file.OpenOption[0]);
 
         List<String> lines = (List<String>) mockFiles.getMethod("readAllLines", Path.class).invoke(null, path);
-        Assert.assertEquals(expected, lines);
+        Assertions.assertEquals(expected, lines);
 
         try (Stream<String> stream = (Stream<String>) mockFiles.getMethod("lines", Path.class).invoke(null, path)) {
             List<String> fromStream = stream.collect(Collectors.toList());
-            Assert.assertEquals(expected, fromStream);
+            Assertions.assertEquals(expected, fromStream);
         }
     }
 
@@ -529,16 +529,16 @@ public class ModernMocksTest {
         try {
             mockFiles.getMethod("copy", Path.class, Path.class, java.nio.file.CopyOption[].class)
                     .invoke(null, src, dst, (Object) new java.nio.file.CopyOption[0]);
-            Assert.fail("Expected copy without REPLACE_EXISTING to fail");
+            Assertions.fail("Expected copy without REPLACE_EXISTING to fail");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause.getClass().getName().contains("FileAlreadyExistsException"));
+            Assertions.assertTrue(cause.getClass().getName().contains("FileAlreadyExistsException"));
         }
 
         mockFiles.getMethod("copy", Path.class, Path.class, java.nio.file.CopyOption[].class)
                 .invoke(null, src, dst, (Object) new java.nio.file.CopyOption[]{StandardCopyOption.REPLACE_EXISTING});
         String dstContent = (String) mockFiles.getMethod("readString", Path.class).invoke(null, dst);
-        Assert.assertEquals("source", dstContent);
+        Assertions.assertEquals("source", dstContent);
 
         mockFiles.getMethod("move", Path.class, Path.class, java.nio.file.CopyOption[].class)
                 .invoke(null, dst, moved, (Object) new java.nio.file.CopyOption[]{StandardCopyOption.REPLACE_EXISTING});
@@ -546,8 +546,8 @@ public class ModernMocksTest {
                 .invoke(null, dst, (Object) new java.nio.file.LinkOption[0]);
         boolean movedExists = (Boolean) mockFiles.getMethod("exists", Path.class, java.nio.file.LinkOption[].class)
                 .invoke(null, moved, (Object) new java.nio.file.LinkOption[0]);
-        Assert.assertFalse(oldExists);
-        Assert.assertTrue(movedExists);
+        Assertions.assertFalse(oldExists);
+        Assertions.assertTrue(movedExists);
     }
 
     @Test
@@ -567,14 +567,14 @@ public class ModernMocksTest {
         long written = (Long) mockFiles
                 .getMethod("copy", java.io.InputStream.class, Path.class, java.nio.file.CopyOption[].class)
                 .invoke(null, new ByteArrayInputStream(payload), target, (Object) new java.nio.file.CopyOption[0]);
-        Assert.assertEquals(payload.length, written);
+        Assertions.assertEquals(payload.length, written);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         long copied = (Long) mockFiles
                 .getMethod("copy", Path.class, java.io.OutputStream.class)
                 .invoke(null, target, out);
-        Assert.assertEquals(payload.length, copied);
-        Assert.assertArrayEquals(payload, out.toByteArray());
+        Assertions.assertEquals(payload.length, copied);
+        Assertions.assertArrayEquals(payload, out.toByteArray());
     }
 
     @Test
@@ -597,17 +597,17 @@ public class ModernMocksTest {
                 .invoke(null, src, dst, (Object) new java.nio.file.CopyOption[]{
                         java.nio.file.StandardCopyOption.COPY_ATTRIBUTES
                 });
-        Assert.assertEquals("payload", mockFiles.getMethod("readString", Path.class).invoke(null, dst));
+        Assertions.assertEquals("payload", mockFiles.getMethod("readString", Path.class).invoke(null, dst));
 
         try {
             mockFiles.getMethod("move", Path.class, Path.class, java.nio.file.CopyOption[].class)
                     .invoke(null, dst, Paths.get("copy-opt-moved.txt"), (Object) new java.nio.file.CopyOption[]{
                             java.nio.file.StandardCopyOption.COPY_ATTRIBUTES
                     });
-            Assert.fail("Expected COPY_ATTRIBUTES to be unsupported for move");
+            Assertions.fail("Expected COPY_ATTRIBUTES to be unsupported for move");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause instanceof UnsupportedOperationException);
+            Assertions.assertTrue(cause instanceof UnsupportedOperationException);
         }
     }
 
@@ -633,20 +633,20 @@ public class ModernMocksTest {
                     .invoke(null, root, (Object) new java.nio.file.FileVisitOption[]{
                             java.nio.file.FileVisitOption.FOLLOW_LINKS
                     });
-            Assert.fail("Expected FOLLOW_LINKS to be unsupported for walk");
+            Assertions.fail("Expected FOLLOW_LINKS to be unsupported for walk");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause instanceof UnsupportedOperationException);
+            Assertions.assertTrue(cause instanceof UnsupportedOperationException);
         }
 
         try {
             mockFiles.getMethod("find", Path.class, int.class, BiPredicate.class, java.nio.file.FileVisitOption[].class)
                     .invoke(null, root, 1, (BiPredicate<Path, Object>) (p, a) -> true,
                             (Object) new java.nio.file.FileVisitOption[]{java.nio.file.FileVisitOption.FOLLOW_LINKS});
-            Assert.fail("Expected FOLLOW_LINKS to be unsupported for find");
+            Assertions.fail("Expected FOLLOW_LINKS to be unsupported for find");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause instanceof UnsupportedOperationException);
+            Assertions.assertTrue(cause instanceof UnsupportedOperationException);
         }
 
         try {
@@ -654,10 +654,10 @@ public class ModernMocksTest {
                     .invoke(null, root, EnumSet.of(java.nio.file.FileVisitOption.FOLLOW_LINKS), 1,
                             new SimpleFileVisitor<Path>() {
                             });
-            Assert.fail("Expected FOLLOW_LINKS to be unsupported for walkFileTree");
+            Assertions.fail("Expected FOLLOW_LINKS to be unsupported for walkFileTree");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause instanceof UnsupportedOperationException);
+            Assertions.assertTrue(cause instanceof UnsupportedOperationException);
         }
     }
 
@@ -680,8 +680,8 @@ public class ModernMocksTest {
                 .invoke(null, deep, (Object) new java.nio.file.LinkOption[0]);
         boolean deepDir = (Boolean) mockFiles.getMethod("isDirectory", Path.class, java.nio.file.LinkOption[].class)
                 .invoke(null, deep, (Object) new java.nio.file.LinkOption[0]);
-        Assert.assertTrue(deepExists);
-        Assert.assertTrue(deepDir);
+        Assertions.assertTrue(deepExists);
+        Assertions.assertTrue(deepDir);
 
         Path base = Paths.get("temp-base");
         mockFiles.getMethod("createDirectories", Path.class, java.nio.file.attribute.FileAttribute[].class)
@@ -694,18 +694,18 @@ public class ModernMocksTest {
                 .getMethod("createTempDirectory", Path.class, String.class, java.nio.file.attribute.FileAttribute[].class)
                 .invoke(null, base, "dir-", (Object) new java.nio.file.attribute.FileAttribute[0]);
 
-        Assert.assertTrue(tempFile.getFileName().toString().startsWith("pref-"));
-        Assert.assertTrue(tempFile.getFileName().toString().endsWith(".dat"));
-        Assert.assertEquals(base, tempFile.getParent());
+        Assertions.assertTrue(tempFile.getFileName().toString().startsWith("pref-"));
+        Assertions.assertTrue(tempFile.getFileName().toString().endsWith(".dat"));
+        Assertions.assertEquals(base, tempFile.getParent());
 
-        Assert.assertTrue(tempDir.getFileName().toString().startsWith("dir-"));
-        Assert.assertEquals(base, tempDir.getParent());
+        Assertions.assertTrue(tempDir.getFileName().toString().startsWith("dir-"));
+        Assertions.assertEquals(base, tempDir.getParent());
         boolean tempDirExists = (Boolean) mockFiles.getMethod("exists", Path.class, java.nio.file.LinkOption[].class)
                 .invoke(null, tempDir, (Object) new java.nio.file.LinkOption[0]);
         boolean tempDirIsDir = (Boolean) mockFiles.getMethod("isDirectory", Path.class, java.nio.file.LinkOption[].class)
                 .invoke(null, tempDir, (Object) new java.nio.file.LinkOption[0]);
-        Assert.assertTrue(tempDirExists);
-        Assert.assertTrue(tempDirIsDir);
+        Assertions.assertTrue(tempDirExists);
+        Assertions.assertTrue(tempDirIsDir);
     }
 
     @Test
@@ -726,10 +726,10 @@ public class ModernMocksTest {
         try {
             mockFiles.getMethod("createDirectories", Path.class, java.nio.file.attribute.FileAttribute[].class)
                     .invoke(null, existingFile, (Object) new java.nio.file.attribute.FileAttribute[0]);
-            Assert.fail("Expected createDirectories to fail when path is an existing file");
+            Assertions.fail("Expected createDirectories to fail when path is an existing file");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause.getClass().getName().contains("FileAlreadyExistsException"));
+            Assertions.assertTrue(cause.getClass().getName().contains("FileAlreadyExistsException"));
         }
     }
 
@@ -754,7 +754,7 @@ public class ModernMocksTest {
                 .invoke(null, payloadPath, payload, (Object) new java.nio.file.OpenOption[0]);
 
         byte[] readBack = (byte[]) mockFiles.getMethod("readAllBytes", Path.class).invoke(null, payloadPath);
-        Assert.assertArrayEquals(payload, readBack);
+        Assertions.assertArrayEquals(payload, readBack);
     }
 
     @Test
@@ -774,26 +774,26 @@ public class ModernMocksTest {
         try {
             mockFiles.getMethod("createSymbolicLink", Path.class, Path.class, java.nio.file.attribute.FileAttribute[].class)
                     .invoke(null, link, target, (Object) new java.nio.file.attribute.FileAttribute[0]);
-            Assert.fail("Expected symbolic-link creation to be blocked");
+            Assertions.fail("Expected symbolic-link creation to be blocked");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause.getClass().getName().contains("IOException"));
+            Assertions.assertTrue(cause.getClass().getName().contains("IOException"));
         }
 
         try {
             mockFiles.getMethod("createLink", Path.class, Path.class).invoke(null, link, target);
-            Assert.fail("Expected hard-link creation to be blocked");
+            Assertions.fail("Expected hard-link creation to be blocked");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause.getClass().getName().contains("IOException"));
+            Assertions.assertTrue(cause.getClass().getName().contains("IOException"));
         }
 
         try {
             mockFiles.getMethod("readSymbolicLink", Path.class).invoke(null, link);
-            Assert.fail("Expected symbolic-link read to be blocked");
+            Assertions.fail("Expected symbolic-link read to be blocked");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause.getClass().getName().contains("IOException"));
+            Assertions.assertTrue(cause.getClass().getName().contains("IOException"));
         }
     }
 
@@ -816,24 +816,24 @@ public class ModernMocksTest {
         Object sizeObj = mockFiles
                 .getMethod("getAttribute", Path.class, String.class, java.nio.file.LinkOption[].class)
                 .invoke(null, p, "basic:size", (Object) new java.nio.file.LinkOption[0]);
-        Assert.assertEquals(4L, ((Long) sizeObj).longValue());
+        Assertions.assertEquals(4L, ((Long) sizeObj).longValue());
 
         Map<String, Object> one = (Map<String, Object>) mockFiles
                 .getMethod("readAttributes", Path.class, String.class, java.nio.file.LinkOption[].class)
                 .invoke(null, p, "basic:isRegularFile", (Object) new java.nio.file.LinkOption[0]);
-        Assert.assertEquals(Boolean.TRUE, one.get("isRegularFile"));
+        Assertions.assertEquals(Boolean.TRUE, one.get("isRegularFile"));
 
         Map<String, Object> all = (Map<String, Object>) mockFiles
                 .getMethod("readAttributes", Path.class, String.class, java.nio.file.LinkOption[].class)
                 .invoke(null, p, "basic:*", (Object) new java.nio.file.LinkOption[0]);
-        Assert.assertEquals(4L, ((Long) all.get("size")).longValue());
-        Assert.assertEquals(Boolean.TRUE, all.get("isRegularFile"));
+        Assertions.assertEquals(4L, ((Long) all.get("size")).longValue());
+        Assertions.assertEquals(Boolean.TRUE, all.get("isRegularFile"));
 
         BasicFileAttributes attrs = (BasicFileAttributes) mockFiles
                 .getMethod("readAttributes", Path.class, Class.class, java.nio.file.LinkOption[].class)
                 .invoke(null, p, BasicFileAttributes.class, (Object) new java.nio.file.LinkOption[0]);
-        Assert.assertEquals(4L, attrs.size());
-        Assert.assertTrue(attrs.isRegularFile());
+        Assertions.assertEquals(4L, attrs.size());
+        Assertions.assertTrue(attrs.isRegularFile());
 
         FileTime expected = FileTime.fromMillis(123456789L);
         mockFiles.getMethod("setAttribute", Path.class, String.class, Object.class, java.nio.file.LinkOption[].class)
@@ -841,7 +841,7 @@ public class ModernMocksTest {
         BasicFileAttributes updated = (BasicFileAttributes) mockFiles
                 .getMethod("readAttributes", Path.class, Class.class, java.nio.file.LinkOption[].class)
                 .invoke(null, p, BasicFileAttributes.class, (Object) new java.nio.file.LinkOption[0]);
-        Assert.assertEquals(expected.toMillis(), updated.lastModifiedTime().toMillis());
+        Assertions.assertEquals(expected.toMillis(), updated.lastModifiedTime().toMillis());
     }
 
     @Test
@@ -869,24 +869,24 @@ public class ModernMocksTest {
         boolean readable = (Boolean) mockFiles.getMethod("isReadable", Path.class).invoke(null, p);
         boolean writable = (Boolean) mockFiles.getMethod("isWritable", Path.class).invoke(null, p);
         boolean executable = (Boolean) mockFiles.getMethod("isExecutable", Path.class).invoke(null, p);
-        Assert.assertFalse(readable);
-        Assert.assertFalse(writable);
-        Assert.assertTrue(executable);
+        Assertions.assertFalse(readable);
+        Assertions.assertFalse(writable);
+        Assertions.assertTrue(executable);
 
         String txtType = (String) mockFiles.getMethod("probeContentType", Path.class).invoke(null, p);
         String jsonType = (String) mockFiles.getMethod("probeContentType", Path.class).invoke(null, Paths.get("x.json"));
         String unknown = (String) mockFiles.getMethod("probeContentType", Path.class).invoke(null, Paths.get("x.unknownext"));
-        Assert.assertEquals("text/plain", txtType);
-        Assert.assertEquals("application/json", jsonType);
-        Assert.assertNull(unknown);
+        Assertions.assertEquals("text/plain", txtType);
+        Assertions.assertEquals("application/json", jsonType);
+        Assertions.assertNull(unknown);
 
         Path hidden = Paths.get(".hidden-name.txt");
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
                 .invoke(null, hidden, "h", (Object) new java.nio.file.OpenOption[0]);
         boolean hiddenValue = (Boolean) mockFiles.getMethod("isHidden", Path.class).invoke(null, hidden);
         boolean symbolic = (Boolean) mockFiles.getMethod("isSymbolicLink", Path.class).invoke(null, hidden);
-        Assert.assertTrue(hiddenValue);
-        Assert.assertFalse(symbolic);
+        Assertions.assertTrue(hiddenValue);
+        Assertions.assertFalse(symbolic);
     }
 
     @Test
@@ -909,19 +909,19 @@ public class ModernMocksTest {
                 .invoke(null, second, "x", (Object) new java.nio.file.OpenOption[0]);
 
         long size = (Long) mockFiles.getMethod("size", Path.class).invoke(null, first);
-        Assert.assertEquals(5L, size);
+        Assertions.assertEquals(5L, size);
 
         FileTime t = FileTime.fromMillis(987654321L);
         mockFiles.getMethod("setLastModifiedTime", Path.class, FileTime.class).invoke(null, first, t);
         FileTime observed = (FileTime) mockFiles
                 .getMethod("getLastModifiedTime", Path.class, java.nio.file.LinkOption[].class)
                 .invoke(null, first, (Object) new java.nio.file.LinkOption[0]);
-        Assert.assertEquals(t.toMillis(), observed.toMillis());
+        Assertions.assertEquals(t.toMillis(), observed.toMillis());
 
         boolean sameSelf = (Boolean) mockFiles.getMethod("isSameFile", Path.class, Path.class).invoke(null, first, first);
         boolean different = (Boolean) mockFiles.getMethod("isSameFile", Path.class, Path.class).invoke(null, first, second);
-        Assert.assertTrue(sameSelf);
-        Assert.assertFalse(different);
+        Assertions.assertTrue(sameSelf);
+        Assertions.assertFalse(different);
     }
 
     @Test
@@ -951,9 +951,9 @@ public class ModernMocksTest {
         String third = reader.readLine();
         reader.close();
 
-        Assert.assertEquals("line-1", first);
-        Assert.assertEquals("line-2", second);
-        Assert.assertNull(third);
+        Assertions.assertEquals("line-1", first);
+        Assertions.assertEquals("line-2", second);
+        Assertions.assertNull(third);
     }
 
     @Test
@@ -982,7 +982,7 @@ public class ModernMocksTest {
         out2.write("x".getBytes(StandardCharsets.UTF_8));
         out2.close();
         String content = (String) mockFiles.getMethod("readString", Path.class).invoke(null, p);
-        Assert.assertEquals("x", content);
+        Assertions.assertEquals("x", content);
 
         // APPEND extends existing content
         java.io.OutputStream out3 = (java.io.OutputStream) mockFiles
@@ -993,7 +993,7 @@ public class ModernMocksTest {
         out3.write("yz".getBytes(StandardCharsets.UTF_8));
         out3.close();
         String appended = (String) mockFiles.getMethod("readString", Path.class).invoke(null, p);
-        Assert.assertEquals("xyz", appended);
+        Assertions.assertEquals("xyz", appended);
 
         // CREATE_NEW on existing file fails deterministically
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
@@ -1003,10 +1003,10 @@ public class ModernMocksTest {
                     .invoke(null, p, (Object) new java.nio.file.OpenOption[]{
                             java.nio.file.StandardOpenOption.CREATE_NEW
                     });
-            Assert.fail("Expected CREATE_NEW on existing file to fail");
+            Assertions.fail("Expected CREATE_NEW on existing file to fail");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause.getClass().getName().contains("FileAlreadyExistsException"));
+            Assertions.assertTrue(cause.getClass().getName().contains("FileAlreadyExistsException"));
         }
 
         // APPEND + TRUNCATE_EXISTING is invalid
@@ -1016,10 +1016,10 @@ public class ModernMocksTest {
                             java.nio.file.StandardOpenOption.APPEND,
                             java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
                     });
-            Assert.fail("Expected invalid APPEND+TRUNCATE_EXISTING combination");
+            Assertions.fail("Expected invalid APPEND+TRUNCATE_EXISTING combination");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause instanceof IllegalArgumentException);
+            Assertions.assertTrue(cause instanceof IllegalArgumentException);
         }
     }
 
@@ -1041,10 +1041,10 @@ public class ModernMocksTest {
         try {
             mockFiles.getMethod("newInputStream", Path.class, java.nio.file.OpenOption[].class)
                     .invoke(null, p, (Object) new java.nio.file.OpenOption[]{java.nio.file.StandardOpenOption.WRITE});
-            Assert.fail("Expected WRITE to be invalid for newInputStream");
+            Assertions.fail("Expected WRITE to be invalid for newInputStream");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause instanceof IllegalArgumentException);
+            Assertions.assertTrue(cause instanceof IllegalArgumentException);
         }
 
         try {
@@ -1052,10 +1052,10 @@ public class ModernMocksTest {
                     .invoke(null, p, (Object) new java.nio.file.OpenOption[]{
                             java.nio.file.StandardOpenOption.DELETE_ON_CLOSE
                     });
-            Assert.fail("Expected DELETE_ON_CLOSE to be unsupported");
+            Assertions.fail("Expected DELETE_ON_CLOSE to be unsupported");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause instanceof UnsupportedOperationException);
+            Assertions.assertTrue(cause instanceof UnsupportedOperationException);
         }
 
         Set<java.nio.file.OpenOption> invalid = new HashSet<>();
@@ -1063,10 +1063,10 @@ public class ModernMocksTest {
         try {
             mockFiles.getMethod("newByteChannel", Path.class, Set.class, java.nio.file.attribute.FileAttribute[].class)
                     .invoke(null, p, invalid, (Object) new java.nio.file.attribute.FileAttribute[0]);
-            Assert.fail("Expected DELETE_ON_CLOSE to be unsupported for byte channels");
+            Assertions.fail("Expected DELETE_ON_CLOSE to be unsupported for byte channels");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause instanceof UnsupportedOperationException);
+            Assertions.assertTrue(cause instanceof UnsupportedOperationException);
         }
 
         Set<java.nio.file.OpenOption> valid = new HashSet<>();
@@ -1110,9 +1110,9 @@ public class ModernMocksTest {
         int read = in.read(buf);
         in.close();
 
-        Assert.assertEquals(6, read);
+        Assertions.assertEquals(6, read);
         String payload = new String(buf.array(), 0, read, StandardCharsets.UTF_8);
-        Assert.assertEquals("abc123", payload);
+        Assertions.assertEquals("abc123", payload);
     }
 
     @Test
@@ -1128,8 +1128,8 @@ public class ModernMocksTest {
         Class<?> mockFileSystemsClass = Class.forName("org.evosuite.runtime.mock.java.nio.file.MockFileSystems");
 
         FileSystem fs = (FileSystem) mockFileSystemsClass.getMethod("getDefault").invoke(null);
-        Assert.assertNotNull(fs);
-        Assert.assertEquals(Paths.get("").getFileSystem(), fs);
+        Assertions.assertNotNull(fs);
+        Assertions.assertEquals(Paths.get("").getFileSystem(), fs);
 
         FileSystem fileUriFs = (FileSystem) mockFileSystemsClass
                 .getMethod("getFileSystem", URI.class)
@@ -1137,31 +1137,31 @@ public class ModernMocksTest {
         FileSystem jarUriFs = (FileSystem) mockFileSystemsClass
                 .getMethod("getFileSystem", URI.class)
                 .invoke(null, URI.create("jar:file:///tmp/x.jar!/"));
-        Assert.assertEquals(fs, fileUriFs);
-        Assert.assertEquals(fs, jarUriFs);
+        Assertions.assertEquals(fs, fileUriFs);
+        Assertions.assertEquals(fs, jarUriFs);
 
         Object providers = mockFileSystemsClass.getMethod("installedProviders").invoke(null);
-        Assert.assertTrue(providers instanceof Iterable);
-        Assert.assertFalse(((Iterable<?>) providers).iterator().hasNext());
+        Assertions.assertTrue(providers instanceof Iterable);
+        Assertions.assertFalse(((Iterable<?>) providers).iterator().hasNext());
 
         try {
             mockFileSystemsClass
                     .getMethod("newFileSystem", URI.class, Map.class)
                     .invoke(null, URI.create("jar:file:///tmp/x.jar!/"), java.util.Collections.emptyMap());
-            Assert.fail("Expected newFileSystem(URI,Map) to be blocked in mocked execution");
+            Assertions.fail("Expected newFileSystem(URI,Map) to be blocked in mocked execution");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause.getClass().getName().contains("MockIOException"));
+            Assertions.assertTrue(cause.getClass().getName().contains("MockIOException"));
         }
 
         try {
             mockFileSystemsClass
                     .getMethod("newFileSystem", Path.class, Map.class)
                     .invoke(null, Paths.get("dummy.zip"), java.util.Collections.emptyMap());
-            Assert.fail("Expected newFileSystem(Path,Map) to be blocked in mocked execution");
+            Assertions.fail("Expected newFileSystem(Path,Map) to be blocked in mocked execution");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause.getClass().getName().contains("MockIOException"));
+            Assertions.assertTrue(cause.getClass().getName().contains("MockIOException"));
         }
     }
 
@@ -1181,16 +1181,16 @@ public class ModernMocksTest {
                 .invoke(null, p, "x", (Object) new java.nio.file.OpenOption[0]);
 
         FileStore store = (FileStore) mockFiles.getMethod("getFileStore", Path.class).invoke(null, p);
-        Assert.assertNotNull(store);
-        Assert.assertEquals("evosuite-vfs", store.name());
-        Assert.assertEquals("evosuite", store.type());
-        Assert.assertFalse(store.isReadOnly());
-        Assert.assertEquals(1_073_741_824L, store.getTotalSpace());
-        Assert.assertEquals(805_306_368L, store.getUsableSpace());
-        Assert.assertEquals(805_306_368L, store.getUnallocatedSpace());
-        Assert.assertTrue(store.supportsFileAttributeView("basic"));
-        Assert.assertFalse(store.supportsFileAttributeView("posix"));
-        Assert.assertEquals(store.getTotalSpace(), ((Long) store.getAttribute("totalSpace")).longValue());
+        Assertions.assertNotNull(store);
+        Assertions.assertEquals("evosuite-vfs", store.name());
+        Assertions.assertEquals("evosuite", store.type());
+        Assertions.assertFalse(store.isReadOnly());
+        Assertions.assertEquals(1_073_741_824L, store.getTotalSpace());
+        Assertions.assertEquals(805_306_368L, store.getUsableSpace());
+        Assertions.assertEquals(805_306_368L, store.getUnallocatedSpace());
+        Assertions.assertTrue(store.supportsFileAttributeView("basic"));
+        Assertions.assertFalse(store.supportsFileAttributeView("posix"));
+        Assertions.assertEquals(store.getTotalSpace(), ((Long) store.getAttribute("totalSpace")).longValue());
     }
 
     @Test
@@ -1213,16 +1213,16 @@ public class ModernMocksTest {
         WatchService watcher = (WatchService) mockFileSystemClass
                 .getMethod("newWatchService", FileSystem.class)
                 .invoke(null, fs);
-        Assert.assertNotNull(watcher);
+        Assertions.assertNotNull(watcher);
 
         WatchKey key = (WatchKey) mockPathClass
                 .getMethod("register", Path.class, WatchService.class, WatchEvent.Kind[].class)
                 .invoke(null, watchedDir, watcher, (Object) new WatchEvent.Kind[]{
                         StandardWatchEventKinds.ENTRY_CREATE
                 });
-        Assert.assertNotNull(key);
-        Assert.assertTrue(key.isValid());
-        Assert.assertNull(watcher.poll());
+        Assertions.assertNotNull(key);
+        Assertions.assertTrue(key.isValid());
+        Assertions.assertNull(watcher.poll());
 
         Path created = Paths.get("created.txt");
         mockFileSystemClass
@@ -1230,17 +1230,17 @@ public class ModernMocksTest {
                 .invoke(null, watcher, watchedDir, StandardWatchEventKinds.ENTRY_CREATE, created);
 
         WatchKey signalled = watcher.poll(1L, TimeUnit.SECONDS);
-        Assert.assertNotNull(signalled);
-        Assert.assertEquals(key, signalled);
+        Assertions.assertNotNull(signalled);
+        Assertions.assertEquals(key, signalled);
 
         List<WatchEvent<?>> events = signalled.pollEvents();
-        Assert.assertEquals(1, events.size());
-        Assert.assertEquals(StandardWatchEventKinds.ENTRY_CREATE, events.get(0).kind());
-        Assert.assertEquals(created, events.get(0).context());
-        Assert.assertTrue(signalled.reset());
+        Assertions.assertEquals(1, events.size());
+        Assertions.assertEquals(StandardWatchEventKinds.ENTRY_CREATE, events.get(0).kind());
+        Assertions.assertEquals(created, events.get(0).context());
+        Assertions.assertTrue(signalled.reset());
 
         watcher.close();
-        Assert.assertFalse(signalled.isValid());
+        Assertions.assertFalse(signalled.isValid());
     }
 
     @Test
@@ -1259,14 +1259,14 @@ public class ModernMocksTest {
         PathMatcher glob = (PathMatcher) mockFileSystemClass
                 .getMethod("getPathMatcher", FileSystem.class, String.class)
                 .invoke(null, fs, "glob:*.txt");
-        Assert.assertTrue(glob.matches(Paths.get("alpha.txt")));
-        Assert.assertFalse(glob.matches(Paths.get("alpha.log")));
+        Assertions.assertTrue(glob.matches(Paths.get("alpha.txt")));
+        Assertions.assertFalse(glob.matches(Paths.get("alpha.log")));
 
         PathMatcher regex = (PathMatcher) mockFileSystemClass
                 .getMethod("getPathMatcher", FileSystem.class, String.class)
                 .invoke(null, fs, "regex:.*\\.data");
-        Assert.assertTrue(regex.matches(Paths.get("x.data")));
-        Assert.assertFalse(regex.matches(Paths.get("x.txt")));
+        Assertions.assertTrue(regex.matches(Paths.get("x.data")));
+        Assertions.assertFalse(regex.matches(Paths.get("x.txt")));
     }
 
     @Test
@@ -1299,8 +1299,8 @@ public class ModernMocksTest {
         int statusCode = (Integer) httpResponseClass.getMethod("statusCode").invoke(response);
         String body = (String) httpResponseClass.getMethod("body").invoke(response);
 
-        Assert.assertEquals(200, statusCode);
-        Assert.assertEquals("", body);
+        Assertions.assertEquals(200, statusCode);
+        Assertions.assertEquals("", body);
     }
 
     @Test
@@ -1367,10 +1367,10 @@ public class ModernMocksTest {
         Object version = httpClientClass.getMethod("version").invoke(client);
         Object executorOpt = httpClientClass.getMethod("executor").invoke(client);
 
-        Assert.assertEquals(java.util.Optional.of(java.time.Duration.ofSeconds(3)), timeoutOpt);
-        Assert.assertEquals(redirectAlways, redirect);
-        Assert.assertEquals(versionHttp2, version);
-        Assert.assertTrue(((java.util.Optional<?>) executorOpt).isPresent());
+        Assertions.assertEquals(java.util.Optional.of(java.time.Duration.ofSeconds(3)), timeoutOpt);
+        Assertions.assertEquals(redirectAlways, redirect);
+        Assertions.assertEquals(versionHttp2, version);
+        Assertions.assertTrue(((java.util.Optional<?>) executorOpt).isPresent());
     }
 
     @Test
@@ -1386,8 +1386,8 @@ public class ModernMocksTest {
         Object client = mockHttpClientClass.getMethod("newHttpClient").invoke(null);
         Object builder = mockHttpClientClass.getMethod("newBuilder").invoke(null);
 
-        Assert.assertFalse(client.getClass().getName().contains("MockHttpClient$DeterministicHttpClient"));
-        Assert.assertFalse(builder.getClass().getName().contains("MockHttpClient$DeterministicBuilder"));
+        Assertions.assertFalse(client.getClass().getName().contains("MockHttpClient$DeterministicHttpClient"));
+        Assertions.assertFalse(builder.getClass().getName().contains("MockHttpClient$DeterministicBuilder"));
     }
 
     @Test
@@ -1429,17 +1429,17 @@ public class ModernMocksTest {
                 .invoke(builder, URI.create("ws://example.org/socket"), listener);
         Object webSocket = completableFutureClass.getMethod("join").invoke(wsFuture);
 
-        Assert.assertTrue(opened[0]);
+        Assertions.assertTrue(opened[0]);
         Object sendFuture = webSocketClass.getMethod("sendText", CharSequence.class, boolean.class)
                 .invoke(webSocket, "hello", true);
         Object sentWs = completableFutureClass.getMethod("join").invoke(sendFuture);
-        Assert.assertSame(webSocket, sentWs);
+        Assertions.assertSame(webSocket, sentWs);
 
         webSocketClass.getMethod("sendClose", int.class, String.class).invoke(webSocket, 1000, "done");
         boolean outputClosed = (Boolean) webSocketClass.getMethod("isOutputClosed").invoke(webSocket);
         boolean inputClosed = (Boolean) webSocketClass.getMethod("isInputClosed").invoke(webSocket);
-        Assert.assertTrue(outputClosed);
-        Assert.assertTrue(inputClosed);
+        Assertions.assertTrue(outputClosed);
+        Assertions.assertTrue(inputClosed);
 
         assertInvocationCause(
                 webSocketClass.getMethod("request", long.class),
@@ -1482,7 +1482,7 @@ public class ModernMocksTest {
 
         org.evosuite.runtime.Random.setNextRandom(3);
         int value = (Integer) mockTlrClass.getMethod("nextInt", tlrClass, int.class, int.class).invoke(null, tlr, 10, 20);
-        Assert.assertEquals(13, value);
+        Assertions.assertEquals(13, value);
     }
 
     @Test
@@ -1498,13 +1498,13 @@ public class ModernMocksTest {
         org.evosuite.runtime.Random.setNextRandom(4);
         int value = (Integer) mockSrClass.getMethod("nextInt", srClass, int.class, int.class)
                 .invoke(null, sr, 10, 20);
-        Assert.assertEquals(14, value);
+        Assertions.assertEquals(14, value);
 
         org.evosuite.runtime.Random.setNextRandom(7);
         LongStream stream = (LongStream) mockSrClass.getMethod("longs", srClass, long.class).invoke(null, sr, 3L);
         long[] mockLongs = stream.toArray();
-        Assert.assertEquals(3, mockLongs.length);
-        Assert.assertEquals(7L, mockLongs[0]);
+        Assertions.assertEquals(3, mockLongs.length);
+        Assertions.assertEquals(7L, mockLongs[0]);
     }
 
     @Test
@@ -1525,19 +1525,19 @@ public class ModernMocksTest {
         org.evosuite.runtime.Random.setNextRandom(2);
         int ranged = (Integer) mockRgClass.getMethod("nextInt", rgClass, int.class, int.class)
                 .invoke(null, rg, 5, 9);
-        Assert.assertEquals(7, ranged);
+        Assertions.assertEquals(7, ranged);
 
         Object factory = mockFactoryClass.getMethod("getDefault").invoke(null);
         Object created = mockFactoryClass.getMethod("create", rgFactoryClass).invoke(null, factory);
         org.evosuite.runtime.Random.setNextRandom(11);
         long generated = (Long) mockRgClass.getMethod("nextLong", rgClass).invoke(null, created);
-        Assert.assertEquals(11L, generated);
+        Assertions.assertEquals(11L, generated);
 
         Object seeded = mockFactoryClass.getMethod("create", rgFactoryClass, long.class).invoke(null, factory, 42L);
         long first = (Long) rgClass.getMethod("nextLong").invoke(seeded);
         long second = (Long) rgClass.getMethod("nextLong").invoke(seeded);
-        Assert.assertEquals(42L, first);
-        Assert.assertEquals(43L, second);
+        Assertions.assertEquals(42L, first);
+        Assertions.assertEquals(43L, second);
     }
 
     @Test
@@ -1558,11 +1558,11 @@ public class ModernMocksTest {
 
         Object defaultZone = mockZoneIdClass.getMethod("systemDefault").invoke(null);
         String defaultId = (String) zoneIdClass.getMethod("getId").invoke(defaultZone);
-        Assert.assertEquals("Z", defaultId);
+        Assertions.assertEquals("Z", defaultId);
 
         Object offset = mockZoneOffsetClass.getMethod("ofTotalSeconds", int.class).invoke(null, 3600);
         String offsetId = (String) zoneOffsetClass.getMethod("getId").invoke(offset);
-        Assert.assertEquals("+01:00", offsetId);
+        Assertions.assertEquals("+01:00", offsetId);
     }
 
     @Test
@@ -1580,22 +1580,22 @@ public class ModernMocksTest {
         Class<?> zoneRulesClass = Class.forName("java.time.zone.ZoneRules");
 
         Set<String> ids = (Set<String>) mockZoneRulesProviderClass.getMethod("getAvailableZoneIds").invoke(null);
-        Assert.assertEquals(1, ids.size());
-        Assert.assertTrue(ids.contains("UTC"));
+        Assertions.assertEquals(1, ids.size());
+        Assertions.assertTrue(ids.contains("UTC"));
 
         Object rules = mockZoneRulesProviderClass
                 .getMethod("getRules", String.class, boolean.class)
                 .invoke(null, "UTC", true);
-        Assert.assertTrue(zoneRulesClass.isInstance(rules));
+        Assertions.assertTrue(zoneRulesClass.isInstance(rules));
 
         Map<String, Object> versions = (Map<String, Object>) mockZoneRulesProviderClass
                 .getMethod("getVersions", String.class)
                 .invoke(null, "UTC");
-        Assert.assertTrue(versions.containsKey("evosuite"));
-        Assert.assertTrue(zoneRulesClass.isInstance(versions.get("evosuite")));
+        Assertions.assertTrue(versions.containsKey("evosuite"));
+        Assertions.assertTrue(zoneRulesClass.isInstance(versions.get("evosuite")));
 
         boolean refreshed = (Boolean) mockZoneRulesProviderClass.getMethod("refresh").invoke(null);
-        Assert.assertFalse(refreshed);
+        Assertions.assertFalse(refreshed);
     }
 
     @Test
@@ -1612,16 +1612,16 @@ public class ModernMocksTest {
 
         Object key = mockScopedValueClass.getMethod("newInstance").invoke(null);
         boolean boundBefore = (Boolean) mockScopedValueClass.getMethod("isBound", scopedValueClass).invoke(null, key);
-        Assert.assertFalse(boundBefore);
+        Assertions.assertFalse(boundBefore);
 
         String fallback = (String) mockScopedValueClass
                 .getMethod("orElse", scopedValueClass, Object.class)
                 .invoke(null, key, "fallback");
-        Assert.assertEquals("fallback", fallback);
+        Assertions.assertEquals("fallback", fallback);
 
         Object carrier = mockScopedValueClass.getMethod("where", scopedValueClass, Object.class).invoke(null, key, "value");
         String fromCarrier = (String) carrierClass.getMethod("get", scopedValueClass).invoke(carrier, key);
-        Assert.assertEquals("value", fromCarrier);
+        Assertions.assertEquals("value", fromCarrier);
 
         final String[] fromRun = new String[1];
         Runnable reader = () -> {
@@ -1632,7 +1632,7 @@ public class ModernMocksTest {
             }
         };
         carrierClass.getMethod("run", Runnable.class).invoke(carrier, reader);
-        Assert.assertEquals("value", fromRun[0]);
+        Assertions.assertEquals("value", fromRun[0]);
     }
 
     @Test
@@ -1654,11 +1654,11 @@ public class ModernMocksTest {
         Object subtask = mockScopeClass.getMethod("fork", scopeClass, Callable.class)
                 .invoke(null, scope, (Callable<Integer>) () -> 7);
         Object joined = mockScopeClass.getMethod("join", scopeClass).invoke(null, scope);
-        Assert.assertNull(joined);
+        Assertions.assertNull(joined);
         Object state = subtaskClass.getMethod("state").invoke(subtask);
-        Assert.assertEquals("SUCCESS", String.valueOf(state));
+        Assertions.assertEquals("SUCCESS", String.valueOf(state));
         boolean cancelled = (Boolean) mockScopeClass.getMethod("isCancelled", scopeClass).invoke(null, scope);
-        Assert.assertFalse(cancelled);
+        Assertions.assertFalse(cancelled);
 
         mockScopeClass.getMethod("close", scopeClass).invoke(null, scope);
         assertInvocationCause(
@@ -1691,7 +1691,7 @@ public class ModernMocksTest {
                 (proxy, method, args) -> "from-call");
         Object result = mockCarrierClass.getMethod("call", carrierClass, callableOpClass)
                 .invoke(null, carrier, callableOp);
-        Assert.assertEquals("from-call", result);
+        Assertions.assertEquals("from-call", result);
     }
 
     @Test
@@ -1703,8 +1703,8 @@ public class ModernMocksTest {
         Class<?> mockPathsClass = Class.forName("org.evosuite.runtime.mock.java.nio.file.MockPaths");
         Object path = mockPathsClass.getMethod("get", String.class, String[].class)
                 .invoke(null, "base", (Object) new String[]{"child.txt"});
-        Assert.assertTrue(path instanceof Path);
-        Assert.assertTrue(path.toString().contains("base"));
+        Assertions.assertTrue(path instanceof Path);
+        Assertions.assertTrue(path.toString().contains("base"));
     }
 
     @Test
@@ -1739,9 +1739,9 @@ public class ModernMocksTest {
         int read = readChannel.read(buffer);
         readChannel.close();
 
-        Assert.assertTrue(read > 0);
+        Assertions.assertTrue(read > 0);
         String payload = new String(buffer.array(), 0, read, StandardCharsets.UTF_8);
-        Assert.assertEquals("nio-data", payload);
+        Assertions.assertEquals("nio-data", payload);
     }
 
     @Test
@@ -1767,16 +1767,16 @@ public class ModernMocksTest {
                 });
 
         Future<Integer> writeFuture = channel.write(ByteBuffer.wrap("async-data".getBytes(StandardCharsets.UTF_8)), 0);
-        Assert.assertEquals(10, (int) writeFuture.get(1, TimeUnit.SECONDS));
+        Assertions.assertEquals(10, (int) writeFuture.get(1, TimeUnit.SECONDS));
 
         ByteBuffer dst = ByteBuffer.allocate(16);
         Future<Integer> readFuture = channel.read(dst, 0);
         int read = readFuture.get(1, TimeUnit.SECONDS);
         channel.close();
 
-        Assert.assertTrue(read > 0);
+        Assertions.assertTrue(read > 0);
         String payload = new String(dst.array(), 0, read, StandardCharsets.UTF_8);
-        Assert.assertEquals("async-data", payload);
+        Assertions.assertEquals("async-data", payload);
     }
 
     @Test
@@ -1802,21 +1802,21 @@ public class ModernMocksTest {
                 });
 
         FileLock lock = channel.tryLock();
-        Assert.assertNotNull(lock);
-        Assert.assertTrue(lock.isValid());
+        Assertions.assertNotNull(lock);
+        Assertions.assertTrue(lock.isValid());
 
         try {
             channel.tryLock();
-            Assert.fail("Expected overlapping lock acquisition to fail");
+            Assertions.fail("Expected overlapping lock acquisition to fail");
         } catch (OverlappingFileLockException expected) {
             // expected
         }
 
         lock.release();
-        Assert.assertFalse(lock.isValid());
+        Assertions.assertFalse(lock.isValid());
 
         FileLock second = channel.tryLock();
-        Assert.assertNotNull(second);
+        Assertions.assertNotNull(second);
         second.release();
         channel.close();
     }
@@ -1850,18 +1850,18 @@ public class ModernMocksTest {
                 });
 
         FileLock firstLock = first.lock(0, 10, false);
-        Assert.assertTrue(firstLock.isValid());
+        Assertions.assertTrue(firstLock.isValid());
 
         try {
             second.tryLock(5, 10, false);
-            Assert.fail("Expected overlapping lock across channels to fail");
+            Assertions.fail("Expected overlapping lock across channels to fail");
         } catch (OverlappingFileLockException expected) {
             // expected
         }
 
         FileLock disjoint = second.tryLock(20, 10, false);
-        Assert.assertNotNull(disjoint);
-        Assert.assertTrue(disjoint.isValid());
+        Assertions.assertNotNull(disjoint);
+        Assertions.assertTrue(disjoint.isValid());
 
         disjoint.release();
         firstLock.release();
@@ -1891,7 +1891,7 @@ public class ModernMocksTest {
                 });
         try {
             writeOnly.tryLock(0, 1, true);
-            Assert.fail("Expected shared lock on write-only channel to fail");
+            Assertions.fail("Expected shared lock on write-only channel to fail");
         } catch (NonReadableChannelException expected) {
             // expected
         } finally {
@@ -1905,13 +1905,13 @@ public class ModernMocksTest {
                 });
         try {
             readOnly.tryLock(0, 1, false);
-            Assert.fail("Expected exclusive lock on read-only channel to fail");
+            Assertions.fail("Expected exclusive lock on read-only channel to fail");
         } catch (NonWritableChannelException expected) {
             // expected
         }
 
         FileLock shared = readOnly.tryLock(0, 1, true);
-        Assert.assertNotNull(shared);
+        Assertions.assertNotNull(shared);
         shared.release();
         readOnly.close();
     }
@@ -1940,9 +1940,9 @@ public class ModernMocksTest {
 
         try {
             channel.map(FileChannel.MapMode.READ_WRITE, 0, 1);
-            Assert.fail("Expected mapped-byte-buffer access to be blocked");
+            Assertions.fail("Expected mapped-byte-buffer access to be blocked");
         } catch (MockIOException expected) {
-            Assert.assertTrue(expected.getMessage().contains("MappedByteBuffer"));
+            Assertions.assertTrue(expected.getMessage().contains("MappedByteBuffer"));
         } finally {
             channel.close();
         }
@@ -1977,12 +1977,12 @@ public class ModernMocksTest {
                 });
 
         FileLock held = first.tryLock(0, 10, false);
-        Assert.assertTrue(held.isValid());
+        Assertions.assertTrue(held.isValid());
         first.close();
-        Assert.assertFalse(held.isValid());
+        Assertions.assertFalse(held.isValid());
 
         FileLock reacquired = second.tryLock(0, 10, false);
-        Assert.assertNotNull(reacquired);
+        Assertions.assertNotNull(reacquired);
         reacquired.release();
         second.close();
     }
@@ -1996,12 +1996,12 @@ public class ModernMocksTest {
         MockFramework.enable();
         Class<?> mockExecutorsClass = Class.forName("org.evosuite.runtime.mock.java.util.concurrent.MockExecutors");
         Object executorObj = mockExecutorsClass.getMethod("newSingleThreadExecutor").invoke(null);
-        Assert.assertTrue(executorObj instanceof ExecutorService);
+        Assertions.assertTrue(executorObj instanceof ExecutorService);
 
         ExecutorService executor = (ExecutorService) executorObj;
         final int[] value = new int[]{0};
         executor.submit(() -> value[0] = 7).get(1, TimeUnit.SECONDS);
-        Assert.assertEquals(7, value[0]);
+        Assertions.assertEquals(7, value[0]);
         executor.shutdownNow();
     }
 
@@ -2014,11 +2014,11 @@ public class ModernMocksTest {
         MockFramework.enable();
         Class<?> mockExecutorsClass = Class.forName("org.evosuite.runtime.mock.java.util.concurrent.MockExecutors");
         Object executorObj = mockExecutorsClass.getMethod("newWorkStealingPool", int.class).invoke(null, 4);
-        Assert.assertTrue(executorObj instanceof ExecutorService);
+        Assertions.assertTrue(executorObj instanceof ExecutorService);
 
         ExecutorService executor = (ExecutorService) executorObj;
         Future<Integer> value = executor.submit(() -> 123);
-        Assert.assertEquals(123, (int) value.get(1, TimeUnit.SECONDS));
+        Assertions.assertEquals(123, (int) value.get(1, TimeUnit.SECONDS));
         executor.shutdownNow();
     }
 
@@ -2031,13 +2031,13 @@ public class ModernMocksTest {
         MockFramework.enable();
         Class<?> mockExecutorsClass = Class.forName("org.evosuite.runtime.mock.java.util.concurrent.MockExecutors");
         Object executorObj = mockExecutorsClass.getMethod("newSingleThreadExecutor").invoke(null);
-        Assert.assertTrue(executorObj instanceof ExecutorService);
+        Assertions.assertTrue(executorObj instanceof ExecutorService);
 
         ExecutorService executor = (ExecutorService) executorObj;
         executor.shutdownNow();
         try {
             executor.submit(() -> 1);
-            Assert.fail("Expected submissions after shutdown to be rejected");
+            Assertions.fail("Expected submissions after shutdown to be rejected");
         } catch (java.util.concurrent.RejectedExecutionException expected) {
             // expected
         }
@@ -2055,40 +2055,40 @@ public class ModernMocksTest {
 
         try {
             mockExecutorsClass.getMethod("newFixedThreadPool", int.class).invoke(null, 0);
-            Assert.fail("Expected newFixedThreadPool(0) to throw");
+            Assertions.fail("Expected newFixedThreadPool(0) to throw");
         } catch (java.lang.reflect.InvocationTargetException e) {
-            Assert.assertTrue(e.getCause() instanceof IllegalArgumentException);
+            Assertions.assertTrue(e.getCause() instanceof IllegalArgumentException);
         }
 
         try {
             mockExecutorsClass.getMethod("newWorkStealingPool", int.class).invoke(null, -1);
-            Assert.fail("Expected newWorkStealingPool(-1) to throw");
+            Assertions.fail("Expected newWorkStealingPool(-1) to throw");
         } catch (java.lang.reflect.InvocationTargetException e) {
-            Assert.assertTrue(e.getCause() instanceof IllegalArgumentException);
+            Assertions.assertTrue(e.getCause() instanceof IllegalArgumentException);
         }
 
         try {
             mockExecutorsClass.getMethod("newCachedThreadPool", java.util.concurrent.ThreadFactory.class)
                     .invoke(null, new Object[]{null});
-            Assert.fail("Expected newCachedThreadPool(null) to throw");
+            Assertions.fail("Expected newCachedThreadPool(null) to throw");
         } catch (java.lang.reflect.InvocationTargetException e) {
-            Assert.assertTrue(e.getCause() instanceof NullPointerException);
+            Assertions.assertTrue(e.getCause() instanceof NullPointerException);
         }
 
         try {
             mockExecutorsClass.getMethod("newScheduledThreadPool", int.class, java.util.concurrent.ThreadFactory.class)
                     .invoke(null, -1, tf);
-            Assert.fail("Expected newScheduledThreadPool(-1, tf) to throw");
+            Assertions.fail("Expected newScheduledThreadPool(-1, tf) to throw");
         } catch (java.lang.reflect.InvocationTargetException e) {
-            Assert.assertTrue(e.getCause() instanceof IllegalArgumentException);
+            Assertions.assertTrue(e.getCause() instanceof IllegalArgumentException);
         }
 
         try {
             mockExecutorsClass.getMethod("newSingleThreadScheduledExecutor", java.util.concurrent.ThreadFactory.class)
                     .invoke(null, new Object[]{null});
-            Assert.fail("Expected newSingleThreadScheduledExecutor(null) to throw");
+            Assertions.fail("Expected newSingleThreadScheduledExecutor(null) to throw");
         } catch (java.lang.reflect.InvocationTargetException e) {
-            Assert.assertTrue(e.getCause() instanceof NullPointerException);
+            Assertions.assertTrue(e.getCause() instanceof NullPointerException);
         }
     }
 
@@ -2101,7 +2101,7 @@ public class ModernMocksTest {
         MockFramework.enable();
         Class<?> mockExecutorsClass = Class.forName("org.evosuite.runtime.mock.java.util.concurrent.MockExecutors");
         Object scheduledObj = mockExecutorsClass.getMethod("newSingleThreadScheduledExecutor").invoke(null);
-        Assert.assertTrue(scheduledObj instanceof java.util.concurrent.ScheduledExecutorService);
+        Assertions.assertTrue(scheduledObj instanceof java.util.concurrent.ScheduledExecutorService);
 
         java.util.concurrent.ScheduledExecutorService scheduled =
                 (java.util.concurrent.ScheduledExecutorService) scheduledObj;
@@ -2109,7 +2109,7 @@ public class ModernMocksTest {
         try {
             scheduled.scheduleAtFixedRate(() -> {
             }, 0L, 0L, TimeUnit.SECONDS);
-            Assert.fail("Expected scheduleAtFixedRate with period<=0 to throw");
+            Assertions.fail("Expected scheduleAtFixedRate with period<=0 to throw");
         } catch (IllegalArgumentException expected) {
             // expected
         }
@@ -2117,7 +2117,7 @@ public class ModernMocksTest {
         try {
             scheduled.scheduleWithFixedDelay(() -> {
             }, 0L, 0L, TimeUnit.SECONDS);
-            Assert.fail("Expected scheduleWithFixedDelay with delay<=0 to throw");
+            Assertions.fail("Expected scheduleWithFixedDelay with delay<=0 to throw");
         } catch (IllegalArgumentException expected) {
             // expected
         }
@@ -2125,7 +2125,7 @@ public class ModernMocksTest {
         try {
             scheduled.schedule((Runnable) () -> {
             }, 1L, null);
-            Assert.fail("Expected null unit to throw");
+            Assertions.fail("Expected null unit to throw");
         } catch (NullPointerException expected) {
             // expected
         }
@@ -2133,7 +2133,7 @@ public class ModernMocksTest {
         scheduled.shutdownNow();
         try {
             scheduled.schedule((java.util.concurrent.Callable<Integer>) () -> 1, 1L, TimeUnit.SECONDS);
-            Assert.fail("Expected schedule after shutdown to be rejected");
+            Assertions.fail("Expected schedule after shutdown to be rejected");
         } catch (java.util.concurrent.RejectedExecutionException expected) {
             // expected
         }
@@ -2154,7 +2154,7 @@ public class ModernMocksTest {
         Class<?> completableFutureClass = Class.forName("java.util.concurrent.CompletableFuture");
         completableFutureClass.getMethod("join").invoke(cf);
 
-        Assert.assertEquals(11, value[0]);
+        Assertions.assertEquals(11, value[0]);
     }
 
     @Test
@@ -2172,7 +2172,7 @@ public class ModernMocksTest {
                 .invoke(null, cf, "timeout-value", 10L, TimeUnit.SECONDS);
         String value = (String) completableFutureClass.getMethod("join").invoke(cf);
 
-        Assert.assertEquals("timeout-value", value);
+        Assertions.assertEquals("timeout-value", value);
     }
 
     @Test
@@ -2190,7 +2190,7 @@ public class ModernMocksTest {
                 .invoke(null, 10L, TimeUnit.SECONDS);
         delayed.execute(() -> value[0] = 21);
 
-        Assert.assertEquals(21, value[0]);
+        Assertions.assertEquals(21, value[0]);
     }
 
     @Test
@@ -2212,7 +2212,7 @@ public class ModernMocksTest {
                 .invoke(null, 5L, TimeUnit.MINUTES, delegate);
 
         delayed.execute(() -> executions[0]++);
-        Assert.assertEquals(2, executions[0]);
+        Assertions.assertEquals(2, executions[0]);
     }
 
     @Test
@@ -2229,9 +2229,9 @@ public class ModernMocksTest {
         Object returned = mockCfClass.getMethod("orTimeout", completableFutureClass, long.class, TimeUnit.class)
                 .invoke(null, cf, 1L, TimeUnit.MILLISECONDS);
 
-        Assert.assertSame(cf, returned);
+        Assertions.assertSame(cf, returned);
         boolean done = (Boolean) completableFutureClass.getMethod("isDone").invoke(cf);
-        Assert.assertFalse(done);
+        Assertions.assertFalse(done);
     }
 
     @Test
@@ -2283,10 +2283,10 @@ public class ModernMocksTest {
         Object failed = mockCfClass.getMethod("failedFuture", Throwable.class).invoke(null, expected);
         try {
             completableFutureClass.getMethod("join").invoke(failed);
-            Assert.fail("Expected failed future to throw");
+            Assertions.fail("Expected failed future to throw");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause.getClass().getName().contains("CompletionException"));
+            Assertions.assertTrue(cause.getClass().getName().contains("CompletionException"));
         }
     }
 
@@ -2304,7 +2304,7 @@ public class ModernMocksTest {
         Object cf = completionStageClass.getMethod("toCompletableFuture").invoke(stage);
         Class<?> completableFutureClass = Class.forName("java.util.concurrent.CompletableFuture");
         String value = (String) completableFutureClass.getMethod("join").invoke(cf);
-        Assert.assertEquals("ok", value);
+        Assertions.assertEquals("ok", value);
     }
 
     @Test
@@ -2319,10 +2319,10 @@ public class ModernMocksTest {
 
         try {
             mockProcessBuilderClass.getMethod("start", ProcessBuilder.class).invoke(null, builder);
-            Assert.fail("Expected process creation to be blocked");
+            Assertions.fail("Expected process creation to be blocked");
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue(cause.getClass().getName().contains("MockIOException"));
+            Assertions.assertTrue(cause.getClass().getName().contains("MockIOException"));
         }
     }
 
@@ -2335,9 +2335,9 @@ public class ModernMocksTest {
         MockFramework.enable();
         try {
             MockRuntime.exec(java.lang.Runtime.getRuntime(), new String[]{"echo", "x"});
-            Assert.fail("Expected process creation to be blocked");
+            Assertions.fail("Expected process creation to be blocked");
         } catch (MockIOException expected) {
-            Assert.assertTrue(expected.getMessage().contains("Cannot start processes"));
+            Assertions.assertTrue(expected.getMessage().contains("Cannot start processes"));
         }
     }
 
@@ -2350,9 +2350,9 @@ public class ModernMocksTest {
         MockFramework.enable();
         try {
             MockRuntime.exec(java.lang.Runtime.getRuntime(), new String[]{"echo", "x"}, new String[]{"BROKEN_ENV"}, null);
-            Assert.fail("Expected invalid env entry to be rejected");
+            Assertions.fail("Expected invalid env entry to be rejected");
         } catch (IllegalArgumentException expected) {
-            Assert.assertTrue(expected.getMessage().contains("Invalid environment variable"));
+            Assertions.assertTrue(expected.getMessage().contains("Invalid environment variable"));
         }
     }
 
@@ -2363,7 +2363,7 @@ public class ModernMocksTest {
 
         Class<?> mockSystemClass = Class.forName("org.evosuite.runtime.mock.java.lang.MockSystem");
         Object console = mockSystemClass.getMethod("console").invoke(null);
-        Assert.assertNull(console);
+        Assertions.assertNull(console);
     }
 
     @Test
@@ -2381,14 +2381,14 @@ public class ModernMocksTest {
                 new ProcessBuilder("echo", "a"),
                 new ProcessBuilder("echo", "b"));
         Object result = mockProcessBuilderClass.getMethod("startPipeline", List.class).invoke(null, builders);
-        Assert.assertTrue(result instanceof List);
+        Assertions.assertTrue(result instanceof List);
         List<?> processes = (List<?>) result;
-        Assert.assertEquals(2, processes.size());
+        Assertions.assertEquals(2, processes.size());
 
         long pid0 = (Long) processClass.getMethod("pid").invoke(processes.get(0));
         long pid1 = (Long) processClass.getMethod("pid").invoke(processes.get(1));
-        Assert.assertEquals(5000L, pid0);
-        Assert.assertEquals(5001L, pid1);
+        Assertions.assertEquals(5000L, pid0);
+        Assertions.assertEquals(5001L, pid1);
 
         Object first = processes.get(0);
         Object last = processes.get(processes.size() - 1);
@@ -2400,9 +2400,9 @@ public class ModernMocksTest {
 
         byte[] buffer = new byte[32];
         int read = lastOut.read(buffer);
-        Assert.assertTrue(read > 0);
+        Assertions.assertTrue(read > 0);
         String payload = new String(buffer, 0, read, StandardCharsets.UTF_8);
-        Assert.assertEquals("pipe-data", payload);
+        Assertions.assertEquals("pipe-data", payload);
     }
 
     @Test
@@ -2443,9 +2443,9 @@ public class ModernMocksTest {
 
         firstIn.write("x".getBytes(StandardCharsets.UTF_8));
         firstIn.flush();
-        Assert.assertTrue(lastOut.read() >= 0);
+        Assertions.assertTrue(lastOut.read() >= 0);
         firstIn.close();
-        Assert.assertEquals(-1, lastOut.read());
+        Assertions.assertEquals(-1, lastOut.read());
     }
 
     @Test
@@ -2460,13 +2460,13 @@ public class ModernMocksTest {
 
         Object handle = mockProcessHandleClass.getMethod("current").invoke(null);
         long pid = (Long) processHandleClass.getMethod("pid").invoke(handle);
-        Assert.assertEquals(4242L, pid);
+        Assertions.assertEquals(4242L, pid);
 
         Object onExit = mockProcessHandleClass.getMethod("onExit", processHandleClass).invoke(null, handle);
         Class<?> cfClass = Class.forName("java.util.concurrent.CompletableFuture");
         Object joined = cfClass.getMethod("join").invoke(onExit);
         long joinedPid = (Long) processHandleClass.getMethod("pid").invoke(joined);
-        Assert.assertEquals(4242L, joinedPid);
+        Assertions.assertEquals(4242L, joinedPid);
     }
 
     @Test
@@ -2510,10 +2510,10 @@ public class ModernMocksTest {
         Object joined = cfClass.getMethod("join").invoke(onExit);
         long joinedPid = (Long) processClass.getMethod("pid").invoke(joined);
 
-        Assert.assertEquals(4343L, pid);
-        Assert.assertEquals(0, exitValue);
-        Assert.assertTrue(waited);
-        Assert.assertEquals(4343L, joinedPid);
+        Assertions.assertEquals(4343L, pid);
+        Assertions.assertEquals(0, exitValue);
+        Assertions.assertTrue(waited);
+        Assertions.assertEquals(4343L, joinedPid);
     }
 
     @Test
@@ -2528,9 +2528,9 @@ public class ModernMocksTest {
 
         Object process = mockProcessClass.getMethod("deterministicProcess").invoke(null);
         Object returned = mockProcessClass.getMethod("destroyForcibly", processClass).invoke(null, process);
-        Assert.assertSame(process, returned);
+        Assertions.assertSame(process, returned);
         boolean alive = (Boolean) mockProcessClass.getMethod("isAlive", processClass).invoke(null, process);
-        Assert.assertFalse(alive);
+        Assertions.assertFalse(alive);
     }
 
     @Test
@@ -2580,10 +2580,10 @@ public class ModernMocksTest {
                 actualArgs = java.util.Arrays.copyOfRange(args, 1, args.length);
             }
             method.invoke(receiver, actualArgs);
-            Assert.fail("Expected invocation to throw " + expectedCause.getSimpleName());
+            Assertions.fail("Expected invocation to throw " + expectedCause.getSimpleName());
         } catch (java.lang.reflect.InvocationTargetException e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            Assert.assertTrue("Unexpected cause: " + cause, expectedCause.isInstance(cause));
+            Assertions.assertTrue(expectedCause.isInstance(cause), "Unexpected cause: " + cause);
         }
     }
 }

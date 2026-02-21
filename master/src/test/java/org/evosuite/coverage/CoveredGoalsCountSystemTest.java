@@ -29,17 +29,16 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.StatisticsBackend;
 import org.evosuite.SystemTestBase;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Created by jrojas
@@ -47,12 +46,12 @@ import static org.junit.Assert.assertTrue;
  */
 public class CoveredGoalsCountSystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void prepare() {
         try {
             FileUtils.deleteDirectory(new File("evosuite-report"));
         } catch (IOException e) {
-            Assert.fail(e.getMessage());
+            Assertions.fail(e.getMessage());
         }
     }
 
@@ -76,7 +75,7 @@ public class CoveredGoalsCountSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         String statistics_file = System.getProperty("user.dir") + File.separator + Properties.REPORT_DIR + File.separator + "statistics.csv";
         System.out.println("Statistics file " + statistics_file);
@@ -115,7 +114,7 @@ public class CoveredGoalsCountSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         String statistics_file = System.getProperty("user.dir") + File.separator + Properties.REPORT_DIR + File.separator + "statistics.csv";
         System.out.println("Statistics file " + statistics_file);
@@ -154,7 +153,7 @@ public class CoveredGoalsCountSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         String statistics_file = System.getProperty("user.dir") + File.separator + Properties.REPORT_DIR + File.separator + "statistics.csv";
         System.out.println("Statistics file " + statistics_file);
@@ -191,7 +190,7 @@ public class CoveredGoalsCountSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         String statistics_file = System.getProperty("user.dir") + File.separator + Properties.REPORT_DIR + File.separator + "statistics.csv";
         System.out.println("Statistics file " + statistics_file);
@@ -229,7 +228,7 @@ public class CoveredGoalsCountSystemTest extends SystemTestBase {
         };
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         String statistics_file = System.getProperty("user.dir") + File.separator + Properties.REPORT_DIR + File.separator + "statistics.csv";
         System.out.println("Statistics file " + statistics_file);

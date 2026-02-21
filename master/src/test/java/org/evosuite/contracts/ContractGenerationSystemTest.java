@@ -22,12 +22,7 @@ package org.evosuite.contracts;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-
+import org.junit.jupiter.api.*;
 import com.examples.with.different.packagename.contracts.AssertionException;
 import com.examples.with.different.packagename.contracts.EqualsHashCode;
 import com.examples.with.different.packagename.contracts.EqualsNull;
@@ -45,14 +40,14 @@ public class ContractGenerationSystemTest extends SystemTestBase {
 
     private String junitTheories = "";
 
-    @Before
+    @BeforeEach
     public void storeCheckContracts() {
         checkContracts = Properties.CHECK_CONTRACTS;
         junitTheories = Properties.JUNIT_THEORIES;
         FailingTestSet.clear();
     }
 
-    @After
+    @AfterEach
     public void restoreCheckContracts() {
         Properties.CHECK_CONTRACTS = checkContracts;
         Properties.JUNIT_THEORIES = junitTheories;
@@ -71,8 +66,8 @@ public class ContractGenerationSystemTest extends SystemTestBase {
 
         evosuite.parseCommandLine(command);
 
-        Assert.assertEquals(1, FailingTestSet.getNumberOfUniqueViolations());
-        Assert.assertEquals(1,
+        Assertions.assertEquals(1, FailingTestSet.getNumberOfUniqueViolations());
+        Assertions.assertEquals(1,
                 FailingTestSet.getNumberOfViolations(EqualsNullContract.class));
     }
 
@@ -97,7 +92,7 @@ public class ContractGenerationSystemTest extends SystemTestBase {
         // 1 Undeclared contract
         // 1 JCrasher
         //Assert.assertEquals(2, FailingTestSet.getNumberOfUniqueViolations());
-        Assert.assertEquals(1,
+        Assertions.assertEquals(1,
                 FailingTestSet.getNumberOfViolations(ToStringReturnsNormallyContract.class));
     }
 
@@ -117,7 +112,7 @@ public class ContractGenerationSystemTest extends SystemTestBase {
 
         // Also reported by JCrasher
         // Assert.assertEquals(2, FailingTestSet.getNumberOfUniqueViolations());
-        Assert.assertEquals(1,
+        Assertions.assertEquals(1,
                 FailingTestSet.getNumberOfViolations(HashCodeReturnsNormallyContract.class));
     }
 
@@ -135,11 +130,11 @@ public class ContractGenerationSystemTest extends SystemTestBase {
         evosuite.parseCommandLine(command);
 
         // Assert.assertEquals(2, FailingTestSet.getNumberOfUniqueViolations());
-        Assert.assertEquals(1, FailingTestSet.getNumberOfViolations(EqualsContract.class));
+        Assertions.assertEquals(1, FailingTestSet.getNumberOfViolations(EqualsContract.class));
     }
 
     // TODO: How to activate assertions when running with client on thread?
-    @Ignore
+    @Disabled
     @Test
     public void testAssertionContract() {
         EvoSuite evosuite = new EvoSuite();
@@ -153,8 +148,8 @@ public class ContractGenerationSystemTest extends SystemTestBase {
 
         evosuite.parseCommandLine(command);
 
-        Assert.assertEquals(1, FailingTestSet.getNumberOfUniqueViolations());
-        Assert.assertEquals(1,
+        Assertions.assertEquals(1, FailingTestSet.getNumberOfUniqueViolations());
+        Assertions.assertEquals(1,
                 FailingTestSet.getNumberOfViolations(AssertionErrorContract.class));
     }
 
@@ -170,8 +165,8 @@ public class ContractGenerationSystemTest extends SystemTestBase {
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
         evosuite.parseCommandLine(command);
 
-        Assert.assertTrue(FailingTestSet.getNumberOfViolations(EqualsHashcodeContract.class) > 0);
-        Assert.assertTrue(FailingTestSet.getNumberOfViolations(EqualsSymmetricContract.class) > 0);
+        Assertions.assertTrue(FailingTestSet.getNumberOfViolations(EqualsHashcodeContract.class) > 0);
+        Assertions.assertTrue(FailingTestSet.getNumberOfViolations(EqualsSymmetricContract.class) > 0);
     }
 
     @Test
@@ -192,7 +187,7 @@ public class ContractGenerationSystemTest extends SystemTestBase {
         //}
 
         // Assert.assertEquals(1, FailingTestSet.getNumberOfUniqueViolations());
-        Assert.assertEquals(1,
+        Assertions.assertEquals(1,
                 FailingTestSet.getNumberOfViolations(EqualsSymmetricContract.class));
     }
 
@@ -212,7 +207,7 @@ public class ContractGenerationSystemTest extends SystemTestBase {
         // This is reported by the NullPointer contract but also by the undeclared exception contract
         // and the JCrasher contract
         //Assert.assertEquals(3, FailingTestSet.getNumberOfUniqueViolations());
-        Assert.assertEquals(1,
+        Assertions.assertEquals(1,
                 FailingTestSet.getNumberOfViolations(UndeclaredExceptionContract.class));
     }
 
@@ -231,8 +226,8 @@ public class ContractGenerationSystemTest extends SystemTestBase {
         evosuite.parseCommandLine(command);
 
         // This is reported by the NullPointer contract but also by the undeclared exception contract
-        Assert.assertEquals(1, FailingTestSet.getNumberOfUniqueViolations());
-        Assert.assertEquals(1,
+        Assertions.assertEquals(1, FailingTestSet.getNumberOfUniqueViolations());
+        Assertions.assertEquals(1,
                 FailingTestSet.getNumberOfViolations(JUnitTheoryContract.class));
     }
 

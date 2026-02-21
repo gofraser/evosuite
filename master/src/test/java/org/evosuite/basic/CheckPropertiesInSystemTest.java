@@ -20,9 +20,9 @@
 package org.evosuite.basic;
 
 import org.evosuite.SystemTestBase;
-import org.junit.Assert;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class CheckPropertiesInSystemTest extends SystemTestBase {
 
@@ -30,13 +30,13 @@ public class CheckPropertiesInSystemTest extends SystemTestBase {
 
     @Test
     public void setProperty() {
-        Assert.assertNull(System.getProperty(PROPERTY));
+        Assertions.assertNull(System.getProperty(PROPERTY));
         System.setProperty(PROPERTY, PROPERTY);
-        Assert.assertNotNull(System.getProperty(PROPERTY));
+        Assertions.assertNotNull(System.getProperty(PROPERTY));
     }
 
     @Test
     public void getProperty() {
-        Assert.assertNull(System.getProperty(PROPERTY));
+        Assertions.assertNull(System.getProperty(PROPERTY));
     }
 }

@@ -26,8 +26,8 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Created by gordon on 28/03/2016.
@@ -50,21 +50,21 @@ public class EnumAssertionSystemTest extends SystemTestBase {
         TestSuiteChromosome suite = ga.getBestIndividual();
         System.out.println(suite.toString());
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
             boolean hasEnumAssertion = false;
             for (Assertion ass : test.getAssertions()) {
                 if (ass instanceof PrimitiveAssertion) {
-                    Assert.assertTrue(ass.getValue().getClass().isEnum());
+                    Assertions.assertTrue(ass.getValue().getClass().isEnum());
                     hasEnumAssertion = true;
                 }
             }
-            Assert.assertTrue("Test has no enum assertions: " + test.toCode(),
-                    hasEnumAssertion);
+            Assertions.assertTrue(hasEnumAssertion,
+                    "Test has no enum assertions: " + test.toCode());
         }
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, suite.getCoverage(), 0.05);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, suite.getCoverage(), 0.05, "Non-optimal coverage: ");
     }
 
 
@@ -84,20 +84,20 @@ public class EnumAssertionSystemTest extends SystemTestBase {
         TestSuiteChromosome suite = ga.getBestIndividual();
         System.out.println(suite.toString());
 
-        Assert.assertTrue(suite.size() > 0);
+        Assertions.assertTrue(suite.size() > 0);
         for (TestCase test : suite.getTests()) {
             boolean hasEnumAssertion = false;
             for (Assertion ass : test.getAssertions()) {
                 if (ass instanceof PrimitiveAssertion) {
-                    Assert.assertTrue(ass.getValue().getClass().isEnum());
+                    Assertions.assertTrue(ass.getValue().getClass().isEnum());
                     hasEnumAssertion = true;
                 }
             }
-            Assert.assertTrue("Test has no enum assertions: " + test.toCode(),
-                    hasEnumAssertion);
+            Assertions.assertTrue(hasEnumAssertion,
+                    "Test has no enum assertions: " + test.toCode());
         }
         int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
-        Assert.assertEquals("Wrong number of goals: ", 3, goals);
-        Assert.assertEquals("Non-optimal coverage: ", 1d, suite.getCoverage(), 0.05);
+        Assertions.assertEquals(3, goals, "Wrong number of goals: ");
+        Assertions.assertEquals(1d, suite.getCoverage(), 0.05, "Non-optimal coverage: ");
     }
 }

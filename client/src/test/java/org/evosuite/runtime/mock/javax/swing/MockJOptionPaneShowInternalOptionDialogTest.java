@@ -32,7 +32,10 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -44,13 +47,13 @@ public class MockJOptionPaneShowInternalOptionDialogTest {
     private static final boolean DEFAULT_MOCK_GUI = RuntimeSettings.mockGUI;
     private static final boolean DEFAULT_REPLACE_GUI = Properties.REPLACE_GUI;
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         String cp = System.getProperty("user.dir") + "/target/test-classes";
         ClassPathHandler.getInstance().addElementToTargetProjectClassPath(cp);
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         Properties.CRITERION = new Properties.Criterion[]{Criterion.BRANCH};
         Properties.TARGET_CLASS = TARGET_CLASS;
@@ -59,14 +62,14 @@ public class MockJOptionPaneShowInternalOptionDialogTest {
         TestGenerationContext.getInstance().resetContext();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeSettings.mockGUI = DEFAULT_MOCK_GUI;
         Properties.REPLACE_GUI = DEFAULT_REPLACE_GUI;
         TestGenerationContext.getInstance().resetContext();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     public void testShowInternalInputDialogs() throws Exception {
         TestSuiteChromosome suite = new TestSuiteChromosome();
         InstrumentingClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
@@ -77,7 +80,7 @@ public class MockJOptionPaneShowInternalOptionDialogTest {
         ff.getFitness(suite);
 
         Set<TestFitnessFunction> coveredGoals = suite.getCoveredGoals();
-        Assert.assertEquals(2, coveredGoals.size());
+        Assertions.assertEquals(2, coveredGoals.size());
     }
 
     private static TestCase buildTestCase0(InstrumentingClassLoader cl)

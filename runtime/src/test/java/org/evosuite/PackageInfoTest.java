@@ -19,9 +19,9 @@
  */
 package org.evosuite;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Created by Andrea Arcuri on 22/10/15.

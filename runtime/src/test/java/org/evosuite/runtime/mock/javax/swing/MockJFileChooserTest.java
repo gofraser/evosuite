@@ -22,11 +22,7 @@ package org.evosuite.runtime.mock.javax.swing;
 import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.java.io.MockFile;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.Assume;
+import org.junit.jupiter.api.*;
 
 import javax.swing.*;
 import java.io.File;
@@ -35,14 +31,14 @@ public class MockJFileChooserTest {
 
     private static final boolean VFS = RuntimeSettings.useVFS;
 
-    @Before
+    @BeforeEach
     public void init() {
-        Assume.assumeTrue("JFileChooser test is unstable on Java 24+ in headless CI/JVM contexts", !isJava24OrNewer());
+        Assumptions.assumeTrue(!isJava24OrNewer(), "JFileChooser test is unstable on Java 24+ in headless CI/JVM contexts");
         RuntimeSettings.useVFS = true;
         Runtime.getInstance().resetRuntime();
     }
 
-    @After
+    @AfterEach
     public void restoreProperties() {
         RuntimeSettings.useVFS = VFS;
     }
@@ -53,8 +49,8 @@ public class MockJFileChooserTest {
         JFileChooser chooser = new MockJFileChooser();
         File dir = chooser.getCurrentDirectory();
 
-        Assert.assertTrue(dir.exists());
-        Assert.assertTrue(dir instanceof MockFile);
+        Assertions.assertTrue(dir.exists());
+        Assertions.assertTrue(dir instanceof MockFile);
     }
 
     private static boolean isJava24OrNewer() {

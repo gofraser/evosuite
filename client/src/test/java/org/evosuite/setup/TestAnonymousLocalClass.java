@@ -1,8 +1,8 @@
 package org.evosuite.setup;
 
 import org.evosuite.Properties;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TestAnonymousLocalClass {
 
@@ -12,7 +12,7 @@ public class TestAnonymousLocalClass {
         Properties.TARGET_CLASS = "org.evosuite.setup.TestAnonymousLocalClass";
         Object o = new Object() {};
         boolean result = TestUsageChecker.canUse(o.getClass());
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 
     @Test
@@ -21,6 +21,6 @@ public class TestAnonymousLocalClass {
         Properties.TARGET_CLASS = "org.evosuite.setup.TestAnonymousLocalClass";
         class Local {}
         boolean result = TestUsageChecker.canUse(Local.class);
-        Assert.assertFalse(result);
+        Assertions.assertFalse(result);
     }
 }

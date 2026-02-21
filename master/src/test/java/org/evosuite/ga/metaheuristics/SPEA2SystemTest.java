@@ -19,10 +19,6 @@
  */
 package org.evosuite.ga.metaheuristics;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
-
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Algorithm;
@@ -35,14 +31,15 @@ import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.problems.metrics.Spacing;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.BMICalculator;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * SPEA2SystemTest.
@@ -51,7 +48,7 @@ import java.util.List;
  */
 public class SPEA2SystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void reset() {
         RhoCoverageFactory.getGoals().clear();
         AmbiguityCoverageFactory.getGoals().clear();
@@ -74,7 +71,7 @@ public class SPEA2SystemTest extends SystemTestBase {
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         GeneticAlgorithm<TestSuiteChromosome> ga = (GeneticAlgorithm<TestSuiteChromosome>) getGAFromResult(result);
 
@@ -107,6 +104,6 @@ public class SPEA2SystemTest extends SystemTestBase {
 
         double[][] frontNormalized = sp.getNormalizedFront(front, max, min);
         double spacing = sp.evaluate(frontNormalized);
-        assertTrue("Expected low spacing for a simple benchmark front, but got " + spacing, spacing <= 0.3);
+        assertTrue(spacing <= 0.3, "Expected low spacing for a simple benchmark front, but got " + spacing);
     }
 }

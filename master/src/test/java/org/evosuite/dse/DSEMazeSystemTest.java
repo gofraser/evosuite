@@ -19,9 +19,9 @@
  */
 package org.evosuite.dse;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.examples.with.different.packagename.solver.MazeClientArrays;
 import org.evosuite.EvoSuite;
@@ -33,14 +33,13 @@ import org.evosuite.Properties.Strategy;
 import org.evosuite.SystemTestBase;
 import org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithmBase;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.solver.MazeClient;
 
 public class DSEMazeSystemTest extends SystemTestBase {
 
-    @Before
+    @BeforeEach
     public void init() {
         Properties.VIRTUAL_FS = true;
         Properties.VIRTUAL_NET = true;

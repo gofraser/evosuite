@@ -1,8 +1,8 @@
 package org.evosuite.coverage.mutation;
 
 import org.evosuite.graphs.cfg.BytecodeInstruction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.LabelNode;
@@ -13,13 +13,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class MutationPoolTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // Clear global state if necessary, though we use new ClassLoaders
     }
@@ -33,8 +33,8 @@ public class MutationPoolTest {
         MutationPool pool2 = MutationPool.getInstance(cl1);
         MutationPool pool3 = MutationPool.getInstance(cl2);
 
-        assertSame("Same classloader should return same pool instance", pool1, pool2);
-        assertNotSame("Different classloader should return different pool instance", pool1, pool3);
+        assertSame(pool1, pool2, "Same classloader should return same pool instance");
+        assertNotSame(pool1, pool3, "Different classloader should return different pool instance");
     }
 
     @Test

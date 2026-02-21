@@ -26,9 +26,9 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -42,7 +42,7 @@ public class TimelineForCombinedFitness1SystemTest extends SystemTestBase {
 
     private final boolean ASSERTIONS = Properties.ASSERTIONS;
 
-    @After
+    @AfterEach
     public void afterTest() {
         Properties.CRITERION = oldCriterion;
         Properties.ANALYSIS_CRITERIA = ANALYSIS_CRITERIA;
@@ -81,22 +81,22 @@ public class TimelineForCombinedFitness1SystemTest extends SystemTestBase {
         evosuite.parseCommandLine(command);
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assert.assertNotNull(map);
+        Assertions.assertNotNull(map);
 
         String strVar1 = RuntimeVariable.MethodCoverageTimeline.toString();
         OutputVariable method = getLastTimelineVariable(map, strVar1);
-        Assert.assertNotNull(method);
-        Assert.assertEquals("Incorrect last timeline value for " + strVar1, 1.0, method.getValue());
+        Assertions.assertNotNull(method);
+        Assertions.assertEquals(1.0, method.getValue(), "Incorrect last timeline value for " + strVar1);
 
         String strVar2 = RuntimeVariable.MethodNoExceptionCoverageTimeline.toString();
         OutputVariable methodNE = getLastTimelineVariable(map, strVar2);
-        Assert.assertNotNull(methodNE);
-        Assert.assertEquals("Incorrect last timeline value for " + strVar2, 1.0, methodNE.getValue());
+        Assertions.assertNotNull(methodNE);
+        Assertions.assertEquals(1.0, methodNE.getValue(), "Incorrect last timeline value for " + strVar2);
 
         String strVar3 = RuntimeVariable.OutputCoverageTimeline.toString();
         OutputVariable output = getLastTimelineVariable(map, strVar3);
-        Assert.assertNotNull(output);
-        Assert.assertEquals("Incorrect last timeline value for " + strVar3, 1.0, output.getValue());
+        Assertions.assertNotNull(output);
+        Assertions.assertEquals(1.0, output.getValue(), "Incorrect last timeline value for " + strVar3);
     }
 
     private OutputVariable getLastTimelineVariable(Map<String, OutputVariable<?>> map, String name) {

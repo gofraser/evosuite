@@ -24,9 +24,8 @@ import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.reset.StaticInitCatchImplicitNullPointer;
 
 public class StaticInitCatchImplicitNullPointerSystemTest extends SystemTestBase {
@@ -68,6 +67,6 @@ public class StaticInitCatchImplicitNullPointerSystemTest extends SystemTestBase
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        Assert.assertNotNull(best);
+        Assertions.assertNotNull(best);
     }
 }

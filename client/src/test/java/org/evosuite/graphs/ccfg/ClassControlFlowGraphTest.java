@@ -5,12 +5,12 @@ import org.evosuite.graphs.ccg.ClassCallGraph;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.ControlFlowEdge;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.*;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -20,7 +20,7 @@ public class ClassControlFlowGraphTest {
     private GraphPool graphPool;
     private String className = "TestClass";
 
-    @Before
+    @BeforeEach
     public void setUp() {
         classLoader = new ClassLoader() {};
         graphPool = GraphPool.getInstance(classLoader);
@@ -152,8 +152,8 @@ public class ClassControlFlowGraphTest {
         // In CCFG, call nodes are replaced.
         // So callB becomes a CCFGMethodCallNode and CCFGMethodReturnNode.
 
-        assertTrue("Method A should be pure", ccfg.isPure(methodA));
-        assertTrue("Method B should be pure", ccfg.isPure(methodB));
+        assertTrue(ccfg.isPure(methodA), "Method A should be pure");
+        assertTrue(ccfg.isPure(methodB), "Method B should be pure");
     }
 
     private BytecodeInstruction mockInstruction(String methodName, int id) {

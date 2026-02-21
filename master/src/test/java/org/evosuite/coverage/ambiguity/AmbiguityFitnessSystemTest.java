@@ -19,8 +19,8 @@
  */
 package org.evosuite.coverage.ambiguity;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -37,10 +37,9 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.Compositional;
 import com.examples.with.different.packagename.coverage.IndirectlyCoverableBranches;
 
@@ -72,7 +71,7 @@ public class AmbiguityFitnessSystemTest extends SystemTestBase {
         }
     }
 
-    @Before
+    @BeforeEach
     public void prepare() {
         AmbiguityCoverageFactory.reset();
         try {
@@ -141,13 +140,13 @@ public class AmbiguityFitnessSystemTest extends SystemTestBase {
         };
 
         List<List<TestGenerationResult>> result = (List<List<TestGenerationResult>>) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         List<?> goals = AmbiguityCoverageFactory.getGoals();
         assertEquals(12, goals.size());
 
         GeneticAlgorithm<?> ga = result.get(0).get(0).getGeneticAlgorithm();
-        Assert.assertNotNull(ga);
+        Assertions.assertNotNull(ga);
         assertEquals(0.0, ga.getBestIndividual().getFitnessInstanceOf(AmbiguityCoverageSuiteFitness.class), 0.0);
     }
 
@@ -170,13 +169,13 @@ public class AmbiguityFitnessSystemTest extends SystemTestBase {
         };
 
         List<List<TestGenerationResult>> result = (List<List<TestGenerationResult>>) evosuite.parseCommandLine(command);
-        Assert.assertNotNull(result);
+        Assertions.assertNotNull(result);
 
         List<?> goals = AmbiguityCoverageFactory.getGoals();
         assertEquals(12, goals.size());
 
         GeneticAlgorithm<?> ga = result.get(0).get(0).getGeneticAlgorithm();
-        Assert.assertNotNull(ga);
+        Assertions.assertNotNull(ga);
         assertEquals(0.0, ga.getBestIndividual().getFitnessInstanceOf(AmbiguityCoverageSuiteFitness.class), 0.0);
     }
 

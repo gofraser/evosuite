@@ -20,8 +20,8 @@
 package org.evosuite.testcase;
 
 import org.evosuite.testcase.execution.TimeoutHandler;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.*;
 
@@ -43,13 +43,13 @@ public class TimeoutIntTest {
             executor.shutdownNow();
             try {
                 boolean terminated = executor.awaitTermination(2000, TimeUnit.MILLISECONDS);
-                Assert.assertTrue(terminated);
+                Assertions.assertTrue(terminated);
             } catch (InterruptedException e1) {
                 // TODO Auto-generated catch block
                 e1.printStackTrace();
             }
 
-            Assert.assertEquals(1, RESULT);
+            Assertions.assertEquals(1, RESULT);
         } catch (InterruptedException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -75,13 +75,13 @@ public class TimeoutIntTest {
             executor.shutdownNow();
             try {
                 boolean terminated = executor.awaitTermination(1000, TimeUnit.MILLISECONDS);
-                Assert.assertTrue(terminated);
+                Assertions.assertTrue(terminated);
             } catch (InterruptedException e1) {
                 // TODO Auto-generated catch block
                 e1.printStackTrace();
             }
 
-            Assert.assertEquals(2, RESULT);
+            Assertions.assertEquals(2, RESULT);
         } catch (InterruptedException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();

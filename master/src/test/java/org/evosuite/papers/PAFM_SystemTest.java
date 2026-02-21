@@ -23,7 +23,7 @@ import com.examples.with.different.packagename.papers.pafm.PAFM;
 import com.examples.with.different.packagename.papers.pafm.PAFM_old;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class PAFM_SystemTest extends SystemTestBase {
 

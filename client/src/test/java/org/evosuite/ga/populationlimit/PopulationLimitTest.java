@@ -2,12 +2,12 @@ package org.evosuite.ga.populationlimit;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.DummyChromosome;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class PopulationLimitTest {
 

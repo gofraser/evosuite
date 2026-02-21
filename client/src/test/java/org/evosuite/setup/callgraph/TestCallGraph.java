@@ -19,15 +19,15 @@
  */
 package org.evosuite.setup.callgraph;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TestCallGraph {
 
     @Test
     public void test() {
         CallGraph c = new CallGraph("test");
-        Assert.assertNotNull(c);
+        Assertions.assertNotNull(c);
     }
 
 }
