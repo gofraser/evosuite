@@ -77,17 +77,30 @@ public class Scaffolding {
      */
     public static String getScaffoldingFileContent(String testName, List<ExecutionResult> results,
                                                    boolean wasSecurityException) {
+        return getScaffoldingFileContent(testName, results, RuntimeRequirements.fromResults(results));
+    }
+
+    /**
+     * Return full JUnit code for scaffolding file for the give test.
+     *
+     * @param testName name of the test
+     * @param results execution results
+     * @param requirements resolved runtime/output requirements
+     * @return content of the scaffolding file
+     */
+    public static String getScaffoldingFileContent(String testName, List<ExecutionResult> results,
+                                                   RuntimeRequirements requirements) {
 
         String name = getFileName(testName);
 
         StringBuilder builder = new StringBuilder();
 
-        builder.append(getHeader(name, results, wasSecurityException));
+        builder.append(getHeader(name, results, requirements));
         if (results.isEmpty()) {
             builder.append(METHOD_SPACE);
             builder.append("// Empty scaffolding for empty test suite\n");
         } else {
-            builder.append(new Scaffolding().getBeforeAndAfterMethods(name, wasSecurityException, results));
+            builder.append(new Scaffolding().getBeforeAndAfterMethods(name, requirements.hasSecurityException(), results));
         }
         builder.append(getFooter());
 
@@ -98,7 +111,7 @@ public class Scaffolding {
         return "}\n";
     }
 
-    protected static String getHeader(String name, List<ExecutionResult> results, boolean wasSecurityException) {
+    protected static String getHeader(String name, List<ExecutionResult> results, RuntimeRequirements requirements) {
         StringBuilder builder = new StringBuilder();
         builder.append("/**\n");
         builder.append(" * Scaffolding file used to store all the setups needed to run \n");
@@ -113,14 +126,14 @@ public class Scaffolding {
         }
         builder.append("\n");
 
-        for (String imp : getScaffoldingImports(wasSecurityException, results)) {
+        for (String imp : getScaffoldingImports(requirements, results)) {
             builder.append("import ");
             builder.append(imp);
             builder.append(";\n");
         }
         builder.append("\n");
 
-        if (TestSuiteWriterUtils.doesUseMocks(results)) {
+        if (requirements.usesMocks()) {
             builder.append("import static ").append(Mockito.class.getCanonicalName()).append(".*;\n");
         }
 
@@ -153,25 +166,36 @@ public class Scaffolding {
      * @return list of imports
      */
     public static List<String> getScaffoldingImports(boolean wasSecurityException, List<ExecutionResult> results) {
+        return getScaffoldingImports(RuntimeRequirements.fromResults(results), results);
+    }
+
+    /**
+     * Return all classes for which we need an import statement.
+     *
+     * @param requirements resolved runtime/output requirements
+     * @param results execution results
+     * @return list of imports
+     */
+    public static List<String> getScaffoldingImports(RuntimeRequirements requirements, List<ExecutionResult> results) {
         List<String> list = new ArrayList<>();
 
         list.add(EvoSuiteClassExclude.class.getCanonicalName());
 
-        if (TestSuiteWriterUtils.needToUseAgent() || wasSecurityException || SystemInUtil.getInstance().hasBeenUsed()
-                || JOptionPaneInputs.getInstance().hasAnyDialog() || !Properties.NO_RUNTIME_DEPENDENCY
-                || TestSuiteWriterUtils.doesUseMocks(results)) {
+        if (requirements.needsAgent() || requirements.hasSecurityException() || SystemInUtil.getInstance().hasBeenUsed()
+                || JOptionPaneInputs.getInstance().hasAnyDialog() || requirements.isRuntimeEnabled()
+                || requirements.usesMocks()) {
             UnitTestAdapter adapter = getAdapter();
             list.add(adapter.beforeAll().getCanonicalName());
             list.add(adapter.beforeEach().getCanonicalName());
             list.add(adapter.afterEach().getCanonicalName());
         }
 
-        if (Properties.RESET_STATIC_FIELDS || wasSecurityException
-                || TestSuiteWriterUtils.shouldResetProperties(results)) {
+        if (Properties.RESET_STATIC_FIELDS || requirements.hasSecurityException()
+                || requirements.shouldResetProperties()) {
             list.add(getAdapter().afterAll().getCanonicalName());
         }
 
-        if (Properties.RESET_STATIC_FIELDS || wasSecurityException) {
+        if (Properties.RESET_STATIC_FIELDS || requirements.hasSecurityException()) {
             /*
              * for simplicity, when doing static reset, we always activate the
              * sandbox, as anyway its code is only going to be in the
@@ -181,7 +205,7 @@ public class Scaffolding {
             list.add(Sandbox.SandboxMode.class.getCanonicalName());
         }
 
-        if (wasSecurityException) {
+        if (requirements.hasSecurityException()) {
             list.add(java.util.concurrent.ExecutorService.class.getCanonicalName());
             list.add(java.util.concurrent.Executors.class.getCanonicalName());
             list.add(java.util.concurrent.Future.class.getCanonicalName());

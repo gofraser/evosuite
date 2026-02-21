@@ -193,9 +193,9 @@ public class TestSuiteWriter implements Opcodes {
             throw new IllegalArgumentException(
                     "Test classes should have name ending with 'Test'. Invalid input name: " + name);
         }
+        TestOutputMode outputMode = TestSuiteWriterUtils.resolveTestOutputMode();
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT3
-                && Properties.TEST_SCAFFOLDING
-                && !Properties.NO_RUNTIME_DEPENDENCY) {
+                && outputMode == TestOutputMode.LEGACY_SCAFFOLDING_FILE) {
             throw new IllegalStateException("JUnit3 output with scaffolding is not supported. "
                     + "Use JUNIT4/JUNIT5, disable scaffolding, or enable no_runtime_dependency.");
         }
@@ -244,29 +244,30 @@ public class TestSuiteWriter implements Opcodes {
         // let's try to remove any remaining assertions. TODO: Better solution
         removeAssertionsAfterException(results);
 
+        RuntimeRequirements requirements = RuntimeRequirements.fromResults(results);
+
 
         if (Properties.OUTPUT_GRANULARITY == OutputGranularity.MERGED || testCases.size() == 0) {
             File file = new File(dir + "/" + name + ".java");
             //executor.newObservers();
-            content = getUnitTestsAllInSameFile(name, results);
+            content = getUnitTestsAllInSameFile(name, results, requirements);
             FileIOUtils.writeFile(content, file);
             generated.add(file);
         } else {
             for (int i = 0; i < testCases.size(); i++) {
                 File file = new File(dir + "/" + name + "_" + i + ".java"); // e.g., dir/Foo_ESTest_0.java
                 //executor.newObservers();
-                String testCode = getOneUnitTestInAFile(name, i, results);
+                String testCode = getOneUnitTestInAFile(name, i, results, requirements);
                 FileIOUtils.writeFile(testCode, file);
                 content += testCode;
                 generated.add(file);
             }
         }
 
-        if (Properties.TEST_SCAFFOLDING && !Properties.NO_RUNTIME_DEPENDENCY) {
+        if (requirements.isScaffoldingFileMode()) {
             String scaffoldingName = Scaffolding.getFileName(name);
             File file = new File(dir + "/" + scaffoldingName + ".java");
-            String scaffoldingContent = Scaffolding.getScaffoldingFileContent(name, results,
-                    TestSuiteWriterUtils.hasAnySecurityException(results));
+            String scaffoldingContent = Scaffolding.getScaffoldingFileContent(name, results, requirements);
             FileIOUtils.writeFile(scaffoldingContent, file);
             generated.add(file);
             content += scaffoldingContent;
@@ -325,7 +326,7 @@ public class TestSuiteWriter implements Opcodes {
      * @param results Execution results
      * @return String representation of JUnit test file
      */
-    private String getUnitTestsAllInSameFile(String name, List<ExecutionResult> results) {
+    private String getUnitTestsAllInSameFile(String name, List<ExecutionResult> results, RuntimeRequirements requirements) {
 
         /*
          * if there was any security exception, then we need to scaffold the
@@ -335,9 +336,9 @@ public class TestSuiteWriter implements Opcodes {
 
         StringBuilder builder = new StringBuilder();
 
-        builder.append(getHeader(name, name, results));
+        builder.append(getHeader(name, name, results, requirements));
 
-        if (!Properties.TEST_SCAFFOLDING && !Properties.NO_RUNTIME_DEPENDENCY) {
+        if (requirements.isInlineScaffoldingMode()) {
             builder.append(new Scaffolding().getBeforeAndAfterMethods(name, wasSecurityException, results));
         }
 
@@ -360,15 +361,15 @@ public class TestSuiteWriter implements Opcodes {
      * @param testId a int.
      * @return String representation of JUnit test file
      */
-    private String getOneUnitTestInAFile(String name, int testId, List<ExecutionResult> results) {
+    private String getOneUnitTestInAFile(String name, int testId, List<ExecutionResult> results, RuntimeRequirements requirements) {
 
         boolean wasSecurityException = results.get(testId).hasSecurityException();
 
         StringBuilder builder = new StringBuilder();
 
-        builder.append(getHeader(name + "_" + testId, name, results));
+        builder.append(getHeader(name + "_" + testId, name, results, requirements));
 
-        if (!Properties.TEST_SCAFFOLDING && !Properties.NO_RUNTIME_DEPENDENCY) {
+        if (requirements.isInlineScaffoldingMode()) {
             builder.append(new Scaffolding().getBeforeAndAfterMethods(name + "_" + testId, wasSecurityException,
                     results));
         }
@@ -411,11 +412,11 @@ public class TestSuiteWriter implements Opcodes {
      * @param results a {@link java.util.List} object.
      * @return a {@link java.lang.String} object.
      */
-    protected String getImports(List<ExecutionResult> results) {
+    protected String getImports(List<ExecutionResult> results, RuntimeRequirements requirements) {
         StringBuilder builder = new StringBuilder();
         Set<Class<?>> imports = new HashSet<>();
         Set<Class<?>> accessedClasses = new HashSet<>();
-        boolean wasSecurityException = TestSuiteWriterUtils.hasAnySecurityException(results);
+        boolean wasSecurityException = requirements.hasSecurityException();
         boolean hasException = false;
 
         for (ExecutionResult result : results) {
@@ -430,13 +431,13 @@ public class TestSuiteWriter implements Opcodes {
         }
         visitor.clearExceptions();
 
-        if (doesUseMocks(results)) {
+        if (requirements.usesMocks()) {
             String mockito = Mockito.class.getCanonicalName();
             builder.append("import static " + mockito + ".*;" + NEWLINE);
             imports.add(ViolatedAssumptionAnswer.class);
         }
 
-        if (hasException && !Properties.NO_RUNTIME_DEPENDENCY) {
+        if (hasException && requirements.isRuntimeEnabled()) {
             builder.append("import static " + EvoAssertions.class.getCanonicalName() + ".*;" + NEWLINE);
         }
 
@@ -445,7 +446,7 @@ public class TestSuiteWriter implements Opcodes {
             imports.add(DebugGraphics.class);
         }
 
-        if (TestSuiteWriterUtils.needToUseAgent() && !Properties.NO_RUNTIME_DEPENDENCY) {
+        if (requirements.needsAgent()) {
             imports.add(EvoRunnerParameters.class);
             if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5) {
                 imports.add(EvoRunnerJUnit5.class);
@@ -496,8 +497,8 @@ public class TestSuiteWriter implements Opcodes {
             importNames.add(java.util.concurrent.TimeUnit.class.getCanonicalName());
         }
 
-        if (!Properties.TEST_SCAFFOLDING && !Properties.NO_RUNTIME_DEPENDENCY) {
-            importNames.addAll(Scaffolding.getScaffoldingImports(wasSecurityException, results));
+        if (requirements.isInlineScaffoldingMode()) {
+            importNames.addAll(Scaffolding.getScaffoldingImports(requirements, results));
         }
 
         // If a CodeUnderTestException happens, the test will be chopped before that exception
@@ -528,7 +529,8 @@ public class TestSuiteWriter implements Opcodes {
      * @param results          a {@link java.util.List} object.
      * @return a {@link java.lang.String} object.
      */
-    protected String getHeader(String testName, String scaffoldingName, List<ExecutionResult> results) {
+    protected String getHeader(String testName, String scaffoldingName, List<ExecutionResult> results,
+                               RuntimeRequirements requirements) {
         StringBuilder builder = new StringBuilder();
         builder.append("/*");
         builder.append(NEWLINE);
@@ -549,23 +551,22 @@ public class TestSuiteWriter implements Opcodes {
         builder.append(NEWLINE);
 
         builder.append(adapter.getImports());
-        builder.append(getImports(results));
+        builder.append(getImports(results, requirements));
 
-        if (TestSuiteWriterUtils.needToUseAgent() && !Properties.NO_RUNTIME_DEPENDENCY) {
+        if (requirements.needsAgent()) {
             builder.append(getRunner());
         }
 
         builder.append(adapter.getClassDefinition(testName));
 
-        if (Properties.TEST_SCAFFOLDING && !Properties.NO_RUNTIME_DEPENDENCY) {
+        if (requirements.isScaffoldingFileMode()) {
             builder.append(" extends ").append(Scaffolding.getFileName(scaffoldingName));
         }
 
         builder.append(" {");
         builder.append(NEWLINE);
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
-                && TestSuiteWriterUtils.needToUseAgent()
-                && !Properties.NO_RUNTIME_DEPENDENCY) {
+                && requirements.needsAgent()) {
             builder.append("@RegisterExtension").append(NEWLINE);
             builder.append(METHOD_SPACE).append("static EvoRunnerJUnit5 runner = new EvoRunnerJUnit5(")
                     .append(testName).append(".class);").append(NEWLINE);

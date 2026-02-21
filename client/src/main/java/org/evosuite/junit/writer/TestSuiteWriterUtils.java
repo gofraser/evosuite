@@ -67,6 +67,21 @@ public class TestSuiteWriterUtils {
                 || Properties.REPLACE_GUI;
     }
 
+    /**
+     * Resolves the output/runtime mode from current global configuration.
+     *
+     * @return resolved test output mode
+     */
+    public static TestOutputMode resolveTestOutputMode() {
+        if (Properties.NO_RUNTIME_DEPENDENCY) {
+            return TestOutputMode.NO_RUNTIME;
+        }
+        if (Properties.TEST_SCAFFOLDING) {
+            return TestOutputMode.LEGACY_SCAFFOLDING_FILE;
+        }
+        return TestOutputMode.LEGACY_INLINE_SCAFFOLDING;
+    }
+
 
     /**
      * Checks if the execution results indicate the use of mocks.
