@@ -23,7 +23,6 @@ package org.evosuite.junit;
 import org.evosuite.Properties;
 import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
-import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.runner.JUnitCore;
@@ -35,7 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.platform.engine.discovery.ClassNameFilter.includeClassNamePatterns;
-import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPackage;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
 
 /**
  * JUnitRunner class.
@@ -72,11 +71,10 @@ public class JUnitRunner {
             logger.warn("Running Junit 5 test");
 
             LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                    .selectors(selectPackage("com.baeldung.junit5.runfromjava"))
+                    .selectors(selectClass(this.junitClass))
                     .filters(includeClassNamePatterns(".*Test"))
                     .build();
             Launcher launcher = LauncherFactory.create();
-            TestPlan testPlan = launcher.discover(request);
             launcher.registerTestExecutionListeners(new JUnit5RunListener(this));
 
             launcher.execute(request);
