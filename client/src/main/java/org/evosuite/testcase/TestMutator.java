@@ -317,8 +317,8 @@ public class TestMutator {
                 replacement.remove();
             } else if (var.equals(r.getAdditionalVariableReference())) {
                 replacement.remove();
-            } else if (var.isFieldReference()) {
-                FieldReference fref = (FieldReference) var;
+            } else if (r.isFieldReference()) {
+                FieldReference fref = (FieldReference) r;
                 if (fref.getField().isFinal()) {
                     replacement.remove();
                 }
@@ -381,10 +381,6 @@ public class TestMutator {
                 VariableReference r = replacement.next();
                 if (var.equals(r.getAdditionalVariableReference())) {
                     replacement.remove();
-                } else if (r instanceof ArrayReference) {
-                    if (maxIndex >= ((ArrayReference) r).getArrayLength()) {
-                        replacement.remove();
-                    }
                 }
             }
             if (!alternatives.isEmpty()) {
@@ -456,11 +452,19 @@ public class TestMutator {
                     VariableReference callee = null;
                     Type target = m.getOwnerType();
 
+                    boolean createObject = false;
                     if (!test.hasObject(target, position)) {
+                        createObject = true;
+                    } else {
+                        try {
+                            callee = test.getRandomNonNullObject(target, position);
+                        } catch (ConstructionFailedException e) {
+                            createObject = true;
+                        }
+                    }
+                    if (createObject) {
                         // no FM for SUT
                         callee = testFactory.createObject(test, target, position, context, null, false, false, true);
-                    } else {
-                        callee = test.getRandomNonNullObject(target, position);
                     }
                     logger.debug("Got callee of type {}", callee.getGenericClass().getTypeName());
                     if (!TestUsageChecker.canUse(m.getMethod(), callee.getVariableClass())
