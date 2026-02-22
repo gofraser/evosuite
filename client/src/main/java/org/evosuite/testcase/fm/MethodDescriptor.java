@@ -37,6 +37,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 
 
 /**
@@ -83,42 +84,38 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
 
     private String initMatchers(GenericMethod method, GenericClass<?> retvalType) {
 
-        String matchers = "";
+        StringJoiner matchers = new StringJoiner(", ");
         Type[] types = method.getParameterTypes();
         List<GenericClass<?>> parameterClasses = method.getParameterClasses();
         for (int i = 0; i < types.length; i++) {
-            if (i > 0) {
-                matchers += " , ";
-            }
-
             GenericClass<?> genericParameter = parameterClasses.get(i);
             Type type = genericParameter.getRawClass();
             if (type.equals(Integer.TYPE) || type.equals(Integer.class)) {
-                matchers += "anyInt()";
+                matchers.add("anyInt()");
             } else if (type.equals(Long.TYPE) || type.equals(Long.class)) {
-                matchers += "anyLong()";
+                matchers.add("anyLong()");
             } else if (type.equals(Boolean.TYPE) || type.equals(Boolean.class)) {
-                matchers += "anyBoolean()";
+                matchers.add("anyBoolean()");
             } else if (type.equals(Double.TYPE) || type.equals(Double.class)) {
-                matchers += "anyDouble()";
+                matchers.add("anyDouble()");
             } else if (type.equals(Float.TYPE) || type.equals(Float.class)) {
-                matchers += "anyFloat()";
+                matchers.add("anyFloat()");
             } else if (type.equals(Short.TYPE) || type.equals(Short.class)) {
-                matchers += "anyShort()";
+                matchers.add("anyShort()");
             } else if (type.equals(Character.TYPE) || type.equals(Character.class)) {
-                matchers += "anyChar()";
+                matchers.add("anyChar()");
             } else if (type.equals(String.class)) {
-                matchers += "anyString()";
+                matchers.add("anyString()");
             } else if (type.equals(List.class)) {
-                matchers += "anyList()";
+                matchers.add("anyList()");
             } else if (type.equals(Set.class)) {
-                matchers += "anySet()";
+                matchers.add("anySet()");
             } else if (type.equals(Map.class)) {
-                matchers += "anyMap()";
+                matchers.add("anyMap()");
             } else if (type.equals(Collection.class)) {
-                matchers += "anyCollection()";
+                matchers.add("anyCollection()");
             } else if (type.equals(Iterable.class)) {
-                matchers += "anyIterable()";
+                matchers.add("anyIterable()");
             } else {
                 if (type.getTypeName().equals(Object.class.getName())) {
                     /*
@@ -128,20 +125,20 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
                         so a current workaround is that, when a method takes an Object as input (which is
                         that would happen in case of Generics T), we use the undetermined "any()"
                      */
-                    matchers += "any()";
+                    matchers.add("any()");
                 } else {
                     if (type instanceof Class) {
-                        matchers += "nullable(" + ((Class) type).getCanonicalName() + ".class)";
+                        matchers.add("nullable(" + ((Class) type).getCanonicalName() + ".class)");
                     } else {
                         //what to do here? is it even possible?
-                        matchers += "nullable(" + genericParameter.getRawClass().getCanonicalName() + ".class)";
+                        matchers.add("nullable(" + genericParameter.getRawClass().getCanonicalName() + ".class)");
                         // matchers += "any(" + type.getTypeName() + ".class)";
                     }
                 }
             }
         }
 
-        return matchers;
+        return matchers.toString();
     }
 
 
@@ -269,24 +266,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         }
     }
 
-    /**
-     * Constructor.
-     *
-     * @param className              the class name
-     * @param methodName             the method name
-     * @param inputParameterMatchers the matchers string
-     * @throws IllegalArgumentException if arguments are invalid
-     * @deprecated better (more precise results) to use the other constructor
-     */
-    @Deprecated
-    public MethodDescriptor(String className, String methodName,
-                            String inputParameterMatchers) throws IllegalArgumentException {
-        Inputs.checkNull(methodName, inputParameterMatchers);
-        this.className = className;
-        this.methodName = methodName;
-        this.inputParameterMatchers = inputParameterMatchers;
-        counter = 0;
-    }
+
 
     public GenericMethod getGenericMethodFor(GenericClass<?> clazz) throws ConstructionFailedException {
         return method.getGenericInstantiation(clazz);
