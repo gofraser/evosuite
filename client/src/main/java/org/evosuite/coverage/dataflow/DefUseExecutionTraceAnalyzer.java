@@ -331,7 +331,6 @@ public abstract class DefUseExecutionTraceAnalyzer {
                                                      int objectId, int usePos) {
 
         Map<String, HashMap<Integer, HashMap<Integer, Object>>> defDataObjects = trace.getDefinitionDataObjects();
-        defDataObjects.get(targetVariable).get(objectId);
 
         Object lastDef = null;
         int lastPos = -1;
@@ -368,12 +367,11 @@ public abstract class DefUseExecutionTraceAnalyzer {
     public static Object getActiveObjectAtUse(ExecutionTrace trace, String targetVariable,
                                               int objectId, int usePos) {
 
-        Map<String, HashMap<Integer, HashMap<Integer, Object>>> defDataObjects = trace.getDefinitionDataObjects();
-        defDataObjects.get(targetVariable).get(objectId);
+        Map<String, HashMap<Integer, HashMap<Integer, Object>>> useDataObjects = trace.getUseDataObjects();
 
         Object lastDef = null;
         int lastPos = -1;
-        Map<Integer, HashMap<Integer, Object>> objectMap = defDataObjects.get(targetVariable);
+        Map<Integer, HashMap<Integer, Object>> objectMap = useDataObjects.get(targetVariable);
         if (objectMap == null) {
             return -1;
         }

@@ -522,7 +522,16 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
                     return defCompare;
                 }
             }
-            return goalUse.compareTo(otherFitness.goalUse);
+            if (this.goalUse == null && otherFitness.goalUse != null) {
+                return -1;
+            }
+            if (this.goalUse != null && otherFitness.goalUse == null) {
+                return 1;
+            }
+            if (this.goalUse != null && otherFitness.goalUse != null) {
+                return goalUse.compareTo(otherFitness.goalUse);
+            }
+            return 0;
         }
         return compareClassName(other);
     }

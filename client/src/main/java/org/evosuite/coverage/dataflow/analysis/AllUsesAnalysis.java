@@ -43,9 +43,10 @@ public class AllUsesAnalysis {
 
     private int methodCallCounter = 0;
 
-    // map methods to Sets of definitions that can be active at method
+    // map methods to definitions that can be active at method
     // return. map according to defined variables name
-    private Map<String, Set<Map<String, BytecodeInstruction>>> determinedActiveDefs = new HashMap<>();
+    private Map<String, Map<String, Set<BytecodeInstruction>>> determinedActiveDefs = new HashMap<>();
+    
     // map methods to Sets of Uses that have a definition-free path
     // from their methods entry
     private Map<String, Set<BytecodeInstruction>> determinedFreeUses = new HashMap<>();
@@ -224,20 +225,14 @@ public class AllUsesAnalysis {
             if (!ccfg.isPublicMethod(method)) {
                 continue;
             }
-            Set<Map<String, BytecodeInstruction>> activeDefss = determinedActiveDefs
+            Map<String, Set<BytecodeInstruction>> activeDefs = determinedActiveDefs
                     .get(method);
-            for (Map<String, BytecodeInstruction> activeDefs : activeDefss) {
-                // checkActiveDefsSanity(activeDefs);
-                // if (activeDefs.get(freeUse.getDUVariableName()) == null)
-                // continue;
-
-                BytecodeInstruction activeDef = activeDefs.get(freeUse
-                        .getVariableName());
-                if (activeDef == null) {
-                    continue;
+            Set<BytecodeInstruction> defs = activeDefs.get(freeUse.getVariableName());
+            if (defs != null) {
+                for (BytecodeInstruction activeDef : defs) {
+                    addNewGoalToFoundPairs(null, activeDef, freeUse,
+                            DefUsePairType.INTRA_CLASS, r);
                 }
-                addNewGoalToFoundPairs(null, activeDef, freeUse,
-                        DefUsePairType.INTRA_CLASS, r);
             }
         }
         return r;
@@ -258,7 +253,7 @@ public class AllUsesAnalysis {
 
         // initialize variables
         Set<DefUseCoverageTestFitness> foundPairs = new HashSet<>();
-        Set<Map<String, VariableDefinition>> activeDefs = createInitialActiveDefs();
+        Map<String, Set<VariableDefinition>> activeDefs = createInitialActiveDefs();
         Set<BytecodeInstruction> freeUses = new HashSet<>();
         Deque<MethodCall> callStack = createInitialCallStack(methodEntry);
 
@@ -287,7 +282,7 @@ public class AllUsesAnalysis {
     private int determineIntraInterMethodPairs(
             CCFGMethodEntryNode investigatedMethod, CCFGNode node,
             Set<CCFGNode> handled, Set<CCFGEdge> handledBackEdges,
-            Set<Map<String, VariableDefinition>> activeDefs,
+            Map<String, Set<VariableDefinition>> activeDefs,
             Set<BytecodeInstruction> freeUses,
             Set<DefUseCoverageTestFitness> foundPairs,
             Deque<MethodCall> callStack, int invocationCount,
@@ -392,9 +387,9 @@ public class AllUsesAnalysis {
      * @param investigatedMethod the method being investigated.
      * @return set of active definitions after the call.
      */
-    private Set<Map<String, VariableDefinition>> handleMethodCallNodeChild(
+    private Map<String, Set<VariableDefinition>> handleMethodCallNodeChild(
             CCFGMethodCallNode callNode,
-            Set<Map<String, VariableDefinition>> activeDefs,
+            Map<String, Set<VariableDefinition>> activeDefs,
             Set<BytecodeInstruction> freeUses,
             Set<DefUseCoverageTestFitness> foundPairs,
             Deque<MethodCall> callStack, CCFGMethodEntryNode investigatedMethod) {
@@ -503,7 +498,7 @@ public class AllUsesAnalysis {
      */
     private void handleMethodExitNode(CCFGNode node,
                                       CCFGMethodEntryNode investigatedMethod,
-                                      Set<Map<String, VariableDefinition>> activeDefs,
+                                      Map<String, Set<VariableDefinition>> activeDefs,
                                       Set<BytecodeInstruction> freeUses) {
 
         CCFGMethodExitNode exitNode = (CCFGMethodExitNode) node;
@@ -515,7 +510,7 @@ public class AllUsesAnalysis {
 
     private void handleFieldCallNode(CCFGMethodEntryNode investigatedMethod,
                                      CCFGNode node, Deque<MethodCall> callStack,
-                                     Set<Map<String, VariableDefinition>> activeDefs,
+                                     Map<String, Set<VariableDefinition>> activeDefs,
                                      Set<BytecodeInstruction> freeUses,
                                      Set<DefUseCoverageTestFitness> foundPairs) {
 
@@ -527,7 +522,7 @@ public class AllUsesAnalysis {
 
     private void handleCodeNode(CCFGMethodEntryNode investigatedMethod,
                                 CCFGNode node, Deque<MethodCall> callStack,
-                                Set<Map<String, VariableDefinition>> activeDefs,
+                                Map<String, Set<VariableDefinition>> activeDefs,
                                 Set<BytecodeInstruction> freeUses,
                                 Set<DefUseCoverageTestFitness> foundPairs) {
 
@@ -539,7 +534,7 @@ public class AllUsesAnalysis {
 
     private void handleDefUse(CCFGMethodEntryNode investigatedMethod,
                               BytecodeInstruction code, Deque<MethodCall> callStack,
-                              Set<Map<String, VariableDefinition>> activeDefs,
+                              Map<String, Set<VariableDefinition>> activeDefs,
                               Set<BytecodeInstruction> freeUses,
                               Set<DefUseCoverageTestFitness> foundPairs) {
 
@@ -557,30 +552,27 @@ public class AllUsesAnalysis {
 
     private void handleDefInstruction(BytecodeInstruction code,
                                       Deque<MethodCall> callStack,
-                                      Set<Map<String, VariableDefinition>> activeDefMaps) {
+                                      Map<String, Set<VariableDefinition>> activeDefs) {
 
         VariableDefinition def = new VariableDefinition(code, callStack.peek());
-        for (Map<String, VariableDefinition> activeDefMap : activeDefMaps) {
-            activeDefMap.put(code.getVariableName(), def);
-        }
+        Set<VariableDefinition> defs = new HashSet<>();
+        defs.add(def);
+        activeDefs.put(code.getVariableName(), defs);
     }
 
     private void handleUseInstruction(CCFGMethodEntryNode investigatedMethod,
                                       BytecodeInstruction code, Deque<MethodCall> callStack,
-                                      Set<Map<String, VariableDefinition>> activeDefMaps,
+                                      Map<String, Set<VariableDefinition>> activeDefsMap,
                                       Set<BytecodeInstruction> freeUses,
                                       Set<DefUseCoverageTestFitness> foundPairs) {
 
         String varName = code.getVariableName();
+        Set<VariableDefinition> activeDefs = activeDefsMap.get(varName);
 
-        for (Map<String, VariableDefinition> activeDefs : activeDefMaps) {
-
-            VariableDefinition activeDef = activeDefs.get(varName);
-            if (activeDef != null) {
-
+        if (activeDefs != null && !activeDefs.isEmpty()) {
+            for (VariableDefinition activeDef : activeDefs) {
                 // we have an intraMethodPair iff use and definition are in
-                // the
-                // same method and executed during a single invocation of
+                // the same method and executed during a single invocation of
                 // that method
                 boolean isIntraPair = activeDef.getMethodCall().equals(
                         callStack.peek());
@@ -596,13 +588,12 @@ public class AllUsesAnalysis {
                     addNewGoalToFoundPairs(investigatedMethod, activeDef, code,
                             type, foundPairs);
                 }
-            } else {
-                // if we encounter a use here but have no activeDef yet we know
-                // the
-                // use has a definition-free path from method start
-                if (code.isFieldUse()) {
-                    freeUses.add(code);
-                }
+            }
+        } else {
+            // if we encounter a use here but have no activeDef yet we know the
+            // use has a definition-free path from method start
+            if (code.isFieldUse()) {
+                freeUses.add(code);
             }
         }
     }
@@ -691,43 +682,40 @@ public class AllUsesAnalysis {
     }
 
 
-    private Set<Map<String, VariableDefinition>> copyActiveDefs(
-            Set<Map<String, VariableDefinition>> activeDefs) {
+    private Map<String, Set<VariableDefinition>> copyActiveDefs(
+            Map<String, Set<VariableDefinition>> activeDefs) {
 
-        HashSet<Map<String, VariableDefinition>> r = new HashSet<>();
-        for (Map<String, VariableDefinition> activeDef : activeDefs) {
-            r.add(new HashMap<>(activeDef));
+        Map<String, Set<VariableDefinition>> r = new HashMap<>();
+        for (Map.Entry<String, Set<VariableDefinition>> entry : activeDefs.entrySet()) {
+            r.put(entry.getKey(), new HashSet<>(entry.getValue()));
         }
         return r;
     }
 
-    private Set<Map<String, VariableDefinition>> useStoredInformationForMethodCall(
+    private Map<String, Set<VariableDefinition>> useStoredInformationForMethodCall(
             CCFGMethodEntryNode investigatedMethod,
             CCFGMethodCallNode callNode,
-            Set<Map<String, VariableDefinition>> activeDefMapsInCaller,
+            Map<String, Set<VariableDefinition>> activeDefsInCaller,
             Set<BytecodeInstruction> freeUses,
             Set<DefUseCoverageTestFitness> foundPairs, MethodCall call) {
 
-        //
         Set<BytecodeInstruction> freeUsesInCalledMethod = determinedFreeUses
                 .get(callNode.getCalledMethod());
 
         for (BytecodeInstruction freeUseInCalledMethod : freeUsesInCalledMethod) {
-            for (Map<String, VariableDefinition> activeDefMap : activeDefMapsInCaller) {
-                VariableDefinition activeDef = activeDefMap
-                        .get(freeUseInCalledMethod.getVariableName());
+            Set<VariableDefinition> activeDefs = activeDefsInCaller
+                    .get(freeUseInCalledMethod.getVariableName());
 
-                if (activeDef == null) {
-                    // there was a path to the calledMethod that did not define
-                    // the variable of our freeUse, so it is still free
-                    freeUses.add(freeUseInCalledMethod);
-                } else {
-                    // checkActiveDefsSetSanity(activeDefs);
-
-                    // otherwise, we have an active definition for a variable
-                    // that is free in the called method so we have a new
-                    // inter-method pair
-                    if (freeUseInCalledMethod.isFieldUse()) {
+            if (activeDefs == null || activeDefs.isEmpty()) {
+                // there was a path to the calledMethod that did not define
+                // the variable of our freeUse, so it is still free
+                freeUses.add(freeUseInCalledMethod);
+            } else {
+                // otherwise, we have an active definition for a variable
+                // that is free in the called method so we have a new
+                // inter-method pair
+                if (freeUseInCalledMethod.isFieldUse()) {
+                    for (VariableDefinition activeDef : activeDefs) {
                         addNewGoalToFoundPairs(investigatedMethod, activeDef,
                                 freeUseInCalledMethod,
                                 DefUsePairType.INTER_METHOD, foundPairs);
@@ -736,66 +724,48 @@ public class AllUsesAnalysis {
             }
         }
 
-        Set<Map<String, BytecodeInstruction>> activeDefMapsInCallee = determinedActiveDefs
+        Map<String, Set<BytecodeInstruction>> activeDefsInCallee = determinedActiveDefs
                 .get(callNode.getCalledMethod());
 
-        Set<Map<String, VariableDefinition>> activeDefMapsAfterCurrentCall = new HashSet<>();
+        Map<String, Set<VariableDefinition>> activeDefsAfterCurrentCall = new HashMap<>();
 
         long start = System.currentTimeMillis();
 
-        // since every defMap in my previously determined activeDefMaps
-        // represents one possible configuration of activeDefs i will have to
-        // mingle each of these maps with each of the currently active maps
-        for (Map<String, BytecodeInstruction> activeDefMapInCallee : activeDefMapsInCallee) {
-            for (Map<String, VariableDefinition> activeDefMapInCaller : activeDefMapsInCaller) {
-                Set<String> relevantVariables = new HashSet<>(
-                        activeDefMapInCallee.keySet());
-                relevantVariables.addAll(activeDefMapInCaller.keySet());
+        Set<String> relevantVariables = new HashSet<>();
+        if (activeDefsInCallee != null) relevantVariables.addAll(activeDefsInCallee.keySet());
+        relevantVariables.addAll(activeDefsInCaller.keySet());
 
-                // mingle both activeDefMaps from prior to the call and when
-                // returning from call to a new one that will be true after the
-                // call
-                Map<String, VariableDefinition> currentActiveDefMapAfterCall = new HashMap<>();
-                for (String variable : relevantVariables) {
-                    BytecodeInstruction activeDefAfterCall = activeDefMapInCallee
-                            .get(variable);
-                    VariableDefinition activeDefPriorToCall = activeDefMapInCaller
-                            .get(variable);
+        for (String variable : relevantVariables) {
+            Set<BytecodeInstruction> calleeDefs = activeDefsInCallee != null ? activeDefsInCallee.get(variable) : null;
+            Set<VariableDefinition> callerDefs = activeDefsInCaller.get(variable);
 
-                    if (activeDefAfterCall == null) {
-                        if (activeDefPriorToCall == null) {
-                            throw new IllegalStateException(
-                                    "expect activeDefMaps not to map to null values");
-                        }
+            Set<VariableDefinition> newDefs = new HashSet<>();
 
-                        // variable was not overwritten in called
-                        // method, so the activeDef prior to the call stays
-                        // active
-                        currentActiveDefMapAfterCall.put(variable,
-                                activeDefPriorToCall);
-                    } else {
-                        // variable was overwritten in call, so we will make a
-                        // new VariableDefinition and keep that active in the
-                        // newly created map
-                        VariableDefinition overwritingDefinition = new VariableDefinition(
-                                activeDefAfterCall, call);
-                        currentActiveDefMapAfterCall.put(variable,
-                                overwritingDefinition);
-                    }
+            if (calleeDefs != null && !calleeDefs.isEmpty()) {
+                // The callee defined this variable on at least one path
+                for (BytecodeInstruction def : calleeDefs) {
+                    newDefs.add(new VariableDefinition(def, call));
                 }
+                
+                // If it wasn't defined on every path, the caller defs could also flow through.
+                // We assume conservatively that if callerDefs existed, they might flow through
+                // since we no longer track exact path combinations. This protects soundness.
+                if (callerDefs != null) {
+                    newDefs.addAll(callerDefs);
+                }
+            } else if (callerDefs != null) {
+                // Variable was not defined in callee, keep caller defs
+                newDefs.addAll(callerDefs);
+            }
 
-                // System.out.println("mingled map:");
-                // printVDDefMap(activeDefMapAfterCurrentCall);
-
-                activeDefMapsAfterCurrentCall.add(currentActiveDefMapAfterCall);
+            if (!newDefs.isEmpty()) {
+                activeDefsAfterCurrentCall.put(variable, newDefs);
             }
         }
 
-        // System.out.println("Finished mingling. #Resulting-Maps: "+activeDefMapsAfterCurrentCall.size());
-
         timeSpentMingling += System.currentTimeMillis() - start;
 
-        return activeDefMapsAfterCurrentCall;
+        return activeDefsAfterCurrentCall;
     }
 
     private boolean alreadyAnalyzedMethod(String method) {
@@ -884,17 +854,17 @@ public class AllUsesAnalysis {
     }
 
     private void rememberActiveDefs(String method,
-                                    Set<Map<String, VariableDefinition>> activeDefMaps) {
+                                    Map<String, Set<VariableDefinition>> activeDefs) {
 
         if (determinedActiveDefs.get(method) == null) {
-            determinedActiveDefs.put(method,
-                    new HashSet<>());
+            determinedActiveDefs.put(method, new HashMap<>());
         }
 
-        Set<Map<String, BytecodeInstruction>> defMaps = toRememberableBytecodeInstructionMap(activeDefMaps);
+        Map<String, Set<BytecodeInstruction>> newDefMap = toRememberableBytecodeInstructionMap(activeDefs);
+        Map<String, Set<BytecodeInstruction>> savedMap = determinedActiveDefs.get(method);
 
-        for (Map<String, BytecodeInstruction> defMap : defMaps) {
-            determinedActiveDefs.get(method).add(defMap);
+        for (Map.Entry<String, Set<BytecodeInstruction>> entry : newDefMap.entrySet()) {
+            savedMap.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).addAll(entry.getValue());
         }
     }
 
@@ -1039,31 +1009,28 @@ public class AllUsesAnalysis {
      * @param activeDefMaps set of active definition maps.
      * @return set of rememberable maps.
      */
-    private Set<Map<String, BytecodeInstruction>> toRememberableBytecodeInstructionMap(
-            Set<Map<String, VariableDefinition>> activeDefMaps) {
+    private Map<String, Set<BytecodeInstruction>> toRememberableBytecodeInstructionMap(
+            Map<String, Set<VariableDefinition>> activeDefs) {
 
-        Set<Map<String, BytecodeInstruction>> r = new HashSet<>();
+        Map<String, Set<BytecodeInstruction>> instructionMap = new HashMap<>();
 
-        for (Map<String, VariableDefinition> activeDefMap : activeDefMaps) {
-            Map<String, BytecodeInstruction> instructionMap = new HashMap<>();
-            for (String var : activeDefMap.keySet()) {
-                VariableDefinition activeDef = activeDefMap.get(var);
-                if (activeDef.getDefinition().isLocalDU()) {
-                    continue;
+        for (Map.Entry<String, Set<VariableDefinition>> entry : activeDefs.entrySet()) {
+            String var = entry.getKey();
+            Set<BytecodeInstruction> defs = new HashSet<>();
+            for (VariableDefinition activeDef : entry.getValue()) {
+                if (!activeDef.getDefinition().isLocalDU()) {
+                    defs.add(activeDef.getDefinition());
                 }
-                instructionMap.put(var, activeDef.getDefinition());
             }
-            r.add(instructionMap);
+            if (!defs.isEmpty()) {
+                instructionMap.put(var, defs);
+            }
         }
-        return r;
+        return instructionMap;
     }
 
-
-    private Set<Map<String, VariableDefinition>> createInitialActiveDefs() {
-        Set<Map<String, VariableDefinition>> activeDefs = new HashSet<>();
-        // add initial activeDefMap
-        activeDefs.add(new HashMap<>());
-        return activeDefs;
+    private Map<String, Set<VariableDefinition>> createInitialActiveDefs() {
+        return new HashMap<>();
     }
 
     private Deque<MethodCall> createInitialCallStack(

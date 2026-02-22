@@ -154,19 +154,24 @@ public class DefUseFitnessCalculator {
         // Case 2.
         // if the use was not passed at all just calculate the fitness
         // over all objects without any filtering
-
-        /* FIXXME: This doesn't seem to make much sense
-        if (!hasEntriesForId(result.getTrace().getPassedUses(goalVariable),
-                             goalUse.getUseId()))
+        if (!hasEntriesForId(result.getTrace().getPassedUses(useVariable),
+                             goalUse.getUseId())) {
             return calculateUseFitnessForCompleteTrace();
-            */
+        }
 
         // Case 3.
         // filter the trace for each considerable object that passed both the
         // goalDefinition and the goalUse, cut the traces between goalDef
         // occurrences and overwritingDef occurrences and calculate useFitness
         // and possibly overwriting/alternativeFitness
-        return calculateFitnessForObjects();
+        double objectFitness = calculateFitnessForObjects();
+        if (objectFitness == 1.0) {
+            double fallbackUseFitness = calculateUseFitnessForCompleteTrace();
+            if (fallbackUseFitness < 1.0) {
+                return fallbackUseFitness;
+            }
+        }
+        return objectFitness;
     }
 
     /**
