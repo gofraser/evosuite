@@ -50,4 +50,17 @@ public class TestClusterGeneratorTest {
         boolean canUse = TestClusterUtils.checkIfCanUse(File.class.getCanonicalName());
         Assertions.assertFalse(canUse);
     }
+
+    @Test
+    public void test_checkIfCanUse_blocksJdkInternalPackages() {
+        RuntimeSettings.useVFS = false;
+        Assertions.assertFalse(TestClusterUtils.checkIfCanUse("jdk.internal.misc.Unsafe"));
+        Assertions.assertFalse(TestClusterUtils.checkIfCanUse("jdk.tools.jlink.internal.plugins.ResourceFilter"));
+    }
+
+    @Test
+    public void test_checkIfCanUse_allowsRegularJdkApis() {
+        RuntimeSettings.useVFS = false;
+        Assertions.assertTrue(TestClusterUtils.checkIfCanUse("java.util.ArrayList"));
+    }
 }

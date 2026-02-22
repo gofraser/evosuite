@@ -56,7 +56,18 @@ public class TestClusterUtils {
      */
 
     private static final List<String> classExceptions = Collections.unmodifiableList(
-            Arrays.asList("com.apple.", "apple.", "sun.", "com.sun.", "com.oracle.", "sun.awt."));
+            Arrays.asList(
+                    "com.apple.",
+                    "apple.",
+                    "sun.",
+                    "com.sun.",
+                    "com.oracle.",
+                    "sun.awt.",
+                    // JPMS/JDK internals should not be traversed as dependency classes.
+                    "jdk.internal.",
+                    "jdk.tools.",
+                    "jdk.jfr.internal."
+            ));
     private static final Map<Class<?>, Set<Field>> accessibleFieldCache = new LinkedHashMap<>();
     private static final Map<Class<?>, Set<Method>> methodCache = new LinkedHashMap<>();
 

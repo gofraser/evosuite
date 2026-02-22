@@ -185,6 +185,10 @@ public class TestUsageChecker {
             return false;
         }
 
+        if (!TestClusterUtils.checkIfCanUse(c.getName())) {
+            return false;
+        }
+
         if (c.getName().startsWith("junit")) {
             return false;
         }

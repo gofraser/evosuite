@@ -22,6 +22,7 @@ package org.evosuite.setup;
 import com.examples.with.different.packagename.otherpackage.ExampleWithInnerClass;
 import com.examples.with.different.packagename.otherpackage.ExampleWithStaticPackagePrivateInnerClass;
 import org.evosuite.Properties;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -63,5 +64,20 @@ public class TestAccessClass {
         Class<?> clazz = Class.forName("com.examples.with.different.packagename.otherpackage.ExampleWithStaticPackagePrivateInnerClass$Foo");
         boolean result = TestUsageChecker.canUse(clazz);
         Assertions.assertTrue(result);
+    }
+
+    @Test
+    public void testJdkInternalClassIsRejectedWhenLoadable() throws ClassNotFoundException {
+        Properties.CLASS_PREFIX = "some.package";
+        Properties.TARGET_CLASS = "some.package.Foo";
+
+        Class<?> clazz = null;
+        try {
+            clazz = Class.forName("jdk.tools.jlink.internal.plugins.ResourceFilter");
+        } catch (ClassNotFoundException ignored) {
+            // not available on all JDK distributions
+        }
+        Assumptions.assumeTrue(clazz != null, "JDK internal probe class not available on this JVM");
+        Assertions.assertFalse(TestUsageChecker.canUse(clazz));
     }
 }
