@@ -85,18 +85,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getUniqueVariableReferences()
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<VariableReference> getUniqueVariableReferences() {
-        return new ArrayList<>(getVariableReferences());
-    }
-
-    /* (non-Javadoc)
      * @see org.evosuite.testcase.StatementInterface#getVariableReferences()
      */
 
@@ -118,7 +106,8 @@ public class NullStatement extends PrimitiveStatement<Void> {
      * {@inheritDoc}
      */
     @Override
-    public void replace(VariableReference var1, VariableReference var2) {
+    public void replace(VariableReference oldVar, VariableReference newVar) {
+        super.replace(oldVar, newVar);
     }
 
     /* (non-Javadoc)

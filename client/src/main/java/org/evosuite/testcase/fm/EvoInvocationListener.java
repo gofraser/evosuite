@@ -25,6 +25,8 @@ import org.mockito.invocation.DescribedInvocation;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.listeners.InvocationListener;
 import org.mockito.listeners.MethodInvocationReport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.lang.reflect.Method;
@@ -44,6 +46,7 @@ import java.util.stream.Collectors;
 public class EvoInvocationListener implements InvocationListener, Serializable {
 
     private static final long serialVersionUID = 8351121388007697168L;
+    private static final Logger logger = LoggerFactory.getLogger(EvoInvocationListener.class);
 
     private final Map<String, MethodDescriptor> map = new LinkedHashMap<>();
 
@@ -110,7 +113,8 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
             md = new MethodDescriptor(method, retvalType);
         } else {
             //hopefully it should never happen
-            md = getMethodDescriptor_old(di);
+            logger.error("DescribedInvocation is not an instance of InvocationOnMock! {}", di);
+            return;
         }
 
         if (md.getMethodName().equals("finalize")) {
@@ -132,41 +136,5 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
         }
     }
 
-    @Deprecated
-    private MethodDescriptor getMethodDescriptor_old(DescribedInvocation di) {
-        /*
-            Current Mockito API seems quite limited. Here, to know what
-            was called, it looks like the only way is to parse the results
-            of toString.
-            We can identify primitive types and String, but likely not the
-            exact type of input objects. This is a problem if methods are overloaded
-            and having same number of input parameters :(
-         */
-        String description = di.toString();
 
-        int openingP = description.indexOf('(');
-        assert openingP >= 0;
-
-        String[] leftTokens = description.substring(0, openingP).split("\\.");
-        String className = ""; //TODO
-        String methodName = leftTokens[leftTokens.length - 1];
-
-        int closingP = description.lastIndexOf(')');
-        String[] inputTokens = description.substring(openingP + 1, closingP).split(",");
-
-        String mockitoMatchers = "";
-        if (inputTokens.length > 0) {
-            /*
-                TODO: For now it does not seem really feasible to infer the correct types.
-                Left a feature request on Mockito mailing list, let's see if it ll be done
-             */
-            mockitoMatchers += "any()";
-            for (int i = 1; i < inputTokens.length; i++) {
-                mockitoMatchers += " , any()";
-            }
-        }
-
-
-        return new MethodDescriptor(className, methodName, mockitoMatchers);
-    }
 }

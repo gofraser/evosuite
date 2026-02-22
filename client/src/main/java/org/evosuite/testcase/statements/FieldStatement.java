@@ -279,11 +279,11 @@ public class FieldStatement extends AbstractStatement {
      * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
      */
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void replace(VariableReference var1, VariableReference var2) {
+        if (retval.equals(var1)) {
+            retval = var2;
+        }
         if (!field.isStatic()) {
             if (source.equals(var1)) {
                 source = var2;
@@ -348,20 +348,7 @@ public class FieldStatement extends AbstractStatement {
         this.field = field;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.Statement#getUniqueVariableReferences()
-     */
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<VariableReference> getUniqueVariableReferences() {
-        return new ArrayList<>(getVariableReferences());
-    }
 
     /**
      * {@inheritDoc}

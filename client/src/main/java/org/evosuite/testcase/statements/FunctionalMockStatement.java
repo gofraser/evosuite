@@ -1089,6 +1089,47 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        FunctionalMockStatement that = (FunctionalMockStatement) o;
+
+        if (!java.util.Objects.equals(parameters, that.parameters)) {
+            return false;
+        }
+        if (!java.util.Objects.equals(retval, that.retval)) {
+            return false;
+        }
+        if (!java.util.Objects.equals(targetClass, that.targetClass)) {
+            return false;
+        }
+        if (mockedMethods.size() != that.mockedMethods.size()) {
+            return false;
+        }
+        for (int i = 0; i < mockedMethods.size(); i++) {
+            if (!java.util.Objects.equals(mockedMethods.get(i).getID(), that.mockedMethods.get(i).getID())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = java.util.Objects.hash(parameters, retval, targetClass);
+        for (MethodDescriptor md : mockedMethods) {
+            result = 31 * result + java.util.Objects.hashCode(md.getID());
+        }
+        return result;
+    }
+
+    @Override
     public String toString() {
         return "mock(" + retval.getType() + ")";
     }

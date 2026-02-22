@@ -160,8 +160,7 @@ public class PrimitiveExpression extends AbstractStatement {
      */
     @Override
     public GenericAccessibleObject<?> getAccessibleObject() {
-        throw new UnsupportedOperationException(
-                "Method getAccessibleObject not implemented!");
+        return null;
     }
 
     /**
@@ -205,14 +204,7 @@ public class PrimitiveExpression extends AbstractStatement {
         return rightOperand;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<VariableReference> getUniqueVariableReferences() {
-        throw new UnsupportedOperationException(
-                "Method getUniqueVariableReferences not implemented!");
-    }
+
 
     /**
      * {@inheritDoc}
@@ -235,11 +227,11 @@ public class PrimitiveExpression extends AbstractStatement {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void replace(VariableReference oldVar, VariableReference newVar) {
+        if (retval.equals(oldVar)) {
+            retval = newVar;
+        }
         if (leftOperand.equals(oldVar)) {
             leftOperand = newVar;
         }
@@ -256,17 +248,34 @@ public class PrimitiveExpression extends AbstractStatement {
         if (this == s) {
             return true;
         }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
+        if (s == null || getClass() != s.getClass()) {
             return false;
         }
 
         PrimitiveExpression ps = (PrimitiveExpression) s;
 
-        return operator.equals(ps.operator) && leftOperand.same(ps.leftOperand)
-                && rightOperand.same(ps.rightOperand);
+        return operator == ps.operator && leftOperand.same(ps.leftOperand)
+                && rightOperand.same(ps.rightOperand) && retval.same(ps.retval);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PrimitiveExpression that = (PrimitiveExpression) o;
+        return operator == that.operator &&
+                Objects.equals(leftOperand, that.leftOperand) &&
+                Objects.equals(rightOperand, that.rightOperand) &&
+                Objects.equals(retval, that.retval);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(operator, leftOperand, rightOperand, retval);
     }
 
     /**

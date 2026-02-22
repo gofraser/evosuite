@@ -216,11 +216,11 @@ public class AssignmentStatement extends AbstractStatement {
      * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
      */
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void replace(VariableReference var1, VariableReference var2) {
+        if (retval.equals(var1)) {
+            retval = var2;
+        }
         if (parameter.equals(var1)) {
             parameter = var2;
         } else {
@@ -270,20 +270,7 @@ public class AssignmentStatement extends AbstractStatement {
         }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.Statement#getUniqueVariableReferences()
-     */
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<VariableReference> getUniqueVariableReferences() {
-        return new ArrayList<>(getVariableReferences());
-    }
 
     /* (non-Javadoc)
      * @see org.evosuite.testcase.StatementInterface#isValid()

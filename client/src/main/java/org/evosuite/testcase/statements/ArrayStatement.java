@@ -225,20 +225,7 @@ public class ArrayStatement extends AbstractStatement {
         return Arrays.asList(ArrayUtils.toObject(lengths));
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.Statement#getUniqueVariableReferences()
-     */
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<VariableReference> getUniqueVariableReferences() {
-        return new ArrayList<>(getVariableReferences());
-    }
 
     /**
      * {@inheritDoc}

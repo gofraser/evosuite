@@ -292,7 +292,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         }
 
         PrimitiveStatement<?> ps = (PrimitiveStatement<?>) s;
-        return (retval.equals(ps.retval) && value.equals(ps.value));
+        return java.util.Objects.equals(retval, ps.retval) && java.util.Objects.equals(value, ps.value);
     }
 
     /**
@@ -315,14 +315,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
      * Reset value to default value 0.
      */
     public abstract void zero();
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<VariableReference> getUniqueVariableReferences() {
-        return new ArrayList<>(getVariableReferences());
-    }
 
     /**
      * {@inheritDoc}

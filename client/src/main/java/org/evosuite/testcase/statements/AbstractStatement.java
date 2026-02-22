@@ -37,8 +37,10 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -225,6 +227,14 @@ public abstract class AbstractStatement implements Statement, Serializable {
     @Override
     public void setRetval(VariableReference newRetVal) {
         this.retval = Objects.requireNonNull(newRetVal, "newRetVal cannot be null");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<VariableReference> getUniqueVariableReferences() {
+        return new ArrayList<>(getVariableReferences());
     }
 
     /* (non-Javadoc)
