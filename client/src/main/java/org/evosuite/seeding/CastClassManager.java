@@ -218,7 +218,7 @@ public class CastClassManager {
             declarationSimpleName = ((Constructor) genericDeclaration).getDeclaringClass().getSimpleName() + "#"
                     + "<init>";
         }
-        List<GenericClass<?>> assignableClasses = getAssignableClasses(typeVariable, allowRecursion,
+        List<GenericClass<?>> assignableClasses = getAssignableClasses(typeVariable, false,
                 sanitizedOwnerVariableMap);
 
         logger.debug("Found {} assignable classes for type variable {}", assignableClasses.size(), typeVariable);
@@ -234,7 +234,7 @@ public class CastClassManager {
             logger.debug("No assignable classes found, attempting to add one for type variable {}", typeVariable);
             GenericClass<?> genericClass = addAssignableClass(typeVariable, sanitizedOwnerVariableMap);
             if (genericClass != null) {
-                assignableClasses = getAssignableClasses(typeVariable, allowRecursion, sanitizedOwnerVariableMap);
+                assignableClasses = getAssignableClasses(typeVariable, false, sanitizedOwnerVariableMap);
                 if (assignableClasses.isEmpty() && allowRecursion) {
                     assignableClasses = getAssignableClasses(typeVariable, true, sanitizedOwnerVariableMap);
                 }
@@ -541,35 +541,6 @@ public class CastClassManager {
     }
 
     /**
-     * Check if a class is assignable to the type variable.
-     * If the class is Parameterized type containing the type variable it is considered not assignable.
-     *
-     * @param typeVariable the type variable to be resolved.
-     * @param clazz        the class to be checked.
-     * @return Whether the class can be used as the type variable.
-     */
-    private boolean classIsAssignable(TypeVariable<?> typeVariable, Class<?> clazz) {
-        for (final Type bound : typeVariable.getBounds()) {
-            if (GenericTypeReflector.erase(bound).equals(Enum.class) && clazz.isEnum()) {
-                continue;
-            }
-
-            if (!GenericClassUtils.isAssignable(bound, clazz)) {
-                return false;
-            }
-
-            if (bound instanceof ParameterizedType) {
-                final Type[] typeArgs = ((ParameterizedType) bound).getActualTypeArguments();
-                if (Arrays.asList(typeArgs).contains(typeVariable)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-
-    /**
      * Add an assignable class for a type variable for a given type variable map.
      *
      * <p>A type is only added to the classMap, if it is usable according to {@link TestUsageChecker#canUse(Type)}.
@@ -598,11 +569,6 @@ public class CastClassManager {
         logger.debug("Found {} assignable classes from type variable map for type variable {}",
                 assignableTypeVariables.size(), typeVariable);
 
-        GenericClass<?> genericClass = addToClassMapIfNotEmpty(assignableClasses, 10);
-        if (genericClass != null) {
-            return genericClass;
-        }
-
         // Compute the bound candidates of the type variable.
         final Set<Class<?>> boundCandidates = Arrays.stream(typeVariable.getBounds()) //
                 .map(GenericTypeReflector::erase) //
@@ -616,7 +582,7 @@ public class CastClassManager {
         // Filter the bound candidates such that only the assignable remain.
         Set<Class<?>> assignableBoundCandidates = boundCandidates.stream() //
                 .filter(TestUsageChecker::canUse) //
-                .filter(c -> classIsAssignable(typeVariable, c)) //
+                .filter(satisfiesBoundaries) //
                 .collect(Collectors.toSet());
         assignableClasses.addAll(assignableBoundCandidates);
 
