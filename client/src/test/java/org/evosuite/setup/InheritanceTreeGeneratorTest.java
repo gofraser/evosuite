@@ -19,6 +19,9 @@
  */
 package org.evosuite.setup;
 
+import java.io.InputStream;
+import java.nio.file.Paths;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -45,6 +48,23 @@ public class InheritanceTreeGeneratorTest {
         Assertions.assertEquals(21, InheritanceTreeGenerator.mapToSupportedLts(24));
         Assertions.assertEquals(25, InheritanceTreeGenerator.mapToSupportedLts(25));
         Assertions.assertEquals(25, InheritanceTreeGenerator.mapToSupportedLts(26));
+    }
+
+    @Test
+    public void parseJrtClassPath() {
+        Assertions.assertEquals(
+                "java.lang.Object",
+                InheritanceTreeGenerator.toClassNameFromJrtPath(Paths.get("/modules/java.base/java/lang/Object.class")));
+        Assertions.assertNull(
+                InheritanceTreeGenerator.toClassNameFromJrtPath(Paths.get("/modules/java.base/module-info.class")));
+        Assertions.assertNull(
+                InheritanceTreeGenerator.toClassNameFromJrtPath(Paths.get("/modules/java.base/java/lang/package-info.class")));
+    }
+
+    @Test
+    public void canLoadJdkClassStream() {
+        InputStream stream = InheritanceTreeGenerator.getJdkClassStream("java.lang.Object");
+        Assertions.assertNotNull(stream);
     }
 
 }

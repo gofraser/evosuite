@@ -8,6 +8,20 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+get_java_major_version() {
+  local java_bin="$1"
+  local raw=""
+  raw=$("$java_bin" -XshowSettings:properties -version 2>&1 | awk -F= '/^[[:space:]]*java.specification.version[[:space:]]*=/{gsub(/[[:space:]]/, "", $2); print $2; exit}')
+  if [[ -z "$raw" ]]; then
+    return 1
+  fi
+  if [[ "$raw" == 1.* ]]; then
+    echo "${raw#1.}"
+  else
+    echo "${raw%%.*}"
+  fi
+}
+
 find_java_home() {
   local lts="$1"
   local home=""
@@ -82,12 +96,12 @@ find_jar() {
 build_client_classpath() {
   local cp_file="$ROOT_DIR/client/target/runtime-classpath.txt"
   if ! (cd "$ROOT_DIR" && mvn -pl client -am -DskipTests -DincludeScope=runtime -Dmdep.outputFile="$cp_file" dependency:build-classpath >/dev/null); then
-    echo "ERROR: Failed to build client runtime classpath."
-    exit 1
+    echo "ERROR: Failed to build client runtime classpath." >&2
+    return 1
   fi
   if [[ ! -s "$cp_file" ]]; then
-    echo "ERROR: Runtime classpath file is empty: $cp_file"
-    exit 1
+    echo "ERROR: Runtime classpath file is empty: $cp_file" >&2
+    return 1
   fi
   echo "$cp_file"
 }
@@ -164,7 +178,9 @@ if [[ "$MODE_LIST" -eq 0 ]]; then
   echo "Using jar: $JAR_PATH"
   mkdir -p "$ROOT_DIR/client/src/main/resources"
 
-  CLIENT_CP_FILE=$(build_client_classpath)
+  if ! CLIENT_CP_FILE=$(build_client_classpath); then
+    exit 1
+  fi
   CLIENT_CP=$(cat "$CLIENT_CP_FILE")
   CLIENT_CP=$(filter_classpath "$CLIENT_CP")
 fi
@@ -196,6 +212,18 @@ for lts in "${LTS_VERSIONS[@]}"; do
       continue
     fi
     echo "Skipping JDK $lts ($java_bin not executable)"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  actual_major=$(get_java_major_version "$java_bin" || true)
+  if [[ -z "$actual_major" ]]; then
+    echo "Skipping JDK $lts (unable to determine java.specification.version for $java_bin)"
+    skipped=$((skipped + 1))
+    continue
+  fi
+  if [[ "$actual_major" != "$lts" ]]; then
+    echo "Skipping JDK $lts ($java_bin reports Java $actual_major)"
     skipped=$((skipped + 1))
     continue
   fi

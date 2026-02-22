@@ -37,8 +37,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.net.URI;
+import java.nio.file.*;
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
@@ -61,6 +64,7 @@ public class InheritanceTreeGenerator {
     };
     private static final String jdkFilePattern = "JDK_inheritance_%d.xml";
     private static final String shadedJdkFilePattern = "JDK_inheritance_%d_shaded.xml";
+    private static final Map<String, String> jrtClassResourcePathByClassName = new HashMap<>();
 
     /**
      * Iterate over items in classpath and analyze them.
@@ -474,9 +478,7 @@ public class InheritanceTreeGenerator {
                 continue;
             }
 
-            InputStream stream = ResourceList.getInstance(
-                    TestGenerationContext.getInstance().getClassLoaderForSUT())
-                    .getClassAsStream(name);
+            InputStream stream = getJdkClassStream(name);
 
             if (stream == null) {
                 logger.warn("Cannot open/find " + name);
@@ -589,12 +591,102 @@ public class InheritanceTreeGenerator {
      * @return the collection of resources
      */
     public static Collection<String> getAllResources() {
-        Collection<String> retval = getResources(System.getProperty("java.class.path", "."));
-        String boot = System.getProperty("sun.boot.class.path");
-        if (boot != null && !boot.isEmpty()) {
-            retval.addAll(getResources(boot));
+        Collection<String> retval = new LinkedHashSet<>();
+        int majorVersion = getCurrentJdkMajorVersion();
+        if (majorVersion >= 9) {
+            retval.addAll(getResourcesFromJrtModules());
+        } else {
+            String boot = System.getProperty("sun.boot.class.path");
+            if (boot != null && !boot.isEmpty()) {
+                retval.addAll(getResources(boot));
+            }
         }
         return retval;
+    }
+
+    private static Collection<String> getResourcesFromJrtModules() {
+        Set<String> retval = new LinkedHashSet<>();
+        jrtClassResourcePathByClassName.clear();
+        FileSystem fs = null;
+        boolean createdFs = false;
+        try {
+            URI jrtUri = URI.create("jrt:/");
+            try {
+                fs = FileSystems.getFileSystem(jrtUri);
+            } catch (FileSystemNotFoundException ignored) {
+                fs = FileSystems.newFileSystem(jrtUri, Collections.emptyMap());
+                createdFs = true;
+            }
+
+            Path modulesRoot = fs.getPath("/modules");
+            if (!Files.exists(modulesRoot)) {
+                logger.warn("Could not find /modules in jrt filesystem");
+                return retval;
+            }
+
+            try (Stream<Path> stream = Files.walk(modulesRoot)) {
+                stream.filter(path -> path.toString().endsWith(".class"))
+                        .forEach(path -> {
+                            String className = toClassNameFromJrtPath(path);
+                            if (className != null) {
+                                retval.add(className);
+                                jrtClassResourcePathByClassName.putIfAbsent(className, path.toString());
+                            }
+                        });
+            }
+        } catch (IOException e) {
+            logger.warn("Failed to read classes from jrt filesystem: {}", e.getMessage());
+        } finally {
+            if (createdFs && fs != null && fs.isOpen()) {
+                try {
+                    fs.close();
+                } catch (IOException e) {
+                    logger.debug("Failed to close temporary jrt filesystem: {}", e.getMessage());
+                }
+            }
+        }
+        return retval;
+    }
+
+    static String toClassNameFromJrtPath(Path path) {
+        String normalized = path.toString().replace('\\', '/');
+        if (!normalized.startsWith("/modules/") || !normalized.endsWith(".class")) {
+            return null;
+        }
+
+        int moduleSeparator = normalized.indexOf('/', "/modules/".length());
+        if (moduleSeparator < 0 || moduleSeparator + 1 >= normalized.length()) {
+            return null;
+        }
+
+        String classPath = normalized.substring(moduleSeparator + 1, normalized.length() - ".class".length());
+        if ("module-info".equals(classPath) || classPath.endsWith("/module-info")
+                || classPath.endsWith("/package-info")) {
+            return null;
+        }
+
+        return classPath.replace('/', '.');
+    }
+
+    static InputStream getJdkClassStream(String className) {
+        int majorVersion = getCurrentJdkMajorVersion();
+        String resourceName = className.replace('.', '/') + ".class";
+        if (majorVersion >= 9) {
+            String jrtPath = jrtClassResourcePathByClassName.get(className);
+            if (jrtPath != null) {
+                try {
+                    FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+                    return Files.newInputStream(fs.getPath(jrtPath));
+                } catch (IOException e) {
+                    logger.debug("Could not read JRT class {} from {}: {}", className, jrtPath, e.getMessage());
+                }
+            }
+            return ClassLoader.getSystemResourceAsStream(resourceName);
+        }
+
+        // For JDK 8 and older, classes are exposed via legacy boot classpath jars.
+        return ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getClassAsStream(className);
     }
 
     /**
