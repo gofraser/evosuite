@@ -379,8 +379,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
              */
 
             if (now.getCounter() != previous.getCounter()
-                    && (now.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT)
-                    || previous.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT
+                    && (now.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT
+                    || previous.getCounter() < Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT)
             ) {
                 return true;
             }
@@ -566,6 +566,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                         value = false;
                     } else if (expected.equals(Short.TYPE)) {
                         value = Short.valueOf("0");
+                    } else if (expected.equals(Byte.TYPE)) {
+                        value = Byte.valueOf("0");
                     } else if (expected.equals(Character.TYPE)) {
                         value = 'a';
                     }
