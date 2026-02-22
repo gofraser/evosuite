@@ -69,7 +69,7 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
             // int numObjectsOfType = test != null ? test.getObjects(var.getType(),
             //                                                      test.size()).size() : 2;
             // if (numObjectsOfType > 1 || className.equals(variableName)) {
-            if (CharUtils.isAsciiNumeric(variableName.charAt(variableName.length() - 1))) {
+            if (!variableName.isEmpty() && CharUtils.isAsciiNumeric(variableName.charAt(variableName.length() - 1))) {
                 variableName += "_";
             }
             // }

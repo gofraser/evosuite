@@ -25,8 +25,11 @@ import org.evosuite.testcase.utils.HeuristicsUtil;
 import org.evosuite.testcase.variable.VariableReference;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -45,10 +48,25 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
 
     private TypeBasedVariableNameStrategy typeBasedVariableNameStrategy = new TypeBasedVariableNameStrategy();
 
+    private static final Set<String> RESERVED_KEYWORDS = new HashSet<>(Arrays.asList(
+            "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const",
+            "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float",
+            "for", "goto", "if", "implements", "import", "instanceof", "int", "interface", "long", "native",
+            "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super",
+            "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while",
+            "true", "false", "null"
+    ));
+
     @Override
     public String createNameForVariable(VariableReference variable) {
         String typeBasedName = typeBasedVariableNameStrategy.getPlainNameForVariable(variable);
-        return getPrioritizedName(variable, typeBasedName);
+        String baseName = getPrioritizedName(variable, typeBasedName);
+        
+        if (RESERVED_KEYWORDS.contains(baseName)) {
+            baseName += "_";
+        }
+        
+        return getVariableWithIndexExcludingFirstAppearance(baseName);
     }
 
     /**
@@ -62,13 +80,29 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
      */
     private String getVariableWithIndexExcludingFirstAppearance(String variableName) {
         if (!this.nextIndices.containsKey(variableName)) {
+            if (this.variableNames.containsValue(variableName)) {
+                 // if an existing variable already has this exact name but not from here
+                 int index = 0;
+                 String uniqueName;
+                 do {
+                     index++;
+                     uniqueName = variableName + index;
+                 } while (this.variableNames.containsValue(uniqueName));
+                 this.nextIndices.put(variableName, index);
+                 return uniqueName;
+            }
             this.nextIndices.put(variableName, 0);
+            return variableName;
         } else {
-            final int index = this.nextIndices.get(variableName);
-            this.nextIndices.put(variableName, index + 1);
-            variableName += this.nextIndices.get(variableName);
+            int index = this.nextIndices.get(variableName);
+            String uniqueName;
+            do {
+                index++;
+                uniqueName = variableName + index;
+            } while (this.variableNames.containsValue(uniqueName));
+            this.nextIndices.put(variableName, index);
+            return uniqueName;
         }
-        return variableName;
     }
 
     /**
