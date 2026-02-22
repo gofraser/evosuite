@@ -115,11 +115,12 @@ public class CarvingManager {
         // TODO: This really needs to be done in a nicer way!
         FieldRegistry.carvingClassLoader = classLoader;
         try {
-            // instrument target class
-            classLoader.loadClass(Properties.TARGET_CLASS);
-        } catch (final ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
+            try {
+                // instrument target class
+                classLoader.loadClass(Properties.TARGET_CLASS);
+            } catch (final ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
 
         for (String className : junitTestNames) {
             String classNameWithDots = ResourceList.getClassNameFromResourcePath(className);
@@ -205,10 +206,11 @@ public class CarvingManager {
             }
             carvedTests.put(targetClass, processedTests);
         }
-        carvingDone = true;
-
-        // TODO: Argh.
-        FieldRegistry.carvingClassLoader = null;
+            carvingDone = true;
+        } finally {
+            // TODO: Argh.
+            FieldRegistry.carvingClassLoader = null;
+        }
         // TODO:
         // ClientNodeLocal client = ClientServices.getInstance().getClientNode();
         // client.trackOutputVariable(RuntimeVariable.CarvedTests, totalNumberOfTestsCarved);

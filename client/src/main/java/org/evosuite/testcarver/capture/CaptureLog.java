@@ -287,7 +287,7 @@ public final class CaptureLog implements Cloneable {
         /*
          * FIXME: it seems negative indexes have special meaning...
          */
-        if (-recordIndex <= -nrec || recordIndex >= nrec) {
+        if (Math.abs(recordIndex) >= nrec) {
             throw new IllegalArgumentException("New record index " + recordIndex
                     + " is invalid, as there are only " + nrec + " records");
         }

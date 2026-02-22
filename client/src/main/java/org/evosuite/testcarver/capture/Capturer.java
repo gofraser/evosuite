@@ -36,83 +36,13 @@ import java.util.List;
 public final class Capturer {
     private static CaptureLog currentLog;
     private static boolean isCaptureStarted = false;
-    private static final boolean isShutdownHookAdded = false;
     private static final ArrayList<CaptureLog> logs = new ArrayList<>();
 
     public static final String DEFAULT_SAVE_LOC = "captured.log";
 
-    private static final ArrayList<String[]> classesToBeObserved = new ArrayList<>();
-
     private static final transient Logger logger = LoggerFactory.getLogger(Capturer.class);
 
-    /*
-     * TODO this needs refactoring.
-     */
-    @Deprecated
-    private static void initShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            @Override
-            public void run() {
-                logger.info("shutting down...");
-                Capturer.stopCapture();
-                Capturer.postProcess();
-                logger.info("shut down");
-            }
-        }));
-    }
 
-    @Deprecated
-    public static void postProcess() {
-        /*
-        if(! Capturer.isCapturing())
-        {
-            if(! logs.isEmpty())
-            {
-                try
-                {
-        //                       LOG.info("Saving captured log to {}", DEFAULT_SAVE_LOC);
-        //                       final File targetFile = new File(DEFAULT_SAVE_LOC);
-        //                       Capturer.save(new FileOutputStream(targetFile));
-
-                       PostProcessor.init();
-
-                       final ArrayList<String>     pkgNames    = new ArrayList<String>();
-                       final ArrayList<Class<?>[]> obsClasses = new ArrayList<Class<?>[]>();
-
-                       int searchIndex;
-                       for(String[] classNames : Capturer.classesToBeObserved)
-                       {
-                           searchIndex = classNames[0].lastIndexOf('.');
-                           if(searchIndex > -1)
-                           {
-                               pkgNames.add(classNames[0].substring(0, searchIndex));
-                           }
-                           else
-                           {
-                               pkgNames.add("");
-                           }
-
-                           final Class<?> [] clazzes = new Class<?>[classNames.length];
-                           for(int j = 0; j < classNames.length; j++)
-                           {
-                               clazzes[j] = Class.forName(classNames[j]);
-                           }
-                           obsClasses.add(clazzes);
-                       }
-
-
-                       PostProcessor.process(logs, pkgNames, obsClasses);
-
-                       Capturer.clear();
-                }
-                catch(final Exception e)
-                {
-                    logger.error("an error occurred while post proccessin", e);
-                }
-            }
-        }
-         */
-    }
 
     /**
      * Saves the captured logs to the given output stream.
@@ -155,7 +85,6 @@ public final class Capturer {
     public static void clear() {
         currentLog = null;
         logs.clear();
-        classesToBeObserved.clear();
         isCaptureStarted = false;
 
         FieldRegistry.clear();
@@ -218,24 +147,8 @@ public final class Capturer {
             throw new IllegalStateException("Capture has already been started");
         }
 
-        /*
-         * TODO need refactoring
-         *
-        if(! isShutdownHookAdded)
-        {
-            initShutdownHook();
-            isShutdownHookAdded = true;
-        }
-         */
         currentLog = new CaptureLog();
         isCaptureStarted = true;
-
-        final int size = classesToBeObserved.size();
-        final String[] clazzes = new String[size];
-        for (int i = 0; i < size; i++) {
-            clazzes[i] = classesToBeObserved.get(i);
-        }
-        Capturer.classesToBeObserved.add(clazzes);
 
         FieldRegistry.restoreForegoingGETSTATIC();
 

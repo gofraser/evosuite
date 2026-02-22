@@ -577,20 +577,7 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         }
     }
 
-    private void replaceNullWithNullReferences(List<VariableReference> paramList, Class<?>... paramTypes) {
-        CodeGeneratorException.check(paramList.size() == paramTypes.length,
-                "[paramList = %s, paramTypes] - number of params does not correspond number of paramTypes",
-                paramList, Arrays.toString(paramTypes));
 
-        Object v;
-        for (int j = 0; j < paramList.size(); j++) {
-            v = paramList.get(j);
-            if (v == null) {
-                paramList.set(j, new NullReference(testCase, paramTypes[j]));
-            }
-        }
-
-    }
 
     @Override
     public void createMapInitStmt(final CaptureLog log, final int logRecNo) {
@@ -624,21 +611,19 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 
             for (int i = 0; i < params.length; i++) {
                 argId = (Integer) params[i];
-                if (argId == null) {
-
-                    paramList.add(testCase.addStatement(new NullStatement(testCase,
-                            Object.class)));
-
+                final VariableReference var;
+                if (argId == null || !this.oidToVarRefMap.containsKey(argId)) {
+                    var = testCase.addStatement(new NullStatement(testCase,
+                            Object.class));
                 } else {
-                    paramList.add(this.oidToVarRefMap.get(argId));
+                    var = this.oidToVarRefMap.get(argId);
                 }
+                paramList.add(var);
 
                 if (i % 2 == 1) {
 
                     final Method method = collType.getMethod("put", Object.class,
                             Object.class);
-
-                    replaceNullWithNullReferences(paramList, Object.class, Object.class);
 
                     methodStmt = new MethodStatement(testCase, new GenericMethod(method,
                             collType), collRef, paramList);
