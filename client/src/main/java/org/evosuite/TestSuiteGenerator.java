@@ -575,6 +575,8 @@ public class TestSuiteGenerator {
             numUnstable += checkAllTestsIfTime(testCases, delta);
         }
 
+        chromosome.setExtensionInitializationOrder(resolveExtensionInitializationOrderIfNeeded(testCases, delta));
+
         chromosome.clearTests(); // remove all tests
         for (TestCase testCase : testCases) {
             chromosome.addTest(testCase); // add back the filtered tests
@@ -598,6 +600,39 @@ public class TestSuiteGenerator {
             return JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
         }
         return 0;
+    }
+
+    private static List<String> resolveExtensionInitializationOrderIfNeeded(List<TestCase> testCases, long delta) {
+        if (Properties.TEST_FORMAT != Properties.OutputFormat.JUNIT5
+                || !Properties.TEST_EXTENSION_MODE
+                || !Properties.RESET_STATIC_FIELDS
+                || testCases == null
+                || testCases.size() < 2) {
+            return Collections.emptyList();
+        }
+
+        if (!TimeController.getInstance().hasTimeToExecuteATestCase()
+                || !TimeController.getInstance().isThereStillTimeInThisPhase(delta)) {
+            return Collections.emptyList();
+        }
+
+        JUnitAnalyzer.OrderSensitivityAnalysis analysis = JUnitAnalyzer.analyzeOrderSensitivity(testCases);
+        if (!analysis.isOrderSensitive()) {
+            return Collections.emptyList();
+        }
+
+        List<String> observedInitializationOrder = ClassReInitializer.getInstance().getInitializedClasses();
+        if (observedInitializationOrder.size() < 2) {
+            return Collections.emptyList();
+        }
+
+        logger.info("Detected order-sensitive suite under extension mode. "
+                        + "Forward failures: {}, reverse failures: {}. "
+                        + "Emitting explicit initialization order with {} classes.",
+                analysis.getForwardFailures(),
+                analysis.getReverseFailures(),
+                observedInitializationOrder.size());
+        return observedInitializationOrder;
     }
 
     /**
@@ -681,6 +716,7 @@ public class TestSuiteGenerator {
 
             TestSuiteWriter suiteWriter = new TestSuiteWriter();
             suiteWriter.insertTests(tests);
+            suiteWriter.setExtensionInitializationOrder(testSuite.getExtensionInitializationOrder());
 
             String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
             String testDir = Properties.TEST_DIR;
@@ -730,6 +766,7 @@ public class TestSuiteGenerator {
                     + (name + Properties.JUNIT_SUFFIX) + "' to " + testDir);
             suiteWriter.insertAllTests(suite.getTests());
             FailingTestSet.writeJUnitTestSuite(suiteWriter);
+            suiteWriter.setExtensionInitializationOrder(suite.getExtensionInitializationOrder());
 
             suiteWriter.writeTestSuite(name + Properties.JUNIT_FAILED_SUFFIX,
                     testDir, suite.getLastExecutionResults());

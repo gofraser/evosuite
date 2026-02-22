@@ -34,15 +34,15 @@ public class InitializingListenerUtilsTest {
     @Test
     public void testWriteAndReadInitializationClassList() throws Exception {
         Path tempDir = Files.createTempDirectory("evosuite-init-list-");
-        File metadata = tempDir.resolve(InitializingListener.INITIALIZATION_METADATA_FILE_STRING).toFile();
+        File listFile = tempDir.resolve(InitializingListener.SCAFFOLDING_LIST_FILE_STRING).toFile();
 
         List<String> classes = Arrays.asList(
                 "org.foo.Bar_ESTest_scaffolding",
                 "org.foo.Baz_ESTest_scaffolding"
         );
-        InitializingListenerUtils.writeInitializationClassList(metadata, classes);
+        InitializingListenerUtils.writeInitializationClassList(listFile, classes);
 
-        List<String> parsed = InitializingListenerUtils.readInitializationClassList(metadata);
+        List<String> parsed = InitializingListenerUtils.readInitializationClassList(listFile);
         Assertions.assertEquals(classes, parsed);
 
         try (Stream<Path> stream = Files.walk(tempDir)) {

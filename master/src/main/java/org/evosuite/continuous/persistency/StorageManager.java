@@ -994,25 +994,36 @@ public class StorageManager {
     }
 
     private static InputStream getDefaultXmlStream() {
-        InputStream stream;
         /*
          * this will happen the first time CTG is run
+         * Prefer the historical xsd location, but support the root resource as fallback.
          */
-        String empty = "/xsd/ctg_project_report_empty.xml";
-        try {
-            stream = StorageManager.class.getResourceAsStream(empty);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to read resource " + empty + " , " + e.getMessage());
+        String[] emptyCandidates = new String[]{
+                "/xsd/ctg_project_report_empty.xml",
+                "/ctg_project_report_empty.xml"
+        };
+        for (String candidate : emptyCandidates) {
+            InputStream stream = StorageManager.class.getResourceAsStream(candidate);
+            if (stream != null) {
+                return stream;
+            }
         }
-        return stream;
+        throw new RuntimeException("Failed to read default CTG report template. Checked: "
+                + String.join(", ", emptyCandidates));
     }
 
     private static Project getProject(File current, InputStream stream) {
         try {
+            if (stream == null) {
+                throw new IllegalArgumentException("Input stream for project XML must not be null");
+            }
+            InputStream xsd = StorageManager.class.getResourceAsStream("/xsd/ctg_project_report.xsd");
+            if (xsd == null) {
+                throw new IllegalStateException("Missing resource: /xsd/ctg_project_report.xsd");
+            }
             JAXBContext jaxbContext = JAXBContext.newInstance(Project.class);
             SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-            Schema schema = factory.newSchema(
-                    new StreamSource(StorageManager.class.getResourceAsStream("/xsd/ctg_project_report.xsd")));
+            Schema schema = factory.newSchema(new StreamSource(xsd));
             Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
             jaxbUnmarshaller.setSchema(schema);
             return (Project) jaxbUnmarshaller.unmarshal(stream);

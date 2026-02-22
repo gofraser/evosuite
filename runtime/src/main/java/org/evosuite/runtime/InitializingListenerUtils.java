@@ -78,10 +78,10 @@ public class InitializingListenerUtils {
     }
 
     /**
-     * Read initialization class names from a plain-text metadata file.
+     * Read initialization class names from a plain-text list file.
      * Empty lines and lines starting with '#' are ignored.
      *
-     * @param file metadata file
+     * @param file list file
      * @return list of class names, possibly empty
      */
     public static List<String> readInitializationClassList(File file) {
@@ -107,9 +107,9 @@ public class InitializingListenerUtils {
     }
 
     /**
-     * Write initialization class names to a plain-text metadata file.
+     * Write initialization class names to a plain-text list file.
      *
-     * @param file target metadata file
+     * @param file target list file
      * @param classNames class names to write
      */
     public static void writeInitializationClassList(File file, List<String> classNames) throws FileNotFoundException {

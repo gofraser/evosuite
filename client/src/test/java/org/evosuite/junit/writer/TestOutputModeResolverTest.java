@@ -37,6 +37,7 @@ public class TestOutputModeResolverTest {
 
     private final boolean defaultNoRuntimeDependency = Properties.NO_RUNTIME_DEPENDENCY;
     private final boolean defaultTestScaffolding = Properties.TEST_SCAFFOLDING;
+    private final boolean defaultTestExtensionMode = Properties.TEST_EXTENSION_MODE;
     private final boolean defaultReplaceGui = Properties.REPLACE_GUI;
     private final Properties.OutputFormat defaultOutputFormat = Properties.TEST_FORMAT;
     private final Properties.OutputGranularity defaultOutputGranularity = Properties.OUTPUT_GRANULARITY;
@@ -47,6 +48,7 @@ public class TestOutputModeResolverTest {
     public void restoreProperties() {
         Properties.NO_RUNTIME_DEPENDENCY = defaultNoRuntimeDependency;
         Properties.TEST_SCAFFOLDING = defaultTestScaffolding;
+        Properties.TEST_EXTENSION_MODE = defaultTestExtensionMode;
         Properties.REPLACE_GUI = defaultReplaceGui;
         Properties.TEST_FORMAT = defaultOutputFormat;
         Properties.OUTPUT_GRANULARITY = defaultOutputGranularity;
@@ -70,6 +72,21 @@ public class TestOutputModeResolverTest {
     }
 
     @ParameterizedTest
+    @CsvSource({
+            "JUNIT4, true, LEGACY_SCAFFOLDING_FILE",
+            "JUNIT5, true, NEW_EXTENSION_MODE",
+            "JUNIT5, false, LEGACY_SCAFFOLDING_FILE"
+    })
+    public void testExtensionModeResolution(Properties.OutputFormat format,
+                                            boolean extensionMode,
+                                            TestOutputMode expected) {
+        configureDefaults();
+        Properties.TEST_FORMAT = format;
+        Properties.TEST_EXTENSION_MODE = extensionMode;
+        Assertions.assertEquals(expected, TestSuiteWriterUtils.resolveTestOutputMode());
+    }
+
+    @ParameterizedTest
     @EnumSource(TestOutputMode.class)
     public void testGeneratedHeaderDiffersByMode(TestOutputMode mode) throws Exception {
         Path tempDir = Files.createTempDirectory("evosuite-mode-");
@@ -80,12 +97,18 @@ public class TestOutputModeResolverTest {
         if (mode == TestOutputMode.NO_RUNTIME) {
             Properties.NO_RUNTIME_DEPENDENCY = true;
             Properties.TEST_SCAFFOLDING = true;
+        } else if (mode == TestOutputMode.NEW_EXTENSION_MODE) {
+            Properties.NO_RUNTIME_DEPENDENCY = false;
+            Properties.TEST_SCAFFOLDING = true;
+            Properties.TEST_EXTENSION_MODE = true;
         } else if (mode == TestOutputMode.LEGACY_SCAFFOLDING_FILE) {
             Properties.NO_RUNTIME_DEPENDENCY = false;
             Properties.TEST_SCAFFOLDING = true;
+            Properties.TEST_EXTENSION_MODE = false;
         } else {
             Properties.NO_RUNTIME_DEPENDENCY = false;
             Properties.TEST_SCAFFOLDING = false;
+            Properties.TEST_EXTENSION_MODE = false;
         }
 
         TestSuiteWriter writer = new TestSuiteWriter();
@@ -95,10 +118,21 @@ public class TestOutputModeResolverTest {
         if (mode == TestOutputMode.LEGACY_SCAFFOLDING_FILE) {
             Assertions.assertTrue(code.contains("extends " + Scaffolding.getFileName("ModeTest")));
             Assertions.assertTrue(code.contains("@RegisterExtension"));
+            Assertions.assertTrue(code.contains("EvoRunnerJUnit5 runner = new EvoRunnerJUnit5("));
+            Assertions.assertTrue(code.contains("  @RegisterExtension\n  static EvoRunnerJUnit5 runner ="));
         } else if (mode == TestOutputMode.LEGACY_INLINE_SCAFFOLDING) {
             Assertions.assertFalse(code.contains("extends " + Scaffolding.getFileName("ModeTest")));
             Assertions.assertTrue(code.contains("initEvoSuiteFramework"));
             Assertions.assertTrue(code.contains("@RegisterExtension"));
+            Assertions.assertTrue(code.contains("EvoRunnerJUnit5 runner = new EvoRunnerJUnit5("));
+            Assertions.assertTrue(code.contains("  @RegisterExtension\n  static EvoRunnerJUnit5 runner ="));
+        } else if (mode == TestOutputMode.NEW_EXTENSION_MODE) {
+            Assertions.assertFalse(code.contains("extends " + Scaffolding.getFileName("ModeTest")));
+            Assertions.assertFalse(code.contains("initEvoSuiteFramework"));
+            Assertions.assertTrue(code.contains("@RegisterExtension"));
+            Assertions.assertTrue(code.contains("EvoSuiteExtension runner = new EvoSuiteExtension("));
+            Assertions.assertTrue(code.contains("  @RegisterExtension\n  static EvoSuiteExtension runner ="));
+            Assertions.assertFalse(Files.exists(tempDir.resolve(Scaffolding.getFileName("ModeTest") + ".java")));
         } else {
             Assertions.assertFalse(code.contains("extends " + Scaffolding.getFileName("ModeTest")));
             Assertions.assertFalse(code.contains("initEvoSuiteFramework"));
@@ -106,11 +140,19 @@ public class TestOutputModeResolverTest {
             Assertions.assertFalse(code.contains("@EvoRunnerParameters("));
         }
 
+        if (mode != TestOutputMode.NO_RUNTIME) {
+            int firstNormalImport = code.indexOf("import java.util.concurrent.TimeUnit;");
+            int firstStaticImport = code.indexOf("import static org.junit.jupiter.api.Assertions.*;");
+            Assertions.assertTrue(firstNormalImport >= 0);
+            Assertions.assertTrue(firstStaticImport >= 0);
+            Assertions.assertTrue(firstNormalImport < firstStaticImport);
+        }
+
         deleteTempDir(tempDir);
     }
 
     private static String readFile(Path path) throws Exception {
-        return Files.readString(path, StandardCharsets.UTF_8);
+        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 
     private static void deleteTempDir(Path tempDir) throws IOException {
@@ -129,6 +171,7 @@ public class TestOutputModeResolverTest {
     private static void configureDefaults() {
         Properties.NO_RUNTIME_DEPENDENCY = false;
         Properties.TEST_SCAFFOLDING = true;
+        Properties.TEST_EXTENSION_MODE = false;
         Properties.REPLACE_GUI = false;
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
         Properties.OUTPUT_GRANULARITY = Properties.OutputGranularity.MERGED;

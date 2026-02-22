@@ -21,6 +21,7 @@ package org.evosuite.runtime.classhandling;
 
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.instrumentation.EvoClassLoader;
+import org.evosuite.runtime.mock.MockFramework;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -39,11 +40,13 @@ public class ClassStateSupportTest {
         RuntimeSettings.deactivateAllMocking();
         boolean problem = ClassStateSupport.initializeClasses(loader, className);
         Assertions.assertFalse(problem);
+        Assertions.assertFalse(MockFramework.isEnabled());
 
         //with mocking
         RuntimeSettings.mockJVMNonDeterminism = true;
         className = "com.examples.with.different.packagename.classhandling.TimeB";
         problem = ClassStateSupport.initializeClasses(loader, className);
         Assertions.assertFalse(problem);
+        Assertions.assertFalse(MockFramework.isEnabled());
     }
 }

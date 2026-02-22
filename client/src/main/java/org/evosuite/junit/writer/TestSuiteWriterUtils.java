@@ -76,6 +76,9 @@ public class TestSuiteWriterUtils {
         if (Properties.NO_RUNTIME_DEPENDENCY) {
             return TestOutputMode.NO_RUNTIME;
         }
+        if (Properties.TEST_EXTENSION_MODE && Properties.TEST_FORMAT == OutputFormat.JUNIT5) {
+            return TestOutputMode.NEW_EXTENSION_MODE;
+        }
         if (Properties.TEST_SCAFFOLDING) {
             return TestOutputMode.LEGACY_SCAFFOLDING_FILE;
         }

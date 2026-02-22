@@ -66,6 +66,9 @@ public class JUnit5RunListener implements TestExecutionListener {
 
     @Override
     public void executionStarted(TestIdentifier testIdentifier) {
+        if (!testIdentifier.isTest()) {
+            return;
+        }
 
         LoggingUtils.getEvoLogger().info("* Started: " + "ClassName: " + testIdentifier.getDisplayName());
 
@@ -76,25 +79,31 @@ public class JUnit5RunListener implements TestExecutionListener {
 
     @Override
     public void executionFinished(TestIdentifier testIdentifier, TestExecutionResult testExecutionResult) {
+        if (!testIdentifier.isTest()) {
+            return;
+        }
         LoggingUtils.getEvoLogger().info("* Finished: " + "ClassName: " + testIdentifier.getDisplayName());
+        this.testResult.setRuntime(System.nanoTime() - this.start);
+        this.testResult.incrementRunCount();
         if (testExecutionResult.getStatus() == TestExecutionResult.Status.SUCCESSFUL) {
 
-            this.testResult.setRuntime(System.nanoTime() - this.start);
             this.testResult.setExecutionTrace(ExecutionTracer.getExecutionTracer().getTrace());
-            this.testResult.incrementRunCount();
             ExecutionTracer.getExecutionTracer().clear();
 
             this.junitRunner.addResult(this.testResult);
         } else if (testExecutionResult.getStatus() == TestExecutionResult.Status.FAILED) {
 
-            Throwable throwable = testExecutionResult.getThrowable().get();
-            for (StackTraceElement s : throwable.getStackTrace()) {
-                LoggingUtils.getEvoLogger().info("   " + s.toString());
+            Throwable throwable = testExecutionResult.getThrowable().orElse(null);
+            if (throwable != null) {
+                for (StackTraceElement s : throwable.getStackTrace()) {
+                    LoggingUtils.getEvoLogger().info("   " + s.toString());
+                }
+                this.testResult.setTrace(Throwables.getStacktrace(throwable));
             }
 
             this.testResult.setSuccessful(false);
-            this.testResult.setTrace(Throwables.getStacktrace(throwable));
             this.testResult.incrementFailureCount();
+            this.junitRunner.addResult(this.testResult);
         }
     }
 

@@ -1256,6 +1256,10 @@ public class Properties {
             description = "Avoid runtime dependencies in JUnit test")
     public static boolean NO_RUNTIME_DEPENDENCY = false;
 
+    @Parameter(key = "test_extension_mode", group = "Output",
+            description = "Use experimental JUnit5 extension output mode (legacy scaffolding remains available)")
+    public static boolean TEST_EXTENSION_MODE = false;
+
     @Parameter(key = "print_to_system", group = "Output",
             description = "Allow test output on console")
     public static boolean PRINT_TO_SYSTEM = false;

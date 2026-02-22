@@ -29,13 +29,17 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Stream;
 
 public class TestSuiteWriterRegressionTest {
 
     private final Properties.OutputFormat defaultOutputFormat = Properties.TEST_FORMAT;
     private final boolean defaultTestScaffolding = Properties.TEST_SCAFFOLDING;
+    private final boolean defaultTestExtensionMode = Properties.TEST_EXTENSION_MODE;
     private final boolean defaultNoRuntimeDependency = Properties.NO_RUNTIME_DEPENDENCY;
     private final Properties.OutputGranularity defaultOutputGranularity = Properties.OUTPUT_GRANULARITY;
     private final boolean defaultReplaceCalls = Properties.REPLACE_CALLS;
@@ -51,6 +55,7 @@ public class TestSuiteWriterRegressionTest {
     public void restoreProperties() {
         Properties.TEST_FORMAT = defaultOutputFormat;
         Properties.TEST_SCAFFOLDING = defaultTestScaffolding;
+        Properties.TEST_EXTENSION_MODE = defaultTestExtensionMode;
         Properties.NO_RUNTIME_DEPENDENCY = defaultNoRuntimeDependency;
         Properties.OUTPUT_GRANULARITY = defaultOutputGranularity;
         Properties.REPLACE_CALLS = defaultReplaceCalls;
@@ -126,6 +131,7 @@ public class TestSuiteWriterRegressionTest {
         configureDefaults();
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT3;
         Properties.TEST_SCAFFOLDING = true;
+        Properties.TEST_EXTENSION_MODE = false;
         Properties.NO_RUNTIME_DEPENDENCY = false;
 
         TestSuiteWriter writer = new TestSuiteWriter();
@@ -135,8 +141,128 @@ public class TestSuiteWriterRegressionTest {
         deleteTempDir(tempDir);
     }
 
+    @Test
+    public void testExtensionModeCanEmitExplicitInitializationOrder() throws Exception {
+        Path tempDir = Files.createTempDirectory("evosuite-bug10-");
+        configureDefaults();
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
+        Properties.TEST_EXTENSION_MODE = true;
+        Properties.TEST_SCAFFOLDING = false;
+        Properties.RESET_STATIC_FIELDS = true;
+
+        TestSuiteWriter writer = new TestSuiteWriter();
+        writer.setExtensionInitializationOrder(Arrays.asList("z.InitLast", "a.InitFirst", "m.InitMiddle"));
+        writer.writeTestSuite("Bug10Test", tempDir.toString(), Collections.emptyList());
+
+        String code = readFile(tempDir.resolve("Bug10Test.java"));
+        Assertions.assertTrue(code.contains("private static final String[] EVO_INIT_ORDER = {\"z.InitLast\", \"a.InitFirst\", \"m.InitMiddle\"};"));
+        Assertions.assertTrue(code.contains("new EvoSuiteExtension(Bug10Test.class, EVO_INIT_ORDER);"));
+        deleteTempDir(tempDir);
+    }
+
+    @Test
+    public void testExtensionModeHeaderUsesIndentedRegisterExtension() throws Exception {
+        Path tempDir = Files.createTempDirectory("evosuite-ext-indent-");
+        configureDefaults();
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
+        Properties.TEST_EXTENSION_MODE = true;
+        Properties.TEST_SCAFFOLDING = false;
+        Properties.RESET_STATIC_FIELDS = true;
+
+        TestSuiteWriter writer = new TestSuiteWriter();
+        writer.writeTestSuite("ExtIndentTest", tempDir.toString(), Collections.emptyList());
+
+        String code = readFile(tempDir.resolve("ExtIndentTest.java"));
+        Assertions.assertTrue(code.contains("\n  @RegisterExtension\n  static EvoSuiteExtension runner = new EvoSuiteExtension(ExtIndentTest.class);"));
+        deleteTempDir(tempDir);
+    }
+
+    @Test
+    public void testExtensionModeImportsAreSortedAndStaticImportsAreGroupedLast() throws Exception {
+        Path tempDir = Files.createTempDirectory("evosuite-ext-imports-");
+        configureDefaults();
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
+        Properties.TEST_EXTENSION_MODE = true;
+        Properties.TEST_SCAFFOLDING = false;
+        Properties.REPLACE_CALLS = true;
+
+        TestSuiteWriter writer = new TestSuiteWriter();
+        writer.insertTest(new DefaultTestCase());
+        writer.writeTestSuite("ExtImportOrderTest", tempDir.toString(), Collections.emptyList());
+
+        String code = readFile(tempDir.resolve("ExtImportOrderTest.java"));
+        List<String> normalImports = extractImports(code, false);
+        List<String> staticImports = extractImports(code, true);
+
+        List<String> sortedNormal = new ArrayList<>(normalImports);
+        Collections.sort(sortedNormal);
+        Assertions.assertEquals(sortedNormal, normalImports, "Normal imports must be sorted");
+
+        List<String> sortedStatic = new ArrayList<>(staticImports);
+        Collections.sort(sortedStatic);
+        Assertions.assertEquals(sortedStatic, staticImports, "Static imports must be sorted");
+
+        int firstStatic = code.indexOf("import static ");
+        int lastNormal = findLastNonStaticImportIndex(code);
+        Assertions.assertTrue(firstStatic >= 0);
+        Assertions.assertTrue(firstStatic > 0 && lastNormal > 0 && firstStatic >= lastNormal,
+                "Static imports should be emitted after normal imports");
+
+        deleteTempDir(tempDir);
+    }
+
+    @Test
+    public void testLegacyJunit5ScaffoldingModeRemainsOperational() throws Exception {
+        Path tempDir = Files.createTempDirectory("evosuite-legacy-j5-scaff-");
+        configureDefaults();
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
+        Properties.TEST_EXTENSION_MODE = false;
+        Properties.TEST_SCAFFOLDING = true;
+        Properties.REPLACE_CALLS = true;
+
+        TestSuiteWriter writer = new TestSuiteWriter();
+        List<java.io.File> generated = writer.writeTestSuite("LegacyJ5ScaffTest", tempDir.toString(), Collections.emptyList());
+
+        String code = readFile(tempDir.resolve("LegacyJ5ScaffTest.java"));
+        Assertions.assertTrue(code.contains("static EvoRunnerJUnit5 runner = new EvoRunnerJUnit5(LegacyJ5ScaffTest.class);"));
+        Assertions.assertFalse(code.contains("EvoSuiteExtension"));
+        Assertions.assertTrue(generated.stream().anyMatch(f -> f.getName().endsWith("_scaffolding.java")));
+        Assertions.assertTrue(Files.exists(tempDir.resolve("LegacyJ5ScaffTest_scaffolding.java")));
+        deleteTempDir(tempDir);
+    }
+
+    private static int findLastNonStaticImportIndex(String code) {
+        int lastIndex = -1;
+        String[] lines = code.split("\\R");
+        int cursor = 0;
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("import ") && !trimmed.startsWith("import static ")) {
+                lastIndex = cursor;
+            }
+            cursor += line.length() + 1;
+        }
+        return lastIndex;
+    }
+
+    private static List<String> extractImports(String code, boolean includeStatic) {
+        List<String> imports = new ArrayList<>();
+        String[] lines = code.split("\\R");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("import ")) {
+                continue;
+            }
+            boolean isStatic = trimmed.startsWith("import static ");
+            if (isStatic == includeStatic) {
+                imports.add(trimmed);
+            }
+        }
+        return imports;
+    }
+
     private static String readFile(Path path) throws Exception {
-        return Files.readString(path, StandardCharsets.UTF_8);
+        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 
     private static void deleteTempDir(Path tempDir) throws IOException {

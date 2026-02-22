@@ -53,6 +53,7 @@ public final class TestSuiteChromosome
             secondaryObjectives = new ArrayList<>();
     private static int secondaryObjIndex = 0;
     private static final long serialVersionUID = 88380759969800800L;
+    private List<String> extensionInitializationOrder = new ArrayList<>();
 
     /**
      * Add an additional secondary objective to the end of the list of
@@ -158,6 +159,18 @@ public final class TestSuiteChromosome
      */
     protected TestSuiteChromosome(TestSuiteChromosome source) {
         super(source);
+        this.extensionInitializationOrder = new ArrayList<>(source.extensionInitializationOrder);
+    }
+
+    public List<String> getExtensionInitializationOrder() {
+        return new ArrayList<>(extensionInitializationOrder);
+    }
+
+    public void setExtensionInitializationOrder(List<String> extensionInitializationOrder) {
+        this.extensionInitializationOrder.clear();
+        if (extensionInitializationOrder != null) {
+            this.extensionInitializationOrder.addAll(extensionInitializationOrder);
+        }
     }
 
     /**

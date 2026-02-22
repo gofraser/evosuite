@@ -10,7 +10,7 @@
 
     <properties>
         <junit.version>4.13.2</junit.version>
-        <surefire.version>2.19.1</surefire.version>
+        <surefire.version>3.5.4</surefire.version>
         <forkCount>1</forkCount>
 
         <!-- this needs to be set with -D. Done automatically from tests.
@@ -41,6 +41,11 @@
                 <version>${surefire.version}</version>
                 <configuration>
                     <forkCount>${forkCount}</forkCount>
+                    <useModulePath>false</useModulePath>
+                    <argLine>-javaagent:${settings.localRepository}/org/evosuite/evosuite-standalone-runtime/${evosuiteVersion}/evosuite-standalone-runtime-${evosuiteVersion}.jar -Devosuite.runtime.agent.active=true</argLine>
+                    <systemPropertyVariables>
+                        <EvoSuiteCompiledTestFolder>${project.build.testOutputDirectory}</EvoSuiteCompiledTestFolder>
+                    </systemPropertyVariables>
                     <properties>
                         <property>
                             <name>listener</name>

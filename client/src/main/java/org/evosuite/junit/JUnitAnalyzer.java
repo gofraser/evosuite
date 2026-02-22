@@ -74,6 +74,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -100,12 +101,29 @@ public abstract class JUnitAnalyzer {
 
     private static NonInstrumentingClassLoader loader = new NonInstrumentingClassLoader();
 
-    private static final VersionDependentAnalyzing versionDependentAnalyzer;
+    private static final VersionDependentAnalyzing JUNIT4_ANALYZER = new JUnit4Analyzing();
+    private static final VersionDependentAnalyzing JUNIT5_ANALYZER = new JUnit5Analyzing();
 
-    static {
-        versionDependentAnalyzer = Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
-                ? new JUnit5Analyzing()
-                : new JUnit4Analyzing();
+    public static final class OrderSensitivityAnalysis {
+        private final Set<String> forwardFailures;
+        private final Set<String> reverseFailures;
+
+        private OrderSensitivityAnalysis(Set<String> forwardFailures, Set<String> reverseFailures) {
+            this.forwardFailures = forwardFailures;
+            this.reverseFailures = reverseFailures;
+        }
+
+        public boolean isOrderSensitive() {
+            return !forwardFailures.equals(reverseFailures);
+        }
+
+        public Set<String> getForwardFailures() {
+            return forwardFailures;
+        }
+
+        public Set<String> getReverseFailures() {
+            return reverseFailures;
+        }
     }
 
     /**
@@ -316,9 +334,99 @@ public abstract class JUnitAnalyzer {
         return runJUnitOnCurrentProcess(testClasses);
     }
 
+    public static OrderSensitivityAnalysis analyzeOrderSensitivity(List<TestCase> tests) {
+        if (tests == null || tests.size() < 2) {
+            return new OrderSensitivityAnalysis(Collections.<String>emptySet(), Collections.<String>emptySet());
+        }
+        Set<String> forwardFailures = executeAndCollectUnexpectedFailures(cloneTests(tests));
+        List<TestCase> reverse = cloneTests(tests);
+        Collections.reverse(reverse);
+        Set<String> reverseFailures = executeAndCollectUnexpectedFailures(reverse);
+        return new OrderSensitivityAnalysis(forwardFailures, reverseFailures);
+    }
+
 
     private static JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses) {
-        return versionDependentAnalyzer.runJUnitOnCurrentProcess(testClasses);
+        return getVersionDependentAnalyzer().runJUnitOnCurrentProcess(testClasses);
+    }
+
+    static boolean isJUnit5AnalyzerSelectedForCurrentFormat() {
+        return getVersionDependentAnalyzer() == JUNIT5_ANALYZER;
+    }
+
+    private static VersionDependentAnalyzing getVersionDependentAnalyzer() {
+        return Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
+                ? JUNIT5_ANALYZER
+                : JUNIT4_ANALYZER;
+    }
+
+    private static List<TestCase> cloneTests(List<TestCase> tests) {
+        List<TestCase> clones = new ArrayList<>(tests.size());
+        for (TestCase test : tests) {
+            clones.add(test.clone());
+        }
+        return clones;
+    }
+
+    private static Set<String> executeAndCollectUnexpectedFailures(List<TestCase> tests) {
+        File dir = createNewTmpDir();
+        if (dir == null) {
+            return Collections.singleton("tmp-dir-error");
+        }
+        try {
+            List<File> generated = compileTests(tests, dir);
+            if (generated == null) {
+                return Collections.singleton("compilation-error");
+            }
+            loader = new NonInstrumentingClassLoader();
+            Class<?>[] testClasses = loadTests(generated);
+            if (testClasses == null) {
+                return Collections.singleton("load-error");
+            }
+            JUnitResult result = runTests(testClasses, dir);
+            if (result.wasSuccessful()) {
+                return Collections.emptySet();
+            }
+            return mapUnexpectedFailureNames(result, tests);
+        } catch (Exception e) {
+            logger.warn("Order-sensitivity analysis failed: {}", e.getMessage());
+            return Collections.singleton("execution-error");
+        } finally {
+            if (dir != null) {
+                try {
+                    FileUtils.deleteDirectory(dir);
+                } catch (Exception e) {
+                    logger.warn("Cannot delete tmp dir in order-sensitivity analysis: {}", dir.getName(), e);
+                }
+            }
+        }
+    }
+
+    private static Set<String> mapUnexpectedFailureNames(JUnitResult result, List<TestCase> tests) {
+        Map<String, TestCase> testByName = new LinkedHashMap<>();
+        for (int i = 0; i < tests.size(); i++) {
+            testByName.put(TestSuiteWriterUtils.getNameOfTest(tests, i), tests.get(i));
+        }
+
+        Set<String> failures = new LinkedHashSet<>();
+        for (JUnitFailure failure : result.getFailures()) {
+            String testName = failure.getDescriptionMethodName();
+            if (testName == null) {
+                failures.add("suite-initialization");
+                continue;
+            }
+            TestCase mapped = testByName.get(testName);
+            if (mapped != null && mapped.isFailing()) {
+                continue;
+            }
+            if (testName.equals("initializationError")
+                    && failure.getMessage() != null
+                    && failure.getMessage().contains("Failed to attach Java Agent")) {
+                continue;
+            }
+            failures.add(testName);
+        }
+        return failures;
     }
 
     /**
@@ -749,7 +857,7 @@ public abstract class JUnitAnalyzer {
      */
     private static Class<?>[] getClassesFromFiles(Collection<File> files) {
         /*
-         * new-mode metadata can explicitly list classes that must be initialized first
+         * legacy build-tool integration may provide a scaffolding list file
          */
         for (String className : extractClassesToInitialize(files)) {
             loadClass(className);
@@ -791,14 +899,13 @@ public abstract class JUnitAnalyzer {
             if (!file.isFile()) {
                 continue;
             }
-            if (!InitializingListener.INITIALIZATION_METADATA_FILE_STRING.equals(fileName)
-                    && !InitializingListener.SCAFFOLDING_LIST_FILE_STRING.equals(fileName)) {
+            if (!InitializingListener.SCAFFOLDING_LIST_FILE_STRING.equals(fileName)) {
                 continue;
             }
             try {
                 classesToInit.addAll(InitializingListenerUtils.readInitializationClassList(file));
             } catch (RuntimeException e) {
-                logger.warn("Could not read initialization metadata from {}: {}", file.getAbsolutePath(), e.getMessage());
+                logger.warn("Could not read scaffolding initialization list from {}: {}", file.getAbsolutePath(), e.getMessage());
             }
         }
         return classesToInit;

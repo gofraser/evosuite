@@ -87,6 +87,15 @@ public class TestSuiteWriter implements Opcodes {
     private static final String NEWLINE = java.lang.System.getProperty("line.separator");
 
     private TestNameGenerationStrategy nameGenerator = null;
+    private List<String> extensionInitializationOrder = Collections.emptyList();
+
+    public void setExtensionInitializationOrder(List<String> extensionInitializationOrder) {
+        if (extensionInitializationOrder == null || extensionInitializationOrder.isEmpty()) {
+            this.extensionInitializationOrder = Collections.emptyList();
+            return;
+        }
+        this.extensionInitializationOrder = new ArrayList<>(extensionInitializationOrder);
+    }
 
     /**
      * Add test to suite. If the test is a prefix of an existing test, just keep
@@ -449,7 +458,11 @@ public class TestSuiteWriter implements Opcodes {
         if (requirements.needsAgent()) {
             imports.add(EvoRunnerParameters.class);
             if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5) {
-                imports.add(EvoRunnerJUnit5.class);
+                if (requirements.isNewExtensionMode()) {
+                    imports.add(EvoSuiteExtension.class);
+                } else {
+                    imports.add(EvoRunnerJUnit5.class);
+                }
                 imports.add(RegisterExtension.class);
             } else {
                 imports.add(RunWith.class);
@@ -520,6 +533,38 @@ public class TestSuiteWriter implements Opcodes {
         return builder.toString();
     }
 
+    private String getSortedImports(List<ExecutionResult> results, RuntimeRequirements requirements) {
+        String rawImports = adapter.getImports() + getImports(results, requirements);
+        SortedSet<String> normalImports = new TreeSet<>();
+        SortedSet<String> staticImports = new TreeSet<>();
+
+        String[] lines = rawImports.split("\\R");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("import ")) {
+                continue;
+            }
+            if (trimmed.startsWith("import static ")) {
+                staticImports.add(trimmed);
+            } else {
+                normalImports.add(trimmed);
+            }
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (String importLine : normalImports) {
+            builder.append(importLine).append(NEWLINE);
+        }
+        if (!normalImports.isEmpty() && !staticImports.isEmpty()) {
+            builder.append(NEWLINE);
+        }
+        for (String importLine : staticImports) {
+            builder.append(importLine).append(NEWLINE);
+        }
+        builder.append(NEWLINE);
+        return builder.toString();
+    }
+
 
     /**
      * JUnit file header.
@@ -550,8 +595,7 @@ public class TestSuiteWriter implements Opcodes {
         }
         builder.append(NEWLINE);
 
-        builder.append(adapter.getImports());
-        builder.append(getImports(results, requirements));
+        builder.append(getSortedImports(results, requirements));
 
         if (requirements.needsAgent()) {
             builder.append(getRunner());
@@ -567,11 +611,36 @@ public class TestSuiteWriter implements Opcodes {
         builder.append(NEWLINE);
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
                 && requirements.needsAgent()) {
-            builder.append("@RegisterExtension").append(NEWLINE);
-            builder.append(METHOD_SPACE).append("static EvoRunnerJUnit5 runner = new EvoRunnerJUnit5(")
-                    .append(testName).append(".class);").append(NEWLINE);
+            if (requirements.isNewExtensionMode() && !extensionInitializationOrder.isEmpty()) {
+                builder.append(METHOD_SPACE).append("private static final String[] EVO_INIT_ORDER = {");
+                for (int i = 0; i < extensionInitializationOrder.size(); i++) {
+                    if (i > 0) {
+                        builder.append(", ");
+                    }
+                    builder.append("\"").append(escapeJava(extensionInitializationOrder.get(i))).append("\"");
+                }
+                builder.append("};").append(NEWLINE);
+            }
+            builder.append(METHOD_SPACE).append("@RegisterExtension").append(NEWLINE);
+            if (requirements.isNewExtensionMode()) {
+                builder.append(METHOD_SPACE).append("static EvoSuiteExtension runner = new EvoSuiteExtension(")
+                        .append(testName).append(".class");
+                if (!extensionInitializationOrder.isEmpty()) {
+                    builder.append(", EVO_INIT_ORDER");
+                }
+                builder.append(");").append(NEWLINE);
+            } else {
+                builder.append(METHOD_SPACE).append("static EvoRunnerJUnit5 runner = new EvoRunnerJUnit5(")
+                        .append(testName).append(".class);").append(NEWLINE);
+            }
         }
         return builder.toString();
+    }
+
+    private static String escapeJava(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
     }
 
     private Object getRunner() {

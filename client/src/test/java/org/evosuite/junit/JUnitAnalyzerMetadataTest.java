@@ -35,16 +35,16 @@ import java.util.stream.Stream;
 public class JUnitAnalyzerMetadataTest {
 
     @Test
-    public void testExtractClassesToInitializeReadsMetadataArtifacts() throws Exception {
-        Path tempDir = Files.createTempDirectory("evosuite-junit-analyzer-meta-");
-        File metadata = tempDir.resolve(InitializingListener.INITIALIZATION_METADATA_FILE_STRING).toFile();
+    public void testExtractClassesToInitializeReadsScaffoldingListArtifacts() throws Exception {
+        Path tempDir = Files.createTempDirectory("evosuite-junit-analyzer-list-");
+        File listFile = tempDir.resolve(InitializingListener.SCAFFOLDING_LIST_FILE_STRING).toFile();
         List<String> expected = Arrays.asList(
                 "org.foo.Legacy_scaffolding",
-                "org.foo.NewInitMetadataCarrier"
+                "org.foo.NewInitOrderCarrier"
         );
-        InitializingListenerUtils.writeInitializationClassList(metadata, expected);
+        InitializingListenerUtils.writeInitializationClassList(listFile, expected);
 
-        List<String> parsed = JUnitAnalyzer.extractClassesToInitialize(Collections.singletonList(metadata));
+        List<String> parsed = JUnitAnalyzer.extractClassesToInitialize(Collections.singletonList(listFile));
         Assertions.assertEquals(expected, parsed);
 
         try (Stream<Path> stream = Files.walk(tempDir)) {

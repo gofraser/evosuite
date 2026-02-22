@@ -40,18 +40,25 @@ public class GuiSupport {
      * Where the tests run in headless mode?.
      */
     private static final boolean isDefaultHeadless = GraphicsEnvironment.isHeadless();
+    private static final String defaultHeadlessProperty = java.lang.System.getProperty("java.awt.headless");
 
     private static final Field headless; // need reflection
+    private static final boolean canForceHeadless;
 
     static {
+        Field tmpHeadless = null;
+        boolean tmpCanForceHeadless = false;
         try {
             //AWT classes check GraphicsEnvironment for headless state
-            headless = java.awt.GraphicsEnvironment.class.getDeclaredField("headless");
-            headless.setAccessible(true);
-        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException e) {
-            //this should never happen. if it doesn't work, then all GUI tests would be messed up :(
-            throw new RuntimeException("ERROR: failed to use reflection for AWT Headless state: " + e.getMessage(), e);
+            tmpHeadless = java.awt.GraphicsEnvironment.class.getDeclaredField("headless");
+            tmpHeadless.setAccessible(true);
+            tmpCanForceHeadless = true;
+        } catch (Throwable e) {
+            logger.warn("Cannot access java.awt.GraphicsEnvironment#headless reflectively. "
+                    + "Falling back to system property only: {}", e.getMessage());
         }
+        headless = tmpHeadless;
+        canForceHeadless = tmpCanForceHeadless;
     }
 
     /**
@@ -105,8 +112,22 @@ public class GuiSupport {
      * run together with manual tests that are not headless.
      */
     public static void restoreHeadlessMode() {
-        if (GraphicsEnvironment.isHeadless() && !isDefaultHeadless) {
-            setHeadless(false);
+        if (canForceHeadless) {
+            if (GraphicsEnvironment.isHeadless() && !isDefaultHeadless) {
+                setHeadless(false);
+            }
+            return;
+        }
+
+        // Reflection is blocked by JPMS; best-effort restoration of system property.
+        try {
+            if (defaultHeadlessProperty == null) {
+                java.lang.System.clearProperty("java.awt.headless");
+            } else {
+                java.lang.System.setProperty("java.awt.headless", defaultHeadlessProperty);
+            }
+        } catch (SecurityException e) {
+            logger.warn("Could not restore java.awt.headless property: {}", e.getMessage());
         }
     }
 
@@ -116,12 +137,19 @@ public class GuiSupport {
         //changing system property is not enough
         java.lang.System.setProperty("java.awt.headless", "" + isHeadless);
 
-        try {
-            headless.set(null, isHeadless);
-        } catch (IllegalAccessException e) {
-            //this should never happen. if it doesn't work, then all GUI tests would be messed up :(
-            throw new RuntimeException("ERROR: failed to change AWT Headless state: " + e.getMessage(), e);
+        if (!canForceHeadless) {
+            return;
         }
 
+        try {
+            headless.set(null, isHeadless);
+        } catch (Exception | Error e) {
+            logger.warn("Could not change AWT headless state reflectively: {}", e.getMessage());
+        }
+
+    }
+
+    static boolean canForceHeadlessForTests() {
+        return canForceHeadless;
     }
 }

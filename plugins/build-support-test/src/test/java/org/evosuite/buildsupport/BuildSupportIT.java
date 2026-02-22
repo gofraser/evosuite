@@ -32,11 +32,13 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Properties;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -49,23 +51,79 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class BuildSupportIT {
 
     private final Path simple = Paths.get("projects","simple");
-    private static final String INITIALIZATION_METADATA_FILE = ".evosuite_init.tmp";
+    private final Path extension = Paths.get("projects","extension");
 
     private String getEvoSuiteVersion(){
         //update version if run from IDE instead of Maven
-        return System.getProperty("evosuiteVersion","1.0.5-SNAPSHOT");
+        return System.getProperty("evosuiteVersion","1.2.1-SNAPSHOT");
     }
 
     @BeforeEach
+    public void setUp() throws Exception {
+        bootstrapEvoSuiteArtifactsInFixtureRepo(simple);
+        bootstrapEvoSuiteArtifactsInFixtureRepo(extension);
+        cleanProjects();
+    }
+
     @AfterEach
     public void clean() throws Exception {
+        cleanProjects();
+    }
+
+    private void cleanProjects() throws Exception {
         Verifier maven = getMaven(simple);
         maven.executeGoal("clean");
 
         FileUtils.deleteQuietly(simple.resolve("log.txt").toFile());
         FileUtils.deleteQuietly(simple.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
-        FileUtils.deleteQuietly(simple.resolve(INITIALIZATION_METADATA_FILE).toFile());
         FileUtils.deleteQuietly(simple.resolve("build").toFile());
+
+        Verifier extensionMaven = getMaven(extension);
+        extensionMaven.executeGoal("clean");
+        FileUtils.deleteQuietly(extension.resolve("log.txt").toFile());
+        FileUtils.deleteQuietly(extension.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
+    }
+
+    private void bootstrapEvoSuiteArtifactsInFixtureRepo(Path projectPath) throws Exception {
+        Path projectRoot = Paths.get("").toAbsolutePath().normalize();
+        Path repoRoot = projectRoot.getParent().getParent();
+        if (repoRoot == null) {
+            throw new IllegalStateException("Could not resolve repository root from " + projectRoot);
+        }
+
+        Path localRepo = projectPath.resolve(".m2").resolve("repository").toAbsolutePath();
+
+        Verifier bootstrapRuntimeAndPlugin = new Verifier(repoRoot.toString());
+        bootstrapRuntimeAndPlugin.setAutoclean(false);
+        bootstrapRuntimeAndPlugin.setLocalRepo(localRepo.toString());
+        bootstrapRuntimeAndPlugin.setCliOptions(Arrays.asList(
+                "-pl", "runtime,plugins/maven",
+                "-am",
+                "-DskipTests",
+                "-DskipITs",
+                "-Dcheckstyle.skip=true",
+                "-Denforcer.skip=true",
+                "-Dmaven.javadoc.skip=true",
+                "-Dlicense.skip=true",
+                "-Dspotbugs.skip=true"
+        ));
+        bootstrapRuntimeAndPlugin.executeGoal("install");
+
+        // Build standalone runtime from a clean module target to avoid stale shaded classes.
+        Verifier bootstrapStandaloneRuntime = new Verifier(repoRoot.toString());
+        bootstrapStandaloneRuntime.setAutoclean(false);
+        bootstrapStandaloneRuntime.setLocalRepo(localRepo.toString());
+        bootstrapStandaloneRuntime.setCliOptions(Arrays.asList(
+                "-pl", "standalone_runtime",
+                "-DskipTests",
+                "-DskipITs",
+                "-Dcheckstyle.skip=true",
+                "-Denforcer.skip=true",
+                "-Dmaven.javadoc.skip=true",
+                "-Dlicense.skip=true",
+                "-Dspotbugs.skip=true"
+        ));
+        bootstrapStandaloneRuntime.executeGoals(Arrays.asList("clean", "install"));
     }
 
     @Test
@@ -75,7 +133,19 @@ public class BuildSupportIT {
         maven.verifyTextInLog("Running com.testbuild.support.FooTest");
         maven.verifyTextInLog("Tests run: 3, Failures: 0, Errors: 0, Skipped: 0");
         assertTrue(simple.resolve(InitializingListener.getScaffoldingListFilePath()).toFile().isFile());
-        assertFalse(simple.resolve(INITIALIZATION_METADATA_FILE).toFile().exists());
+    }
+
+    @Test
+    public void testMavenExtensionMode() throws Exception {
+        Verifier maven = getMaven(extension);
+        maven.executeGoal("test");
+        maven.verifyTextInLog("Running com.testbuild.extension.Foo_ESTest");
+        maven.verifyTextInLog("Tests run: 1, Failures: 0, Errors: 0, Skipped: 0");
+
+        Path scaffoldingList = extension.resolve(InitializingListener.getScaffoldingListFilePath());
+        assertTrue(scaffoldingList.toFile().isFile());
+        String content = new String(Files.readAllBytes(scaffoldingList), StandardCharsets.UTF_8).trim();
+        assertTrue(content.isEmpty(), "Expected no scaffolding entries for extension-mode fixture");
     }
 
 
@@ -149,6 +219,7 @@ public class BuildSupportIT {
 
     private Verifier getMaven(Path targetProject) throws Exception{
         Verifier verifier  = new Verifier(targetProject.toAbsolutePath().toString());
+        verifier.setLocalRepo(targetProject.resolve(".m2").resolve("repository").toAbsolutePath().toString());
         Properties props = new Properties(System.getProperties());
         props.put("evosuiteVersion", getEvoSuiteVersion());
         verifier.setSystemProperties(props);

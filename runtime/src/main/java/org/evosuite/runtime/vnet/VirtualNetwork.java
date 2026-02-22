@@ -21,6 +21,8 @@ package org.evosuite.runtime.vnet;
 
 import org.evosuite.runtime.mock.java.net.MockInetAddress;
 import org.evosuite.runtime.mock.java.net.MockURL;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -42,6 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author arcuri
  */
 public class VirtualNetwork {
+    private static final Logger logger = LoggerFactory.getLogger(VirtualNetwork.class);
 
     /**
      * Specifies a network protocol.
@@ -387,7 +390,7 @@ public class VirtualNetwork {
      */
     public NetworkInterfaceState getNetworkInterfaceState(String name) {
         for (NetworkInterfaceState ni : networkInterfaces) {
-            if (ni.getNetworkInterface().getName().equals(name)) {
+            if (ni.getNetworkInterface() != null && ni.getNetworkInterface().getName().equals(name)) {
                 return ni;
             }
         }
@@ -589,15 +592,18 @@ public class VirtualNetwork {
         try {
             NetworkInterfaceState loopback = new NetworkInterfaceState(
                     "Evo_lo0", 1, null, 16384, true, MockInetAddress.getByName("127.0.0.1"));
-            networkInterfaces.add(loopback);
+            if (loopback.getNetworkInterface() != null) {
+                networkInterfaces.add(loopback);
+            }
 
             NetworkInterfaceState wifi = new NetworkInterfaceState(
                     "Evo_en0", 5, new byte[]{0, 42, 0, 42, 0, 42},
                     1500, false, MockInetAddress.getByName("192.168.1.42"));
-            networkInterfaces.add(wifi);
-        } catch (Exception e) {
-            //this should never happen
-            throw new RuntimeException("EvoSuite error: " + e.getMessage());
+            if (wifi.getNetworkInterface() != null) {
+                networkInterfaces.add(wifi);
+            }
+        } catch (Throwable e) {
+            logger.warn("Could not initialize virtual network interfaces: {}", e.getMessage());
         }
     }
 

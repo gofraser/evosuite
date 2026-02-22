@@ -26,57 +26,45 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
 public class InitializingListenerTest {
 
     @Test
-    public void testMetadataListHasPriorityOverScaffoldingList() throws Exception {
+    public void testScaffoldingListIsUsedWhenPresent() throws Exception {
         Path tempDir = Files.createTempDirectory("evosuite-init-priority-");
-        File metadata = tempDir.resolve(InitializingListener.INITIALIZATION_METADATA_FILE_STRING).toFile();
         File scaffolding = tempDir.resolve(InitializingListener.SCAFFOLDING_LIST_FILE_STRING).toFile();
 
-        List<String> metadataClasses = Collections.singletonList("org.foo.NewModeInitializer");
-        List<String> scaffoldingClasses = Collections.singletonList("org.foo.Legacy_scaffolding");
-        InitializingListenerUtils.writeInitializationClassList(metadata, metadataClasses);
+        List<String> scaffoldingClasses = Arrays.asList("org.foo.Legacy_scaffolding");
         InitializingListenerUtils.writeInitializationClassList(scaffolding, scaffoldingClasses);
 
-        List<String> parsed = InitializingListener.readInitializationClasses(metadata, scaffolding);
-        Assertions.assertEquals(metadataClasses, parsed);
+        List<String> parsed = InitializingListener.readInitializationClasses(scaffolding);
+        Assertions.assertEquals(scaffoldingClasses, parsed);
 
         deleteTempDir(tempDir);
     }
 
     @Test
-    public void testEmptyMetadataListDoesNotFallbackToScaffoldingList() throws Exception {
+    public void testEmptyInitializationListWhenScaffoldingListMissing() throws Exception {
         Path tempDir = Files.createTempDirectory("evosuite-init-empty-meta-");
-        File metadata = tempDir.resolve(InitializingListener.INITIALIZATION_METADATA_FILE_STRING).toFile();
         File scaffolding = tempDir.resolve(InitializingListener.SCAFFOLDING_LIST_FILE_STRING).toFile();
 
-        InitializingListenerUtils.writeInitializationClassList(metadata, Collections.emptyList());
-        InitializingListenerUtils.writeInitializationClassList(
-                scaffolding,
-                Collections.singletonList("org.foo.Legacy_scaffolding")
-        );
-
-        List<String> parsed = InitializingListener.readInitializationClasses(metadata, scaffolding);
+        List<String> parsed = InitializingListener.readInitializationClasses(scaffolding);
         Assertions.assertTrue(parsed.isEmpty());
 
         deleteTempDir(tempDir);
     }
 
     @Test
-    public void testScaffoldingListUsedWhenMetadataMissing() throws Exception {
+    public void testScaffoldingListIsUsed() throws Exception {
         Path tempDir = Files.createTempDirectory("evosuite-init-scaff-fallback-");
-        File metadata = tempDir.resolve(InitializingListener.INITIALIZATION_METADATA_FILE_STRING).toFile();
         File scaffolding = tempDir.resolve(InitializingListener.SCAFFOLDING_LIST_FILE_STRING).toFile();
 
         List<String> expected = Arrays.asList("org.foo.A_scaffolding", "org.foo.B_scaffolding");
         InitializingListenerUtils.writeInitializationClassList(scaffolding, expected);
 
-        List<String> parsed = InitializingListener.readInitializationClasses(metadata, scaffolding);
+        List<String> parsed = InitializingListener.readInitializationClasses(scaffolding);
         Assertions.assertEquals(expected, parsed);
 
         deleteTempDir(tempDir);

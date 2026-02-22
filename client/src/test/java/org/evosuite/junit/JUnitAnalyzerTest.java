@@ -36,6 +36,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class JUnitAnalyzerTest {
@@ -50,6 +51,7 @@ public class JUnitAnalyzerTest {
     private static final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
     private static final boolean DEFAULT_ASSERTS_FOR_EVO = Properties.ENABLE_ASSERTS_FOR_EVOSUITE;
     private static final boolean DEFAULT_SCAFFOLDING = Properties.TEST_SCAFFOLDING;
+    private static final Properties.OutputFormat DEFAULT_TEST_FORMAT = Properties.TEST_FORMAT;
 
     private File file = new File(OpenStream.FILE_NAME);
 
@@ -75,6 +77,7 @@ public class JUnitAnalyzerTest {
         Properties.SANDBOX = DEFAULT_SANDBOX;
         Properties.ENABLE_ASSERTS_FOR_EVOSUITE = DEFAULT_ASSERTS_FOR_EVO;
         Properties.TEST_SCAFFOLDING = DEFAULT_SCAFFOLDING;
+        Properties.TEST_FORMAT = DEFAULT_TEST_FORMAT;
     }
 
     @Test
@@ -165,6 +168,33 @@ public class JUnitAnalyzerTest {
 
         FileUtils.deleteDirectory(dir);
         Assertions.assertFalse(dir.exists());
+    }
+
+    @Test
+    public void testOrderSensitivityAnalysisForTrivialSuites() {
+        JUnitAnalyzer.OrderSensitivityAnalysis empty = JUnitAnalyzer.analyzeOrderSensitivity(Collections.emptyList());
+        Assertions.assertFalse(empty.isOrderSensitive());
+        Assertions.assertTrue(empty.getForwardFailures().isEmpty());
+        Assertions.assertTrue(empty.getReverseFailures().isEmpty());
+
+        List<TestCase> single = new ArrayList<>();
+        single.add(new org.evosuite.testcase.DefaultTestCase());
+        JUnitAnalyzer.OrderSensitivityAnalysis one = JUnitAnalyzer.analyzeOrderSensitivity(single);
+        Assertions.assertFalse(one.isOrderSensitive());
+        Assertions.assertTrue(one.getForwardFailures().isEmpty());
+        Assertions.assertTrue(one.getReverseFailures().isEmpty());
+    }
+
+    @Test
+    public void testAnalyzerSelectionFollowsCurrentTestFormat() {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
+        Assertions.assertFalse(JUnitAnalyzer.isJUnit5AnalyzerSelectedForCurrentFormat());
+
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
+        Assertions.assertTrue(JUnitAnalyzer.isJUnit5AnalyzerSelectedForCurrentFormat());
+
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
+        Assertions.assertFalse(JUnitAnalyzer.isJUnit5AnalyzerSelectedForCurrentFormat());
     }
 
 

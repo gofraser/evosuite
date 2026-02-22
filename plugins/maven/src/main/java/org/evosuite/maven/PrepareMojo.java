@@ -42,13 +42,6 @@ public class PrepareMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     private MavenProject project;
 
-    /**
-     * Transitional switch: if enabled, write optional initialization metadata.
-     * Legacy scaffolding list is always written for backward compatibility.
-     */
-    @Parameter(property = "evosuite.writeInitializationMetadata", defaultValue = "false")
-    private boolean writeInitializationMetadata;
-
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
@@ -80,13 +73,8 @@ public class PrepareMojo extends AbstractMojo {
 
         File scaffolding = new File(project.getBasedir() + File.separator
                 + InitializingListener.SCAFFOLDING_LIST_FILE_STRING);
-        File metadata = new File(project.getBasedir() + File.separator
-                + InitializingListener.INITIALIZATION_METADATA_FILE_STRING);
         try {
             InitializingListenerUtils.writeInitializationClassList(scaffolding, list);
-            if (writeInitializationMetadata) {
-                InitializingListenerUtils.writeInitializationClassList(metadata, list);
-            }
             for (String s : list) {
                 getLog().debug("Class: " + s);
             }

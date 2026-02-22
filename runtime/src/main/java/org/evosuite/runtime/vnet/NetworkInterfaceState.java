@@ -25,8 +25,10 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.net.SocketException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.util.Enumeration;
 import java.util.Collections;
 import java.util.List;
 
@@ -46,20 +48,48 @@ public class NetworkInterfaceState {
     private static final Constructor<NetworkInterface> constructor;
     private static final Field nameField;
     private static final Field indexField;
+    private static final boolean supportsReflectiveConstruction;
 
     static {
+        Constructor<NetworkInterface> tmpConstructor = null;
+        Field tmpNameField = null;
+        Field tmpIndexField = null;
+        boolean tmpSupportsReflectiveConstruction = false;
         try {
-            constructor = NetworkInterface.class.getDeclaredConstructor();
-            constructor.setAccessible(true);
-            nameField = NetworkInterface.class.getDeclaredField("name");
-            nameField.setAccessible(true);
-            indexField = NetworkInterface.class.getDeclaredField("index");
-            indexField.setAccessible(true);
-        } catch (NoSuchMethodException | NoSuchFieldException e) {
-            //shouldn't really happen
-            throw new RuntimeException("Bug: failed to init " + NetworkInterfaceState.class
-                    + ": " + e.getMessage());
+            tmpConstructor = NetworkInterface.class.getDeclaredConstructor();
+            tmpConstructor.setAccessible(true);
+            tmpNameField = NetworkInterface.class.getDeclaredField("name");
+            tmpNameField.setAccessible(true);
+            tmpIndexField = NetworkInterface.class.getDeclaredField("index");
+            tmpIndexField.setAccessible(true);
+            tmpSupportsReflectiveConstruction = true;
+        } catch (Throwable e) {
+            logger.warn("Cannot access java.net.NetworkInterface internals reflectively. "
+                    + "Falling back to real interfaces only: {}", e.getMessage());
         }
+        constructor = tmpConstructor;
+        nameField = tmpNameField;
+        indexField = tmpIndexField;
+        supportsReflectiveConstruction = tmpSupportsReflectiveConstruction;
+    }
+
+    private static NetworkInterface resolveFallbackNetworkInterface(InetAddress anAddress) {
+        try {
+            if (anAddress != null) {
+                NetworkInterface byAddress = NetworkInterface.getByInetAddress(anAddress);
+                if (byAddress != null) {
+                    return byAddress;
+                }
+            }
+
+            Enumeration<NetworkInterface> all = NetworkInterface.getNetworkInterfaces();
+            if (all != null && all.hasMoreElements()) {
+                return all.nextElement();
+            }
+        } catch (SocketException e) {
+            logger.warn("Could not obtain fallback network interface: {}", e.getMessage());
+        }
+        return null;
     }
 
     private NetworkInterface ni;
@@ -92,14 +122,21 @@ public class NetworkInterfaceState {
         // for now, we just consider one (IPv4) address per interface
         localAddresses = Collections.singletonList(anAddress);
 
-        try {
-            ni = constructor.newInstance();
-            nameField.set(ni, name);
-            indexField.set(ni, index);
-        } catch (IllegalArgumentException | InvocationTargetException
-                | InstantiationException | IllegalAccessException | SecurityException e) {
-            //shouldn't really happen
-            logger.error("Reflection problems: " + e.getMessage());
+        if (supportsReflectiveConstruction) {
+            try {
+                ni = constructor.newInstance();
+                nameField.set(ni, name);
+                indexField.set(ni, index);
+                return;
+            } catch (IllegalArgumentException | InvocationTargetException
+                    | InstantiationException | IllegalAccessException | SecurityException e) {
+                logger.warn("Reflection problems while creating mocked network interface '{}': {}", name, e.getMessage());
+            }
+        }
+
+        ni = resolveFallbackNetworkInterface(anAddress);
+        if (ni == null) {
+            logger.warn("Could not resolve any fallback network interface for '{}'", name);
         }
     }
 

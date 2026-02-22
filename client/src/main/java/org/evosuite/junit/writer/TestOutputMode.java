@@ -25,5 +25,6 @@ package org.evosuite.junit.writer;
 public enum TestOutputMode {
     LEGACY_SCAFFOLDING_FILE,
     LEGACY_INLINE_SCAFFOLDING,
+    NEW_EXTENSION_MODE,
     NO_RUNTIME
 }

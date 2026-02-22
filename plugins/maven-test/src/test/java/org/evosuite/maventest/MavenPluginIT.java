@@ -24,10 +24,12 @@ import org.apache.maven.it.VerificationException;
 import org.apache.maven.it.Verifier;
 import org.evosuite.runtime.InitializingListener;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -40,13 +42,13 @@ import static org.junit.jupiter.api.Assertions.*;
 public class MavenPluginIT {
 
     private static final long timeoutInMs = 3 * 60 * 1_000;
-    private static final String INITIALIZATION_METADATA_FILE = ".evosuite_init.tmp";
 
     private final Path projects = Paths.get("projects");
     private final Path simple = projects.resolve("SimpleModule");
     private final Path dependency = projects.resolve("ModuleWithOneDependency");
     private final Path env = projects.resolve("EnvModule");
     private final Path coverage = projects.resolve("CoverageModule");
+    private final Path extension = projects.resolve("ExtensionModeModule");
 
     private final String srcEvo = "src/evo";
 
@@ -57,11 +59,10 @@ public class MavenPluginIT {
         verifier.addCliOption("evosuite:clean");
         verifier.executeGoal("clean");
 
-        for(Path p : Arrays.asList(projects,simple,dependency,env,coverage)){
+        for(Path p : Arrays.asList(projects,simple,dependency,env,coverage,extension)){
             FileUtils.deleteDirectory(p.resolve(srcEvo).toFile());
             FileUtils.deleteQuietly(p.resolve("log.txt").toFile());
             FileUtils.deleteQuietly(p.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
-            FileUtils.deleteQuietly(p.resolve(INITIALIZATION_METADATA_FILE).toFile());
             FileUtils.deleteQuietly(p.resolve("coverage.check.failed").toFile());
         }
     }
@@ -179,7 +180,7 @@ public class MavenPluginIT {
         String cut = "org.maven_test_project.mwod.OneDependencyClass";
         verifyLogFilesExist(dependency,cut);
         verifyESTestsRunFor(verifier,cut);
-        verifyInitializationArtifacts(dependency, false);
+        verifyInitializationArtifacts(dependency);
     }
 
     @Test
@@ -196,27 +197,8 @@ public class MavenPluginIT {
         String cut = "org.maven_test_project.mwod.OneDependencyClass";
         verifyLogFilesExist(dependency,cut);
         verifyESTestsRunFor(verifier,cut);
-        verifyInitializationArtifacts(dependency, false);
+        verifyInitializationArtifacts(dependency);
     }
-
-    @Test
-    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
-    public void testExportWithTestsWithAgentMetadataEnabled() throws Exception {
-
-        Verifier verifier  = getVerifier(dependency);
-        addGenerateAndExportOption(verifier);
-        verifier.addCliOption("-DforkCount=1");
-        verifier.addCliOption("-Devosuite.writeInitializationMetadata=true");
-
-        verifier.executeGoal("test");
-
-        Files.exists(dependency.resolve(srcEvo));
-        String cut = "org.maven_test_project.mwod.OneDependencyClass";
-        verifyLogFilesExist(dependency,cut);
-        verifyESTestsRunFor(verifier,cut);
-        verifyInitializationArtifacts(dependency, true);
-    }
-
 
     @Test
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
@@ -230,6 +212,16 @@ public class MavenPluginIT {
         String cut = "org.maven_test_project.em.FileCheck";
         verifyLogFilesExist(env,cut);
         verifyESTestsRunFor(verifier,cut);
+    }
+
+    @Test
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testPrepareWithExtensionModeFixture() throws Exception {
+        Verifier verifier = getVerifier(extension);
+        verifier.executeGoal("test");
+
+        verifier.verifyTextInLog("Running org.maven_test_project.xm.ExtensionTarget_ESTest");
+        verifyInitializationArtifacts(extension);
     }
 
     //--- JaCoCo --------------------------------------------------------------
@@ -317,6 +309,7 @@ public class MavenPluginIT {
     @Test
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testCoberturaNoEnv() throws Exception{
+        assumeCoberturaSupported();
         testVerifyNoEnv("cobertura");
         verifyCoberturaFileExists(dependency);
     }
@@ -324,6 +317,7 @@ public class MavenPluginIT {
     @Test
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testCoberturaWithEnv() throws Exception{
+        assumeCoberturaSupported();
         testVerfiyWithEnv("cobertura");
         verifyCoberturaFileExists(env);
     }
@@ -331,6 +325,7 @@ public class MavenPluginIT {
     @Test
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testCoberturaPass() throws Exception{
+        assumeCoberturaSupported();
         testCoveragePass("cobertura");
         verifyCoberturaFileExists(coverage);
     }
@@ -338,6 +333,7 @@ public class MavenPluginIT {
     @Test
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testCoberturaFail() throws Exception{
+        assumeCoberturaSupported();
         testCoverageFail("cobertura");
         verifyCoberturaFileExists(coverage);
     }
@@ -467,6 +463,13 @@ public class MavenPluginIT {
         assertTrue(Files.exists(targetProject.resolve("target").resolve("cobertura").resolve("cobertura.ser")));
     }
 
+    private static void assumeCoberturaSupported() {
+        File toolsJar = new File(System.getProperty("java.home"), "../lib/tools.jar");
+        Assumptions.assumeTrue(toolsJar.exists(),
+                "Cobertura requires tools.jar (typically JDK 8 layout). Current java.home="
+                        + System.getProperty("java.home"));
+    }
+
     private void verifyLogFilesExist(Path targetProject, String className) throws Exception{
         Path dir = getESFolder(targetProject);
         Path tmp = Files.find(dir,1, (p,a) -> p.getFileName().toString().startsWith("tmp_")).findFirst().get();
@@ -478,11 +481,9 @@ public class MavenPluginIT {
         assertTrue(Files.exists(logs.resolve("std_out_MASTER.log")));
     }
 
-    private void verifyInitializationArtifacts(Path targetProject, boolean metadataExpected) {
+    private void verifyInitializationArtifacts(Path targetProject) {
         Path scaffoldingList = targetProject.resolve(InitializingListener.getScaffoldingListFilePath());
-        Path metadataList = targetProject.resolve(INITIALIZATION_METADATA_FILE);
         assertTrue(Files.exists(scaffoldingList));
-        assertEquals(metadataExpected, Files.exists(metadataList));
     }
 
     private Path getESFolder(Path project){
@@ -492,8 +493,10 @@ public class MavenPluginIT {
     private Verifier getVerifier(Path targetProject) throws Exception{
         Verifier verifier  = new Verifier(targetProject.toAbsolutePath().toString());
         Properties props = new Properties(System.getProperties());
-        //update version if run from IDE instead of Maven
-        props.put("evosuiteVersion", System.getProperty("evosuiteVersion","1.2.0"));
+        // Prefer explicit override, then Maven project version, then current snapshot.
+        props.put("evosuiteVersion",
+                System.getProperty("evosuiteVersion",
+                        System.getProperty("project.version", "1.2.1-SNAPSHOT")));
         verifier.setSystemProperties(props);
         return verifier;
     }

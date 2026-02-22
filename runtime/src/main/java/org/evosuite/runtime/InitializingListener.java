@@ -21,12 +21,16 @@ package org.evosuite.runtime;
 
 import org.evosuite.runtime.agent.InstrumentingAgent;
 import org.junit.runner.Description;
+import org.junit.runner.Result;
 import org.junit.runner.notification.RunListener;
 
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * When running tests from a build tool (eg  "mvn test" when using Maven)
@@ -64,11 +68,6 @@ public class InitializingListener extends RunListener {
      */
     public static final String SCAFFOLDING_LIST_FILE_STRING = ".scaffolding_list.tmp";
     /**
-     * File name for initialization metadata used by new output modes.
-     */
-    public static final String INITIALIZATION_METADATA_FILE_STRING = ".evosuite_init.tmp";
-
-    /**
      * Property used for example in Ant to specify where the EvoSuite tests have been compiled.
      */
     public static final String COMPILED_TESTS_FOLDER_PROPERTY = "EvoSuiteCompiledTestFolder";
@@ -78,10 +77,6 @@ public class InitializingListener extends RunListener {
     public static String getScaffoldingListFilePath() {
         //we could use a system property here if we want to change location
         return SCAFFOLDING_LIST_FILE_STRING;
-    }
-
-    public static String getInitializationMetadataFilePath() {
-        return INITIALIZATION_METADATA_FILE_STRING;
     }
 
     @Override
@@ -113,10 +108,21 @@ public class InitializingListener extends RunListener {
             TODO: we ll need to handle also Gradle, and possibly find a simpler, unified way
          */
         if (compiledTestsFolder == null) {
-            list = classesToInitFromMetadataOrScaffoldingFile();
+            list = classesToInitFromScaffoldingFile();
+            if (list.isEmpty()) {
+                File defaultCompiledTests = new File("target" + File.separator + "test-classes");
+                if (defaultCompiledTests.exists()) {
+                    list = InitializingListenerUtils.scanClassesToInit(defaultCompiledTests);
+                }
+            }
         } else {
             list = InitializingListenerUtils.scanClassesToInit(new File(compiledTestsFolder));
+            if (list.isEmpty()) {
+                list = classesToInitFromScaffoldingFile();
+            }
         }
+        list = deduplicate(list);
+        java.lang.System.out.println("Initializing " + list.size() + " scaffolding classes");
 
         InstrumentingAgent.initialize();
 
@@ -125,7 +131,11 @@ public class InitializingListener extends RunListener {
             try {
                 //reflection might load some SUT class
                 InstrumentingAgent.activate();
-                Class<?> test = InitializingListener.class.getClassLoader().loadClass(name);
+                ClassLoader testClassLoader = Thread.currentThread().getContextClassLoader();
+                if (testClassLoader == null) {
+                    testClassLoader = InitializingListener.class.getClassLoader();
+                }
+                Class<?> test = testClassLoader.loadClass(name);
                 m = test.getDeclaredMethod(INITIALIZE_CLASSES_METHOD);
                 m.setAccessible(true);
             } catch (NoSuchMethodException e) {
@@ -147,31 +157,47 @@ public class InitializingListener extends RunListener {
             try {
                 m.invoke(null);
             } catch (Exception e) {
+                Throwable root = e;
+                if (e instanceof InvocationTargetException && ((InvocationTargetException) e).getCause() != null) {
+                    root = ((InvocationTargetException) e).getCause();
+                }
                 java.lang.System.out.println("Exception while calling " + name + "." + INITIALIZE_CLASSES_METHOD
-                        + "(): " + e.getMessage());
+                        + "(): " + root.getClass().getName() + ": " + root.getMessage());
+                root.printStackTrace(java.lang.System.out);
             }
         }
+
+        // Keep transformer active for classes loaded after listener startup.
+        // The per-class initialize/deactivate block above turns it off again.
+        InstrumentingAgent.getTransformer().activate();
+    }
+
+    @Override
+    public void testRunFinished(Result result) throws Exception {
+        // Ensure no instrumentation side effects leak across runs.
+        InstrumentingAgent.getTransformer().deactivate();
     }
 
 
-    private List<String> classesToInitFromMetadataOrScaffoldingFile() {
-        File metadata = new File(INITIALIZATION_METADATA_FILE_STRING);
+    private List<String> classesToInitFromScaffoldingFile() {
         File scaffolding = new File(SCAFFOLDING_LIST_FILE_STRING);
-        return readInitializationClasses(metadata, scaffolding);
+        return readInitializationClasses(scaffolding);
     }
 
-    static List<String> readInitializationClasses(File metadata, File scaffolding) {
-        if (metadata.exists()) {
-            return InitializingListenerUtils.readInitializationClassList(metadata);
-        }
+    static List<String> readInitializationClasses(File scaffolding) {
         if (scaffolding.exists()) {
             return InitializingListenerUtils.readInitializationClassList(scaffolding);
         }
         java.lang.System.out.println(
-                "WARN: initialization metadata/scaffolding files not found. If this module has tests, "
+                "WARN: initialization scaffolding list file not found. If this module has legacy EvoSuite tests, "
                         + "recall to call the preparation step before executing the tests. For example, in Maven "
                         + "you need to make sure that 'evosuite:prepare' is called. See documentation at "
                         + "www.evosuite.org for further details.");
         return new ArrayList<>();
+    }
+
+    private static List<String> deduplicate(List<String> classNames) {
+        Set<String> unique = new LinkedHashSet<>(classNames);
+        return new ArrayList<>(unique);
     }
 }

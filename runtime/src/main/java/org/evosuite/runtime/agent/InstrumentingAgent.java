@@ -46,6 +46,7 @@ public class InstrumentingAgent {
     private static volatile TransformerForTests transformer;
 
     private static Instrumentation instrumentation;
+    private static final String ACTIVATE_AT_START_PROPERTY = "evosuite.runtime.agent.active";
 
 
     static {
@@ -69,6 +70,7 @@ public class InstrumentingAgent {
         checkTransformerState();
         inst.addTransformer(transformer, true);
         instrumentation = inst;
+        activateIfRequestedAtStartup();
     }
 
     /**
@@ -83,6 +85,17 @@ public class InstrumentingAgent {
         checkTransformerState();
         inst.addTransformer(transformer, true);
         instrumentation = inst;
+        activateIfRequestedAtStartup();
+    }
+
+    private static void activateIfRequestedAtStartup() {
+        if (!Boolean.getBoolean(ACTIVATE_AT_START_PROPERTY)) {
+            return;
+        }
+        // Enable bytecode transformation from JVM startup while keeping mocking off by default.
+        transformer.activate();
+        MockFramework.disable();
+        LoopCounter.getInstance().setActive(true);
     }
 
     private static void checkTransformerState() throws IllegalStateException {

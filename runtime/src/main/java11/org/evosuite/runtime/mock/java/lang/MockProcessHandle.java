@@ -9,6 +9,7 @@ package org.evosuite.runtime.mock.java.lang;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.StaticReplacementMock;
 
+import java.lang.ProcessHandle;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;

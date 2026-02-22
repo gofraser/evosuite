@@ -64,6 +64,15 @@ public class AgentLoader {
             return;
         }
 
+        /*
+         * If the runtime jar was started with -javaagent, premain already
+         * installed the transformer and we should not attempt self-attach.
+         */
+        if (InstrumentingAgent.getInstrumentation() != null) {
+            alreadyLoaded = true;
+            return;
+        }
+
         logger.info("dynamically loading javaagent");
         String nameOfRunningVM = ManagementFactory.getRuntimeMXBean().getName();
         int p = nameOfRunningVM.indexOf('@');

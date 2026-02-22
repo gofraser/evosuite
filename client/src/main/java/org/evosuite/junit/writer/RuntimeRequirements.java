@@ -75,6 +75,10 @@ public final class RuntimeRequirements {
         return outputMode == TestOutputMode.LEGACY_INLINE_SCAFFOLDING;
     }
 
+    public boolean isNewExtensionMode() {
+        return outputMode == TestOutputMode.NEW_EXTENSION_MODE;
+    }
+
     public boolean needsAgent() {
         return isRuntimeEnabled() && useAgent;
     }

@@ -148,36 +148,45 @@ public class ClassStateSupport {
         List<Class<?>> classes = new ArrayList<>();
 
         InstrumentingAgent.activate();
-        boolean safe = Sandbox.isSafeToExecuteSUTCode();
+        try {
+            boolean safe = Sandbox.isSafeToExecuteSUTCode();
 
-        //assert !Sandbox.isSecurityManagerInitialized() || Sandbox.isOnAndExecutingSUTCode();
+            //assert !Sandbox.isSecurityManagerInitialized() || Sandbox.isOnAndExecutingSUTCode();
 
-        for (final String className : classNames) {
+            for (final String className : classNames) {
+                boolean startedSutExecution = false;
+                boolean startedUnsafeExecution = false;
+                boolean wasLoopCheckOn = LoopCounter.getInstance().isActivated();
 
-            org.evosuite.runtime.Runtime.getInstance().resetRuntime();
+                try {
+                    org.evosuite.runtime.Runtime.getInstance().resetRuntime();
 
-            Sandbox.goingToExecuteSUTCode();
-            boolean wasLoopCheckOn = LoopCounter.getInstance().isActivated();
+                    Sandbox.goingToExecuteSUTCode();
+                    startedSutExecution = true;
+                    if (!safe) {
+                        Sandbox.goingToExecuteUnsafeCodeOnSameThread();
+                        startedUnsafeExecution = true;
+                    }
 
-            try {
-                if (!safe) {
-                    Sandbox.goingToExecuteUnsafeCodeOnSameThread();
+                    LoopCounter.getInstance().setActive(false);
+                    Class<?> loadedClass = Class.forName(className, true, classLoader);
+                    classes.add(loadedClass);
+
+                } catch (Exception | Error ex) {
+                    AtMostOnceLogger.error(logger, "Could not initialize " + className + ": " + ex.getMessage());
+                } finally {
+                    if (startedUnsafeExecution) {
+                        Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
+                    }
+                    if (startedSutExecution) {
+                        Sandbox.doneWithExecutingSUTCode();
+                    }
+                    LoopCounter.getInstance().setActive(wasLoopCheckOn);
                 }
-                LoopCounter.getInstance().setActive(false);
-                Class<?> loadedClass = Class.forName(className, true, classLoader);
-                classes.add(loadedClass);
-
-            } catch (Exception | Error ex) {
-                AtMostOnceLogger.error(logger, "Could not initialize " + className + ": " + ex.getMessage());
-            } finally {
-                if (!safe) {
-                    Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
-                }
-                Sandbox.doneWithExecutingSUTCode();
-                LoopCounter.getInstance().setActive(wasLoopCheckOn);
             }
+        } finally {
+            InstrumentingAgent.deactivate();
         }
-        InstrumentingAgent.deactivate();
         return classes;
     }
 
