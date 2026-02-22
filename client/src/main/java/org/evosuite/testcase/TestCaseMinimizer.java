@@ -169,7 +169,6 @@ public class TestCaseMinimizer {
                 if (!isWorse(fitnessFunction, copy, c)) {
                     logger.debug("Keeping shorter version");
                     changed = true;
-                    break;
                 } else {
                     logger.debug("Keeping original version");
                     restoreTestCase(c, copy);

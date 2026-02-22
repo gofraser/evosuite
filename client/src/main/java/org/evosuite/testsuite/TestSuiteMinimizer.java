@@ -379,37 +379,35 @@ public class TestSuiteMinimizer {
                         modifiedVerFitness.add(ff.getFitness(suite));
                     }
 
-                    int compareFf = 0;
+                    boolean worse = false;
+                    boolean better = false;
                     for (int fitnessIndex = 0; fitnessIndex < modifiedVerFitness.size(); fitnessIndex++) {
-                        if (Double.compare(modifiedVerFitness.get(fitnessIndex),
-                                fitness.get(fitnessIndex)) < 0) {
-                            compareFf = -1; // new value is lower than previous one
-                            break;
-                        } else if (Double.compare(modifiedVerFitness.get(fitnessIndex),
-                                fitness.get(fitnessIndex)) > 0) {
-                            compareFf = 1; // new value is greater than previous one
-                            break;
+                        TestFitnessFactory<?> ff = testFitnessFactories.get(fitnessIndex);
+                        boolean isMaximization = false;
+                        if (!ff.getCoverageGoals().isEmpty()) {
+                            isMaximization = ff.getCoverageGoals().get(0).isMaximizationFunction();
+                        }
+
+                        int comp = Double.compare(modifiedVerFitness.get(fitnessIndex), fitness.get(fitnessIndex));
+                        if (comp > 0) { // new > old
+                            if (isMaximization) {
+                                better = true;
+                            } else {
+                                worse = true;
+                                break; // At least one goal got worse, must reject
+                            }
+                        } else if (comp < 0) { // new < old
+                            if (isMaximization) {
+                                worse = true;
+                                break; 
+                            } else {
+                                better = true; 
+                            }
                         }
                     }
 
-                    // the value 0 if d1 (previous fitness) is numerically equal to d2 (new fitness)
-                    if (compareFf == 0) {
-                        // if we can guarantee that we have the same fitness value with less statements, better
-                        continue;
-                    } else if (compareFf == -1) {
-                        // a value less than 0 if d1 is numerically less than d2
-                        fitness = modifiedVerFitness;
-                        changed = true;
-                        // This means, that we try to delete statements equally
-                        // from each test case (If size is 'false'.) The hope is
-                        // that the median length of the test cases is shorter,
-                        // as opposed to the average length.
-                        if (!size) {
-                            break;
-                        }
-                    } else if (compareFf == 1) {
-                        // and a value greater than 0 if d1 is numerically greater than d2
-                        // Restore previous state
+                    if (worse) {
+                        // Reject: restore test case
                         logger.debug("Can't remove statement "
                                 + originalTestChromosome.getTestCase().getStatement(i).getCode());
                         logger.debug("Restoring fitness from " + modifiedVerFitness
@@ -417,6 +415,12 @@ public class TestSuiteMinimizer {
                         testChromosome.setTestCase(originalTestChromosome.getTestCase());
                         testChromosome.setLastExecutionResult(originalTestChromosome.getLastExecutionResult());
                         testChromosome.setChanged(false);
+                    } else {
+                        // Accept: no goals got worse
+                        if (better) {
+                            fitness = modifiedVerFitness;
+                        }
+                        changed = true;
                     }
                 }
             }
