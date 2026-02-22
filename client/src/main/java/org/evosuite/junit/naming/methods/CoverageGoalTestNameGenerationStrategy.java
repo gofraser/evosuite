@@ -91,7 +91,7 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
      * @param results list of execution results
      */
     public CoverageGoalTestNameGenerationStrategy(List<TestCase> testCases, List<ExecutionResult> results) {
-        addGoalsNotIncludedInTargetCriteria(results);
+        results = addGoalsNotIncludedInTargetCriteria(results);
         Map<TestCase, Set<TestFitnessFunction>> testToGoals = initializeCoverageMapFromResults(results);
         generateNames(testToGoals);
     }
@@ -276,6 +276,10 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
                     TestFitnessFunction newGoal = iterator.next();
                     newGoals.add(newGoal);
                     newName = getTestName(test, newGoals);
+                    if (newName.length() > MAX_CHARS) {
+                        newGoals.remove(newGoal);
+                        break;
+                    }
                     if (testToGoals.get(test).add(newGoal)) {
                         added = true;
                     }
@@ -320,7 +324,7 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
      *
      * @param results list of execution results
      */
-    private void addGoalsNotIncludedInTargetCriteria(List<ExecutionResult> results) {
+    private List<ExecutionResult> addGoalsNotIncludedInTargetCriteria(List<ExecutionResult> results) {
         List<Properties.Criterion> requiredCriteria = new ArrayList<>(Arrays.asList(
                 Properties.Criterion.OUTPUT,
                 Properties.Criterion.INPUT,
@@ -340,6 +344,7 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
                 }
             }
         }
+        return results;
     }
 
     /**
@@ -506,8 +511,14 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
         for (Map.Entry<TestCase, String> entry : testToName.entrySet()) {
             if (nameCount.get(entry.getValue()) > 1) {
                 int num = testCount.get(entry.getValue());
+                String newName = entry.getValue() + num;
+                while (nameCount.containsKey(newName)) {
+                    num++;
+                    newName = entry.getValue() + num;
+                }
                 testCount.put(entry.getValue(), num + 1);
-                testToName.put(entry.getKey(), entry.getValue() + num);
+                nameCount.put(newName, 1);
+                testToName.put(entry.getKey(), newName);
             }
         }
     }
@@ -541,7 +552,7 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
         } else if (goalList.size() == 2) {
             name += getGoalPairName(goalList.get(0), goalList.get(1));
         } else {
-            name += getGoalName(goalList.get(0));
+            name += capitalize(getGoalName(goalList.get(0)));
             for (int i = 1; i < goalList.size(); i++) {
                 name += STR_AND + getGoalName(goalList.get(i));
             }
@@ -914,7 +925,7 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
                 builder.append(STR_AND);
             }
             if (typeDescs.get(arg) == 1) {
-                builder.append(typeDescs.get(arg));
+                builder.append(arg);
             } else {
                 builder.append(typeDescs.get(arg));
                 builder.append(arg);
