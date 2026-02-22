@@ -41,17 +41,41 @@ public class StaticConstantPool implements ConstantPool {
 
     private static final int MAX_STRING_LITERAL_LENGTH = 65535;
 
-    private final Set<String> stringPool = Collections.synchronizedSet(new LinkedHashSet<>());
+    private static class FastPool<T> {
+        private final Set<T> set = new LinkedHashSet<>();
+        private final java.util.List<T> list = new java.util.ArrayList<>();
+        private boolean dirty = false;
 
-    private final Set<Type> typePool = Collections.synchronizedSet(new LinkedHashSet<>());
+        public synchronized void add(T element) {
+            if (set.add(element)) {
+                list.add(element);
+                dirty = true;
+            }
+        }
 
-    private final Set<Integer> intPool = Collections.synchronizedSet(new LinkedHashSet<>());
+        public synchronized T getRandom() {
+            if (list.isEmpty()) {
+                return null;
+            }
+            if (dirty) {
+                list.sort(Randomness::deterministicCompare);
+                dirty = false;
+            }
+            return Randomness.choice(list);
+        }
+    }
 
-    private final Set<Double> doublePool = Collections.synchronizedSet(new LinkedHashSet<>());
+    private final FastPool<String> stringPool = new FastPool<>();
 
-    private final Set<Long> longPool = Collections.synchronizedSet(new LinkedHashSet<>());
+    private final FastPool<Type> typePool = new FastPool<>();
 
-    private final Set<Float> floatPool = Collections.synchronizedSet(new LinkedHashSet<>());
+    private final FastPool<Integer> intPool = new FastPool<>();
+
+    private final FastPool<Double> doublePool = new FastPool<>();
+
+    private final FastPool<Long> longPool = new FastPool<>();
+
+    private final FastPool<Float> floatPool = new FastPool<>();
 
     /**
      * Initializes the static constant pool.
@@ -93,7 +117,7 @@ public class StaticConstantPool implements ConstantPool {
      */
     @Override
     public String getRandomString() {
-        return Randomness.choice(stringPool);
+        return stringPool.getRandom();
     }
 
     /**
@@ -103,7 +127,7 @@ public class StaticConstantPool implements ConstantPool {
      */
     @Override
     public Type getRandomType() {
-        return Randomness.choice(typePool);
+        return typePool.getRandom();
     }
 
     /**
@@ -113,7 +137,7 @@ public class StaticConstantPool implements ConstantPool {
      */
     @Override
     public int getRandomInt() {
-        return Randomness.choice(intPool);
+        return intPool.getRandom();
     }
 
     /**
@@ -123,7 +147,7 @@ public class StaticConstantPool implements ConstantPool {
      */
     @Override
     public float getRandomFloat() {
-        return Randomness.choice(floatPool);
+        return floatPool.getRandom();
     }
 
     /**
@@ -133,7 +157,7 @@ public class StaticConstantPool implements ConstantPool {
      */
     @Override
     public double getRandomDouble() {
-        return Randomness.choice(doublePool);
+        return doublePool.getRandom();
     }
 
     /**
@@ -143,7 +167,7 @@ public class StaticConstantPool implements ConstantPool {
      */
     @Override
     public long getRandomLong() {
-        return Randomness.choice(longPool);
+        return longPool.getRandom();
     }
 
     /**

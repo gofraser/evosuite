@@ -30,7 +30,7 @@ import java.util.Map;
  */
 public class FrequencyBasedPool<T> {
 
-    private final Map<T, Integer> constants = Collections.synchronizedMap(new LinkedHashMap<>());
+    private final Map<T, Integer> constants = new LinkedHashMap<>();
 
     private int numConstants = 0;
 
@@ -39,13 +39,9 @@ public class FrequencyBasedPool<T> {
      *
      * @param value the constant to add
      */
-    public void addConstant(T value) {
+    public synchronized void addConstant(T value) {
         numConstants++;
-        if (!constants.containsKey(value)) {
-            constants.put(value, 1);
-        } else {
-            constants.put(value, constants.get(value) + 1);
-        }
+        constants.put(value, constants.getOrDefault(value, 0) + 1);
     }
 
     /**
@@ -53,8 +49,9 @@ public class FrequencyBasedPool<T> {
      *
      * @param value the constant to remove
      */
-    public void removeConstant(T value) {
+    public synchronized void removeConstant(T value) {
         if (constants.containsKey(value)) {
+            numConstants--;
             int num = constants.get(value);
             if (num <= 1) {
                 constants.remove(value);
@@ -64,7 +61,7 @@ public class FrequencyBasedPool<T> {
         }
     }
 
-    public boolean hasConstant(T value) {
+    public synchronized boolean hasConstant(T value) {
         return constants.containsKey(value);
     }
 
@@ -74,7 +71,7 @@ public class FrequencyBasedPool<T> {
      *
      * @return the selected constant
      */
-    public T getRandomConstant() {
+    public synchronized T getRandomConstant() {
         //special case
         if (numConstants == 0) {
             throw new IllegalArgumentException("Cannot select from empty pool");

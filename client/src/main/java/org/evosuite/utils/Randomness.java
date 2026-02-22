@@ -265,7 +265,7 @@ public class Randomness implements Serializable {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static int deterministicCompare(Object a, Object b) {
+    public static int deterministicCompare(Object a, Object b) {
         if (a == b) {
             return 0;
         }

@@ -68,30 +68,31 @@ public class ConstantPoolManager {
     }
 
     private void initDefaultProbabilities() {
-        probabilities = new double[pools.length];
+        double[] newProbabilities = new double[pools.length];
         // Distribute remaining probability among non-dynamic pools
         double remainingProbability = 1.0 - Properties.DYNAMIC_POOL;
-        double p = remainingProbability / (probabilities.length - 1);
+        double p = remainingProbability / (newProbabilities.length - 1);
 
-        for (int i = 0; i < probabilities.length; i++) {
+        for (int i = 0; i < newProbabilities.length; i++) {
             if (i == DYNAMIC_POOL_INDEX) {
-                probabilities[i] = Properties.DYNAMIC_POOL;
+                newProbabilities[i] = Properties.DYNAMIC_POOL;
             } else {
-                probabilities[i] = p;
+                newProbabilities[i] = p;
             }
         }
-        normalizeProbabilities();
+        normalizeProbabilities(newProbabilities);
+        probabilities = newProbabilities;
     }
 
-    private void normalizeProbabilities() {
+    private void normalizeProbabilities(double[] probs) {
         double sum = 0.0;
-        for (double p : probabilities) {
+        for (double p : probs) {
             sum += p;
         }
         if (sum > 0) {
             double delta = 1.0 / sum;
-            for (int i = 0; i < probabilities.length; i++) {
-                probabilities[i] *= delta;
+            for (int i = 0; i < probs.length; i++) {
+                probs[i] *= delta;
             }
         }
     }
