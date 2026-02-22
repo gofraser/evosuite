@@ -99,7 +99,6 @@ public class TestSuiteMinimizer {
                 suite.totalLengthOfTestCases());
 
         logger.info("Minimization Strategy: " + strategy + ", " + suite.size() + " tests");
-        suite.clearMutationHistory();
 
         if (minimizePerTest) {
             minimizeTests(suite);

@@ -180,12 +180,6 @@ public final class TestSuiteChromosome
     }
 
 
-    /**
-     * Clears the mutation history of all tests in the test suite.
-     */
-    public void clearMutationHistory() {
-        tests.forEach(t -> t.getMutationHistory().clear());
-    }
 
 
     /**

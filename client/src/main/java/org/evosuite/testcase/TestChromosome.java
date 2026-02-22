@@ -25,7 +25,6 @@ import org.evosuite.coverage.mutation.MutationExecutionResult;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
-import org.evosuite.ga.operators.mutation.MutationHistory;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.symbolic.BranchCondition;
@@ -68,10 +67,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     private static final Logger logger = LoggerFactory.getLogger(TestChromosome.class);
 
 
-    /**
-     * To keep track of what has changed since last fitness evaluation.
-     */
-    protected MutationHistory<TestMutationHistoryEntry> mutationHistory = new MutationHistory<>();
 
     /**
      * Secondary objectives used during ranking.
@@ -122,13 +117,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         c.copyCachedResults(this);
         c.setChanged(isChanged());
         c.setLocalSearchApplied(hasLocalSearchBeenApplied());
-        if (Properties.LOCAL_SEARCH_SELECTIVE) {
-            for (TestMutationHistoryEntry mutation : mutationHistory) {
-                if (test.contains(mutation.getStatement())) {
-                    c.mutationHistory.addMutationEntry(mutation.clone(c.getTestCase()));
-                }
-            }
-        }
         c.setNumberOfMutations(this.getNumberOfMutations());
         c.setNumberOfEvaluations(this.getNumberOfEvaluations());
         c.setKineticEnergy(getKineticEnergy());
@@ -226,76 +214,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         return test.hashCode();
     }
 
-    /**
-     * Returns the mutation history for this chromosome.
-     *
-     * @return a {@link org.evosuite.ga.operators.mutation.MutationHistory} object.
-     */
-    public MutationHistory<TestMutationHistoryEntry> getMutationHistory() {
-        return mutationHistory;
-    }
-
-    /**
-     * Clears the mutation history.
-     */
-    public void clearMutationHistory() {
-        mutationHistory.clear();
-    }
-
-    /**
-     * Checks if this chromosome has any relevant mutations for local search.
-     *
-     * @return true if there are relevant mutations.
-     */
-    public boolean hasRelevantMutations() {
-
-        if (mutationHistory.isEmpty()) {
-            logger.info("Mutation history is empty");
-            return false;
-        }
-
-        // Only apply local search up to the point where an exception was thrown
-        int lastPosition = test.size() - 1;
-        if (lastExecutionResult != null && !isChanged()) {
-            Integer lastPos = lastExecutionResult.getFirstPositionOfThrownException();
-            if (lastPos != null) {
-                lastPosition = lastPos;
-            }
-        }
-
-        for (TestMutationHistoryEntry mutation : mutationHistory) {
-            logger.info("Considering: {}", mutation.getMutationType());
-
-            if (mutation.getMutationType() != TestMutationHistoryEntry.TestMutation.DELETION
-                    && mutation.getStatement().getPosition() <= lastPosition) {
-                if (Properties.LOCAL_SEARCH_SELECTIVE_PRIMITIVES) {
-                    if (!(mutation.getStatement() instanceof PrimitiveStatement<?>)) {
-                        continue;
-                    }
-                }
-                final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
-
-                if (!test.hasReferences(mutation.getStatement().getReturnValue())
-                        && !mutation.getStatement().getReturnClass().equals(targetClass)) {
-                    continue;
-                }
-
-                int newPosition = IntStream.rangeClosed(0, lastPosition)
-                        .filter(pos -> test.getStatement(pos) == mutation.getStatement())
-                        .findFirst().orElse(-1);
-
-                // Couldn't find statement, may have been deleted in other mutation?
-                assert (newPosition >= 0);
-                if (newPosition < 0) {
-                    continue;
-                }
-
-                return true;
-            }
-        }
-        return false;
-    }
-
 
     /* (non-Javadoc)
      * @see org.evosuite.ga.Chromosome#localSearch()
@@ -322,7 +240,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     @Override
     public void mutate() {
         boolean changed = false;
-        mutationHistory.clear();
 
         if (mockChange()) {
             changed = true;
@@ -478,8 +395,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
             TestCase copy = test.clone();
 
-            mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
-                    TestMutationHistoryEntry.TestMutation.DELETION));
             boolean modified = testFactory.deleteStatementGracefully(copy, num);
 
             test = copy;
@@ -528,8 +443,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                     //constraints are handled directly in the statement mutations
                     if (statement.mutate(test, testFactory)) {
                         changed = true;
-                        mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
-                                TestMutationHistoryEntry.TestMutation.CHANGE, statement));
                         assert (test.isValid());
 
                     } else if (!statement.isAssignmentStatement()) {
@@ -537,9 +450,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                         int pos = statement.getPosition();
                         if (testFactory.changeRandomCall(test, statement)) {
                             changed = true;
-                            mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
-                                    TestMutationHistoryEntry.TestMutation.CHANGE,
-                                    test.getStatement(pos)));
                         }
                         assert (test.isValid());
                     }
@@ -574,9 +484,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
             if (position >= 0 && position < test.size()) {
                 changed = true;
-                mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
-                        TestMutationHistoryEntry.TestMutation.INSERTION,
-                        test.getStatement(position)));
             }
         }
         return changed;
