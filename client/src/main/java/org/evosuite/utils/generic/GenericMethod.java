@@ -464,7 +464,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
     @Override
     public int hashCode() {
         final int prime = 31;
-        int result = 1;
+        int result = super.hashCode();
         result = prime * result + ((method == null) ? 0 : method.hashCode());
         return result;
     }
@@ -474,7 +474,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         if (this == obj) {
             return true;
         }
-        if (obj == null) {
+        if (!super.equals(obj)) {
             return false;
         }
         if (getClass() != obj.getClass()) {

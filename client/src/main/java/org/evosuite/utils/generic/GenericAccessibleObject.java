@@ -54,89 +54,7 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
 
     protected List<GenericClass<?>> typeVariables = new ArrayList<>();
 
-    protected static Type getTypeFromExactReturnType(GenericArrayType returnType,
-                                                     GenericArrayType type) {
-        return GenericArrayTypeImpl.createArrayType(getTypeFromExactReturnType(returnType.getGenericComponentType(),
-                type.getGenericComponentType()));
-    }
 
-    protected static Type getTypeFromExactReturnType(GenericArrayType returnType,
-                                                     ParameterizedType type) {
-        return GenericArrayTypeImpl.createArrayType(getTypeFromExactReturnType(returnType.getGenericComponentType(),
-                type));
-    }
-
-    protected static Type getTypeFromExactReturnType(ParameterizedType returnType,
-                                                     GenericArrayType type) {
-        return GenericArrayTypeImpl.createArrayType(getTypeFromExactReturnType(returnType,
-                type.getGenericComponentType()));
-    }
-
-    /**
-     * Returns the exact return type of the given method in the given type. This
-     * may be different from <tt>m.getGenericReturnType()</tt> when the method
-     * was declared in a superclass, or <tt>type</tt> has a type parameter that
-     * is used in the return type, or <tt>type</tt> is a raw type.
-     */
-    protected static Type getTypeFromExactReturnType(ParameterizedType returnType,
-                                                     ParameterizedType type) {
-        Map<TypeVariable<?>, Type> typeMap = TypeUtils.getTypeArguments(returnType);
-        Type[] actualParameters = new Type[type.getActualTypeArguments().length];
-        int num = 0;
-        for (TypeVariable<?> parameterType : ((Class<?>) type.getRawType()).getTypeParameters()) {
-            //for(Type parameterType : type.getActualTypeArguments()) {
-            //  if(parameterType instanceof TypeVariable<?>) {
-            boolean replaced = false;
-            for (TypeVariable<?> var : typeMap.keySet()) {
-                // D'oh! Why the heck do we need this??
-                if (var.getName().equals(parameterType.getName())) {
-                    //if(typeMap.containsKey(parameterType)) {
-                    actualParameters[num] = typeMap.get(var);
-                    replaced = true;
-                    break;
-                    //} else {
-                }
-            }
-            if (!replaced) {
-                actualParameters[num] = parameterType;
-            }
-            //}
-            //      } else {
-            //          LoggingUtils.getEvoLogger().info("Not a type variable "+parameterType);
-            //          actualParameters[num] = parameterType;
-            //          }
-            num++;
-        }
-
-        return new ParameterizedTypeImpl((Class<?>) type.getRawType(), actualParameters,
-                null);
-    }
-
-    protected static Type getTypeFromExactReturnType(Type returnType, Type type) {
-        if (returnType instanceof ParameterizedType && type instanceof ParameterizedType) {
-            return getTypeFromExactReturnType((ParameterizedType) returnType,
-                    (ParameterizedType) type);
-        } else if (returnType instanceof GenericArrayType
-                && type instanceof GenericArrayType) {
-            return getTypeFromExactReturnType((GenericArrayType) returnType,
-                    (GenericArrayType) type);
-        } else if (returnType instanceof ParameterizedType
-                && type instanceof GenericArrayType) {
-            return getTypeFromExactReturnType((ParameterizedType) returnType,
-                    (GenericArrayType) type);
-        } else if (returnType instanceof GenericArrayType
-                && type instanceof ParameterizedType) {
-            return getTypeFromExactReturnType((GenericArrayType) returnType,
-                    (ParameterizedType) type);
-        } else if (returnType instanceof Class<?>) {
-            return returnType;
-        } else if (type instanceof Class<?>) {
-            return type;
-        } else {
-            throw new RuntimeException("Incompatible types: " + returnType.getClass()
-                    + " and " + type.getClass() + ": " + returnType + " and " + type);
-        }
-    }
 
     /**
      * Checks if the given type is a class that is supposed to have type
@@ -483,8 +401,40 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
     public abstract String toString();
 
     @Override
-    public abstract boolean equals(Object other);
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        GenericAccessibleObject<?> other = (GenericAccessibleObject<?>) obj;
+        if (owner == null) {
+            if (other.owner != null) {
+                return false;
+            }
+        } else if (!owner.equals(other.owner)) {
+            return false;
+        }
+        if (typeVariables == null) {
+            if (other.typeVariables != null) {
+                return false;
+            }
+        } else if (!typeVariables.equals(other.typeVariables)) {
+            return false;
+        }
+        return true;
+    }
 
     @Override
-    public abstract int hashCode();
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((owner == null) ? 0 : owner.hashCode());
+        result = prime * result + ((typeVariables == null) ? 0 : typeVariables.hashCode());
+        return result;
+    }
 }

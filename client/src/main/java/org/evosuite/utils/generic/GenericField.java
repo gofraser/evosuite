@@ -94,23 +94,7 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
             throws ConstructionFailedException {
         return new GenericField(field,
                 getOwnerClass().getGenericInstantiation(returnType.getTypeVariableMap()));
-        /*
-        if (returnType.isParameterizedType()) {
-            GenericClass newOwner = new GenericClass(
-                    getTypeFromExactReturnType(returnType.getType(), getOwnerType()));
-            return new GenericField(field, newOwner);
-        } else if (returnType.isArray()) {
-            GenericClass newOwner = new GenericClass(
-                    getTypeFromExactReturnType(returnType.getComponentType(),
-                                               getOwnerType()));
-            return new GenericField(field, newOwner);
-        } else if (returnType.isAssignableTo(getGeneratedType())) {
-            return new GenericField(field, new GenericClass(owner));
-        } else {
-            throw new RuntimeException("Invalid return type: "
-                    + returnType.getClassName() + " for field " + toString());
-        }
-        */
+
     }
 
     @Override
@@ -323,7 +307,7 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
     @Override
     public int hashCode() {
         final int prime = 31;
-        int result = 1;
+        int result = super.hashCode();
         result = prime * result + ((field == null) ? 0 : field.hashCode());
         return result;
     }
@@ -333,7 +317,7 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         if (this == obj) {
             return true;
         }
-        if (obj == null) {
+        if (!super.equals(obj)) {
             return false;
         }
         if (getClass() != obj.getClass()) {
