@@ -225,7 +225,12 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
                 return Proxy.class;
             }
 
-            return Class.forName(ResourceList.getClassNameFromResourcePath(type));
+            if (type.endsWith("[]")) {
+                type = type.replace("[]", "");
+                return Class.forName("[L" + type + ";");
+            } else {
+                return Class.forName(ResourceList.getClassNameFromResourcePath(type));
+            }
         } catch (final ClassNotFoundException e) {
             CaptureLogAnalyzerException.propagateError(e, "an error occurred while resolving class for type %s", type);
             return null; // just to satisfy compiler
