@@ -446,6 +446,7 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
                     boolean leadToB = false;
                     boolean skip = false;
+                    boolean onlyIgnoredExceptionEdges = !candidates.isEmpty();
 
                     for (ControlFlowEdge e : candidates) {
                         if (!e.hasControlDependency()) {
@@ -456,6 +457,8 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
                             skip = true;
                             break;
                         }
+                        
+                        onlyIgnoredExceptionEdges = false;
 
                         if (cfg.leadsToNode(e, b)) {
                             if (leadToB) {
@@ -469,7 +472,7 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
                         continue;
                     }
 
-                    if (!leadToB) {
+                    if (!leadToB && !onlyIgnoredExceptionEdges) {
                         logger.warn("Unexpected: node " + cd + " determined as control dependency for "
                                 + b + " but no path found.");
                     }
