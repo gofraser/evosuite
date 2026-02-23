@@ -61,6 +61,10 @@ public class GenerationalDistance extends Metrics {
      * @param trueParetoFront the true pareto front
      */
     public double evaluate(double[][] front, double[][] trueParetoFront) {
+        if (front.length == 0) {
+            return 0.0;
+        }
+
         double[] maximumValue;
         double[] minimumValue;
 

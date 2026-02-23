@@ -34,6 +34,10 @@ package org.evosuite.ga.problems.metrics;
  */
 public class Spacing extends Metrics {
     public double evaluate(double[][] front) {
+        if (front.length <= 1) {
+            return 0.0;
+        }
+
         double[] d = new double[front.length];
         double dbar = 0.0;
 

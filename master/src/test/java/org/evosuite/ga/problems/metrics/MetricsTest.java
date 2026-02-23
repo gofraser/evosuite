@@ -89,4 +89,14 @@ public class MetricsTest {
         double[][] normalizedFront = sp.getNormalizedFront(front, max, min);
         assertNotEquals(0.0, sp.evaluate(normalizedFront), 0.0);
     }
+
+    @Test
+    public void testFrontWithSingleIndividual() {
+        double[][] front = new double[1][2];
+        front[0][0] = 0.5;
+        front[0][1] = 0.5;
+
+        Spacing sp = new Spacing();
+        assertEquals(0.0, sp.evaluate(front), 0.0);
+    }
 }
