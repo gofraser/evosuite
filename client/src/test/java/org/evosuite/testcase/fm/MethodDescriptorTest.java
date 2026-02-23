@@ -42,7 +42,7 @@ public class MethodDescriptorTest {
         MethodDescriptor md = new MethodDescriptor(m, GenericClassFactory.get(m.getReturnType()));
 
         String res = md.getInputParameterMatchers();
-        assertTrue(res.contains("any("), res);
+        assertTrue(res.contains("nullable("), res);
         assertTrue(res.contains("RenderingHints"), res);
         assertTrue(res.contains("Key"), res);
 

@@ -7,9 +7,9 @@ public class Person {
     String name;
     Long id;
     int age;
-    Person () {
+    public Person () {
     }
-    Person (String name, Long id) {
+    public Person (String name, Long id) {
         this.name = name;
         this.id = id;
     }
@@ -23,4 +23,3 @@ public class Person {
     public boolean isAdult() { return age>=18; }
     public int getFixedId() {return 18;}
 }
-
