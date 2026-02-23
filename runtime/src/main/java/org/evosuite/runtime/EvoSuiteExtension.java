@@ -98,7 +98,8 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
             try {
                 InstrumentingAgent.initialize();
             } catch (RuntimeException e) {
-                logger.warn("Could not initialize instrumentation agent in EvoSuiteExtension: {}", e.getMessage());
+                throw new IllegalStateException(
+                        "Failed to initialize instrumentation agent in EvoSuiteExtension", e);
             }
         }
         if (RuntimeSettings.resetStaticState) {
