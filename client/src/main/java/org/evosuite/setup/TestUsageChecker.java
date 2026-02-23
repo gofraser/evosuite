@@ -137,7 +137,8 @@ public class TestUsageChecker {
                     return false;
                 }
             }
-            return canUse(pt.getOwnerType());
+            java.lang.reflect.Type ownerType = pt.getOwnerType();
+            return ownerType == null || canUse(ownerType);
         }
         // If it's not declared, let's assume it's ok
         return true;
