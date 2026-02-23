@@ -617,7 +617,7 @@ public class TestSuiteWriter implements Opcodes {
                     if (i > 0) {
                         builder.append(", ");
                     }
-                    builder.append("\"").append(escapeJava(extensionInitializationOrder.get(i))).append("\"");
+                    builder.append("\"").append(escapeClassName(extensionInitializationOrder.get(i))).append("\"");
                 }
                 builder.append("};").append(NEWLINE);
             }
@@ -637,7 +637,7 @@ public class TestSuiteWriter implements Opcodes {
         return builder.toString();
     }
 
-    private static String escapeJava(String value) {
+    private static String escapeClassName(String value) {
         return value
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"");

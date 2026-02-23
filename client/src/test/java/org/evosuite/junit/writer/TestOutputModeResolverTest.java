@@ -38,6 +38,7 @@ public class TestOutputModeResolverTest {
     private final boolean defaultNoRuntimeDependency = Properties.NO_RUNTIME_DEPENDENCY;
     private final boolean defaultTestScaffolding = Properties.TEST_SCAFFOLDING;
     private final boolean defaultTestExtensionMode = Properties.TEST_EXTENSION_MODE;
+    private final boolean defaultUseSeparateClassLoader = Properties.USE_SEPARATE_CLASSLOADER;
     private final boolean defaultReplaceGui = Properties.REPLACE_GUI;
     private final Properties.OutputFormat defaultOutputFormat = Properties.TEST_FORMAT;
     private final Properties.OutputGranularity defaultOutputGranularity = Properties.OUTPUT_GRANULARITY;
@@ -49,6 +50,7 @@ public class TestOutputModeResolverTest {
         Properties.NO_RUNTIME_DEPENDENCY = defaultNoRuntimeDependency;
         Properties.TEST_SCAFFOLDING = defaultTestScaffolding;
         Properties.TEST_EXTENSION_MODE = defaultTestExtensionMode;
+        Properties.USE_SEPARATE_CLASSLOADER = defaultUseSeparateClassLoader;
         Properties.REPLACE_GUI = defaultReplaceGui;
         Properties.TEST_FORMAT = defaultOutputFormat;
         Properties.OUTPUT_GRANULARITY = defaultOutputGranularity;
@@ -73,16 +75,19 @@ public class TestOutputModeResolverTest {
 
     @ParameterizedTest
     @CsvSource({
-            "JUNIT4, true, LEGACY_SCAFFOLDING_FILE",
-            "JUNIT5, true, NEW_EXTENSION_MODE",
-            "JUNIT5, false, LEGACY_SCAFFOLDING_FILE"
+            "JUNIT4, true, false, LEGACY_SCAFFOLDING_FILE",
+            "JUNIT5, true, false, NEW_EXTENSION_MODE",
+            "JUNIT5, true, true, LEGACY_SCAFFOLDING_FILE",
+            "JUNIT5, false, false, LEGACY_SCAFFOLDING_FILE"
     })
     public void testExtensionModeResolution(Properties.OutputFormat format,
                                             boolean extensionMode,
+                                            boolean useSeparateClassLoader,
                                             TestOutputMode expected) {
         configureDefaults();
         Properties.TEST_FORMAT = format;
         Properties.TEST_EXTENSION_MODE = extensionMode;
+        Properties.USE_SEPARATE_CLASSLOADER = useSeparateClassLoader;
         Assertions.assertEquals(expected, TestSuiteWriterUtils.resolveTestOutputMode());
     }
 
@@ -92,6 +97,7 @@ public class TestOutputModeResolverTest {
         Path tempDir = Files.createTempDirectory("evosuite-mode-");
         configureDefaults();
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
+        Properties.USE_SEPARATE_CLASSLOADER = false;
         Properties.REPLACE_GUI = true;
 
         if (mode == TestOutputMode.NO_RUNTIME) {
@@ -172,6 +178,7 @@ public class TestOutputModeResolverTest {
         Properties.NO_RUNTIME_DEPENDENCY = false;
         Properties.TEST_SCAFFOLDING = true;
         Properties.TEST_EXTENSION_MODE = false;
+        Properties.USE_SEPARATE_CLASSLOADER = true;
         Properties.REPLACE_GUI = false;
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
         Properties.OUTPUT_GRANULARITY = Properties.OutputGranularity.MERGED;

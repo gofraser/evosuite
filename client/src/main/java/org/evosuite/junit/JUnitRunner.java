@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.platform.engine.discovery.ClassNameFilter.includeClassNamePatterns;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
 
 /**
@@ -72,7 +71,6 @@ public class JUnitRunner {
 
             LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
                     .selectors(selectClass(this.junitClass))
-                    .filters(includeClassNamePatterns(".*Test"))
                     .build();
             Launcher launcher = LauncherFactory.create();
             launcher.registerTestExecutionListeners(new JUnit5RunListener(this));

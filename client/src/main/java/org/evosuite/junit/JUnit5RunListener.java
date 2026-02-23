@@ -61,7 +61,8 @@ public class JUnit5RunListener implements TestExecutionListener {
 
     @Override
     public void executionSkipped(TestIdentifier testIdentifier, String reason) {
-        LoggingUtils.getEvoLogger().info("* Ignored: " + "ClassName: " + testIdentifier.getDisplayName());
+        LoggingUtils.getEvoLogger().info("* Ignored: " + "ClassName: "
+                + testIdentifier.getDisplayName() + ", Reason: " + reason);
     }
 
     @Override
@@ -85,11 +86,9 @@ public class JUnit5RunListener implements TestExecutionListener {
         LoggingUtils.getEvoLogger().info("* Finished: " + "ClassName: " + testIdentifier.getDisplayName());
         this.testResult.setRuntime(System.nanoTime() - this.start);
         this.testResult.incrementRunCount();
+        this.testResult.setExecutionTrace(ExecutionTracer.getExecutionTracer().getTrace());
+        ExecutionTracer.getExecutionTracer().clear();
         if (testExecutionResult.getStatus() == TestExecutionResult.Status.SUCCESSFUL) {
-
-            this.testResult.setExecutionTrace(ExecutionTracer.getExecutionTracer().getTrace());
-            ExecutionTracer.getExecutionTracer().clear();
-
             this.junitRunner.addResult(this.testResult);
         } else if (testExecutionResult.getStatus() == TestExecutionResult.Status.FAILED) {
 
@@ -103,6 +102,17 @@ public class JUnit5RunListener implements TestExecutionListener {
 
             this.testResult.setSuccessful(false);
             this.testResult.incrementFailureCount();
+            this.junitRunner.addResult(this.testResult);
+        } else {
+            // ABORTED (eg failed assumptions) must still be recorded to avoid dropping tests.
+            Throwable throwable = testExecutionResult.getThrowable().orElse(null);
+            if (throwable != null) {
+                for (StackTraceElement s : throwable.getStackTrace()) {
+                    LoggingUtils.getEvoLogger().info("   " + s.toString());
+                }
+                this.testResult.setTrace(Throwables.getStacktrace(throwable));
+            }
+            this.testResult.setSuccessful(false);
             this.junitRunner.addResult(this.testResult);
         }
     }

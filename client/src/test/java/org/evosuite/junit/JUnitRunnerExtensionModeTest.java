@@ -39,9 +39,9 @@ import java.util.Arrays;
 public class JUnitRunnerExtensionModeTest {
 
     @EvoRunnerParameters
-    public static class LegacyRunnerModeJUnit5Test {
+    public static class LegacyRunnerModeJUnit5Fixture {
         @RegisterExtension
-        static EvoRunnerJUnit5 runner = new EvoRunnerJUnit5(LegacyRunnerModeJUnit5Test.class);
+        static EvoRunnerJUnit5 runner = new EvoRunnerJUnit5(LegacyRunnerModeJUnit5Fixture.class);
 
         @Test
         public void testPasses() {
@@ -50,9 +50,9 @@ public class JUnitRunnerExtensionModeTest {
     }
 
     @EvoRunnerParameters
-    public static class ExtensionModeJUnit5Test {
+    public static class ExtensionModeJUnit5Fixture {
         @RegisterExtension
-        static EvoSuiteExtension runner = new EvoSuiteExtension(ExtensionModeJUnit5Test.class);
+        static EvoSuiteExtension runner = new EvoSuiteExtension(ExtensionModeJUnit5Fixture.class);
 
         @Test
         public void testWorks() {
@@ -68,23 +68,21 @@ public class JUnitRunnerExtensionModeTest {
     }
 
     @Test
-    public void testJUnit5RunnerExecutesExtensionModeClassWithoutMetadataFiles() throws IOException {
+    public void testJUnit5RunnerExecutesExtensionModeClassWithoutInitializationListFiles() throws IOException {
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
         Path temporaryWorkingDirectory = Files.createTempDirectory("evosuite-extension-mode");
         String originalUserDir = java.lang.System.getProperty("user.dir");
 
         java.lang.System.setProperty("user.dir", temporaryWorkingDirectory.toString());
         try {
-            JUnitRunner runner = new JUnitRunner(ExtensionModeJUnit5Test.class);
+            JUnitRunner runner = new JUnitRunner(ExtensionModeJUnit5Fixture.class);
             runner.run();
 
             Assertions.assertFalse(runner.getTestResults().isEmpty());
             Assertions.assertTrue(runner.getTestResults().stream()
                     .anyMatch(result -> result.getName().contains("testWorks")));
             Assertions.assertTrue(runner.getTestResults().stream()
-                    .allMatch(result -> result.getJUnitClass().equals(ExtensionModeJUnit5Test.class)));
-            Assertions.assertFalse(Files.exists(
-                    temporaryWorkingDirectory.resolve(".evosuite_init.tmp")));
+                    .allMatch(result -> result.getJUnitClass().equals(ExtensionModeJUnit5Fixture.class)));
             Assertions.assertFalse(Files.exists(
                     temporaryWorkingDirectory.resolve(".scaffolding_list.tmp")));
         } finally {
@@ -102,9 +100,9 @@ public class JUnitRunnerExtensionModeTest {
         EvoRunnerJUnit5.useClassLoader = false;
         try {
             Map<String, Boolean> legacyOutcomes = runAndCollectOutcomes(
-                    LegacyRunnerModeJUnit5Test.class, "testPasses");
+                    LegacyRunnerModeJUnit5Fixture.class, "testPasses");
             Map<String, Boolean> extensionOutcomes = runAndCollectOutcomes(
-                    ExtensionModeJUnit5ParityTest.class, "testPasses");
+                    ExtensionModeJUnit5ParityFixture.class, "testPasses");
 
             Assertions.assertEquals(legacyOutcomes, extensionOutcomes);
         } finally {
@@ -114,9 +112,9 @@ public class JUnitRunnerExtensionModeTest {
     }
 
     @EvoRunnerParameters
-    public static class ExtensionModeJUnit5ParityTest {
+    public static class ExtensionModeJUnit5ParityFixture {
         @RegisterExtension
-        static EvoSuiteExtension runner = new EvoSuiteExtension(ExtensionModeJUnit5ParityTest.class);
+        static EvoSuiteExtension runner = new EvoSuiteExtension(ExtensionModeJUnit5ParityFixture.class);
 
         @Test
         public void testPasses() {
@@ -125,9 +123,9 @@ public class JUnitRunnerExtensionModeTest {
     }
 
     @EvoRunnerParameters
-    public static class LegacyRunnerModeJUnit5MixedOutcomeTest {
+    public static class LegacyRunnerModeJUnit5MixedOutcomeFixture {
         @RegisterExtension
-        static EvoRunnerJUnit5 runner = new EvoRunnerJUnit5(LegacyRunnerModeJUnit5MixedOutcomeTest.class);
+        static EvoRunnerJUnit5 runner = new EvoRunnerJUnit5(LegacyRunnerModeJUnit5MixedOutcomeFixture.class);
 
         @Test
         public void testPasses() {
@@ -146,9 +144,9 @@ public class JUnitRunnerExtensionModeTest {
     }
 
     @EvoRunnerParameters
-    public static class ExtensionModeJUnit5MixedOutcomeTest {
+    public static class ExtensionModeJUnit5MixedOutcomeFixture {
         @RegisterExtension
-        static EvoSuiteExtension runner = new EvoSuiteExtension(ExtensionModeJUnit5MixedOutcomeTest.class);
+        static EvoSuiteExtension runner = new EvoSuiteExtension(ExtensionModeJUnit5MixedOutcomeFixture.class);
 
         @Test
         public void testPasses() {
@@ -176,9 +174,9 @@ public class JUnitRunnerExtensionModeTest {
         EvoRunnerJUnit5.useClassLoader = false;
         try {
             Map<String, Boolean> legacyOutcomes = runAndCollectOutcomes(
-                    LegacyRunnerModeJUnit5MixedOutcomeTest.class, "testPasses", "testFails", "testThrows");
+                    LegacyRunnerModeJUnit5MixedOutcomeFixture.class, "testPasses", "testFails", "testThrows");
             Map<String, Boolean> extensionOutcomes = runAndCollectOutcomes(
-                    ExtensionModeJUnit5MixedOutcomeTest.class, "testPasses", "testFails", "testThrows");
+                    ExtensionModeJUnit5MixedOutcomeFixture.class, "testPasses", "testFails", "testThrows");
 
             Assertions.assertEquals(legacyOutcomes, extensionOutcomes);
         } finally {

@@ -857,7 +857,7 @@ public abstract class JUnitAnalyzer {
      */
     private static Class<?>[] getClassesFromFiles(Collection<File> files) {
         /*
-         * legacy build-tool integration may provide a scaffolding list file
+         * Build-tool integration may provide a legacy scaffolding list file.
          */
         for (String className : extractClassesToInitialize(files)) {
             loadClass(className);
@@ -905,7 +905,8 @@ public abstract class JUnitAnalyzer {
             try {
                 classesToInit.addAll(InitializingListenerUtils.readInitializationClassList(file));
             } catch (RuntimeException e) {
-                logger.warn("Could not read scaffolding initialization list from {}: {}", file.getAbsolutePath(), e.getMessage());
+                logger.warn("Could not read scaffolding initialization list from {}: {}",
+                        file.getAbsolutePath(), e.getMessage());
             }
         }
         return classesToInit;
@@ -1067,7 +1068,6 @@ public abstract class JUnitAnalyzer {
                 LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
                         .selectors(Arrays.stream(testClasses).map(DiscoverySelectors::selectClass)
                                 .collect(Collectors.toList()))
-                        .filters(includeClassNamePatterns(".*Test"))
                         .build();
                 Launcher launcher = LauncherFactory.create();
                 TestPlan testPlan = launcher.discover(request);
