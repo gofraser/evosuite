@@ -380,6 +380,13 @@ public class EnvironmentTestClusterAugmenter {
 
     private boolean shouldSkip(boolean excludeClass, AccessibleObject c) {
 
+        if (c instanceof Method) {
+            Method method = (Method) c;
+            if (method.isBridge() || method.isSynthetic()) {
+                return true;
+            }
+        }
+
         if (isObjectMethod(c)) {
             return true;
         }
@@ -511,9 +518,10 @@ public class EnvironmentTestClusterAugmenter {
     }
 
     private void handleVirtualFS(TestCase test) {
-        test.getAccessedEnvironment().addLocalFiles(VirtualFileSystem.getInstance().getAccessedFiles());
+        Set<String> accessedFiles = VirtualFileSystem.getInstance().getAccessedFiles();
+        test.getAccessedEnvironment().addLocalFiles(accessedFiles);
 
-        if (!hasAddedFiles && VirtualFileSystem.getInstance().getAccessedFiles().size() > 0) {
+        if (!hasAddedFiles && !accessedFiles.isEmpty()) {
             logger.info("Adding EvoSuiteFile calls to cluster");
 
             hasAddedFiles = true;
