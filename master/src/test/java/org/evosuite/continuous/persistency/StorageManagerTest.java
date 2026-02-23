@@ -105,7 +105,7 @@ public class StorageManagerTest {
                 "public class Foo_ESTest {}".getBytes(StandardCharsets.UTF_8));
         Files.write(tmpTests.resolve("com/foo/Foo_ESTest_scaffolding.java"),
                 "public class Foo_ESTest_scaffolding {}".getBytes(StandardCharsets.UTF_8));
-        Files.write(tmpTests.resolve("com/foo/.evosuite_init.tmp"),
+        Files.write(tmpTests.resolve("com/foo/.scaffolding_list.tmp"),
                 "com.foo.InitTarget".getBytes(StandardCharsets.UTF_8));
 
         String csv =
