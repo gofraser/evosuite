@@ -464,7 +464,9 @@ public class TestMutator {
                     }
                     if (createObject) {
                         // no FM for SUT
+                        int oldSize = test.size();
                         callee = testFactory.createObject(test, target, position, context, null, false, false, true);
+                        position += (test.size() - oldSize);
                     }
                     logger.debug("Got callee of type {}", callee.getGenericClass().getTypeName());
                     if (!TestUsageChecker.canUse(m.getMethod(), callee.getVariableClass())

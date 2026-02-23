@@ -75,9 +75,11 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
      *
      * @param results      a {@link java.util.List} of {@link org.evosuite.testcase.execution.ExecutionResult} objects.
      * @param coveredLines a {@link java.util.Set} of {@link java.lang.Integer} objects.
+     * @param minGoalFitness a {@link java.util.Map} to keep track of minimum fitness per goal.
      * @return a boolean indicating if any test timed out or threw an exception.
      */
-    protected boolean analyzeTraces(List<ExecutionResult> results, Set<Integer> coveredLines) {
+    protected boolean analyzeTraces(List<ExecutionResult> results, Set<Integer> coveredLines,
+                                    Map<Integer, Double> minGoalFitness) {
         boolean hasTimeoutOrTestException = false;
 
         for (ExecutionResult result : results) {
@@ -99,6 +101,8 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
                 if (fit == 0.0) {
                     coveredLines.add(goalId); // helper to count the number of covered goals
                     this.toRemoveLines.add(goalId); // goal to not be considered by the next iteration of the EA
+                } else {
+                    minGoalFitness.merge(goalId, fit, Math::min);
                 }
             }
         }
@@ -136,7 +140,14 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
         }
 
         Set<Integer> coveredLines = new LinkedHashSet<>();
-        boolean hasTimeoutOrTestException = analyzeTraces(results, coveredLines);
+        Map<Integer, Double> minGoalFitness = new HashMap<>();
+        boolean hasTimeoutOrTestException = analyzeTraces(results, coveredLines, minGoalFitness);
+
+        for (Integer goalId : this.lineGoals.keySet()) {
+            if (!coveredLines.contains(goalId)) {
+                fitness += normalize(minGoalFitness.getOrDefault(goalId, 1.0));
+            }
+        }
 
         int totalLines = this.numLines;
         int numCoveredLines = coveredLines.size() + this.removedLines.size();
