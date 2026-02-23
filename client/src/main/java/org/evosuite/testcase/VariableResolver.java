@@ -357,6 +357,9 @@ public class VariableResolver {
     public VariableReference createObject(TestCase test, Type type, int position,
                                           GenerationContext context, VariableResolutionConfig config)
             throws ConstructionFailedException {
+        if (config == null) {
+            config = VariableResolutionConfig.defaultConfig();
+        }
         GenericClass<?> clazz = GenericClassFactory.get(type);
         VariableReference ret = null;
 
