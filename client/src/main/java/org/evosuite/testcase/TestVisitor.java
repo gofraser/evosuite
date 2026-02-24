@@ -88,13 +88,6 @@ public abstract class TestVisitor {
     public abstract void visitNullStatement(NullStatement statement);
 
     /**
-     * Visits a primitive expression.
-     *
-     * @param primitiveExpression the {@link PrimitiveExpression} object to visit.
-     */
-    public abstract void visitPrimitiveExpression(PrimitiveExpression primitiveExpression);
-
-    /**
      * Visits an interpreted statement (raw source fallback).
      *
      * @param interpretedStatement the {@link InterpretedStatement} object to visit.
@@ -129,8 +122,6 @@ public abstract class TestVisitor {
             visitArrayStatement((ArrayStatement) statement);
         } else if (statement instanceof NullStatement) {
             visitNullStatement((NullStatement) statement);
-        } else if (statement instanceof PrimitiveExpression) {
-            visitPrimitiveExpression((PrimitiveExpression) statement);
         } else if (statement instanceof InterpretedStatement) {
             visitInterpretedStatement((InterpretedStatement) statement);
         } else if (statement instanceof FunctionalMockStatement) {

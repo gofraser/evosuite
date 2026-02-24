@@ -525,16 +525,6 @@ public class ValueMinimizer extends TestVisitor {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void visitPrimitiveExpression(PrimitiveExpression primitiveExpression) {
-        // TODO-JRO Implement method visitPrimitiveExpression
-        logger.warn("Method visitPrimitiveExpression not implemented!");
-
-    }
-
     @Override
     public void visitInterpretedStatement(InterpretedStatement interpretedStatement) {
     }

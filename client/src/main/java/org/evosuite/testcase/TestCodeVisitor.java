@@ -1115,21 +1115,6 @@ public class TestCodeVisitor extends TestVisitor {
         addAssertions(statement);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void visitPrimitiveExpression(PrimitiveExpression statement) {
-        VariableReference retval = statement.getReturnValue();
-        String expression = ((Class<?>) retval.getType()).getSimpleName() + " "
-                + getVariableName(retval) + " = ";
-        expression += getVariableName(statement.getLeftOperand()) + " "
-                + statement.getOperator().toCode() + " "
-                + getVariableName(statement.getRightOperand());
-        testCode.append(expression + ";" + NEWLINE);
-        addAssertions(statement);
-    }
-
 
 
     /*

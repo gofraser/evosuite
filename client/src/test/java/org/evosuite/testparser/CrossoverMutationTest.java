@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Verify that crossover and mutation work correctly with parsed test cases
- * containing InterpretedStatements and PrimitiveExpressions.
+ * containing InterpretedStatements.
  */
 class CrossoverMutationTest {
 

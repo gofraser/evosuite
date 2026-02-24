@@ -401,15 +401,6 @@ public class GenericTypeInference extends TestVisitor {
         addVariable(statement);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitPrimitiveExpression(org.evosuite.testcase.PrimitiveExpression)
-     */
-    @Override
-    public void visitPrimitiveExpression(PrimitiveExpression primitiveExpression) {
-        // TODO Auto-generated method stub
-
-    }
-
     @Override
     public void visitInterpretedStatement(InterpretedStatement interpretedStatement) {
     }

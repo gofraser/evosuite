@@ -492,8 +492,8 @@ public class TestFactory {
         } else if (statement instanceof FieldStatement) {
             addField(test, ((FieldStatement) statement).getField(), test.size(), context);
         } else {
-            // InterpretedStatement, PrimitiveExpression, ArrayStatement,
-            // AssignmentStatement, NullStatement — add directly
+            // InterpretedStatement, ArrayStatement, AssignmentStatement,
+            // NullStatement — add directly
             test.addStatement(statement);
         }
     }

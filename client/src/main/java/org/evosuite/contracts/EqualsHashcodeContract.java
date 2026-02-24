@@ -25,11 +25,8 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.MethodStatement;
-import org.evosuite.testcase.statements.PrimitiveExpression;
-import org.evosuite.testcase.statements.PrimitiveExpression.Operator;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.utils.generic.GenericMethod;
 
 import java.lang.reflect.Method;
@@ -134,22 +131,15 @@ public class EqualsHashcodeContract extends Contract {
                     Arrays.asList(new VariableReference[]{}));
             VariableReference z = test.addStatement(st3, statement.getPosition() + 3);
 
-            // Create w = z == z
-            VariableReference w = new VariableReferenceImpl(test, boolean.class);
-            PrimitiveExpression exp = new PrimitiveExpression(test, w, y,
-                    Operator.EQUALS, z);
-            w = test.addStatement(exp, statement.getPosition() + 4);
-
-            Statement newStatement = test.getStatement(w.getStPosition());
-
-            // Create assertEquals(x, w)
+            // Assert y == z (hashCodes must be equal when equals returns true)
+            Statement hashCodeStmt = test.getStatement(z.getStPosition());
             EqualsAssertion assertion = new EqualsAssertion();
-            assertion.setStatement(newStatement);
-            assertion.setSource(x);
-            assertion.setDest(w);
+            assertion.setStatement(hashCodeStmt);
+            assertion.setSource(y);
+            assertion.setDest(z);
             assertion.setValue(true);
-            newStatement.addAssertion(assertion);
-            newStatement.addComment("Violates contract equals - hashcode");
+            hashCodeStmt.addAssertion(assertion);
+            hashCodeStmt.addComment("Violates contract equals - hashcode");
 
         } catch (NoSuchMethodException e) {
             // TODO Auto-generated catch block

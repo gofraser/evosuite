@@ -984,9 +984,7 @@ public class StatementParser {
     // ========================================================================
 
     /**
-     * Binary expressions are preserved as InterpretedStatements. PrimitiveExpression
-     * is not used because it is poorly integrated with the GA (no mutation operators,
-     * crashes SymbolicObserver, skipped by ValueMinimizer).
+     * Binary expressions are preserved as InterpretedStatements.
      */
     private VariableReference handleBinaryExpression(String varName, BinaryExpr expr, Type declaredType) {
         // String concatenation: try to evaluate "a" + b + c into a single String literal

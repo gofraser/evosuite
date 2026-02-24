@@ -59,7 +59,6 @@ import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
-import org.evosuite.testcase.statements.PrimitiveExpression;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.environment.FileNamePrimitiveStatement;
@@ -239,9 +238,6 @@ public class SymbolicObserver extends ExecutionObserver {
             } else if (s instanceof UrlPrimitiveStatement) {
                 before((UrlPrimitiveStatement) s, scope);
 
-            } else if (s instanceof PrimitiveExpression) {
-                before((PrimitiveExpression) s, scope);
-
             } else {
                 throw new UnsupportedOperationException("Cannot handle statement of type " + s.getClass());
             }
@@ -249,11 +245,6 @@ public class SymbolicObserver extends ExecutionObserver {
             throw new EvosuiteError(t);
         }
 
-    }
-
-    private void before(PrimitiveExpression s, Scope scope) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("This method should be implemented!");
     }
 
     private void before(ClassPrimitiveStatement s, Scope scope) {
@@ -1358,9 +1349,6 @@ public class SymbolicObserver extends ExecutionObserver {
             } else if (s instanceof UrlPrimitiveStatement) {
                 after((UrlPrimitiveStatement) s, scope);
 
-            } else if (s instanceof PrimitiveExpression) {
-                after((PrimitiveExpression) s, scope);
-
             } else if (s instanceof FunctionalMockStatement) {
                 after((FunctionalMockStatement) s, scope);
 
@@ -1437,11 +1425,6 @@ public class SymbolicObserver extends ExecutionObserver {
 
         symbReferences.put(varRefName, addressRef);
 
-    }
-
-    private void after(PrimitiveExpression s, Scope scope) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("This method should be implemented!");
     }
 
     private void after(ClassPrimitiveStatement s, Scope scope) {

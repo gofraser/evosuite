@@ -562,7 +562,7 @@ class StatementParserTest {
     }
 
     // ========================================================================
-    // Binary expressions (PrimitiveExpression)
+    // Binary expressions (InterpretedStatement)
     // ========================================================================
 
     @Nested
