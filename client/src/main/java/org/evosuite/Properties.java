@@ -1691,7 +1691,7 @@ public class Properties {
     public static boolean HANDLE_STATIC_FIELDS = true;
 
     public enum TestFactory {
-        RANDOM, ALLMETHODS, TOURNAMENT, JUNIT, ARCHIVE, SERIALIZATION,
+        RANDOM, ALLMETHODS, TOURNAMENT, JUNIT, PARSED_JUNIT, ARCHIVE, SERIALIZATION,
         SEED_BEST_INDIVIDUAL, SEED_RANDOM_INDIVIDUAL,
         SEED_BEST_AND_RANDOM_INDIVIDUAL, SEED_BEST_INDIVIDUAL_METHOD,
         SEED_RANDOM_INDIVIDUAL_METHOD, SEED_MUTATED_BEST_INDIVIDUAL
@@ -1733,6 +1733,9 @@ public class Properties {
 
     @Parameter(key = "seed_mutations", description = "Number of mutations applied to a cloned individual")
     public static int SEED_MUTATIONS = 3;
+
+    @Parameter(key = "seed_test_source_dir", description = "Root directory to find test source files for PARSED_JUNIT seeding")
+    public static String SEED_TEST_SOURCE_DIR = null;
 
     @Parameter(key = "seed_dir", group = "Output", description = "Directory name where the best chromosomes are saved")
     public static String SEED_DIR = "evosuite-seeds";

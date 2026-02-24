@@ -71,6 +71,7 @@ import org.evosuite.testcase.TestCaseReplacementFunction;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
+import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.utils.ArrayUtil;
@@ -96,6 +97,9 @@ public class PropertiesTestGAFactory
                     case JUNIT:
                         logger.info("Using seeding chromosome factory");
                         return new JUnitTestCarvedChromosomeFactory(new RandomLengthTestFactory());
+                    case PARSED_JUNIT:
+                        logger.info("Using parsed JUnit seeding chromosome factory");
+                        return new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory());
                     default:
                 }
                 // fall through

@@ -58,6 +58,7 @@ import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
+import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.testsuite.RelativeSuiteLengthBloatControl;
@@ -87,6 +88,9 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
             case JUNIT:
                 logger.info("Using seeding chromosome factory");
                 return new JUnitTestCarvedChromosomeFactory(new RandomLengthTestFactory());
+            case PARSED_JUNIT:
+                logger.info("Using parsed JUnit seeding chromosome factory");
+                return new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory());
             case SERIALIZATION:
                 logger.info("Using serialization seeding chromosome factory");
                 return new RandomLengthTestFactory();

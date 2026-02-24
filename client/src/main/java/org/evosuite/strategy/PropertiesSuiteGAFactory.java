@@ -77,6 +77,7 @@ import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
+import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.testcase.localsearch.BranchCoverageMap;
 import org.evosuite.testsuite.RelativeSuiteLengthBloatControl;
@@ -116,6 +117,11 @@ public class PropertiesSuiteGAFactory
                         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                                 new RandomLengthTestFactory());
                         return new TestSuiteChromosomeFactory(factory);
+                    case PARSED_JUNIT:
+                        logger.info("Using parsed JUnit seeding chromosome factory");
+                        JUnitTestParsedChromosomeFactory parsedFactory = new JUnitTestParsedChromosomeFactory(
+                                new RandomLengthTestFactory());
+                        return new TestSuiteChromosomeFactory(parsedFactory);
                     case SERIALIZATION:
                         logger.info("Using serialization seeding chromosome factory");
                         return new SerializationSuiteChromosomeFactory(

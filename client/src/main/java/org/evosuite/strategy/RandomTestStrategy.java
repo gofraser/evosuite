@@ -35,6 +35,7 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
+import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
@@ -135,6 +136,9 @@ public class RandomTestStrategy extends TestGenerationStrategy {
                 return new ArchiveTestChromosomeFactory();
             case JUNIT:
                 return new JUnitTestCarvedChromosomeFactory(
+                        new RandomLengthTestFactory());
+            case PARSED_JUNIT:
+                return new JUnitTestParsedChromosomeFactory(
                         new RandomLengthTestFactory());
             default:
                 throw new RuntimeException("Unsupported test factory: "
