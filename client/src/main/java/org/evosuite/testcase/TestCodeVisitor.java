@@ -1339,6 +1339,15 @@ public class TestCodeVisitor extends TestVisitor {
 
 
     @Override
+    public void visitInterpretedStatement(InterpretedStatement statement) {
+        testCode.append(statement.getSourceCode());
+        if (!statement.getSourceCode().endsWith("\n")) {
+            testCode.append(NEWLINE);
+        }
+        addAssertions(statement);
+    }
+
+    @Override
     public void visitFunctionalMockStatement(FunctionalMockStatement st) {
 
         VariableReference retval = st.getReturnValue();

@@ -456,6 +456,12 @@
                 <artifactId>javax.activation-api</artifactId>
                 <version>${activation.version}</version>
             </dependency>
+            <dependency>
+                <!-- LGPL / Apache 2 -->
+                <groupId>com.github.javaparser</groupId>
+                <artifactId>javaparser-core</artifactId>
+                <version>3.28.0</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

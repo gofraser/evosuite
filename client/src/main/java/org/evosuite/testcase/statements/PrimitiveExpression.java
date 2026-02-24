@@ -138,16 +138,122 @@ public class PrimitiveExpression extends AbstractStatement {
         try {
             Object o1 = leftOperand.getObject(scope);
             Object o2 = rightOperand.getObject(scope);
+
+            // Comparison operators produce boolean results
             switch (operator) {
                 case EQUALS:
-                    if (Objects.equals(o1, o2)) {
-                        scope.setObject(retval, true);
-                    } else {
-                        scope.setObject(retval, false);
-                    }
-                    break;
+                    scope.setObject(retval, Objects.equals(o1, o2));
+                    return null;
+                case NOT_EQUALS:
+                    scope.setObject(retval, !Objects.equals(o1, o2));
+                    return null;
                 default:
-                    throw new UnsupportedOperationException("Method execute not implemented!");
+                    break;
+            }
+
+            // Remaining operators require numeric operands
+            if (!(o1 instanceof Number) || !(o2 instanceof Number)) {
+                // String concatenation with PLUS
+                if (operator == Operator.PLUS) {
+                    scope.setObject(retval, String.valueOf(o1) + String.valueOf(o2));
+                    return null;
+                }
+                throw new UnsupportedOperationException(
+                        "Non-numeric operands for operator " + operator);
+            }
+
+            Number n1 = (Number) o1;
+            Number n2 = (Number) o2;
+
+            // Determine widest type for arithmetic
+            boolean isDouble = (o1 instanceof Double || o2 instanceof Double);
+            boolean isFloat = (o1 instanceof Float || o2 instanceof Float);
+            boolean isLong = (o1 instanceof Long || o2 instanceof Long);
+
+            switch (operator) {
+                // Arithmetic operators
+                case PLUS:
+                    if (isDouble) scope.setObject(retval, n1.doubleValue() + n2.doubleValue());
+                    else if (isFloat) scope.setObject(retval, n1.floatValue() + n2.floatValue());
+                    else if (isLong) scope.setObject(retval, n1.longValue() + n2.longValue());
+                    else scope.setObject(retval, n1.intValue() + n2.intValue());
+                    break;
+                case MINUS:
+                    if (isDouble) scope.setObject(retval, n1.doubleValue() - n2.doubleValue());
+                    else if (isFloat) scope.setObject(retval, n1.floatValue() - n2.floatValue());
+                    else if (isLong) scope.setObject(retval, n1.longValue() - n2.longValue());
+                    else scope.setObject(retval, n1.intValue() - n2.intValue());
+                    break;
+                case TIMES:
+                    if (isDouble) scope.setObject(retval, n1.doubleValue() * n2.doubleValue());
+                    else if (isFloat) scope.setObject(retval, n1.floatValue() * n2.floatValue());
+                    else if (isLong) scope.setObject(retval, n1.longValue() * n2.longValue());
+                    else scope.setObject(retval, n1.intValue() * n2.intValue());
+                    break;
+                case DIVIDE:
+                    if (isDouble) scope.setObject(retval, n1.doubleValue() / n2.doubleValue());
+                    else if (isFloat) scope.setObject(retval, n1.floatValue() / n2.floatValue());
+                    else if (isLong) scope.setObject(retval, n1.longValue() / n2.longValue());
+                    else scope.setObject(retval, n1.intValue() / n2.intValue());
+                    break;
+                case REMAINDER:
+                    if (isDouble) scope.setObject(retval, n1.doubleValue() % n2.doubleValue());
+                    else if (isFloat) scope.setObject(retval, n1.floatValue() % n2.floatValue());
+                    else if (isLong) scope.setObject(retval, n1.longValue() % n2.longValue());
+                    else scope.setObject(retval, n1.intValue() % n2.intValue());
+                    break;
+
+                // Comparison operators (produce boolean)
+                case LESS:
+                    scope.setObject(retval, Double.compare(n1.doubleValue(), n2.doubleValue()) < 0);
+                    break;
+                case GREATER:
+                    scope.setObject(retval, Double.compare(n1.doubleValue(), n2.doubleValue()) > 0);
+                    break;
+                case LESS_EQUALS:
+                    scope.setObject(retval, Double.compare(n1.doubleValue(), n2.doubleValue()) <= 0);
+                    break;
+                case GREATER_EQUALS:
+                    scope.setObject(retval, Double.compare(n1.doubleValue(), n2.doubleValue()) >= 0);
+                    break;
+
+                // Bitwise/shift operators (integer types only)
+                case LEFT_SHIFT:
+                    if (isLong) scope.setObject(retval, n1.longValue() << n2.intValue());
+                    else scope.setObject(retval, n1.intValue() << n2.intValue());
+                    break;
+                case RIGHT_SHIFT_SIGNED:
+                    if (isLong) scope.setObject(retval, n1.longValue() >> n2.intValue());
+                    else scope.setObject(retval, n1.intValue() >> n2.intValue());
+                    break;
+                case RIGHT_SHIFT_UNSIGNED:
+                    if (isLong) scope.setObject(retval, n1.longValue() >>> n2.intValue());
+                    else scope.setObject(retval, n1.intValue() >>> n2.intValue());
+                    break;
+                case AND:
+                    if (isLong) scope.setObject(retval, n1.longValue() & n2.longValue());
+                    else scope.setObject(retval, n1.intValue() & n2.intValue());
+                    break;
+                case OR:
+                    if (isLong) scope.setObject(retval, n1.longValue() | n2.longValue());
+                    else scope.setObject(retval, n1.intValue() | n2.intValue());
+                    break;
+                case XOR:
+                    if (isLong) scope.setObject(retval, n1.longValue() ^ n2.longValue());
+                    else scope.setObject(retval, n1.intValue() ^ n2.intValue());
+                    break;
+
+                // Logical operators (operands should be boolean, but we handle Number fallback)
+                case CONDITIONAL_AND:
+                    scope.setObject(retval, n1.intValue() != 0 && n2.intValue() != 0);
+                    break;
+                case CONDITIONAL_OR:
+                    scope.setObject(retval, n1.intValue() != 0 || n2.intValue() != 0);
+                    break;
+
+                default:
+                    throw new UnsupportedOperationException(
+                            "Unsupported operator: " + operator);
             }
         } catch (CodeUnderTestException e) {
             return e;

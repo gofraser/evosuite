@@ -411,6 +411,10 @@ public class GenericTypeInference extends TestVisitor {
     }
 
     @Override
+    public void visitInterpretedStatement(InterpretedStatement interpretedStatement) {
+    }
+
+    @Override
     public void visitFunctionalMockStatement(FunctionalMockStatement functionalMockStatement) {
 
     }
