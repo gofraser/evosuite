@@ -8,6 +8,7 @@ import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.objectweb.asm.ClassReader;
@@ -20,6 +21,21 @@ import static org.junit.jupiter.api.Assertions.*;
 public class BytecodeVersionCompatibilityTest {
 
     private String originalTargetClass;
+
+    private int getJavaMajorVersion() {
+        String version = System.getProperty("java.version");
+        if (version.startsWith("1.")) {
+            version = version.substring(2, 3);
+        } else {
+            int dot = version.indexOf(".");
+            if(dot != -1) { version = version.substring(0, dot); }
+        }
+        try {
+            return Integer.parseInt(version);
+        } catch (NumberFormatException e) {
+            return 8;
+        }
+    }
 
     @BeforeEach
     public void setUp() {
@@ -62,6 +78,11 @@ public class BytecodeVersionCompatibilityTest {
         
         assertTrue(branchCount > 0, "No branches found for Java " + javaVersion);
         assertTrue(methodCount > 2, "Methods not found for Java " + javaVersion);
+        
+        // Skip execution verification if the current JVM is older than the target bytecode version
+        int targetVersion = Integer.parseInt(javaVersion);
+        Assumptions.assumeTrue(getJavaMajorVersion() >= targetVersion, 
+                "Skipping execution test because current JVM (" + getJavaMajorVersion() + ") cannot execute Java " + targetVersion + " bytecode.");
         
         // Execute the method to collect an ExecutionTrace
         Class<?> fixtureClass = loader.defineClassFromBytes(className, instrumentedBytes);
