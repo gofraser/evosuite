@@ -125,4 +125,128 @@ class RoundTripTest {
         assertEquals(1, parsed.size());
         assertInstanceOf(NullStatement.class, parsed.getStatement(0));
     }
+
+    @Test
+    void roundTripArray() {
+        DefaultTestCase tc = new DefaultTestCase();
+        tc.addStatement(new ArrayStatement(tc, int[].class, 3));
+
+        String code = generateCode(tc);
+        ParseResult result = parseCode(code);
+
+        TestCase parsed = result.getTestCase();
+        assertFalse(result.hasErrors(), "Round-trip should have no errors: " + result.getDiagnostics());
+        assertEquals(1, parsed.size());
+        assertInstanceOf(ArrayStatement.class, parsed.getStatement(0));
+    }
+
+    @Test
+    void roundTripMethodWithArgs() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+
+        // ArrayList list = new ArrayList();
+        GenericConstructor gc = new GenericConstructor(
+                ArrayList.class.getConstructor(),
+                GenericClassFactory.get(ArrayList.class));
+        VariableReference listRef = tc.addStatement(
+                new ConstructorStatement(tc, gc, Collections.emptyList()));
+
+        // String s = "hello";
+        VariableReference strRef = tc.addStatement(
+                new StringPrimitiveStatement(tc, "hello"));
+
+        // list.add(s);
+        GenericMethod gm = new GenericMethod(
+                ArrayList.class.getMethod("add", Object.class),
+                GenericClassFactory.get(ArrayList.class));
+        tc.addStatement(new MethodStatement(tc, gm, listRef, List.of(strRef)));
+
+        String code = generateCode(tc);
+        ParseResult result = parseCode(code);
+
+        TestCase parsed = result.getTestCase();
+        assertFalse(result.hasErrors(), "Round-trip should have no errors: " + result.getDiagnostics());
+        assertTrue(parsed.size() >= 3, "Should have at least 3 statements: " + parsed.size());
+        assertInstanceOf(ConstructorStatement.class, parsed.getStatement(0));
+        assertInstanceOf(StringPrimitiveStatement.class, parsed.getStatement(1));
+        assertInstanceOf(MethodStatement.class, parsed.getStatement(2));
+        assertEquals("add", ((MethodStatement) parsed.getStatement(2)).getMethodName());
+    }
+
+    @Test
+    void roundTripInterpretedStatement() {
+        DefaultTestCase tc = new DefaultTestCase();
+        tc.addStatement(new IntPrimitiveStatement(tc, 5));
+        tc.addStatement(new InterpretedStatement(tc, "// custom code"));
+
+        String code = generateCode(tc);
+        ParseResult result = parseCode(code);
+
+        TestCase parsed = result.getTestCase();
+        assertFalse(result.hasErrors(), "Round-trip should have no errors: " + result.getDiagnostics());
+        // InterpretedStatement with a comment may not survive round-trip as a statement,
+        // but the int should
+        assertInstanceOf(IntPrimitiveStatement.class, parsed.getStatement(0));
+        assertEquals(5, ((IntPrimitiveStatement) parsed.getStatement(0)).getValue().intValue());
+    }
+
+    @Test
+    void roundTripStaticMethod() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+
+        // int x = 42;
+        VariableReference xRef = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+
+        // String s = String.valueOf(x);
+        GenericMethod gm = new GenericMethod(
+                String.class.getMethod("valueOf", int.class),
+                GenericClassFactory.get(String.class));
+        tc.addStatement(new MethodStatement(tc, gm, null, List.of(xRef)));
+
+        String code = generateCode(tc);
+        ParseResult result = parseCode(code);
+
+        TestCase parsed = result.getTestCase();
+        assertFalse(result.hasErrors(), "Round-trip should have no errors: " + result.getDiagnostics());
+        assertEquals(2, parsed.size());
+        assertInstanceOf(IntPrimitiveStatement.class, parsed.getStatement(0));
+        assertInstanceOf(MethodStatement.class, parsed.getStatement(1));
+        assertEquals("valueOf", ((MethodStatement) parsed.getStatement(1)).getMethodName());
+    }
+
+    @Test
+    void roundTripMultipleMethods() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+
+        // ArrayList list = new ArrayList();
+        GenericConstructor gc = new GenericConstructor(
+                ArrayList.class.getConstructor(),
+                GenericClassFactory.get(ArrayList.class));
+        VariableReference listRef = tc.addStatement(
+                new ConstructorStatement(tc, gc, Collections.emptyList()));
+
+        // int size = list.size();
+        GenericMethod sizeMethod = new GenericMethod(
+                ArrayList.class.getMethod("size"),
+                GenericClassFactory.get(ArrayList.class));
+        tc.addStatement(new MethodStatement(tc, sizeMethod, listRef, Collections.emptyList()));
+
+        // boolean empty = list.isEmpty();
+        GenericMethod isEmptyMethod = new GenericMethod(
+                ArrayList.class.getMethod("isEmpty"),
+                GenericClassFactory.get(ArrayList.class));
+        tc.addStatement(new MethodStatement(tc, isEmptyMethod, listRef, Collections.emptyList()));
+
+        String code = generateCode(tc);
+        ParseResult result = parseCode(code);
+
+        TestCase parsed = result.getTestCase();
+        assertFalse(result.hasErrors(), "Round-trip should have no errors: " + result.getDiagnostics());
+        assertEquals(3, parsed.size());
+        assertInstanceOf(ConstructorStatement.class, parsed.getStatement(0));
+        assertInstanceOf(MethodStatement.class, parsed.getStatement(1));
+        assertInstanceOf(MethodStatement.class, parsed.getStatement(2));
+        assertEquals("size", ((MethodStatement) parsed.getStatement(1)).getMethodName());
+        assertEquals("isEmpty", ((MethodStatement) parsed.getStatement(2)).getMethodName());
+    }
 }
