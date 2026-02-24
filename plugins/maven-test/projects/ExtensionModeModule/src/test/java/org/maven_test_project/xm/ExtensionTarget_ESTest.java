@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @EvoRunnerParameters
 public class ExtensionTarget_ESTest {
@@ -16,5 +18,18 @@ public class ExtensionTarget_ESTest {
     @Test
     public void testTwice() {
         assertEquals(10, ExtensionTarget.twice(5));
+    }
+
+    @Test
+    public void testExtensionEnvTargetClassIsCovered() {
+        ExtensionEnvTarget target = new ExtensionEnvTarget();
+        assertNotNull(target);
+        assertFalse(ExtensionEnvTarget.check());
+    }
+
+    @Test
+    public void testExtensionProfileTargetClassIsCovered() {
+        assertEquals(0, ExtensionProfileTarget.clampToNonNegative(-7));
+        assertEquals(5, ExtensionProfileTarget.clampToNonNegative(5));
     }
 }

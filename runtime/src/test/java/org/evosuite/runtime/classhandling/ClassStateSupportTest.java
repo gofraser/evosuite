@@ -22,6 +22,9 @@ package org.evosuite.runtime.classhandling;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.instrumentation.EvoClassLoader;
 import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.runtime.testdata.EvoSuiteFile;
+import org.evosuite.runtime.testdata.FileSystemHandling;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -48,5 +51,33 @@ public class ClassStateSupportTest {
         problem = ClassStateSupport.initializeClasses(loader, className);
         Assertions.assertFalse(problem);
         Assertions.assertFalse(MockFramework.isEnabled());
+    }
+
+    @Test
+    public void testInitializeClassesRetransformsAlreadyLoadedClassForMocking() throws Exception {
+        Assumptions.assumeTrue(
+                org.evosuite.runtime.agent.InstrumentingAgent.getInstrumentation() != null,
+                "Java agent is not attached in this environment");
+
+        ClassLoader loader = ClassStateSupportTest.class.getClassLoader();
+        String className = "com.examples.with.different.packagename.classhandling.FileExistenceCheck";
+        String path = "evosuite_vfs_preloaded_class_marker_424242.txt";
+
+        // Preload the class while the transformer is not active.
+        Class.forName(className, true, loader);
+
+        RuntimeSettings.deactivateAllMocking();
+        RuntimeSettings.useVFS = true;
+
+        boolean problem = ClassStateSupport.initializeClasses(loader, className);
+        Assertions.assertFalse(problem);
+        Assertions.assertFalse(MockFramework.isEnabled());
+
+        org.evosuite.runtime.Runtime.getInstance().resetRuntime();
+        Assertions.assertTrue(FileSystemHandling.createFolder(new EvoSuiteFile(path)));
+
+        Class<?> clazz = Class.forName(className, true, loader);
+        boolean exists = (Boolean) clazz.getMethod("check", String.class).invoke(null, path);
+        Assertions.assertTrue(exists);
     }
 }

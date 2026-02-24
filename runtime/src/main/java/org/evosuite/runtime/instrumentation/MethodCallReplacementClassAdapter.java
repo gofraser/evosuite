@@ -136,22 +136,24 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
                 FIXME: this should be moved in its own adapter, because it is not executed if we do
                 only reset of static state and no mocking
              */
-            boolean found = false;
-            String instrumentedInterface = InstrumentedClass.class.getCanonicalName().replace('.', '/');
-            for (String interf : interfaces) {
-                if (interf.equals(instrumentedInterface)) {
-                    found = true;
+            if (canChangeSignature) {
+                boolean found = false;
+                String instrumentedInterface = InstrumentedClass.class.getCanonicalName().replace('.', '/');
+                for (String interf : interfaces) {
+                    if (interf.equals(instrumentedInterface)) {
+                        found = true;
+                    }
                 }
-            }
-            if (!found) {
-                logger.info("Adding mock interface to class " + name);
-                String[] mockedInterfaces = Arrays.copyOf(interfaces, interfaces.length + 1);
-                mockedInterfaces[interfaces.length] = InstrumentedClass.class.getCanonicalName().replace('.', '/');
-                interfaces = mockedInterfaces;
+                if (!found) {
+                    logger.info("Adding mock interface to class " + name);
+                    String[] mockedInterfaces = Arrays.copyOf(interfaces, interfaces.length + 1);
+                    mockedInterfaces[interfaces.length] = InstrumentedClass.class.getCanonicalName().replace('.', '/');
+                    interfaces = mockedInterfaces;
+                }
             }
         }
 
-        if (MockList.shouldBeMocked(superNameWithDots)) {
+        if (canChangeSignature && MockList.shouldBeMocked(superNameWithDots)) {
 
             /*
              * TODO: likely need to suppress the change of superclass if !canChangeSignature

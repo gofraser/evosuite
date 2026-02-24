@@ -81,8 +81,8 @@ public class InitializingListener extends RunListener {
 
     @Override
     public void testRunStarted(Description description) throws Exception {
-
-        java.lang.System.out.println("Executing " + InitializingListener.class.getName());
+        try {
+            java.lang.System.out.println("Executing " + InitializingListener.class.getName());
 
         /*
             Here we cannot trust what passed as "Description", as it could had
@@ -124,58 +124,83 @@ public class InitializingListener extends RunListener {
         list = deduplicate(list);
         java.lang.System.out.println("Initializing " + list.size() + " scaffolding classes");
 
-        InstrumentingAgent.initialize();
-
-        for (String name : list) {
-            Method m = null;
             try {
-                //reflection might load some SUT class
-                InstrumentingAgent.activate();
-                ClassLoader testClassLoader = Thread.currentThread().getContextClassLoader();
-                if (testClassLoader == null) {
-                    testClassLoader = InitializingListener.class.getClassLoader();
+                InstrumentingAgent.initialize();
+            } catch (Throwable t) {
+                java.lang.System.out.println("WARN: Failed to initialize InstrumentingAgent in InitializingListener: "
+                        + t.getClass().getName() + ": " + t.getMessage());
+            }
+
+            for (String name : list) {
+                Method m = null;
+                try {
+                    //reflection might load some SUT class
+                    InstrumentingAgent.activate();
+                    ClassLoader testClassLoader = Thread.currentThread().getContextClassLoader();
+                    if (testClassLoader == null) {
+                        testClassLoader = InitializingListener.class.getClassLoader();
+                    }
+                    Class<?> test = testClassLoader.loadClass(name);
+                    m = test.getDeclaredMethod(INITIALIZE_CLASSES_METHOD);
+                    m.setAccessible(true);
+                } catch (NoSuchMethodException e) {
+                    /*
+                     * this is ok.
+                     * Note: we could skip the test based on some pattern on the
+                     * name, but not really so important in the end
+                     */
+                } catch (Exception e) {
+                    java.lang.System.out.println("Exception while loading class " + name + ": " + e.getMessage());
+                } finally {
+                    try {
+                        InstrumentingAgent.deactivate();
+                    } catch (Throwable t) {
+                        java.lang.System.out.println("WARN: Failed to deactivate InstrumentingAgent in InitializingListener: "
+                                + t.getClass().getName() + ": " + t.getMessage());
+                    }
                 }
-                Class<?> test = testClassLoader.loadClass(name);
-                m = test.getDeclaredMethod(INITIALIZE_CLASSES_METHOD);
-                m.setAccessible(true);
-            } catch (NoSuchMethodException e) {
-                /*
-                 * this is ok.
-                 * Note: we could skip the test based on some pattern on the
-                 * name, but not really so important in the end
-                 */
-            } catch (Exception e) {
-                java.lang.System.out.println("Exception while loading class " + name + ": " + e.getMessage());
-            } finally {
-                InstrumentingAgent.deactivate();
+
+                if (m == null) {
+                    continue;
+                }
+
+                try {
+                    m.invoke(null);
+                } catch (Exception e) {
+                    Throwable root = e;
+                    if (e instanceof InvocationTargetException && ((InvocationTargetException) e).getCause() != null) {
+                        root = ((InvocationTargetException) e).getCause();
+                    }
+                    java.lang.System.out.println("Exception while calling " + name + "." + INITIALIZE_CLASSES_METHOD
+                            + "(): " + root.getClass().getName() + ": " + root.getMessage());
+                    root.printStackTrace(java.lang.System.out);
+                }
             }
 
-            if (m == null) {
-                continue;
-            }
-
+            // Keep transformer active for classes loaded after listener startup.
+            // The per-class initialize/deactivate block above turns it off again.
             try {
-                m.invoke(null);
-            } catch (Exception e) {
-                Throwable root = e;
-                if (e instanceof InvocationTargetException && ((InvocationTargetException) e).getCause() != null) {
-                    root = ((InvocationTargetException) e).getCause();
-                }
-                java.lang.System.out.println("Exception while calling " + name + "." + INITIALIZE_CLASSES_METHOD
-                        + "(): " + root.getClass().getName() + ": " + root.getMessage());
-                root.printStackTrace(java.lang.System.out);
+                InstrumentingAgent.getTransformer().activate();
+            } catch (Throwable t) {
+                java.lang.System.out.println("WARN: Failed to activate transformer in InitializingListener: "
+                        + t.getClass().getName() + ": " + t.getMessage());
             }
+        } catch (Throwable t) {
+            java.lang.System.out.println("WARN: InitializingListener failed during startup: "
+                    + t.getClass().getName() + ": " + t.getMessage());
+            t.printStackTrace(java.lang.System.out);
         }
-
-        // Keep transformer active for classes loaded after listener startup.
-        // The per-class initialize/deactivate block above turns it off again.
-        InstrumentingAgent.getTransformer().activate();
     }
 
     @Override
     public void testRunFinished(Result result) throws Exception {
         // Ensure no instrumentation side effects leak across runs.
-        InstrumentingAgent.getTransformer().deactivate();
+        try {
+            InstrumentingAgent.getTransformer().deactivate();
+        } catch (Throwable t) {
+            java.lang.System.out.println("WARN: Failed to deactivate transformer in InitializingListener: "
+                    + t.getClass().getName() + ": " + t.getMessage());
+        }
     }
 
 

@@ -102,7 +102,12 @@ public class GuiSupport {
          * This is needed because font loading in the JVM can take several seconds (done only once),
          * and that can mess up the JUnit test execution timeouts...
          */
-        (new javax.swing.JButton()).getFontMetrics(new java.awt.Font(null));
+        try {
+            (new javax.swing.JButton()).getFontMetrics(new java.awt.Font(null));
+        } catch (Throwable t) {
+            logger.warn("Failed to eagerly initialize Swing fonts; continuing without GUI pre-initialization: {}",
+                    t.getMessage());
+        }
     }
 
 

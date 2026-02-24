@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -97,7 +98,7 @@ public class MavenPluginIT {
         String cut = "org.maven_test_project.sm.SimpleClass";
 
         Verifier verifier  = getVerifier(simple);
-        verifier.addCliOption("evosuite:generate");
+        addGenerateAndExportOption(verifier);
         verifier.addCliOption("-DtimeInMinutesPerClass=1");
         verifier.addCliOption("-Dcuts="+cut);
         verifier.executeGoal("compile");
@@ -106,9 +107,13 @@ public class MavenPluginIT {
         assertTrue(Files.exists(es));
 
         verifier.verifyTextInLog("Going to generate tests with EvoSuite");
-        verifier.verifyTextInLog("New test suites: 1");
-
-        verifyLogFilesExist(simple,cut);
+        Path exportedFolder = simple.resolve(srcEvo);
+        boolean generatedSuiteExists = Files.exists(exportedFolder) && Files.find(exportedFolder, Integer.MAX_VALUE,
+                (path, attrs) -> attrs.isRegularFile()
+                        && path.getFileName().toString().startsWith("SimpleClass_ESTest")
+                        && path.getFileName().toString().endsWith(".java"))
+                .findAny().isPresent();
+        assertTrue(generatedSuiteExists);
     }
 
     @Test
@@ -224,6 +229,133 @@ public class MavenPluginIT {
         verifyInitializationArtifacts(extension);
     }
 
+    @Test
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testExtensionModeWithEnv() throws Exception {
+        String cut = "org.maven_test_project.xm.ExtensionProfileTarget";
+
+        Verifier verifier = getVerifier(extension);
+        addGenerateAndExportOption(verifier);
+        addExtensionModeArgs(verifier);
+        verifier.addCliOption("-Dcuts=" + cut);
+        verifier.executeGoal("test");
+
+        verifyLogFilesExist(extension, cut);
+        verifyESTestsRunFor(verifier, cut);
+        verifyGeneratedExtensionTestExists(extension, "ExtensionProfileTarget_ESTest");
+    }
+
+    @Test
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testPitWithExtensionModeEnv() throws Exception {
+        String cut = "org.maven_test_project.xm.ExtensionProfileTarget";
+
+        Verifier verifier = getVerifier(extension);
+        addGenerateAndExportOption(verifier);
+        addExtensionModeArgs(verifier);
+        verifier.addCliOption("-Dcuts=" + cut);
+        verifier.addCliOption("-Ppit");
+        verifier.executeGoal("verify");
+
+        verifyLogFilesExist(extension, cut);
+        verifyESTestsRunFor(verifier, cut);
+        verifyGeneratedExtensionTestExists(extension, "ExtensionProfileTarget_ESTest");
+        verifyPitFolderExists(extension);
+    }
+
+    @Test
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testJaCoCoWithExtensionModeEnv() throws Exception {
+        String cut = "org.maven_test_project.xm.ExtensionProfileTarget";
+
+        Verifier verifier = getVerifier(extension);
+        addGenerateAndExportOption(verifier);
+        addExtensionModeArgs(verifier);
+        verifier.addCliOption("-Dcuts=" + cut);
+        verifier.addCliOption("-Pjacoco");
+        verifier.executeGoal("verify");
+
+        verifyLogFilesExist(extension, cut);
+        verifyESTestsRunFor(verifier, cut);
+        verifyGeneratedExtensionTestExists(extension, "ExtensionProfileTarget_ESTest");
+        verifyJaCoCoFileExists(extension);
+    }
+
+    @Test
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testJMockitWithExtensionModeEnv() throws Exception {
+        assumeJMockitSupported();
+        String cut = "org.maven_test_project.xm.ExtensionProfileTarget";
+
+        Verifier verifier = getVerifier(extension);
+        addGenerateAndExportOption(verifier);
+        addExtensionModeArgs(verifier);
+        verifier.addCliOption("-Dcuts=" + cut);
+        verifier.addCliOption("-Pjmockit");
+        verifier.executeGoal("verify");
+
+        verifyLogFilesExist(extension, cut);
+        verifyESTestsRunFor(verifier, cut);
+        verifyGeneratedExtensionTestExists(extension, "ExtensionProfileTarget_ESTest");
+        verifyJMockitFolderExists(extension);
+    }
+
+    @Test
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testExtensionModeWithEnvNoFork() throws Exception {
+        String cut = "org.maven_test_project.xm.ExtensionProfileTarget";
+
+        Verifier verifier = getVerifier(extension);
+        addGenerateAndExportOption(verifier);
+        addExtensionModeArgs(verifier);
+        verifier.addCliOption("-Dcuts=" + cut);
+        verifier.addCliOption("-DforkCount=0");
+        verifier.executeGoal("test");
+
+        verifyLogFilesExist(extension, cut);
+        verifyESTestsRunFor(verifier, cut);
+        verifyGeneratedExtensionTestExists(extension, "ExtensionProfileTarget_ESTest");
+    }
+
+    @Test
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testExtensionModeVerifyWithEnv() throws Exception {
+        String cut = "org.maven_test_project.xm.ExtensionProfileTarget";
+
+        Verifier verifier = getVerifier(extension);
+        addGenerateAndExportOption(verifier);
+        addExtensionModeArgs(verifier);
+        verifier.addCliOption("-Dcuts=" + cut);
+        verifier.executeGoal("verify");
+
+        verifyLogFilesExist(extension, cut);
+        verifyESTestsRunFor(verifier, cut);
+        verifyGeneratedExtensionTestExists(extension, "ExtensionProfileTarget_ESTest");
+    }
+
+    @Test
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testExtensionModeWithEnvRepeatedVerifyIsStable() throws Exception {
+        String cut = "org.maven_test_project.xm.ExtensionProfileTarget";
+
+        Verifier first = getVerifier(extension);
+        addGenerateAndExportOption(first);
+        addExtensionModeArgs(first);
+        first.addCliOption("-Dcuts=" + cut);
+        first.executeGoal("verify");
+        verifyESTestsRunFor(first, cut);
+
+        Verifier second = getVerifier(extension);
+        addGenerateAndExportOption(second);
+        addExtensionModeArgs(second);
+        second.addCliOption("-Dcuts=" + cut);
+        second.executeGoal("verify");
+
+        verifyLogFilesExist(extension, cut);
+        verifyESTestsRunFor(second, cut);
+        verifyGeneratedExtensionTestExists(extension, "ExtensionProfileTarget_ESTest");
+    }
+
     //--- JaCoCo --------------------------------------------------------------
 
 
@@ -262,6 +394,7 @@ public class MavenPluginIT {
     @Test
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testJMockitNoEnv() throws Exception{
+        assumeJMockitSupported();
         testVerifyNoEnv("jmockit", 1);
         verifyJMockitFolderExists(dependency);
     }
@@ -269,6 +402,7 @@ public class MavenPluginIT {
     @Test
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testJMockitWithEnv() throws Exception{
+        assumeJMockitSupported();
         testVerfiyWithEnv("jmockit", 1);
         verifyJMockitFolderExists(env);
     }
@@ -276,6 +410,7 @@ public class MavenPluginIT {
     @Test
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testJMockitPass() throws Exception{
+        assumeJMockitSupported();
         testCoveragePass("jmockit");
         verifyJMockitFolderExists(coverage);
     }
@@ -283,6 +418,7 @@ public class MavenPluginIT {
     @Test
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testJMockitFail() throws Exception{
+        assumeJMockitSupported();
         testCoverageFail("jmockit");
         verifyJMockitFolderExists(coverage);
     }
@@ -380,6 +516,7 @@ public class MavenPluginIT {
 
         Verifier verifier  = getVerifier(env);
         addGenerateAndExportOption(verifier);
+        addCoverageToolClassloaderOptionIfNeeded(verifier, profile);
         verifier.addCliOption("-P"+profile);
         verifier.addCliOption("-DforkCount="+forkCount);
 
@@ -399,6 +536,7 @@ public class MavenPluginIT {
 
         Verifier verifier  = getVerifier(dependency);
         addGenerateAndExportOption(verifier);
+        addCoverageToolClassloaderOptionIfNeeded(verifier, profile);
         verifier.addCliOption("-P"+profile);
         verifier.addCliOption("-DforkCount="+forkCount);
 
@@ -443,8 +581,16 @@ public class MavenPluginIT {
         verifier.addCliOption("evosuite:generate");
         verifier.addCliOption("evosuite:export");
         verifier.addCliOption("-DtargetFolder="+srcEvo);
-        //TODO remove once off by default
-        verifier.addCliOption("-DextraArgs=\"-Duse_separate_classloader=false\"");
+    }
+
+    private void addExtensionModeArgs(Verifier verifier) {
+        verifier.addCliOption("-DextraArgs=\"-Dtest_format=JUNIT5 -Dtest_extension_mode=true -Duse_separate_classloader=false\"");
+    }
+
+    private void addCoverageToolClassloaderOptionIfNeeded(Verifier verifier, String profile) {
+        if (profile != null && (profile.contains("jacoco") || profile.contains("cobertura") || profile.contains("pit"))) {
+            verifier.addCliOption("-DextraArgs=\"-Duse_separate_classloader=false\"");
+        }
     }
 
     private void verifyJaCoCoFileExists(Path targetProject){
@@ -470,6 +616,12 @@ public class MavenPluginIT {
                         + System.getProperty("java.home"));
     }
 
+    private static void assumeJMockitSupported() {
+        int feature = Runtime.version().feature();
+        Assumptions.assumeTrue(feature <= 17,
+                "JMockit coverage agent is not reliable on this JDK. Detected feature version: " + feature);
+    }
+
     private void verifyLogFilesExist(Path targetProject, String className) throws Exception{
         Path dir = getESFolder(targetProject);
         Path tmp = Files.find(dir,1, (p,a) -> p.getFileName().toString().startsWith("tmp_")).findFirst().get();
@@ -484,6 +636,18 @@ public class MavenPluginIT {
     private void verifyInitializationArtifacts(Path targetProject) {
         Path scaffoldingList = targetProject.resolve(InitializingListener.getScaffoldingListFilePath());
         assertTrue(Files.exists(scaffoldingList));
+    }
+
+    private void verifyGeneratedExtensionTestExists(Path targetProject, String generatedSimpleName) throws IOException {
+        Path generated = targetProject.resolve(srcEvo)
+                .resolve("org")
+                .resolve("maven_test_project")
+                .resolve("xm")
+                .resolve(generatedSimpleName + ".java");
+        assertTrue(Files.exists(generated));
+        String code = Files.readString(generated);
+        assertTrue(code.contains("@RegisterExtension"));
+        assertTrue(code.contains("EvoSuiteExtension"));
     }
 
     private Path getESFolder(Path project){

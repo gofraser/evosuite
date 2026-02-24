@@ -31,12 +31,14 @@ import org.evosuite.runtime.agent.InstrumentingAgent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
 import org.junit.jupiter.api.extension.TestInstantiationException;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -74,6 +76,15 @@ public class EvoSuiteExtensionLifecycleTest {
 
     @EvoRunnerParameters(mockJVMNonDeterminism = true, resetStaticState = true)
     public static class MockingAndResetting_ESTest {
+    }
+
+    @EvoRunnerParameters(mockJVMNonDeterminism = true)
+    public static class MockingLifecycle_ESTest {
+        public void testMethodOne() {
+        }
+
+        public void testMethodTwo() {
+        }
     }
 
     public static class Resetting implements InstrumentedClass {
@@ -182,29 +193,35 @@ public class EvoSuiteExtensionLifecycleTest {
     public void shouldRunFullLifecycleWithStaticResetEnabled() {
         EvoSuiteExtension extension = new EvoSuiteExtension(Resetting_ESTest.class);
 
-        Assertions.assertDoesNotThrow(() -> {
-            extension.beforeAll(null);
-            extension.beforeEach(null);
-            extension.afterEach(null);
-            extension.afterAll(null);
-        });
+        try (MockedStatic<InstrumentingAgent> mockedAgent = Mockito.mockStatic(InstrumentingAgent.class)) {
+            Assertions.assertDoesNotThrow(() -> {
+                extension.beforeAll(null);
+                extension.beforeEach(null);
+                extension.afterEach(null);
+                extension.afterAll(null);
+            });
+            mockedAgent.verify(InstrumentingAgent::initialize);
+        }
     }
 
     @Test
     public void shouldRespectSandboxExecutionStateWhenStaticResetEnabled() {
         EvoSuiteExtension extension = new EvoSuiteExtension(Resetting_ESTest.class);
-        extension.beforeAll(null);
+        try (MockedStatic<InstrumentingAgent> mockedAgent = Mockito.mockStatic(InstrumentingAgent.class)) {
+            extension.beforeAll(null);
 
-        extension.beforeEach(null);
-        if (Sandbox.isSecurityManagerSupported()) {
-            Assertions.assertTrue(Sandbox.isOnAndExecutingSUTCode());
-        } else {
+            extension.beforeEach(null);
+            if (Sandbox.isSecurityManagerSupported()) {
+                Assertions.assertTrue(Sandbox.isOnAndExecutingSUTCode());
+            } else {
+                Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
+            }
+
+            extension.afterEach(null);
             Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
+            extension.afterAll(null);
+            mockedAgent.verify(InstrumentingAgent::initialize);
         }
-
-        extension.afterEach(null);
-        Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
-        extension.afterAll(null);
     }
 
     @Test
@@ -223,22 +240,30 @@ public class EvoSuiteExtensionLifecycleTest {
     @Test
     public void shouldCleanupRuntimeStateEvenIfAfterEachFailsEarly() {
         EvoSuiteExtension extension = new EvoSuiteExtension(MockingAndResetting_ESTest.class);
-        extension.beforeAll(null);
-        MockFramework.enable();
+        try (MockedStatic<InstrumentingAgent> mockedAgent = Mockito.mockStatic(InstrumentingAgent.class)) {
+            mockedAgent.when(InstrumentingAgent::deactivate).thenCallRealMethod();
+            extension.beforeAll(null);
+            MockFramework.enable();
 
-        Assertions.assertThrows(IllegalStateException.class, () -> extension.afterEach(null));
-        Assertions.assertFalse(MockFramework.isEnabled());
-        Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
-        extension.afterAll(null);
+            Assertions.assertThrows(IllegalStateException.class, () -> extension.afterEach(null));
+            Assertions.assertFalse(MockFramework.isEnabled());
+            Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
+            extension.afterAll(null);
+            mockedAgent.verify(InstrumentingAgent::initialize);
+        }
     }
 
     @Test
-    public void shouldNotFailBeforeAllIfAgentInitializationThrows() {
+    public void shouldFailBeforeAllIfAgentInitializationThrows() {
         EvoSuiteExtension extension = new EvoSuiteExtension(Mocking_ESTest.class);
         try (MockedStatic<InstrumentingAgent> mockedAgent = Mockito.mockStatic(InstrumentingAgent.class)) {
             mockedAgent.when(InstrumentingAgent::initialize).thenThrow(new RuntimeException("agent-init-failed"));
 
-            Assertions.assertDoesNotThrow(() -> extension.beforeAll(null));
+            IllegalStateException exception = Assertions.assertThrows(IllegalStateException.class,
+                    () -> extension.beforeAll(null));
+            Assertions.assertEquals("Failed to initialize instrumentation agent in EvoSuiteExtension",
+                    exception.getMessage());
+            Assertions.assertTrue(exception.getCause() instanceof RuntimeException);
             mockedAgent.verify(InstrumentingAgent::initialize);
         }
     }
@@ -295,7 +320,8 @@ public class EvoSuiteExtensionLifecycleTest {
                 "a.InitFirst",
                 "m.InitMiddle"
         );
-        try (MockedStatic<ClassStateSupport> mockedStateSupport = Mockito.mockStatic(ClassStateSupport.class)) {
+        try (MockedStatic<ClassStateSupport> mockedStateSupport = Mockito.mockStatic(ClassStateSupport.class);
+             MockedStatic<InstrumentingAgent> mockedAgent = Mockito.mockStatic(InstrumentingAgent.class)) {
             extension.beforeAll(null);
             extension.beforeEach(null);
             extension.afterEach(null);
@@ -312,6 +338,7 @@ public class EvoSuiteExtensionLifecycleTest {
                     Mockito.eq("a.InitFirst"),
                     Mockito.eq("m.InitMiddle")
             ));
+            mockedAgent.verify(InstrumentingAgent::initialize);
         }
     }
 
@@ -353,6 +380,38 @@ public class EvoSuiteExtensionLifecycleTest {
         }
     }
 
+    @Test
+    public void shouldIsolateStateAcrossTwoMethodsWithinSingleLifecycle() throws IOException {
+        EvoSuiteExtension extension = new EvoSuiteExtension(MockingLifecycle_ESTest.class);
+        ExtensionContext classContext = classContext(MockingLifecycle_ESTest.class);
+        ExtensionContext firstMethod = methodContext(MockingLifecycle_ESTest.class, "testMethodOne");
+        ExtensionContext secondMethod = methodContext(MockingLifecycle_ESTest.class, "testMethodTwo");
+
+        try (MockedStatic<InstrumentingAgent> mockedAgent = Mockito.mockStatic(InstrumentingAgent.class)) {
+            extension.beforeAll(classContext);
+
+            extension.beforeEach(firstMethod);
+            Assertions.assertTrue(MockFramework.isEnabled());
+            SystemInUtil.addInputLine("first-call");
+            JOptionPaneInputs.enqueueInputString("first-call");
+            Assertions.assertTrue(SystemInUtil.getInstance().available() > 0);
+            Assertions.assertTrue(JOptionPaneInputs.getInstance().containsStringInput());
+            extension.afterEach(firstMethod);
+
+            extension.beforeEach(secondMethod);
+            Assertions.assertTrue(MockFramework.isEnabled());
+            Assertions.assertEquals(0, SystemInUtil.getInstance().available());
+            Assertions.assertFalse(JOptionPaneInputs.getInstance().containsStringInput());
+            extension.afterEach(secondMethod);
+
+            extension.afterAll(classContext);
+
+            mockedAgent.verify(InstrumentingAgent::initialize);
+            mockedAgent.verify(InstrumentingAgent::activate, Mockito.times(2));
+            mockedAgent.verify(InstrumentingAgent::deactivate, Mockito.times(2));
+        }
+    }
+
     private static TestInstanceFactoryContext factoryContext(Class<?> testClass) {
         return new TestInstanceFactoryContext() {
             @Override
@@ -365,5 +424,26 @@ public class EvoSuiteExtensionLifecycleTest {
                 return Optional.empty();
             }
         };
+    }
+
+    private static ExtensionContext classContext(Class<?> testClass) {
+        ExtensionContext context = Mockito.mock(ExtensionContext.class);
+        Mockito.when(context.getTestClass()).thenReturn(Optional.of(testClass));
+        Mockito.when(context.getTestMethod()).thenReturn(Optional.empty());
+        return context;
+    }
+
+    private static ExtensionContext methodContext(Class<?> testClass, String methodName) {
+        ExtensionContext context = Mockito.mock(ExtensionContext.class);
+        Method method;
+        try {
+            method = testClass.getDeclaredMethod(methodName);
+        } catch (NoSuchMethodException e) {
+            throw new AssertionError("Missing method '" + methodName + "' on " + testClass.getName(), e);
+        }
+        Mockito.when(context.getTestClass()).thenReturn(Optional.of(testClass));
+        Mockito.when(context.getTestMethod()).thenReturn(Optional.of(method));
+        Mockito.when(context.getRequiredTestMethod()).thenReturn(method);
+        return context;
     }
 }
