@@ -69,11 +69,6 @@ public class ClassStateSupport {
 
         initialiseExternalTools(classLoader, classes);
 
-        // Some runners/tools (eg PIT) can load SUT classes before EvoSuite keeps
-        // the transformer active. Re-transform already loaded classes so mocking
-        // replacements are still applied deterministically.
-        retransformIfNeeded(classes);
-
         if (RuntimeSettings.isUsingAnyMocking()) {
 
             for (Class<?> clazz : classes) {
@@ -86,8 +81,7 @@ public class ClassStateSupport {
                     continue;
                 }
 
-                if (!InstrumentedClass.class.isAssignableFrom(clazz)
-                        && !InstrumentingAgent.getTransformer().isClassAlreadyTransformed(clazz.getName())) {
+                if (!InstrumentedClass.class.isAssignableFrom(clazz)) {
                     String msg = "Class " + clazz.getName() + " was not instrumented by EvoSuite. "
                             + "This could happen if you are running JUnit tests in a way that is not handled "
                             + "by EvoSuite, in "
@@ -231,9 +225,6 @@ public class ClassStateSupport {
         if (classes == null || classes.isEmpty()) {
             return;
         }
-        if (InstrumentingAgent.getInstrumentation() == null) {
-            return;
-        }
 
         List<Class<?>> classToReInstrument = new ArrayList<>();
 
@@ -257,20 +248,19 @@ public class ClassStateSupport {
         }
         */
 
-        InstrumentingAgent.activate();
+        for (Class<?> cl : classes) {
+            if (!InstrumentingAgent.getTransformer().isClassAlreadyTransformed(
+                    cl.getName())) {
+                classToReInstrument.add(cl);
+            }
+        }
+
+        if (classToReInstrument.isEmpty()) {
+            return;
+        }
+
+        InstrumentingAgent.setRetransformingMode(true);
         try {
-            for (Class<?> cl : classes) {
-                if (!InstrumentingAgent.getTransformer().isClassAlreadyTransformed(
-                        cl.getName())) {
-                    classToReInstrument.add(cl);
-                }
-            }
-
-            if (classToReInstrument.isEmpty()) {
-                return;
-            }
-
-            InstrumentingAgent.setRetransformingMode(true);
             if (!classToReInstrument.isEmpty()) {
                 InstrumentingAgent.getInstrumentation().retransformClasses(
                         classToReInstrument.toArray(new Class<?>[0]));
@@ -283,7 +273,8 @@ public class ClassStateSupport {
             logger.error("EvoSuite wrong re-instrumentation: " + e.getMessage());
         } finally {
             InstrumentingAgent.setRetransformingMode(false);
-            InstrumentingAgent.deactivate();
         }
+
+        InstrumentingAgent.deactivate();
     }
 }
