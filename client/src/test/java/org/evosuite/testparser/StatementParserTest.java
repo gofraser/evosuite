@@ -20,8 +20,10 @@
 package org.evosuite.testparser;
 
 import org.evosuite.assertion.Assertion;
+import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.assertion.NullAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
+import org.evosuite.assertion.SameAssertion;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.numeric.*;
@@ -559,6 +561,42 @@ class StatementParserTest {
             assertEquals(1, tc.size());
             assertInstanceOf(ArrayStatement.class, tc.getStatement(0));
         }
+
+        @Test
+        void parseArrayWithVariableDimension() {
+            ParseResult r = parse(
+                    "int n = 5;\n" +
+                    "int[] arr = new int[n];");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+            assertEquals(2, tc.size());
+            assertInstanceOf(ArrayStatement.class, tc.getStatement(1));
+            ArrayStatement arrStmt = (ArrayStatement) tc.getStatement(1);
+            assertEquals(5, arrStmt.size(), "Array should use variable value 5");
+        }
+
+        @Test
+        void parseArrayWithUnresolvableDimensionEmitsWarning() {
+            // Dimension expression is a method call, not a variable — should emit warning
+            ParseResult r = parse(
+                    "ArrayList list = new ArrayList();\n" +
+                    "int[] arr = new int[list.size()];",
+                    List.of("import java.util.*;"));
+            TestCase tc = r.getTestCase();
+            // Should still produce an ArrayStatement (defaulting to 0)
+            boolean foundArray = false;
+            for (int i = 0; i < tc.size(); i++) {
+                if (tc.getStatement(i) instanceof ArrayStatement) {
+                    foundArray = true;
+                }
+            }
+            assertTrue(foundArray, "Should have ArrayStatement even with unresolvable dim:\n" + tc.toCode());
+            // Should have a warning diagnostic about the non-literal dimension
+            assertTrue(r.getDiagnostics().stream()
+                    .anyMatch(d -> d.getMessage().contains("Non-literal array dimension")
+                            || d.getMessage().contains("array dimension")),
+                    "Should warn about non-literal dimension: " + r.getDiagnostics());
+        }
     }
 
     // ========================================================================
@@ -762,6 +800,145 @@ class StatementParserTest {
             }
             assertTrue(foundGet, "Should have a get() method call:\n" + tc.toCode());
         }
+
+        @Test
+        void parseAssertNotEqualsWithTwoVariables() {
+            ParseResult r = parseWithAssertImports(
+                    "ArrayList a = new ArrayList();\n" +
+                    "ArrayList b = new ArrayList();\n" +
+                    "b.add(\"x\");\n" +
+                    "assertNotEquals(a, b);");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            // The last real statement (b.add) or the constructor for b should have
+            // an EqualsAssertion with value=false attached to b's defining statement
+            boolean foundEqualsAssertion = false;
+            for (int i = 0; i < tc.size(); i++) {
+                Statement s = tc.getStatement(i);
+                for (Assertion a : s.getAssertions()) {
+                    if (a instanceof EqualsAssertion) {
+                        assertEquals(false, a.getValue());
+                        foundEqualsAssertion = true;
+                    }
+                }
+            }
+            assertTrue(foundEqualsAssertion,
+                    "Should have EqualsAssertion(false) for assertNotEquals:\n" + tc.toCode());
+        }
+
+        @Test
+        void parseAssertNotEqualsWithLiteralFallsThrough() {
+            // assertNotEquals with a literal expected falls through to InterpretedStatement
+            ParseResult r = parseWithAssertImports(
+                    "int x = 42;\n" +
+                    "assertNotEquals(0, x);");
+            TestCase tc = r.getTestCase();
+            // Should not crash; the assertNotEquals is preserved as InterpretedStatement
+            // since there's no negated PrimitiveAssertion
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+        }
+
+        @Test
+        void parseAssertSame() {
+            ParseResult r = parseWithAssertImports(
+                    "ArrayList a = new ArrayList();\n" +
+                    "ArrayList b = a;\n" +
+                    "assertSame(a, b);");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            boolean foundSame = false;
+            for (int i = 0; i < tc.size(); i++) {
+                for (Assertion a : tc.getStatement(i).getAssertions()) {
+                    if (a instanceof SameAssertion) {
+                        assertEquals(true, a.getValue());
+                        foundSame = true;
+                    }
+                }
+            }
+            assertTrue(foundSame, "Should have SameAssertion(true):\n" + tc.toCode());
+        }
+
+        @Test
+        void parseAssertNotSame() {
+            ParseResult r = parseWithAssertImports(
+                    "ArrayList a = new ArrayList();\n" +
+                    "ArrayList b = new ArrayList();\n" +
+                    "assertNotSame(a, b);");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            boolean foundNotSame = false;
+            for (int i = 0; i < tc.size(); i++) {
+                for (Assertion a : tc.getStatement(i).getAssertions()) {
+                    if (a instanceof SameAssertion) {
+                        assertEquals(false, a.getValue());
+                        foundNotSame = true;
+                    }
+                }
+            }
+            assertTrue(foundNotSame, "Should have SameAssertion(false):\n" + tc.toCode());
+        }
+
+        @Test
+        void parseAssertArrayEqualsPreservedAsInterpreted() {
+            ParseResult r = parseWithAssertImports(
+                    "int[] expected = new int[]{1, 2, 3};\n" +
+                    "int[] actual = new int[]{1, 2, 3};\n" +
+                    "assertArrayEquals(expected, actual);");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            // Should be preserved as InterpretedStatement
+            boolean foundInterpreted = false;
+            for (int i = 0; i < tc.size(); i++) {
+                Statement s = tc.getStatement(i);
+                if (s instanceof InterpretedStatement
+                        && s.getCode().contains("assertArrayEquals")) {
+                    foundInterpreted = true;
+                }
+            }
+            assertTrue(foundInterpreted,
+                    "assertArrayEquals should be preserved as InterpretedStatement:\n" + tc.toCode());
+        }
+
+        @Test
+        void parseAssertThrowsWithBlockLambda() {
+            ParseResult r = parseWithAssertImports(
+                    "ArrayList list = new ArrayList();\n" +
+                    "assertThrows(IndexOutOfBoundsException.class, () -> {\n" +
+                    "    list.get(0);\n" +
+                    "});");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            // Should have: constructor for ArrayList + get() method call from inside lambda
+            boolean foundGet = false;
+            for (int i = 0; i < tc.size(); i++) {
+                Statement s = tc.getStatement(i);
+                if (s instanceof MethodStatement
+                        && ((MethodStatement) s).getMethodName().equals("get")) {
+                    foundGet = true;
+                }
+            }
+            assertTrue(foundGet,
+                    "Lambda body should be parsed — expected get() call:\n" + tc.toCode());
+        }
+
+        @Test
+        void parseAssertThrowsWithExpressionLambda() {
+            ParseResult r = parseWithAssertImports(
+                    "ArrayList list = new ArrayList();\n" +
+                    "assertThrows(IndexOutOfBoundsException.class, () -> list.get(0));");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            boolean foundGet = false;
+            for (int i = 0; i < tc.size(); i++) {
+                Statement s = tc.getStatement(i);
+                if (s instanceof MethodStatement
+                        && ((MethodStatement) s).getMethodName().equals("get")) {
+                    foundGet = true;
+                }
+            }
+            assertTrue(foundGet,
+                    "Expression lambda body should be parsed — expected get() call:\n" + tc.toCode());
+        }
     }
 
     // ========================================================================
@@ -888,6 +1065,47 @@ class StatementParserTest {
             TestCase tc = r.getTestCase();
             InterpretedStatement is = (InterpretedStatement) tc.getStatement(0);
             assertTrue(is.getSourceCode().contains("try"));
+        }
+
+        @Test
+        void logicalNotPreservedAsInterpreted() {
+            ParseResult r = parse(
+                    "boolean a = true;\n" +
+                    "boolean b = !a;");
+            TestCase tc = r.getTestCase();
+            // b should be an InterpretedStatement, not null/crash
+            assertTrue(tc.size() >= 2, "Should have at least 2 statements:\n" + tc.toCode());
+            assertInstanceOf(InterpretedStatement.class, tc.getStatement(1),
+                    "!a should be InterpretedStatement:\n" + tc.toCode());
+        }
+
+        @Test
+        void prefixIncrementPreservedAsInterpreted() {
+            ParseResult r = parse(
+                    "int a = 5;\n" +
+                    "int b = ++a;");
+            TestCase tc = r.getTestCase();
+            assertTrue(tc.size() >= 2, "Should have at least 2 statements:\n" + tc.toCode());
+            assertInstanceOf(InterpretedStatement.class, tc.getStatement(1),
+                    "++a should be InterpretedStatement:\n" + tc.toCode());
+        }
+
+        @Test
+        void lambdaExpressionPreservedAsInterpreted() {
+            // Lambda used as a value (not in assertThrows)
+            ParseResult r = parse(
+                    "Runnable r = () -> System.out.println(\"hello\");",
+                    List.of());
+            TestCase tc = r.getTestCase();
+            assertTrue(tc.size() >= 1, "Should have at least 1 statement:\n" + tc.toCode());
+            // The lambda should become an InterpretedStatement, not a NullStatement
+            boolean foundInterpreted = false;
+            for (int i = 0; i < tc.size(); i++) {
+                if (tc.getStatement(i) instanceof InterpretedStatement) {
+                    foundInterpreted = true;
+                }
+            }
+            assertTrue(foundInterpreted, "Lambda should be InterpretedStatement:\n" + tc.toCode());
         }
     }
 

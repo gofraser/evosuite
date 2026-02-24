@@ -23,6 +23,9 @@ import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
 import org.evosuite.utils.LoggingUtils;
@@ -127,6 +130,16 @@ public class JUnitTestParsedChromosomeFactory implements
             }
         }
 
+        // Filter to tests that reference the target class
+        if (Properties.TARGET_CLASS != null && !parsedTests.isEmpty()) {
+            int beforeFilter = parsedTests.size();
+            parsedTests.removeIf(tc -> !referencesTargetClass(tc, Properties.TARGET_CLASS));
+            if (parsedTests.size() < beforeFilter) {
+                logger.info("Filtered parsed tests from {} to {} (only keeping tests that reference {})",
+                        beforeFilter, parsedTests.size(), Properties.TARGET_CLASS);
+            }
+        }
+
         if (!parsedTests.isEmpty()) {
             LoggingUtils.getEvoLogger().info("* Using {} parsed tests from JUnit source for seeding",
                     parsedTests.size());
@@ -187,6 +200,26 @@ public class JUnitTestParsedChromosomeFactory implements
      */
     public List<TestCase> getParsedTestCases() {
         return parsedTests;
+    }
+
+    /**
+     * Check if a parsed test case references the target class via any
+     * constructor or method call.
+     */
+    private static boolean referencesTargetClass(TestCase tc, String targetClassName) {
+        for (int i = 0; i < tc.size(); i++) {
+            Statement stmt = tc.getStatement(i);
+            if (stmt instanceof ConstructorStatement) {
+                String declClass = ((ConstructorStatement) stmt).getConstructor()
+                        .getDeclaringClass().getCanonicalName();
+                if (targetClassName.equals(declClass)) return true;
+            } else if (stmt instanceof MethodStatement) {
+                String declClass = ((MethodStatement) stmt).getMethod()
+                        .getDeclaringClass().getCanonicalName();
+                if (targetClassName.equals(declClass)) return true;
+            }
+        }
+        return false;
     }
 
     @Override

@@ -22,9 +22,12 @@ package org.evosuite.testparser;
 import com.github.javaparser.ast.ArrayCreationLevel;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
+import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.assertion.NullAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
+import org.evosuite.assertion.SameAssertion;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.statements.*;
@@ -156,7 +159,11 @@ public class StatementParser {
 
             VariableReference varRef = handleExpression(varName, initializer, declaredType);
             if (varRef != null) {
-                scope.register(varName, varRef);
+                GenericClass<?> genericType = null;
+                if (declaredType instanceof java.lang.reflect.ParameterizedType) {
+                    genericType = GenericClassFactory.get(declaredType);
+                }
+                scope.register(varName, varRef, genericType);
             }
         }
     }
@@ -270,6 +277,13 @@ public class StatementParser {
             return handleExpression(varName, ((EnclosedExpr) expr).getInner(), declaredType);
         }
 
+        // Lambda expression: preserve as InterpretedStatement
+        if (expr instanceof LambdaExpr) {
+            addWarning(expr, "Lambda expression preserved as InterpretedStatement");
+            InterpretedStatement stmt = new InterpretedStatement(testCase, expr.toString());
+            return testCase.addStatement(stmt);
+        }
+
         // Unsupported
         addWarning(expr, "Unsupported expression type: " + expr.getClass().getSimpleName());
         return null;
@@ -371,9 +385,10 @@ public class StatementParser {
         if (expr.getOperator() == UnaryExpr.Operator.PLUS) {
             return handleExpression(varName, expr.getExpression(), declaredType);
         }
-        // Other unary operators: fall through to unsupported for now
-        addWarning(expr, "Unsupported unary operator: " + expr.getOperator());
-        return null;
+        // Other unary operators (!, ~, ++, --): preserve as InterpretedStatement
+        addWarning(expr, "Unsupported unary operator preserved as InterpretedStatement: " + expr.getOperator());
+        InterpretedStatement stmt = new InterpretedStatement(testCase, expr.toString());
+        return testCase.addStatement(stmt);
     }
 
     private VariableReference handleNullLiteral(Type declaredType) {
@@ -511,6 +526,7 @@ public class StatementParser {
             case "assertSame":
             case "assertNotSame":
             case "assertArrayEquals":
+            case "assertThrows":
                 return true;
             default:
                 return false;
@@ -547,6 +563,18 @@ public class StatementParser {
                     return;
                 case "assertNotEquals":
                     handleAssertNotEquals(args);
+                    return;
+                case "assertSame":
+                    handleAssertSame(args, true);
+                    return;
+                case "assertNotSame":
+                    handleAssertSame(args, false);
+                    return;
+                case "assertArrayEquals":
+                    handleAssertArrayEquals(assertCall, args);
+                    return;
+                case "assertThrows":
+                    handleAssertThrows(args);
                     return;
                 default:
                     break;
@@ -647,9 +675,141 @@ public class StatementParser {
     }
 
     private void handleAssertNotEquals(List<Expression> args) {
-        // For now, preserve as InterpretedStatement — EvoSuite doesn't have a direct
-        // "assertNotEquals" assertion type
-        // This is a simplification; we could model it but it's rarely needed
+        if (args.size() < 2) return;
+
+        // Same arg-parsing logic as handleAssertEquals
+        Expression expectedExpr;
+        Expression actualExpr;
+
+        if (args.size() == 2) {
+            expectedExpr = args.get(0);
+            actualExpr = args.get(1);
+        } else if (args.size() == 3) {
+            if (args.get(0) instanceof StringLiteralExpr) {
+                expectedExpr = args.get(1);
+                actualExpr = args.get(2);
+            } else {
+                expectedExpr = args.get(0);
+                actualExpr = args.get(1);
+            }
+        } else if (args.size() == 4) {
+            expectedExpr = args.get(1);
+            actualExpr = args.get(2);
+        } else {
+            return;
+        }
+
+        VariableReference actualRef = resolveAssertionVariable(actualExpr);
+        if (actualRef == null) return;
+
+        // If expected is a literal, use PrimitiveAssertion — the getCode() for
+        // EqualsAssertion with value=false emits assertFalse(a.equals(b)) which
+        // is not ideal for primitive literals. Instead we skip (no direct
+        // PrimitiveAssertion negation exists). Fall through to InterpretedStatement.
+        Object expectedValue = extractLiteralValue(expectedExpr);
+        if (expectedValue != null) {
+            // No negated PrimitiveAssertion in EvoSuite; let the default fallback handle it
+            return;
+        }
+
+        // Both are variables — use EqualsAssertion with value=false
+        VariableReference expectedRef = resolveAssertionVariable(expectedExpr);
+        if (expectedRef == null) return;
+
+        EqualsAssertion assertion = new EqualsAssertion();
+        assertion.setSource(actualRef);
+        assertion.setDest(expectedRef);
+        assertion.setValue(false);
+        attachAssertionToSource(actualRef, assertion);
+    }
+
+    /**
+     * assertSame(expected, actual) / assertNotSame(expected, actual).
+     * Uses SameAssertion with value=true for same, false for notSame.
+     */
+    private void handleAssertSame(List<Expression> args, boolean same) {
+        if (args.size() < 2) return;
+
+        Expression expectedExpr;
+        Expression actualExpr;
+
+        if (args.size() == 2) {
+            expectedExpr = args.get(0);
+            actualExpr = args.get(1);
+        } else if (args.size() == 3) {
+            // 3-arg: message first (JUnit4) or message last (JUnit5)
+            if (args.get(0) instanceof StringLiteralExpr) {
+                expectedExpr = args.get(1);
+                actualExpr = args.get(2);
+            } else {
+                expectedExpr = args.get(0);
+                actualExpr = args.get(1);
+            }
+        } else {
+            return;
+        }
+
+        VariableReference actualRef = resolveAssertionVariable(actualExpr);
+        VariableReference expectedRef = resolveAssertionVariable(expectedExpr);
+        if (actualRef == null || expectedRef == null) return;
+
+        SameAssertion assertion = new SameAssertion();
+        assertion.setSource(actualRef);
+        assertion.setDest(expectedRef);
+        assertion.setValue(same);
+        attachAssertionToSource(actualRef, assertion);
+    }
+
+    /**
+     * assertArrayEquals — preserved as InterpretedStatement since EvoSuite's
+     * ArrayEqualsAssertion requires runtime trace data we don't have from source.
+     */
+    private void handleAssertArrayEquals(MethodCallExpr assertCall, List<Expression> args) {
+        // Materialize any inline method call arguments so they become real statements
+        for (Expression arg : args) {
+            if (arg instanceof MethodCallExpr) {
+                handleMethodCall((MethodCallExpr) arg, null);
+            }
+        }
+        testCase.addStatement(new InterpretedStatement(testCase, assertCall.toString() + ";"));
+    }
+
+    /**
+     * assertThrows(ExceptionClass.class, () -> { ... }) — extract the lambda body
+     * as regular statements. The exception class is noted but not modeled as an
+     * assertion since EvoSuite doesn't have a direct exception-assertion type.
+     * Handles both block lambdas and expression lambdas.
+     */
+    private void handleAssertThrows(List<Expression> args) {
+        if (args.size() < 2) return;
+
+        // Find the lambda argument (could be arg 1 in 2-arg form, or arg 2 in 3-arg with message)
+        LambdaExpr lambda = null;
+        for (Expression arg : args) {
+            if (arg instanceof LambdaExpr) {
+                lambda = (LambdaExpr) arg;
+                break;
+            }
+        }
+
+        if (lambda == null) {
+            // No lambda found — maybe it's a method reference or variable; preserve as interpreted
+            return;
+        }
+
+        // Parse the lambda body as regular statements
+        com.github.javaparser.ast.stmt.Statement body = lambda.getBody();
+        if (body instanceof BlockStmt) {
+            for (com.github.javaparser.ast.stmt.Statement stmt : ((BlockStmt) body).getStatements()) {
+                parseStatement(stmt);
+            }
+        } else if (body instanceof ExpressionStmt) {
+            handleExpressionStatement(((ExpressionStmt) body).getExpression());
+        } else {
+            // Single expression lambda: () -> expr
+            // The body is an ExpressionStmt wrapping the expression
+            parseStatement(body);
+        }
     }
 
     /**
@@ -876,8 +1036,29 @@ public class StatementParser {
                     Expression dimExpr = levels.get(i).getDimension().get();
                     if (dimExpr instanceof IntegerLiteralExpr) {
                         lengths[i] = ((IntegerLiteralExpr) dimExpr).asNumber().intValue();
+                    } else if (dimExpr instanceof NameExpr) {
+                        // Try to resolve variable dimension from scope
+                        VariableReference dimRef = scope.resolve(((NameExpr) dimExpr).getNameAsString());
+                        if (dimRef != null) {
+                            Statement dimStmt = testCase.getStatement(dimRef.getStPosition());
+                            if (dimStmt instanceof PrimitiveStatement) {
+                                Object val = ((PrimitiveStatement<?>) dimStmt).getValue();
+                                if (val instanceof Number) {
+                                    lengths[i] = ((Number) val).intValue();
+                                } else {
+                                    addWarning(dimExpr, "Non-numeric array dimension variable, defaulting to 0");
+                                    lengths[i] = 0;
+                                }
+                            } else {
+                                addWarning(dimExpr, "Non-literal array dimension, defaulting to 0: " + dimExpr);
+                                lengths[i] = 0;
+                            }
+                        } else {
+                            addWarning(dimExpr, "Unresolved array dimension variable, defaulting to 0: " + dimExpr);
+                            lengths[i] = 0;
+                        }
                     } else {
-                        // Non-literal dimension — default to 0
+                        addWarning(dimExpr, "Non-literal array dimension, defaulting to 0: " + dimExpr);
                         lengths[i] = 0;
                     }
                 }
