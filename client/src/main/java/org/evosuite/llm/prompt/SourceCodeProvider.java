@@ -1,0 +1,77 @@
+package org.evosuite.llm.prompt;
+
+import org.evosuite.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Optional;
+
+/**
+ * Locates source code for the CUT so it can be included in prompt context.
+ */
+public class SourceCodeProvider {
+
+    private static final Logger logger = LoggerFactory.getLogger(SourceCodeProvider.class);
+    private static final long MAX_SOURCE_FILE_BYTES = 524_288L;
+
+    private final Path projectRoot;
+
+    public SourceCodeProvider() {
+        this(Paths.get(System.getProperty("user.dir")));
+    }
+
+    public SourceCodeProvider(Path projectRoot) {
+        this.projectRoot = projectRoot;
+    }
+
+    public Optional<String> getSourceCode(String className) {
+        Path configured = configuredSourcePath();
+        if (configured != null) {
+            return readFile(configured);
+        }
+
+        Path inferred = inferSourcePath(className);
+        if (inferred != null) {
+            return readFile(inferred);
+        }
+        return Optional.empty();
+    }
+
+    private Path configuredSourcePath() {
+        String configuredPath = Properties.LLM_SOURCE_PATH == null ? "" : Properties.LLM_SOURCE_PATH.trim();
+        if (configuredPath.isEmpty()) {
+            return null;
+        }
+        return Paths.get(configuredPath);
+    }
+
+    private Path inferSourcePath(String className) {
+        if (className == null || className.trim().isEmpty()) {
+            return null;
+        }
+        String relative = className.replace('.', '/') + ".java";
+        Path candidate = projectRoot.resolve("src/main/java").resolve(relative);
+        return Files.isRegularFile(candidate) ? candidate : null;
+    }
+
+    private Optional<String> readFile(Path path) {
+        if (path == null || !Files.isRegularFile(path)) {
+            return Optional.empty();
+        }
+        try {
+            long fileSize = Files.size(path);
+            if (fileSize > MAX_SOURCE_FILE_BYTES) {
+                logger.warn("Skipping source file {} because size {} exceeds {}", path, fileSize, MAX_SOURCE_FILE_BYTES);
+                return Optional.empty();
+            }
+            return Optional.of(new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
+        } catch (IOException ignored) {
+            return Optional.empty();
+        }
+    }
+}

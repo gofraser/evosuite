@@ -1588,6 +1588,172 @@ public class Properties {
     public static VariableNamingStrategy VARIABLE_NAMING_STRATEGY = VariableNamingStrategy.TYPE_BASED;
 
     // ---------------------------------------------------------------
+    // LLM
+
+    public enum LlmProvider {
+        NONE, OPENAI, OLLAMA, ANTHROPIC
+    }
+
+    @Parameter(key = "llm_provider", group = "LLM",
+            description = "LLM provider to use. NONE disables all LLM features")
+    public static LlmProvider LLM_PROVIDER = LlmProvider.NONE;
+
+    @Parameter(key = "llm_model", group = "LLM",
+            description = "Model name for the configured provider")
+    public static String LLM_MODEL = "gpt-4o";
+
+    @Parameter(key = "llm_api_key", group = "LLM",
+            description = "API key for provider-authenticated LLM services")
+    public static String LLM_API_KEY = "";
+
+    @Parameter(key = "llm_base_url", group = "LLM",
+            description = "Base URL for LLM APIs (required for local providers like Ollama)")
+    public static String LLM_BASE_URL = "";
+
+    @Parameter(key = "llm_temperature", group = "LLM",
+            description = "Sampling temperature for LLM generations")
+    @DoubleValue(min = 0.0, max = 2.0)
+    public static double LLM_TEMPERATURE = 0.7;
+
+    @Parameter(key = "llm_max_tokens", group = "LLM",
+            description = "Maximum output tokens per LLM response")
+    @IntValue(min = 1)
+    public static int LLM_MAX_TOKENS = 4096;
+
+    @Parameter(key = "llm_timeout_seconds", group = "LLM",
+            description = "Timeout in seconds for each LLM request attempt")
+    @IntValue(min = 1)
+    public static int LLM_TIMEOUT_SECONDS = 60;
+
+    @Parameter(key = "llm_retry_max_attempts", group = "LLM",
+            description = "Retry count for retryable LLM failures")
+    @IntValue(min = 0)
+    public static int LLM_RETRY_MAX_ATTEMPTS = 2;
+
+    @Parameter(key = "llm_retry_base_delay_ms", group = "LLM",
+            description = "Base delay in milliseconds for exponential retry backoff")
+    @IntValue(min = 1)
+    public static int LLM_RETRY_BASE_DELAY_MS = 250;
+
+    public enum LlmPromptTechnique {
+        NONE, CHAIN_OF_THOUGHT, FEW_SHOT
+    }
+
+    @Parameter(key = "llm_prompt_technique", group = "LLM",
+            description = "Prompting technique used across LLM requests")
+    public static LlmPromptTechnique LLM_PROMPT_TECHNIQUE = LlmPromptTechnique.NONE;
+
+    @Parameter(key = "llm_source_path", group = "LLM",
+            description = "Optional explicit source path for including SUT source code in prompts")
+    public static String LLM_SOURCE_PATH = "";
+
+    @Parameter(key = "llm_seed_initial_population", group = "LLM",
+            description = "Seed the initial population with LLM-generated tests")
+    public static boolean LLM_SEED_INITIAL_POPULATION = false;
+
+    @Parameter(key = "llm_seed_count", group = "LLM",
+            description = "Number of LLM-generated tests to inject into the initial population")
+    @IntValue(min = 1)
+    public static int LLM_SEED_COUNT = 5;
+
+    @Parameter(key = "llm_test_factory", group = "LLM",
+            description = "Enable LLM-based test factory generation")
+    public static boolean LLM_TEST_FACTORY = false;
+
+    @Parameter(key = "llm_test_factory_probability", group = "LLM",
+            description = "Probability of selecting the LLM test factory when enabled")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double LLM_TEST_FACTORY_PROBABILITY = 0.1;
+
+    @Parameter(key = "llm_async_producer", group = "LLM",
+            description = "Enable asynchronous LLM test production")
+    public static boolean LLM_ASYNC_PRODUCER = false;
+
+    @Parameter(key = "llm_async_producer_queue_size", group = "LLM",
+            description = "Maximum number of buffered tests in async LLM producer")
+    @IntValue(min = 1)
+    public static int LLM_ASYNC_PRODUCER_QUEUE_SIZE = 10;
+
+    @Parameter(key = "llm_async_producer_delay_ms", group = "LLM",
+            description = "Minimum delay between async LLM calls in milliseconds")
+    @IntValue(min = 0)
+    public static int LLM_ASYNC_PRODUCER_DELAY_MS = 0;
+
+    @Parameter(key = "llm_async_producer_refresh_interval", group = "LLM",
+            description = "How often async producer refreshes prompt context")
+    @IntValue(min = 1)
+    public static int LLM_ASYNC_PRODUCER_REFRESH_INTERVAL = 5;
+
+    @Parameter(key = "llm_on_stagnation", group = "LLM",
+            description = "Trigger LLM generation when search stagnates")
+    public static boolean LLM_ON_STAGNATION = false;
+
+    @Parameter(key = "llm_stagnation_generations", group = "LLM",
+            description = "Generations without progress before stagnation intervention")
+    @IntValue(min = 1)
+    public static int LLM_STAGNATION_GENERATIONS = 50;
+
+    @Parameter(key = "llm_stagnation_tests", group = "LLM",
+            description = "Number of tests requested per stagnation intervention")
+    @IntValue(min = 1)
+    public static int LLM_STAGNATION_TESTS = 3;
+
+    @Parameter(key = "llm_local_search", group = "LLM",
+            description = "Enable LLM-assisted local search")
+    public static boolean LLM_LOCAL_SEARCH = false;
+
+    @Parameter(key = "llm_local_search_probability", group = "LLM",
+            description = "Probability of using LLM local search when local search runs")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double LLM_LOCAL_SEARCH_PROBABILITY = 0.1;
+
+    @Parameter(key = "llm_enrich_constant_pool", group = "LLM",
+            description = "Enable LLM enrichment of constant pools")
+    public static boolean LLM_ENRICH_CONSTANT_POOL = false;
+
+    @Parameter(key = "llm_enrich_object_pool", group = "LLM",
+            description = "Enable LLM enrichment of object pools")
+    public static boolean LLM_ENRICH_OBJECT_POOL = false;
+
+    @Parameter(key = "llm_rename_tests", group = "LLM",
+            description = "Enable LLM-generated test naming")
+    public static boolean LLM_RENAME_TESTS = false;
+
+    @Parameter(key = "llm_rename_variables", group = "LLM",
+            description = "Enable LLM-generated variable naming")
+    public static boolean LLM_RENAME_VARIABLES = false;
+
+    @Parameter(key = "llm_assertions", group = "LLM",
+            description = "Enable LLM assertion generation")
+    public static boolean LLM_ASSERTIONS = false;
+
+    @Parameter(key = "llm_niceify_literals", group = "LLM",
+            description = "Enable LLM-guided literal readability improvements")
+    public static boolean LLM_NICEIFY_LITERALS = false;
+
+    @Parameter(key = "llm_repair_attempts", group = "LLM",
+            description = "Maximum repair attempts for malformed LLM output")
+    @IntValue(min = 0)
+    public static int LLM_REPAIR_ATTEMPTS = 3;
+
+    @Parameter(key = "llm_expand_cluster_on_demand", group = "LLM",
+            description = "Expand test cluster for resolvable classpath symbols referenced by LLM output")
+    public static boolean LLM_EXPAND_CLUSTER_ON_DEMAND = true;
+
+    @Parameter(key = "llm_max_calls", group = "LLM",
+            description = "Maximum number of LLM calls per run (0 means unlimited)")
+    @IntValue(min = 0)
+    public static int LLM_MAX_CALLS = 0;
+
+    @Parameter(key = "llm_trace_enabled", group = "LLM",
+            description = "Enable reproducibility traces for LLM interactions")
+    public static boolean LLM_TRACE_ENABLED = false;
+
+    @Parameter(key = "llm_trace_dir", group = "LLM",
+            description = "Directory for LLM trace artifacts")
+    public static String LLM_TRACE_DIR = "";
+
+    // ---------------------------------------------------------------
     // Sandbox
     @Parameter(key = "sandbox", group = "Sandbox", description = "Execute tests in a sandbox environment")
     public static boolean SANDBOX = true;
