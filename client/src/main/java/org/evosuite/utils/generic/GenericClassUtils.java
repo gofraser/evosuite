@@ -142,6 +142,9 @@ public class GenericClassUtils {
             return false;
         }
         Class<?> rawClass = (Class<?>) parameterizedType.getRawType();
+        if (Class.class.equals(rawClass)) {
+            return false;
+        }
 
         boolean hasTypeVariableArgument = false;
         for (Type argument : parameterizedType.getActualTypeArguments()) {

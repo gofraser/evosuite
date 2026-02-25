@@ -945,4 +945,57 @@ public class TestGenericClassImpl {
         GenericClass<?> candidate = GenericClassFactory.get(classOfString);
         Assertions.assertFalse(candidate.satisfiesBoundaries(wildcard));
     }
+
+    @Test
+    public void testAssignableComplexWildcards() {
+        Type listExtNumber = new ParameterizedTypeImpl(List.class,
+                new Type[]{new WildcardTypeImpl(new Type[]{Number.class}, new Type[]{})}, null);
+        Type listExtInteger = new ParameterizedTypeImpl(List.class,
+                new Type[]{new WildcardTypeImpl(new Type[]{Integer.class}, new Type[]{})}, null);
+
+        GenericClass<?> gcExtNumber = GenericClassFactory.get(listExtNumber);
+        GenericClass<?> gcExtInteger = GenericClassFactory.get(listExtInteger);
+
+        // List<? extends Number> is assignable from List<? extends Integer>
+        Assertions.assertTrue(gcExtNumber.isAssignableFrom(gcExtInteger));
+        // List<? extends Integer> is NOT assignable from List<? extends Number>
+        Assertions.assertFalse(gcExtInteger.isAssignableFrom(gcExtNumber));
+    }
+
+    @Test
+    public void testAssignableArrays() {
+        GenericClass<?> stringArray = GenericClassFactory.get(String[].class);
+        GenericClass<?> objectArray = GenericClassFactory.get(Object[].class);
+        GenericClass<?> intArray = GenericClassFactory.get(int[].class);
+        GenericClass<?> integerArray = GenericClassFactory.get(Integer[].class);
+
+        Assertions.assertTrue(stringArray.isAssignableTo(objectArray));
+        Assertions.assertFalse(objectArray.isAssignableTo(stringArray));
+
+        Assertions.assertFalse(intArray.isAssignableTo(objectArray));
+        Assertions.assertFalse(intArray.isAssignableTo(integerArray));
+        Assertions.assertFalse(integerArray.isAssignableTo(intArray));
+    }
+
+    @Test
+    public void testAssignableInterfaceInheritance() {
+        Type listOfString = new ParameterizedTypeImpl(List.class, new Type[]{String.class}, null);
+        Type iterableOfString = new ParameterizedTypeImpl(Iterable.class, new Type[]{String.class}, null);
+        Type collectionOfObject = new ParameterizedTypeImpl(Collection.class, new Type[]{Object.class}, null);
+
+        GenericClass<?> gcList = GenericClassFactory.get(listOfString);
+        GenericClass<?> gcIterable = GenericClassFactory.get(iterableOfString);
+        GenericClass<?> gcCollectionObject = GenericClassFactory.get(collectionOfObject);
+
+        Assertions.assertTrue(gcList.isAssignableTo(gcIterable));
+        Assertions.assertFalse(gcList.isAssignableTo(gcCollectionObject));
+    }
+
+    @Test
+    public void testAssignableRecursiveBounds() {
+        // Enum<E extends Enum<E>>
+        GenericClass<?> enumClass = GenericClassFactory.get(Enum.class);
+        // Runtime enums should be assignable to Enum
+        Assertions.assertTrue(enumClass.getRawClass().isAssignableFrom(java.util.concurrent.TimeUnit.class));
+    }
 }
