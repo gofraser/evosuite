@@ -61,6 +61,7 @@ public class MavenPluginIT {
         verifier.executeGoal("clean");
 
         for(Path p : Arrays.asList(projects,simple,dependency,env,coverage,extension)){
+            FileUtils.deleteDirectory(getESFolder(p).toFile());
             FileUtils.deleteDirectory(p.resolve(srcEvo).toFile());
             FileUtils.deleteQuietly(p.resolve("log.txt").toFile());
             FileUtils.deleteQuietly(p.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
@@ -486,8 +487,27 @@ public class MavenPluginIT {
     @Test
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testPitWithEnv() throws Exception{
+        assumeLegacyPitEnvSupported();
         testVerfiyWithEnv("pit");
         verifyPitFolderExists(env);
+    }
+
+    @Test
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testPitWithEnvExtensionMode() throws Exception {
+        String cut = "org.maven_test_project.xm.ExtensionEnvTarget";
+
+        Verifier verifier = getVerifier(extension);
+        addGenerateAndExportOption(verifier);
+        addExtensionModeArgs(verifier);
+        verifier.addCliOption("-Dcuts=" + cut);
+        verifier.addCliOption("-Ppit");
+        verifier.executeGoal("verify");
+
+        verifyLogFilesExist(extension, cut);
+        verifyESTestsRunFor(verifier, cut);
+        verifyGeneratedExtensionTestExists(extension, "ExtensionEnvTarget_ESTest");
+        verifyPitFolderExists(extension);
     }
 
 
@@ -622,6 +642,13 @@ public class MavenPluginIT {
                 "JMockit coverage agent is not reliable on this JDK. Detected feature version: " + feature);
     }
 
+    private static void assumeLegacyPitEnvSupported() {
+        int feature = Runtime.version().feature();
+        Assumptions.assumeTrue(feature <= 17,
+                "Legacy JUnit4 listener-based EnvModule + PIT is not reliable on this JDK. "
+                        + "Use extension-mode Env PIT coverage instead. Detected feature version: " + feature);
+    }
+
     private void verifyLogFilesExist(Path targetProject, String className) throws Exception{
         Path dir = getESFolder(targetProject);
         Path tmp = Files.find(dir,1, (p,a) -> p.getFileName().toString().startsWith("tmp_")).findFirst().get();
@@ -644,10 +671,17 @@ public class MavenPluginIT {
                 .resolve("maven_test_project")
                 .resolve("xm")
                 .resolve(generatedSimpleName + ".java");
+        Path generatedScaffolding = targetProject.resolve(srcEvo)
+                .resolve("org")
+                .resolve("maven_test_project")
+                .resolve("xm")
+                .resolve(generatedSimpleName + "_scaffolding.java");
         assertTrue(Files.exists(generated));
         String code = Files.readString(generated);
         assertTrue(code.contains("@RegisterExtension"));
         assertTrue(code.contains("EvoSuiteExtension"));
+        assertFalse(code.contains("extends " + generatedSimpleName + "_scaffolding"));
+        assertFalse(Files.exists(generatedScaffolding));
     }
 
     private Path getESFolder(Path project){
