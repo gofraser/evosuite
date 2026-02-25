@@ -21,7 +21,7 @@ import java.util.List;
  * logging and system properties.
  * </p>
  */
-final class ExecutionModeUtils {
+public final class ExecutionModeUtils {
 
     /**
      * Private constructor to prevent instantiation of this utility class.
@@ -256,7 +256,7 @@ final class ExecutionModeUtils {
      *
      * @param cmdLine The list of command line arguments to modify.
      */
-    static void addCommonModuleOpens(List<String> cmdLine) {
+    public static void addCommonModuleOpens(List<String> cmdLine) {
         if (getJavaMajorVersion() < 9) {
             return;
         }
