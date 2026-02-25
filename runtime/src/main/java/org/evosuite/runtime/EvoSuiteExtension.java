@@ -31,7 +31,6 @@ import org.evosuite.runtime.thread.KillSwitchHandler;
 import org.evosuite.runtime.thread.ThreadStopper;
 import org.evosuite.runtime.util.JOptionPaneInputs;
 import org.evosuite.runtime.util.SystemInUtil;
-import org.evosuite.runtime.vfs.VirtualFileSystem;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -53,8 +52,8 @@ import java.util.regex.Pattern;
 
 /**
  * Experimental JUnit 5 extension entry point for EvoSuite-generated tests.
- * <p>
- * This extension centralizes runtime lifecycle handling and avoids metadata-file
+ *
+ * <p>This extension centralizes runtime lifecycle handling and avoids metadata-file
  * based initialization by inferring reset/init candidates from test class names.
  */
 public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback, BeforeEachCallback,
@@ -69,10 +68,21 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
     private final ThreadStopper threadStopper;
     private final String[] classesToInitialize;
 
+    /**
+     * Create a new EvoSuite extension for the given test class.
+     *
+     * @param testClass the test class.
+     */
     public EvoSuiteExtension(Class<?> testClass) {
         this(testClass, new String[0]);
     }
 
+    /**
+     * Create a new EvoSuite extension for the given test class.
+     *
+     * @param testClass the test class.
+     * @param explicitClassesToInitialize classes to explicitly initialize.
+     */
     public EvoSuiteExtension(Class<?> testClass, String... explicitClassesToInitialize) {
         this.testClass = testClass;
         EvoRunnerParameters parameters = configureRuntimeSettings(testClass);
@@ -82,7 +92,8 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         threadsToIgnore.add("pit");
         threadsToIgnore.add("surefire");
         threadsToIgnore.add("AWT-EventQueue");
-        this.threadStopper = new ThreadStopper(KillSwitchHandler.getInstance(), parameters.timeout(), threadsToIgnore.toArray(new String[0]));
+        this.threadStopper = new ThreadStopper(KillSwitchHandler.getInstance(), parameters.timeout(),
+                threadsToIgnore.toArray(new String[0]));
         this.classesToInitialize = resolveClassesToInitialize(testClass, explicitClassesToInitialize);
     }
 
@@ -167,7 +178,8 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
             failure = e;
         } finally {
             if (RuntimeSettings.mockJVMNonDeterminism) {
-                failure = recordFailureOrSuppress(failure, () -> ShutdownHookHandler.getInstance().safeExecuteAddedHooks());
+                failure = recordFailureOrSuppress(failure,
+                        () -> ShutdownHookHandler.getInstance().safeExecuteAddedHooks());
             }
             if (RuntimeSettings.resetStaticState) {
                 failure = recordFailureOrSuppress(failure, JDKClassResetter::reset);
@@ -313,7 +325,8 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         }
         try {
             Class<?> systemMockFramework = Class.forName("org.evosuite.runtime.mock.MockFramework", true, systemLoader);
-            Method m = systemMockFramework.getMethod(org.evosuite.runtime.mock.MockFramework.isEnabled() ? "enable" : "disable");
+            String methodName = org.evosuite.runtime.mock.MockFramework.isEnabled() ? "enable" : "disable";
+            Method m = systemMockFramework.getMethod(methodName);
             m.invoke(null);
         } catch (Exception e) {
             logger.warn("Could not synchronize MockFramework state to system classloader: {}", e.getMessage());
