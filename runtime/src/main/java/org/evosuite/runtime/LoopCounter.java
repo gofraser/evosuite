@@ -34,7 +34,13 @@ import java.util.List;
  */
 public class LoopCounter {
 
-    private static final LoopCounter singleton = new LoopCounter();
+    private static LoopCounter singleton = new LoopCounter();
+
+    private Object delegate;
+
+    public void setDelegate(Object delegate) {
+        this.delegate = delegate;
+    }
 
     private boolean activated = true;
 
@@ -53,14 +59,25 @@ public class LoopCounter {
     }
 
     public void reset() {
+        if (delegate != null) {
+            invokeDelegate("reset");
+            return;
+        }
         counters.clear();
     }
 
     public void setActive(boolean active) {
+        if (delegate != null) {
+            invokeDelegate("setActive", active);
+            return;
+        }
         this.activated = active;
     }
 
     public boolean isActivated() {
+        if (delegate != null) {
+            return (Boolean) invokeDelegate("isActivated");
+        }
         return activated;
     }
 
@@ -71,6 +88,9 @@ public class LoopCounter {
      * @return the next valid index for a new loop
      */
     public int getNewIndex() {
+        if (delegate != null) {
+            return (Integer) invokeDelegate("getNewIndex");
+        }
         int index = counters.size();
         counters.add(0L);
         return index;
@@ -86,6 +106,22 @@ public class LoopCounter {
      * @throws java.lang.IllegalArgumentException if any.
      */
     public void checkLoop(int index) throws TooManyResourcesException, IllegalArgumentException {
+        if (delegate != null) {
+            try {
+                java.lang.reflect.Method m = delegate.getClass().getMethod("checkLoop", int.class);
+                m.invoke(delegate, index);
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                if (e.getCause() instanceof TooManyResourcesException) {
+                    throw (TooManyResourcesException) e.getCause();
+                }
+                if (e.getCause() instanceof IllegalArgumentException) {
+                    throw (IllegalArgumentException) e.getCause();
+                }
+            } catch (Exception e) {
+                // Ignore
+            }
+            return;
+        }
         if (index < 0) {
             throw new IllegalArgumentException("Loop index cannot be negative");
         }
@@ -132,5 +168,24 @@ public class LoopCounter {
             }
         }
         return false;
+    }
+
+    private Object invokeDelegate(String methodName, Object... args) {
+        try {
+            Class<?>[] argTypes = new Class<?>[args.length];
+            for (int i = 0; i < args.length; i++) {
+                if (args[i] instanceof Boolean) {
+                    argTypes[i] = boolean.class;
+                } else if (args[i] instanceof Integer) {
+                    argTypes[i] = int.class;
+                } else {
+                    argTypes[i] = args[i].getClass();
+                }
+            }
+            java.lang.reflect.Method m = delegate.getClass().getMethod(methodName, argTypes);
+            return m.invoke(delegate, args);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -143,7 +143,12 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
                     found = true;
                 }
             }
-            if (!found) {
+            if (!found && !canChangeSignature) {
+                // We are retransforming, but interface is missing. This is a problem.
+                logger.error("Class " + name + " is being retransformed for mocking but does not have InstrumentedClass interface!");
+            }
+
+            if (!found && canChangeSignature) {
                 logger.info("Adding mock interface to class " + name);
                 String[] mockedInterfaces = Arrays.copyOf(interfaces, interfaces.length + 1);
                 mockedInterfaces[interfaces.length] = InstrumentedClass.class.getCanonicalName().replace('.', '/');

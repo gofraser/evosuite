@@ -109,7 +109,7 @@ public class AgentLoader {
             String causeDescription = cause == null ? "" : " , cause " + cause.getClass() + " " + cause.getMessage();
             logger.error("Exception " + e.getClass() + ": " + e.getMessage() + causeDescription, e);
             try {
-                Thread.sleep(5000);
+                Thread.sleep(1000);
                 String msg = "Trying again to attach agent:" + jarFilePath + "\n";
                 msg += "VM: " + nameOfRunningVM + "\n";
                 msg += "PID: " + pid + "\n";
@@ -118,6 +118,7 @@ public class AgentLoader {
                 attachAgent(pid, jarFilePath, toolLoader);
 
             } catch (Exception e2) {
+                logger.error("Failed to attach agent even after retry: " + e2.getMessage(), e2);
                 throw new RuntimeException(e2);
             }
         }

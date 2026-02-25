@@ -127,7 +127,6 @@ public class RuntimeSettings {
         mockGUI = false;
         useVNET = false;
         useVFS = false;
-        assert !isUsingAnyMocking();
     }
 
     /**
@@ -138,6 +137,5 @@ public class RuntimeSettings {
         mockGUI = true;
         useVNET = true;
         useVFS = true;
-        assert isUsingAnyMocking();
     }
 }

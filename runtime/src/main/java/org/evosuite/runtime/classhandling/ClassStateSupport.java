@@ -22,6 +22,7 @@ package org.evosuite.runtime.classhandling;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.agent.InstrumentingAgent;
+import org.evosuite.runtime.agent.TransformerForTests;
 import org.evosuite.runtime.instrumentation.InstrumentedClass;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.AtMostOnceLogger;
@@ -248,9 +249,19 @@ public class ClassStateSupport {
         }
         */
 
+        TransformerForTests transformer;
+        try {
+            transformer = InstrumentingAgent.getTransformer();
+        } catch (RuntimeException e) {
+            // Transformer not available — nothing to retransform
+            return;
+        }
+        if (transformer == null) {
+            return;
+        }
+
         for (Class<?> cl : classes) {
-            if (!InstrumentingAgent.getTransformer().isClassAlreadyTransformed(
-                    cl.getName())) {
+            if (!transformer.isClassAlreadyTransformed(cl.getName())) {
                 classToReInstrument.add(cl);
             }
         }
@@ -259,10 +270,23 @@ public class ClassStateSupport {
             return;
         }
 
+        java.lang.instrument.Instrumentation instrumentation = InstrumentingAgent.getInstrumentation();
+        if (instrumentation == null) {
+            // Agent was not successfully attached — cannot retransform
+            return;
+        }
+
+        // Ensure the transformer is active so that retransformClasses() actually
+        // applies instrumentation.  We only touch the transformer flag, leaving
+        // MockFramework untouched (the caller decides when mocking should be live).
+        boolean wasActive = transformer.isActive();
+        if (!wasActive) {
+            transformer.activate();
+        }
         InstrumentingAgent.setRetransformingMode(true);
         try {
             if (!classToReInstrument.isEmpty()) {
-                InstrumentingAgent.getInstrumentation().retransformClasses(
+                instrumentation.retransformClasses(
                         classToReInstrument.toArray(new Class<?>[0]));
             }
         } catch (UnmodifiableClassException e) {
@@ -273,8 +297,9 @@ public class ClassStateSupport {
             logger.error("EvoSuite wrong re-instrumentation: " + e.getMessage());
         } finally {
             InstrumentingAgent.setRetransformingMode(false);
+            if (!wasActive) {
+                transformer.deactivate();
+            }
         }
-
-        InstrumentingAgent.deactivate();
     }
 }

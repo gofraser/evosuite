@@ -20,15 +20,18 @@
 package org.evosuite.runtime;
 
 import org.evosuite.runtime.agent.InstrumentingAgent;
+import org.evosuite.runtime.agent.TransformerForTests;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.classhandling.ClassStateSupport;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
+import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
 import org.evosuite.runtime.jvm.ShutdownHookHandler;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.thread.KillSwitchHandler;
 import org.evosuite.runtime.thread.ThreadStopper;
 import org.evosuite.runtime.util.JOptionPaneInputs;
 import org.evosuite.runtime.util.SystemInUtil;
+import org.evosuite.runtime.vfs.VirtualFileSystem;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -41,6 +44,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -70,8 +75,14 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
 
     public EvoSuiteExtension(Class<?> testClass, String... explicitClassesToInitialize) {
         this.testClass = testClass;
-        configureRuntimeSettings(testClass);
-        this.threadStopper = new ThreadStopper(KillSwitchHandler.getInstance(), 5_000);
+        EvoRunnerParameters parameters = configureRuntimeSettings(testClass);
+        Set<String> threadsToIgnore = new LinkedHashSet<>(Arrays.asList(parameters.ignoreThreads()));
+        // Common test runner threads to ignore
+        threadsToIgnore.add("junit");
+        threadsToIgnore.add("pit");
+        threadsToIgnore.add("surefire");
+        threadsToIgnore.add("AWT-EventQueue");
+        this.threadStopper = new ThreadStopper(KillSwitchHandler.getInstance(), parameters.timeout(), threadsToIgnore.toArray(new String[0]));
         this.classesToInitialize = resolveClassesToInitialize(testClass, explicitClassesToInitialize);
     }
 
@@ -92,7 +103,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
 
     @Override
     public void beforeAll(ExtensionContext context) {
-        RuntimeSettings.className = inferTargetClassName(testClass);
+        configureRuntimeSettings(testClass);
         maybeInitializeGui();
         if (needsAgentLifecycle()) {
             try {
@@ -101,10 +112,28 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
                 throw new IllegalStateException(
                         "Failed to initialize instrumentation agent in EvoSuiteExtension", e);
             }
+            // Ensure the transformer is active for class loading during initialization.
+            // When the agent was already loaded from a previous test run (e.g. prior PIT
+            // mutation), loadAgent() returns immediately without calling agentmain(), so
+            // activateIfRequestedAtStartup() never fires.  Activate the transformer
+            // directly so that initializeDiscoveredClasses() instruments classes loaded
+            // through new classloaders (such as PIT's MutationClassLoader).
+            // We only activate the transformer — MockFramework stays disabled until
+            // beforeEach() calls InstrumentingAgent.activate().
+            try {
+                TransformerForTests t = InstrumentingAgent.getTransformer();
+                if (t != null) {
+                    t.activate();
+                }
+            } catch (IllegalStateException ignored) {
+                // Transformer not available — agent could not be loaded
+            }
         }
-        if (RuntimeSettings.resetStaticState) {
-            Sandbox.initializeSecurityManagerForSUT();
-            JDKClassResetter.init();
+        if (RuntimeSettings.resetStaticState || RuntimeSettings.isUsingAnyMocking()) {
+            if (RuntimeSettings.resetStaticState) {
+                Sandbox.initializeSecurityManagerForSUT();
+                JDKClassResetter.init();
+            }
             initializeDiscoveredClasses();
         }
         Runtime.getInstance().resetRuntime();
@@ -123,6 +152,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         Runtime.getInstance().resetRuntime();
         if (needsAgentLifecycle()) {
             InstrumentingAgent.activate();
+            syncMockFrameworkToSystem();
         }
         SystemInUtil.getInstance().initForTestCase();
         JOptionPaneInputs.getInstance().initForTestCase();
@@ -146,6 +176,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
             }
             if (needsAgentLifecycle()) {
                 failure = recordFailureOrSuppress(failure, InstrumentingAgent::deactivate);
+                syncMockFrameworkToSystem();
             }
         }
         if (failure != null) {
@@ -155,6 +186,14 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
 
     @Override
     public void afterAll(ExtensionContext context) {
+        if (needsAgentLifecycle()) {
+            try {
+                InstrumentingAgent.deactivate();
+                syncMockFrameworkToSystem();
+            } catch (RuntimeException e) {
+                logger.warn("Could not deactivate instrumentation agent in afterAll: {}", e.getMessage());
+            }
+        }
         if (RuntimeSettings.resetStaticState) {
             Sandbox.resetDefaultSecurityManager();
         }
@@ -193,7 +232,15 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         if (classesToInitialize.length == 0) {
             return;
         }
-        ClassStateSupport.initializeClasses(testClass.getClassLoader(), classesToInitialize);
+        if (RuntimeSettings.isUsingAnyMocking()) {
+            ClassStateSupport.retransformIfNeeded(testClass.getClassLoader(), classesToInitialize);
+        }
+        boolean problem = ClassStateSupport.initializeClasses(testClass.getClassLoader(), classesToInitialize);
+        if (problem) {
+            // Recover when SUT classes were loaded before the extension got control.
+            ClassStateSupport.retransformIfNeeded(testClass.getClassLoader(), classesToInitialize);
+            ClassStateSupport.initializeClasses(testClass.getClassLoader(), classesToInitialize);
+        }
     }
 
     private void resetDiscoveredClasses() {
@@ -236,13 +283,14 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         return RuntimeSettings.mockGUI || Boolean.getBoolean(EAGER_GUI_INIT_PROPERTY);
     }
 
-    private static void configureRuntimeSettings(Class<?> testClass) {
+    private static EvoRunnerParameters configureRuntimeSettings(Class<?> testClass) {
         EvoRunnerParameters parameters = testClass.getAnnotation(EvoRunnerParameters.class);
         if (parameters == null) {
             throw new IllegalStateException("EvoSuite test class " + testClass.getName()
                     + " is not annotated with EvoRunnerParameters");
         }
 
+        RuntimeSettings.className = inferTargetClassName(testClass);
         RuntimeSettings.resetStaticState = parameters.resetStaticState();
         RuntimeSettings.mockJVMNonDeterminism = parameters.mockJVMNonDeterminism();
         RuntimeSettings.mockGUI = parameters.mockGUI();
@@ -250,5 +298,86 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         RuntimeSettings.useVNET = parameters.useVNET();
         RuntimeSettings.useSeparateClassLoader = parameters.separateClassLoader();
         RuntimeSettings.useJEE = parameters.useJEE();
+        RuntimeSettings.maxNumberOfThreads = parameters.maxNumberOfThreads();
+        RuntimeSettings.maxNumberOfIterationsPerLoop = parameters.maxNumberOfIterationsPerLoop();
+
+        syncSettingsToSystemClassLoader();
+
+        return parameters;
+    }
+
+    private static void syncMockFrameworkToSystem() {
+        ClassLoader systemLoader = ClassLoader.getSystemClassLoader();
+        if (EvoSuiteExtension.class.getClassLoader() == systemLoader) {
+            return;
+        }
+        try {
+            Class<?> systemMockFramework = Class.forName("org.evosuite.runtime.mock.MockFramework", true, systemLoader);
+            Method m = systemMockFramework.getMethod(org.evosuite.runtime.mock.MockFramework.isEnabled() ? "enable" : "disable");
+            m.invoke(null);
+        } catch (Exception e) {
+            logger.warn("Could not synchronize MockFramework state to system classloader: {}", e.getMessage());
+        }
+    }
+
+    private static void syncSettingsToSystemClassLoader() {
+        ClassLoader systemLoader = ClassLoader.getSystemClassLoader();
+        if (EvoSuiteExtension.class.getClassLoader() == systemLoader) {
+            return;
+        }
+
+        try {
+            Class<?> systemSettings = Class.forName(RuntimeSettings.class.getName(), true, systemLoader);
+            copyField(RuntimeSettings.class, systemSettings, "className");
+            copyField(RuntimeSettings.class, systemSettings, "resetStaticState");
+            copyField(RuntimeSettings.class, systemSettings, "mockJVMNonDeterminism");
+            copyField(RuntimeSettings.class, systemSettings, "mockGUI");
+            copyField(RuntimeSettings.class, systemSettings, "useVFS");
+            copyField(RuntimeSettings.class, systemSettings, "useVNET");
+            copyField(RuntimeSettings.class, systemSettings, "useSeparateClassLoader");
+            copyField(RuntimeSettings.class, systemSettings, "useJEE");
+            copyField(RuntimeSettings.class, systemSettings, "maxNumberOfThreads");
+            copyField(RuntimeSettings.class, systemSettings, "maxNumberOfIterationsPerLoop");
+            copyField(RuntimeSettings.class, systemSettings, "mockSystemIn");
+            copyField(RuntimeSettings.class, systemSettings, "applyUIDTransformation");
+            copyField(RuntimeSettings.class, systemSettings, "isRunningASystemTest");
+
+            // Sync MockFramework state
+            syncMockFrameworkToSystem();
+
+            // Setup Delegation
+            setupDelegate(org.evosuite.runtime.vfs.VirtualFileSystem.class, systemLoader);
+            setupDelegate(org.evosuite.runtime.LoopCounter.class, systemLoader);
+
+            Class<?> systemCache = Class.forName(MethodCallReplacementCache.class.getName(), true, systemLoader);
+            Method resetCache = systemCache.getMethod("resetSingleton");
+            resetCache.invoke(null);
+
+            Class<?> systemRuntime = Class.forName("org.evosuite.runtime.Runtime", true, systemLoader);
+            Method getRuntime = systemRuntime.getMethod("getInstance");
+            Object runtimeInstance = getRuntime.invoke(null);
+            Method resetRuntime = systemRuntime.getMethod("resetRuntime");
+            resetRuntime.invoke(runtimeInstance);
+        } catch (Exception e) {
+            logger.warn("Could not synchronize RuntimeSettings to system classloader: {}", e.getMessage());
+        }
+    }
+
+    private static void setupDelegate(Class<?> clazz, ClassLoader systemLoader) throws Exception {
+        Class<?> systemClass = Class.forName(clazz.getName(), true, systemLoader);
+        Method getSystemInstance = systemClass.getMethod("getInstance");
+        Object systemInstance = getSystemInstance.invoke(null);
+
+        Method getInstance = clazz.getMethod("getInstance");
+        Object localInstance = getInstance.invoke(null);
+
+        Method setDelegate = clazz.getMethod("setDelegate", Object.class);
+        setDelegate.invoke(localInstance, systemInstance);
+    }
+
+    private static void copyField(Class<?> source, Class<?> target, String fieldName) throws Exception {
+        java.lang.reflect.Field srcField = source.getField(fieldName);
+        java.lang.reflect.Field tgtField = target.getField(fieldName);
+        tgtField.set(null, srcField.get(null));
     }
 }

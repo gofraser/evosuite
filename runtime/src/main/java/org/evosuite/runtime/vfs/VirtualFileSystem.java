@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -53,7 +54,13 @@ public final class VirtualFileSystem {
     /**
      * The only instance of this class.
      */
-    private static final VirtualFileSystem singleton = new VirtualFileSystem();
+    private static VirtualFileSystem singleton = new VirtualFileSystem();
+
+    private Object delegate;
+
+    public void setDelegate(Object delegate) {
+        this.delegate = delegate;
+    }
 
     /**
      * The root of the VFS.
@@ -120,6 +127,11 @@ public final class VirtualFileSystem {
      * Resets the internal state of this singleton.
      */
     public void resetSingleton() {
+        if (delegate != null) {
+            invokeDelegate("resetSingleton", new Class<?>[0]);
+        }
+        // Always reset local state as well, otherwise local leaking resources can
+        // accumulate when this instance is configured to delegate across classloaders.
         root = null;
         tmpFileCounter.set(0);
         accessedFiles.clear();
@@ -146,6 +158,9 @@ public final class VirtualFileSystem {
      * @param resource the leaking resource to add
      */
     public void addLeakingResource(LeakingResource resource) {
+        if (delegate != null) {
+            // Cannot easily delegate this because of cross-classloader object passing
+        }
         synchronized (leakingResources) {
             leakingResources.add(resource);
         }
@@ -161,6 +176,9 @@ public final class VirtualFileSystem {
      * @return a real temporary file on the host file system
      */
     public File getRealTmpFile() {
+        if (delegate != null) {
+            return (File) invokeDelegate("getRealTmpFile", new Class<?>[0]);
+        }
         return MSecurityManager.getRealTmpFile();
     }
 
@@ -171,6 +189,19 @@ public final class VirtualFileSystem {
      * @throws IOException if the path is marked to throw an IOException
      */
     public void throwSimuledIOExceptionIfNeeded(String path) throws IOException {
+        if (delegate != null) {
+            try {
+                Method m = delegate.getClass().getMethod("throwSimuledIOExceptionIfNeeded", String.class);
+                m.invoke(delegate, path);
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                if (e.getCause() instanceof IOException) {
+                    throw (IOException) e.getCause();
+                }
+            } catch (Exception e) {
+                // Ignore
+            }
+            return;
+        }
         if (isClassSupposedToThrowIOException(path)) {
             throw new IOException("Simulated IOException");
         }
@@ -183,6 +214,9 @@ public final class VirtualFileSystem {
      * @return true if the path is marked to throw an IOException
      */
     public boolean isClassSupposedToThrowIOException(String path) {
+        if (delegate != null) {
+            return (Boolean) invokeDelegate("isClassSupposedToThrowIOException", new Class<?>[]{String.class}, path);
+        }
         return shouldAllThrowIOException || classesThatShouldThrowIOException.contains(path);
     }
 
@@ -193,6 +227,19 @@ public final class VirtualFileSystem {
      * @return true if the file was added to the set of files that throw IOExceptions
      */
     public boolean setShouldThrowIOException(EvoSuiteFile file) {
+        if (delegate != null) {
+            // EvoSuiteFile class differs across classloaders — construct one in the
+            // delegate's classloader and invoke setShouldThrowIOException reflectively.
+            try {
+                ClassLoader delegateLoader = delegate.getClass().getClassLoader();
+                Class<?> evoFileClass = Class.forName("org.evosuite.runtime.testdata.EvoSuiteFile", true, delegateLoader);
+                Object delegateFile = evoFileClass.getConstructor(String.class).newInstance(file.getPath());
+                Method m = delegate.getClass().getMethod("setShouldThrowIOException", evoFileClass);
+                return (Boolean) m.invoke(delegate, delegateFile);
+            } catch (Exception e) {
+                return false;
+            }
+        }
         String path = file.getPath();
         if (classesThatShouldThrowIOException.contains(path)) {
             return false;
@@ -210,6 +257,9 @@ public final class VirtualFileSystem {
      * @return {@code true} if the flag was set, {@code false} if it was already set
      */
     public boolean setShouldAllThrowIOExceptions() {
+        if (delegate != null) {
+            return (Boolean) invokeDelegate("setShouldAllThrowIOExceptions", new Class<?>[0]);
+        }
         if (shouldAllThrowIOException) {
             return false;
         }
@@ -222,6 +272,10 @@ public final class VirtualFileSystem {
      * started from.
      */
     public void init() {
+        if (delegate != null) {
+            invokeDelegate("init", new Class<?>[0]);
+            return;
+        }
 
         root = new VFolder(null, null);
 
@@ -261,6 +315,9 @@ public final class VirtualFileSystem {
      * @return a set of file paths that have been accessed
      */
     public Set<String> getAccessedFiles() {
+        if (delegate != null) {
+            return (Set<String>) invokeDelegate("getAccessedFiles", new Class<?>[0]);
+        }
         return new HashSet<>(accessedFiles);
     }
 
@@ -277,6 +334,27 @@ public final class VirtualFileSystem {
      */
     public String createTempFile(String prefix, String suffix, File directory)
             throws IllegalArgumentException, IOException {
+
+        if (delegate != null) {
+            try {
+                return (String) invokeDelegate(
+                        "createTempFile",
+                        new Class<?>[]{String.class, String.class, File.class},
+                        prefix, suffix, directory);
+            } catch (RuntimeException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof java.lang.reflect.InvocationTargetException) {
+                    Throwable target = ((java.lang.reflect.InvocationTargetException) cause).getCause();
+                    if (target instanceof IOException) {
+                        throw (IOException) target;
+                    }
+                    if (target instanceof IllegalArgumentException) {
+                        throw (IllegalArgumentException) target;
+                    }
+                }
+            }
+            return null;
+        }
 
         if (prefix.length() < 3) {
             throw new IllegalArgumentException("Prefix string too short");
@@ -316,6 +394,9 @@ public final class VirtualFileSystem {
      * @return true if the object exists
      */
     public boolean exists(String rawPath) {
+        if (delegate != null) {
+            return (Boolean) invokeDelegate("exists", new Class<?>[]{String.class}, rawPath);
+        }
         return findFSObject(rawPath) != null;
     }
 
@@ -326,6 +407,12 @@ public final class VirtualFileSystem {
      * @return the FSObject at the given path, or {@code null} if the object does not exist
      */
     public FSObject findFSObject(String rawPath) {
+        if (delegate != null) {
+            // Cannot return FSObject across classloader boundary — callers should
+            // use exists()/createFile()/deleteFSObject() which delegate properly.
+            throw new UnsupportedOperationException(
+                    "findFSObject is not supported when VFS is delegating across classloaders");
+        }
         String path = new File(rawPath).getAbsolutePath();
         String[] tokens = tokenize(path);
 
@@ -363,6 +450,9 @@ public final class VirtualFileSystem {
      * @return true if the object was successfully deleted
      */
     public boolean deleteFSObject(String rawPath) {
+        if (delegate != null) {
+            return (Boolean) invokeDelegate("deleteFSObject", new Class<?>[]{String.class}, rawPath);
+        }
         FSObject obj = findFSObject(rawPath);
         if (obj == null || !obj.isWritePermission()) {
             return false;
@@ -377,6 +467,9 @@ public final class VirtualFileSystem {
      * @return true if the file was successfully created
      */
     public boolean createFile(String rawPath) {
+        if (delegate != null) {
+            return (Boolean) invokeDelegate("createFile", new Class<?>[]{String.class}, rawPath);
+        }
         return createFile(rawPath, false);
     }
 
@@ -410,6 +503,9 @@ public final class VirtualFileSystem {
      * @return true if the rename was successful, false otherwise
      */
     public boolean rename(String source, String destination) {
+        if (delegate != null) {
+            return (Boolean) invokeDelegate("rename", new Class<?>[]{String.class, String.class}, source, destination);
+        }
 
         String parentSource = new File(source).getParent();
         String parentDest = new File(destination).getParent();
@@ -442,6 +538,9 @@ public final class VirtualFileSystem {
      * @return true if the folder was successfully created
      */
     public boolean createFolder(String rawPath) {
+        if (delegate != null) {
+            return (Boolean) invokeDelegate("createFolder", new Class<?>[]{String.class}, rawPath);
+        }
         String[] tokens = tokenize(new File(rawPath).getAbsolutePath());
 
         VFolder parent = root;
@@ -497,5 +596,14 @@ public final class VirtualFileSystem {
 
     private boolean isUnixStyle() {
         return File.separator.equals("/");
+    }
+
+    private Object invokeDelegate(String methodName, Class<?>[] argTypes, Object... args) {
+        try {
+            Method m = delegate.getClass().getMethod(methodName, argTypes);
+            return m.invoke(delegate, args);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

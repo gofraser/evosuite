@@ -250,7 +250,6 @@ public class MethodCallReplacementCache {
 
     private void handleMockList() {
         for (Class<? extends EvoSuiteMock> mock : MockList.getList()) {
-
             if (OverrideMock.class.isAssignableFrom(mock)) {
                 replaceAllConstructors(mock, mock.getSuperclass());
                 replaceAllStaticMethods(mock, mock.getSuperclass());
@@ -423,23 +422,26 @@ public class MethodCallReplacementCache {
             }
 
             try {
-                mockClass.getMethod(m.getName(), parameters);
+                Method mockMethod = mockClass.getMethod(m.getName(), parameters);
+                if (Modifier.isStatic(mockMethod.getModifiers())) {
+                    String desc = Type.getMethodDescriptor(m);
+                    Type[] argumentTypes = Type.getArgumentTypes(m);
+                    Type[] mockedArgumentTypes = new Type[argumentTypes.length + 1];
+                    mockedArgumentTypes[0] = Type.getType(target);
+                    for (int i = 0; i < argumentTypes.length; i++) {
+                        mockedArgumentTypes[i + 1] = argumentTypes[i];
+                    }
+                    String mockedDesc = Type.getMethodDescriptor(Type.getReturnType(m), mockedArgumentTypes);
+                    addReplacementCall(new MethodCallReplacement(target.getCanonicalName().replace('.', '/'), m.getName(), desc,
+                            Opcodes.INVOKEVIRTUAL, mockClass.getCanonicalName().replace('.', '/'), m.getName(), mockedDesc,
+                            false, false));
+                } else {
+                    logger.debug("Skipping non-static mock method: {}", mockMethod);
+                }
             } catch (NoSuchMethodException e) {
                 // logger.debug("Skipping method " + m.getName());
                 continue;
             }
-
-            String desc = Type.getMethodDescriptor(m);
-            Type[] argumentTypes = Type.getArgumentTypes(m);
-            Type[] mockedArgumentTypes = new Type[argumentTypes.length + 1];
-            mockedArgumentTypes[0] = Type.getType(target);
-            for (int i = 0; i < argumentTypes.length; i++) {
-                mockedArgumentTypes[i + 1] = argumentTypes[i];
-            }
-            String mockedDesc = Type.getMethodDescriptor(Type.getReturnType(m), mockedArgumentTypes);
-            addReplacementCall(new MethodCallReplacement(target.getCanonicalName().replace('.', '/'), m.getName(), desc,
-                    Opcodes.INVOKEVIRTUAL, mockClass.getCanonicalName().replace('.', '/'), m.getName(), mockedDesc,
-                    false, false));
         }
     }
 

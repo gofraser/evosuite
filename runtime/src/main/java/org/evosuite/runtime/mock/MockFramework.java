@@ -36,6 +36,7 @@ package org.evosuite.runtime.mock;
  */
 public class MockFramework {
 
+    private static final String MOCK_ENABLED_PROPERTY = "evosuite.mock.enabled";
     private static volatile boolean active = false;
 
     /**
@@ -44,13 +45,31 @@ public class MockFramework {
      */
     public static void enable() {
         active = true;
+        try {
+            java.lang.System.setProperty(MOCK_ENABLED_PROPERTY, Boolean.TRUE.toString());
+        } catch (RuntimeException ignored) {
+            // Keep local state even if system properties are restricted.
+        }
     }
 
     public static void disable() {
         active = false;
+        try {
+            java.lang.System.setProperty(MOCK_ENABLED_PROPERTY, Boolean.FALSE.toString());
+        } catch (RuntimeException ignored) {
+            // Keep local state even if system properties are restricted.
+        }
     }
 
     public static boolean isEnabled() {
+        try {
+            String property = java.lang.System.getProperty(MOCK_ENABLED_PROPERTY);
+            if (property != null) {
+                return Boolean.parseBoolean(property);
+            }
+        } catch (RuntimeException ignored) {
+            // Fall back to local state below.
+        }
         return active;
     }
 }

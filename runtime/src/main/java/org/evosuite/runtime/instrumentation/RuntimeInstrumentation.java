@@ -71,6 +71,15 @@ public class RuntimeInstrumentation {
     }
 
     /**
+     * <p>Getter for the field <code>retransformingMode</code>.</p>
+     *
+     * @return a boolean.
+     */
+    public boolean isRetransformingMode() {
+        return retransformingMode;
+    }
+
+    /**
      * WARN: This should ONLY be called by SystemTest.
      *
      * @param avoidInstrumentingShadedClasses a boolean.
