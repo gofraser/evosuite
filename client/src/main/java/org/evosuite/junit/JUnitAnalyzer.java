@@ -69,18 +69,16 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
-
-import static org.junit.platform.engine.discovery.ClassNameFilter.includeClassNamePatterns;
 
 /**
  * This class is used to check if a set of test cases are valid for JUnit: ie,
@@ -334,6 +332,12 @@ public abstract class JUnitAnalyzer {
         return runJUnitOnCurrentProcess(testClasses);
     }
 
+    /**
+     * Analyze if the given list of tests is sensitive to the execution order.
+     *
+     * @param tests the list of tests to analyze.
+     * @return an OrderSensitivityAnalysis object.
+     */
     public static OrderSensitivityAnalysis analyzeOrderSensitivity(List<TestCase> tests) {
         if (tests == null || tests.size() < 2) {
             return new OrderSensitivityAnalysis(Collections.<String>emptySet(), Collections.<String>emptySet());

@@ -166,6 +166,11 @@ public final class TestSuiteChromosome
         return new ArrayList<>(extensionInitializationOrder);
     }
 
+    /**
+     * Set the order in which extensions should be initialized.
+     *
+     * @param extensionInitializationOrder the list of extension names.
+     */
     public void setExtensionInitializationOrder(List<String> extensionInitializationOrder) {
         this.extensionInitializationOrder.clear();
         if (extensionInitializationOrder != null) {

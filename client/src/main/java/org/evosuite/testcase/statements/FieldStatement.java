@@ -33,7 +33,6 @@ import org.evosuite.utils.generic.GenericField;
 
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;

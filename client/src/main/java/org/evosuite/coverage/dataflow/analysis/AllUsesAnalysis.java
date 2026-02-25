@@ -732,7 +732,9 @@ public class AllUsesAnalysis {
         long start = System.currentTimeMillis();
 
         Set<String> relevantVariables = new HashSet<>();
-        if (activeDefsInCallee != null) relevantVariables.addAll(activeDefsInCallee.keySet());
+        if (activeDefsInCallee != null) {
+            relevantVariables.addAll(activeDefsInCallee.keySet());
+        }
         relevantVariables.addAll(activeDefsInCaller.keySet());
 
         for (String variable : relevantVariables) {
@@ -1006,7 +1008,7 @@ public class AllUsesAnalysis {
      * Copies the given Maps to VariableDefinitions to correpsonding Maps to
      * BytecodeInstructions and filters out local variables.
      *
-     * @param activeDefMaps set of active definition maps.
+     * @param activeDefs set of active definition maps.
      * @return set of rememberable maps.
      */
     private Map<String, Set<BytecodeInstruction>> toRememberableBytecodeInstructionMap(

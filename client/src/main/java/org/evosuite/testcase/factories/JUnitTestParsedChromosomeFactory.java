@@ -212,11 +212,15 @@ public class JUnitTestParsedChromosomeFactory implements
             if (stmt instanceof ConstructorStatement) {
                 String declClass = ((ConstructorStatement) stmt).getConstructor()
                         .getDeclaringClass().getCanonicalName();
-                if (targetClassName.equals(declClass)) return true;
+                if (targetClassName.equals(declClass)) {
+                    return true;
+                }
             } else if (stmt instanceof MethodStatement) {
                 String declClass = ((MethodStatement) stmt).getMethod()
                         .getDeclaringClass().getCanonicalName();
-                if (targetClassName.equals(declClass)) return true;
+                if (targetClassName.equals(declClass)) {
+                    return true;
+                }
             }
         }
         return false;

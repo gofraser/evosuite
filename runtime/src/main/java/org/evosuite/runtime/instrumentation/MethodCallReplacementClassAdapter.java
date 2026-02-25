@@ -145,7 +145,8 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
             }
             if (!found && !canChangeSignature) {
                 // We are retransforming, but interface is missing. This is a problem.
-                logger.error("Class " + name + " is being retransformed for mocking but does not have InstrumentedClass interface!");
+                logger.error("Class " + name
+                        + " is being retransformed for mocking but does not have InstrumentedClass interface!");
             }
 
             if (!found && canChangeSignature) {

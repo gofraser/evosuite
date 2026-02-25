@@ -28,23 +28,22 @@ import org.evosuite.utils.generic.GenericAccessibleObject;
 import java.io.PrintStream;
 import java.lang.reflect.Type;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 /**
  * A fallback statement that preserves raw Java source code verbatim.
- * <p>
- * When the test parser encounters a statement that cannot be mapped to a specific
+ *
+ * <p>When the test parser encounters a statement that cannot be mapped to a specific
  * EvoSuite statement type (e.g. complex expressions, try-catch blocks, custom
  * assertion patterns), it wraps the original source in an InterpretedStatement.
- * <p>
- * This statement cannot be executed by EvoSuite's internal test executor, but it
+ *
+ * <p>This statement cannot be executed by EvoSuite's internal test executor, but it
  * can be emitted back as Java source via TestCodeVisitor. This allows parsed tests
  * to preserve constructs that don't have a direct EvoSuite model, while still
  * being part of the TestCase structure.
- * <p>
- * InterpretedStatements are excluded from mutation/crossover by the genetic
+ *
+ * <p>InterpretedStatements are excluded from mutation/crossover by the genetic
  * algorithm (they are treated as immutable).
  */
 public class InterpretedStatement extends AbstractStatement {
@@ -126,16 +125,24 @@ public class InterpretedStatement extends AbstractStatement {
 
     @Override
     public boolean same(Statement s) {
-        if (this == s) return true;
-        if (s == null || getClass() != s.getClass()) return false;
+        if (this == s) {
+            return true;
+        }
+        if (s == null || getClass() != s.getClass()) {
+            return false;
+        }
         InterpretedStatement that = (InterpretedStatement) s;
         return sourceCode.equals(that.sourceCode);
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         InterpretedStatement that = (InterpretedStatement) o;
         return sourceCode.equals(that.sourceCode)
                 && Objects.equals(retval, that.retval);

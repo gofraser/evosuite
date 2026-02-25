@@ -81,15 +81,15 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
     private String getVariableWithIndexExcludingFirstAppearance(String variableName) {
         if (!this.nextIndices.containsKey(variableName)) {
             if (this.variableNames.containsValue(variableName)) {
-                 // if an existing variable already has this exact name but not from here
-                 int index = 0;
-                 String uniqueName;
-                 do {
-                     index++;
-                     uniqueName = variableName + index;
-                 } while (this.variableNames.containsValue(uniqueName));
-                 this.nextIndices.put(variableName, index);
-                 return uniqueName;
+                // if an existing variable already has this exact name but not from here
+                int index = 0;
+                String uniqueName;
+                do {
+                    index++;
+                    uniqueName = variableName + index;
+                } while (this.variableNames.containsValue(uniqueName));
+                this.nextIndices.put(variableName, index);
+                return uniqueName;
             }
             this.nextIndices.put(variableName, 0);
             return variableName;

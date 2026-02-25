@@ -30,7 +30,10 @@ import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.assertion.SameAssertion;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.*;
+import org.evosuite.testcase.statements.FunctionalMockForAbstractClassStatement;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.numeric.*;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
@@ -44,14 +47,9 @@ import org.evosuite.utils.generic.GenericMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.evosuite.testcase.fm.MethodDescriptor;
-import org.evosuite.testcase.statements.FunctionalMockForAbstractClassStatement;
-import org.evosuite.testcase.statements.FunctionalMockStatement;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,8 +57,8 @@ import java.util.List;
 /**
  * Converts JavaParser AST statement/expression nodes into EvoSuite Statement objects
  * and adds them to a TestCase.
- * <p>
- * This is the core conversion logic of the test parser. Each handler method maps
+ *
+ * <p>This is the core conversion logic of the test parser. Each handler method maps
  * a specific expression type to the corresponding EvoSuite statement type.
  */
 public class StatementParser {
@@ -75,6 +73,14 @@ public class StatementParser {
     /** Counter for generating unique names for synthetic variables (inline literals, etc.) */
     private int syntheticVarCounter = 0;
 
+    /**
+     * Create a new StatementParser.
+     *
+     * @param testCase the test case.
+     * @param typeResolver the type resolver.
+     * @param scope the variable scope.
+     * @param result the parse result.
+     */
     public StatementParser(DefaultTestCase testCase, TypeResolver typeResolver,
                            VariableScope scope, ParseResult result) {
         this.testCase = testCase;
@@ -134,7 +140,9 @@ public class StatementParser {
         if (expr instanceof VariableDeclarationExpr) {
             int consumed = handleVariableDeclarationWithLookahead(
                     (VariableDeclarationExpr) expr, allStatements, currentIndex);
-            if (consumed > 0) return consumed;
+            if (consumed > 0) {
+                return consumed;
+            }
             handleVariableDeclaration((VariableDeclarationExpr) expr);
             return 1;
         } else if (expr instanceof MethodCallExpr) {
@@ -214,22 +222,32 @@ public class StatementParser {
             VariableDeclarationExpr varDeclExpr,
             List<com.github.javaparser.ast.stmt.Statement> allStatements,
             int currentIndex) {
-        if (allStatements == null) return 0;
+        if (allStatements == null) {
+            return 0;
+        }
 
         // Only handle single-variable declarations
-        if (varDeclExpr.getVariables().size() != 1) return 0;
+        if (varDeclExpr.getVariables().size() != 1) {
+            return 0;
+        }
         VariableDeclarator declarator = varDeclExpr.getVariables().get(0);
-        if (!declarator.getInitializer().isPresent()) return 0;
+        if (!declarator.getInitializer().isPresent()) {
+            return 0;
+        }
 
         Expression initializer = declarator.getInitializer().get();
-        if (!isMockCreation(initializer)) return 0;
+        if (!isMockCreation(initializer)) {
+            return 0;
+        }
 
         MethodCallExpr mockCall = (MethodCallExpr) initializer;
         String varName = declarator.getNameAsString();
 
         // Extract the target class from the first argument (Foo.class)
         Class<?> mockTargetClass = extractMockTargetClass(mockCall);
-        if (mockTargetClass == null) return 0;
+        if (mockTargetClass == null) {
+            return 0;
+        }
 
         // Determine variant: ViolatedAssumptionAnswer vs CALLS_REAL_METHODS vs plain
         MockVariant variant = detectMockVariant(mockCall);
@@ -291,11 +309,17 @@ public class StatementParser {
      * Check if a method call expression is a Mockito mock() creation.
      */
     private boolean isMockCreation(Expression expr) {
-        if (!(expr instanceof MethodCallExpr)) return false;
+        if (!(expr instanceof MethodCallExpr)) {
+            return false;
+        }
         MethodCallExpr call = (MethodCallExpr) expr;
         String name = call.getNameAsString();
-        if (!"mock".equals(name)) return false;
-        if (call.getArguments().isEmpty()) return false;
+        if (!"mock".equals(name)) {
+            return false;
+        }
+        if (call.getArguments().isEmpty()) {
+            return false;
+        }
 
         // First arg should be ClassName.class
         Expression firstArg = call.getArgument(0);
@@ -307,7 +331,9 @@ public class StatementParser {
      */
     private Class<?> extractMockTargetClass(MethodCallExpr mockCall) {
         Expression firstArg = mockCall.getArgument(0);
-        if (!(firstArg instanceof ClassExpr)) return null;
+        if (!(firstArg instanceof ClassExpr)) {
+            return null;
+        }
         try {
             return typeResolver.resolveClass(((ClassExpr) firstArg).getTypeAsString());
         } catch (ClassNotFoundException e) {
@@ -320,7 +346,9 @@ public class StatementParser {
      * Detect the mock variant from the arguments.
      */
     private MockVariant detectMockVariant(MethodCallExpr mockCall) {
-        if (mockCall.getArguments().size() < 2) return MockVariant.PLAIN;
+        if (mockCall.getArguments().size() < 2) {
+            return MockVariant.PLAIN;
+        }
 
         String secondArgText = mockCall.getArgument(1).toString();
         if (secondArgText.contains("ViolatedAssumptionAnswer")) {
@@ -348,11 +376,15 @@ public class StatementParser {
         int consumed = 0;
         for (int i = startIndex; i < allStatements.size(); i++) {
             com.github.javaparser.ast.stmt.Statement astStmt = allStatements.get(i);
-            if (!(astStmt instanceof ExpressionStmt)) break;
+            if (!(astStmt instanceof ExpressionStmt)) {
+                break;
+            }
 
             Expression expr = ((ExpressionStmt) astStmt).getExpression();
             StubbingInfo stubbing = parseStubbingChain(expr, mockVarName, targetClass, targetGenericClass);
-            if (stubbing == null) break;
+            if (stubbing == null) {
+                break;
+            }
 
             mockStmt.addMethodStubbing(stubbing.descriptor, stubbing.returnValues);
             consumed++;
@@ -366,6 +398,7 @@ public class StatementParser {
     private static class StubbingInfo {
         final MethodDescriptor descriptor;
         final List<VariableReference> returnValues;
+
         StubbingInfo(MethodDescriptor descriptor, List<VariableReference> returnValues) {
             this.descriptor = descriptor;
             this.returnValues = returnValues;
@@ -384,12 +417,16 @@ public class StatementParser {
     private StubbingInfo parseStubbingChain(Expression expr, String mockVarName,
                                             Class<?> targetClass,
                                             GenericClass<?> targetGenericClass) {
-        if (!(expr instanceof MethodCallExpr)) return null;
+        if (!(expr instanceof MethodCallExpr)) {
+            return null;
+        }
         MethodCallExpr outerCall = (MethodCallExpr) expr;
 
         // Try pattern 1: doReturn(...).when(mockVar).method(matchers)
         StubbingInfo info = parseDoReturnWhenPattern(outerCall, mockVarName, targetClass, targetGenericClass);
-        if (info != null) return info;
+        if (info != null) {
+            return info;
+        }
 
         // Try pattern 2: when(mockVar.method(args)).thenReturn(v0, v1)
         info = parseWhenThenReturnPattern(outerCall, mockVarName, targetClass, targetGenericClass);
@@ -408,33 +445,53 @@ public class StatementParser {
         String stubbedMethodName = outerCall.getNameAsString();
 
         // scope should be doReturn(...).when(mockVar)
-        if (!outerCall.getScope().isPresent()) return null;
+        if (!outerCall.getScope().isPresent()) {
+            return null;
+        }
         Expression whenCallExpr = outerCall.getScope().get();
-        if (!(whenCallExpr instanceof MethodCallExpr)) return null;
+        if (!(whenCallExpr instanceof MethodCallExpr)) {
+            return null;
+        }
         MethodCallExpr whenCall = (MethodCallExpr) whenCallExpr;
 
-        if (!"when".equals(whenCall.getNameAsString())) return null;
+        if (!"when".equals(whenCall.getNameAsString())) {
+            return null;
+        }
 
         // when() should have one argument: the mock variable
-        if (whenCall.getArguments().size() != 1) return null;
+        if (whenCall.getArguments().size() != 1) {
+            return null;
+        }
         Expression whenArg = whenCall.getArgument(0);
-        if (!(whenArg instanceof NameExpr)) return null;
-        if (!mockVarName.equals(((NameExpr) whenArg).getNameAsString())) return null;
+        if (!(whenArg instanceof NameExpr)) {
+            return null;
+        }
+        if (!mockVarName.equals(((NameExpr) whenArg).getNameAsString())) {
+            return null;
+        }
 
         // scope of when() should be doReturn(...)
-        if (!whenCall.getScope().isPresent()) return null;
+        if (!whenCall.getScope().isPresent()) {
+            return null;
+        }
         Expression doReturnExpr = whenCall.getScope().get();
-        if (!(doReturnExpr instanceof MethodCallExpr)) return null;
+        if (!(doReturnExpr instanceof MethodCallExpr)) {
+            return null;
+        }
         MethodCallExpr doReturnCall = (MethodCallExpr) doReturnExpr;
 
-        if (!"doReturn".equals(doReturnCall.getNameAsString())) return null;
+        if (!"doReturn".equals(doReturnCall.getNameAsString())) {
+            return null;
+        }
 
         // Extract the return values from doReturn() arguments
         List<VariableReference> returnValues = resolveReturnValueArguments(doReturnCall.getArguments());
 
         // Resolve the method on the target class
         Method method = resolveMethodByNameLoose(targetClass, stubbedMethodName);
-        if (method == null) return null;
+        if (method == null) {
+            return null;
+        }
 
         MethodDescriptor descriptor = new MethodDescriptor(method, targetGenericClass);
         // Set the counter to the number of return values
@@ -453,27 +510,45 @@ public class StatementParser {
                                                     Class<?> targetClass,
                                                     GenericClass<?> targetGenericClass) {
         // outerCall should be .thenReturn(v0, v1)
-        if (!"thenReturn".equals(outerCall.getNameAsString())) return null;
+        if (!"thenReturn".equals(outerCall.getNameAsString())) {
+            return null;
+        }
 
         // scope should be when(mockVar.method(args))
-        if (!outerCall.getScope().isPresent()) return null;
+        if (!outerCall.getScope().isPresent()) {
+            return null;
+        }
         Expression whenExpr = outerCall.getScope().get();
-        if (!(whenExpr instanceof MethodCallExpr)) return null;
+        if (!(whenExpr instanceof MethodCallExpr)) {
+            return null;
+        }
         MethodCallExpr whenCall = (MethodCallExpr) whenExpr;
 
-        if (!"when".equals(whenCall.getNameAsString())) return null;
-        if (whenCall.getArguments().size() != 1) return null;
+        if (!"when".equals(whenCall.getNameAsString())) {
+            return null;
+        }
+        if (whenCall.getArguments().size() != 1) {
+            return null;
+        }
 
         // The argument to when() should be mockVar.method(args)
         Expression whenArg = whenCall.getArgument(0);
-        if (!(whenArg instanceof MethodCallExpr)) return null;
+        if (!(whenArg instanceof MethodCallExpr)) {
+            return null;
+        }
         MethodCallExpr innerMethodCall = (MethodCallExpr) whenArg;
 
         // Check that the scope of the inner call is our mock variable
-        if (!innerMethodCall.getScope().isPresent()) return null;
+        if (!innerMethodCall.getScope().isPresent()) {
+            return null;
+        }
         Expression innerScope = innerMethodCall.getScope().get();
-        if (!(innerScope instanceof NameExpr)) return null;
-        if (!mockVarName.equals(((NameExpr) innerScope).getNameAsString())) return null;
+        if (!(innerScope instanceof NameExpr)) {
+            return null;
+        }
+        if (!mockVarName.equals(((NameExpr) innerScope).getNameAsString())) {
+            return null;
+        }
 
         String stubbedMethodName = innerMethodCall.getNameAsString();
 
@@ -482,7 +557,9 @@ public class StatementParser {
 
         // Resolve the method on the target class
         Method method = resolveMethodByNameLoose(targetClass, stubbedMethodName);
-        if (method == null) return null;
+        if (method == null) {
+            return null;
+        }
 
         MethodDescriptor descriptor = new MethodDescriptor(method, targetGenericClass);
         for (int i = 0; i < returnValues.size(); i++) {
@@ -517,7 +594,9 @@ public class StatementParser {
         Method first = null;
         for (Method m : clazz.getMethods()) {
             if (m.getName().equals(name)) {
-                if (first == null) first = m;
+                if (first == null) {
+                    first = m;
+                }
                 if (m.getParameterCount() == 0) {
                     noArgs = m;
                 }
@@ -526,7 +605,9 @@ public class StatementParser {
         // Also check declared methods
         for (Method m : clazz.getDeclaredMethods()) {
             if (m.getName().equals(name)) {
-                if (first == null) first = m;
+                if (first == null) {
+                    first = m;
+                }
                 if (m.getParameterCount() == 0 && noArgs == null) {
                     noArgs = m;
                 }
@@ -630,7 +711,9 @@ public class StatementParser {
         // Name reference: existing variable
         if (expr instanceof NameExpr) {
             VariableReference ref = scope.resolve(((NameExpr) expr).getNameAsString());
-            if (ref != null) return ref;
+            if (ref != null) {
+                return ref;
+            }
             // Could be a class name — fall through to unsupported
         }
 
@@ -903,8 +986,8 @@ public class StatementParser {
     /**
      * Parse a JUnit assertion call and attach an EvoSuite Assertion to the
      * statement that produced the asserted variable.
-     * <p>
-     * Handles both JUnit 4 (message-first optional) and JUnit 5 (message-last optional).
+     *
+     * <p>Handles both JUnit 4 (message-first optional) and JUnit 5 (message-last optional).
      * Unrecognized assertion patterns are preserved as InterpretedStatements.
      */
     private void handleAssertionCall(MethodCallExpr assertCall) {
@@ -955,18 +1038,24 @@ public class StatementParser {
     }
 
     /**
-     * assertTrue(condition) / assertTrue(message, condition) [JUnit4]
-     * assertTrue(condition) / assertTrue(condition, message) [JUnit5]
+     * assertTrue(condition) / assertTrue(message, condition) [JUnit4].
+     * assertTrue(condition) / assertTrue(condition, message) [JUnit5].
      */
     private void handleAssertBoolean(List<Expression> args, boolean expectedValue) {
-        if (args.isEmpty()) return;
+        if (args.isEmpty()) {
+            return;
+        }
         // The condition is in the 1-arg form, or last arg (JUnit5) or second arg (JUnit4)
         // Heuristic: if 1 arg, it's the condition. If 2 args, try last arg first (it's a NameExpr variable)
         Expression conditionExpr = args.size() == 1 ? args.get(0) : pickVariableArg(args);
-        if (conditionExpr == null) conditionExpr = args.get(args.size() - 1);
+        if (conditionExpr == null) {
+            conditionExpr = args.get(args.size() - 1);
+        }
 
         VariableReference sourceRef = resolveAssertionVariable(conditionExpr);
-        if (sourceRef == null) return;
+        if (sourceRef == null) {
+            return;
+        }
 
         PrimitiveAssertion assertion = new PrimitiveAssertion();
         assertion.setSource(sourceRef);
@@ -975,16 +1064,22 @@ public class StatementParser {
     }
 
     /**
-     * assertNull(object) / assertNull(message, object) [JUnit4]
-     * assertNull(object) / assertNull(object, message) [JUnit5]
+     * assertNull(object) / assertNull(message, object) [JUnit4].
+     * assertNull(object) / assertNull(object, message) [JUnit5].
      */
     private void handleAssertNull(List<Expression> args, boolean isNull) {
-        if (args.isEmpty()) return;
+        if (args.isEmpty()) {
+            return;
+        }
         Expression objExpr = args.size() == 1 ? args.get(0) : pickVariableArg(args);
-        if (objExpr == null) objExpr = args.get(args.size() - 1);
+        if (objExpr == null) {
+            objExpr = args.get(args.size() - 1);
+        }
 
         VariableReference sourceRef = resolveAssertionVariable(objExpr);
-        if (sourceRef == null) return;
+        if (sourceRef == null) {
+            return;
+        }
 
         NullAssertion assertion = new NullAssertion();
         assertion.setSource(sourceRef);
@@ -997,7 +1092,9 @@ public class StatementParser {
      * Handles optional message arg and optional delta for floating point.
      */
     private void handleAssertEquals(List<Expression> args) {
-        if (args.size() < 2) return;
+        if (args.size() < 2) {
+            return;
+        }
 
         // Determine expected and actual.
         // JUnit convention: assertEquals(expected, actual) — the "actual" is usually a variable.
@@ -1030,7 +1127,9 @@ public class StatementParser {
         }
 
         VariableReference sourceRef = resolveAssertionVariable(actualExpr);
-        if (sourceRef == null) return;
+        if (sourceRef == null) {
+            return;
+        }
 
         Object expectedValue = extractLiteralValue(expectedExpr);
         if (expectedValue != null) {
@@ -1042,7 +1141,9 @@ public class StatementParser {
     }
 
     private void handleAssertNotEquals(List<Expression> args) {
-        if (args.size() < 2) return;
+        if (args.size() < 2) {
+            return;
+        }
 
         // Same arg-parsing logic as handleAssertEquals
         Expression expectedExpr;
@@ -1067,7 +1168,9 @@ public class StatementParser {
         }
 
         VariableReference actualRef = resolveAssertionVariable(actualExpr);
-        if (actualRef == null) return;
+        if (actualRef == null) {
+            return;
+        }
 
         // If expected is a literal, use PrimitiveAssertion — the getCode() for
         // EqualsAssertion with value=false emits assertFalse(a.equals(b)) which
@@ -1081,7 +1184,9 @@ public class StatementParser {
 
         // Both are variables — use EqualsAssertion with value=false
         VariableReference expectedRef = resolveAssertionVariable(expectedExpr);
-        if (expectedRef == null) return;
+        if (expectedRef == null) {
+            return;
+        }
 
         EqualsAssertion assertion = new EqualsAssertion();
         assertion.setSource(actualRef);
@@ -1095,7 +1200,9 @@ public class StatementParser {
      * Uses SameAssertion with value=true for same, false for notSame.
      */
     private void handleAssertSame(List<Expression> args, boolean same) {
-        if (args.size() < 2) return;
+        if (args.size() < 2) {
+            return;
+        }
 
         Expression expectedExpr;
         Expression actualExpr;
@@ -1118,7 +1225,9 @@ public class StatementParser {
 
         VariableReference actualRef = resolveAssertionVariable(actualExpr);
         VariableReference expectedRef = resolveAssertionVariable(expectedExpr);
-        if (actualRef == null || expectedRef == null) return;
+        if (actualRef == null || expectedRef == null) {
+            return;
+        }
 
         SameAssertion assertion = new SameAssertion();
         assertion.setSource(actualRef);
@@ -1148,7 +1257,9 @@ public class StatementParser {
      * Handles both block lambdas and expression lambdas.
      */
     private void handleAssertThrows(List<Expression> args) {
-        if (args.size() < 2) return;
+        if (args.size() < 2) {
+            return;
+        }
 
         // Find the lambda argument (could be arg 1 in 2-arg form, or arg 2 in 3-arg with message)
         LambdaExpr lambda = null;
@@ -1232,10 +1343,18 @@ public class StatementParser {
             UnaryExpr unary = (UnaryExpr) expr;
             if (unary.getOperator() == UnaryExpr.Operator.MINUS) {
                 Object inner = extractLiteralValue(unary.getExpression());
-                if (inner instanceof Integer) return -(Integer) inner;
-                if (inner instanceof Long) return -(Long) inner;
-                if (inner instanceof Double) return -(Double) inner;
-                if (inner instanceof Float) return -(Float) inner;
+                if (inner instanceof Integer) {
+                    return -(Integer) inner;
+                }
+                if (inner instanceof Long) {
+                    return -(Long) inner;
+                }
+                if (inner instanceof Double) {
+                    return -(Double) inner;
+                }
+                if (inner instanceof Float) {
+                    return -(Float) inner;
+                }
             }
         } else if (expr instanceof NameExpr) {
             // If it's a variable, resolve and get the statement's value if it's a primitive
@@ -1355,7 +1474,9 @@ public class StatementParser {
         // Direct variable reference
         if (arg instanceof NameExpr) {
             VariableReference ref = scope.resolve(((NameExpr) arg).getNameAsString());
-            if (ref != null) return ref;
+            if (ref != null) {
+                return ref;
+            }
         }
 
         // Inline literal or complex expression — create a synthetic statement
@@ -1556,12 +1677,16 @@ public class StatementParser {
      * (declared type is String, or any operand in the chain is a String literal).
      */
     private boolean isStringConcat(BinaryExpr expr, Type declaredType) {
-        if (declaredType == String.class) return true;
+        if (declaredType == String.class) {
+            return true;
+        }
         return containsStringLiteral(expr);
     }
 
     private boolean containsStringLiteral(Expression expr) {
-        if (expr instanceof StringLiteralExpr) return true;
+        if (expr instanceof StringLiteralExpr) {
+            return true;
+        }
         if (expr instanceof BinaryExpr) {
             BinaryExpr bin = (BinaryExpr) expr;
             return containsStringLiteral(bin.getLeft()) || containsStringLiteral(bin.getRight());
@@ -1580,7 +1705,9 @@ public class StatementParser {
         StringBuilder sb = new StringBuilder();
         for (Expression op : operands) {
             Object val = evaluateConcatOperand(op);
-            if (val == null) return null;
+            if (val == null) {
+                return null;
+            }
             sb.append(val);
         }
         return sb.toString();
@@ -1676,7 +1803,9 @@ public class StatementParser {
                 VariableReference valueRef = handleExpression(
                         "__val" + syntheticVarCounter++, value,
                         componentType != null ? componentType : Object.class);
-                if (valueRef == null) return;
+                if (valueRef == null) {
+                    return;
+                }
 
                 // Create ArrayIndex and AssignmentStatement
                 ArrayIndex arrayIndex = new ArrayIndex(testCase,
@@ -1714,7 +1843,9 @@ public class StatementParser {
                 // Resolve the value being assigned
                 VariableReference valueRef = handleExpression(
                         "__val" + syntheticVarCounter++, value, field.getType());
-                if (valueRef == null) return;
+                if (valueRef == null) {
+                    return;
+                }
 
                 // Create FieldReference + AssignmentStatement
                 GenericField genericField = new GenericField(field, ownerClass);
@@ -1742,6 +1873,7 @@ public class StatementParser {
         try {
             return clazz.getDeclaredConstructor(argTypes);
         } catch (NoSuchMethodException ignored) {
+            // Ignore and try compatibility match
         }
 
         // Try compatibility match with autoboxing/widening
@@ -1764,6 +1896,7 @@ public class StatementParser {
         try {
             return clazz.getMethod(name, argTypes);
         } catch (NoSuchMethodException ignored) {
+            // Ignore and try compatibility match
         }
 
         // Try compatibility match with autoboxing/widening on public methods
@@ -1789,7 +1922,9 @@ public class StatementParser {
      * considering autoboxing and widening.
      */
     private boolean isCompatible(Class<?>[] formalTypes, Class<?>[] actualTypes) {
-        if (formalTypes.length != actualTypes.length) return false;
+        if (formalTypes.length != actualTypes.length) {
+            return false;
+        }
         for (int i = 0; i < formalTypes.length; i++) {
             if (!isAssignableFrom(formalTypes[i], actualTypes[i])) {
                 return false;
@@ -1803,69 +1938,125 @@ public class StatementParser {
      * considering autoboxing and widening.
      */
     static boolean isAssignableFrom(Class<?> formal, Class<?> actual) {
-        if (formal.isAssignableFrom(actual)) return true;
+        if (formal.isAssignableFrom(actual)) {
+            return true;
+        }
 
         // Autoboxing: primitive actual → boxed, then check assignability
         if (actual.isPrimitive()) {
             Class<?> boxed = box(actual);
-            if (boxed != null && formal.isAssignableFrom(boxed)) return true;
+            if (boxed != null && formal.isAssignableFrom(boxed)) {
+                return true;
+            }
         }
         // Unboxing: boxed actual → primitive, then check
         if (formal.isPrimitive()) {
             Class<?> actualUnboxed = unbox(actual);
-            if (actualUnboxed != null && formal == actualUnboxed) return true;
+            if (actualUnboxed != null && formal == actualUnboxed) {
+                return true;
+            }
         }
 
         // Widening between primitives (including through autoboxing)
         Class<?> formalUnboxed = unbox(formal);
         Class<?> actualUnboxed = unbox(actual);
         if (formalUnboxed != null && actualUnboxed != null) {
-            if (formalUnboxed == actualUnboxed) return true;
-            if (isWidenable(formalUnboxed, actualUnboxed)) return true;
+            if (formalUnboxed == actualUnboxed) {
+                return true;
+            }
+            if (isWidenable(formalUnboxed, actualUnboxed)) {
+                return true;
+            }
         }
 
         // null type (Void) is assignable to any reference type
-        if (actual == Void.class && !formal.isPrimitive()) return true;
+        if (actual == Void.class && !formal.isPrimitive()) {
+            return true;
+        }
 
         return false;
     }
 
     private static Class<?> box(Class<?> clazz) {
-        if (clazz == int.class) return Integer.class;
-        if (clazz == long.class) return Long.class;
-        if (clazz == double.class) return Double.class;
-        if (clazz == float.class) return Float.class;
-        if (clazz == boolean.class) return Boolean.class;
-        if (clazz == char.class) return Character.class;
-        if (clazz == byte.class) return Byte.class;
-        if (clazz == short.class) return Short.class;
+        if (clazz == int.class) {
+            return Integer.class;
+        }
+        if (clazz == long.class) {
+            return Long.class;
+        }
+        if (clazz == double.class) {
+            return Double.class;
+        }
+        if (clazz == float.class) {
+            return Float.class;
+        }
+        if (clazz == boolean.class) {
+            return Boolean.class;
+        }
+        if (clazz == char.class) {
+            return Character.class;
+        }
+        if (clazz == byte.class) {
+            return byte.class;
+        }
+        if (clazz == short.class) {
+            return short.class;
+        }
         return null;
     }
 
     private static Class<?> unbox(Class<?> clazz) {
-        if (clazz == Integer.class) return int.class;
-        if (clazz == Long.class) return long.class;
-        if (clazz == Double.class) return double.class;
-        if (clazz == Float.class) return float.class;
-        if (clazz == Boolean.class) return boolean.class;
-        if (clazz == Character.class) return char.class;
-        if (clazz == Byte.class) return byte.class;
-        if (clazz == Short.class) return short.class;
-        if (clazz.isPrimitive()) return clazz;
+        if (clazz == Integer.class) {
+            return int.class;
+        }
+        if (clazz == Long.class) {
+            return long.class;
+        }
+        if (clazz == Double.class) {
+            return double.class;
+        }
+        if (clazz == Float.class) {
+            return float.class;
+        }
+        if (clazz == Boolean.class) {
+            return boolean.class;
+        }
+        if (clazz == Character.class) {
+            return char.class;
+        }
+        if (clazz == Byte.class) {
+            return byte.class;
+        }
+        if (clazz == Short.class) {
+            return short.class;
+        }
+        if (clazz.isPrimitive()) {
+            return clazz;
+        }
         return null;
     }
 
     private static boolean isWidenable(Class<?> target, Class<?> source) {
         // Numeric widening conversions
-        if (target == short.class) return source == byte.class;
-        if (target == int.class) return source == byte.class || source == short.class || source == char.class;
-        if (target == long.class) return source == byte.class || source == short.class
-                || source == char.class || source == int.class;
-        if (target == float.class) return source == byte.class || source == short.class
-                || source == char.class || source == int.class || source == long.class;
-        if (target == double.class) return source == byte.class || source == short.class
-                || source == char.class || source == int.class || source == long.class
-                || source == float.class;
+        if (target == short.class) {
+            return source == byte.class;
+        }
+        if (target == int.class) {
+            return source == byte.class || source == short.class || source == char.class;
+        }
+        if (target == long.class) {
+            return source == byte.class || source == short.class
+                    || source == char.class || source == int.class;
+        }
+        if (target == float.class) {
+            return source == byte.class || source == short.class
+                    || source == char.class || source == int.class || source == long.class;
+        }
+        if (target == double.class) {
+            return source == byte.class || source == short.class
+                    || source == char.class || source == int.class || source == long.class
+                    || source == float.class;
+        }
         return false;
     }
 
@@ -1948,7 +2139,9 @@ public class StatementParser {
     }
 
     static Class<?> getRawClass(Type type) {
-        if (type instanceof Class<?>) return (Class<?>) type;
+        if (type instanceof Class<?>) {
+            return (Class<?>) type;
+        }
         if (type instanceof java.lang.reflect.ParameterizedType) {
             return (Class<?>) ((java.lang.reflect.ParameterizedType) type).getRawType();
         }
@@ -1963,7 +2156,9 @@ public class StatementParser {
     private String formatTypes(Class<?>[] types) {
         StringBuilder sb = new StringBuilder("(");
         for (int i = 0; i < types.length; i++) {
-            if (i > 0) sb.append(", ");
+            if (i > 0) {
+                sb.append(", ");
+            }
             sb.append(types[i].getSimpleName());
         }
         return sb.append(")").toString();
@@ -1986,7 +2181,9 @@ public class StatementParser {
      * can reuse LLM-chosen values. Does nothing for boolean or null.
      */
     private static void seedConstantPool(Object value) {
-        if (value == null) return;
+        if (value == null) {
+            return;
+        }
         try {
             ConstantPoolManager.getInstance().addDynamicConstant(value);
         } catch (Exception e) {

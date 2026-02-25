@@ -264,6 +264,13 @@ public class Randomness implements Serializable {
         return list.get(random.nextInt(list.size()));
     }
 
+    /**
+     * Deterministically compare two objects.
+     *
+     * @param a first object.
+     * @param b second object.
+     * @return comparison result.
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static int deterministicCompare(Object a, Object b) {
         if (a == b) {

@@ -58,6 +58,9 @@ public class LoopCounter {
         return singleton;
     }
 
+    /**
+     * Reset the loop counters.
+     */
     public void reset() {
         if (delegate != null) {
             invokeDelegate("reset");
@@ -66,6 +69,11 @@ public class LoopCounter {
         counters.clear();
     }
 
+    /**
+     * Set the loop counter to active or inactive.
+     *
+     * @param active true if loop counter should be active.
+     */
     public void setActive(boolean active) {
         if (delegate != null) {
             invokeDelegate("setActive", active);
@@ -74,6 +82,11 @@ public class LoopCounter {
         this.activated = active;
     }
 
+    /**
+     * Check if the loop counter is activated.
+     *
+     * @return true if loop counter is activated.
+     */
     public boolean isActivated() {
         if (delegate != null) {
             return (Boolean) invokeDelegate("isActivated");

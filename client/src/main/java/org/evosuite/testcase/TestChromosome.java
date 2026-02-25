@@ -33,7 +33,6 @@ import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
-import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.AbstractTestSuiteChromosome;
@@ -50,7 +49,6 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toCollection;

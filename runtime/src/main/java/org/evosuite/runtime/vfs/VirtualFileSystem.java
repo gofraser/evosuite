@@ -232,7 +232,8 @@ public final class VirtualFileSystem {
             // delegate's classloader and invoke setShouldThrowIOException reflectively.
             try {
                 ClassLoader delegateLoader = delegate.getClass().getClassLoader();
-                Class<?> evoFileClass = Class.forName("org.evosuite.runtime.testdata.EvoSuiteFile", true, delegateLoader);
+                Class<?> evoFileClass = Class.forName("org.evosuite.runtime.testdata.EvoSuiteFile", true,
+                        delegateLoader);
                 Object delegateFile = evoFileClass.getConstructor(String.class).newInstance(file.getPath());
                 Method m = delegate.getClass().getMethod("setShouldThrowIOException", evoFileClass);
                 return (Boolean) m.invoke(delegate, delegateFile);

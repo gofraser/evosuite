@@ -79,7 +79,8 @@ public class TransformerForTests implements ClassFileTransformer {
 
             logger.debug("Going to instrument: " + classWithDots);
 
-            if (instrumenter.isAlreadyInstrumented(new ClassReader(classfileBuffer)) && !instrumenter.isRetransformingMode()) {
+            if (instrumenter.isAlreadyInstrumented(new ClassReader(classfileBuffer))
+                    && !instrumenter.isRetransformingMode()) {
                 logger.debug("Skipping transformation of {} as it is already instrumented", classWithDots);
                 return classfileBuffer;
             }

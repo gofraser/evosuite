@@ -1734,7 +1734,8 @@ public class Properties {
     @Parameter(key = "seed_mutations", description = "Number of mutations applied to a cloned individual")
     public static int SEED_MUTATIONS = 3;
 
-    @Parameter(key = "seed_test_source_dir", description = "Root directory to find test source files for PARSED_JUNIT seeding")
+    @Parameter(key = "seed_test_source_dir",
+            description = "Root directory to find test source files for PARSED_JUNIT seeding")
     public static String SEED_TEST_SOURCE_DIR = null;
 
     @Parameter(key = "seed_dir", group = "Output", description = "Directory name where the best chromosomes are saved")

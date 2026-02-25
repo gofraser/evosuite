@@ -22,7 +22,6 @@ package org.evosuite.testparser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import org.evosuite.testcase.DefaultTestCase;
-import org.evosuite.testcase.TestCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,12 +31,12 @@ import java.util.Optional;
 
 /**
  * Parses JUnit test source code into EvoSuite TestCase objects.
- * <p>
- * This is the main entry point for the test parser. It coordinates
+ *
+ * <p>This is the main entry point for the test parser. It coordinates
  * {@link TestMethodParser} (AST extraction) and {@link StatementParser}
  * (AST → EvoSuite statement conversion).
- * <p>
- * Usage:
+ *
+ * <p>Usage:
  * <pre>
  *   TestParser parser = new TestParser(classLoader);
  *   ParseResult result = parser.parseTestMethod(sourceCode, "testFoo");

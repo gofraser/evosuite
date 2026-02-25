@@ -25,11 +25,11 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.net.SocketException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.util.Enumeration;
+import java.net.SocketException;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 
 
@@ -130,7 +130,8 @@ public class NetworkInterfaceState {
                 return;
             } catch (IllegalArgumentException | InvocationTargetException
                     | InstantiationException | IllegalAccessException | SecurityException e) {
-                logger.warn("Reflection problems while creating mocked network interface '{}': {}", name, e.getMessage());
+                logger.warn("Reflection problems while creating mocked network interface '{}': {}",
+                        name, e.getMessage());
             }
         }
 

@@ -52,6 +52,10 @@ public class MockFramework {
         }
     }
 
+    /**
+     * Stop using the mock versions of the classes, and roll back
+     * to the original behavior.
+     */
     public static void disable() {
         active = false;
         try {
@@ -61,6 +65,11 @@ public class MockFramework {
         }
     }
 
+    /**
+     * Check if the mock framework is currently active.
+     *
+     * @return true if mocking is enabled.
+     */
     public static boolean isEnabled() {
         try {
             String property = java.lang.System.getProperty(MOCK_ENABLED_PROPERTY);

@@ -20,9 +20,7 @@
 package org.evosuite.utils.generic;
 
 import com.googlecode.gentyref.GenericTypeReflector;
-import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.ga.ConstructionFailedException;
-import org.evosuite.utils.ParameterizedTypeImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

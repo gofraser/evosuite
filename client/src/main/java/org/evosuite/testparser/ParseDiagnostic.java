@@ -28,6 +28,14 @@ public class ParseDiagnostic {
     private final int lineNumber;
     private final String sourceSnippet;
 
+    /**
+     * Create a new ParseDiagnostic.
+     *
+     * @param severity the severity.
+     * @param message the message.
+     * @param lineNumber the line number.
+     * @param sourceSnippet the source snippet.
+     */
     public ParseDiagnostic(Severity severity, String message, int lineNumber, String sourceSnippet) {
         this.severity = severity;
         this.message = message;

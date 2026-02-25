@@ -100,7 +100,8 @@ public class Scaffolding {
             builder.append(METHOD_SPACE);
             builder.append("// Empty scaffolding for empty test suite\n");
         } else {
-            builder.append(new Scaffolding().getBeforeAndAfterMethods(name, requirements.hasSecurityException(), results));
+            builder.append(new Scaffolding().getBeforeAndAfterMethods(name,
+                    requirements.hasSecurityException(), results));
         }
         builder.append(getFooter());
 

@@ -24,7 +24,6 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.runtime.Reflection;
 import org.evosuite.runtime.classhandling.ModifiedTargetStaticFields;
-import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.util.ReflectionUtils;
 import org.junit.Test;
 import org.junit.runners.Suite;

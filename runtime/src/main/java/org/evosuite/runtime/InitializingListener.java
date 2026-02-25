@@ -84,45 +84,45 @@ public class InitializingListener extends RunListener {
         try {
             java.lang.System.out.println("Executing " + InitializingListener.class.getName());
 
-        /*
-            Here we cannot trust what passed as "Description", as it could had
-            been not initialized. This is for example the case for Maven, and
-            who knows what would be in Ant and Gradle.
-         */
+            /*
+                Here we cannot trust what passed as "Description", as it could had
+                been not initialized. This is for example the case for Maven, and
+                who knows what would be in Ant and Gradle.
+             */
 
 
-        /*
-            This is not 100% correct, but anyway this is done only when running tests with "mvn test"
-            by the final users, not really in the experiments.
-            So, activating everything should be fine
-         */
-        RuntimeSettings.activateAllMocking();
-        RuntimeSettings.mockSystemIn = true;
-        RuntimeSettings.resetStaticState = true;
+            /*
+                This is not 100% correct, but anyway this is done only when running tests with "mvn test"
+                by the final users, not really in the experiments.
+                So, activating everything should be fine
+             */
+            RuntimeSettings.activateAllMocking();
+            RuntimeSettings.mockSystemIn = true;
+            RuntimeSettings.resetStaticState = true;
 
-        List<String> list;
-        String compiledTestsFolder = java.lang.System.getProperty(COMPILED_TESTS_FOLDER_PROPERTY);
+            List<String> list;
+            String compiledTestsFolder = java.lang.System.getProperty(COMPILED_TESTS_FOLDER_PROPERTY);
 
-        /*
-            We have 2 different approaches based on Maven and Ant.
-            TODO: we ll need to handle also Gradle, and possibly find a simpler, unified way
-         */
-        if (compiledTestsFolder == null) {
-            list = classesToInitFromScaffoldingFile();
-            if (list.isEmpty()) {
-                File defaultCompiledTests = new File("target" + File.separator + "test-classes");
-                if (defaultCompiledTests.exists()) {
-                    list = InitializingListenerUtils.scanClassesToInit(defaultCompiledTests);
+            /*
+                We have 2 different approaches based on Maven and Ant.
+                TODO: we ll need to handle also Gradle, and possibly find a simpler, unified way
+             */
+            if (compiledTestsFolder == null) {
+                list = classesToInitFromScaffoldingFile();
+                if (list.isEmpty()) {
+                    File defaultCompiledTests = new File("target" + File.separator + "test-classes");
+                    if (defaultCompiledTests.exists()) {
+                        list = InitializingListenerUtils.scanClassesToInit(defaultCompiledTests);
+                    }
+                }
+            } else {
+                list = InitializingListenerUtils.scanClassesToInit(new File(compiledTestsFolder));
+                if (list.isEmpty()) {
+                    list = classesToInitFromScaffoldingFile();
                 }
             }
-        } else {
-            list = InitializingListenerUtils.scanClassesToInit(new File(compiledTestsFolder));
-            if (list.isEmpty()) {
-                list = classesToInitFromScaffoldingFile();
-            }
-        }
-        list = deduplicate(list);
-        java.lang.System.out.println("Initializing " + list.size() + " scaffolding classes");
+            list = deduplicate(list);
+            java.lang.System.out.println("Initializing " + list.size() + " scaffolding classes");
 
             try {
                 InstrumentingAgent.initialize();
@@ -155,8 +155,8 @@ public class InitializingListener extends RunListener {
                     try {
                         InstrumentingAgent.deactivate();
                     } catch (Throwable t) {
-                        java.lang.System.out.println("WARN: Failed to deactivate InstrumentingAgent in InitializingListener: "
-                                + t.getClass().getName() + ": " + t.getMessage());
+                        java.lang.System.out.println("WARN: Failed to deactivate InstrumentingAgent in "
+                                + "InitializingListener: " + t.getClass().getName() + ": " + t.getMessage());
                     }
                 }
 

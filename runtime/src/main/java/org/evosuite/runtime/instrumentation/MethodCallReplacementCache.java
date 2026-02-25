@@ -432,9 +432,9 @@ public class MethodCallReplacementCache {
                         mockedArgumentTypes[i + 1] = argumentTypes[i];
                     }
                     String mockedDesc = Type.getMethodDescriptor(Type.getReturnType(m), mockedArgumentTypes);
-                    addReplacementCall(new MethodCallReplacement(target.getCanonicalName().replace('.', '/'), m.getName(), desc,
-                            Opcodes.INVOKEVIRTUAL, mockClass.getCanonicalName().replace('.', '/'), m.getName(), mockedDesc,
-                            false, false));
+                    addReplacementCall(new MethodCallReplacement(target.getCanonicalName().replace('.', '/'),
+                            m.getName(), desc, Opcodes.INVOKEVIRTUAL, mockClass.getCanonicalName().replace('.', '/'),
+                            m.getName(), mockedDesc, false, false));
                 } else {
                     logger.debug("Skipping non-static mock method: {}", mockMethod);
                 }

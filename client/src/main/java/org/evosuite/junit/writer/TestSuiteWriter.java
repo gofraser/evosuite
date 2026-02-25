@@ -89,6 +89,11 @@ public class TestSuiteWriter implements Opcodes {
     private TestNameGenerationStrategy nameGenerator = null;
     private List<String> extensionInitializationOrder = Collections.emptyList();
 
+    /**
+     * Set the order in which extensions should be initialized.
+     *
+     * @param extensionInitializationOrder the list of extension names.
+     */
     public void setExtensionInitializationOrder(List<String> extensionInitializationOrder) {
         if (extensionInitializationOrder == null || extensionInitializationOrder.isEmpty()) {
             this.extensionInitializationOrder = Collections.emptyList();
@@ -332,10 +337,10 @@ public class TestSuiteWriter implements Opcodes {
      * Create JUnit file for given class name.
      *
      * @param name Name of the class file
-     * @param results Execution results
      * @return String representation of JUnit test file
      */
-    private String getUnitTestsAllInSameFile(String name, List<ExecutionResult> results, RuntimeRequirements requirements) {
+    private String getUnitTestsAllInSameFile(String name, List<ExecutionResult> results,
+                                             RuntimeRequirements requirements) {
 
         /*
          * if there was any security exception, then we need to scaffold the
@@ -367,10 +372,10 @@ public class TestSuiteWriter implements Opcodes {
      * Create JUnit file for given class name.
      *
      * @param name   Name of the class file
-     * @param testId a int.
      * @return String representation of JUnit test file
      */
-    private String getOneUnitTestInAFile(String name, int testId, List<ExecutionResult> results, RuntimeRequirements requirements) {
+    private String getOneUnitTestInAFile(String name, int testId, List<ExecutionResult> results,
+                                         RuntimeRequirements requirements) {
 
         boolean wasSecurityException = results.get(testId).hasSecurityException();
 

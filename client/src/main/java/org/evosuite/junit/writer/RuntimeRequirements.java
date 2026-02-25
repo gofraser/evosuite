@@ -48,6 +48,12 @@ public final class RuntimeRequirements {
         this.shouldResetProperties = shouldResetProperties;
     }
 
+    /**
+     * Create RuntimeRequirements from execution results.
+     *
+     * @param results the execution results.
+     * @return the runtime requirements.
+     */
     public static RuntimeRequirements fromResults(List<ExecutionResult> results) {
         List<ExecutionResult> safeResults = results == null ? Collections.emptyList() : results;
         return new RuntimeRequirements(

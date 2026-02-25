@@ -34,12 +34,25 @@ public class ParseResult {
     /** Expected exception class name from JUnit 4 @Test(expected=...) or JUnit 5 assertThrows */
     private String expectedExceptionClass;
 
+    /**
+     * Create a new ParseResult.
+     *
+     * @param testCase the test case.
+     * @param originalMethodName the original method name.
+     */
     public ParseResult(TestCase testCase, String originalMethodName) {
         this.testCase = testCase;
         this.diagnostics = new ArrayList<>();
         this.originalMethodName = originalMethodName;
     }
 
+    /**
+     * Create a new ParseResult with existing diagnostics.
+     *
+     * @param testCase the test case.
+     * @param originalMethodName the original method name.
+     * @param diagnostics the diagnostics.
+     */
     public ParseResult(TestCase testCase, String originalMethodName, List<ParseDiagnostic> diagnostics) {
         this.testCase = testCase;
         this.originalMethodName = originalMethodName;

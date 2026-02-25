@@ -21,7 +21,6 @@ package org.evosuite.seeding;
 
 import org.evosuite.utils.Randomness;
 
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 

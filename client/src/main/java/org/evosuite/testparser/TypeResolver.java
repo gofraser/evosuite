@@ -40,19 +40,20 @@ public class TypeResolver {
 
     private final ClassLoader classLoader;
 
-    /** simple name → fully qualified name (from explicit imports) */
+    /** simple name → fully qualified name (from explicit imports). */
     private final Map<String, String> importMap = new LinkedHashMap<>();
 
-    /** wildcard import prefixes, e.g. "java.util" from "import java.util.*" */
+    /** wildcard import prefixes, e.g. "java.util" from "import java.util.*". */
     private final List<String> wildcardImports = new ArrayList<>();
 
-    /** static import: simple method/field name → fully qualified class name */
+    /** static import: simple method/field name → fully qualified class name. */
     private final Map<String, String> staticImportMap = new LinkedHashMap<>();
 
-    /** static wildcard imports: fully qualified class names from "import static foo.Bar.*" */
+    /** static wildcard imports: fully qualified class names from "import static foo.Bar.*". */
     private final List<String> staticWildcardImports = new ArrayList<>();
 
     private static final Map<String, Class<?>> PRIMITIVE_TYPES = new HashMap<>();
+
     static {
         PRIMITIVE_TYPES.put("int", int.class);
         PRIMITIVE_TYPES.put("long", long.class);
@@ -71,7 +72,9 @@ public class TypeResolver {
     }
 
     private void processImports(List<String> imports) {
-        if (imports == null) return;
+        if (imports == null) {
+            return;
+        }
         for (String imp : imports) {
             String trimmed = imp.trim();
             // Strip leading "import " and trailing ";"
@@ -118,7 +121,9 @@ public class TypeResolver {
     public Class<?> resolveClass(String typeName) throws ClassNotFoundException {
         // Primitives
         Class<?> primitive = PRIMITIVE_TYPES.get(typeName);
-        if (primitive != null) return primitive;
+        if (primitive != null) {
+            return primitive;
+        }
 
         // Array syntax: "String[]" → resolve component, then get array class
         if (typeName.endsWith("[]")) {
@@ -133,6 +138,7 @@ public class TypeResolver {
             try {
                 return loadClass(typeName);
             } catch (ClassNotFoundException ignored) {
+                // Ignore and try inner class pattern
             }
 
             // Try resolving the first segment as an imported class (inner class pattern)
@@ -157,6 +163,7 @@ public class TypeResolver {
         try {
             return loadClass("java.lang." + typeName);
         } catch (ClassNotFoundException ignored) {
+            // Ignore and try wildcard imports
         }
 
         // Check wildcard imports
@@ -164,6 +171,7 @@ public class TypeResolver {
             try {
                 return loadClass(prefix + "." + typeName);
             } catch (ClassNotFoundException ignored) {
+                // Ignore and try next prefix
             }
         }
 
@@ -188,6 +196,7 @@ public class TypeResolver {
                 try {
                     return Class.forName(innerAttempt, false, classLoader);
                 } catch (ClassNotFoundException ignored) {
+                    // Ignore and throw original exception
                 }
             }
             throw e;
@@ -197,6 +206,10 @@ public class TypeResolver {
     /**
      * Resolve a JavaParser Type node to a java.lang.reflect.Type.
      * Handles primitives, class/interface types, parameterized types, wildcards, arrays, and void.
+     *
+     * @param jpType the JavaParser type node.
+     * @return the resolved java.lang.reflect.Type.
+     * @throws ClassNotFoundException if the type cannot be resolved.
      */
     public java.lang.reflect.Type resolveType(Type jpType) throws ClassNotFoundException {
         if (jpType instanceof PrimitiveType) {
@@ -319,7 +332,8 @@ public class TypeResolver {
         }
         if (wt.getSuperType().isPresent()) {
             java.lang.reflect.Type bound = resolveType(wt.getSuperType().get());
-            return new WildcardTypeImpl(new java.lang.reflect.Type[]{Object.class}, new java.lang.reflect.Type[]{bound});
+            return new WildcardTypeImpl(new java.lang.reflect.Type[]{Object.class},
+                    new java.lang.reflect.Type[]{bound});
         }
         // Unbounded: ?
         return new WildcardTypeImpl(new java.lang.reflect.Type[]{Object.class}, new java.lang.reflect.Type[0]);
@@ -367,11 +381,15 @@ public class TypeResolver {
                 // Check if the class has a method or field with this name
                 boolean hasMethod = Arrays.stream(clazz.getMethods())
                         .anyMatch(m -> m.getName().equals(memberName));
-                if (hasMethod) return fqClass;
+                if (hasMethod) {
+                    return fqClass;
+                }
 
                 boolean hasField = Arrays.stream(clazz.getFields())
                         .anyMatch(f -> f.getName().equals(memberName));
-                if (hasField) return fqClass;
+                if (hasField) {
+                    return fqClass;
+                }
             } catch (ClassNotFoundException e) {
                 logger.debug("Could not load class for static wildcard import: {}", fqClass);
             }
