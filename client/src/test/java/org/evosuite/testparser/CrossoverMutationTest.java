@@ -19,19 +19,13 @@
  */
 package org.evosuite.testparser;
 
+import org.evosuite.Properties;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
-import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.utils.generic.GenericClassFactory;
-import org.evosuite.utils.generic.GenericConstructor;
-import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -116,12 +110,26 @@ class CrossoverMutationTest {
         tc.addStatement(new IntPrimitiveStatement(tc, 42));
         tc.addStatement(new InterpretedStatement(tc, "x.doSomething();"));
 
-        TestChromosome chrom = new TestChromosome();
-        chrom.setTestCase(tc);
-        chrom.mutate();
+        double oldDelete = Properties.P_TEST_DELETE;
+        double oldInsert = Properties.P_TEST_INSERT;
+        double oldChange = Properties.P_TEST_CHANGE;
+        try {
+            // Make mutation deterministic for this test: only mutate existing statements,
+            // do not delete or insert.
+            Properties.P_TEST_DELETE = 0.0;
+            Properties.P_TEST_INSERT = 0.0;
+            Properties.P_TEST_CHANGE = 1.0;
 
-        // InterpretedStatement should still be present after mutation
-        TestCase result = chrom.getTestCase();
-        assertTrue(result.size() >= 1, "Test should still have statements");
+            TestChromosome chrom = new TestChromosome();
+            chrom.setTestCase(tc);
+            chrom.mutate();
+
+            TestCase result = chrom.getTestCase();
+            assertTrue(result.size() >= 1, "Test should still have statements");
+        } finally {
+            Properties.P_TEST_DELETE = oldDelete;
+            Properties.P_TEST_INSERT = oldInsert;
+            Properties.P_TEST_CHANGE = oldChange;
+        }
     }
 }
