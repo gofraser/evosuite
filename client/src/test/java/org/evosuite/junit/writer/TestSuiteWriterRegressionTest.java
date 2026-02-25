@@ -47,6 +47,7 @@ public class TestSuiteWriterRegressionTest {
     private final boolean defaultResetStaticFields = Properties.RESET_STATIC_FIELDS;
     private final boolean defaultVirtualNet = Properties.VIRTUAL_NET;
     private final boolean defaultReplaceGui = Properties.REPLACE_GUI;
+    private final boolean defaultUseSeparateClassLoader = Properties.USE_SEPARATE_CLASSLOADER;
     private final String[] defaultIgnoreThreads = Properties.IGNORE_THREADS;
     private final String defaultClassPrefix = Properties.CLASS_PREFIX;
     private final Properties.TestNamingStrategy defaultTestNamingStrategy = Properties.TEST_NAMING_STRATEGY;
@@ -63,6 +64,7 @@ public class TestSuiteWriterRegressionTest {
         Properties.RESET_STATIC_FIELDS = defaultResetStaticFields;
         Properties.VIRTUAL_NET = defaultVirtualNet;
         Properties.REPLACE_GUI = defaultReplaceGui;
+        Properties.USE_SEPARATE_CLASSLOADER = defaultUseSeparateClassLoader;
         Properties.IGNORE_THREADS = defaultIgnoreThreads;
         Properties.CLASS_PREFIX = defaultClassPrefix;
         Properties.TEST_NAMING_STRATEGY = defaultTestNamingStrategy;
@@ -149,6 +151,7 @@ public class TestSuiteWriterRegressionTest {
         Properties.TEST_EXTENSION_MODE = true;
         Properties.TEST_SCAFFOLDING = false;
         Properties.RESET_STATIC_FIELDS = true;
+        Properties.USE_SEPARATE_CLASSLOADER = false;
 
         TestSuiteWriter writer = new TestSuiteWriter();
         writer.setExtensionInitializationOrder(Arrays.asList("z.InitLast", "a.InitFirst", "m.InitMiddle"));
@@ -168,6 +171,7 @@ public class TestSuiteWriterRegressionTest {
         Properties.TEST_EXTENSION_MODE = true;
         Properties.TEST_SCAFFOLDING = false;
         Properties.RESET_STATIC_FIELDS = true;
+        Properties.USE_SEPARATE_CLASSLOADER = false;
 
         TestSuiteWriter writer = new TestSuiteWriter();
         writer.writeTestSuite("ExtIndentTest", tempDir.toString(), Collections.emptyList());
@@ -185,6 +189,7 @@ public class TestSuiteWriterRegressionTest {
         Properties.TEST_EXTENSION_MODE = true;
         Properties.TEST_SCAFFOLDING = false;
         Properties.REPLACE_CALLS = true;
+        Properties.USE_SEPARATE_CLASSLOADER = false;
 
         TestSuiteWriter writer = new TestSuiteWriter();
         writer.insertTest(new DefaultTestCase());
@@ -288,6 +293,7 @@ public class TestSuiteWriterRegressionTest {
         Properties.RESET_STATIC_FIELDS = false;
         Properties.VIRTUAL_NET = false;
         Properties.REPLACE_GUI = false;
+        Properties.USE_SEPARATE_CLASSLOADER = true;
         Properties.IGNORE_THREADS = new String[]{};
         Properties.CLASS_PREFIX = "";
         Properties.TEST_NAMING_STRATEGY = Properties.TestNamingStrategy.NUMBERED;

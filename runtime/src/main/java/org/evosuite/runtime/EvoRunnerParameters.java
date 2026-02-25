@@ -80,4 +80,32 @@ public @interface EvoRunnerParameters {
      * @return true if GUI should be mocked
      */
     boolean mockGUI() default false;
+
+    /**
+     * The timeout in milliseconds for each test case.
+     *
+     * @return the timeout in milliseconds
+     */
+    long timeout() default 5_000;
+
+    /**
+     * A list of thread name prefixes that should be ignored by the thread stopper.
+     *
+     * @return the list of thread name prefixes to ignore
+     */
+    String[] ignoreThreads() default {};
+
+    /**
+     * How many threads is each test allowed to start.
+     *
+     * @return the maximum number of threads
+     */
+    int maxNumberOfThreads() default 100;
+
+    /**
+     * How many iterations is each loop allowed to take.
+     *
+     * @return the maximum number of iterations
+     */
+    long maxNumberOfIterationsPerLoop() default 10_000;
 }

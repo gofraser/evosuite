@@ -674,6 +674,26 @@ public class TestSuiteWriter implements Opcodes {
             list.add("mockGUI = true");
         }
 
+        list.add("timeout = " + Properties.TIMEOUT);
+
+        if (Properties.REPLACE_CALLS) {
+            list.add("maxNumberOfThreads = " + Properties.MAX_STARTED_THREADS);
+        }
+        list.add("maxNumberOfIterationsPerLoop = " + Properties.MAX_LOOP_ITERATIONS);
+
+        if (Properties.IGNORE_THREADS.length > 0) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("ignoreThreads = {");
+            for (int i = 0; i < Properties.IGNORE_THREADS.length; i++) {
+                if (i > 0) {
+                    sb.append(", ");
+                }
+                sb.append("\"").append(escapeClassName(Properties.IGNORE_THREADS[i])).append("\"");
+            }
+            sb.append("}");
+            list.add(sb.toString());
+        }
+
         if (!list.isEmpty()) {
             s += list.get(0);
 
