@@ -24,6 +24,7 @@ import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.continuous.persistency.StorageManager;
 import org.evosuite.coverage.CoverageCriteriaAnalyzer;
+import org.evosuite.executionmode.ExecutionModeUtils;
 import org.evosuite.runtime.util.JarPathing;
 import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.statistics.RuntimeVariable;
@@ -245,19 +246,10 @@ public class JobHandler extends Thread {
         commands.add("-cp");
         commands.add(configureAndGetClasspath());
 
-        // Add module access flags needed for XStream serialization (Java 9+)
-        commands.add("--add-opens");
-        commands.add("java.base/java.util=ALL-UNNAMED");
-        commands.add("--add-opens");
-        commands.add("java.base/java.lang=ALL-UNNAMED");
-        // Add module access flags needed for VirtualNetwork (Java 9+)
-        commands.add("--add-opens");
-        commands.add("java.base/java.net=ALL-UNNAMED");
-        // Add module access flags needed for AWT (Java 9+)
-        commands.add("--add-opens");
-        commands.add("java.desktop/java.awt=ALL-UNNAMED");
+        ExecutionModeUtils.addCommonModuleOpens(commands);
+
         /*
-         * FIXME for seeding, need to setup classpath of generated test suites
+         *  it is important to set it before calling EvoSuite, as it has to be read by Master before loading properties.
          * - first the currently generated
          * - then the old ones
          *
