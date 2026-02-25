@@ -44,6 +44,10 @@ import org.evosuite.utils.generic.GenericMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.evosuite.testcase.fm.MethodDescriptor;
+import org.evosuite.testcase.statements.FunctionalMockForAbstractClassStatement;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -88,9 +92,24 @@ public class StatementParser {
      * to the TestCase.
      */
     public void parseStatement(com.github.javaparser.ast.stmt.Statement astStmt) {
+        parseStatement(astStmt, null, 0);
+    }
+
+    /**
+     * Parse a JavaParser statement with look-ahead access to subsequent statements.
+     * Used for multi-statement patterns like mock creation + stubbing.
+     *
+     * @param astStmt       the current statement
+     * @param allStatements the full list of statements (for look-ahead), or null
+     * @param currentIndex  the index of the current statement in allStatements
+     * @return the number of statements consumed (always >= 1)
+     */
+    public int parseStatement(com.github.javaparser.ast.stmt.Statement astStmt,
+                              List<com.github.javaparser.ast.stmt.Statement> allStatements,
+                              int currentIndex) {
         if (astStmt instanceof ExpressionStmt) {
             ExpressionStmt exprStmt = (ExpressionStmt) astStmt;
-            handleExpressionStatement(exprStmt.getExpression());
+            return handleExpressionStatement(exprStmt.getExpression(), allStatements, currentIndex);
         } else {
             // Fallback: preserve as InterpretedStatement
             int line = astStmt.getBegin().map(p -> p.line).orElse(0);
@@ -101,16 +120,29 @@ public class StatementParser {
                     line,
                     astStmt.toString()));
             testCase.addStatement(new InterpretedStatement(testCase, astStmt.toString()));
+            return 1;
         }
     }
 
     private void handleExpressionStatement(Expression expr) {
+        handleExpressionStatement(expr, null, 0);
+    }
+
+    private int handleExpressionStatement(Expression expr,
+                                          List<com.github.javaparser.ast.stmt.Statement> allStatements,
+                                          int currentIndex) {
         if (expr instanceof VariableDeclarationExpr) {
+            int consumed = handleVariableDeclarationWithLookahead(
+                    (VariableDeclarationExpr) expr, allStatements, currentIndex);
+            if (consumed > 0) return consumed;
             handleVariableDeclaration((VariableDeclarationExpr) expr);
+            return 1;
         } else if (expr instanceof MethodCallExpr) {
             handleTopLevelMethodCall((MethodCallExpr) expr);
+            return 1;
         } else if (expr instanceof AssignExpr) {
             handleAssignment((AssignExpr) expr);
+            return 1;
         } else {
             // Fallback: preserve as InterpretedStatement
             int line = expr.getBegin().map(p -> p.line).orElse(0);
@@ -121,6 +153,7 @@ public class StatementParser {
                     line,
                     expr.toString()));
             testCase.addStatement(new InterpretedStatement(testCase, expr.toString() + ";"));
+            return 1;
         }
     }
 
@@ -166,6 +199,340 @@ public class StatementParser {
                 scope.register(varName, varRef, genericType);
             }
         }
+    }
+
+    // ========================================================================
+    // Mock pattern recognition (Phase 2: EvoSuite's doReturn().when() pattern)
+    // ========================================================================
+
+    /**
+     * Try to handle a variable declaration as a mock creation with look-ahead
+     * for subsequent stubbing calls. Returns 0 if this is not a mock pattern,
+     * or the total number of AST statements consumed if it is.
+     */
+    private int handleVariableDeclarationWithLookahead(
+            VariableDeclarationExpr varDeclExpr,
+            List<com.github.javaparser.ast.stmt.Statement> allStatements,
+            int currentIndex) {
+        if (allStatements == null) return 0;
+
+        // Only handle single-variable declarations
+        if (varDeclExpr.getVariables().size() != 1) return 0;
+        VariableDeclarator declarator = varDeclExpr.getVariables().get(0);
+        if (!declarator.getInitializer().isPresent()) return 0;
+
+        Expression initializer = declarator.getInitializer().get();
+        if (!isMockCreation(initializer)) return 0;
+
+        MethodCallExpr mockCall = (MethodCallExpr) initializer;
+        String varName = declarator.getNameAsString();
+
+        // Extract the target class from the first argument (Foo.class)
+        Class<?> mockTargetClass = extractMockTargetClass(mockCall);
+        if (mockTargetClass == null) return 0;
+
+        // Determine variant: ViolatedAssumptionAnswer vs CALLS_REAL_METHODS vs plain
+        MockVariant variant = detectMockVariant(mockCall);
+
+        // Check if we can create a FunctionalMockStatement for this class
+        GenericClass<?> targetGenericClass = GenericClassFactory.get(mockTargetClass);
+        try {
+            if (variant == MockVariant.CALLS_REAL_METHODS) {
+                // Verify it's mockable including SUT
+                if (!FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(mockTargetClass)) {
+                    return 0;
+                }
+            } else {
+                // For regular mocks, try but fall back if not mockable
+                if (!FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(mockTargetClass)) {
+                    return 0;
+                }
+            }
+        } catch (Exception e) {
+            return 0;
+        }
+
+        // Create the FunctionalMockStatement
+        FunctionalMockStatement mockStmt;
+        try {
+            if (variant == MockVariant.CALLS_REAL_METHODS) {
+                mockStmt = new FunctionalMockForAbstractClassStatement(
+                        testCase, mockTargetClass, targetGenericClass);
+            } else {
+                mockStmt = new FunctionalMockStatement(
+                        testCase, mockTargetClass, targetGenericClass);
+            }
+        } catch (IllegalArgumentException e) {
+            // Class cannot be mocked — fall back to regular parsing
+            logger.debug("Cannot create FunctionalMockStatement for {}: {}",
+                    mockTargetClass.getName(), e.getMessage());
+            return 0;
+        }
+
+        // Collect stubbing calls from subsequent statements
+        int stubbingsConsumed = collectAndApplyStubbings(
+                mockStmt, varName, mockTargetClass, targetGenericClass,
+                allStatements, currentIndex + 1);
+
+        // Add the fully populated statement to the test case
+        VariableReference varRef = testCase.addStatement(mockStmt);
+        scope.register(varName, varRef, targetGenericClass);
+
+        return 1 + stubbingsConsumed;
+    }
+
+    private enum MockVariant {
+        VIOLATED_ASSUMPTION_ANSWER,
+        CALLS_REAL_METHODS,
+        PLAIN
+    }
+
+    /**
+     * Check if a method call expression is a Mockito mock() creation.
+     */
+    private boolean isMockCreation(Expression expr) {
+        if (!(expr instanceof MethodCallExpr)) return false;
+        MethodCallExpr call = (MethodCallExpr) expr;
+        String name = call.getNameAsString();
+        if (!"mock".equals(name)) return false;
+        if (call.getArguments().isEmpty()) return false;
+
+        // First arg should be ClassName.class
+        Expression firstArg = call.getArgument(0);
+        return firstArg instanceof ClassExpr;
+    }
+
+    /**
+     * Extract the target class from a mock(Foo.class, ...) call.
+     */
+    private Class<?> extractMockTargetClass(MethodCallExpr mockCall) {
+        Expression firstArg = mockCall.getArgument(0);
+        if (!(firstArg instanceof ClassExpr)) return null;
+        try {
+            return typeResolver.resolveClass(((ClassExpr) firstArg).getTypeAsString());
+        } catch (ClassNotFoundException e) {
+            logger.debug("Cannot resolve mock target class: {}", firstArg);
+            return null;
+        }
+    }
+
+    /**
+     * Detect the mock variant from the arguments.
+     */
+    private MockVariant detectMockVariant(MethodCallExpr mockCall) {
+        if (mockCall.getArguments().size() < 2) return MockVariant.PLAIN;
+
+        String secondArgText = mockCall.getArgument(1).toString();
+        if (secondArgText.contains("ViolatedAssumptionAnswer")) {
+            return MockVariant.VIOLATED_ASSUMPTION_ANSWER;
+        }
+        if (secondArgText.contains("CALLS_REAL_METHODS")) {
+            return MockVariant.CALLS_REAL_METHODS;
+        }
+        return MockVariant.PLAIN;
+    }
+
+    /**
+     * Scan subsequent AST statements for doReturn().when(mockVar).method() patterns,
+     * parse them, and add stubbings to the mock statement.
+     *
+     * @return the number of stubbing statements consumed
+     */
+    private int collectAndApplyStubbings(
+            FunctionalMockStatement mockStmt,
+            String mockVarName,
+            Class<?> targetClass,
+            GenericClass<?> targetGenericClass,
+            List<com.github.javaparser.ast.stmt.Statement> allStatements,
+            int startIndex) {
+        int consumed = 0;
+        for (int i = startIndex; i < allStatements.size(); i++) {
+            com.github.javaparser.ast.stmt.Statement astStmt = allStatements.get(i);
+            if (!(astStmt instanceof ExpressionStmt)) break;
+
+            Expression expr = ((ExpressionStmt) astStmt).getExpression();
+            StubbingInfo stubbing = parseStubbingChain(expr, mockVarName, targetClass, targetGenericClass);
+            if (stubbing == null) break;
+
+            mockStmt.addMethodStubbing(stubbing.descriptor, stubbing.returnValues);
+            consumed++;
+        }
+        return consumed;
+    }
+
+    /**
+     * Info holder for a single parsed stubbing.
+     */
+    private static class StubbingInfo {
+        final MethodDescriptor descriptor;
+        final List<VariableReference> returnValues;
+        StubbingInfo(MethodDescriptor descriptor, List<VariableReference> returnValues) {
+            this.descriptor = descriptor;
+            this.returnValues = returnValues;
+        }
+    }
+
+    /**
+     * Try to parse an expression as a stubbing chain. Supports two patterns:
+     * <ul>
+     *   <li>doReturn(v0, v1).when(mockVar).method(matchers)</li>
+     *   <li>when(mockVar.method(args)).thenReturn(v0, v1)</li>
+     * </ul>
+     *
+     * @return StubbingInfo if parsed successfully, null otherwise
+     */
+    private StubbingInfo parseStubbingChain(Expression expr, String mockVarName,
+                                            Class<?> targetClass,
+                                            GenericClass<?> targetGenericClass) {
+        if (!(expr instanceof MethodCallExpr)) return null;
+        MethodCallExpr outerCall = (MethodCallExpr) expr;
+
+        // Try pattern 1: doReturn(...).when(mockVar).method(matchers)
+        StubbingInfo info = parseDoReturnWhenPattern(outerCall, mockVarName, targetClass, targetGenericClass);
+        if (info != null) return info;
+
+        // Try pattern 2: when(mockVar.method(args)).thenReturn(v0, v1)
+        info = parseWhenThenReturnPattern(outerCall, mockVarName, targetClass, targetGenericClass);
+        return info;
+    }
+
+    /**
+     * Parse doReturn(v0, v1).when(mockVar).method(matchers) pattern.
+     * The structure is: MethodCallExpr[name=method, scope=MethodCallExpr[name=when,
+     *   scope=MethodCallExpr[name=doReturn]]]
+     */
+    private StubbingInfo parseDoReturnWhenPattern(MethodCallExpr outerCall, String mockVarName,
+                                                  Class<?> targetClass,
+                                                  GenericClass<?> targetGenericClass) {
+        // outerCall is .method(matchers)
+        String stubbedMethodName = outerCall.getNameAsString();
+
+        // scope should be doReturn(...).when(mockVar)
+        if (!outerCall.getScope().isPresent()) return null;
+        Expression whenCallExpr = outerCall.getScope().get();
+        if (!(whenCallExpr instanceof MethodCallExpr)) return null;
+        MethodCallExpr whenCall = (MethodCallExpr) whenCallExpr;
+
+        if (!"when".equals(whenCall.getNameAsString())) return null;
+
+        // when() should have one argument: the mock variable
+        if (whenCall.getArguments().size() != 1) return null;
+        Expression whenArg = whenCall.getArgument(0);
+        if (!(whenArg instanceof NameExpr)) return null;
+        if (!mockVarName.equals(((NameExpr) whenArg).getNameAsString())) return null;
+
+        // scope of when() should be doReturn(...)
+        if (!whenCall.getScope().isPresent()) return null;
+        Expression doReturnExpr = whenCall.getScope().get();
+        if (!(doReturnExpr instanceof MethodCallExpr)) return null;
+        MethodCallExpr doReturnCall = (MethodCallExpr) doReturnExpr;
+
+        if (!"doReturn".equals(doReturnCall.getNameAsString())) return null;
+
+        // Extract the return values from doReturn() arguments
+        List<VariableReference> returnValues = resolveReturnValueArguments(doReturnCall.getArguments());
+
+        // Resolve the method on the target class
+        Method method = resolveMethodByNameLoose(targetClass, stubbedMethodName);
+        if (method == null) return null;
+
+        MethodDescriptor descriptor = new MethodDescriptor(method, targetGenericClass);
+        // Set the counter to the number of return values
+        for (int i = 0; i < returnValues.size(); i++) {
+            descriptor.increaseCounter();
+        }
+
+        return new StubbingInfo(descriptor, returnValues);
+    }
+
+    /**
+     * Parse when(mockVar.method(args)).thenReturn(v0, v1) pattern.
+     * The structure is: MethodCallExpr[name=thenReturn, scope=MethodCallExpr[name=when]]
+     */
+    private StubbingInfo parseWhenThenReturnPattern(MethodCallExpr outerCall, String mockVarName,
+                                                    Class<?> targetClass,
+                                                    GenericClass<?> targetGenericClass) {
+        // outerCall should be .thenReturn(v0, v1)
+        if (!"thenReturn".equals(outerCall.getNameAsString())) return null;
+
+        // scope should be when(mockVar.method(args))
+        if (!outerCall.getScope().isPresent()) return null;
+        Expression whenExpr = outerCall.getScope().get();
+        if (!(whenExpr instanceof MethodCallExpr)) return null;
+        MethodCallExpr whenCall = (MethodCallExpr) whenExpr;
+
+        if (!"when".equals(whenCall.getNameAsString())) return null;
+        if (whenCall.getArguments().size() != 1) return null;
+
+        // The argument to when() should be mockVar.method(args)
+        Expression whenArg = whenCall.getArgument(0);
+        if (!(whenArg instanceof MethodCallExpr)) return null;
+        MethodCallExpr innerMethodCall = (MethodCallExpr) whenArg;
+
+        // Check that the scope of the inner call is our mock variable
+        if (!innerMethodCall.getScope().isPresent()) return null;
+        Expression innerScope = innerMethodCall.getScope().get();
+        if (!(innerScope instanceof NameExpr)) return null;
+        if (!mockVarName.equals(((NameExpr) innerScope).getNameAsString())) return null;
+
+        String stubbedMethodName = innerMethodCall.getNameAsString();
+
+        // Extract return values from thenReturn arguments
+        List<VariableReference> returnValues = resolveReturnValueArguments(outerCall.getArguments());
+
+        // Resolve the method on the target class
+        Method method = resolveMethodByNameLoose(targetClass, stubbedMethodName);
+        if (method == null) return null;
+
+        MethodDescriptor descriptor = new MethodDescriptor(method, targetGenericClass);
+        for (int i = 0; i < returnValues.size(); i++) {
+            descriptor.increaseCounter();
+        }
+
+        return new StubbingInfo(descriptor, returnValues);
+    }
+
+    /**
+     * Resolve return value arguments from a doReturn() or thenReturn() call.
+     * Each argument is parsed as a regular expression to create the appropriate statement.
+     */
+    private List<VariableReference> resolveReturnValueArguments(List<Expression> args) {
+        List<VariableReference> refs = new ArrayList<>();
+        for (Expression arg : args) {
+            VariableReference ref = resolveArgument(arg, Object.class);
+            if (ref != null) {
+                refs.add(ref);
+            }
+        }
+        return refs;
+    }
+
+    /**
+     * Find a method on a class by name alone. When there are multiple overloads,
+     * prefer the one with no parameters, then fall back to the first found.
+     * Returns null if no method with that name exists.
+     */
+    private Method resolveMethodByNameLoose(Class<?> clazz, String name) {
+        Method noArgs = null;
+        Method first = null;
+        for (Method m : clazz.getMethods()) {
+            if (m.getName().equals(name)) {
+                if (first == null) first = m;
+                if (m.getParameterCount() == 0) {
+                    noArgs = m;
+                }
+            }
+        }
+        // Also check declared methods
+        for (Method m : clazz.getDeclaredMethods()) {
+            if (m.getName().equals(name)) {
+                if (first == null) first = m;
+                if (m.getParameterCount() == 0 && noArgs == null) {
+                    noArgs = m;
+                }
+            }
+        }
+        return noArgs != null ? noArgs : first;
     }
 
     // ========================================================================

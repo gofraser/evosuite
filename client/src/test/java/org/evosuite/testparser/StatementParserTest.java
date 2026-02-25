@@ -951,7 +951,8 @@ class StatementParserTest {
         private ParseResult parseWithMockitoImports(String body) {
             return parse(body, List.of(
                     "import java.util.*;",
-                    "import static org.mockito.Mockito.*;"
+                    "import static org.mockito.Mockito.*;",
+                    "import org.evosuite.runtime.ViolatedAssumptionAnswer;"
             ));
         }
 
@@ -960,19 +961,110 @@ class StatementParserTest {
             ParseResult r = parseWithMockitoImports(
                     "List mockList = mock(List.class);");
             TestCase tc = r.getTestCase();
-            // ClassPrimitiveStatement(List.class) + MethodStatement(mock)
             assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
             assertTrue(tc.size() >= 1, "Should have at least 1 statement, got " + tc.size());
         }
 
         @Test
-        void parseWhenThenReturn() {
+        void parseEvoSuiteMockPattern() {
+            // EvoSuite's own pattern: mock with ViolatedAssumptionAnswer + doReturn().when()
             ParseResult r = parseWithMockitoImports(
-                    "List mockList = mock(List.class);\n" +
+                    "List mockList = mock(List.class, new ViolatedAssumptionAnswer());\n" +
+                    "doReturn(42).when(mockList).size();");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            // Should have: return value statement(s) + FunctionalMockStatement
+            boolean hasFunctionalMock = false;
+            FunctionalMockStatement mockStmt = null;
+            for (int i = 0; i < tc.size(); i++) {
+                if (tc.getStatement(i) instanceof FunctionalMockStatement) {
+                    hasFunctionalMock = true;
+                    mockStmt = (FunctionalMockStatement) tc.getStatement(i);
+                }
+            }
+            assertTrue(hasFunctionalMock, "Should produce FunctionalMockStatement:\n" + tc.toCode());
+            assertEquals(java.util.List.class, mockStmt.getTargetClass());
+            assertEquals(1, mockStmt.getMockedMethods().size(), "Should have 1 mocked method");
+            assertEquals("size", mockStmt.getMockedMethods().get(0).getMethodName());
+        }
+
+        @Test
+        void parseEvoSuiteMockForAbstractClass() {
+            // CALLS_REAL_METHODS variant → FunctionalMockForAbstractClassStatement
+            ParseResult r = parseWithMockitoImports(
+                    "List mockList = mock(List.class, CALLS_REAL_METHODS);\n" +
+                    "doReturn(42).when(mockList).size();");
+            TestCase tc = r.getTestCase();
+
+            boolean hasAbstractMock = false;
+            for (int i = 0; i < tc.size(); i++) {
+                if (tc.getStatement(i) instanceof FunctionalMockForAbstractClassStatement) {
+                    hasAbstractMock = true;
+                }
+            }
+            assertTrue(hasAbstractMock,
+                    "Should produce FunctionalMockForAbstractClassStatement:\n" + tc.toCode());
+        }
+
+        @Test
+        void parseMultipleStubbings() {
+            // Multiple doReturn().when() calls on the same mock
+            ParseResult r = parseWithMockitoImports(
+                    "List mockList = mock(List.class, new ViolatedAssumptionAnswer());\n" +
+                    "doReturn(42).when(mockList).size();\n" +
+                    "doReturn(true).when(mockList).isEmpty();");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            FunctionalMockStatement mockStmt = null;
+            for (int i = 0; i < tc.size(); i++) {
+                if (tc.getStatement(i) instanceof FunctionalMockStatement) {
+                    mockStmt = (FunctionalMockStatement) tc.getStatement(i);
+                }
+            }
+            assertNotNull(mockStmt, "Should produce FunctionalMockStatement:\n" + tc.toCode());
+            assertEquals(2, mockStmt.getMockedMethods().size(),
+                    "Should have 2 mocked methods");
+        }
+
+        @Test
+        void parseMockWithNoStubbings() {
+            // Just mock() with no doReturn/when — should still create FunctionalMockStatement
+            ParseResult r = parseWithMockitoImports(
+                    "List mockList = mock(List.class, new ViolatedAssumptionAnswer());");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            boolean hasFunctionalMock = false;
+            for (int i = 0; i < tc.size(); i++) {
+                if (tc.getStatement(i) instanceof FunctionalMockStatement) {
+                    hasFunctionalMock = true;
+                }
+            }
+            assertTrue(hasFunctionalMock,
+                    "Should produce FunctionalMockStatement with no stubbings:\n" + tc.toCode());
+        }
+
+        @Test
+        void parseStandardWhenThenReturn() {
+            // Standard Mockito pattern: when(mock.method()).thenReturn(value)
+            ParseResult r = parseWithMockitoImports(
+                    "List mockList = mock(List.class, new ViolatedAssumptionAnswer());\n" +
                     "when(mockList.size()).thenReturn(42);");
             TestCase tc = r.getTestCase();
-            // Even if some statements are InterpretedStatements, they should be preserved
-            assertTrue(tc.size() >= 2, "Should have at least 2 statements, got " + tc.size());
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            FunctionalMockStatement mockStmt = null;
+            for (int i = 0; i < tc.size(); i++) {
+                if (tc.getStatement(i) instanceof FunctionalMockStatement) {
+                    mockStmt = (FunctionalMockStatement) tc.getStatement(i);
+                }
+            }
+            assertNotNull(mockStmt,
+                    "Should produce FunctionalMockStatement with when/thenReturn:\n" + tc.toCode());
+            assertEquals(1, mockStmt.getMockedMethods().size());
+            assertEquals("size", mockStmt.getMockedMethods().get(0).getMethodName());
         }
 
         @Test
@@ -983,6 +1075,27 @@ class StatementParserTest {
                     "verify(mockList).size();");
             TestCase tc = r.getTestCase();
             assertTrue(tc.size() >= 2, "Should have at least 2 statements");
+        }
+
+        @Test
+        void stubbingStopsAtNonStubbingStatement() {
+            // After the stubbing calls, a non-stubbing statement should not be consumed
+            ParseResult r = parseWithMockitoImports(
+                    "List mockList = mock(List.class, new ViolatedAssumptionAnswer());\n" +
+                    "doReturn(42).when(mockList).size();\n" +
+                    "int x = mockList.size();");
+            TestCase tc = r.getTestCase();
+
+            FunctionalMockStatement mockStmt = null;
+            for (int i = 0; i < tc.size(); i++) {
+                if (tc.getStatement(i) instanceof FunctionalMockStatement) {
+                    mockStmt = (FunctionalMockStatement) tc.getStatement(i);
+                }
+            }
+            assertNotNull(mockStmt, "Should produce FunctionalMockStatement:\n" + tc.toCode());
+            assertEquals(1, mockStmt.getMockedMethods().size());
+            // The last statement (int x = mockList.size()) should be a separate statement
+            assertTrue(tc.size() > 1, "Should have additional statements after the mock");
         }
     }
 

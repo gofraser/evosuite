@@ -114,6 +114,12 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     protected GenericClass<?> targetClass;
 
+    /**
+     * True if this statement was populated by the test parser (via addMethodStubbing)
+     * rather than by execution. Used to relax assertions about listener state.
+     */
+    protected boolean populatedFromParser;
+
     protected transient volatile EvoInvocationListener listener;
 
     protected transient Method mockCreator;
@@ -288,6 +294,27 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
 
     /**
+     * Add a method stubbing to this mock statement. Used by the test parser to
+     * reconstruct FunctionalMockStatements from parsed source code.
+     *
+     * @param md           the method descriptor for the stubbed method
+     * @param returnValues the return values for successive calls to the method
+     */
+    public void addMethodStubbing(MethodDescriptor md, List<VariableReference> returnValues) {
+        Inputs.checkNull(md, returnValues);
+        populatedFromParser = true;
+        mockedMethods.add(md);
+        int startIndex = parameters.size();
+        parameters.addAll(returnValues);
+        int endIndex = parameters.size() - 1;
+        if (returnValues.isEmpty()) {
+            methodParameters.put(md.getID(), null);
+        } else {
+            methodParameters.put(md.getID(), new int[]{startIndex, endIndex});
+        }
+    }
+
+    /**
      * getTargetClass.
      *
      * @return the target class
@@ -341,9 +368,13 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 If this is done in a system test for debugging, then it would be a problem,
                 as serialized tests sent from Client to Master have no listener (it has to be
                 transient). So, we can just skip it, as info used only for debugging.
+
+                Note: mockedMethods may be non-empty when reconstructed from parsed source
+                code (via addMethodStubbing), so we also allow that case.
              */
 
-            assert mockedMethods.isEmpty() || RuntimeSettings.isRunningASystemTest;
+            assert mockedMethods.isEmpty() || RuntimeSettings.isRunningASystemTest
+                    || populatedFromParser;
 
             return false;
         }
@@ -622,6 +653,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         }
 
         copy.listener = this.listener; //no need to clone, as only read, and created new instance at each new execution
+        copy.populatedFromParser = this.populatedFromParser;
 
         for (MethodDescriptor md : this.mockedMethods) {
             copy.mockedMethods.add(md.getCopy());

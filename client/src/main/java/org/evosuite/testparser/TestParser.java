@@ -156,9 +156,11 @@ public class TestParser {
         StatementParser stmtParser = new StatementParser(testCase, typeResolver, scope, result);
 
         List<com.github.javaparser.ast.stmt.Statement> astStatements = methodParser.extractBody(method);
-        for (com.github.javaparser.ast.stmt.Statement astStmt : astStatements) {
+        for (int i = 0; i < astStatements.size(); ) {
+            com.github.javaparser.ast.stmt.Statement astStmt = astStatements.get(i);
             try {
-                stmtParser.parseStatement(astStmt);
+                int consumed = stmtParser.parseStatement(astStmt, astStatements, i);
+                i += consumed;
             } catch (Exception e) {
                 logger.warn("Failed to parse statement: {}", astStmt, e);
                 int line = astStmt.getBegin().map(p -> p.line).orElse(0);
@@ -170,6 +172,7 @@ public class TestParser {
                 // Preserve as InterpretedStatement so the source is not lost
                 testCase.addStatement(new org.evosuite.testcase.statements.InterpretedStatement(
                         testCase, astStmt.toString()));
+                i++;
             }
         }
 
