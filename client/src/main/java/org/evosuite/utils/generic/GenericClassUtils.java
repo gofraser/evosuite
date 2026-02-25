@@ -66,10 +66,6 @@ public class GenericClassUtils {
             Class<?> lhsRawClass = getRawClass(lhsType);
             Class<?> rhsRawClass = getRawClass(rhsType);
             if (lhsRawClass != null && rhsRawClass != null) {
-                // Keep Class<T> semantics strict: Class<Integer> is not assignable to Class<T>.
-                if (Class.class.equals(lhsRawClass) || Class.class.equals(rhsRawClass)) {
-                    return false;
-                }
                 return lhsRawClass.isAssignableFrom(rhsRawClass);
             }
         }
@@ -79,10 +75,6 @@ public class GenericClassUtils {
             Class<?> lhsRawClass = getRawClass(lhsType);
             Class<?> rhsRawClass = getRawClass(rhsType);
             if (lhsRawClass != null && rhsRawClass != null) {
-                // Keep Class<T> semantics strict: Class<Integer> is not assignable to Class<T>.
-                if (Class.class.equals(lhsRawClass) || Class.class.equals(rhsRawClass)) {
-                    return false;
-                }
                 return lhsRawClass.isAssignableFrom(rhsRawClass);
             }
         }
