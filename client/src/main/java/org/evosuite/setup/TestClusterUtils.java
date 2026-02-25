@@ -218,10 +218,6 @@ public class TestClusterUtils {
      * @return a boolean.
      */
     public static boolean checkIfCanUse(final String className) {
-        if (MockList.shouldBeMocked(className)) {
-            return false;
-        }
-
         return classExceptions.stream().noneMatch(className::startsWith);
     }
 

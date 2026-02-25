@@ -48,7 +48,7 @@ public class TestClusterGeneratorTest {
 
         RuntimeSettings.useVFS = true;
         boolean canUse = TestClusterUtils.checkIfCanUse(File.class.getCanonicalName());
-        Assertions.assertFalse(canUse);
+        Assertions.assertTrue(canUse);
     }
 
     @Test
