@@ -1997,10 +1997,10 @@ public class StatementParser {
             return Character.class;
         }
         if (clazz == byte.class) {
-            return byte.class;
+            return Byte.class;
         }
         if (clazz == short.class) {
-            return short.class;
+            return Short.class;
         }
         return null;
     }
