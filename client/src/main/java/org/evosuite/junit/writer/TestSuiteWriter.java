@@ -27,6 +27,9 @@ import org.evosuite.junit.UnitTestAdapter;
 import org.evosuite.junit.naming.methods.CoverageGoalTestNameGenerationStrategy;
 import org.evosuite.junit.naming.methods.NumberedTestNameGenerationStrategy;
 import org.evosuite.junit.naming.methods.TestNameGenerationStrategy;
+import org.evosuite.llm.postprocess.LlmPostProcessor;
+import org.evosuite.llm.postprocess.LlmTestNameGenerator;
+import org.evosuite.llm.postprocess.LlmVariableNameStrategy;
 import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.runtime.*;
 import org.evosuite.runtime.testdata.EnvironmentDataList;
@@ -242,12 +245,20 @@ public class TestSuiteWriter implements Opcodes {
             }
         }
 
-        if (Properties.TEST_NAMING_STRATEGY == Properties.TestNamingStrategy.NUMBERED) {
+        // LLM_RENAME_TESTS=true overrides TEST_NAMING_STRATEGY to LLM
+        Properties.TestNamingStrategy effectiveNamingStrategy = Properties.TEST_NAMING_STRATEGY;
+        if (Properties.LLM_RENAME_TESTS && effectiveNamingStrategy != Properties.TestNamingStrategy.LLM) {
+            effectiveNamingStrategy = Properties.TestNamingStrategy.LLM;
+        }
+
+        if (effectiveNamingStrategy == Properties.TestNamingStrategy.NUMBERED) {
             nameGenerator = new NumberedTestNameGenerationStrategy(testCases, results);
-        } else if (Properties.TEST_NAMING_STRATEGY == Properties.TestNamingStrategy.COVERAGE) {
+        } else if (effectiveNamingStrategy == Properties.TestNamingStrategy.COVERAGE) {
             nameGenerator = new CoverageGoalTestNameGenerationStrategy(testCases, results);
+        } else if (effectiveNamingStrategy == Properties.TestNamingStrategy.LLM) {
+            nameGenerator = new LlmTestNameGenerator(testCases, results);
         } else {
-            throw new RuntimeException("Unsupported naming strategy: " + Properties.TEST_NAMING_STRATEGY);
+            throw new RuntimeException("Unsupported naming strategy: " + effectiveNamingStrategy);
         }
 
         // Avoid downcasts that could break
@@ -289,8 +300,32 @@ public class TestSuiteWriter implements Opcodes {
 
         writeCoveredGoalsFile();
 
+        // Publish Phase 4 naming metrics if LLM naming was used
+        publishPhase4NamingMetrics();
+
         TestGenerationResultBuilder.getInstance().setTestSuiteCode(content);
         return generated;
+    }
+
+    /**
+     * Publish LLM naming metrics to RuntimeVariable if LLM naming strategies were active.
+     */
+    private void publishPhase4NamingMetrics() {
+        try {
+            if (nameGenerator instanceof LlmTestNameGenerator) {
+                LlmPostProcessor postProcessor = new LlmPostProcessor();
+                postProcessor.publishNamingMetrics((LlmTestNameGenerator) nameGenerator);
+            }
+            // Variable naming metrics are emitted via the visitor's strategy
+            // which is per-visitor; we publish from the writer's visitor
+            if (visitor.getVariableNameStrategyInstance() instanceof LlmVariableNameStrategy) {
+                LlmPostProcessor postProcessor = new LlmPostProcessor();
+                postProcessor.publishVariableNamingMetrics(
+                        (LlmVariableNameStrategy) visitor.getVariableNameStrategyInstance());
+            }
+        } catch (Exception e) {
+            logger.debug("Could not publish Phase 4 naming metrics", e);
+        }
     }
 
     /**

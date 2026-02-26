@@ -1468,7 +1468,7 @@ public class Properties {
     public static boolean ASSERTIONS = true;
 
     public enum AssertionStrategy {
-        ALL, MUTATION, UNIT
+        ALL, MUTATION, UNIT, LLM
     }
 
     @Parameter(key = "assertion_strategy", group = "Output",
@@ -1572,7 +1572,7 @@ public class Properties {
     // ---------------------------------------------------------------
     // Naming
     public enum TestNamingStrategy {
-        NUMBERED, COVERAGE
+        NUMBERED, COVERAGE, LLM
     }
 
     @Parameter(key = "test_naming_strategy", group = "Output",
@@ -1580,7 +1580,7 @@ public class Properties {
     public static TestNamingStrategy TEST_NAMING_STRATEGY = TestNamingStrategy.NUMBERED;
 
     public enum VariableNamingStrategy {
-        TYPE_BASED, HEURISTICS_BASED
+        TYPE_BASED, HEURISTICS_BASED, LLM
     }
 
     @Parameter(key = "variable_naming_strategy", group = "Output",
@@ -1772,10 +1772,6 @@ public class Properties {
     @Parameter(key = "llm_rename_variables", group = "LLM",
             description = "Enable LLM-generated variable naming")
     public static boolean LLM_RENAME_VARIABLES = false;
-
-    @Parameter(key = "llm_assertions", group = "LLM",
-            description = "Enable LLM assertion generation")
-    public static boolean LLM_ASSERTIONS = false;
 
     @Parameter(key = "llm_niceify_literals", group = "LLM",
             description = "Enable LLM-guided literal readability improvements")

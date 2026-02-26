@@ -40,6 +40,7 @@ import org.evosuite.rmi.service.ClientState;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.sandbox.PermissionStatistics;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.postprocess.LlmPostProcessor;
 import org.evosuite.llm.seeding.LlmPoolEnrichmentOrchestrator;
 import org.evosuite.seeding.ObjectPool;
 import org.evosuite.seeding.ObjectPoolManager;
@@ -732,6 +733,16 @@ public class TestSuiteGenerator {
         List<TestCase> tests = testSuite.getTests();
         if (Properties.JUNIT_TESTS) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_TESTS);
+
+            // Run LLM post-processing (literal niceification) before writing, if enabled
+            if (LlmPostProcessor.isAnyFeatureEnabled()) {
+                try {
+                    LlmPostProcessor postProcessor = new LlmPostProcessor();
+                    postProcessor.runLiteralNiceification(testSuite);
+                } catch (Exception e) {
+                    LoggingUtils.getEvoLogger().warn("LLM post-processing failed; continuing without changes", e);
+                }
+            }
 
             TestSuiteWriter suiteWriter = new TestSuiteWriter();
             suiteWriter.insertTests(tests);

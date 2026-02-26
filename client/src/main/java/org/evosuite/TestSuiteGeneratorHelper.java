@@ -23,6 +23,7 @@ import org.evosuite.Properties.AssertionStrategy;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.assertion.AssertionGenerator;
 import org.evosuite.assertion.CompleteAssertionGenerator;
+import org.evosuite.assertion.LlmAssertionGeneratorStrategy;
 import org.evosuite.assertion.SimpleMutationAssertionGenerator;
 import org.evosuite.assertion.UnitAssertionGenerator;
 import org.evosuite.contracts.ContractChecker;
@@ -332,6 +333,8 @@ public class TestSuiteGeneratorHelper {
             asserter = new SimpleMutationAssertionGenerator();
         } else if (Properties.ASSERTION_STRATEGY == AssertionStrategy.ALL) {
             asserter = new CompleteAssertionGenerator();
+        } else if (Properties.ASSERTION_STRATEGY == AssertionStrategy.LLM) {
+            asserter = new LlmAssertionGeneratorStrategy();
         } else {
             asserter = new UnitAssertionGenerator();
         }

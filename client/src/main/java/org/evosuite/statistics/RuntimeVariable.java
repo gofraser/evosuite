@@ -667,7 +667,35 @@ public enum RuntimeVariable {
     /**
      * Number of object-pool sequences (type-key insertions) accepted via LLM enrichment.
      */
-    LLM_Object_Pool_Sequences_Added;
+    LLM_Object_Pool_Sequences_Added,
+    /**
+     * Number of tests renamed by LLM post-processing.
+     */
+    LLM_Tests_Renamed,
+    /**
+     * Number of tests where LLM naming fell back to baseline strategy.
+     */
+    LLM_Test_Naming_Fallbacks,
+    /**
+     * Number of variables renamed by LLM post-processing.
+     */
+    LLM_Variables_Renamed,
+    /**
+     * Number of variables where LLM naming fell back to type-based strategy.
+     */
+    LLM_Variable_Naming_Fallbacks,
+    /**
+     * Number of assertions added by LLM post-processing.
+     */
+    LLM_Assertions_Added,
+    /**
+     * Number of tests where LLM assertion strategy fell back to trace-based generation.
+     */
+    LLM_Assertion_Fallbacks,
+    /**
+     * Number of literals replaced by LLM niceification.
+     */
+    LLM_Literals_Niceified;
 
     /* -------------------------------------------------- */
 

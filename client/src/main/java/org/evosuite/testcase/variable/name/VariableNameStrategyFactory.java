@@ -21,6 +21,7 @@
 package org.evosuite.testcase.variable.name;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.postprocess.LlmVariableNameStrategy;
 
 /**
  * This class encapsulates the logic of creating a new naming strategy.
@@ -57,6 +58,9 @@ public class VariableNameStrategyFactory {
         }
         if (Properties.VariableNamingStrategy.HEURISTICS_BASED.equals(identifierNamingStrategy)) {
             return new HeuristicsVariableNameStrategy();
+        }
+        if (Properties.VariableNamingStrategy.LLM.equals(identifierNamingStrategy)) {
+            return new LlmVariableNameStrategy();
         } else {
             throw new IllegalArgumentException(String.format("Unknown variable naming strategy: %s",
                     identifierNamingStrategy));
@@ -71,7 +75,12 @@ public class VariableNameStrategyFactory {
      * @return The selected strategy.
      */
     public static VariableNameStrategy get() {
-        return get(Properties.VARIABLE_NAMING_STRATEGY);
+        // LLM_RENAME_VARIABLES=true overrides VARIABLE_NAMING_STRATEGY to LLM
+        Properties.VariableNamingStrategy effective = Properties.VARIABLE_NAMING_STRATEGY;
+        if (Properties.LLM_RENAME_VARIABLES && effective != Properties.VariableNamingStrategy.LLM) {
+            effective = Properties.VariableNamingStrategy.LLM;
+        }
+        return get(effective);
     }
 
     /**
@@ -80,7 +89,8 @@ public class VariableNameStrategyFactory {
      * @return a boolean.
      */
     public static boolean gatherInformation() {
-        return Properties.VariableNamingStrategy.HEURISTICS_BASED.equals(Properties.VARIABLE_NAMING_STRATEGY);
+        return Properties.VariableNamingStrategy.HEURISTICS_BASED.equals(Properties.VARIABLE_NAMING_STRATEGY)
+                || Properties.VariableNamingStrategy.LLM.equals(Properties.VARIABLE_NAMING_STRATEGY);
     }
 
 }

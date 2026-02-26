@@ -72,6 +72,25 @@ public class TestCodeVisitor extends TestVisitor {
     protected final Map<Class<?>, String> classNames = new HashMap<>();
 
     protected VariableNameStrategy variableNameStrategy = VariableNameStrategyFactory.get();
+    private boolean customVariableNameStrategy = false;
+
+    /**
+     * Override the variable naming strategy used for code rendering.
+     * Useful for rendering test code without triggering LLM-based naming
+     * (e.g., when preparing prompts for the LLM naming strategy itself).
+     * Once set, {@link #visitTestCase(TestCase)} will not reset it.
+     */
+    public void setVariableNameStrategy(VariableNameStrategy strategy) {
+        this.variableNameStrategy = strategy;
+        this.customVariableNameStrategy = true;
+    }
+
+    /**
+     * Returns the current variable name strategy instance.
+     */
+    public VariableNameStrategy getVariableNameStrategyInstance() {
+        return this.variableNameStrategy;
+    }
 
     /**
      * Dictionaries for naming information.
@@ -511,7 +530,9 @@ public class TestCodeVisitor extends TestVisitor {
     public void visitTestCase(TestCase test) {
         this.test = test;
         this.testCode = new StringBuilder();
-        this.variableNameStrategy = VariableNameStrategyFactory.get();
+        if (!customVariableNameStrategy) {
+            this.variableNameStrategy = VariableNameStrategyFactory.get();
+        }
     }
 
     /**
