@@ -647,7 +647,27 @@ public enum RuntimeVariable {
     /**
      * Total latency in milliseconds spent in LLM provider calls.
      */
-    LLM_Latency_Millis;
+    LLM_Latency_Millis,
+    /**
+     * Number of cast-class suggestions parsed from LLM response.
+     */
+    LLM_Cast_Class_Suggestions,
+    /**
+     * Number of actual cast classes added to CastClassManager from LLM suggestions.
+     */
+    LLM_Cast_Class_Accepted,
+    /**
+     * Number of constants added to the SUT (system under test) constant pool via LLM enrichment.
+     */
+    LLM_Constants_Added_SUT,
+    /**
+     * Number of constants added for non-SUT dependency classes via LLM enrichment.
+     */
+    LLM_Constants_Added_NonSUT,
+    /**
+     * Number of object-pool sequences (type-key insertions) accepted via LLM enrichment.
+     */
+    LLM_Object_Pool_Sequences_Added;
 
     /* -------------------------------------------------- */
 

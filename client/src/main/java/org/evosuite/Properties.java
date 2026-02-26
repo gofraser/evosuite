@@ -1733,9 +1733,37 @@ public class Properties {
             description = "Enable LLM enrichment of constant pools")
     public static boolean LLM_ENRICH_CONSTANT_POOL = false;
 
+    @Parameter(key = "llm_enrich_non_sut_constant_pool", group = "LLM",
+            description = "Enable LLM enrichment of non-SUT/dependency constant pool")
+    public static boolean LLM_ENRICH_NON_SUT_CONSTANT_POOL = false;
+
+    @Parameter(key = "llm_non_sut_constant_classes_max", group = "LLM",
+            description = "Maximum dependency classes to query for non-SUT constant enrichment")
+    @IntValue(min = 1)
+    public static int LLM_NON_SUT_CONSTANT_CLASSES_MAX = 10;
+
+    @Parameter(key = "llm_non_sut_constants_per_class_max", group = "LLM",
+            description = "Maximum constants accepted per dependency class in non-SUT enrichment")
+    @IntValue(min = 1)
+    public static int LLM_NON_SUT_CONSTANTS_PER_CLASS_MAX = 10;
+
     @Parameter(key = "llm_enrich_object_pool", group = "LLM",
             description = "Enable LLM enrichment of object pools")
     public static boolean LLM_ENRICH_OBJECT_POOL = false;
+
+    @Parameter(key = "llm_enrichment_timeout_seconds", group = "LLM",
+            description = "Maximum seconds to wait for pool enrichment before starting search")
+    @IntValue(min = 1)
+    public static int LLM_ENRICHMENT_TIMEOUT_SECONDS = 30;
+
+    @Parameter(key = "llm_enrich_cast_classes", group = "LLM",
+            description = "Use LLM to propose additional cast-relevant classes for CastClassManager")
+    public static boolean LLM_ENRICH_CAST_CLASSES = false;
+
+    @Parameter(key = "llm_cast_class_max_suggestions", group = "LLM",
+            description = "Maximum number of validated LLM cast-class suggestions to add")
+    @IntValue(min = 1)
+    public static int LLM_CAST_CLASS_MAX_SUGGESTIONS = 8;
 
     @Parameter(key = "llm_rename_tests", group = "LLM",
             description = "Enable LLM-generated test naming")

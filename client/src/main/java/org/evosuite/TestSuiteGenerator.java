@@ -39,6 +39,8 @@ import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.sandbox.PermissionStatistics;
+import org.evosuite.llm.LlmService;
+import org.evosuite.llm.seeding.LlmPoolEnrichmentOrchestrator;
 import org.evosuite.seeding.ObjectPool;
 import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.setup.ExceptionMapGenerator;
@@ -192,6 +194,17 @@ public class TestSuiteGenerator {
          */
         // TODO: Do parts of this need to be wrapped into sandbox statements?
         ObjectPoolManager.getInstance();
+
+        // LLM pool enrichment (async, bounded, non-fatal)
+        if (LlmPoolEnrichmentOrchestrator.isEnrichmentEnabled()) {
+            try {
+                LlmPoolEnrichmentOrchestrator orchestrator =
+                        LlmPoolEnrichmentOrchestrator.fromProperties(LlmService.getInstance());
+                orchestrator.enrichPools(Properties.TARGET_CLASS, TestCluster.getInstance());
+            } catch (Throwable t) {
+                logger.warn("LLM pool enrichment setup failed (non-fatal): {}", t.getMessage());
+            }
+        }
 
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating tests for class "
                 + Properties.TARGET_CLASS);

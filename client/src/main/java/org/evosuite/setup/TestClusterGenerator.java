@@ -32,6 +32,8 @@ import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.seeding.CastClassAnalyzer;
 import org.evosuite.seeding.CastClassManager;
+import org.evosuite.llm.LlmService;
+import org.evosuite.llm.seeding.LlmCastClassEnricher;
 import org.evosuite.setup.PutStaticMethodCollector.MethodIdentifier;
 import org.evosuite.setup.callgraph.CallGraph;
 import org.evosuite.statistics.RuntimeVariable;
@@ -246,6 +248,22 @@ public class TestClusterGenerator {
             // logger.info("Handling cast classes");
             // addCastClasses(classNames, blackList);
             logger.debug("Cast classes used: " + classNames);
+        }
+
+        // LLM cast class enrichment (synchronous, non-fatal, independent of pool enrichment)
+        if (LlmCastClassEnricher.isEnabled()) {
+            try {
+                LlmCastClassEnricher enricher = new LlmCastClassEnricher(LlmService.getInstance());
+                LlmCastClassEnricher.EnrichmentResult result =
+                        enricher.enrich(Properties.TARGET_CLASS, TestCluster.getInstance());
+                logger.info("LLM cast class enrichment: attempted={}, suggested={}, validated={}, classesAdded={}{}",
+                        result.isAttempted(), result.getSuggested(), result.getValidated(), result.getAccepted(),
+                        result.getFailureReason() != null ? ", failure=" + result.getFailureReason() : "");
+                ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, result.getSuggested());
+                ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, result.getAccepted());
+            } catch (Throwable t) {
+                logger.warn("LLM cast class enrichment setup failed (non-fatal): {}", t.getMessage());
+            }
         }
 
     }
