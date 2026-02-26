@@ -20,7 +20,14 @@
 package org.evosuite.assertion;
 
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCodeVisitor;
+import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.variable.VariableReference;
+
+import java.lang.reflect.Type;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Assertion that holds a raw JUnit assertion code string. Used as a fallback
@@ -29,14 +36,16 @@ import org.evosuite.testcase.execution.Scope;
  * {@code assertEquals("foo", obj.getName())}).
  *
  * <p>{@link #getCode()} returns the code verbatim. {@link #evaluate(Scope)}
- * always returns {@code true} since the assertion cannot be verified at runtime
- * without expression evaluation.
+ * executes the assertion via an in-memory compiled snippet.
  */
 public class CodeAssertion extends Assertion {
 
     private static final long serialVersionUID = 1L;
 
     private final String codeString;
+    private transient Map<String, VariableReference> cachedBindings;
+    private transient TestCase cachedBindingsTestCase;
+    private transient int cachedBindingsTestSize = -1;
 
     /**
      * @param codeString the raw JUnit assertion code (e.g. {@code assertEquals(42, result);})
@@ -63,12 +72,27 @@ public class CodeAssertion extends Assertion {
         return copy;
     }
 
-    /**
-     * Cannot evaluate raw code at runtime; always returns true.
-     */
     @Override
     public boolean evaluate(Scope scope) {
-        return true;
+        if (scope == null) {
+            return false;
+        }
+        try {
+            Map<String, VariableReference> varBindings = buildVariableBindings();
+            Map<String, Type> variableTypes = new LinkedHashMap<>();
+            Map<String, Object> variableValues = new LinkedHashMap<>();
+            for (Map.Entry<String, VariableReference> entry : varBindings.entrySet()) {
+                VariableReference ref = entry.getValue();
+                variableTypes.put(entry.getKey(), ref.getType());
+                variableValues.put(entry.getKey(), ref.getObject(scope));
+            }
+            return ExecutableSnippetEngine.INSTANCE.evaluateAssertion(
+                    codeString, variableTypes, variableValues);
+        } catch (AssertionError assertionFailed) {
+            return false;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     @Override
@@ -78,6 +102,49 @@ public class CodeAssertion extends Assertion {
 
     public String getCodeString() {
         return codeString;
+    }
+
+    private Map<String, VariableReference> buildVariableBindings() {
+        if (cachedBindings != null
+                && cachedBindingsTestCase != null
+                && statement != null
+                && statement.getTestCase() == cachedBindingsTestCase
+                && cachedBindingsTestCase.size() == cachedBindingsTestSize) {
+            return cachedBindings;
+        }
+
+        Map<String, VariableReference> map = new LinkedHashMap<>();
+        if (statement == null || statement.getTestCase() == null) {
+            if (source != null) {
+                map.put("var" + source.getStPosition(), source);
+            }
+            return map;
+        }
+
+        TestCase tc = statement.getTestCase();
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        for (int i = 0; i < tc.size(); i++) {
+            VariableReference ref = tc.getStatement(i).getReturnValue();
+            if (ref == null) {
+                continue;
+            }
+            String varName = visitor.getVariableName(ref);
+            if (varName != null && !varName.isEmpty()) {
+                map.put(varName, ref);
+            }
+        }
+        if (source != null && !map.containsValue(source)) {
+            String sourceName = visitor.getVariableName(source);
+            if (sourceName != null && !sourceName.isEmpty()) {
+                map.put(sourceName, source);
+            }
+        }
+        cachedBindings = map;
+        cachedBindingsTestCase = tc;
+        cachedBindingsTestSize = tc.size();
+        return map;
     }
 
     @Override

@@ -174,17 +174,17 @@ class RoundTripTest {
     }
 
     @Test
-    void roundTripInterpretedStatement() {
+    void roundTripUninterpretedStatement() {
         DefaultTestCase tc = new DefaultTestCase();
         tc.addStatement(new IntPrimitiveStatement(tc, 5));
-        tc.addStatement(new InterpretedStatement(tc, "// custom code"));
+        tc.addStatement(new UninterpretedStatement(tc, "// custom code"));
 
         String code = generateCode(tc);
         ParseResult result = parseCode(code);
 
         TestCase parsed = result.getTestCase();
         assertFalse(result.hasErrors(), "Round-trip should have no errors: " + result.getDiagnostics());
-        // InterpretedStatement with a comment may not survive round-trip as a statement,
+        // UninterpretedStatement with a comment may not survive round-trip as a statement,
         // but the int should
         assertInstanceOf(IntPrimitiveStatement.class, parsed.getStatement(0));
         assertEquals(5, ((IntPrimitiveStatement) parsed.getStatement(0)).getValue().intValue());

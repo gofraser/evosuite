@@ -1625,6 +1625,11 @@ public class Properties {
     @IntValue(min = 1)
     public static int LLM_TIMEOUT_SECONDS = 60;
 
+    @Parameter(key = "llm_require_jdk_compiler", group = "LLM",
+            description = "If true, fail fast when LLM is enabled but no JDK compiler (jdk.compiler) is available; "
+                    + "if false, disable LLM features for the run and fall back to non-LLM behavior")
+    public static boolean LLM_REQUIRE_JDK_COMPILER = false;
+
     @Parameter(key = "llm_retry_max_attempts", group = "LLM",
             description = "Retry count for retryable LLM failures")
     @IntValue(min = 0)

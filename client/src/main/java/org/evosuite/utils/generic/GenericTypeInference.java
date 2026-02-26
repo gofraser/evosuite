@@ -402,7 +402,7 @@ public class GenericTypeInference extends TestVisitor {
     }
 
     @Override
-    public void visitInterpretedStatement(InterpretedStatement interpretedStatement) {
+    public void visitUninterpretedStatement(UninterpretedStatement interpretedStatement) {
     }
 
     @Override

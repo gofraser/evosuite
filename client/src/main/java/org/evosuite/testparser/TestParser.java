@@ -168,9 +168,8 @@ public class TestParser {
                         "Failed to parse statement: " + e.getMessage(),
                         line,
                         astStmt.toString()));
-                // Preserve as InterpretedStatement so the source is not lost
-                testCase.addStatement(new org.evosuite.testcase.statements.InterpretedStatement(
-                        testCase, astStmt.toString()));
+                // Preserve as UninterpretedStatement so the source is not lost
+                testCase.addStatement(stmtParser.createUninterpretedStatementFromAst(astStmt));
                 i++;
             }
         }

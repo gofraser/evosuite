@@ -989,6 +989,8 @@ public class TestCodeVisitor extends TestVisitor {
             visitArrayLengthAssertion((ArrayLengthAssertion) assertion);
         } else if (assertion instanceof ContainsAssertion) {
             visitContainsAssertion((ContainsAssertion) assertion);
+        } else if (assertion instanceof CodeAssertion) {
+            testCode.append(assertion.getCode());
         } else {
             throw new RuntimeException("Unknown assertion type: " + assertion);
         }
@@ -1345,10 +1347,24 @@ public class TestCodeVisitor extends TestVisitor {
 
 
     @Override
-    public void visitInterpretedStatement(InterpretedStatement statement) {
+    public void visitUninterpretedStatement(UninterpretedStatement statement) {
         testCode.append(statement.getSourceCode());
         if (!statement.getSourceCode().endsWith("\n")) {
             testCode.append(NEWLINE);
+        }
+        String returnExpression = statement.getReturnExpression();
+        if (returnExpression != null && !returnExpression.trim().isEmpty()
+                && !statement.getReturnValue().isVoid()) {
+            String generatedName = getVariableName(statement.getReturnValue());
+            if (generatedName != null && !generatedName.equals(returnExpression.trim())) {
+                testCode.append(getClassName(statement.getReturnValue()))
+                        .append(" ")
+                        .append(generatedName)
+                        .append(" = ")
+                        .append(returnExpression)
+                        .append(";")
+                        .append(NEWLINE);
+            }
         }
         addAssertions(statement);
     }

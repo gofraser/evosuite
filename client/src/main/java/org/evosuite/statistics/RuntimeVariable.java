@@ -695,7 +695,23 @@ public enum RuntimeVariable {
     /**
      * Number of literals replaced by LLM niceification.
      */
-    LLM_Literals_Niceified;
+    LLM_Literals_Niceified,
+    /**
+     * Number of compile-time failures while compiling fallback snippet code.
+     */
+    LLM_Fallback_Snippet_Compile_Failures,
+    /**
+     * Number of runtime failures while executing fallback snippet code.
+     */
+    LLM_Fallback_Snippet_Runtime_Failures,
+    /**
+     * Number of failed fallback statement executions (compile or runtime).
+     */
+    LLM_Fallback_Statement_Execution_Failures,
+    /**
+     * Number of failed fallback assertion evaluations (compile or runtime).
+     */
+    LLM_Fallback_Assertion_Evaluation_Failures;
 
     /* -------------------------------------------------- */
 

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LlmServiceProviderWiringTest {
@@ -14,6 +15,7 @@ class LlmServiceProviderWiringTest {
     private String originalModel;
     private String originalApiKey;
     private String originalBaseUrl;
+    private boolean originalRequireJdkCompiler;
 
     @BeforeEach
     void setUp() {
@@ -21,6 +23,8 @@ class LlmServiceProviderWiringTest {
         originalModel = Properties.LLM_MODEL;
         originalApiKey = Properties.LLM_API_KEY;
         originalBaseUrl = Properties.LLM_BASE_URL;
+        originalRequireJdkCompiler = Properties.LLM_REQUIRE_JDK_COMPILER;
+        LlmService.setCompilerAvailableForTesting(null);
         LlmService.resetInstanceForTesting();
     }
 
@@ -30,6 +34,8 @@ class LlmServiceProviderWiringTest {
         Properties.LLM_MODEL = originalModel;
         Properties.LLM_API_KEY = originalApiKey;
         Properties.LLM_BASE_URL = originalBaseUrl;
+        Properties.LLM_REQUIRE_JDK_COMPILER = originalRequireJdkCompiler;
+        LlmService.setCompilerAvailableForTesting(null);
         LlmService.resetInstanceForTesting();
     }
 
@@ -75,5 +81,28 @@ class LlmServiceProviderWiringTest {
 
         LlmService service = LlmService.getInstance();
         assertTrue(service.isAvailable());
+    }
+
+    @Test
+    void missingCompiler_softFallbackDisablesLlm() {
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.LLM_MODEL = "gpt-4o-mini";
+        Properties.LLM_API_KEY = "test-api-key";
+        Properties.LLM_REQUIRE_JDK_COMPILER = false;
+        LlmService.setCompilerAvailableForTesting(false);
+
+        LlmService service = LlmService.getInstance();
+        assertFalse(service.isAvailable());
+    }
+
+    @Test
+    void missingCompiler_strictModeHardFails() {
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.LLM_MODEL = "gpt-4o-mini";
+        Properties.LLM_API_KEY = "test-api-key";
+        Properties.LLM_REQUIRE_JDK_COMPILER = true;
+        LlmService.setCompilerAvailableForTesting(false);
+
+        assertThrows(IllegalStateException.class, LlmService::getInstance);
     }
 }

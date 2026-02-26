@@ -52,7 +52,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Converts JavaParser AST statement/expression nodes into EvoSuite Statement objects
@@ -72,7 +74,6 @@ public class StatementParser {
 
     /** Counter for generating unique names for synthetic variables (inline literals, etc.) */
     private int syntheticVarCounter = 0;
-
     /**
      * Create a new StatementParser.
      *
@@ -117,15 +118,15 @@ public class StatementParser {
             ExpressionStmt exprStmt = (ExpressionStmt) astStmt;
             return handleExpressionStatement(exprStmt.getExpression(), allStatements, currentIndex);
         } else {
-            // Fallback: preserve as InterpretedStatement
+            // Fallback: preserve as UninterpretedStatement
             int line = astStmt.getBegin().map(p -> p.line).orElse(0);
             result.addDiagnostic(new ParseDiagnostic(
                     ParseDiagnostic.Severity.WARNING,
-                    "Unsupported statement type, preserved as InterpretedStatement: "
+                    "Unsupported statement type, preserved as UninterpretedStatement: "
                             + astStmt.getClass().getSimpleName(),
                     line,
                     astStmt.toString()));
-            testCase.addStatement(new InterpretedStatement(testCase, astStmt.toString()));
+            testCase.addStatement(createUninterpretedStatement(astStmt, astStmt.toString()));
             return 1;
         }
     }
@@ -152,15 +153,15 @@ public class StatementParser {
             handleAssignment((AssignExpr) expr);
             return 1;
         } else {
-            // Fallback: preserve as InterpretedStatement
+            // Fallback: preserve as UninterpretedStatement
             int line = expr.getBegin().map(p -> p.line).orElse(0);
             result.addDiagnostic(new ParseDiagnostic(
                     ParseDiagnostic.Severity.WARNING,
-                    "Unsupported expression type, preserved as InterpretedStatement: "
+                    "Unsupported expression type, preserved as UninterpretedStatement: "
                             + expr.getClass().getSimpleName(),
                     line,
                     expr.toString()));
-            testCase.addStatement(new InterpretedStatement(testCase, expr.toString() + ";"));
+            testCase.addStatement(createUninterpretedStatement(expr, expr.toString() + ";"));
             return 1;
         }
     }
@@ -727,10 +728,10 @@ public class StatementParser {
             return handleExpression(varName, ((EnclosedExpr) expr).getInner(), declaredType);
         }
 
-        // Lambda expression: preserve as InterpretedStatement
+        // Lambda expression: preserve as UninterpretedStatement
         if (expr instanceof LambdaExpr) {
-            addWarning(expr, "Lambda expression preserved as InterpretedStatement");
-            InterpretedStatement stmt = new InterpretedStatement(testCase, expr.toString());
+            addWarning(expr, "Lambda expression preserved as UninterpretedStatement");
+            UninterpretedStatement stmt = createUninterpretedStatement(expr, expr.toString());
             return testCase.addStatement(stmt);
         }
 
@@ -835,9 +836,9 @@ public class StatementParser {
         if (expr.getOperator() == UnaryExpr.Operator.PLUS) {
             return handleExpression(varName, expr.getExpression(), declaredType);
         }
-        // Other unary operators (!, ~, ++, --): preserve as InterpretedStatement
-        addWarning(expr, "Unsupported unary operator preserved as InterpretedStatement: " + expr.getOperator());
-        InterpretedStatement stmt = new InterpretedStatement(testCase, expr.toString());
+        // Other unary operators (!, ~, ++, --): preserve as UninterpretedStatement
+        addWarning(expr, "Unsupported unary operator preserved as UninterpretedStatement: " + expr.getOperator());
+        UninterpretedStatement stmt = createUninterpretedStatement(expr, expr.toString());
         return testCase.addStatement(stmt);
     }
 
@@ -988,7 +989,7 @@ public class StatementParser {
      * statement that produced the asserted variable.
      *
      * <p>Handles both JUnit 4 (message-first optional) and JUnit 5 (message-last optional).
-     * Unrecognized assertion patterns are preserved as InterpretedStatements.
+     * Unrecognized assertion patterns are preserved as UninterpretedStatements.
      */
     private void handleAssertionCall(MethodCallExpr assertCall) {
         String name = assertCall.getNameAsString();
@@ -1033,8 +1034,8 @@ public class StatementParser {
             logger.debug("Could not parse assertion {}: {}", assertCall, e.getMessage());
         }
 
-        // Fallback: preserve as InterpretedStatement
-        testCase.addStatement(new InterpretedStatement(testCase, assertCall.toString() + ";"));
+        // Fallback: preserve as UninterpretedStatement
+        testCase.addStatement(createUninterpretedStatement(assertCall, assertCall.toString() + ";"));
     }
 
     /**
@@ -1175,7 +1176,7 @@ public class StatementParser {
         // If expected is a literal, use PrimitiveAssertion — the getCode() for
         // EqualsAssertion with value=false emits assertFalse(a.equals(b)) which
         // is not ideal for primitive literals. Instead we skip (no direct
-        // PrimitiveAssertion negation exists). Fall through to InterpretedStatement.
+        // PrimitiveAssertion negation exists). Fall through to UninterpretedStatement.
         Object expectedValue = extractLiteralValue(expectedExpr);
         if (expectedValue != null) {
             // No negated PrimitiveAssertion in EvoSuite; let the default fallback handle it
@@ -1237,7 +1238,7 @@ public class StatementParser {
     }
 
     /**
-     * assertArrayEquals — preserved as InterpretedStatement since EvoSuite's
+     * assertArrayEquals — preserved as UninterpretedStatement since EvoSuite's
      * ArrayEqualsAssertion requires runtime trace data we don't have from source.
      */
     private void handleAssertArrayEquals(MethodCallExpr assertCall, List<Expression> args) {
@@ -1247,7 +1248,7 @@ public class StatementParser {
                 handleMethodCall((MethodCallExpr) arg, null);
             }
         }
-        testCase.addStatement(new InterpretedStatement(testCase, assertCall.toString() + ";"));
+        testCase.addStatement(createUninterpretedStatement(assertCall, assertCall.toString() + ";"));
     }
 
     /**
@@ -1649,11 +1650,11 @@ public class StatementParser {
     }
 
     // ========================================================================
-    // Binary expression: a + b, x == y → InterpretedStatement
+    // Binary expression: a + b, x == y → UninterpretedStatement
     // ========================================================================
 
     /**
-     * Binary expressions are preserved as InterpretedStatements.
+     * Binary expressions are preserved as UninterpretedStatements.
      */
     private VariableReference handleBinaryExpression(String varName, BinaryExpr expr, Type declaredType) {
         // String concatenation: try to evaluate "a" + b + c into a single String literal
@@ -1668,7 +1669,7 @@ public class StatementParser {
         // Reconstruct the source: "type varName = left op right;"
         String typeName = getSimpleTypeName(declaredType);
         String code = typeName + " " + varName + " = " + expr.toString() + ";";
-        InterpretedStatement stmt = new InterpretedStatement(testCase, declaredType, code);
+        UninterpretedStatement stmt = createUninterpretedStatement(declaredType, code, varName, expr);
         return testCase.addStatement(stmt);
     }
 
@@ -2174,6 +2175,33 @@ public class StatementParser {
         int line = expr.getBegin().map(p -> p.line).orElse(0);
         result.addDiagnostic(new ParseDiagnostic(
                 ParseDiagnostic.Severity.WARNING, message, line, expr.toString()));
+    }
+
+    UninterpretedStatement createUninterpretedStatementFromAst(com.github.javaparser.ast.stmt.Statement astStmt) {
+        return createUninterpretedStatement(astStmt, astStmt.toString());
+    }
+
+    private UninterpretedStatement createUninterpretedStatement(com.github.javaparser.ast.Node bindingNode, String code) {
+        return new UninterpretedStatement(testCase, code, collectBindings(bindingNode));
+    }
+
+    private UninterpretedStatement createUninterpretedStatement(Type returnType,
+                                                                String code,
+                                                                String returnExpression,
+                                                                com.github.javaparser.ast.Node bindingNode) {
+        return new UninterpretedStatement(testCase, returnType, code, collectBindings(bindingNode), returnExpression);
+    }
+
+    private Map<String, VariableReference> collectBindings(com.github.javaparser.ast.Node node) {
+        Map<String, VariableReference> bindings = new LinkedHashMap<>();
+        for (NameExpr nameExpr : node.findAll(NameExpr.class)) {
+            String token = nameExpr.getNameAsString();
+            VariableReference ref = scope.resolve(token);
+            if (ref != null) {
+                bindings.put(token, ref);
+            }
+        }
+        return bindings;
     }
 
     /**

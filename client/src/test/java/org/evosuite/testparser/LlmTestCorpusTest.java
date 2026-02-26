@@ -324,7 +324,7 @@ class LlmTestCorpusTest {
                     "}");
             TestCase tc = r.getTestCase();
             assertTrue(tc.size() >= 1);
-            assertInstanceOf(InterpretedStatement.class, tc.getStatement(0));
+            assertInstanceOf(UninterpretedStatement.class, tc.getStatement(0));
         }
 
         @Test
@@ -335,10 +335,10 @@ class LlmTestCorpusTest {
                     "    int y = 10;\n" +
                     "}");
             TestCase tc = r.getTestCase();
-            // x=5 should parse, if-block preserved as InterpretedStatement
+            // x=5 should parse, if-block preserved as UninterpretedStatement
             assertTrue(tc.size() >= 2);
             assertInstanceOf(IntPrimitiveStatement.class, tc.getStatement(0));
-            assertInstanceOf(InterpretedStatement.class, tc.getStatement(1));
+            assertInstanceOf(UninterpretedStatement.class, tc.getStatement(1));
         }
     }
 

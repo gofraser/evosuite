@@ -2,6 +2,8 @@ package org.evosuite.assertion;
 
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.ExecutableSnippetEngine;
+import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -18,9 +20,50 @@ class CodeAssertionTest {
     }
 
     @Test
-    void evaluate_alwaysReturnsTrue() {
-        CodeAssertion a = new CodeAssertion("assertTrue(x);");
-        assertTrue(a.evaluate(null));
+    void evaluate_trueWhenAssertionHolds() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference ref = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+
+        CodeAssertion a = new CodeAssertion("assertEquals(42, int0);");
+        a.setSource(ref);
+        tc.getStatement(0).addAssertion(a);
+
+        Scope scope = new Scope();
+        ref.setObject(scope, 42);
+        assertTrue(a.evaluate(scope));
+    }
+
+    @Test
+    void evaluate_falseWhenAssertionFails() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference ref = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+
+        CodeAssertion a = new CodeAssertion("assertEquals(7, int0);");
+        a.setSource(ref);
+        tc.getStatement(0).addAssertion(a);
+
+        Scope scope = new Scope();
+        ref.setObject(scope, 42);
+        assertFalse(a.evaluate(scope));
+    }
+
+    @Test
+    void evaluate_compileFailure_updatesSnippetFailureMetrics() throws Exception {
+        ExecutableSnippetEngine.INSTANCE.resetMetricsForTesting();
+
+        TestCase tc = new DefaultTestCase();
+        VariableReference ref = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+
+        CodeAssertion a = new CodeAssertion("assertEquals(42, );");
+        a.setSource(ref);
+        tc.getStatement(0).addAssertion(a);
+
+        Scope scope = new Scope();
+        ref.setObject(scope, 42);
+        assertFalse(a.evaluate(scope));
+
+        assertEquals(1, ExecutableSnippetEngine.INSTANCE.getCompileFailures());
+        assertEquals(1, ExecutableSnippetEngine.INSTANCE.getAssertionEvaluationFailures());
     }
 
     @Test

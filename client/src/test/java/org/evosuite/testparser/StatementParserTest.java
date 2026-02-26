@@ -600,7 +600,7 @@ class StatementParserTest {
     }
 
     // ========================================================================
-    // Binary expressions (InterpretedStatement)
+    // Binary expressions (UninterpretedStatement)
     // ========================================================================
 
     @Nested
@@ -615,7 +615,7 @@ class StatementParserTest {
             TestCase tc = r.getTestCase();
             assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
             assertTrue(tc.size() >= 3);
-            assertInstanceOf(InterpretedStatement.class, tc.getStatement(tc.size() - 1));
+            assertInstanceOf(UninterpretedStatement.class, tc.getStatement(tc.size() - 1));
         }
 
         @Test
@@ -627,7 +627,7 @@ class StatementParserTest {
             TestCase tc = r.getTestCase();
             assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
             assertTrue(tc.size() >= 3);
-            assertInstanceOf(InterpretedStatement.class, tc.getStatement(tc.size() - 1));
+            assertInstanceOf(UninterpretedStatement.class, tc.getStatement(tc.size() - 1));
         }
     }
 
@@ -828,12 +828,12 @@ class StatementParserTest {
 
         @Test
         void parseAssertNotEqualsWithLiteralFallsThrough() {
-            // assertNotEquals with a literal expected falls through to InterpretedStatement
+            // assertNotEquals with a literal expected falls through to UninterpretedStatement
             ParseResult r = parseWithAssertImports(
                     "int x = 42;\n" +
                     "assertNotEquals(0, x);");
             TestCase tc = r.getTestCase();
-            // Should not crash; the assertNotEquals is preserved as InterpretedStatement
+            // Should not crash; the assertNotEquals is preserved as UninterpretedStatement
             // since there's no negated PrimitiveAssertion
             assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
         }
@@ -886,17 +886,17 @@ class StatementParserTest {
                     "assertArrayEquals(expected, actual);");
             TestCase tc = r.getTestCase();
             assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
-            // Should be preserved as InterpretedStatement
+            // Should be preserved as UninterpretedStatement
             boolean foundInterpreted = false;
             for (int i = 0; i < tc.size(); i++) {
                 Statement s = tc.getStatement(i);
-                if (s instanceof InterpretedStatement
+                if (s instanceof UninterpretedStatement
                         && s.getCode().contains("assertArrayEquals")) {
                     foundInterpreted = true;
                 }
             }
             assertTrue(foundInterpreted,
-                    "assertArrayEquals should be preserved as InterpretedStatement:\n" + tc.toCode());
+                    "assertArrayEquals should be preserved as UninterpretedStatement:\n" + tc.toCode());
         }
 
         @Test
@@ -1150,33 +1150,33 @@ class StatementParserTest {
                     "String s = \"prefix\" + System.lineSeparator();",
                     List.of());
             TestCase tc = r.getTestCase();
-            // Should fall back to InterpretedStatement
+            // Should fall back to UninterpretedStatement
             assertTrue(tc.size() >= 1);
-            assertInstanceOf(InterpretedStatement.class, tc.getStatement(tc.size() - 1));
+            assertInstanceOf(UninterpretedStatement.class, tc.getStatement(tc.size() - 1));
         }
     }
 
     // ========================================================================
-    // InterpretedStatement fallback
+    // UninterpretedStatement fallback
     // ========================================================================
 
     @Nested
-    class InterpretedStatementFallback {
+    class UninterpretedStatementFallback {
 
         @Test
         void unsupportedStatementTypePreservedAsInterpreted() {
-            // try-catch is not an ExpressionStmt — should become InterpretedStatement
+            // try-catch is not an ExpressionStmt — should become UninterpretedStatement
             ParseResult r = parse("try { int x = 1; } catch (Exception e) { }");
             TestCase tc = r.getTestCase();
             assertTrue(tc.size() >= 1);
-            assertInstanceOf(InterpretedStatement.class, tc.getStatement(0));
+            assertInstanceOf(UninterpretedStatement.class, tc.getStatement(0));
         }
 
         @Test
         void interpretedStatementPreservesSource() {
             ParseResult r = parse("try { int x = 1; } catch (Exception e) { }");
             TestCase tc = r.getTestCase();
-            InterpretedStatement is = (InterpretedStatement) tc.getStatement(0);
+            UninterpretedStatement is = (UninterpretedStatement) tc.getStatement(0);
             assertTrue(is.getSourceCode().contains("try"));
         }
 
@@ -1186,10 +1186,10 @@ class StatementParserTest {
                     "boolean a = true;\n" +
                     "boolean b = !a;");
             TestCase tc = r.getTestCase();
-            // b should be an InterpretedStatement, not null/crash
+            // b should be an UninterpretedStatement, not null/crash
             assertTrue(tc.size() >= 2, "Should have at least 2 statements:\n" + tc.toCode());
-            assertInstanceOf(InterpretedStatement.class, tc.getStatement(1),
-                    "!a should be InterpretedStatement:\n" + tc.toCode());
+            assertInstanceOf(UninterpretedStatement.class, tc.getStatement(1),
+                    "!a should be UninterpretedStatement:\n" + tc.toCode());
         }
 
         @Test
@@ -1199,8 +1199,8 @@ class StatementParserTest {
                     "int b = ++a;");
             TestCase tc = r.getTestCase();
             assertTrue(tc.size() >= 2, "Should have at least 2 statements:\n" + tc.toCode());
-            assertInstanceOf(InterpretedStatement.class, tc.getStatement(1),
-                    "++a should be InterpretedStatement:\n" + tc.toCode());
+            assertInstanceOf(UninterpretedStatement.class, tc.getStatement(1),
+                    "++a should be UninterpretedStatement:\n" + tc.toCode());
         }
 
         @Test
@@ -1211,14 +1211,14 @@ class StatementParserTest {
                     List.of());
             TestCase tc = r.getTestCase();
             assertTrue(tc.size() >= 1, "Should have at least 1 statement:\n" + tc.toCode());
-            // The lambda should become an InterpretedStatement, not a NullStatement
+            // The lambda should become an UninterpretedStatement, not a NullStatement
             boolean foundInterpreted = false;
             for (int i = 0; i < tc.size(); i++) {
-                if (tc.getStatement(i) instanceof InterpretedStatement) {
+                if (tc.getStatement(i) instanceof UninterpretedStatement) {
                     foundInterpreted = true;
                 }
             }
-            assertTrue(foundInterpreted, "Lambda should be InterpretedStatement:\n" + tc.toCode());
+            assertTrue(foundInterpreted, "Lambda should be UninterpretedStatement:\n" + tc.toCode());
         }
     }
 

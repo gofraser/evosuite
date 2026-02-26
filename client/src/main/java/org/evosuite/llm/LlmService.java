@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.*;
+import javax.tools.ToolProvider;
 
 /**
  * Entry-point for all LLM calls, including budget and retry enforcement.
@@ -35,6 +36,7 @@ public class LlmService implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(LlmService.class);
     private static final Object INSTANCE_LOCK = new Object();
     private static volatile LlmService instance;
+    private static volatile Boolean compilerAvailableOverrideForTesting = null;
 
     private final ChatLanguageModel model;
     private final LlmBudgetCoordinator budgetCoordinator;
@@ -121,6 +123,16 @@ public class LlmService implements AutoCloseable {
                     false);
         }
 
+        if (!isJdkCompilerAvailable()) {
+            String message = "LLM requires jdk.compiler but no system Java compiler is available";
+            if (Properties.LLM_REQUIRE_JDK_COMPILER) {
+                throw new IllegalStateException(message + " (set -Dllm_require_jdk_compiler=false for soft fallback)");
+            }
+            logger.warn("{}; disabling LLM features for this run", message);
+            return new LlmService(new UnavailableChatLanguageModel(), budget, config, stats, recorder, new Random(),
+                    false);
+        }
+
         try {
             ChatLanguageModel model = createProviderModel(config);
             return new LlmService(model, budget, config, stats, recorder, new Random(), true);
@@ -130,6 +142,18 @@ public class LlmService implements AutoCloseable {
             logger.warn("Failed to initialize LLM provider '{}': {}", config.getProvider(), e.getMessage());
         }
         return new LlmService(new UnavailableChatLanguageModel(), budget, config, stats, recorder, new Random(), false);
+    }
+
+    private static boolean isJdkCompilerAvailable() {
+        Boolean override = compilerAvailableOverrideForTesting;
+        if (override != null) {
+            return override;
+        }
+        return ToolProvider.getSystemJavaCompiler() != null;
+    }
+
+    static void setCompilerAvailableForTesting(Boolean available) {
+        compilerAvailableOverrideForTesting = available;
     }
 
     private static ChatLanguageModel createProviderModel(LlmConfiguration config) {

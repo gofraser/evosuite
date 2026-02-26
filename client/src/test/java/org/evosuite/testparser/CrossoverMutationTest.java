@@ -31,17 +31,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Verify that crossover and mutation work correctly with parsed test cases
- * containing InterpretedStatements.
+ * containing UninterpretedStatements.
  */
 class CrossoverMutationTest {
 
     @Test
-    void crossoverPreservesInterpretedStatements() throws Exception {
-        // Build test1: int(42), InterpretedStatement
+    void crossoverPreservesUninterpretedStatements() throws Exception {
+        // Build test1: int(42), UninterpretedStatement
         DefaultTestCase tc1 = new DefaultTestCase();
         tc1.addStatement(new IntPrimitiveStatement(tc1, 42));
         tc1.addStatement(new IntPrimitiveStatement(tc1, 99));
-        tc1.addStatement(new InterpretedStatement(tc1, "// interpreted line"));
+        tc1.addStatement(new UninterpretedStatement(tc1, "// interpreted line"));
 
         // Build test2: int(1), int(2)
         DefaultTestCase tc2 = new DefaultTestCase();
@@ -70,7 +70,7 @@ class CrossoverMutationTest {
 
         DefaultTestCase tc2 = new DefaultTestCase();
         tc2.addStatement(new IntPrimitiveStatement(tc2, 20));
-        tc2.addStatement(new InterpretedStatement(tc2, "System.out.println(\"hello\");"));
+        tc2.addStatement(new UninterpretedStatement(tc2, "System.out.println(\"hello\");"));
         tc2.addStatement(new IntPrimitiveStatement(tc2, 30));
 
         TestChromosome chrom1 = new TestChromosome();
@@ -83,32 +83,32 @@ class CrossoverMutationTest {
         chrom1.crossOver(chrom2, 1, 1);
 
         TestCase result = chrom1.getTestCase();
-        // Should have: int(10) from tc1 + InterpretedStatement + int(30) from tc2
+        // Should have: int(10) from tc1 + UninterpretedStatement + int(30) from tc2
         assertEquals(3, result.size());
         assertInstanceOf(IntPrimitiveStatement.class, result.getStatement(0));
-        assertInstanceOf(InterpretedStatement.class, result.getStatement(1));
+        assertInstanceOf(UninterpretedStatement.class, result.getStatement(1));
         assertInstanceOf(IntPrimitiveStatement.class, result.getStatement(2));
     }
 
     @Test
-    void clonePreservesInterpretedStatement() {
+    void clonePreservesUninterpretedStatement() {
         DefaultTestCase tc = new DefaultTestCase();
         tc.addStatement(new IntPrimitiveStatement(tc, 5));
-        tc.addStatement(new InterpretedStatement(tc, "// comment"));
+        tc.addStatement(new UninterpretedStatement(tc, "// comment"));
 
         TestCase cloned = tc.clone();
         assertEquals(2, cloned.size());
         assertInstanceOf(IntPrimitiveStatement.class, cloned.getStatement(0));
-        assertInstanceOf(InterpretedStatement.class, cloned.getStatement(1));
+        assertInstanceOf(UninterpretedStatement.class, cloned.getStatement(1));
         assertEquals("// comment",
-                ((InterpretedStatement) cloned.getStatement(1)).getSourceCode());
+                ((UninterpretedStatement) cloned.getStatement(1)).getSourceCode());
     }
 
     @Test
-    void mutationDoesNotBreakInterpretedStatement() {
+    void mutationDoesNotBreakUninterpretedStatement() {
         DefaultTestCase tc = new DefaultTestCase();
         tc.addStatement(new IntPrimitiveStatement(tc, 42));
-        tc.addStatement(new InterpretedStatement(tc, "x.doSomething();"));
+        tc.addStatement(new UninterpretedStatement(tc, "x.doSomething();"));
 
         double oldDelete = Properties.P_TEST_DELETE;
         double oldInsert = Properties.P_TEST_INSERT;

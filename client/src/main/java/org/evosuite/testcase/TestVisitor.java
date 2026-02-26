@@ -88,11 +88,11 @@ public abstract class TestVisitor {
     public abstract void visitNullStatement(NullStatement statement);
 
     /**
-     * Visits an interpreted statement (raw source fallback).
+     * Visits an uninterpreted statement (raw source fallback).
      *
-     * @param interpretedStatement the {@link InterpretedStatement} object to visit.
+     * @param uninterpretedStatement the {@link UninterpretedStatement} object to visit.
      */
-    public abstract void visitInterpretedStatement(InterpretedStatement interpretedStatement);
+    public abstract void visitUninterpretedStatement(UninterpretedStatement uninterpretedStatement);
 
     /**
      * Visits a functional mock statement.
@@ -122,8 +122,8 @@ public abstract class TestVisitor {
             visitArrayStatement((ArrayStatement) statement);
         } else if (statement instanceof NullStatement) {
             visitNullStatement((NullStatement) statement);
-        } else if (statement instanceof InterpretedStatement) {
-            visitInterpretedStatement((InterpretedStatement) statement);
+        } else if (statement instanceof UninterpretedStatement) {
+            visitUninterpretedStatement((UninterpretedStatement) statement);
         } else if (statement instanceof FunctionalMockStatement) {
             visitFunctionalMockStatement((FunctionalMockStatement) statement);
         } else {
@@ -131,4 +131,3 @@ public abstract class TestVisitor {
         }
     }
 }
-
