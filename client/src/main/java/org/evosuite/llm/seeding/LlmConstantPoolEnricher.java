@@ -22,9 +22,7 @@ import java.util.regex.Pattern;
  * Enriches EvoSuite's constant pool with LLM-suggested edge-case literals.
  * Designed for async invocation with graceful failure handling.
  */
-public class LlmConstantPoolEnricher {
-
-    private static final Logger logger = LoggerFactory.getLogger(LlmConstantPoolEnricher.class);
+public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPoolEnricher.EnrichmentResult> {
 
     // Patterns for extracting typed constants from LLM response
     static final Pattern STRING_PATTERN = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"");
@@ -39,41 +37,17 @@ public class LlmConstantPoolEnricher {
     static final Pattern NAN_PATTERN = Pattern.compile("(?i)\\b(?:double\\.)?nan\\b");
     static final Pattern INFINITY_PATTERN = Pattern.compile("(?i)(?:double\\.)?(positive_|negative_)?([+-])?infinity\\b");
 
-    private final LlmService llmService;
-
     public LlmConstantPoolEnricher(LlmService llmService) {
-        this.llmService = llmService;
+        super(llmService, LlmFeature.CONSTANT_POOL_ENRICHMENT);
     }
 
     /**
-     * Asynchronously queries the LLM for useful constants and adds them to the pool.
-     *
-     * @param className the target class name
-     * @param cluster   the test cluster for context
-     * @return a future that completes when enrichment is done (or fails gracefully)
+     * Synchronous enrichment logic (called by base class async template).
      */
-    public CompletableFuture<EnrichmentResult> enrichAsync(String className, TestCluster cluster) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return enrich(className, cluster);
-            } catch (Throwable t) {
-                logger.warn("Constant pool enrichment failed: {}", t.getMessage());
-                return EnrichmentResult.failure(t.getMessage());
-            }
-        });
-    }
-
-    /**
-     * Synchronous enrichment (called within the async wrapper).
-     */
-    EnrichmentResult enrich(String className, TestCluster cluster) {
-        if (!llmService.isAvailable() || !llmService.hasBudget()) {
-            logger.debug("LLM not available or no budget for constant pool enrichment");
-            return EnrichmentResult.skipped("LLM unavailable or no budget");
-        }
-
+    @Override
+    protected EnrichmentResult doEnrich(String className, TestCluster cluster) {
         PromptResult promptResult = buildPrompt(className, cluster);
-        String response = llmService.query(promptResult, LlmFeature.CONSTANT_POOL_ENRICHMENT);
+        String response = llmService.query(promptResult, feature);
 
         List<Object> constants = parseConstants(response);
         int sutParsed = constants.size();
@@ -94,7 +68,7 @@ public class LlmConstantPoolEnricher {
                 }
                 try {
                     PromptResult depPrompt = buildDependencyPrompt(className, dependencyClass, cluster);
-                    String depResponse = llmService.query(depPrompt, LlmFeature.CONSTANT_POOL_ENRICHMENT);
+                    String depResponse = llmService.query(depPrompt, feature);
                     List<Object> depConstants = capDependencyConstants(parseConstants(depResponse));
                     nonSutParsed += depConstants.size();
                     nonSutAdded += addToPool(depConstants, false);
@@ -109,6 +83,16 @@ public class LlmConstantPoolEnricher {
         logger.info("Constant pool enrichment: sutParsed={}, sutAdded={}, nonSutParsed={}, nonSutAdded={}",
                 sutParsed, sutAdded, nonSutParsed, nonSutAdded);
         return new EnrichmentResult(true, sutAdded, nonSutAdded, sutParsed + nonSutParsed, null);
+    }
+
+    @Override
+    protected EnrichmentResult createSkippedResult(String reason) {
+        return EnrichmentResult.skipped(reason);
+    }
+
+    @Override
+    protected EnrichmentResult createFailureResult(String reason) {
+        return EnrichmentResult.failure(reason);
     }
 
     PromptResult buildPrompt(String className, TestCluster cluster) {
@@ -315,20 +299,17 @@ public class LlmConstantPoolEnricher {
     /**
      * Result of an enrichment attempt.
      */
-    public static class EnrichmentResult {
-        private final boolean attempted;
+    public static class EnrichmentResult extends AbstractLlmEnricher.EnrichmentResult {
         private final int sutConstantsAdded;
         private final int nonSutConstantsAdded;
         private final int constantsParsed;
-        private final String failureReason;
 
         public EnrichmentResult(boolean attempted, int sutConstantsAdded, int nonSutConstantsAdded,
                                 int constantsParsed, String failureReason) {
-            this.attempted = attempted;
+            super(attempted, failureReason);
             this.sutConstantsAdded = sutConstantsAdded;
             this.nonSutConstantsAdded = nonSutConstantsAdded;
             this.constantsParsed = constantsParsed;
-            this.failureReason = failureReason;
         }
 
         static EnrichmentResult skipped(String reason) {
@@ -337,10 +318,6 @@ public class LlmConstantPoolEnricher {
 
         static EnrichmentResult failure(String reason) {
             return new EnrichmentResult(true, 0, 0, 0, reason);
-        }
-
-        public boolean isAttempted() {
-            return attempted;
         }
 
         /** Total constants added (SUT + non-SUT). */
@@ -358,14 +335,6 @@ public class LlmConstantPoolEnricher {
 
         public int getConstantsParsed() {
             return constantsParsed;
-        }
-
-        public String getFailureReason() {
-            return failureReason;
-        }
-
-        public boolean isSuccess() {
-            return attempted && failureReason == null;
         }
     }
 }

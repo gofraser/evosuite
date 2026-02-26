@@ -33,9 +33,7 @@ import java.util.concurrent.CompletableFuture;
  * Enriches EvoSuite's object pool with LLM-generated construction sequences.
  * Designed for async invocation with graceful failure handling.
  */
-public class LlmObjectPoolEnricher {
-
-    private static final Logger logger = LoggerFactory.getLogger(LlmObjectPoolEnricher.class);
+public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnricher.EnrichmentResult> {
 
     /** Max type keys per sequence to bound pool pollution. */
     static final int MAX_KEYS_PER_SEQUENCE = 5;
@@ -44,11 +42,10 @@ public class LlmObjectPoolEnricher {
             "java.", "javax.", "sun.", "com.sun.", "jdk."
     };
 
-    private final LlmService llmService;
     private final TestRepairLoop repairLoop;
 
     public LlmObjectPoolEnricher(LlmService llmService, TestRepairLoop repairLoop) {
-        this.llmService = llmService;
+        super(llmService, LlmFeature.OBJECT_POOL_ENRICHMENT);
         this.repairLoop = repairLoop;
     }
 
@@ -59,26 +56,8 @@ public class LlmObjectPoolEnricher {
         this(llmService, createDefaultRepairLoop(llmService));
     }
 
-    /**
-     * Asynchronously queries the LLM for construction sequences and adds them to the object pool.
-     */
-    public CompletableFuture<EnrichmentResult> enrichAsync(String className, TestCluster cluster) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return enrich(className, cluster);
-            } catch (Throwable t) {
-                logger.warn("Object pool enrichment failed: {}", t.getMessage());
-                return EnrichmentResult.failure(t.getMessage());
-            }
-        });
-    }
-
-    EnrichmentResult enrich(String className, TestCluster cluster) {
-        if (!llmService.isAvailable() || !llmService.hasBudget()) {
-            logger.debug("LLM not available or no budget for object pool enrichment");
-            return EnrichmentResult.skipped("LLM unavailable or no budget");
-        }
-
+    @Override
+    protected EnrichmentResult doEnrich(String className, TestCluster cluster) {
         // Identify complex types from the test cluster that would benefit from construction sequences
         List<String> typeNames = collectInterestingTypes(cluster);
         if (typeNames.isEmpty()) {
@@ -87,16 +66,20 @@ public class LlmObjectPoolEnricher {
         }
 
         PromptResult promptResult = buildPrompt(className, cluster, typeNames);
-        String response;
-        try {
-            response = llmService.query(promptResult, LlmFeature.OBJECT_POOL_ENRICHMENT);
-        } catch (Throwable t) {
-            logger.warn("LLM query failed for object pool enrichment: {}", t.getMessage());
-            return EnrichmentResult.failure("LLM query failed: " + t.getMessage());
-        }
+        String response = llmService.query(promptResult, feature);
 
         return parseAndAddSequences(response, promptResult, className,
                 new LinkedHashSet<>(typeNames));
+    }
+
+    @Override
+    protected EnrichmentResult createSkippedResult(String reason) {
+        return EnrichmentResult.skipped(reason);
+    }
+
+    @Override
+    protected EnrichmentResult createFailureResult(String reason) {
+        return EnrichmentResult.failure(reason);
     }
 
     private EnrichmentResult parseAndAddSequences(String response, PromptResult promptResult,
@@ -338,25 +321,22 @@ public class LlmObjectPoolEnricher {
     /**
      * Result of an object pool enrichment attempt.
      */
-    public static class EnrichmentResult {
-        private final boolean attempted;
+    public static class EnrichmentResult extends AbstractLlmEnricher.EnrichmentResult {
         private final int sequencesAdded;
         private final int sequencesParsed;
         private final int rejectedNoType;
         private final int rejectedValidation;
         private final int rejectedAddFailure;
-        private final String failureReason;
 
         public EnrichmentResult(boolean attempted, int sequencesAdded, int sequencesParsed,
                                 int rejectedNoType, int rejectedValidation, int rejectedAddFailure,
                                 String failureReason) {
-            this.attempted = attempted;
+            super(attempted, failureReason);
             this.sequencesAdded = sequencesAdded;
             this.sequencesParsed = sequencesParsed;
             this.rejectedNoType = rejectedNoType;
             this.rejectedValidation = rejectedValidation;
             this.rejectedAddFailure = rejectedAddFailure;
-            this.failureReason = failureReason;
         }
 
         static EnrichmentResult skipped(String reason) {
@@ -365,10 +345,6 @@ public class LlmObjectPoolEnricher {
 
         static EnrichmentResult failure(String reason) {
             return new EnrichmentResult(true, 0, 0, 0, 0, 0, reason);
-        }
-
-        public boolean isAttempted() {
-            return attempted;
         }
 
         public int getSequencesAdded() {
@@ -389,14 +365,6 @@ public class LlmObjectPoolEnricher {
 
         public int getRejectedAddFailure() {
             return rejectedAddFailure;
-        }
-
-        public String getFailureReason() {
-            return failureReason;
-        }
-
-        public boolean isSuccess() {
-            return attempted && failureReason == null;
         }
     }
 

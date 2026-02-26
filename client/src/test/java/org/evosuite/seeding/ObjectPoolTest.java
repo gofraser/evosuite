@@ -27,6 +27,13 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -46,8 +53,6 @@ public class ObjectPoolTest {
 
         TestCase retrieved = pool.getRandomSequence(clazz);
         assertNotNull(retrieved);
-        // Equality might not be implemented for TestCase, so we check if it is the same object or we rely on logic
-        // getRandomSequence returns one of the added sequences.
     }
 
     @Test
@@ -67,5 +72,93 @@ public class ObjectPoolTest {
         assertNotNull(loadedPool);
         assertTrue(loadedPool.hasSequence(clazz));
         assertEquals(1, loadedPool.getNumberOfSequences());
+    }
+
+    @Test
+    public void testConcurrentReadWrite_noException() throws Exception {
+        ObjectPool pool = new ObjectPool();
+        GenericClass<?> clazz = GenericClassFactory.get(String.class);
+
+        // Pre-populate with one sequence
+        pool.addSequence(clazz, new DefaultTestCase());
+
+        int writerCount = 4;
+        int readerCount = 8;
+        int opsPerThread = 100;
+        ExecutorService executor = Executors.newFixedThreadPool(writerCount + readerCount);
+        CountDownLatch startGate = new CountDownLatch(1);
+        AtomicBoolean cmeDetected = new AtomicBoolean(false);
+        AtomicInteger successfulReads = new AtomicInteger(0);
+
+        List<Future<?>> futures = new ArrayList<>();
+
+        // Writer threads: add sequences concurrently
+        for (int w = 0; w < writerCount; w++) {
+            futures.add(executor.submit(() -> {
+                try {
+                    startGate.await();
+                    for (int i = 0; i < opsPerThread; i++) {
+                        pool.addSequence(clazz, new DefaultTestCase());
+                    }
+                } catch (ConcurrentModificationException e) {
+                    cmeDetected.set(true);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }));
+        }
+
+        // Reader threads: call hasSequence + getRandomSequence concurrently
+        for (int r = 0; r < readerCount; r++) {
+            futures.add(executor.submit(() -> {
+                try {
+                    startGate.await();
+                    for (int i = 0; i < opsPerThread; i++) {
+                        try {
+                            boolean has = pool.hasSequence(clazz);
+                            if (has) {
+                                TestCase seq = pool.getRandomSequence(clazz);
+                                if (seq != null) {
+                                    successfulReads.incrementAndGet();
+                                }
+                            }
+                        } catch (ConcurrentModificationException e) {
+                            cmeDetected.set(true);
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }));
+        }
+
+        // Release all threads simultaneously
+        startGate.countDown();
+
+        for (Future<?> f : futures) {
+            f.get(10, TimeUnit.SECONDS);
+        }
+        executor.shutdown();
+
+        assertFalse(cmeDetected.get(), "No ConcurrentModificationException should occur");
+        assertTrue(successfulReads.get() > 0, "Some reads should have succeeded");
+        // Pool should have the original + all writer additions
+        assertTrue(pool.getNumberOfSequences() >= 1, "Pool should have at least the original sequence");
+    }
+
+    @Test
+    public void testGetSequences_returnsDefensiveCopy() {
+        ObjectPool pool = new ObjectPool();
+        GenericClass<?> clazz = GenericClassFactory.get(String.class);
+        pool.addSequence(clazz, new DefaultTestCase());
+
+        Set<TestCase> sequences = pool.getSequences(clazz);
+        int sizeBefore = sequences.size();
+
+        // Adding to pool should not affect the returned snapshot
+        pool.addSequence(clazz, new DefaultTestCase());
+
+        assertEquals(sizeBefore, sequences.size(),
+                "getSequences should return a snapshot, not a live view");
     }
 }

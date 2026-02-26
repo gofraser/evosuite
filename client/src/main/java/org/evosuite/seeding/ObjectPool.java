@@ -33,9 +33,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Pool of interesting method sequences for different objects.
+ * Thread-safe: uses ConcurrentHashMap so LLM enrichment can add sequences
+ * while the search reads concurrently.
  *
  * @author Gordon Fraser
  */
@@ -44,9 +47,10 @@ public class ObjectPool implements Serializable {
     private static final long serialVersionUID = 2016387518459994272L;
 
     /**
-     * The actual object pool.
+     * The actual object pool. ConcurrentHashMap for thread-safe concurrent read/write.
+     * Values use Collections.synchronizedSet wrapping to protect the inner Set.
      */
-    protected final Map<GenericClass<?>, Set<TestCase>> pool = new HashMap<>();
+    protected final Map<GenericClass<?>, Set<TestCase>> pool = new ConcurrentHashMap<>();
 
     protected static final Logger logger = LoggerFactory.getLogger(ObjectPool.class);
 
@@ -67,7 +71,8 @@ public class ObjectPool implements Serializable {
      * @param sequence the sequence to add
      */
     private void addSequence(ObjectSequence sequence) {
-        pool.computeIfAbsent(sequence.getGeneratedClass(), k -> new HashSet<>())
+        pool.computeIfAbsent(sequence.getGeneratedClass(),
+                        k -> Collections.synchronizedSet(new HashSet<>()))
                 .add(sequence.getSequence());
         logger.info("Added new sequence for {}", sequence.getGeneratedClass());
         logger.debug("Sequence code:\n{}", sequence.getSequence().toCode());
@@ -89,19 +94,27 @@ public class ObjectPool implements Serializable {
 
     /**
      * Retrieve all possible sequences for a given Type.
+     * Returns a snapshot to avoid ConcurrentModificationException during search.
      *
      * @param clazz a {@link java.lang.reflect.Type} object.
      * @return a {@link java.util.Set} object.
      */
     public Set<TestCase> getSequences(GenericClass<?> clazz) {
-        if (pool.containsKey(clazz)) {
-            return pool.get(clazz);
+        Set<TestCase> exact = pool.get(clazz);
+        if (exact != null && !exact.isEmpty()) {
+            // Return defensive copy to avoid CME if set is mutated concurrently
+            synchronized (exact) {
+                return new LinkedHashSet<>(exact);
+            }
         }
 
         Set<Set<TestCase>> candidates = new LinkedHashSet<>();
         for (Map.Entry<GenericClass<?>, Set<TestCase>> entry : pool.entrySet()) {
             if (entry.getKey().isAssignableTo(clazz)) {
-                candidates.add(entry.getValue());
+                Set<TestCase> val = entry.getValue();
+                synchronized (val) {
+                    candidates.add(new LinkedHashSet<>(val));
+                }
             }
         }
 
@@ -118,17 +131,23 @@ public class ObjectPool implements Serializable {
 
     /**
      * Check if there are sequences for given Type.
+     * Safe for concurrent reads — iterates ConcurrentHashMap snapshot view.
      *
      * @param clazz a {@link java.lang.reflect.Type} object.
      * @return a boolean.
      */
     public boolean hasSequence(GenericClass<?> clazz) {
-        if (pool.containsKey(clazz) && !pool.get(clazz).isEmpty()) {
+        Set<TestCase> exact = pool.get(clazz);
+        if (exact != null && !exact.isEmpty()) {
             return true;
         }
 
-        return pool.entrySet().stream()
-                .anyMatch(entry -> entry.getKey().isAssignableTo(clazz) && !entry.getValue().isEmpty());
+        for (Map.Entry<GenericClass<?>, Set<TestCase>> entry : pool.entrySet()) {
+            if (entry.getKey().isAssignableTo(clazz) && !entry.getValue().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public int getNumberOfClasses() {

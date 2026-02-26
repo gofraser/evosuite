@@ -26,8 +26,7 @@ import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 
 import java.io.File;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class ObjectPoolManager extends ObjectPool {
 
@@ -63,11 +62,8 @@ public class ObjectPoolManager extends ObjectPool {
     public void addPool(ObjectPool pool) {
         for (GenericClass<?> clazz : pool.getClasses()) {
             Set<TestCase> tests = pool.getSequences(clazz);
-            if (this.pool.containsKey(clazz)) {
-                this.pool.get(clazz).addAll(tests);
-            } else {
-                this.pool.put(clazz, tests);
-            }
+            this.pool.merge(clazz, Collections.synchronizedSet(new HashSet<>(tests)),
+                    (existing, incoming) -> { existing.addAll(incoming); return existing; });
         }
     }
 

@@ -22,9 +22,7 @@ import java.util.regex.Pattern;
  * Designed for synchronous invocation within the cast-class setup path.
  * All failures are logged and swallowed — never crashes startup.
  */
-public class LlmCastClassEnricher {
-
-    private static final Logger logger = LoggerFactory.getLogger(LlmCastClassEnricher.class);
+public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnricher.EnrichmentResult> {
 
     /**
      * Matches a JSON object containing a "suggestions" array of strings.
@@ -56,43 +54,17 @@ public class LlmCastClassEnricher {
      */
     static final int LLM_CAST_CLASS_PRIORITY = 100;
 
-    private final LlmService llmService;
-
     public LlmCastClassEnricher(LlmService llmService) {
-        this.llmService = llmService;
+        super(llmService, LlmFeature.CAST_CLASS_ENRICHMENT);
     }
 
     /**
-     * Queries the LLM for cast-relevant class suggestions and adds validated ones to CastClassManager.
-     * Never throws; all failures are logged.
-     *
-     * @param className  the target class under test
-     * @param cluster    the test cluster for prompt context (may be null)
-     * @return result with counts of suggested, validated, and accepted classes
+     * Synchronous enrichment logic (called by base class async template).
      */
-    public EnrichmentResult enrich(String className, TestCluster cluster) {
-        try {
-            return doEnrich(className, cluster);
-        } catch (Throwable t) {
-            logger.warn("Cast class enrichment failed (non-fatal): {}", t.getMessage());
-            return EnrichmentResult.failure(t.getMessage());
-        }
-    }
-
-    private EnrichmentResult doEnrich(String className, TestCluster cluster) {
-        if (!llmService.isAvailable() || !llmService.hasBudget()) {
-            logger.debug("LLM not available or no budget for cast class enrichment");
-            return EnrichmentResult.skipped("LLM unavailable or no budget");
-        }
-
+    @Override
+    protected EnrichmentResult doEnrich(String className, TestCluster cluster) {
         PromptResult promptResult = buildPrompt(className, cluster);
-        String response;
-        try {
-            response = llmService.query(promptResult, LlmFeature.CAST_CLASS_ENRICHMENT);
-        } catch (Throwable t) {
-            logger.warn("LLM query failed for cast class enrichment: {}", t.getMessage());
-            return EnrichmentResult.failure("LLM query failed: " + t.getMessage());
-        }
+        String response = llmService.query(promptResult, feature);
 
         List<String> suggestions = parseSuggestions(response);
         if (suggestions.isEmpty()) {
@@ -101,6 +73,32 @@ public class LlmCastClassEnricher {
         }
 
         return validateAndAdd(suggestions, className);
+    }
+
+    @Override
+    protected EnrichmentResult createSkippedResult(String reason) {
+        return EnrichmentResult.skipped(reason);
+    }
+
+    @Override
+    protected EnrichmentResult createFailureResult(String reason) {
+        return EnrichmentResult.failure(reason);
+    }
+
+    /**
+     * Legacy synchronous entry-point for blocking setup paths.
+     * Delegates to doEnrich but preserves original error swallowing.
+     */
+    public EnrichmentResult enrich(String className, TestCluster cluster) {
+        if (!llmService.isAvailable() || !llmService.hasBudget()) {
+            return createSkippedResult("LLM unavailable or no budget");
+        }
+        try {
+            return doEnrich(className, cluster);
+        } catch (Throwable t) {
+            logger.warn("Cast class enrichment failed (non-fatal): {}", t.getMessage());
+            return createFailureResult(t.getMessage());
+        }
     }
 
     /**
@@ -286,19 +284,16 @@ public class LlmCastClassEnricher {
     /**
      * Result of a cast class enrichment attempt.
      */
-    public static class EnrichmentResult {
-        private final boolean attempted;
+    public static class EnrichmentResult extends AbstractLlmEnricher.EnrichmentResult {
         private final int suggested;
         private final int validated;
         private final int accepted;
-        private final String failureReason;
 
         public EnrichmentResult(boolean attempted, int suggested, int validated, int accepted, String failureReason) {
-            this.attempted = attempted;
+            super(attempted, failureReason);
             this.suggested = suggested;
             this.validated = validated;
             this.accepted = accepted;
-            this.failureReason = failureReason;
         }
 
         static EnrichmentResult skipped(String reason) {
@@ -307,10 +302,6 @@ public class LlmCastClassEnricher {
 
         static EnrichmentResult failure(String reason) {
             return new EnrichmentResult(true, 0, 0, 0, reason);
-        }
-
-        public boolean isAttempted() {
-            return attempted;
         }
 
         public int getSuggested() {
@@ -323,14 +314,6 @@ public class LlmCastClassEnricher {
 
         public int getAccepted() {
             return accepted;
-        }
-
-        public String getFailureReason() {
-            return failureReason;
-        }
-
-        public boolean isSuccess() {
-            return attempted && failureReason == null;
         }
     }
 }

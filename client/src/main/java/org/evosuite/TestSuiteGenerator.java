@@ -86,6 +86,8 @@ public class TestSuiteGenerator {
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteGenerator.class);
     private Criterion[] requestedCriteria = null;
 
+    private LlmPoolEnrichmentOrchestrator llmOrchestrator;
+
 
     private void initializeTargetClass() throws Throwable {
         TargetClassInitializer initializer = new TargetClassInitializer();
@@ -188,23 +190,22 @@ public class TestSuiteGenerator {
             LoopCounter.getInstance().setActive(true);
         }
 
+        // LLM enrichment start (async, non-blocking)
+        if (LlmPoolEnrichmentOrchestrator.isEnrichmentEnabled()) {
+            try {
+                llmOrchestrator = LlmPoolEnrichmentOrchestrator.fromProperties(LlmService.getInstance());
+                llmOrchestrator.startEnrichment(Properties.TARGET_CLASS, TestCluster.getInstance());
+            } catch (Throwable t) {
+                logger.warn("LLM enrichment startup failed (non-fatal): {}", t.getMessage());
+            }
+        }
+
         /*
          * Initialises the object pool with objects carved from SELECTED_JUNIT
          * classes
          */
         // TODO: Do parts of this need to be wrapped into sandbox statements?
         ObjectPoolManager.getInstance();
-
-        // LLM pool enrichment (async, bounded, non-fatal)
-        if (LlmPoolEnrichmentOrchestrator.isEnrichmentEnabled()) {
-            try {
-                LlmPoolEnrichmentOrchestrator orchestrator =
-                        LlmPoolEnrichmentOrchestrator.fromProperties(LlmService.getInstance());
-                orchestrator.enrichPools(Properties.TARGET_CLASS, TestCluster.getInstance());
-            } catch (Throwable t) {
-                logger.warn("LLM pool enrichment setup failed (non-fatal): {}", t.getMessage());
-            }
-        }
 
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating tests for class "
                 + Properties.TARGET_CLASS);
@@ -230,6 +231,11 @@ public class TestSuiteGenerator {
                     Properties.TARGET_CLASS);
             // Do not fail fast here: strategies can gracefully handle zero goals
             // by returning an empty suite while still exposing a GA in results.
+        }
+
+        // Wait for structural enrichment (Cast Classes) before search starts
+        if (llmOrchestrator != null) {
+            llmOrchestrator.finishStructuralEnrichment();
         }
 
         TestSuiteChromosome testCases = generateTests();

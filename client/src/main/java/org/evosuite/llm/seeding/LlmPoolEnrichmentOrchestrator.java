@@ -11,10 +11,12 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Orchestrates async constant pool and object pool enrichment with bounded timeout.
- * Ensures enrichment never stalls startup; partial results are accepted.
+ * Orchestrates async constant pool, object pool, and cast class enrichment.
+ * Ensures structural enrichment (cast classes) completes before search starts,
+ * while allowing data enrichment (constants, objects) to trickle in during search.
  */
 public class LlmPoolEnrichmentOrchestrator {
 
@@ -22,13 +24,25 @@ public class LlmPoolEnrichmentOrchestrator {
 
     private final LlmConstantPoolEnricher constantPoolEnricher;
     private final LlmObjectPoolEnricher objectPoolEnricher;
+    private final LlmCastClassEnricher castClassEnricher;
     private final int timeoutSeconds;
+
+    private CompletableFuture<LlmConstantPoolEnricher.EnrichmentResult> constantFuture;
+    private CompletableFuture<LlmObjectPoolEnricher.EnrichmentResult> objectFuture;
+    private CompletableFuture<LlmCastClassEnricher.EnrichmentResult> castFuture;
+
+    // Guards to ensure each enricher's metrics are logged/tracked exactly once
+    private final AtomicBoolean constantResultTracked = new AtomicBoolean(false);
+    private final AtomicBoolean objectResultTracked = new AtomicBoolean(false);
+    private final AtomicBoolean castResultTracked = new AtomicBoolean(false);
 
     public LlmPoolEnrichmentOrchestrator(LlmConstantPoolEnricher constantPoolEnricher,
                                          LlmObjectPoolEnricher objectPoolEnricher,
+                                         LlmCastClassEnricher castClassEnricher,
                                          int timeoutSeconds) {
         this.constantPoolEnricher = constantPoolEnricher;
         this.objectPoolEnricher = objectPoolEnricher;
+        this.castClassEnricher = castClassEnricher;
         this.timeoutSeconds = Math.max(1, timeoutSeconds);
     }
 
@@ -38,68 +52,153 @@ public class LlmPoolEnrichmentOrchestrator {
     public static LlmPoolEnrichmentOrchestrator fromProperties(LlmService llmService) {
         LlmConstantPoolEnricher constantEnricher = new LlmConstantPoolEnricher(llmService);
         LlmObjectPoolEnricher objectEnricher = new LlmObjectPoolEnricher(llmService);
+        LlmCastClassEnricher castEnricher = new LlmCastClassEnricher(llmService);
         return new LlmPoolEnrichmentOrchestrator(
-                constantEnricher, objectEnricher, Properties.LLM_ENRICHMENT_TIMEOUT_SECONDS);
+                constantEnricher, objectEnricher, castEnricher, Properties.LLM_ENRICHMENT_TIMEOUT_SECONDS);
     }
 
     /**
-     * Runs pool enrichment according to Properties flags.
-     * Blocks for at most {@code timeoutSeconds}, accepting partial results.
-     * Never throws; all failures are logged and swallowed.
+     * Starts all enabled enrichment tasks asynchronously.
+     * Non-blocking. Registers whenComplete callbacks on data enrichment futures
+     * to ensure metrics are tracked even for late completions.
      */
-    public void enrichPools(String className, TestCluster cluster) {
+    public void startEnrichment(String className, TestCluster cluster) {
         boolean enrichConstants = Properties.LLM_ENRICH_CONSTANT_POOL;
         boolean enrichObjects = Properties.LLM_ENRICH_OBJECT_POOL;
+        boolean enrichCastClasses = Properties.LLM_ENRICH_CAST_CLASSES;
 
-        if (!enrichConstants && !enrichObjects) {
-            logger.debug("LLM pool enrichment: both constant and object enrichment disabled, skipping");
+        logger.info("LLM pool enrichment starting (constants={}, objects={}, castClasses={}, timeout={}s)",
+                enrichConstants, enrichObjects, enrichCastClasses, timeoutSeconds);
+
+        constantFuture = enrichConstants ? constantPoolEnricher.enrichAsync(className, cluster)
+                : CompletableFuture.completedFuture(null);
+
+        objectFuture = enrichObjects ? objectPoolEnricher.enrichAsync(className, cluster)
+                : CompletableFuture.completedFuture(null);
+
+        castFuture = enrichCastClasses ? castClassEnricher.enrichAsync(className, cluster)
+                : CompletableFuture.completedFuture(null);
+
+        // Register callbacks for late async completions — ensures metrics are
+        // tracked exactly once even if enrichers finish after the structural gate.
+        constantFuture.whenComplete((result, ex) -> {
+            if (constantResultTracked.compareAndSet(false, true)) {
+                logResult("Constant pool (async)", constantFuture);
+            }
+        });
+        objectFuture.whenComplete((result, ex) -> {
+            if (objectResultTracked.compareAndSet(false, true)) {
+                logResult("Object pool (async)", objectFuture);
+            }
+        });
+    }
+
+    /**
+     * Waits for structural enrichment (cast classes) to complete or timeout.
+     * On timeout, cancels the cast future to prevent late CastClassManager mutations.
+     * Data enrichment (constants/objects) continues in the background — their results
+     * are tracked via whenComplete callbacks registered in {@link #startEnrichment}.
+     */
+    public void finishStructuralEnrichment() {
+        if (castFuture == null) {
             return;
         }
 
-        logger.info("LLM pool enrichment starting (constants={}, objects={}, timeout={}s)",
-                enrichConstants, enrichObjects, timeoutSeconds);
-
-        CompletableFuture<LlmConstantPoolEnricher.EnrichmentResult> constantFuture =
-                enrichConstants ? constantPoolEnricher.enrichAsync(className, cluster)
-                        : CompletableFuture.completedFuture(null);
-
-        CompletableFuture<LlmObjectPoolEnricher.EnrichmentResult> objectFuture =
-                enrichObjects ? objectPoolEnricher.enrichAsync(className, cluster)
-                        : CompletableFuture.completedFuture(null);
-
-        CompletableFuture<Void> combined = CompletableFuture.allOf(constantFuture, objectFuture);
-
         try {
-            combined.get(timeoutSeconds, TimeUnit.SECONDS);
+            // Block for cast classes (Structural Gate)
+            castFuture.get(timeoutSeconds, TimeUnit.SECONDS);
+            if (castResultTracked.compareAndSet(false, true)) {
+                logResult("Cast class", castFuture);
+            }
         } catch (TimeoutException e) {
-            logger.warn("LLM pool enrichment timed out after {}s, proceeding with partial results", timeoutSeconds);
-            cancelUnfinished(constantFuture, objectFuture);
+            logger.warn("LLM cast class enrichment timed out after {}s, cancelling and opening structural gate", timeoutSeconds);
+            // Cancel to prevent late CastClassManager mutations during search
+            castFuture.cancel(true);
         } catch (Throwable e) {
-            logger.warn("LLM pool enrichment failed: {}", e.getMessage());
-            cancelUnfinished(constantFuture, objectFuture);
+            logger.warn("LLM cast class enrichment failed: {}", e.getMessage());
         }
 
-        logResult("Constant pool", constantFuture);
-        logResult("Object pool", objectFuture);
+        // Data enrichments that are already done get logged here via the callback
+        // guard. Those still running will self-report via whenComplete callbacks.
+        if (constantFuture != null && constantFuture.isDone()) {
+            // Callback may have already fired; compareAndSet prevents double logging
+            if (constantResultTracked.compareAndSet(false, true)) {
+                logResult("Constant pool", constantFuture);
+            }
+        } else if (constantFuture != null) {
+            logger.info("LLM constant pool enrichment continuing in background during search");
+        }
+
+        if (objectFuture != null && objectFuture.isDone()) {
+            if (objectResultTracked.compareAndSet(false, true)) {
+                logResult("Object pool", objectFuture);
+            }
+        } else if (objectFuture != null) {
+            logger.info("LLM object pool enrichment continuing in background during search");
+        }
+    }
+
+    /**
+     * Convenience method: starts enrichment then waits for the structural gate only.
+     * Data enrichment (constants/objects) may still be running after this returns.
+     * Primarily used for legacy call sites and tests that don't need full blocking.
+     *
+     * @see #startEnrichment(String, TestCluster)
+     * @see #finishStructuralEnrichment()
+     * @see #awaitAll(int)
+     */
+    public void enrichPools(String className, TestCluster cluster) {
+        startEnrichment(className, cluster);
+        finishStructuralEnrichment();
+    }
+
+    /**
+     * Blocks until all enrichment futures (structural + data) complete or timeout.
+     * Use this when the caller needs all enrichment to finish before proceeding.
+     *
+     * @param maxWaitSeconds maximum seconds to wait for all futures combined
+     */
+    public void awaitAll(int maxWaitSeconds) {
+        long deadline = System.currentTimeMillis() + maxWaitSeconds * 1000L;
+        awaitFuture(castFuture, deadline);
+        awaitFuture(constantFuture, deadline);
+        awaitFuture(objectFuture, deadline);
+    }
+
+    private void awaitFuture(CompletableFuture<?> future, long deadline) {
+        if (future == null || future.isDone()) return;
+        long remaining = deadline - System.currentTimeMillis();
+        if (remaining <= 0) {
+            future.cancel(true);
+            return;
+        }
+        try {
+            future.get(remaining, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+        } catch (Throwable e) {
+            logger.debug("Enrichment future failed during awaitAll: {}", e.getMessage());
+        }
     }
 
     /**
      * Checks whether any enrichment is enabled and the LLM is configured.
      */
     public static boolean isEnrichmentEnabled() {
-        if (!Properties.LLM_ENRICH_CONSTANT_POOL && !Properties.LLM_ENRICH_OBJECT_POOL) {
+        if (!Properties.LLM_ENRICH_CONSTANT_POOL && !Properties.LLM_ENRICH_OBJECT_POOL
+                && !Properties.LLM_ENRICH_CAST_CLASSES) {
             return false;
         }
         return Properties.LLM_PROVIDER != Properties.LlmProvider.NONE;
     }
 
     private void logResult(String label, CompletableFuture<?> future) {
+        if (future == null) return;
         if (future.isCancelled()) {
-            logger.info("{} enrichment: cancelled before completion", label);
+            logger.info("{} enrichment: cancelled", label);
             return;
         }
         if (!future.isDone()) {
-            logger.info("{} enrichment: still running (timed out), partial results may be available", label);
             return;
         }
         try {
@@ -128,17 +227,20 @@ public class LlmPoolEnrichmentOrchestrator {
                 } catch (Throwable t) {
                     logger.debug("Failed to track object pool metrics: {}", t.getMessage());
                 }
+            } else if (result instanceof LlmCastClassEnricher.EnrichmentResult) {
+                LlmCastClassEnricher.EnrichmentResult lr = (LlmCastClassEnricher.EnrichmentResult) result;
+                logger.info("{} enrichment: attempted={}, suggested={}, validated={}, added={}{}",
+                        label, lr.isAttempted(), lr.getSuggested(), lr.getValidated(), lr.getAccepted(),
+                        lr.getFailureReason() != null ? ", failure=" + lr.getFailureReason() : "");
+                try {
+                    ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, lr.getSuggested());
+                    ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, lr.getAccepted());
+                } catch (Throwable t) {
+                    logger.debug("Failed to track cast class metrics: {}", t.getMessage());
+                }
             }
         } catch (Throwable e) {
             logger.debug("{} enrichment: completed with error: {}", label, e.getMessage());
-        }
-    }
-
-    private void cancelUnfinished(CompletableFuture<?>... futures) {
-        for (CompletableFuture<?> future : futures) {
-            if (future != null && !future.isDone()) {
-                future.cancel(true);
-            }
         }
     }
 }

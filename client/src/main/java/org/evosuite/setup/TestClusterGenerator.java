@@ -249,23 +249,6 @@ public class TestClusterGenerator {
             // addCastClasses(classNames, blackList);
             logger.debug("Cast classes used: " + classNames);
         }
-
-        // LLM cast class enrichment (synchronous, non-fatal, independent of pool enrichment)
-        if (LlmCastClassEnricher.isEnabled()) {
-            try {
-                LlmCastClassEnricher enricher = new LlmCastClassEnricher(LlmService.getInstance());
-                LlmCastClassEnricher.EnrichmentResult result =
-                        enricher.enrich(Properties.TARGET_CLASS, TestCluster.getInstance());
-                logger.info("LLM cast class enrichment: attempted={}, suggested={}, validated={}, classesAdded={}{}",
-                        result.isAttempted(), result.getSuggested(), result.getValidated(), result.getAccepted(),
-                        result.getFailureReason() != null ? ", failure=" + result.getFailureReason() : "");
-                ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, result.getSuggested());
-                ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, result.getAccepted());
-            } catch (Throwable t) {
-                logger.warn("LLM cast class enrichment setup failed (non-fatal): {}", t.getMessage());
-            }
-        }
-
     }
 
     private void gatherStatistics() {
