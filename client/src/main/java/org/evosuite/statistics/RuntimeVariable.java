@@ -711,7 +711,34 @@ public enum RuntimeVariable {
     /**
      * Number of failed fallback assertion evaluations (compile or runtime).
      */
-    LLM_Fallback_Assertion_Evaluation_Failures;
+    LLM_Fallback_Assertion_Evaluation_Failures,
+
+    // ---- Phase 5: Operator & Diversity ----
+
+    /**
+     * Number of LLM semantic mutations applied.
+     */
+    LLM_Semantic_Mutations,
+    /**
+     * Number of LLM semantic mutation fallbacks (LLM unavailable or failed).
+     */
+    LLM_Semantic_Mutation_Fallbacks,
+    /**
+     * Number of LLM semantic crossovers applied.
+     */
+    LLM_Semantic_Crossovers,
+    /**
+     * Number of LLM semantic crossover fallbacks (LLM unavailable or failed).
+     */
+    LLM_Semantic_Crossover_Fallbacks,
+    /**
+     * Per-generation species count timeline (speciation_enabled + species_timeline_enabled).
+     */
+    Species_Count_Timeline,
+    /**
+     * Per-generation largest species share timeline (speciation_enabled + species_largest_share_timeline_enabled).
+     */
+    Species_Largest_Share_Timeline;
 
     /* -------------------------------------------------- */
 

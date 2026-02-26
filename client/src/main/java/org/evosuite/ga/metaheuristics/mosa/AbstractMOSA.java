@@ -29,6 +29,8 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.comparators.DominanceComparator;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.llm.search.LanguageModelCrossover;
+import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -95,6 +97,23 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final BudgetConsumptionMonitor budgetMonitor;
 
     /**
+     * LLM-based mutation operator. Initialized lazily when LLM operators are enabled.
+     */
+    protected transient LanguageModelMutation llmMutation;
+
+    /**
+     * LLM-based crossover operator. Initialized lazily when LLM operators are enabled.
+     */
+    protected transient LanguageModelCrossover llmCrossover;
+
+    /**
+     * Species map from the most recent generation's speciation assignment.
+     * Used during breeding for optional intra-species mating restriction.
+     * Null until the first speciation-enabled evolve() completes.
+     */
+    protected Map<Integer, List<TestChromosome>> currentSpeciesMap;
+
+    /**
      * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
@@ -120,6 +139,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     .warn("Originally, MOSA was implemented with a '"
                             + SelectionFunction.RANK_CROWD_DISTANCE_TOURNAMENT.name()
                             + "' selection function. You may want to consider using it.");
+        }
+
+        if (Properties.LLM_OPERATOR_ENABLED) {
+            this.llmMutation = new LanguageModelMutation();
+            this.llmCrossover = new LanguageModelCrossover();
         }
     }
 
@@ -164,6 +188,19 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      */
     protected List<TestChromosome> breedNextGeneration() {
         List<TestChromosome> offspringPopulation = new ArrayList<>(Properties.POPULATION);
+
+        // Build identity-based reverse lookup for intra-species mating restriction.
+        // Maps each individual to its species ID for O(1) lookup of parent1's species.
+        Map<TestChromosome, Integer> individualToSpecies = null;
+        if (Properties.SPECIES_RESTRICT_MATING && currentSpeciesMap != null) {
+            individualToSpecies = new IdentityHashMap<>();
+            for (Map.Entry<Integer, List<TestChromosome>> entry : currentSpeciesMap.entrySet()) {
+                for (TestChromosome tc : entry.getValue()) {
+                    individualToSpecies.put(tc, entry.getKey());
+                }
+            }
+        }
+
         // we apply only Properties.POPULATION/2 iterations since in each generation
         // we generate two offsprings
         for (int i = 0; i < Properties.POPULATION / 2 && !this.isFinished(); i++) {
@@ -176,11 +213,20 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
              */
 
             TestChromosome parent1 = this.selectionFunction.select(this.population);
-            TestChromosome parent2 = this.selectionFunction.select(this.population);
+            TestChromosome parent2 = selectParent2(parent1, individualToSpecies);
             TestChromosome offspring1 = parent1.clone();
             TestChromosome offspring2 = parent2.clone();
-            // apply crossover
-            if (Randomness.nextDouble() <= Properties.CROSSOVER_RATE) {
+            // Try LLM crossover first, then fall back to standard crossover
+            boolean llmCrossoverApplied = false;
+            if (llmCrossover != null) {
+                try {
+                    llmCrossoverApplied = llmCrossover.tryCrossover(
+                            offspring1, offspring2, getUncoveredGoals());
+                } catch (Exception e) {
+                    logger.debug("LLM crossover error; falling back to standard", e);
+                }
+            }
+            if (!llmCrossoverApplied && Randomness.nextDouble() <= Properties.CROSSOVER_RATE) {
                 try {
                     this.crossoverFunction.crossOver(offspring1, offspring2);
                 } catch (ConstructionFailedException e) {
@@ -192,8 +238,18 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.removeUnusedVariables(offspring1);
             this.removeUnusedVariables(offspring2);
 
-            // apply mutation on offspring1
-            this.mutate(offspring1, parent1);
+            // apply mutation on offspring1 (try LLM first)
+            boolean llmMut1 = false;
+            if (llmMutation != null) {
+                try {
+                    llmMut1 = llmMutation.tryMutate(offspring1, getUncoveredGoals());
+                } catch (Exception e) {
+                    logger.debug("LLM mutation error; falling back to standard", e);
+                }
+            }
+            if (!llmMut1) {
+                this.mutate(offspring1, parent1);
+            }
             if (offspring1.isChanged()) {
                 this.clearCachedResults(offspring1);
                 offspring1.updateAge(this.currentIteration);
@@ -201,8 +257,18 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 offspringPopulation.add(offspring1);
             }
 
-            // apply mutation on offspring2
-            this.mutate(offspring2, parent2);
+            // apply mutation on offspring2 (try LLM first)
+            boolean llmMut2 = false;
+            if (llmMutation != null) {
+                try {
+                    llmMut2 = llmMutation.tryMutate(offspring2, getUncoveredGoals());
+                } catch (Exception e) {
+                    logger.debug("LLM mutation error; falling back to standard", e);
+                }
+            }
+            if (!llmMut2) {
+                this.mutate(offspring2, parent2);
+            }
             if (offspring2.isChanged()) {
                 this.clearCachedResults(offspring2);
                 offspring2.updateAge(this.currentIteration);
@@ -228,6 +294,27 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
         logger.debug("Number of offsprings = {}", offspringPopulation.size());
         return offspringPopulation;
+    }
+
+    /**
+     * Select the second parent for crossover. When intra-species mating restriction
+     * is enabled and species information is available, parent2 is selected from the
+     * same species as parent1. Falls back to unrestricted selection if the species
+     * has fewer than 2 members or if parent1's species is unknown.
+     */
+    private TestChromosome selectParent2(TestChromosome parent1,
+                                          Map<TestChromosome, Integer> individualToSpecies) {
+        if (individualToSpecies != null) {
+            Integer speciesId = individualToSpecies.get(parent1);
+            if (speciesId != null && currentSpeciesMap != null) {
+                List<TestChromosome> speciesMembers = currentSpeciesMap.get(speciesId);
+                if (speciesMembers != null && speciesMembers.size() >= 2) {
+                    return this.selectionFunction.select(speciesMembers);
+                }
+            }
+            logger.debug("Intra-species mating fallback: parent1 species too small or unknown");
+        }
+        return this.selectionFunction.select(this.population);
     }
 
     /**

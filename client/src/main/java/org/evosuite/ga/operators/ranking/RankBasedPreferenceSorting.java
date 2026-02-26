@@ -29,8 +29,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -49,6 +51,25 @@ public class RankBasedPreferenceSorting<T extends Chromosome<T>> implements Rank
      * A list containing all the fronts found during the search.
      */
     private List<List<T>> fronts = null;
+
+    /**
+     * Optional species context for species-aware tiebreaking in front-0 construction.
+     * Maps each individual to its species ID. When set, tied candidates in the
+     * preference front are resolved by preferring the candidate from the species
+     * with fewer members already selected into front-0, promoting species diversity.
+     * Transient: only meaningful within a single ranking call.
+     */
+    private transient Map<T, Integer> speciesContext;
+
+    /**
+     * Sets the species context for the next ranking computation. When provided,
+     * front-0 tiebreaking will prefer candidates from rarer species.
+     *
+     * @param speciesContext maps individuals to species IDs, or null to disable
+     */
+    public void setSpeciesContext(Map<T, Integer> speciesContext) {
+        this.speciesContext = speciesContext;
+    }
 
     /**
      * {@inheritDoc}
@@ -105,6 +126,9 @@ public class RankBasedPreferenceSorting<T extends Chromosome<T>> implements Rank
      */
     private List<T> getZeroFront(List<T> solutionSet, Set<? extends FitnessFunction<T>> uncoveredGoals) {
         Set<T> zeroFront = new LinkedHashSet<>(solutionSet.size());
+        // Track per-species representation in front-0 for species-aware tiebreaking
+        Map<Integer, Integer> front0SpeciesCount = (speciesContext != null) ? new HashMap<>() : null;
+
         for (FitnessFunction<T> f : uncoveredGoals) {
             // for each uncovered goal, pick the best test using the proper comparator
             PreferenceSortingComparator<T> comp = new PreferenceSortingComparator<>(f);
@@ -112,16 +136,54 @@ public class RankBasedPreferenceSorting<T extends Chromosome<T>> implements Rank
             T best = null;
             for (T test : solutionSet) {
                 int flag = comp.compare(test, best);
-                if (flag < 0 || (flag == 0 && Randomness.nextBoolean())) {
+                if (flag < 0) {
                     best = test;
+                } else if (flag == 0) {
+                    if (shouldReplaceTied(best, test, front0SpeciesCount)) {
+                        best = test;
+                    }
                 }
             }
             assert best != null;
+
+            // Update front-0 species count for subsequent tiebreaks
+            if (front0SpeciesCount != null) {
+                Integer species = speciesContext.get(best);
+                if (species != null) {
+                    front0SpeciesCount.merge(species, 1, Integer::sum);
+                }
+            }
 
             best.setRank(0);
             zeroFront.add(best);
         }
         return new ArrayList<>(zeroFront);
+    }
+
+    /**
+     * Decides whether {@code candidate} should replace {@code current} when both
+     * are tied on fitness and secondary objectives. When species context is
+     * available, prefers the candidate from the species with fewer members
+     * already in front-0; otherwise falls back to a coin flip.
+     */
+    private boolean shouldReplaceTied(T current, T candidate,
+                                       Map<Integer, Integer> front0SpeciesCount) {
+        if (front0SpeciesCount != null && speciesContext != null) {
+            Integer currentSpecies = speciesContext.get(current);
+            Integer candidateSpecies = speciesContext.get(candidate);
+            if (currentSpecies != null && candidateSpecies != null) {
+                int currentCount = front0SpeciesCount.getOrDefault(currentSpecies, 0);
+                int candidateCount = front0SpeciesCount.getOrDefault(candidateSpecies, 0);
+                if (candidateCount < currentCount) {
+                    return true;  // candidate's species is rarer in front-0
+                }
+                if (candidateCount > currentCount) {
+                    return false; // current's species is rarer
+                }
+                // Equal counts — fall through to coin flip
+            }
+        }
+        return Randomness.nextBoolean();
     }
 
     private List<T> getNonDominatedSolutions(List<T> solutions, DominanceComparator<T> comparator, int frontIndex) {

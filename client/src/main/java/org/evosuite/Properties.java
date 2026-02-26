@@ -1818,6 +1818,75 @@ public class Properties {
     public static LlmSuiteInjectionPolicy LLM_SUITE_INJECTION_POLICY =
             LlmSuiteInjectionPolicy.NEW_SUITE;
 
+    @Parameter(key = "llm_operator_enabled", group = "LLM",
+            description = "Enable LLM-based semantic mutation and crossover operators in MOSA")
+    public static boolean LLM_OPERATOR_ENABLED = false;
+
+    @Parameter(key = "llm_mutation_probability", group = "LLM",
+            description = "Probability of applying LLM semantic mutation instead of standard mutation (0.0-1.0)")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double LLM_MUTATION_PROBABILITY = 0.1;
+
+    @Parameter(key = "llm_crossover_probability", group = "LLM",
+            description = "Probability of applying LLM semantic crossover instead of standard crossover (0.0-1.0)")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double LLM_CROSSOVER_PROBABILITY = 0.1;
+
+    @Parameter(key = "llm_operator_max_attempts", group = "LLM",
+            description = "Maximum LLM query attempts per operator invocation before falling back to standard operator")
+    @IntValue(min = 1)
+    public static int LLM_OPERATOR_MAX_ATTEMPTS = 2;
+
+    // ---------------------------------------------------------------
+    // Speciation / Diversity (LLM-independent)
+
+    public enum SpeciationMetric {
+        TRACE_BRANCH_JACCARD,
+        TRACE_LINE_JACCARD,
+        GOAL_JACCARD,
+        METHOD_CALL_JACCARD,
+        HYBRID
+    }
+
+    @Parameter(key = "speciation_enabled", group = "Speciation",
+            description = "Enable species-based diversity control in MOSA survival selection")
+    public static boolean SPECIATION_ENABLED = false;
+
+    @Parameter(key = "speciation_metric", group = "Speciation",
+            description = "Distance metric for speciation: TRACE_BRANCH_JACCARD (default), TRACE_LINE_JACCARD, GOAL_JACCARD, METHOD_CALL_JACCARD, HYBRID")
+    public static SpeciationMetric SPECIATION_METRIC = SpeciationMetric.TRACE_BRANCH_JACCARD;
+
+    @Parameter(key = "speciation_threshold", group = "Speciation",
+            description = "Jaccard distance threshold for species membership (0.0-1.0); individuals within this distance of a species leader belong to that species")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double SPECIATION_THRESHOLD = 0.3;
+
+    @Parameter(key = "species_survival_cap", group = "Speciation",
+            description = "Maximum fraction of survivor slots any single species may occupy (0.0-1.0; 1.0 = no cap)")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double SPECIES_SURVIVAL_CAP = 0.5;
+
+    @Parameter(key = "species_balance_parent_selection", group = "Speciation",
+            description = "If true, balance parent selection across species to promote diversity")
+    public static boolean SPECIES_BALANCE_PARENT_SELECTION = false;
+
+    @Parameter(key = "species_restrict_mating", group = "Speciation",
+            description = "If true, restrict crossover pairing so the second parent is selected from the same species as the first parent")
+    public static boolean SPECIES_RESTRICT_MATING = false;
+
+    @Parameter(key = "species_timeline_enabled", group = "Speciation",
+            description = "If true, emit per-generation species count as a timeline runtime variable")
+    public static boolean SPECIES_TIMELINE_ENABLED = true;
+
+    @Parameter(key = "species_largest_share_timeline_enabled", group = "Speciation",
+            description = "If true, emit per-generation largest species share as a timeline runtime variable")
+    public static boolean SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;
+
+    @Parameter(key = "speciation_hybrid_phenotypic_weight", group = "Speciation",
+            description = "Weight for phenotypic component in HYBRID speciation metric (0.0-1.0)")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double SPECIATION_HYBRID_PHENOTYPIC_WEIGHT = 0.7;
+
     // ---------------------------------------------------------------
     // Sandbox
     @Parameter(key = "sandbox", group = "Sandbox", description = "Execute tests in a sandbox environment")

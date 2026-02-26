@@ -23,17 +23,23 @@ import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.comparators.OnlyCrowdingComparator;
+import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
+import org.evosuite.ga.diversity.DefaultSpeciesPolicy;
+import org.evosuite.ga.diversity.SpeciesAssigner;
+import org.evosuite.ga.diversity.SpeciesPolicy;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
+import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
+import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.rmi.ClientServices;
+import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * Implementation of the DynaMOSA (Many Objective Sorting Algorithm) described in the paper
@@ -55,6 +61,13 @@ public class DynaMOSA extends AbstractMOSA {
 
     protected CrowdingDistance<TestChromosome> distance = new CrowdingDistance<>();
 
+    /** Speciation assigner (null when speciation is disabled). */
+    private final SpeciesAssigner speciesAssigner;
+    /** Speciation policy (null when speciation is disabled). */
+    private final SpeciesPolicy speciesPolicy;
+    private final List<Integer> speciesCountTimeline = new ArrayList<>();
+    private final List<Double> speciesLargestShareTimeline = new ArrayList<>();
+
     /**
      * Constructor based on the abstract class. {@link AbstractMOSA}.
      *
@@ -62,6 +75,14 @@ public class DynaMOSA extends AbstractMOSA {
      */
     public DynaMOSA(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
+
+        if (Properties.SPECIATION_ENABLED) {
+            this.speciesAssigner = new DefaultSpeciesAssigner();
+            this.speciesPolicy = new DefaultSpeciesPolicy();
+        } else {
+            this.speciesAssigner = null;
+            this.speciesPolicy = null;
+        }
     }
 
     /**
@@ -83,29 +104,57 @@ public class DynaMOSA extends AbstractMOSA {
         // Ranking the union
         logger.debug("Union Size = {}", union.size());
 
+        // Set species context on ranking function for species-aware front-0 tiebreaking.
+        boolean speciationActive = speciesAssigner != null && speciesPolicy != null;
+        if (speciationActive && this.currentSpeciesMap != null
+                && this.rankingFunction instanceof RankBasedPreferenceSorting) {
+            Map<TestChromosome, Integer> indToSpecies = new IdentityHashMap<>();
+            for (Map.Entry<Integer, List<TestChromosome>> entry : this.currentSpeciesMap.entrySet()) {
+                for (TestChromosome tc : entry.getValue()) {
+                    indToSpecies.put(tc, entry.getKey());
+                }
+            }
+            ((RankBasedPreferenceSorting<TestChromosome>) this.rankingFunction)
+                    .setSpeciesContext(indToSpecies);
+        }
+
         // Ranking the union using the best rank algorithm (modified version of the non dominated
         // sorting algorithm)
         this.rankingFunction.computeRankingAssignment(union, this.goalsManager.getCurrentGoals());
 
+        // Clear species context after ranking
+        if (this.rankingFunction instanceof RankBasedPreferenceSorting) {
+            ((RankBasedPreferenceSorting<TestChromosome>) this.rankingFunction)
+                    .setSpeciesContext(null);
+        }
+
         // let's form the next population using "preference sorting and non-dominated sorting" on the
         // updated set of goals
-        int remain = Math.max(Properties.POPULATION, this.rankingFunction.getSubfront(0).size());
+        int populationSize = Math.max(Properties.POPULATION, this.rankingFunction.getSubfront(0).size());
+        // When speciation is active, collect a larger candidate pool from fronts so
+        // that species caps can recover underrepresented species that would otherwise
+        // be eliminated by pure ranking/crowding truncation.
+        int candidateLimit = speciationActive
+                ? Math.min(union.size(), populationSize * 2)
+                : populationSize;
+
+        int remain = candidateLimit;
         int index = 0;
-        this.population.clear();
+        List<TestChromosome> rankedCandidates = new ArrayList<>(candidateLimit);
 
         // Obtain the first front
         List<TestChromosome> front = this.rankingFunction.getSubfront(index);
 
         // Successively iterate through the fronts (starting with the first non-dominated front)
-        // and insert their members into the population for the next generation. This is done until
-        // all fronts have been processed or we hit a front that is too big to fit into the next
-        // population as a whole.
+        // and insert their members into the ranked candidate list. This is done until
+        // all fronts have been processed or we hit a front that is too big to fit into the
+        // candidate limit as a whole.
         while ((remain > 0) && (remain >= front.size()) && !front.isEmpty()) {
             // Assign crowding distance to individuals
             this.distance.fastEpsilonDominanceAssignment(front, this.goalsManager.getCurrentGoals());
 
             // Add the individuals of this front
-            this.population.addAll(front);
+            rankedCandidates.addAll(front);
 
             // Decrement remain
             remain = remain - front.size();
@@ -117,17 +166,72 @@ public class DynaMOSA extends AbstractMOSA {
             }
         }
 
-        // In case the population for the next generation has not been filled up completely yet,
+        // In case the candidate list has not been filled up completely yet,
         // we insert the best individuals from the current front (the one that was too big to fit
-        // entirely) until there are no more free places left. To this end, and in an effort to
-        // promote diversity, we consider those individuals with a higher crowding distance as
-        // being better.
+        // entirely). To promote diversity, we consider those with a higher crowding distance first.
         if (remain > 0 && !front.isEmpty()) { // front contains individuals to insert
             this.distance.fastEpsilonDominanceAssignment(front, this.goalsManager.getCurrentGoals());
             front.sort(new OnlyCrowdingComparator<>());
             for (int k = 0; k < remain; k++) {
-                this.population.add(front.get(k));
+                rankedCandidates.add(front.get(k));
             }
+        }
+
+        this.population.clear();
+
+        // Apply speciation-based survival caps if enabled.
+        // Front-0 (preference front) is exempt: each member is the best individual for
+        // at least one uncovered goal and must not be evicted by species caps.
+        if (speciationActive && !rankedCandidates.isEmpty()) {
+            try {
+                // Separate front-0 (protected) from lower fronts
+                List<TestChromosome> front0 = this.rankingFunction.getSubfront(0);
+                Set<TestChromosome> front0Set = Collections.newSetFromMap(new IdentityHashMap<>());
+                front0Set.addAll(front0);
+
+                List<TestChromosome> nonFront0 = new ArrayList<>();
+                for (TestChromosome tc : rankedCandidates) {
+                    if (!front0Set.contains(tc)) {
+                        nonFront0.add(tc);
+                    }
+                }
+
+                // Species map over all candidates for accurate species membership
+                Map<Integer, List<TestChromosome>> speciesMap =
+                        speciesAssigner.groupBySpecies(rankedCandidates);
+
+                // Front-0 always survives; caps apply to remaining slots
+                int remainingSlots = Math.max(0, populationSize - front0.size());
+                this.population.addAll(front0);
+
+                if (remainingSlots > 0 && !nonFront0.isEmpty()) {
+                    List<TestChromosome> capped = speciesPolicy.applySurvivalCaps(
+                            nonFront0, speciesMap, remainingSlots,
+                            Properties.SPECIES_SURVIVAL_CAP);
+                    this.population.addAll(capped);
+                }
+
+                emitSpeciesTimeline(speciesMap);
+
+                // Re-group on surviving population for balancing
+                if (Properties.SPECIES_BALANCE_PARENT_SELECTION) {
+                    Map<Integer, List<TestChromosome>> survivingSpecies =
+                            speciesAssigner.groupBySpecies(this.population);
+                    List<TestChromosome> balanced =
+                            speciesPolicy.balanceParentPool(this.population, survivingSpecies);
+                    this.population.clear();
+                    this.population.addAll(balanced);
+                }
+
+                // Store species map of the surviving population for mating restriction
+                this.currentSpeciesMap = speciesAssigner.groupBySpecies(this.population);
+            } catch (Exception e) {
+                logger.debug("Speciation failed; using ranked fallback", e);
+                this.population.addAll(rankedCandidates.subList(0,
+                        Math.min(populationSize, rankedCandidates.size())));
+            }
+        } else {
+            this.population.addAll(rankedCandidates);
         }
 
         this.currentIteration++;
@@ -185,6 +289,15 @@ public class DynaMOSA extends AbstractMOSA {
                 this.notifyIteration();
             }
         } finally {
+            // Emit operator and speciation stats
+            try {
+                ClientNodeLocal<?> clientNode =
+                        ClientServices.getInstance().getClientNode();
+                emitOperatorStats(clientNode);
+                emitSpeciesTimelineVariables(clientNode);
+            } catch (Exception e) {
+                logger.debug("Failed to emit Phase 5 stats", e);
+            }
             shutdownLlmAssistance();
         }
         this.notifySearchFinished();
@@ -232,6 +345,47 @@ public class DynaMOSA extends AbstractMOSA {
                         goalsManager.getUncoveredGoals(), new ArrayList<>(population));
                 return tests != null ? tests : Collections.emptyList();
             });
+        }
+    }
+
+    private void emitSpeciesTimeline(Map<Integer, List<TestChromosome>> speciesMap) {
+        if (Properties.SPECIES_TIMELINE_ENABLED) {
+            speciesCountTimeline.add(speciesMap.size());
+        }
+        if (Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED && !speciesMap.isEmpty()) {
+            int maxSize = 0;
+            int total = 0;
+            for (List<TestChromosome> members : speciesMap.values()) {
+                maxSize = Math.max(maxSize, members.size());
+                total += members.size();
+            }
+            speciesLargestShareTimeline.add(total > 0 ? (double) maxSize / total : 0.0);
+        }
+    }
+
+    private void emitOperatorStats(ClientNodeLocal<?> clientNode) {
+        if (llmMutation != null) {
+            clientNode.trackOutputVariable(RuntimeVariable.LLM_Semantic_Mutations,
+                    llmMutation.getAppliedCount());
+            clientNode.trackOutputVariable(RuntimeVariable.LLM_Semantic_Mutation_Fallbacks,
+                    llmMutation.getFallbackCount());
+        }
+        if (llmCrossover != null) {
+            clientNode.trackOutputVariable(RuntimeVariable.LLM_Semantic_Crossovers,
+                    llmCrossover.getAppliedCount());
+            clientNode.trackOutputVariable(RuntimeVariable.LLM_Semantic_Crossover_Fallbacks,
+                    llmCrossover.getFallbackCount());
+        }
+    }
+
+    private void emitSpeciesTimelineVariables(ClientNodeLocal<?> clientNode) {
+        if (!speciesCountTimeline.isEmpty()) {
+            clientNode.trackOutputVariable(RuntimeVariable.Species_Count_Timeline,
+                    speciesCountTimeline.toString());
+        }
+        if (!speciesLargestShareTimeline.isEmpty()) {
+            clientNode.trackOutputVariable(RuntimeVariable.Species_Largest_Share_Timeline,
+                    speciesLargestShareTimeline.toString());
         }
     }
 }
