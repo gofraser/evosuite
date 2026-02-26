@@ -54,6 +54,8 @@ import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.ga.stoppingconditions.SocketStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
+import org.evosuite.llm.factory.LlmSeededPopulationFactory;
+import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
@@ -75,29 +77,47 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
     private static final Logger logger = LoggerFactory.getLogger(PropertiesNoveltySearchFactory.class);
 
     private ChromosomeFactory<TestChromosome> getChromosomeFactory() {
+        ChromosomeFactory<TestChromosome> factory;
         switch (Properties.TEST_FACTORY) {
             case ALLMETHODS:
                 logger.info("Using all methods chromosome factory");
-                return new AllMethodsTestChromosomeFactory();
+                factory = new AllMethodsTestChromosomeFactory();
+                break;
             case RANDOM:
                 logger.info("Using random chromosome factory");
-                return new RandomLengthTestFactory();
+                factory = new RandomLengthTestFactory();
+                break;
             case ARCHIVE:
                 logger.info("Using archive chromosome factory");
-                return new ArchiveTestChromosomeFactory();
+                factory = new ArchiveTestChromosomeFactory();
+                break;
             case JUNIT:
                 logger.info("Using seeding chromosome factory");
-                return new JUnitTestCarvedChromosomeFactory(new RandomLengthTestFactory());
+                factory = new JUnitTestCarvedChromosomeFactory(new RandomLengthTestFactory());
+                break;
             case PARSED_JUNIT:
                 logger.info("Using parsed JUnit seeding chromosome factory");
-                return new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory());
+                factory = new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory());
+                break;
             case SERIALIZATION:
                 logger.info("Using serialization seeding chromosome factory");
-                return new RandomLengthTestFactory();
+                factory = new RandomLengthTestFactory();
+                break;
+            case LLM:
+                logger.info("Using LLM chromosome factory with random fallback");
+                factory = new RandomLengthTestFactory();
+                break;
             default:
                 throw new RuntimeException("Unsupported test factory: "
                         + Properties.TEST_FACTORY);
         }
+        if (Properties.LLM_SEED_INITIAL_POPULATION) {
+            factory = new LlmSeededPopulationFactory(factory);
+        }
+        if (Properties.LLM_TEST_FACTORY || Properties.TEST_FACTORY == Properties.TestFactory.LLM) {
+            factory = new LlmTestChromosomeFactory(factory);
+        }
+        return factory;
     }
 
     protected SelectionFunction<TestChromosome> getSelectionFunction() {

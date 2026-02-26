@@ -143,52 +143,58 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         if (population.isEmpty()) {
             initializePopulation();
         }
-
-        logger.debug("Starting evolution");
-        int starvationCounter = 0;
-        double bestFitness = Double.MAX_VALUE;
-        double lastBestFitness = Double.MAX_VALUE;
-        if (getFitnessFunction().isMaximizationFunction()) {
-            bestFitness = 0.0;
-            lastBestFitness = 0.0;
-        }
-
-        while (!isFinished()) {
-            logger.debug("Current population: " + getAge() + "/" + Properties.SEARCH_BUDGET);
-            logger.info("Best fitness: " + getBestIndividual().getFitness());
-
-            evolve();
-            // Determine fitness
-            calculateFitnessAndSortPopulation();
-
-            applyLocalSearch();
-
-            double newFitness = getBestIndividual().getFitness();
-
+        try {
+            initializeLlmAssistance(this::getUncoveredGoalsForSuiteChromosomes,
+                    getFitnessFunction().isMaximizationFunction());
+            logger.debug("Starting evolution");
+            int starvationCounter = 0;
+            double bestFitness = Double.MAX_VALUE;
+            double lastBestFitness = Double.MAX_VALUE;
             if (getFitnessFunction().isMaximizationFunction()) {
-                assert (newFitness >= bestFitness) : "best fitness was: " + bestFitness
-                        + ", now best fitness is " + newFitness;
-            } else {
-                assert (newFitness <= bestFitness) : "best fitness was: " + bestFitness
-                        + ", now best fitness is " + newFitness;
-            }
-            bestFitness = newFitness;
-
-            if (Double.compare(bestFitness, lastBestFitness) == 0) {
-                starvationCounter++;
-            } else {
-                logger.info("reset starvationCounter after " + starvationCounter + " iterations");
-                starvationCounter = 0;
-                lastBestFitness = bestFitness;
-
+                bestFitness = 0.0;
+                lastBestFitness = 0.0;
             }
 
-            updateSecondaryCriterion(starvationCounter);
+            while (!isFinished()) {
+                logger.debug("Current population: " + getAge() + "/" + Properties.SEARCH_BUDGET);
+                logger.info("Best fitness: " + getBestIndividual().getFitness());
 
-            this.notifyIteration();
+                evolve();
+                // Determine fitness
+                calculateFitnessAndSortPopulation();
+                integrateAsyncTestsIntoPopulation();
+                maybeInjectOnStagnationByFitness(getBestIndividual().getFitness(), getUncoveredGoalsForSuiteChromosomes());
+
+                applyLocalSearch();
+
+                double newFitness = getBestIndividual().getFitness();
+
+                if (getFitnessFunction().isMaximizationFunction()) {
+                    assert (newFitness >= bestFitness) : "best fitness was: " + bestFitness
+                            + ", now best fitness is " + newFitness;
+                } else {
+                    assert (newFitness <= bestFitness) : "best fitness was: " + bestFitness
+                            + ", now best fitness is " + newFitness;
+                }
+                bestFitness = newFitness;
+
+                if (Double.compare(bestFitness, lastBestFitness) == 0) {
+                    starvationCounter++;
+                } else {
+                    logger.info("reset starvationCounter after " + starvationCounter + " iterations");
+                    starvationCounter = 0;
+                    lastBestFitness = bestFitness;
+
+                }
+
+                updateSecondaryCriterion(starvationCounter);
+
+                this.notifyIteration();
+            }
+            updateBestIndividualFromArchive();
+        } finally {
+            shutdownLlmAssistance();
         }
-
-        updateBestIndividualFromArchive();
         notifySearchFinished();
     }
 

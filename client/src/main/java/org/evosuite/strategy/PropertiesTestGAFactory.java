@@ -65,6 +65,8 @@ import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
+import org.evosuite.llm.factory.LlmSeededPopulationFactory;
+import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.seeding.TestCaseRecycler;
 import org.evosuite.testcase.RelativeTestLengthBloatControl;
 import org.evosuite.testcase.TestCaseReplacementFunction;
@@ -85,31 +87,60 @@ public class PropertiesTestGAFactory
         extends PropertiesSearchAlgorithmFactory<TestChromosome> {
 
     protected ChromosomeFactory<TestChromosome> getChromosomeFactory() {
+        ChromosomeFactory<TestChromosome> factory = null;
         switch (Properties.STRATEGY) {
             case ONEBRANCH:
                 switch (Properties.TEST_FACTORY) {
                     case ALLMETHODS:
                         logger.info("Using all methods chromosome factory");
-                        return new AllMethodsTestChromosomeFactory();
+                        factory = new AllMethodsTestChromosomeFactory();
+                        break;
                     case RANDOM:
                         logger.info("Using random chromosome factory");
-                        return new RandomLengthTestFactory();
+                        factory = new RandomLengthTestFactory();
+                        break;
                     case JUNIT:
                         logger.info("Using seeding chromosome factory");
-                        return new JUnitTestCarvedChromosomeFactory(new RandomLengthTestFactory());
+                        factory = new JUnitTestCarvedChromosomeFactory(new RandomLengthTestFactory());
+                        break;
                     case PARSED_JUNIT:
                         logger.info("Using parsed JUnit seeding chromosome factory");
-                        return new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory());
+                        factory = new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory());
+                        break;
+                    case LLM:
+                        logger.info("Using LLM chromosome factory with random fallback");
+                        factory = new RandomLengthTestFactory();
+                        break;
                     default:
+                        break;
                 }
-                // fall through
+                if (factory == null) {
+                    factory = new RandomLengthTestFactory();
+                }
+                break;
             case ENTBUG:
-                return new RandomLengthTestFactory();
+                factory = new RandomLengthTestFactory();
+                break;
             default:
                 break;
         }
-        throw new RuntimeException("Unsupported test factory: "
-                + Properties.TEST_FACTORY);
+        if (factory == null) {
+            throw new RuntimeException("Unsupported test factory: " + Properties.TEST_FACTORY);
+        }
+        return applyLlmFactoryWrappers(factory);
+    }
+
+    private ChromosomeFactory<TestChromosome> applyLlmFactoryWrappers(ChromosomeFactory<TestChromosome> baseFactory) {
+        ChromosomeFactory<TestChromosome> factory = baseFactory;
+        if (Properties.LLM_SEED_INITIAL_POPULATION) {
+            factory = new LlmSeededPopulationFactory(factory);
+        }
+        if (Properties.LLM_TEST_FACTORY || Properties.TEST_FACTORY == Properties.TestFactory.LLM) {
+            logger.info("LLM test factory wraps fallback factory {}; fallback remains active",
+                    factory.getClass().getSimpleName());
+            factory = new LlmTestChromosomeFactory(factory);
+        }
+        return factory;
     }
 
     private GeneticAlgorithm<TestChromosome> getGeneticAlgorithm(ChromosomeFactory<TestChromosome> factory) {

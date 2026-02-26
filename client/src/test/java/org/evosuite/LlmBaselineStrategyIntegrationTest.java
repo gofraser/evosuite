@@ -1,0 +1,119 @@
+package org.evosuite;
+
+import org.evosuite.coverage.TestFitnessFactory;
+import org.evosuite.llm.*;
+import org.evosuite.llm.factory.LlmSeededPopulationFactory;
+import org.evosuite.llm.mock.MockChatLanguageModel;
+import org.evosuite.strategy.LlmBaselineStrategy;
+import org.evosuite.strategy.TestGenerationStrategy;
+import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.factories.RandomLengthTestFactory;
+import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.testsuite.TestSuiteFitnessFunction;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+
+import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+
+class LlmBaselineStrategyIntegrationTest {
+
+    private static final String SIMPLE_JUNIT_RESPONSE =
+            "```java\n" +
+                    "import org.junit.Test;\n" +
+                    "public class GeneratedLlmTest {\n" +
+                    "  @Test\n" +
+                    "  public void generatedTest() {\n" +
+                    "  }\n" +
+                    "}\n" +
+                    "```";
+
+    private final Properties.Strategy originalStrategy = Properties.STRATEGY;
+    private final int originalSeedCount = Properties.LLM_SEED_COUNT;
+
+    @AfterEach
+    void restoreProperties() {
+        Properties.STRATEGY = originalStrategy;
+        Properties.LLM_SEED_COUNT = originalSeedCount;
+    }
+
+    @Test
+    void helperSelectsLlmBaselineStrategy() {
+        Properties.STRATEGY = Properties.Strategy.LLM_BASELINE;
+        TestGenerationStrategy strategy = TestSuiteGeneratorHelper.getTestGenerationStrategy();
+        assertInstanceOf(LlmBaselineStrategy.class, strategy);
+    }
+
+    @Test
+    void baselineStrategyBuildsSuiteFromLlmSeeds() {
+        Properties.LLM_SEED_COUNT = 1;
+
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.SEEDING, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        LlmSeededPopulationFactory seededFactory = new LlmSeededPopulationFactory(
+                new RandomLengthTestFactory(),
+                service,
+                Collections::emptyList,
+                Runnable::run);
+
+        LlmBaselineStrategy strategy = new LlmBaselineStrategy() {
+            @Override
+            protected boolean canGenerateTestsForSUT() {
+                return true;
+            }
+
+            @Override
+            protected List<TestSuiteFitnessFunction> getFitnessFunctions() {
+                return Collections.emptyList();
+            }
+
+            @Override
+            protected List<TestFitnessFactory<? extends TestFitnessFunction>> getConfiguredGoalFactories() {
+                return Collections.emptyList();
+            }
+
+            @Override
+            protected LlmSeededPopulationFactory createSeededFactory() {
+                return seededFactory;
+            }
+
+            @Override
+            protected void sendExecutionStatistics() {
+                // no-op for focused test isolation
+            }
+        };
+
+        try {
+            TestSuiteChromosome suite = strategy.generateTests();
+            assertEquals(1, suite.size());
+        } finally {
+            service.close();
+        }
+    }
+
+    private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {
+        LlmConfiguration configuration = new LlmConfiguration(
+                Properties.LlmProvider.NONE,
+                "mock",
+                "",
+                "",
+                0.0,
+                1024,
+                2,
+                0,
+                1,
+                false,
+                Paths.get("target/llm-test-traces"),
+                "baseline-integration");
+        return new LlmService(model,
+                new LlmBudgetCoordinator.Local(budget),
+                configuration,
+                new LlmStatistics(),
+                new LlmTraceRecorder(configuration));
+    }
+}

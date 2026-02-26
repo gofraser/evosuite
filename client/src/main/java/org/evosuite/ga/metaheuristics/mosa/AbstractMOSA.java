@@ -57,6 +57,27 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractMOSA.class);
 
+    /**
+     * A source of externally-produced candidate chromosomes that should be
+     * injected into the MOSA union during {@code evolve()}.
+     * <p>
+     * Each source is drained once per generation. Returned lists may be empty
+     * but must not be null.
+     */
+    @FunctionalInterface
+    protected interface ExternalCandidateSource {
+        List<TestChromosome> drain();
+    }
+
+    /**
+     * Registered external candidate sources. Subclasses add sources during
+     * initialization (e.g., island immigrants, LLM async producer,
+     * LLM stagnation detector). All sources are drained uniformly
+     * in {@link #collectExternalCandidates}.
+     */
+    protected final transient List<ExternalCandidateSource> externalCandidateSources =
+            new ArrayList<>();
+
     // Explicitly declared with a more special type than the one used in GeneticAlgorithm.
     // This is required for the Archive, which currently only supports TestFitnessFunctions.
     protected final List<TestFitnessFunction> fitnessFunctions = new ArrayList<>();
@@ -207,6 +228,31 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
         logger.debug("Number of offsprings = {}", offspringPopulation.size());
         return offspringPopulation;
+    }
+
+    /**
+     * Drains all registered {@link #externalCandidateSources}, evaluates
+     * fitness for each candidate, and appends them to the given union list.
+     * <p>
+     * This is the single integration point for all external candidates
+     * (island immigrants, LLM async producer, LLM stagnation, etc.).
+     *
+     * @param union the parent+offspring union to extend
+     */
+    protected void collectExternalCandidates(List<TestChromosome> union) {
+        for (ExternalCandidateSource source : externalCandidateSources) {
+            try {
+                List<TestChromosome> candidates = source.drain();
+                if (candidates != null) {
+                    for (TestChromosome candidate : candidates) {
+                        this.calculateFitness(candidate);
+                        union.add(candidate);
+                    }
+                }
+            } catch (Exception e) {
+                logger.debug("External candidate source failed; skipping", e);
+            }
+        }
     }
 
     /**

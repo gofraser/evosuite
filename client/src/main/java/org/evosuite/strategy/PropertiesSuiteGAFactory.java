@@ -74,7 +74,10 @@ import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.ga.stoppingconditions.SocketStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
+import org.evosuite.llm.factory.LlmSeededPopulationFactory;
+import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.statistics.StatisticsListener;
+import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
@@ -104,38 +107,52 @@ public class PropertiesSuiteGAFactory
                 switch (Properties.TEST_FACTORY) {
                     case ALLMETHODS:
                         logger.info("Using all methods chromosome factory");
-                        return new TestSuiteChromosomeFactory(
-                                new AllMethodsTestChromosomeFactory());
+                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(
+                                new AllMethodsTestChromosomeFactory()));
                     case RANDOM:
                         logger.info("Using random chromosome factory");
-                        return new TestSuiteChromosomeFactory(new RandomLengthTestFactory());
+                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(new RandomLengthTestFactory()));
                     case ARCHIVE:
                         logger.info("Using archive chromosome factory");
-                        return new TestSuiteChromosomeFactory(new ArchiveTestChromosomeFactory());
+                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(new ArchiveTestChromosomeFactory()));
                     case JUNIT:
                         logger.info("Using seeding chromosome factory");
                         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                                 new RandomLengthTestFactory());
-                        return new TestSuiteChromosomeFactory(factory);
+                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(factory));
                     case PARSED_JUNIT:
                         logger.info("Using parsed JUnit seeding chromosome factory");
                         JUnitTestParsedChromosomeFactory parsedFactory = new JUnitTestParsedChromosomeFactory(
                                 new RandomLengthTestFactory());
-                        return new TestSuiteChromosomeFactory(parsedFactory);
+                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(parsedFactory));
                     case SERIALIZATION:
                         logger.info("Using serialization seeding chromosome factory");
                         return new SerializationSuiteChromosomeFactory(
-                                new RandomLengthTestFactory());
+                                applyLlmFactoryWrappers(new RandomLengthTestFactory()));
+                    case LLM:
+                        logger.info("Using LLM chromosome factory with random fallback");
+                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(new RandomLengthTestFactory()));
                     default:
                         throw new RuntimeException("Unsupported test factory: "
                                 + Properties.TEST_FACTORY);
                 }
             case MOSUITE:
-                return new TestSuiteChromosomeFactory(new RandomLengthTestFactory());
+                return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(new RandomLengthTestFactory()));
             default:
                 throw new RuntimeException("Unsupported test factory: "
                         + Properties.TEST_FACTORY);
         }
+    }
+
+    private ChromosomeFactory<TestChromosome> applyLlmFactoryWrappers(ChromosomeFactory<TestChromosome> baseFactory) {
+        ChromosomeFactory<TestChromosome> factory = baseFactory;
+        if (Properties.LLM_SEED_INITIAL_POPULATION) {
+            factory = new LlmSeededPopulationFactory(factory);
+        }
+        if (Properties.LLM_TEST_FACTORY || Properties.TEST_FACTORY == Properties.TestFactory.LLM) {
+            factory = new LlmTestChromosomeFactory(factory);
+        }
+        return factory;
     }
 
     @Override

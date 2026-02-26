@@ -230,100 +230,107 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             initializePopulation();
             assert !population.isEmpty() : "Could not create any test";
         }
+        try {
+            initializeLlmAssistance(this::getUncoveredGoalsForSuiteChromosomes,
+                    getFitnessFunction().isMaximizationFunction());
 
-        logger.debug("Starting evolution");
-        int starvationCounter = 0;
-        double bestFitness = Double.MAX_VALUE;
-        double lastBestFitness = Double.MAX_VALUE;
-        if (getFitnessFunction().isMaximizationFunction()) {
-            bestFitness = 0.0;
-            lastBestFitness = 0.0;
-        }
-
-        while (!isFinished()) {
-
-            logger.info("Population size before: " + population.size());
-            // related to Properties.ENABLE_SECONDARY_OBJECTIVE_AFTER;
-            // check the budget progress and activate a secondary criterion
-            // according to the property value.
-
-            {
-                double bestFitnessBeforeEvolution = getBestFitness();
-                evolve();
-                sortPopulation();
-                double bestFitnessAfterEvolution = getBestFitness();
-
-                if (getFitnessFunction().isMaximizationFunction()) {
-                    assert (bestFitnessAfterEvolution >= (bestFitnessBeforeEvolution
-                            - DELTA)) : "best fitness before evolve()/sortPopulation() was: "
-                            + bestFitnessBeforeEvolution + ", now best fitness is " + bestFitnessAfterEvolution;
-                } else {
-                    assert (bestFitnessAfterEvolution <= (bestFitnessBeforeEvolution
-                            + DELTA)) : "best fitness before evolve()/sortPopulation() was: "
-                            + bestFitnessBeforeEvolution + ", now best fitness is " + bestFitnessAfterEvolution;
-                }
-            }
-
-            {
-                double bestFitnessBeforeLocalSearch = getBestFitness();
-                applyLocalSearch();
-                double bestFitnessAfterLocalSearch = getBestFitness();
-
-                if (getFitnessFunction().isMaximizationFunction()) {
-                    assert (bestFitnessAfterLocalSearch >= (bestFitnessBeforeLocalSearch
-                            - DELTA)) : "best fitness before applyLocalSearch() was: "
-                            + bestFitnessBeforeLocalSearch + ", now best fitness is " + bestFitnessAfterLocalSearch;
-                } else {
-                    assert (bestFitnessAfterLocalSearch <= (bestFitnessBeforeLocalSearch
-                            + DELTA)) : "best fitness before applyLocalSearch() was: "
-                            + bestFitnessBeforeLocalSearch + ", now best fitness is " + bestFitnessAfterLocalSearch;
-                }
-            }
-
-            /*
-             * TODO: before explanation: due to static state handling, LS can
-             * worse individuals. so, need to re-sort.
-             *
-             * now: the system tests that were failing have no static state...
-             * so re-sorting does just hide the problem away, and reduce
-             * performance (likely significantly). it is definitively a bug
-             * somewhere...
-             */
-            // sortPopulation();
-
-            double newFitness = getBestFitness();
-
+            logger.debug("Starting evolution");
+            int starvationCounter = 0;
+            double bestFitness = Double.MAX_VALUE;
+            double lastBestFitness = Double.MAX_VALUE;
             if (getFitnessFunction().isMaximizationFunction()) {
-                assert (newFitness >= (bestFitness - DELTA)) : "best fitness was: " + bestFitness
-                        + ", now best fitness is " + newFitness;
-            } else {
-                assert (newFitness <= (bestFitness + DELTA)) : "best fitness was: " + bestFitness
-                        + ", now best fitness is " + newFitness;
-            }
-            bestFitness = newFitness;
-
-            if (Double.compare(bestFitness, lastBestFitness) == 0) {
-                starvationCounter++;
-            } else {
-                logger.info("reset starvationCounter after " + starvationCounter + " iterations");
-                starvationCounter = 0;
-                lastBestFitness = bestFitness;
-
+                bestFitness = 0.0;
+                lastBestFitness = 0.0;
             }
 
-            updateSecondaryCriterion(starvationCounter);
+            while (!isFinished()) {
 
-            logger.info("Current iteration: " + currentIteration);
-            this.notifyIteration();
+                logger.info("Population size before: " + population.size());
+                // related to Properties.ENABLE_SECONDARY_OBJECTIVE_AFTER;
+                // check the budget progress and activate a secondary criterion
+                // according to the property value.
 
-            logger.info("Population size: " + population.size());
-            logger.info("Best individual has fitness: " + population.get(0).getFitness());
-            logger.info("Worst individual has fitness: " + population.get(population.size() - 1).getFitness());
+                {
+                    double bestFitnessBeforeEvolution = getBestFitness();
+                    evolve();
+                    sortPopulation();
+                    integrateAsyncTestsIntoPopulation();
+                    maybeInjectOnStagnationByFitness(getBestFitness(), getUncoveredGoalsForSuiteChromosomes());
+                    double bestFitnessAfterEvolution = getBestFitness();
 
+                    if (getFitnessFunction().isMaximizationFunction()) {
+                        assert (bestFitnessAfterEvolution >= (bestFitnessBeforeEvolution
+                                - DELTA)) : "best fitness before evolve()/sortPopulation() was: "
+                                + bestFitnessBeforeEvolution + ", now best fitness is " + bestFitnessAfterEvolution;
+                    } else {
+                        assert (bestFitnessAfterEvolution <= (bestFitnessBeforeEvolution
+                                + DELTA)) : "best fitness before evolve()/sortPopulation() was: "
+                                + bestFitnessBeforeEvolution + ", now best fitness is " + bestFitnessAfterEvolution;
+                    }
+                }
+
+                {
+                    double bestFitnessBeforeLocalSearch = getBestFitness();
+                    applyLocalSearch();
+                    double bestFitnessAfterLocalSearch = getBestFitness();
+
+                    if (getFitnessFunction().isMaximizationFunction()) {
+                        assert (bestFitnessAfterLocalSearch >= (bestFitnessBeforeLocalSearch
+                                - DELTA)) : "best fitness before applyLocalSearch() was: "
+                                + bestFitnessBeforeLocalSearch + ", now best fitness is " + bestFitnessAfterLocalSearch;
+                    } else {
+                        assert (bestFitnessAfterLocalSearch <= (bestFitnessBeforeLocalSearch
+                                + DELTA)) : "best fitness before applyLocalSearch() was: "
+                                + bestFitnessBeforeLocalSearch + ", now best fitness is " + bestFitnessAfterLocalSearch;
+                    }
+                }
+
+                /*
+                 * TODO: before explanation: due to static state handling, LS can
+                 * worse individuals. so, need to re-sort.
+                 *
+                 * now: the system tests that were failing have no static state...
+                 * so re-sorting does just hide the problem away, and reduce
+                 * performance (likely significantly). it is definitively a bug
+                 * somewhere...
+                 */
+                // sortPopulation();
+
+                double newFitness = getBestFitness();
+
+                if (getFitnessFunction().isMaximizationFunction()) {
+                    assert (newFitness >= (bestFitness - DELTA)) : "best fitness was: " + bestFitness
+                            + ", now best fitness is " + newFitness;
+                } else {
+                    assert (newFitness <= (bestFitness + DELTA)) : "best fitness was: " + bestFitness
+                            + ", now best fitness is " + newFitness;
+                }
+                bestFitness = newFitness;
+
+                if (Double.compare(bestFitness, lastBestFitness) == 0) {
+                    starvationCounter++;
+                } else {
+                    logger.info("reset starvationCounter after " + starvationCounter + " iterations");
+                    starvationCounter = 0;
+                    lastBestFitness = bestFitness;
+
+                }
+
+                updateSecondaryCriterion(starvationCounter);
+
+                logger.info("Current iteration: " + currentIteration);
+                this.notifyIteration();
+
+                logger.info("Population size: " + population.size());
+                logger.info("Best individual has fitness: " + population.get(0).getFitness());
+                logger.info("Worst individual has fitness: " + population.get(population.size() - 1).getFitness());
+
+            }
+            // archive
+            TimeController.execute(this::updateBestIndividualFromArchive, "update from archive", 5_000);
+        } finally {
+            shutdownLlmAssistance();
         }
-        // archive
-        TimeController.execute(this::updateBestIndividualFromArchive, "update from archive", 5_000);
-
         notifySearchFinished();
     }
 

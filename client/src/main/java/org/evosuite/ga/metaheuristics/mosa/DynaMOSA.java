@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -75,6 +76,9 @@ public class DynaMOSA extends AbstractMOSA {
         List<TestChromosome> union = new ArrayList<>(this.population.size() + offspringPopulation.size());
         union.addAll(this.population);
         union.addAll(offspringPopulation);
+
+        // Integrate all external candidates (LLM async, LLM stagnation)
+        collectExternalCandidates(union);
 
         // Ranking the union
         logger.debug("Union Size = {}", union.size());
@@ -144,37 +148,45 @@ public class DynaMOSA extends AbstractMOSA {
         // Set up the targets to cover, which are initially free of any control dependencies.
         // We are trying to optimize for multiple targets at the same time.
         this.goalsManager = new MultiCriteriaManager(this.fitnessFunctions);
+        try {
+            initializeLlmAssistance(() -> goalsManager == null
+                    ? Collections.emptySet()
+                    : goalsManager.getUncoveredGoals(), false);
+            registerExternalCandidateSources();
 
-        LoggingUtils.getEvoLogger().info("* Initial Number of Goals in DynaMOSA = "
-                + this.goalsManager.getCurrentGoals().size() + " / " + this.getUncoveredGoals().size());
+            LoggingUtils.getEvoLogger().info("* Initial Number of Goals in DynaMOSA = "
+                    + this.goalsManager.getCurrentGoals().size() + " / " + this.getUncoveredGoals().size());
 
-        logger.debug("Initial Number of Goals = " + this.goalsManager.getCurrentGoals().size());
+            logger.debug("Initial Number of Goals = " + this.goalsManager.getCurrentGoals().size());
 
-        if (this.population.isEmpty()) {
-            // Initialize the population by creating solutions at random.
-            this.initializePopulation();
+            if (this.population.isEmpty()) {
+                // Initialize the population by creating solutions at random.
+                this.initializePopulation();
+            }
+
+            // Compute the fitness for each population member, update the coverage information and the
+            // set of goals to cover. Finally, update the archive.
+            // this.calculateFitness(); // Not required, already done by this.initializePopulation();
+
+            // Calculate dominance ranks and crowding distance. This is required to decide which
+            // individuals should be used for mutation and crossover in the first iteration of the main
+            // search loop.
+            this.rankingFunction.computeRankingAssignment(this.population, this.goalsManager.getCurrentGoals());
+            for (int i = 0; i < this.rankingFunction.getNumberOfSubfronts(); i++) {
+                this.distance.fastEpsilonDominanceAssignment(this.rankingFunction.getSubfront(i),
+                        this.goalsManager.getCurrentGoals());
+            }
+
+            // Evolve the population generation by generation until all gaols have been covered or the
+            // search budget has been consumed.
+            while (!isFinished() && this.goalsManager.getUncoveredGoals().size() > 0) {
+                this.evolve();
+                // Stagnation injection now happens inside evolve() in the union/ranking path
+                this.notifyIteration();
+            }
+        } finally {
+            shutdownLlmAssistance();
         }
-
-        // Compute the fitness for each population member, update the coverage information and the
-        // set of goals to cover. Finally, update the archive.
-        // this.calculateFitness(); // Not required, already done by this.initializePopulation();
-
-        // Calculate dominance ranks and crowding distance. This is required to decide which
-        // individuals should be used for mutation and crossover in the first iteration of the main
-        // search loop.
-        this.rankingFunction.computeRankingAssignment(this.population, this.goalsManager.getCurrentGoals());
-        for (int i = 0; i < this.rankingFunction.getNumberOfSubfronts(); i++) {
-            this.distance.fastEpsilonDominanceAssignment(this.rankingFunction.getSubfront(i),
-                    this.goalsManager.getCurrentGoals());
-        }
-
-        // Evolve the population generation by generation until all gaols have been covered or the
-        // search budget has been consumed.
-        while (!isFinished() && this.goalsManager.getUncoveredGoals().size() > 0) {
-            this.evolve();
-            this.notifyIteration();
-        }
-
         this.notifySearchFinished();
     }
 
@@ -198,5 +210,28 @@ public class DynaMOSA extends AbstractMOSA {
         List<TestFitnessFunction> testFitnessFunctions = new ArrayList<>(goalsManager.getCoveredGoals());
         testFitnessFunctions.addAll(goalsManager.getUncoveredGoals());
         return testFitnessFunctions;
+    }
+
+    /**
+     * Registers all external candidate sources for this DynaMOSA instance:
+     * LLM async producer and LLM stagnation detector.
+     */
+    private void registerExternalCandidateSources() {
+        // LLM async producer
+        if (asyncProducer != null) {
+            externalCandidateSources.add(() -> asyncProducer.drainAvailable());
+        }
+        // LLM stagnation detector (uses goalsManager for coverage tracking)
+        if (stagnationDetector != null) {
+            externalCandidateSources.add(() -> {
+                if (goalsManager == null
+                        || !stagnationDetector.checkStagnation(goalsManager.getCoveredGoals().size())) {
+                    return Collections.emptyList();
+                }
+                List<TestChromosome> tests = stagnationDetector.requestHelp(
+                        goalsManager.getUncoveredGoals(), new ArrayList<>(population));
+                return tests != null ? tests : Collections.emptyList();
+            });
+        }
     }
 }

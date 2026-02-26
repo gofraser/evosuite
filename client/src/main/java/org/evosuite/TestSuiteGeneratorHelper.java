@@ -312,6 +312,8 @@ public class TestSuiteGeneratorHelper {
                 return new NoveltyStrategy();
             case MAP_ELITES:
                 return new MAPElitesStrategy();
+            case LLM_BASELINE:
+                return new LlmBaselineStrategy();
             default:
                 throw new RuntimeException("Unsupported strategy: " + Properties.STRATEGY);
         }

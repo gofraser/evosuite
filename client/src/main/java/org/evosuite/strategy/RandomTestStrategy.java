@@ -27,6 +27,8 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
 import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.llm.factory.LlmSeededPopulationFactory;
+import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.statistics.RuntimeVariable;
@@ -127,24 +129,39 @@ public class RandomTestStrategy extends TestGenerationStrategy {
     }
 
     protected ChromosomeFactory<TestChromosome> getChromosomeFactory() {
+        ChromosomeFactory<TestChromosome> factory;
         switch (Properties.TEST_FACTORY) {
             case ALLMETHODS:
-                return new AllMethodsTestChromosomeFactory();
+                factory = new AllMethodsTestChromosomeFactory();
+                break;
             case RANDOM:
-                return new RandomLengthTestFactory();
+                factory = new RandomLengthTestFactory();
+                break;
             case ARCHIVE:
-                return new ArchiveTestChromosomeFactory();
+                factory = new ArchiveTestChromosomeFactory();
+                break;
             case JUNIT:
-                return new JUnitTestCarvedChromosomeFactory(
+                factory = new JUnitTestCarvedChromosomeFactory(
                         new RandomLengthTestFactory());
+                break;
             case PARSED_JUNIT:
-                return new JUnitTestParsedChromosomeFactory(
+                factory = new JUnitTestParsedChromosomeFactory(
                         new RandomLengthTestFactory());
+                break;
+            case LLM:
+                factory = new RandomLengthTestFactory();
+                break;
             default:
                 throw new RuntimeException("Unsupported test factory: "
                         + Properties.TEST_FACTORY);
         }
-
+        if (Properties.LLM_SEED_INITIAL_POPULATION) {
+            factory = new LlmSeededPopulationFactory(factory);
+        }
+        if (Properties.LLM_TEST_FACTORY || Properties.TEST_FACTORY == Properties.TestFactory.LLM) {
+            factory = new LlmTestChromosomeFactory(factory);
+        }
+        return factory;
     }
 
 

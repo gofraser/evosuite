@@ -97,10 +97,8 @@ public class MOSA extends AbstractMOSA {
         union.addAll(this.population);
         union.addAll(offspringPopulation);
 
-        // for parallel runs: integrate possible immigrants
-        if (Properties.NUM_PARALLEL_CLIENTS > 1 && !immigrants.isEmpty()) {
-            union.addAll(immigrants.poll());
-        }
+        // Integrate all external candidates (immigrants, LLM async, LLM stagnation)
+        collectExternalCandidates(union);
 
         Set<TestFitnessFunction> uncoveredGoals = this.getUncoveredGoals();
 
@@ -170,54 +168,89 @@ public class MOSA extends AbstractMOSA {
         if (this.population.isEmpty()) {
             this.initializePopulation();
         }
+        try {
+            initializeLlmAssistance(this::getUncoveredGoals, false);
+            registerExternalCandidateSources();
 
-        // Calculate dominance ranks and crowding distance
-        this.rankingFunction.computeRankingAssignment(this.population, this.getUncoveredGoals());
-        for (int i = 0; i < this.rankingFunction.getNumberOfSubfronts(); i++) {
-            this.distance.fastEpsilonDominanceAssignment(this.rankingFunction.getSubfront(i), this.getUncoveredGoals());
-        }
-
-        final ClientNodeLocal<TestChromosome> clientNode =
-                ClientServices.<TestChromosome>getInstance().getClientNode();
-
-        Listener<Set<TestChromosome>> listener = null;
-        if (Properties.NUM_PARALLEL_CLIENTS > 1) {
-            listener = event -> immigrants.add(new LinkedList<>(event));
-            clientNode.addListener(listener);
-        }
-
-        // TODO add here dynamic stopping condition
-        while (!this.isFinished() && this.getNumberOfUncoveredGoals() > 0) {
-            this.evolve();
-            this.notifyIteration();
-        }
-
-        if (Properties.NUM_PARALLEL_CLIENTS > 1) {
-            clientNode.deleteListener(listener);
-
-            if (ClientProcess.DEFAULT_CLIENT_NAME.equals(ClientProcess.getIdentifier())) {
-                //collect all end result test cases
-                Set<Set<TestChromosome>> collectedSolutions = clientNode.getBestSolutions();
-
-                logger.debug(ClientProcess.DEFAULT_CLIENT_NAME + ": Received " + collectedSolutions.size()
-                        + " solution sets");
-                for (Set<TestChromosome> solution : collectedSolutions) {
-                    for (TestChromosome t : solution) {
-                        this.calculateFitness(t);
-                    }
-                }
-            } else {
-                //send end result test cases to Client-0
-                Set<TestChromosome> solutionsSet = new HashSet<>(getSolutions());
-                logger.debug(ClientProcess.getPrettyPrintIdentifier() + "Sending " + solutionsSet.size()
-                        + " solutions to " + ClientProcess.DEFAULT_CLIENT_NAME);
-                clientNode.sendBestSolution(solutionsSet);
+            // Calculate dominance ranks and crowding distance
+            this.rankingFunction.computeRankingAssignment(this.population, this.getUncoveredGoals());
+            for (int i = 0; i < this.rankingFunction.getNumberOfSubfronts(); i++) {
+                this.distance.fastEpsilonDominanceAssignment(this.rankingFunction.getSubfront(i), this.getUncoveredGoals());
             }
-        }
 
-        // storing the time needed to reach the maximum coverage
-        clientNode.trackOutputVariable(RuntimeVariable.Time2MaxCoverage,
-                this.budgetMonitor.getTime2MaxCoverage());
+            final ClientNodeLocal<TestChromosome> clientNode =
+                    ClientServices.<TestChromosome>getInstance().getClientNode();
+
+            Listener<Set<TestChromosome>> listener = null;
+            if (Properties.NUM_PARALLEL_CLIENTS > 1) {
+                listener = event -> immigrants.add(new LinkedList<>(event));
+                clientNode.addListener(listener);
+            }
+
+            // TODO add here dynamic stopping condition
+            while (!this.isFinished() && this.getNumberOfUncoveredGoals() > 0) {
+                this.evolve();
+                this.notifyIteration();
+            }
+
+            if (Properties.NUM_PARALLEL_CLIENTS > 1) {
+                clientNode.deleteListener(listener);
+
+                if (ClientProcess.DEFAULT_CLIENT_NAME.equals(ClientProcess.getIdentifier())) {
+                    //collect all end result test cases
+                    Set<Set<TestChromosome>> collectedSolutions = clientNode.getBestSolutions();
+
+                    logger.debug(ClientProcess.DEFAULT_CLIENT_NAME + ": Received " + collectedSolutions.size()
+                            + " solution sets");
+                    for (Set<TestChromosome> solution : collectedSolutions) {
+                        for (TestChromosome t : solution) {
+                            this.calculateFitness(t);
+                        }
+                    }
+                } else {
+                    //send end result test cases to Client-0
+                    Set<TestChromosome> solutionsSet = new HashSet<>(getSolutions());
+                    logger.debug(ClientProcess.getPrettyPrintIdentifier() + "Sending " + solutionsSet.size()
+                            + " solutions to " + ClientProcess.DEFAULT_CLIENT_NAME);
+                    clientNode.sendBestSolution(solutionsSet);
+                }
+            }
+
+            // storing the time needed to reach the maximum coverage
+            clientNode.trackOutputVariable(RuntimeVariable.Time2MaxCoverage,
+                    this.budgetMonitor.getTime2MaxCoverage());
+        } finally {
+            shutdownLlmAssistance();
+        }
         this.notifySearchFinished();
+    }
+
+    /**
+     * Registers all external candidate sources for this MOSA instance:
+     * island immigrants, LLM async producer, and LLM stagnation detector.
+     */
+    private void registerExternalCandidateSources() {
+        // Island-model immigrants
+        if (Properties.NUM_PARALLEL_CLIENTS > 1) {
+            externalCandidateSources.add(() -> {
+                List<TestChromosome> batch = immigrants.poll();
+                return batch != null ? batch : Collections.emptyList();
+            });
+        }
+        // LLM async producer
+        if (asyncProducer != null) {
+            externalCandidateSources.add(() -> asyncProducer.drainAvailable());
+        }
+        // LLM stagnation detector
+        if (stagnationDetector != null) {
+            externalCandidateSources.add(() -> {
+                if (!stagnationDetector.checkStagnation(getNumberOfCoveredGoals())) {
+                    return Collections.emptyList();
+                }
+                List<TestChromosome> tests = stagnationDetector.requestHelp(
+                        getUncoveredGoals(), new ArrayList<>(population));
+                return tests != null ? tests : Collections.emptyList();
+            });
+        }
     }
 }

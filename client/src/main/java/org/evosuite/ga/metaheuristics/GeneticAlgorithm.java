@@ -39,7 +39,12 @@ import org.evosuite.ga.populationlimit.IndividualPopulationLimit;
 import org.evosuite.ga.populationlimit.PopulationLimit;
 import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.llm.search.AsyncLlmTestProducer;
+import org.evosuite.llm.search.LlmInjectionAdapter;
+import org.evosuite.llm.search.StagnationDetector;
 import org.evosuite.symbolic.dse.DSEStatistics;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.ArrayUtil;
@@ -51,6 +56,7 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
@@ -124,6 +130,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     protected int currentIteration = 0;
 
     protected double localSearchProbability = Properties.LOCAL_SEARCH_PROBABILITY;
+    protected transient AsyncLlmTestProducer asyncProducer;
+    protected transient StagnationDetector stagnationDetector;
+    protected transient LlmInjectionAdapter<T> llmInjectionAdapter;
 
     /**
      * Selected ranking strategy.
@@ -315,6 +324,195 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             localSearchProbability /= Properties.LOCAL_SEARCH_ADAPTATION_RATE;
             localSearchProbability = Math.max(localSearchProbability, Double.MIN_VALUE);
         }
+    }
+
+    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
+                                           boolean maximizationObjective,
+                                           LlmInjectionAdapter<T> injectionAdapter) {
+        this.llmInjectionAdapter = injectionAdapter;
+        initializeAsyncProducer(uncoveredGoalsSupplier);
+        initializeStagnationDetector(maximizationObjective);
+    }
+
+    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
+                                           boolean maximizationObjective) {
+        initializeLlmAssistance(uncoveredGoalsSupplier, maximizationObjective, createDefaultInjectionAdapter());
+    }
+
+    /**
+     * Auto-detect the appropriate injection adapter based on population chromosome type.
+     */
+    @SuppressWarnings("unchecked")
+    protected LlmInjectionAdapter<T> createDefaultInjectionAdapter() {
+        if (!population.isEmpty()) {
+            if (population.get(0) instanceof TestSuiteChromosome) {
+                return (LlmInjectionAdapter<T>) new org.evosuite.llm.search.TestSuiteChromosomeInjectionAdapter();
+            }
+            if (population.get(0) instanceof TestChromosome) {
+                return (LlmInjectionAdapter<T>) new org.evosuite.llm.search.TestChromosomeInjectionAdapter();
+            }
+        }
+        return null;
+    }
+
+    protected void initializeAsyncProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
+        if (!Properties.LLM_ASYNC_PRODUCER || uncoveredGoalsSupplier == null) {
+            return;
+        }
+        asyncProducer = new AsyncLlmTestProducer(uncoveredGoalsSupplier);
+        asyncProducer.start();
+    }
+
+    protected void initializeStagnationDetector(boolean maximizationObjective) {
+        if (!Properties.LLM_ON_STAGNATION) {
+            return;
+        }
+        stagnationDetector = new StagnationDetector(maximizationObjective);
+    }
+
+    protected void shutdownLlmAssistance() {
+        if (asyncProducer != null) {
+            asyncProducer.stop();
+            asyncProducer = null;
+        }
+    }
+
+    protected void integrateAsyncTestsIntoPopulation() {
+        if (asyncProducer == null) {
+            return;
+        }
+        injectLlmTests(asyncProducer.drainAvailable());
+    }
+
+    protected void maybeInjectOnStagnationByFitness(double currentBestFitness,
+                                                    Collection<TestFitnessFunction> uncoveredGoals) {
+        if (stagnationDetector == null) {
+            return;
+        }
+        if (!stagnationDetector.checkStagnation(currentBestFitness)) {
+            return;
+        }
+        injectLlmTests(stagnationDetector.requestHelp(uncoveredGoals, getPopulationAsTestChromosomes()));
+    }
+
+    protected void maybeInjectOnStagnationByCoverage(int currentCoveredGoals,
+                                                     Collection<TestFitnessFunction> uncoveredGoals) {
+        if (stagnationDetector == null) {
+            return;
+        }
+        if (!stagnationDetector.checkStagnation(currentCoveredGoals)) {
+            return;
+        }
+        injectLlmTests(stagnationDetector.requestHelp(uncoveredGoals, getPopulationAsTestChromosomes()));
+    }
+
+    protected Collection<TestFitnessFunction> getUncoveredGoalsForTestChromosomes() {
+        List<TestFitnessFunction> goals = new ArrayList<>();
+        for (FitnessFunction<T> ff : fitnessFunctions) {
+            if (ff instanceof TestFitnessFunction) {
+                goals.add((TestFitnessFunction) ff);
+            }
+        }
+        if (goals.isEmpty()) {
+            return Collections.emptyList();
+        }
+        if (population.isEmpty() || !(population.get(0) instanceof TestChromosome)) {
+            return goals;
+        }
+        TestChromosome best = (TestChromosome) population.get(0);
+        List<TestFitnessFunction> uncovered = new ArrayList<>();
+        for (TestFitnessFunction goal : goals) {
+            if (!goal.isCovered(best)) {
+                uncovered.add(goal);
+            }
+        }
+        return uncovered;
+    }
+
+    /**
+     * Returns uncovered test-level goals for WholeSuite algorithms.
+     * <p>
+     * WholeSuite GAs use {@link org.evosuite.testsuite.TestSuiteFitnessFunction}
+     * (not {@link TestFitnessFunction}), so {@link #getUncoveredGoalsForTestChromosomes()}
+     * yields nothing. This method derives test-level goals from
+     * {@link org.evosuite.coverage.FitnessFunctions#getFitnessFactory} and
+     * filters out goals already covered by the best suite in the population.
+     * <p>
+     * The all-goals list is computed once (lazily) and cached. The covered-goal
+     * filtering is cheap (set lookup per generation).
+     */
+    protected Collection<TestFitnessFunction> getUncoveredGoalsForSuiteChromosomes() {
+        if (allTestLevelGoals == null) {
+            allTestLevelGoals = new ArrayList<>();
+            for (Properties.Criterion criterion : Properties.CRITERION) {
+                try {
+                    allTestLevelGoals.addAll(
+                            org.evosuite.coverage.FitnessFunctions.getFitnessFactory(criterion)
+                                    .getCoverageGoals());
+                } catch (Exception e) {
+                    logger.debug("Could not derive test-level goals for criterion {}: {}",
+                            criterion, e.getMessage());
+                }
+            }
+        }
+        if (allTestLevelGoals.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // Determine which goals are already covered by the best suite
+        Set<TestFitnessFunction> covered = Collections.emptySet();
+        if (!population.isEmpty() && population.get(0) instanceof TestSuiteChromosome) {
+            covered = ((TestSuiteChromosome) population.get(0)).getCoveredGoals();
+        }
+        if (covered.isEmpty()) {
+            return allTestLevelGoals;
+        }
+        List<TestFitnessFunction> uncovered = new ArrayList<>();
+        for (TestFitnessFunction goal : allTestLevelGoals) {
+            if (!covered.contains(goal)) {
+                uncovered.add(goal);
+            }
+        }
+        return uncovered;
+    }
+
+    /** Lazily-cached list of all test-level goals for WholeSuite LLM prompting. */
+    protected transient List<TestFitnessFunction> allTestLevelGoals;
+
+    /**
+     * Inject LLM-generated tests into the population via the configured injection adapter.
+     * If no adapter is set, silently drops the tests (preserving non-LLM behavior).
+     */
+    protected void injectLlmTests(List<TestChromosome> tests) {
+        if (tests == null || tests.isEmpty()) {
+            return;
+        }
+        if (llmInjectionAdapter == null) {
+            logger.debug("No LLM injection adapter configured; dropping {} test(s)", tests.size());
+            return;
+        }
+        llmInjectionAdapter.inject(tests, population, fitnessFunctions, Properties.POPULATION);
+    }
+
+    protected List<TestChromosome> getPopulationAsTestChromosomes() {
+        if (population.isEmpty()) {
+            return Collections.emptyList();
+        }
+        if (population.get(0) instanceof TestChromosome) {
+            List<TestChromosome> tests = new ArrayList<>(population.size());
+            for (T individual : population) {
+                tests.add((TestChromosome) individual);
+            }
+            return tests;
+        }
+        // WholeSuite: extract test chromosomes from suite chromosomes
+        if (population.get(0) instanceof TestSuiteChromosome) {
+            List<TestChromosome> tests = new ArrayList<>();
+            for (T individual : population) {
+                tests.addAll(((TestSuiteChromosome) individual).getTestChromosomes());
+            }
+            return tests;
+        }
+        return Collections.emptyList();
     }
 
 
