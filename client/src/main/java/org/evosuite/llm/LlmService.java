@@ -1,5 +1,16 @@
 package org.evosuite.llm;
 
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.anthropic.AnthropicChatModel;
+import dev.langchain4j.model.ollama.OllamaChatModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.output.Response;
+import dev.langchain4j.model.output.TokenUsage;
+import org.evosuite.Properties;
+import org.evosuite.llm.prompt.PromptResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -7,6 +18,7 @@ import java.io.InterruptedIOException;
 import java.net.ConnectException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -21,6 +33,8 @@ import java.util.concurrent.*;
 public class LlmService implements AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmService.class);
+    private static final Object INSTANCE_LOCK = new Object();
+    private static volatile LlmService instance;
 
     private final ChatLanguageModel model;
     private final LlmBudgetCoordinator budgetCoordinator;
@@ -29,13 +43,14 @@ public class LlmService implements AutoCloseable {
     private final LlmTraceRecorder traceRecorder;
     private final Random jitterRandom;
     private final ExecutorService executorService;
+    private final boolean available;
 
     public LlmService(ChatLanguageModel model,
                       LlmBudgetCoordinator budgetCoordinator,
                       LlmConfiguration configuration,
                       LlmStatistics statistics,
                       LlmTraceRecorder traceRecorder) {
-        this(model, budgetCoordinator, configuration, statistics, traceRecorder, new Random());
+        this(model, budgetCoordinator, configuration, statistics, traceRecorder, new Random(), true);
     }
 
     public LlmService(ChatLanguageModel model,
@@ -44,6 +59,16 @@ public class LlmService implements AutoCloseable {
                       LlmStatistics statistics,
                       LlmTraceRecorder traceRecorder,
                       Random jitterRandom) {
+        this(model, budgetCoordinator, configuration, statistics, traceRecorder, jitterRandom, true);
+    }
+
+    LlmService(ChatLanguageModel model,
+               LlmBudgetCoordinator budgetCoordinator,
+               LlmConfiguration configuration,
+               LlmStatistics statistics,
+               LlmTraceRecorder traceRecorder,
+               Random jitterRandom,
+               boolean available) {
         this.model = model;
         this.budgetCoordinator = budgetCoordinator;
         this.configuration = configuration;
@@ -51,9 +76,167 @@ public class LlmService implements AutoCloseable {
         this.traceRecorder = traceRecorder;
         this.jitterRandom = jitterRandom;
         this.executorService = Executors.newSingleThreadExecutor();
+        this.available = available;
+    }
+
+    public static LlmService getInstance() {
+        LlmService local = instance;
+        if (local != null) {
+            return local;
+        }
+        synchronized (INSTANCE_LOCK) {
+            if (instance == null) {
+                instance = createDefaultInstance();
+            }
+            return instance;
+        }
+    }
+
+    public static void setInstanceForTesting(LlmService service) {
+        synchronized (INSTANCE_LOCK) {
+            if (instance != null && instance != service) {
+                instance.close();
+            }
+            instance = service;
+        }
+    }
+
+    public static void resetInstanceForTesting() {
+        synchronized (INSTANCE_LOCK) {
+            if (instance != null) {
+                instance.close();
+            }
+            instance = null;
+        }
+    }
+
+    private static LlmService createDefaultInstance() {
+        LlmConfiguration config = LlmConfiguration.fromProperties();
+        LlmBudgetCoordinator budget = LlmBudgetCoordinator.fromProperties();
+        LlmStatistics stats = new LlmStatistics();
+        LlmTraceRecorder recorder = new LlmTraceRecorder(config);
+
+        if (config.getProvider() == Properties.LlmProvider.NONE) {
+            return new LlmService(new UnavailableChatLanguageModel(), budget, config, stats, recorder, new Random(),
+                    false);
+        }
+
+        try {
+            ChatLanguageModel model = createProviderModel(config);
+            return new LlmService(model, budget, config, stats, recorder, new Random(), true);
+        } catch (IllegalArgumentException e) {
+            logger.warn("LLM provider '{}' misconfigured: {}", config.getProvider(), e.getMessage());
+        } catch (RuntimeException e) {
+            logger.warn("Failed to initialize LLM provider '{}': {}", config.getProvider(), e.getMessage());
+        }
+        return new LlmService(new UnavailableChatLanguageModel(), budget, config, stats, recorder, new Random(), false);
+    }
+
+    private static ChatLanguageModel createProviderModel(LlmConfiguration config) {
+        switch (config.getProvider()) {
+            case OPENAI:
+                return createOpenAiModel(config);
+            case OLLAMA:
+                return createOllamaModel(config);
+            case ANTHROPIC:
+                return createAnthropicModel(config);
+            default:
+                throw new IllegalArgumentException("Unsupported LLM provider: " + config.getProvider());
+        }
+    }
+
+    private static ChatLanguageModel createOpenAiModel(LlmConfiguration config) {
+        String modelName = requireNonBlank(config.getModel(), "LLM model must be configured for OPENAI");
+        String apiKey = requireNonBlank(config.getApiKey(), "LLM API key must be configured for OPENAI");
+        OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
+                .modelName(modelName)
+                .apiKey(apiKey)
+                .temperature(config.getTemperature())
+                .maxTokens(config.getMaxTokens())
+                .timeout(Duration.ofSeconds(Math.max(1, config.getTimeoutSeconds())));
+        if (!isBlank(config.getBaseUrl())) {
+            builder.baseUrl(config.getBaseUrl().trim());
+        }
+        return new LangChain4jChatLanguageModel(builder.build());
+    }
+
+    private static ChatLanguageModel createOllamaModel(LlmConfiguration config) {
+        String modelName = requireNonBlank(config.getModel(), "LLM model must be configured for OLLAMA");
+        String baseUrl = requireNonBlank(config.getBaseUrl(), "LLM base URL must be configured for OLLAMA");
+        OllamaChatModel.OllamaChatModelBuilder builder = OllamaChatModel.builder()
+                .modelName(modelName)
+                .baseUrl(baseUrl)
+                .temperature(config.getTemperature())
+                .numPredict(config.getMaxTokens())
+                .timeout(Duration.ofSeconds(Math.max(1, config.getTimeoutSeconds())));
+        return new LangChain4jChatLanguageModel(builder.build());
+    }
+
+    private static ChatLanguageModel createAnthropicModel(LlmConfiguration config) {
+        String modelName = requireNonBlank(config.getModel(), "LLM model must be configured for ANTHROPIC");
+        String apiKey = requireNonBlank(config.getApiKey(), "LLM API key must be configured for ANTHROPIC");
+        AnthropicChatModel.AnthropicChatModelBuilder builder = AnthropicChatModel.builder()
+                .modelName(modelName)
+                .apiKey(apiKey)
+                .temperature(config.getTemperature())
+                .maxTokens(config.getMaxTokens())
+                .timeout(Duration.ofSeconds(Math.max(1, config.getTimeoutSeconds())));
+        if (!isBlank(config.getBaseUrl())) {
+            builder.baseUrl(config.getBaseUrl().trim());
+        }
+        return new LangChain4jChatLanguageModel(builder.build());
+    }
+
+    private static String requireNonBlank(String value, String message) {
+        if (isBlank(value)) {
+            throw new IllegalArgumentException(message);
+        }
+        return value.trim();
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    public boolean isAvailable() {
+        return available;
+    }
+
+    public boolean hasBudget() {
+        if (!available) {
+            return false;
+        }
+        long remaining = budgetCoordinator.getRemaining();
+        return remaining < 0 || remaining > 0;
+    }
+
+    public LlmStatistics getStatistics() {
+        return statistics;
     }
 
     public String query(List<LlmMessage> messages, LlmFeature feature) {
+        return queryInternal(messages, feature, null, false);
+    }
+
+    /**
+     * Query with context metadata propagated to trace recording.
+     * Prefer this overload when building prompts via {@link PromptResult}.
+     */
+    public String query(PromptResult promptResult, LlmFeature feature) {
+        if (promptResult == null) {
+            throw new IllegalArgumentException("promptResult must not be null");
+        }
+        return queryInternal(promptResult.getMessages(), feature,
+                promptResult.getSutContextMode(), promptResult.isContextUnavailable());
+    }
+
+    private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
+                                 Properties.LlmSutContextMode sutContextMode,
+                                 boolean contextUnavailable) {
+        if (!available) {
+            throw new LlmCallFailedException("LLM service is unavailable",
+                    new IllegalStateException("LLM provider is not configured"), false);
+        }
         int maxTries = Math.max(1, configuration.getRetryMaxAttempts() + 1);
         Throwable lastError = null;
 
@@ -68,7 +251,8 @@ public class LlmService implements AutoCloseable {
                 statistics.recordCall(feature, response.getInputTokens(), response.getOutputTokens(), latency);
                 traceRecorder.recordCall(feature, messages, response.getText(), response.getInputTokens(),
                         response.getOutputTokens(), latency, "SUCCESS", attempt, false,
-                        Collections.<String>emptyList(), "");
+                        Collections.<String>emptyList(), "",
+                        sutContextMode, contextUnavailable);
                 return response.getText();
             } catch (Exception e) {
                 lastError = unwrap(e);
@@ -77,7 +261,8 @@ public class LlmService implements AutoCloseable {
                     statistics.recordFailure(feature);
                     traceRecorder.recordCall(feature, messages, "", 0, 0,
                             System.currentTimeMillis() - start, "FAILED", attempt,
-                            false, Collections.<String>emptyList(), lastError.getClass().getSimpleName());
+                            false, Collections.<String>emptyList(), lastError.getClass().getSimpleName(),
+                            sutContextMode, contextUnavailable);
                     throw new LlmCallFailedException(
                             "LLM query failed after " + attempt + " attempt(s)", lastError, retryable);
                 }
@@ -217,6 +402,64 @@ public class LlmService implements AutoCloseable {
 
     public interface ChatLanguageModel {
         LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) throws Exception;
+    }
+
+    private static final class UnavailableChatLanguageModel implements ChatLanguageModel {
+        @Override
+        public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            throw new IllegalStateException("No chat language model configured");
+        }
+    }
+
+    private static final class LangChain4jChatLanguageModel implements ChatLanguageModel {
+
+        private final dev.langchain4j.model.chat.ChatLanguageModel delegate;
+
+        private LangChain4jChatLanguageModel(dev.langchain4j.model.chat.ChatLanguageModel delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            Response<AiMessage> response = delegate.generate(toChatMessages(messages));
+            String text = "";
+            if (response != null && response.content() != null && response.content().text() != null) {
+                text = response.content().text();
+            }
+            TokenUsage tokenUsage = response == null ? null : response.tokenUsage();
+            int inputTokens = tokenUsage != null && tokenUsage.inputTokenCount() != null
+                    ? tokenUsage.inputTokenCount()
+                    : 0;
+            int outputTokens = tokenUsage != null && tokenUsage.outputTokenCount() != null
+                    ? tokenUsage.outputTokenCount()
+                    : 0;
+            return new LlmResponse(text, inputTokens, outputTokens);
+        }
+
+        private List<ChatMessage> toChatMessages(List<LlmMessage> messages) {
+            List<ChatMessage> converted = new ArrayList<>();
+            if (messages == null) {
+                return converted;
+            }
+            for (LlmMessage message : messages) {
+                if (message == null) {
+                    continue;
+                }
+                switch (message.getRole()) {
+                    case SYSTEM:
+                        converted.add(SystemMessage.from(message.getContent()));
+                        break;
+                    case ASSISTANT:
+                        converted.add(AiMessage.from(message.getContent()));
+                        break;
+                    case USER:
+                    default:
+                        converted.add(UserMessage.from(message.getContent()));
+                        break;
+                }
+            }
+            return converted;
+        }
     }
 
     public static final class LlmResponse {

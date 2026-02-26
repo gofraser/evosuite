@@ -21,16 +21,20 @@ public class PromptBuilder {
     private final SourceCodeProvider sourceCodeProvider;
     private final CoverageGoalFormatter coverageGoalFormatter;
     private final TestCaseFormatter testCaseFormatter;
+    private final SutContextProviderFactory sutContextProviderFactory;
 
     private String systemPrompt;
     private final List<String> userSections = new ArrayList<>();
+    private Properties.LlmSutContextMode sutContextModeUsed;
+    private boolean sutContextUnavailable;
 
     public PromptBuilder() {
         this(new SystemPromptProvider(),
                 new TestClusterSummarizer(),
                 new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
-                new TestCaseFormatter());
+                new TestCaseFormatter(),
+                SutContextProviderFactory.getInstance());
     }
 
     public PromptBuilder(SystemPromptProvider systemPromptProvider,
@@ -38,15 +42,42 @@ public class PromptBuilder {
                          SourceCodeProvider sourceCodeProvider,
                          CoverageGoalFormatter coverageGoalFormatter,
                          TestCaseFormatter testCaseFormatter) {
+        this(systemPromptProvider, testClusterSummarizer, sourceCodeProvider,
+                coverageGoalFormatter, testCaseFormatter, new SutContextProviderFactory());
+    }
+
+    public PromptBuilder(SystemPromptProvider systemPromptProvider,
+                         TestClusterSummarizer testClusterSummarizer,
+                         SourceCodeProvider sourceCodeProvider,
+                         CoverageGoalFormatter coverageGoalFormatter,
+                         TestCaseFormatter testCaseFormatter,
+                         SutContextProviderFactory sutContextProviderFactory) {
         this.systemPromptProvider = systemPromptProvider;
         this.testClusterSummarizer = testClusterSummarizer;
         this.sourceCodeProvider = sourceCodeProvider;
         this.coverageGoalFormatter = coverageGoalFormatter;
         this.testCaseFormatter = testCaseFormatter;
+        this.sutContextProviderFactory = sutContextProviderFactory;
     }
 
     public PromptBuilder withSystemPrompt() {
         this.systemPrompt = systemPromptProvider.getSystemPrompt();
+        return this;
+    }
+
+    /**
+     * Add CUT context using the configured {@code LLM_SUT_CONTEXT_MODE}.
+     * This replaces separate {@code withTestClusterContext} and {@code withSourceCode} calls.
+     */
+    public PromptBuilder withSutContext(String className, TestCluster cluster) {
+        SutContextProviderFactory.ContextResult result =
+                sutContextProviderFactory.getContext(className, cluster);
+        this.sutContextModeUsed = result.getModeUsed();
+        this.sutContextUnavailable = result.isContextUnavailable();
+        String text = result.getText();
+        if (text != null && !text.trim().isEmpty()) {
+            userSections.add(result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
+        }
         return this;
     }
 
@@ -115,6 +146,15 @@ public class PromptBuilder {
     }
 
     public List<LlmMessage> build() {
+        return buildWithMetadata().getMessages();
+    }
+
+    /**
+     * Builds the prompt messages along with context metadata for trace recording.
+     * Call sites that need to propagate context mode to LlmService should use this
+     * instead of {@link #build()}.
+     */
+    public PromptResult buildWithMetadata() {
         String resolvedSystem = systemPrompt == null ? systemPromptProvider.getSystemPrompt() : systemPrompt;
         String userPrompt = String.join("\n\n", userSections);
         if (userPrompt.trim().isEmpty()) {
@@ -124,6 +164,16 @@ public class PromptBuilder {
         List<LlmMessage> messages = new ArrayList<>();
         messages.add(LlmMessage.system(resolvedSystem));
         messages.add(LlmMessage.user(userPrompt));
-        return messages;
+        return new PromptResult(messages, sutContextModeUsed, sutContextUnavailable);
+    }
+
+    /** Returns the context mode used by the last {@link #withSutContext} call, or null if not called. */
+    public Properties.LlmSutContextMode getSutContextModeUsed() {
+        return sutContextModeUsed;
+    }
+
+    /** Returns true if context was unavailable (strict mode, no fallback). */
+    public boolean isSutContextUnavailable() {
+        return sutContextUnavailable;
     }
 }

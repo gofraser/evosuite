@@ -345,6 +345,12 @@
                 <version>9.9.1</version>
             </dependency>
             <dependency>
+                <!-- MIT License -->
+                <groupId>org.benf</groupId>
+                <artifactId>cfr</artifactId>
+                <version>0.152</version>
+            </dependency>
+            <dependency>
                 <!-- Apache 2 -->
                 <groupId>com.googlecode.gentyref</groupId>
                 <artifactId>gentyref</artifactId>

@@ -45,6 +45,24 @@ public class LlmTraceRecorder {
                            boolean expansionAttempted,
                            List<String> expandedClasses,
                            String errorType) {
+        recordCall(feature, messages, responseText, inputTokens, outputTokens, latencyMs,
+                parseStatus, repairAttempt, expansionAttempted, expandedClasses, errorType,
+                null, false);
+    }
+
+    public void recordCall(LlmFeature feature,
+                           List<LlmMessage> messages,
+                           String responseText,
+                           int inputTokens,
+                           int outputTokens,
+                           long latencyMs,
+                           String parseStatus,
+                           int repairAttempt,
+                           boolean expansionAttempted,
+                           List<String> expandedClasses,
+                           String errorType,
+                           org.evosuite.Properties.LlmSutContextMode sutContextMode,
+                           boolean contextUnavailable) {
         if (!configuration.isTraceEnabled()) {
             return;
         }
@@ -68,6 +86,8 @@ public class LlmTraceRecorder {
         traceRecord.put("output_tokens", outputTokens);
         traceRecord.put("latency_ms", latencyMs);
         traceRecord.put("error_type", errorType == null ? "" : errorType);
+        traceRecord.put("sut_context_mode", sutContextMode == null ? "" : sutContextMode.name());
+        traceRecord.put("context_unavailable", contextUnavailable);
         String json = GSON.toJson(traceRecord);
 
         synchronized (this) {

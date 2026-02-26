@@ -1647,6 +1647,28 @@ public class Properties {
             description = "Optional explicit source path for including SUT source code in prompts")
     public static String LLM_SOURCE_PATH = "";
 
+    public enum LlmSutContextMode {
+        SIGNATURE_ONLY, BYTECODE_DISASSEMBLED, DECOMPILED_SOURCE, SOURCE_CODE
+    }
+
+    @Parameter(key = "llm_sut_context_mode", group = "LLM",
+            description = "CUT context representation in LLM prompts: SIGNATURE_ONLY (default, always available), BYTECODE_DISASSEMBLED, DECOMPILED_SOURCE, SOURCE_CODE")
+    public static LlmSutContextMode LLM_SUT_CONTEXT_MODE = LlmSutContextMode.SIGNATURE_ONLY;
+
+    @Parameter(key = "llm_context_fallback_enabled", group = "LLM",
+            description = "If true, degrade to SIGNATURE_ONLY when selected context mode is unavailable; if false, leave context empty")
+    public static boolean LLM_CONTEXT_FALLBACK_ENABLED = true;
+
+    @Parameter(key = "llm_context_max_chars", group = "LLM",
+            description = "Maximum characters of CUT context included in prompts (0 means unlimited; default 32000 for cost control)")
+    @IntValue(min = 0)
+    public static int LLM_CONTEXT_MAX_CHARS = 32000;
+
+    @Parameter(key = "llm_decompiler_timeout_seconds", group = "LLM",
+            description = "Timeout in seconds for decompiler-based context extraction")
+    @IntValue(min = 1)
+    public static int LLM_DECOMPILER_TIMEOUT_SECONDS = 10;
+
     @Parameter(key = "llm_seed_initial_population", group = "LLM",
             description = "Seed the initial population with LLM-generated tests")
     public static boolean LLM_SEED_INITIAL_POPULATION = false;
@@ -1657,11 +1679,11 @@ public class Properties {
     public static int LLM_SEED_COUNT = 5;
 
     @Parameter(key = "llm_test_factory", group = "LLM",
-            description = "Enable LLM-based test factory generation")
+            description = "Enable LLM test-factory wrapper; fallback factory remains active")
     public static boolean LLM_TEST_FACTORY = false;
 
     @Parameter(key = "llm_test_factory_probability", group = "LLM",
-            description = "Probability of selecting the LLM test factory when enabled")
+            description = "Probability that LLM wrapper is selected before falling back to the wrapped factory")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double LLM_TEST_FACTORY_PROBABILITY = 0.1;
 
@@ -1752,6 +1774,20 @@ public class Properties {
     @Parameter(key = "llm_trace_dir", group = "LLM",
             description = "Directory for LLM trace artifacts")
     public static String LLM_TRACE_DIR = "";
+
+    public enum LlmSuiteInjectionPolicy {
+        /** Build a new TestSuiteChromosome from LLM-generated tests and compete it. */
+        NEW_SUITE,
+        /** Merge LLM-generated tests into existing (e.g., worst-ranked) suites. */
+        MERGE_INTO_EXISTING
+    }
+
+    @Parameter(key = "llm_suite_injection_policy", group = "LLM",
+            description = "How LLM-generated tests are injected into WholeSuite populations: "
+                    + "NEW_SUITE creates a new suite from LLM tests; "
+                    + "MERGE_INTO_EXISTING merges them into the worst existing suite")
+    public static LlmSuiteInjectionPolicy LLM_SUITE_INJECTION_POLICY =
+            LlmSuiteInjectionPolicy.NEW_SUITE;
 
     // ---------------------------------------------------------------
     // Sandbox
@@ -1860,13 +1896,13 @@ public class Properties {
         RANDOM, ALLMETHODS, TOURNAMENT, JUNIT, PARSED_JUNIT, ARCHIVE, SERIALIZATION,
         SEED_BEST_INDIVIDUAL, SEED_RANDOM_INDIVIDUAL,
         SEED_BEST_AND_RANDOM_INDIVIDUAL, SEED_BEST_INDIVIDUAL_METHOD,
-        SEED_RANDOM_INDIVIDUAL_METHOD, SEED_MUTATED_BEST_INDIVIDUAL
+        SEED_RANDOM_INDIVIDUAL_METHOD, SEED_MUTATED_BEST_INDIVIDUAL, LLM
     }
 
     @Parameter(key = "test_archive", description = "Use an archive of covered goals during test generation")
     public static boolean TEST_ARCHIVE = true;
 
-    @Parameter(key = "test_factory", description = "Which factory creates tests")
+    @Parameter(key = "test_factory", description = "Which factory creates tests (LLM wraps the configured fallback factory)")
     public static TestFactory TEST_FACTORY = TestFactory.ARCHIVE;
 
     public enum ArchiveType {
@@ -2179,7 +2215,7 @@ public class Properties {
     public static boolean EXCLUDE_IBRANCHES_CUT = false;
 
     public enum Strategy {
-        ONEBRANCH, EVOSUITE, RANDOM, RANDOM_FIXED, ENTBUG, MOSUITE, DSE, NOVELTY, MAP_ELITES
+        ONEBRANCH, EVOSUITE, RANDOM, RANDOM_FIXED, ENTBUG, MOSUITE, DSE, NOVELTY, MAP_ELITES, LLM_BASELINE
     }
 
     @Parameter(key = "strategy", group = "Runtime", description = "Which mode to use")

@@ -1,0 +1,176 @@
+package org.evosuite.llm.factory;
+
+import org.evosuite.Properties;
+import org.evosuite.ga.ChromosomeFactory;
+import org.evosuite.llm.LlmCallFailedException;
+import org.evosuite.llm.LlmBudgetExceededException;
+import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.PromptBuilder;
+import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.response.ClusterExpansionManager;
+import org.evosuite.llm.response.LlmResponseParser;
+import org.evosuite.llm.response.RepairResult;
+import org.evosuite.llm.response.TestRepairLoop;
+import org.evosuite.setup.TestCluster;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testparser.TestParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
+
+/**
+ * Asynchronously fetches initial LLM tests while preserving a fallback factory.
+ */
+public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromosome> {
+
+    private static final long serialVersionUID = -1785138098554527622L;
+    private static final Logger logger = LoggerFactory.getLogger(LlmSeededPopulationFactory.class);
+
+    private final ChromosomeFactory<TestChromosome> fallback;
+    private final LlmService llmService;
+    private final Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
+    private final Queue<TestChromosome> llmSeeds = new ConcurrentLinkedQueue<>();
+    private final CompletableFuture<List<TestChromosome>> pendingSeeds;
+    private final AtomicBoolean seedsMerged = new AtomicBoolean(false);
+
+    public LlmSeededPopulationFactory(ChromosomeFactory<TestChromosome> fallback) {
+        this(fallback, LlmService.getInstance(), Collections::emptyList, ForkJoinPool.commonPool());
+    }
+
+    public LlmSeededPopulationFactory(ChromosomeFactory<TestChromosome> fallback,
+                                      LlmService llmService,
+                                      Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
+                                      Executor executor) {
+        this.fallback = fallback;
+        this.llmService = llmService;
+        this.uncoveredGoalsSupplier = uncoveredGoalsSupplier == null ? Collections::emptyList : uncoveredGoalsSupplier;
+        this.pendingSeeds = CompletableFuture.supplyAsync(this::generateSeeds, executor);
+    }
+
+    @Override
+    public TestChromosome getChromosome() {
+        mergePendingSeeds(false, 0L);
+        TestChromosome seeded = llmSeeds.poll();
+        if (seeded != null) {
+            return seeded;
+        }
+        return fallback.getChromosome();
+    }
+
+    public List<TestChromosome> awaitAndDrainSeeds(long timeoutMs) {
+        mergePendingSeeds(true, timeoutMs);
+        List<TestChromosome> drained = new ArrayList<>();
+        TestChromosome current;
+        while ((current = llmSeeds.poll()) != null) {
+            drained.add(current);
+        }
+        return drained;
+    }
+
+    private void mergePendingSeeds(boolean waitForCompletion, long timeoutMs) {
+        if (!waitForCompletion && !pendingSeeds.isDone()) {
+            return;
+        }
+        if (!seedsMerged.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            List<TestChromosome> produced;
+            if (waitForCompletion) {
+                long waitMillis = Math.max(1L, timeoutMs);
+                produced = pendingSeeds.get(waitMillis, TimeUnit.MILLISECONDS);
+            } else {
+                produced = pendingSeeds.get();
+            }
+            mergeProducedSeeds(produced);
+        } catch (TimeoutException e) {
+            seedsMerged.set(false);
+            logger.debug("Timed out while waiting for async LLM seeds");
+        } catch (InterruptedException e) {
+            seedsMerged.set(false);
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.debug("Could not merge async LLM seeds: {}", e.getMessage());
+        }
+    }
+
+    private void mergeProducedSeeds(List<TestChromosome> produced) {
+        if (produced == null || produced.isEmpty()) {
+            return;
+        }
+        llmSeeds.addAll(produced);
+    }
+
+    private List<TestChromosome> generateSeeds() {
+        if (!llmService.isAvailable() || !llmService.hasBudget()) {
+            return Collections.emptyList();
+        }
+        int requested = Math.max(1, Properties.LLM_SEED_COUNT);
+        PromptResult prompt = buildPrompt(requested);
+        try {
+            String response = llmService.query(prompt, LlmFeature.SEEDING);
+            RepairResult repairResult = createRepairLoop().attemptParse(response, prompt.getMessages(), LlmFeature.SEEDING);
+            if (!repairResult.isSuccess()) {
+                return Collections.emptyList();
+            }
+            return toChromosomes(repairResult, requested);
+        } catch (LlmBudgetExceededException | LlmCallFailedException e) {
+            logger.debug("LLM seeding unavailable: {}", e.getMessage());
+            return Collections.emptyList();
+        } catch (RuntimeException e) {
+            logger.debug("LLM seeding failed: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private PromptResult buildPrompt(int requestedTests) {
+        PromptBuilder builder = new PromptBuilder()
+                .withSystemPrompt()
+                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withInstruction("Generate " + requestedTests + " JUnit test methods for the target class. "
+                        + "Focus on diverse paths, edge cases, and branch coverage.");
+        Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
+        if (goals != null && !goals.isEmpty()) {
+            builder.withUncoveredGoals(goals);
+        }
+        return builder.buildWithMetadata();
+    }
+
+    private TestRepairLoop createRepairLoop() {
+        return new TestRepairLoop(
+                llmService,
+                TestParser.forSUT(),
+                new LlmResponseParser(),
+                new ClusterExpansionManager());
+    }
+
+    private List<TestChromosome> toChromosomes(RepairResult repairResult, int maxCount) {
+        List<TestChromosome> chromosomes = new ArrayList<>();
+        int limit = Math.max(0, maxCount);
+        repairResult.getTestCases().stream()
+                .limit(limit)
+                .forEach(testCase -> {
+                    TestChromosome chromosome = new TestChromosome();
+                    chromosome.setTestCase(testCase);
+                    chromosomes.add(chromosome);
+                });
+        return chromosomes;
+    }
+}
