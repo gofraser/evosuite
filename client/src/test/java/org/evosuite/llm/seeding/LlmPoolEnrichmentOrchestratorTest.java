@@ -349,4 +349,46 @@ class LlmPoolEnrichmentOrchestratorTest {
         assertTrue(elapsed < 3000, "awaitAll should respect timeout");
         assertTrue(neverCompletes.isCancelled(), "awaitAll should cancel timed-out futures");
     }
+
+    // ---- Cooperative cancellation tests ----
+
+    @Test
+    void castTimeout_setsCancelFlagOnEnricher() {
+        Properties.LLM_ENRICH_CAST_CLASSES = true;
+        Properties.LLM_ENRICH_CONSTANT_POOL = false;
+        Properties.LLM_ENRICH_OBJECT_POOL = false;
+
+        // A real enricher whose cancel() flag we can inspect
+        LlmCastClassEnricher realEnricher = new LlmCastClassEnricher(createUnavailableService());
+
+        // Wire a slow future that blocks longer than the timeout
+        CompletableFuture<LlmCastClassEnricher.EnrichmentResult> slowFuture = new CompletableFuture<>();
+        LlmCastClassEnricher spyEnricher = org.mockito.Mockito.spy(realEnricher);
+        when(spyEnricher.enrichAsync(anyString(), any())).thenReturn(slowFuture);
+
+        LlmPoolEnrichmentOrchestrator orchestrator =
+                new LlmPoolEnrichmentOrchestrator(mock(LlmConstantPoolEnricher.class),
+                        mock(LlmObjectPoolEnricher.class), spyEnricher, 1);
+
+        orchestrator.startEnrichment("com.example.Foo", null);
+        orchestrator.finishStructuralEnrichment();
+
+        // The enricher's cancel flag should have been set by the orchestrator
+        assertTrue(spyEnricher.isCancelled(),
+                "Orchestrator should set the enricher's cancelled flag on timeout");
+    }
+
+    // ---- Helper ----
+
+    private static LlmService createUnavailableService() {
+        LlmConfiguration configuration = new LlmConfiguration(
+                Properties.LlmProvider.NONE, "mock", "", "", 0.0, 1024, 2, 0, 1,
+                false, java.nio.file.Paths.get("target/llm-test-traces"), "test-orch");
+        return new LlmService(
+                new org.evosuite.llm.mock.MockChatLanguageModel(),
+                new LlmBudgetCoordinator.Local(0),
+                configuration,
+                new LlmStatistics(),
+                new LlmTraceRecorder(configuration));
+    }
 }

@@ -7,16 +7,37 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Base class for LLM-based test cluster and pool enrichers.
  * Standardizes async execution, budget checks, and error handling.
+ *
+ * <p>Uses a dedicated daemon-thread executor (not ForkJoinPool.commonPool())
+ * so that blocking LLM I/O does not starve CPU-bound work, and
+ * {@link ExecutorService#shutdownNow()} delivers real thread interruption
+ * when the orchestrator cancels enrichment on timeout.
  */
 public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.EnrichmentResult> {
+
+    /** Shared executor for all enrichment async work. Daemon threads so JVM exit is not blocked. */
+    static final ExecutorService LLM_ENRICHMENT_EXECUTOR = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "llm-enrichment");
+        t.setDaemon(true);
+        return t;
+    });
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     protected final LlmService llmService;
     protected final LlmFeature feature;
+
+    /**
+     * Cooperative cancellation flag. Checked by {@link #isCancelled()} and set by
+     * the orchestrator via {@link #cancel()} when the enrichment deadline expires.
+     */
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
     protected AbstractLlmEnricher(LlmService llmService, LlmFeature feature) {
         this.llmService = llmService;
@@ -33,20 +54,37 @@ public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.Enrichme
                 return createSkippedResult("LLM unavailable or no budget");
             }
             try {
-                if (Thread.currentThread().isInterrupted()) {
-                    return createFailureResult("Interrupted before start");
+                if (isCancelled()) {
+                    return createFailureResult("Cancelled before start");
                 }
                 return doEnrich(className, cluster);
             } catch (Throwable t) {
                 logger.warn("Enrichment failed for {}: {}", feature, t.getMessage());
                 return createFailureResult(t.getMessage());
             }
-        });
+        }, LLM_ENRICHMENT_EXECUTOR);
+    }
+
+    /**
+     * Signals this enricher to stop as soon as possible.
+     * Subclass loops should poll {@link #isCancelled()}.
+     */
+    public void cancel() {
+        cancelled.set(true);
+    }
+
+    /**
+     * Returns true if cancellation has been requested.
+     * Subclasses should check this in long-running loops and before pool mutations.
+     */
+    protected boolean isCancelled() {
+        return cancelled.get() || Thread.currentThread().isInterrupted();
     }
 
     /**
      * Core enrichment logic to be implemented by subclasses.
-     * Implementation should check Thread.currentThread().isInterrupted() for long loops.
+     * Implementation should check {@link #isCancelled()} for long loops
+     * and before mutating shared pools.
      */
     protected abstract R doEnrich(String className, TestCluster cluster);
 

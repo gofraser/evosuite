@@ -240,4 +240,61 @@ public class TestPrioritization {
 
     private static class TwoParams2<A, B> {
     }
+
+    @Test
+    public void testConcurrentAddAndGetElements() throws Exception {
+        Prioritization<String> pc = new Prioritization<String>(Comparator.<String>naturalOrder());
+
+        int writerCount = 4;
+        int itemsPerWriter = 200;
+        java.util.concurrent.CountDownLatch startLatch = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch doneLatch = new java.util.concurrent.CountDownLatch(writerCount + 1);
+
+        // Writer threads add elements concurrently
+        for (int w = 0; w < writerCount; w++) {
+            final int writerId = w;
+            new Thread(() -> {
+                try {
+                    startLatch.await();
+                    for (int i = 0; i < itemsPerWriter; i++) {
+                        pc.add("writer" + writerId + "-item" + i, i);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    doneLatch.countDown();
+                }
+            }).start();
+        }
+
+        // Reader thread iterates elements concurrently
+        java.util.concurrent.atomic.AtomicBoolean readerFailed = new java.util.concurrent.atomic.AtomicBoolean(false);
+        new Thread(() -> {
+            try {
+                startLatch.await();
+                for (int i = 0; i < 500; i++) {
+                    // This must not throw ConcurrentModificationException
+                    Set<String> elements = pc.getElements();
+                    assertNotNull(elements);
+                    // Also iterate the snapshot
+                    for (String ignored : elements) {
+                        // just iterate
+                    }
+                }
+            } catch (Throwable t) {
+                readerFailed.set(true);
+            } finally {
+                doneLatch.countDown();
+            }
+        }).start();
+
+        startLatch.countDown();
+        assertTrue(doneLatch.await(10, java.util.concurrent.TimeUnit.SECONDS),
+                "All threads should complete within timeout");
+        assertFalse(readerFailed.get(),
+                "Reader should not fail with ConcurrentModificationException");
+
+        // All items should be present
+        assertEquals(writerCount * itemsPerWriter, pc.getElements().size());
+    }
 }

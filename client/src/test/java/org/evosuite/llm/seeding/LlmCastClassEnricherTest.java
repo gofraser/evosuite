@@ -499,6 +499,33 @@ class LlmCastClassEnricherTest {
                 "Accepted must match actual classes added");
     }
 
+    // ---- Cancellation tests ----
+
+    @Test
+    void validateAndAdd_stopsOnCancellation() {
+        Properties.LLM_CAST_CLASS_MAX_SUGGESTIONS = 8;
+        LlmCastClassEnricher enricher = new LlmCastClassEnricher(createUnavailableService());
+
+        // Cancel the enricher before calling validateAndAdd
+        enricher.cancel();
+
+        List<String> suggestions = Arrays.asList(
+                "java.util.HashMap",
+                "java.util.TreeSet",
+                "java.util.TreeMap"
+        );
+
+        int sizeBefore = CastClassManager.getInstance().getCastClasses().size();
+        LlmCastClassEnricher.EnrichmentResult result = enricher.validateAndAdd(suggestions, "TestTarget");
+        int sizeAfter = CastClassManager.getInstance().getCastClasses().size();
+
+        // No classes should be added after cancellation
+        assertEquals(sizeBefore, sizeAfter,
+                "No classes should be added to CastClassManager after cancellation");
+        assertEquals(0, result.getAccepted(),
+                "Accepted count should be 0 when cancelled");
+    }
+
     // ---- Helper methods ----
 
     private static LlmService createUnavailableService() {

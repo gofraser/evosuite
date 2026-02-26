@@ -184,7 +184,7 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
         ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
 
         for (String suggestion : suggestions) {
-            if (classesAdded >= cap) {
+            if (classesAdded >= cap || isCancelled()) {
                 break;
             }
 
@@ -223,6 +223,12 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
 
             validated++;
 
+            // Final cancellation check before mutating CastClassManager
+            if (isCancelled()) {
+                logger.debug("Cast class enrichment: cancelled before adding '{}'", suggestion);
+                break;
+            }
+
             // Snapshot size before add to measure actual classes added
             int sizeBefore = CastClassManager.getInstance().getCastClasses().size();
 
@@ -237,6 +243,12 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
             classesAdded += added;
             if (added > 0) {
                 logger.debug("Cast class enrichment: accepted '{}' ({} class(es) added)", suggestion, added);
+            }
+
+            // A single abstract suggestion may expand to multiple concrete classes,
+            // potentially overshooting the cap. Stop immediately if exceeded.
+            if (classesAdded >= cap) {
+                break;
             }
         }
 

@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -35,7 +36,7 @@ import java.util.stream.Collectors;
 public class Prioritization<T> {
     private static final Logger logger = LoggerFactory.getLogger(Prioritization.class);
 
-    private final Map<T, Integer> priorities = new HashMap<>();
+    private final Map<T, Integer> priorities = new ConcurrentHashMap<>();
 
     private Comparator<T> comparator;
 
@@ -125,10 +126,11 @@ public class Prioritization<T> {
      * @return the priority of the element.
      */
     private int getPriority(T element) {
-        if (!priorities.containsKey(element)) {
-            throw new IllegalArgumentException("Priority for " + element + "not found");
+        Integer priority = priorities.get(element);
+        if (priority == null) {
+            throw new IllegalArgumentException("Priority for " + element + " not found");
         }
-        return priorities.get(element);
+        return priority;
     }
 
     /**
@@ -137,7 +139,7 @@ public class Prioritization<T> {
      * @return view of all the elements in the priority collection
      */
     public Set<T> getElements() {
-        return Collections.unmodifiableSet(priorities.keySet());
+        return Collections.unmodifiableSet(new LinkedHashSet<>(priorities.keySet()));
     }
 
     /**

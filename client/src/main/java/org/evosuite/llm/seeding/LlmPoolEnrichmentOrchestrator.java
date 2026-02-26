@@ -112,7 +112,9 @@ public class LlmPoolEnrichmentOrchestrator {
             }
         } catch (TimeoutException e) {
             logger.warn("LLM cast class enrichment timed out after {}s, cancelling and opening structural gate", timeoutSeconds);
-            // Cancel to prevent late CastClassManager mutations during search
+            // Cooperative cancel — sets the enricher's cancelled flag so it won't
+            // mutate CastClassManager even if the underlying thread is still running.
+            castClassEnricher.cancel();
             castFuture.cancel(true);
         } catch (Throwable e) {
             logger.warn("LLM cast class enrichment failed: {}", e.getMessage());

@@ -58,8 +58,8 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
         if (Properties.LLM_ENRICH_NON_SUT_CONSTANT_POOL && cluster != null) {
             List<String> dependencies = collectNonSutDependencyClasses(className, cluster);
             for (String dependencyClass : dependencies) {
-                if (Thread.currentThread().isInterrupted()) {
-                    logger.debug("Thread interrupted during non-SUT constant enrichment, stopping");
+                if (isCancelled()) {
+                    logger.debug("Cancelled during non-SUT constant enrichment, stopping");
                     break;
                 }
                 if (!llmService.hasBudget()) {
@@ -249,7 +249,8 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
             }
         }
 
-        return constants;
+        // Deduplicate while preserving order
+        return new ArrayList<>(new LinkedHashSet<>(constants));
     }
 
     private int addToPool(List<Object> constants, boolean sutPool) {
