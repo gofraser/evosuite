@@ -22,7 +22,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -41,6 +40,7 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         this(fallback, LlmService.getInstance(), Collections::emptyList);
     }
 
+    /** Creates a factory with explicit dependencies. */
     public LlmTestChromosomeFactory(ChromosomeFactory<TestChromosome> fallback,
                                     LlmService llmService,
                                     Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
@@ -83,7 +83,8 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
     private TestChromosome generateViaLlm() {
         PromptResult prompt = buildPrompt();
         String response = llmService.query(prompt, LlmFeature.TEST_FACTORY);
-        RepairResult repairResult = createRepairLoop().attemptParse(response, prompt.getMessages(), LlmFeature.TEST_FACTORY);
+        RepairResult repairResult = createRepairLoop().attemptParse(
+                response, prompt.getMessages(), LlmFeature.TEST_FACTORY);
         if (!repairResult.isSuccess() || repairResult.getTestCases().isEmpty()) {
             return null;
         }

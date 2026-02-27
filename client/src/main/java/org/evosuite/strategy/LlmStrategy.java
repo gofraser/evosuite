@@ -35,8 +35,8 @@ import java.util.stream.Collectors;
 
 /**
  * LLM-only strategy for test generation.
- * <p>
- * Supports two modes via {@code Properties.LLM_STRATEGY_MODE}:
+ *
+ * <p>Supports two modes via {@code Properties.LLM_STRATEGY_MODE}:
  * <ul>
  *   <li>{@code SINGLE_PROMPT} — one-shot baseline: generate once and stop.</li>
  *   <li>{@code ITERATIVE_BUDGETED} — iterative baseline: initial broad query,
@@ -131,7 +131,7 @@ public class LlmStrategy extends TestGenerationStrategy {
     }
 
     /**
-     * ITERATIVE_BUDGETED mode:
+     * Runs the ITERATIVE_BUDGETED mode.
      * <ol>
      *   <li>Initial broad-coverage query</li>
      *   <li>Evaluate tests, compute uncovered goals</li>
@@ -342,7 +342,9 @@ public class LlmStrategy extends TestGenerationStrategy {
     private void emitRatioTimeline(List<Double> timeline) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < timeline.size(); i++) {
-            if (i > 0) sb.append(";");
+            if (i > 0) {
+                sb.append(";");
+            }
             sb.append(String.format(Locale.ROOT, "%.4f", timeline.get(i)));
         }
         ClientServices.getInstance().getClientNode()

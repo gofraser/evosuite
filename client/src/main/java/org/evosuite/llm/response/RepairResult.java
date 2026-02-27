@@ -30,6 +30,7 @@ public class RepairResult {
         this.expandedClasses = expandedClasses;
     }
 
+    /** Creates a successful repair result with the given parse results, diagnostics, and expanded classes. */
     public static RepairResult success(List<ParseResult> parseResults,
                                        List<String> diagnostics,
                                        int attemptsUsed,
@@ -41,6 +42,7 @@ public class RepairResult {
                 Collections.unmodifiableList(new ArrayList<>(expandedClasses)));
     }
 
+    /** Creates a failure result with diagnostics, attempt count, and any expanded classes. */
     public static RepairResult failure(List<String> diagnostics,
                                        int attemptsUsed,
                                        List<String> expandedClasses) {
@@ -71,6 +73,7 @@ public class RepairResult {
         return expandedClasses;
     }
 
+    /** Returns all successfully parsed test cases contained in this result. */
     public List<TestCase> getTestCases() {
         List<TestCase> tests = new ArrayList<>();
         for (ParseResult parseResult : parseResults) {

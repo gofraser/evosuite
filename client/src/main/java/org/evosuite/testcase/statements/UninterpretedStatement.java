@@ -86,6 +86,10 @@ public class UninterpretedStatement extends AbstractStatement {
         this(tc, void.class, sourceCode, bindings, null);
     }
 
+    /**
+     * Constructs an uninterpreted statement with a return type, source code,
+     * variable bindings, and return expression.
+     */
     public UninterpretedStatement(TestCase tc, Type returnType, String sourceCode,
                                 Map<String, VariableReference> bindings,
                                 String returnExpression) {

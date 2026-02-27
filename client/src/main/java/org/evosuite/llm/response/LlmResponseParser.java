@@ -17,10 +17,14 @@ public class LlmResponseParser {
     private static final Pattern JAVA_FENCE_PATTERN = Pattern.compile("```java\\s*(.*?)```", Pattern.DOTALL);
     private static final Pattern GENERIC_FENCE_PATTERN = Pattern.compile("```\\s*(.*?)```", Pattern.DOTALL);
     private static final Pattern CLASS_DECLARATION_PATTERN = Pattern.compile("\\bclass\\s+\\w+");
-    private static final Pattern IMPORT_STATEMENT_PATTERN = Pattern.compile("^import\\s+[\\w.]+;\\s*$", Pattern.MULTILINE);
+    private static final Pattern IMPORT_STATEMENT_PATTERN =
+            Pattern.compile("^import\\s+[\\w.]+;\\s*$", Pattern.MULTILINE);
     private static final Pattern ASSERT_CALL_PATTERN =
             Pattern.compile("\\bassert(Equals|True|False|NotNull|Null|That|Throws)\\s*\\(");
 
+    /**
+     * Extracts Java source code blocks from a free-form LLM response string.
+     */
     public List<String> extractCodeBlocks(String response) {
         if (response == null || response.trim().isEmpty()) {
             return new ArrayList<>();
@@ -49,15 +53,19 @@ public class LlmResponseParser {
         return new ArrayList<>(blocks);
     }
 
+    /**
+     * Extracts or synthesises a complete Java class from the LLM response,
+     * using {@code className} as the class name.
+     */
     public String extractTestClass(String response, String className) {
         List<String> blocks = extractCodeBlocks(response);
         String code = blocks.isEmpty() ? "" : blocks.get(0);
         if (code.isEmpty()) {
-            return "public class " + className + " {\n" +
-                    "    " + getTestAnnotation() + "\n" +
-                    "    public void generatedTest() {\n" +
-                    "    }\n" +
-                    "}";
+            return "public class " + className + " {\n"
+                    + "    " + getTestAnnotation() + "\n"
+                    + "    public void generatedTest() {\n"
+                    + "    }\n"
+                    + "}";
         }
 
         if (code.contains("class ")) {

@@ -6,11 +6,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,11 +29,13 @@ public class LlmTraceRecorder {
     private final LlmConfiguration configuration;
     private final Path traceFile;
 
+    /** Constructs a trace recorder for the given LLM configuration. */
     public LlmTraceRecorder(LlmConfiguration configuration) {
         this.configuration = configuration;
         this.traceFile = configuration.getTraceDir().resolve("llm-trace.jsonl");
     }
 
+    /** Records a single LLM call with full context, token usage, and outcome metadata. */
     public void recordCall(LlmFeature feature,
                            List<LlmMessage> messages,
                            String responseText,
@@ -50,6 +52,7 @@ public class LlmTraceRecorder {
                 null, false);
     }
 
+    /** Records a call with SUT context mode and availability metadata for trace recording. */
     public void recordCall(LlmFeature feature,
                            List<LlmMessage> messages,
                            String responseText,

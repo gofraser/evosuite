@@ -32,8 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * MOSA-level LLM crossover operator. Probabilistically applies semantic
  * crossover via LLM; falls back gracefully if LLM is unavailable or fails.
- * <p>
- * When successful, offspring1 receives the recombined test case.
+ *
+ * <p>When successful, offspring1 receives the recombined test case.
  */
 public class LanguageModelCrossover {
 

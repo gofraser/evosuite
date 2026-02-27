@@ -41,6 +41,7 @@ public class AsyncLlmTestProducer {
     private final int delayMs;
     private volatile boolean running = true;
 
+    /** Creates a producer using singleton LLM service and Properties-configured settings. */
     public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
         this(uncoveredGoalsSupplier,
                 LlmService.getInstance(),
@@ -49,6 +50,7 @@ public class AsyncLlmTestProducer {
                 Properties.LLM_ASYNC_PRODUCER_DELAY_MS);
     }
 
+    /** Creates a producer with explicit dependencies and configuration. */
     public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
                                 LlmService llmService,
                                 int queueSize,
@@ -63,12 +65,14 @@ public class AsyncLlmTestProducer {
         this.producerThread.setDaemon(true);
     }
 
+    /** Starts the background producer thread if not already running. */
     public void start() {
         if (!producerThread.isAlive()) {
             producerThread.start();
         }
     }
 
+    /** Stops the producer thread and waits up to 2 seconds for it to terminate. */
     public void stop() {
         running = false;
         producerThread.interrupt();
@@ -79,6 +83,7 @@ public class AsyncLlmTestProducer {
         }
     }
 
+    /** Drains and returns all currently queued test chromosomes without blocking. */
     public List<TestChromosome> drainAvailable() {
         List<TestChromosome> tests = new ArrayList<>();
         testQueue.drainTo(tests);
@@ -116,7 +121,8 @@ public class AsyncLlmTestProducer {
                     .buildWithMetadata();
             try {
                 String response = llmService.query(prompt, LlmFeature.ASYNC_PRODUCER);
-                RepairResult result = repairLoop.attemptParse(response, prompt.getMessages(), LlmFeature.ASYNC_PRODUCER);
+                RepairResult result = repairLoop.attemptParse(
+                        response, prompt.getMessages(), LlmFeature.ASYNC_PRODUCER);
                 if (result.isSuccess()) {
                     for (TestChromosome chromosome : toChromosomes(result)) {
                         testQueue.offer(chromosome);

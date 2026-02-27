@@ -21,6 +21,7 @@ public class LlmStatistics {
     private final AtomicLong totalLatencyMs = new AtomicLong();
     private final Map<LlmFeature, FeatureStats> perFeature = new ConcurrentHashMap<>();
 
+    /** Records a successful LLM call for the given feature, updating token and latency totals. */
     public void recordCall(LlmFeature feature, int inputTokenCount, int outputTokenCount, long latencyMs) {
         totalCalls.incrementAndGet();
         successfulCalls.incrementAndGet();
@@ -31,6 +32,7 @@ public class LlmStatistics {
                 .recordSuccess(inputTokenCount, outputTokenCount, latencyMs);
     }
 
+    /** Records a failed LLM call for the given feature. */
     public void recordFailure(LlmFeature feature) {
         totalCalls.incrementAndGet();
         failedCalls.incrementAndGet();
@@ -61,6 +63,7 @@ public class LlmStatistics {
         return totalLatencyMs.get();
     }
 
+    /** Returns per-feature statistics snapshots. */
     public Map<LlmFeature, FeatureSnapshot> getFeatureSnapshots() {
         Map<LlmFeature, FeatureSnapshot> snapshots = new EnumMap<>(LlmFeature.class);
         for (Map.Entry<LlmFeature, FeatureStats> entry : perFeature.entrySet()) {
@@ -69,6 +72,7 @@ public class LlmStatistics {
         return snapshots;
     }
 
+    /** Publishes collected LLM statistics as EvoSuite runtime variables. */
     public void publishRuntimeVariables() {
         ClientServices.track(RuntimeVariable.LLM_Calls, getTotalCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, getSuccessfulCalls());
@@ -97,6 +101,7 @@ public class LlmStatistics {
             failures.incrementAndGet();
         }
 
+        /** Returns an immutable snapshot of this feature's statistics. */
         FeatureSnapshot snapshot() {
             return new FeatureSnapshot(calls.get(), failures.get(), input.get(), output.get(), latency.get());
         }
@@ -109,6 +114,7 @@ public class LlmStatistics {
         private final long outputTokens;
         private final long latencyMs;
 
+        /** Constructs a snapshot with per-feature call, failure, token, and latency counts. */
         public FeatureSnapshot(long calls, long failures, long inputTokens, long outputTokens, long latencyMs) {
             this.calls = calls;
             this.failures = failures;

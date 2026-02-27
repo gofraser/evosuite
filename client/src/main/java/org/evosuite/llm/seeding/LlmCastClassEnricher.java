@@ -10,8 +10,6 @@ import org.evosuite.seeding.CastClassManager;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.utils.generic.GenericClass;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -265,22 +263,22 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
         builder.withSystemPrompt()
                 .withSutContext(className, cluster)
                 .withInstruction(
-                        "For the Java class " + className + ", suggest additional concrete classes that would be " +
-                        "useful as cast targets when generating tests.\n\n" +
-                        "Think about:\n" +
-                        "- Concrete implementations of interfaces/abstract classes used by " + className + "\n" +
-                        "- Subclasses that appear in instanceof checks or type casts\n" +
-                        "- Common collection types, wrapper types, or domain types relevant to the API\n\n" +
-                        "Return your answer as a JSON object with a single key \"suggestions\" containing " +
-                        "an array of fully-qualified Java class names (strings).\n\n" +
-                        "Example:\n" +
-                        "{\"suggestions\": [\"java.util.HashMap\", \"java.util.TreeSet\", \"java.io.File\"]}\n\n" +
-                        "Rules:\n" +
-                        "- Only include concrete, instantiable classes (no interfaces or abstract classes " +
-                        "unless they can be mocked)\n" +
-                        "- Use fully-qualified class names\n" +
-                        "- Suggest at most " + Properties.LLM_CAST_CLASS_MAX_SUGGESTIONS + " classes\n" +
-                        "- Return ONLY the JSON object, no explanations")
+                        "For the Java class " + className + ", suggest additional concrete classes that would be "
+                        + "useful as cast targets when generating tests.\n\n"
+                        + "Think about:\n"
+                        + "- Concrete implementations of interfaces/abstract classes used by " + className + "\n"
+                        + "- Subclasses that appear in instanceof checks or type casts\n"
+                        + "- Common collection types, wrapper types, or domain types relevant to the API\n\n"
+                        + "Return your answer as a JSON object with a single key \"suggestions\" containing "
+                        + "an array of fully-qualified Java class names (strings).\n\n"
+                        + "Example:\n"
+                        + "{\"suggestions\": [\"java.util.HashMap\", \"java.util.TreeSet\", \"java.io.File\"]}\n\n"
+                        + "Rules:\n"
+                        + "- Only include concrete, instantiable classes (no interfaces or abstract classes "
+                        + "unless they can be mocked)\n"
+                        + "- Use fully-qualified class names\n"
+                        + "- Suggest at most " + Properties.LLM_CAST_CLASS_MAX_SUGGESTIONS + " classes\n"
+                        + "- Return ONLY the JSON object, no explanations")
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
         return builder.buildWithMetadata();
     }
@@ -301,6 +299,7 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
         private final int validated;
         private final int accepted;
 
+        /** Creates an enrichment result with attempt status, suggestion counts, and optional failure reason. */
         public EnrichmentResult(boolean attempted, int suggested, int validated, int accepted, String failureReason) {
             super(attempted, failureReason);
             this.suggested = suggested;

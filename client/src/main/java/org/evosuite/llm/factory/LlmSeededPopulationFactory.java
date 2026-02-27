@@ -2,8 +2,8 @@ package org.evosuite.llm.factory;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmBudgetExceededException;
+import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptBuilder;
@@ -52,10 +52,12 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     private final CompletableFuture<List<TestChromosome>> pendingSeeds;
     private final AtomicBoolean seedsMerged = new AtomicBoolean(false);
 
+    /** Creates a factory using the singleton LLM service and an empty goals supplier. */
     public LlmSeededPopulationFactory(ChromosomeFactory<TestChromosome> fallback) {
         this(fallback, LlmService.getInstance(), Collections::emptyList, ForkJoinPool.commonPool());
     }
 
+    /** Creates a factory with explicit dependencies and an async executor. */
     public LlmSeededPopulationFactory(ChromosomeFactory<TestChromosome> fallback,
                                       LlmService llmService,
                                       Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
@@ -76,6 +78,9 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         return fallback.getChromosome();
     }
 
+    /**
+     * Drains seeds from the pending future and waits up to {@code timeoutMs} milliseconds.
+     */
     public List<TestChromosome> awaitAndDrainSeeds(long timeoutMs) {
         mergePendingSeeds(true, timeoutMs);
         List<TestChromosome> drained = new ArrayList<>();
@@ -130,13 +135,15 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         PromptResult prompt = buildPrompt(requestedHint);
         try {
             String response = llmService.query(prompt, LlmFeature.SEEDING);
-            RepairResult repairResult = createRepairLoop().attemptParse(response, prompt.getMessages(), LlmFeature.SEEDING);
+            RepairResult repairResult = createRepairLoop().attemptParse(
+                    response, prompt.getMessages(), LlmFeature.SEEDING);
             if (!repairResult.isSuccess()) {
                 logger.debug("LLM seeding failed to produce valid tests after repair.");
                 if (repairResult.getParseResults() != null) {
                     for (ParseResult pr : repairResult.getParseResults()) {
                         for (ParseDiagnostic d : pr.getDiagnostics()) {
-                            LoggingUtils.getEvoLogger().info("* [LLM Parse " + d.getSeverity() + "] " + d.getMessage() + " (Line " + d.getLineNumber() + ")");
+                            LoggingUtils.getEvoLogger().info("* [LLM Parse " + d.getSeverity() + "] "
+                                    + d.getMessage() + " (Line " + d.getLineNumber() + ")");
                         }
                     }
                 }

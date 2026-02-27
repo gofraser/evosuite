@@ -29,6 +29,7 @@ public class SourceCodeProvider {
         this.projectRoot = projectRoot;
     }
 
+    /** Returns the source code for the given class name, or empty if unavailable. */
     public Optional<String> getSourceCode(String className) {
         Path configured = configuredSourcePath();
         if (configured != null) {
@@ -66,7 +67,8 @@ public class SourceCodeProvider {
         try {
             long fileSize = Files.size(path);
             if (fileSize > MAX_SOURCE_FILE_BYTES) {
-                logger.warn("Skipping source file {} because size {} exceeds {}", path, fileSize, MAX_SOURCE_FILE_BYTES);
+                logger.warn("Skipping source file {} because size {} exceeds {}",
+                        path, fileSize, MAX_SOURCE_FILE_BYTES);
                 return Optional.empty();
             }
             return Optional.of(new String(Files.readAllBytes(path), StandardCharsets.UTF_8));

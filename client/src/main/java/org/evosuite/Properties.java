@@ -1657,15 +1657,18 @@ public class Properties {
     }
 
     @Parameter(key = "llm_sut_context_mode", group = "LLM",
-            description = "CUT context representation in LLM prompts: SIGNATURE_ONLY (default, always available), BYTECODE_DISASSEMBLED, DECOMPILED_SOURCE, SOURCE_CODE")
+            description = "CUT context representation in LLM prompts: SIGNATURE_ONLY (default, always available), "
+                    + "BYTECODE_DISASSEMBLED, DECOMPILED_SOURCE, SOURCE_CODE")
     public static LlmSutContextMode LLM_SUT_CONTEXT_MODE = LlmSutContextMode.SIGNATURE_ONLY;
 
     @Parameter(key = "llm_context_fallback_enabled", group = "LLM",
-            description = "If true, degrade to SIGNATURE_ONLY when selected context mode is unavailable; if false, leave context empty")
+            description = "If true, degrade to SIGNATURE_ONLY when selected context mode is unavailable; "
+                    + "if false, leave context empty")
     public static boolean LLM_CONTEXT_FALLBACK_ENABLED = true;
 
     @Parameter(key = "llm_context_max_chars", group = "LLM",
-            description = "Maximum characters of CUT context included in prompts (0 means unlimited; default 32000 for cost control)")
+            description = "Maximum characters of CUT context included in prompts "
+                    + "(0 means unlimited; default 32000 for cost control)")
     @IntValue(min = 0)
     public static int LLM_CONTEXT_MAX_CHARS = 32000;
 
@@ -1893,11 +1896,13 @@ public class Properties {
     public static boolean SPECIATION_ENABLED = false;
 
     @Parameter(key = "speciation_metric", group = "Speciation",
-            description = "Distance metric for speciation: TRACE_BRANCH_JACCARD (default), TRACE_LINE_JACCARD, GOAL_JACCARD, METHOD_CALL_JACCARD, HYBRID")
+            description = "Distance metric for speciation: TRACE_BRANCH_JACCARD (default), TRACE_LINE_JACCARD, "
+                    + "GOAL_JACCARD, METHOD_CALL_JACCARD, HYBRID")
     public static SpeciationMetric SPECIATION_METRIC = SpeciationMetric.TRACE_BRANCH_JACCARD;
 
     @Parameter(key = "speciation_threshold", group = "Speciation",
-            description = "Jaccard distance threshold for species membership (0.0-1.0); individuals within this distance of a species leader belong to that species")
+            description = "Jaccard distance threshold for species membership (0.0-1.0); "
+                    + "individuals within this distance of a species leader belong to that species")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double SPECIATION_THRESHOLD = 0.3;
 
@@ -1911,7 +1916,8 @@ public class Properties {
     public static boolean SPECIES_BALANCE_PARENT_SELECTION = false;
 
     @Parameter(key = "species_restrict_mating", group = "Speciation",
-            description = "If true, restrict crossover pairing so the second parent is selected from the same species as the first parent")
+            description = "If true, restrict crossover pairing so the second parent is selected "
+                    + "from the same species as the first parent")
     public static boolean SPECIES_RESTRICT_MATING = false;
 
     @Parameter(key = "species_timeline_enabled", group = "Speciation",
@@ -2040,7 +2046,8 @@ public class Properties {
     @Parameter(key = "test_archive", description = "Use an archive of covered goals during test generation")
     public static boolean TEST_ARCHIVE = true;
 
-    @Parameter(key = "test_factory", description = "Which factory creates tests (LLM wraps the configured fallback factory)")
+    @Parameter(key = "test_factory", description = "Which factory creates tests "
+            + "(LLM wraps the configured fallback factory)")
     public static TestFactory TEST_FACTORY = TestFactory.ARCHIVE;
 
     public enum ArchiveType {

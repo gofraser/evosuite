@@ -7,14 +7,11 @@ import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestCluster;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,7 +32,8 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
     static final Pattern FLOAT_PATTERN = Pattern.compile(
             "(?:^|[\\s,;:=\\[({])(-?\\d+\\.\\d+(?:[eE][+-]?\\d+)?)[fF](?=[\\s,;:=\\])}]|$)", Pattern.MULTILINE);
     static final Pattern NAN_PATTERN = Pattern.compile("(?i)\\b(?:double\\.)?nan\\b");
-    static final Pattern INFINITY_PATTERN = Pattern.compile("(?i)(?:double\\.)?(positive_|negative_)?([+-])?infinity\\b");
+    static final Pattern INFINITY_PATTERN =
+            Pattern.compile("(?i)(?:double\\.)?(positive_|negative_)?([+-])?infinity\\b");
 
     public LlmConstantPoolEnricher(LlmService llmService) {
         super(llmService, LlmFeature.CONSTANT_POOL_ENRICHMENT);
@@ -100,24 +98,24 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
         builder.withSystemPrompt()
                 .withSutContext(className, cluster)
                 .withInstruction(
-                        "For testing the class " + className + ", suggest useful constant values that would exercise " +
-                        "edge cases, boundary conditions, and interesting code paths.\n\n" +
-                        "Provide constants as a list of typed literals. Include:\n" +
-                        "- Strings: edge-case strings (empty, whitespace, special chars, long, Unicode, SQL, paths)\n" +
-                        "- Integers: boundary values (0, -1, 1, Integer.MAX_VALUE, Integer.MIN_VALUE, powers of 2)\n" +
-                        "- Longs: boundary values with L suffix (0L, -1L, Long.MAX_VALUE)\n" +
-                        "- Doubles: boundary values (0.0, -0.0, 1.0, Double.MAX_VALUE, NaN, Infinity)\n" +
-                        "- Floats: boundary values with f suffix (0.0f, 1.0f, Float.MAX_VALUE)\n\n" +
-                        "Format each constant on its own line as a Java literal. Example:\n" +
-                        "\"\" \n" +
-                        "\"hello world\"\n" +
-                        "0\n" +
-                        "-1\n" +
-                        "2147483647\n" +
-                        "0L\n" +
-                        "3.14\n" +
-                        "1.0f\n\n" +
-                        "Only provide the literal values, no explanations needed.")
+                        "For testing the class " + className + ", suggest useful constant values that would exercise "
+                        + "edge cases, boundary conditions, and interesting code paths.\n\n"
+                        + "Provide constants as a list of typed literals. Include:\n"
+                        + "- Strings: edge-case strings (empty, whitespace, special chars, long, Unicode, SQL, paths)\n"
+                        + "- Integers: boundary values (0, -1, 1, Integer.MAX_VALUE, Integer.MIN_VALUE, powers of 2)\n"
+                        + "- Longs: boundary values with L suffix (0L, -1L, Long.MAX_VALUE)\n"
+                        + "- Doubles: boundary values (0.0, -0.0, 1.0, Double.MAX_VALUE, NaN, Infinity)\n"
+                        + "- Floats: boundary values with f suffix (0.0f, 1.0f, Float.MAX_VALUE)\n\n"
+                        + "Format each constant on its own line as a Java literal. Example:\n"
+                        + "\"\" \n"
+                        + "\"hello world\"\n"
+                        + "0\n"
+                        + "-1\n"
+                        + "2147483647\n"
+                        + "0L\n"
+                        + "3.14\n"
+                        + "1.0f\n\n"
+                        + "Only provide the literal values, no explanations needed.")
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
         return builder.buildWithMetadata();
     }
@@ -127,11 +125,11 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
         builder.withSystemPrompt()
                 .withSutContext(sutClassName, cluster)
                 .withInstruction(
-                        "For testing class " + sutClassName + ", suggest useful constant values specifically for " +
-                        "interactions with dependency class " + dependencyClassName + ".\n\n" +
-                        "Focus on dependency-facing values (ids, keys, paths, protocol tokens, numeric boundaries).\n" +
-                        "Provide typed Java literals only, one per line.\n" +
-                        "Do not include explanations.")
+                        "For testing class " + sutClassName + ", suggest useful constant values specifically for "
+                        + "interactions with dependency class " + dependencyClassName + ".\n\n"
+                        + "Focus on dependency-facing values (ids, keys, paths, protocol tokens, numeric boundaries).\n"
+                        + "Provide typed Java literals only, one per line.\n"
+                        + "Do not include explanations.")
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
         return builder.buildWithMetadata();
     }
@@ -281,14 +279,37 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
             if (c == '\\' && i + 1 < escaped.length()) {
                 char next = escaped.charAt(i + 1);
                 switch (next) {
-                    case 'n': sb.append('\n'); i++; break;
-                    case 't': sb.append('\t'); i++; break;
-                    case 'r': sb.append('\r'); i++; break;
-                    case '\\': sb.append('\\'); i++; break;
-                    case '"': sb.append('"'); i++; break;
-                    case '\'': sb.append('\''); i++; break;
-                    case '0': sb.append('\0'); i++; break;
-                    default: sb.append(c); break;
+                    case 'n':
+                        sb.append('\n');
+                        i++;
+                        break;
+                    case 't':
+                        sb.append('\t');
+                        i++;
+                        break;
+                    case 'r':
+                        sb.append('\r');
+                        i++;
+                        break;
+                    case '\\':
+                        sb.append('\\');
+                        i++;
+                        break;
+                    case '"':
+                        sb.append('"');
+                        i++;
+                        break;
+                    case '\'':
+                        sb.append('\'');
+                        i++;
+                        break;
+                    case '0':
+                        sb.append('\0');
+                        i++;
+                        break;
+                    default:
+                        sb.append(c);
+                        break;
                 }
             } else {
                 sb.append(c);
@@ -305,6 +326,7 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
         private final int nonSutConstantsAdded;
         private final int constantsParsed;
 
+        /** Creates an enrichment result with counts of SUT/non-SUT constants added and an optional failure reason. */
         public EnrichmentResult(boolean attempted, int sutConstantsAdded, int nonSutConstantsAdded,
                                 int constantsParsed, String failureReason) {
             super(attempted, failureReason);

@@ -22,6 +22,7 @@ public class TestClusterSummarizer {
 
     private static final Logger logger = LoggerFactory.getLogger(TestClusterSummarizer.class);
 
+    /** Summarizes available classes and generators from the given cluster. */
     public String summarize(TestCluster cluster) {
         if (cluster == null) {
             return "No test cluster available.";
@@ -45,6 +46,7 @@ public class TestClusterSummarizer {
         return builder.toString();
     }
 
+    /** Summarizes the constructor and public method signatures of the given class. */
     public String summarizeClass(GenericClass<?> clazz) {
         if (clazz == null || clazz.getRawClass() == null) {
             return "Unknown class";
@@ -74,6 +76,7 @@ public class TestClusterSummarizer {
         return builder.toString();
     }
 
+    /** Returns a string listing the constructors that can generate instances of the given type. */
     public String summarizeGenerators(GenericClass<?> type) {
         if (type == null || type.getRawClass() == null) {
             return "";

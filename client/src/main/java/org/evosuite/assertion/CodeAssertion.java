@@ -48,6 +48,8 @@ public class CodeAssertion extends Assertion {
     private transient int cachedBindingsTestSize = -1;
 
     /**
+     * Constructs a {@link CodeAssertion} from a raw JUnit assertion code string.
+     *
      * @param codeString the raw JUnit assertion code (e.g. {@code assertEquals(42, result);})
      */
     public CodeAssertion(String codeString) {
@@ -156,9 +158,15 @@ public class CodeAssertion extends Assertion {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!super.equals(obj)) return false;
-        if (getClass() != obj.getClass()) return false;
+        if (this == obj) {
+            return true;
+        }
+        if (!super.equals(obj)) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
         CodeAssertion other = (CodeAssertion) obj;
         return codeString != null ? codeString.equals(other.codeString) : other.codeString == null;
     }

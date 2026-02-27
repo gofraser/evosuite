@@ -5,13 +5,12 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.name.AbstractVariableNameStrategy;
+import org.evosuite.testcase.variable.name.TypeBasedVariableNameStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.evosuite.testcase.TestCodeVisitor;
-import org.evosuite.testcase.variable.name.TypeBasedVariableNameStrategy;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;

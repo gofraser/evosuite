@@ -15,6 +15,7 @@ public final class PromptResult {
     private final Properties.LlmSutContextMode sutContextMode;
     private final boolean contextUnavailable;
 
+    /** Constructs an immutable prompt result with associated context metadata. */
     public PromptResult(List<LlmMessage> messages,
                         Properties.LlmSutContextMode sutContextMode,
                         boolean contextUnavailable) {
@@ -27,7 +28,10 @@ public final class PromptResult {
         return messages;
     }
 
-    /** Context mode actually used (may differ from configured mode after fallback), or null if withSutContext was not called. */
+    /**
+     * Context mode actually used (may differ from configured mode after fallback),
+     * or null if withSutContext was not called.
+     */
     public Properties.LlmSutContextMode getSutContextMode() {
         return sutContextMode;
     }

@@ -13,6 +13,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import javax.tools.ToolProvider;
 
 import java.io.InterruptedIOException;
 import java.net.ConnectException;
@@ -26,7 +27,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.*;
-import javax.tools.ToolProvider;
 
 /**
  * Entry-point for all LLM calls, including budget and retry enforcement.
@@ -81,6 +81,7 @@ public class LlmService implements AutoCloseable {
         this.available = available;
     }
 
+    /** Returns the process-scoped singleton instance, creating it lazily on first access. */
     public static LlmService getInstance() {
         LlmService local = instance;
         if (local != null) {
@@ -94,6 +95,7 @@ public class LlmService implements AutoCloseable {
         }
     }
 
+    /** Replaces the singleton instance for use in tests. */
     public static void setInstanceForTesting(LlmService service) {
         synchronized (INSTANCE_LOCK) {
             if (instance != null && instance != service) {
@@ -103,6 +105,7 @@ public class LlmService implements AutoCloseable {
         }
     }
 
+    /** Resets the singleton instance to null, forcing re-initialisation on next access. */
     public static void resetInstanceForTesting() {
         synchronized (INSTANCE_LOCK) {
             if (instance != null) {
@@ -222,10 +225,12 @@ public class LlmService implements AutoCloseable {
         return value == null || value.trim().isEmpty();
     }
 
+    /** Returns true if this service has a configured and available LLM provider. */
     public boolean isAvailable() {
         return available;
     }
 
+    /** Returns true if the service has remaining LLM call budget. */
     public boolean hasBudget() {
         if (!available) {
             return false;
@@ -491,12 +496,18 @@ public class LlmService implements AutoCloseable {
         private final int inputTokens;
         private final int outputTokens;
 
+        /**
+         * Constructs an LLM response with text and token usage counts.
+         */
         public LlmResponse(String text, int inputTokens, int outputTokens) {
             this.text = text;
             this.inputTokens = inputTokens;
             this.outputTokens = outputTokens;
         }
 
+        /**
+         * Creates an {@link LlmResponse} with only the response text and zero token counts.
+         */
         public static LlmResponse fromText(String text) {
             return new LlmResponse(text, 0, 0);
         }

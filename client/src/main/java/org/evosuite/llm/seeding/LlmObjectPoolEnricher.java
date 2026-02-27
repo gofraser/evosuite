@@ -19,15 +19,12 @@ import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Enriches EvoSuite's object pool with LLM-generated construction sequences.
@@ -119,8 +116,8 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
             diagnostics.add("Parse failure: " + t.getMessage());
         }
 
-        logger.info("Object pool enrichment: parsed={}, insertions={}, rejectedNoType={}, " +
-                        "rejectedValidation={}, rejectedAddFailure={}",
+        logger.info("Object pool enrichment: parsed={}, insertions={}, rejectedNoType={}, "
+                        + "rejectedValidation={}, rejectedAddFailure={}",
                 sequencesParsed, insertionsAccepted, rejectedNoType, rejectedValidation, rejectedAddFailure);
         if (!diagnostics.isEmpty()) {
             logger.debug("Object pool enrichment diagnostics: {}", diagnostics);
@@ -128,18 +125,18 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
 
         return new EnrichmentResult(true, insertionsAccepted, sequencesParsed,
                 rejectedNoType, rejectedValidation, rejectedAddFailure,
-                insertionsAccepted > 0 ? null : "No sequences added" +
-                        (diagnostics.isEmpty() ? "" : ": " + diagnostics));
+                insertionsAccepted > 0 ? null : "No sequences added"
+                        + (diagnostics.isEmpty() ? "" : ": " + diagnostics));
     }
 
     /**
      * Policy B-tight: Post-parse produced-type discovery with JDK filtering.
-     * <p>
-     * Discovers non-trivial types produced by statements, filters to domain-relevant
+     *
+     * <p>Discovers non-trivial types produced by statements, filters to domain-relevant
      * candidates (non-JDK or explicitly targeted), validates each with both
      * {@code hasObject} and {@code getLastObject}, then inserts under valid type keys.
-     * <p>
-     * Type-key filtering policy:
+     *
+     * <p>Type-key filtering policy:
      * <ol>
      *   <li>Basic exclusions: primitives, wrappers, void, Object</li>
      *   <li>JDK types (java.*, javax.*, sun.*, com.sun.*, jdk.*) excluded
@@ -268,6 +265,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         return false;
     }
 
+    /** Returns a list of non-trivial class names from the cluster that are candidates for pool enrichment. */
     List<String> collectInterestingTypes(TestCluster cluster) {
         List<String> types = new ArrayList<>();
         try {
@@ -298,15 +296,15 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         builder.withSystemPrompt()
                 .withSutContext(className, cluster)
                 .withInstruction(
-                        "Generate Java test methods that construct objects useful for testing " + className + ".\n\n" +
-                        "Key types involved:\n" + typeList + "\n" +
-                        "For each type, create a @Test method that:\n" +
-                        "1. Constructs an instance with interesting state\n" +
-                        "2. Exercises constructors, setters, and builder patterns\n" +
-                        "3. Creates edge-case configurations (empty, null fields, boundary values)\n\n" +
-                        "Format as a complete JUnit test class with imports.\n" +
-                        "Each method should set up one interesting object state.\n" +
-                        "Do NOT include assertions - focus on object construction only.")
+                        "Generate Java test methods that construct objects useful for testing " + className + ".\n\n"
+                        + "Key types involved:\n" + typeList + "\n"
+                        + "For each type, create a @Test method that:\n"
+                        + "1. Constructs an instance with interesting state\n"
+                        + "2. Exercises constructors, setters, and builder patterns\n"
+                        + "3. Creates edge-case configurations (empty, null fields, boundary values)\n\n"
+                        + "Format as a complete JUnit test class with imports.\n"
+                        + "Each method should set up one interesting object state.\n"
+                        + "Do NOT include assertions - focus on object construction only.")
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
         return builder.buildWithMetadata();
     }
@@ -328,6 +326,9 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         private final int rejectedValidation;
         private final int rejectedAddFailure;
 
+        /**
+         * Creates an {@link EnrichmentResult} with the given fields.
+         */
         public EnrichmentResult(boolean attempted, int sequencesAdded, int sequencesParsed,
                                 int rejectedNoType, int rejectedValidation, int rejectedAddFailure,
                                 String failureReason) {
@@ -378,6 +379,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         final int rejectedAddFailure;
         final List<String> diagnostics;
 
+        /** Constructs a result with insertion counts, rejection counts, and diagnostic messages. */
         TypeKeyInsertionResult(int insertions, int rejectedNoType,
                                int rejectedValidation, int rejectedAddFailure,
                                List<String> diagnostics) {

@@ -21,11 +21,11 @@ package org.evosuite.ga.diversity;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.SpeciationMetric;
+import org.evosuite.ga.FitnessFunction;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.MethodCall;
-import org.evosuite.ga.FitnessFunction;
 
 import java.util.*;
 

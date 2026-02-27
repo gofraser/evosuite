@@ -62,8 +62,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * A source of externally-produced candidate chromosomes that should be
      * injected into the MOSA union during {@code evolve()}.
-     * <p>
-     * Each source is drained once per generation. Returned lists may be empty
+     *
+     * <p>Each source is drained once per generation. Returned lists may be empty
      * but must not be null.
      */
     @FunctionalInterface
@@ -339,8 +339,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * Drains all registered {@link #externalCandidateSources}, evaluates
      * fitness for each candidate, and appends them to the given union list.
-     * <p>
-     * This is the single integration point for all external candidates
+     *
+     * <p>This is the single integration point for all external candidates
      * (island immigrants, LLM async producer, LLM stagnation, etc.).
      * It also drains any pending LS-improved tests staged by
      * {@link #applyLocalSearch(TestSuiteChromosome)}.
@@ -661,11 +661,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * improvements back into the MOSA search state.
      *
      * <h3>Persistence semantics</h3>
+     *
      * <p>{@code testSuite} is a transient object built from
      * {@link #generateSuite()}. The adapter delegates to
      * {@link TestSuiteLocalSearch} which may modify or add test chromosomes
      * in-place via AVM, DSE, or LLM search. Suite-level fitness functions
      * called during that process already update the global {@link Archive}.
+     *
      * <p>However, MOSA/DynaMOSA also maintain per-goal fitness bookkeeping
      * (e.g., {@code MultiCriteriaManager} in DynaMOSA) that is only updated
      * through {@link #calculateFitness(TestChromosome)}. Therefore, after
@@ -676,6 +678,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      *   <li>DynaMOSA's goal manager unlocks structurally dependent goals.</li>
      *   <li>The budget monitor records the coverage high-water mark.</li>
      * </ul>
+     *
      * <p>Population injection is handled indirectly: LS-sourced tests are
      * staged in {@link #pendingLsTests} and drained into the next
      * generation's union by {@link #collectExternalCandidates}. Only
@@ -683,6 +686,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * so unchanged archive snapshots are never injected.
      *
      * <h3>Conditional execution</h3>
+     *
      * <p>Re-evaluation only runs when {@link #shouldApplyLocalSearch()}
      * returned true during the adapter's delegation (tracked via
      * {@link #lastLocalSearchScheduled}). This avoids unnecessary fitness

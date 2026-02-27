@@ -25,6 +25,7 @@ public class TestRepairLoop {
     private final TestExecutor testExecutor;
     private final int maxAttempts;
 
+    /** Creates a repair loop using Properties-configured max attempts and a default test executor. */
     public TestRepairLoop(LlmService llmService,
                           TestParser testParser,
                           LlmResponseParser responseParser,
@@ -37,6 +38,7 @@ public class TestRepairLoop {
                 Properties.LLM_REPAIR_ATTEMPTS);
     }
 
+    /** Creates a repair loop with explicit executor and attempt count. */
     public TestRepairLoop(LlmService llmService,
                           TestParser testParser,
                           LlmResponseParser responseParser,
@@ -51,6 +53,7 @@ public class TestRepairLoop {
         this.maxAttempts = Math.max(0, maxAttempts);
     }
 
+    /** Attempts to parse the LLM response and repair it iteratively if parsing fails. */
     public RepairResult attemptParse(String llmResponse,
                                      List<LlmMessage> conversationHistory,
                                      LlmFeature feature) {
@@ -177,10 +180,12 @@ public class TestRepairLoop {
                 Throwable thrown = first == null ? null : executionResult.getExceptionThrownAtPosition(first);
                 String type = thrown == null ? "UnknownException" : thrown.getClass().getName();
                 String message = thrown == null ? "" : thrown.getMessage();
-                return "Execution error in test '" + parseResult.getOriginalMethodName() + "': " + type + " - " + message;
+                return "Execution error in test '" + parseResult.getOriginalMethodName()
+                        + "': " + type + " - " + message;
             }
         } catch (Throwable executionFailure) {
-            return "Execution failure in test '" + parseResult.getOriginalMethodName() + "': " + formatThrowable(executionFailure);
+            return "Execution failure in test '" + parseResult.getOriginalMethodName()
+                    + "': " + formatThrowable(executionFailure);
         }
         return null;
     }

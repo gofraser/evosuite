@@ -24,6 +24,7 @@ public class LlmConfiguration {
     private final Path traceDir;
     private final String runId;
 
+    /** Constructs an immutable LLM configuration snapshot with all fields. */
     public LlmConfiguration(Properties.LlmProvider provider,
                             String model,
                             String apiKey,
@@ -50,6 +51,9 @@ public class LlmConfiguration {
         this.runId = runId;
     }
 
+    /**
+     * Creates an {@link LlmConfiguration} from the current EvoSuite {@link Properties}.
+     */
     public static LlmConfiguration fromProperties() {
         String model = readWithEnvFallback(Properties.LLM_MODEL, "EVOSUITE_LLM_MODEL");
         String apiKey = readWithEnvFallback(Properties.LLM_API_KEY, "EVOSUITE_LLM_API_KEY");

@@ -40,15 +40,18 @@ public class StagnationDetector {
     private Double bestFitness = null;
     private Integer coveredGoals = null;
 
+    /** Creates a detector with singleton LLM service and Properties-configured thresholds. */
     public StagnationDetector() {
         this(LlmService.getInstance(), false, Properties.LLM_STAGNATION_GENERATIONS, Properties.LLM_STAGNATION_TESTS);
     }
 
+    /** Creates a detector with the given maximization flag and Properties-configured thresholds. */
     public StagnationDetector(boolean maximizationObjective) {
         this(LlmService.getInstance(), maximizationObjective,
                 Properties.LLM_STAGNATION_GENERATIONS, Properties.LLM_STAGNATION_TESTS);
     }
 
+    /** Creates a detector with explicit LLM service, maximization flag, and threshold settings. */
     public StagnationDetector(LlmService llmService,
                               boolean maximizationObjective,
                               int stagnationThreshold,
@@ -59,6 +62,7 @@ public class StagnationDetector {
         this.testsPerRequest = Math.max(1, testsPerRequest);
     }
 
+    /** Checks for stagnation based on the current best fitness value, returning true if stagnation detected. */
     public boolean checkStagnation(double currentBestFitness) {
         if (bestFitness == null) {
             bestFitness = currentBestFitness;
@@ -81,6 +85,7 @@ public class StagnationDetector {
         return false;
     }
 
+    /** Checks for stagnation based on the current covered goals count, returning true if stagnation detected. */
     public boolean checkStagnation(int currentCoveredGoals) {
         if (coveredGoals == null) {
             coveredGoals = currentCoveredGoals;
@@ -100,6 +105,7 @@ public class StagnationDetector {
         return false;
     }
 
+    /** Requests LLM-generated tests targeting uncovered goals when the search has stagnated. */
     public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
                                             List<TestChromosome> currentPopulation) {
         if (!llmService.isAvailable() || !llmService.hasBudget()) {
@@ -112,7 +118,8 @@ public class StagnationDetector {
         PromptResult prompt = buildPrompt(uncoveredGoals, currentPopulation);
         try {
             String response = llmService.query(prompt, LlmFeature.STAGNATION);
-            RepairResult result = createRepairLoop().attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION);
+            RepairResult result = createRepairLoop().attemptParse(
+                    response, prompt.getMessages(), LlmFeature.STAGNATION);
             if (!result.isSuccess()) {
                 return Collections.emptyList();
             }

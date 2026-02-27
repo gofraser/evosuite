@@ -34,11 +34,11 @@ public class LlmLiteralNiceifier {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmLiteralNiceifier.class);
 
-    /** Pattern for parsing replacement suggestions: "original" -> "replacement" */
+    /** Pattern for parsing replacement suggestions: "original" -> "replacement". */
     private static final Pattern REPLACEMENT_PATTERN =
             Pattern.compile("^\\s*\"((?:[^\"\\\\]|\\\\.)*)\"\\s*(?:->|→|=>)\\s*\"((?:[^\"\\\\]|\\\\.)*)\"\\s*$");
 
-    /** Pattern for numeric replacements: 42 -> 100 */
+    /** Pattern for numeric replacements: 42 -> 100. */
     private static final Pattern NUMERIC_REPLACEMENT_PATTERN =
             Pattern.compile("^\\s*(-?[\\d.]+[LlFfDd]?)\\s*(?:->|→|=>)\\s*(-?[\\d.]+[LlFfDd]?)\\s*$");
 
@@ -223,7 +223,9 @@ public class LlmLiteralNiceifier {
     }
 
     static String unescapeJava(String s) {
-        if (s == null) return null;
+        if (s == null) {
+            return null;
+        }
         return s.replace("\\\"", "\"")
                 .replace("\\\\", "\\")
                 .replace("\\n", "\n")

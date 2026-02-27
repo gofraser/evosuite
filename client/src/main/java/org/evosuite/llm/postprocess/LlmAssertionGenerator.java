@@ -39,8 +39,8 @@ public class LlmAssertionGenerator {
 
     /** Matches valid Java assertion calls to avoid accepting arbitrary code. */
     private static final Pattern SAFE_ASSERTION_PATTERN =
-            Pattern.compile("^assert(Equals|NotEquals|True|False|Null|NotNull|Same|NotSame|" +
-                    "ArrayEquals|Throws|DoesNotThrow|That|Timeout)\\s*\\(.*\\)\\s*;$");
+            Pattern.compile("^assert(Equals|NotEquals|True|False|Null|NotNull|Same|NotSame|"
+                    + "ArrayEquals|Throws|DoesNotThrow|That|Timeout)\\s*\\(.*\\)\\s*;$");
 
     /** Tokens that should never appear in assertion arguments (injection indicators). */
     private static final Set<String> SUSPICIOUS_TOKENS = Set.of(
@@ -94,8 +94,8 @@ public class LlmAssertionGenerator {
     private List<String> queryLlmForAssertions(TestCase test, ExecutionResult result, LlmService llmService) {
         List<LlmMessage> messages = new ArrayList<>();
         messages.add(LlmMessage.system(
-                "You are a test assertion assistant. Return only assertion statements, one per line. " +
-                "Use standard JUnit assertions (assertEquals, assertTrue, assertNotNull, etc)."));
+                "You are a test assertion assistant. Return only assertion statements, one per line. "
+                + "Use standard JUnit assertions (assertEquals, assertTrue, assertNotNull, etc)."));
 
         StringBuilder prompt = new StringBuilder();
         prompt.append("Generate meaningful assertions for this test of class ")

@@ -28,8 +28,8 @@ import java.util.List;
 
 /**
  * Injection adapter for MOSA-family algorithms that evolve {@link TestChromosome}.
- * <p>
- * Directly adds LLM-generated test chromosomes to the population with fitness
+ *
+ * <p>Directly adds LLM-generated test chromosomes to the population with fitness
  * function assignment. Population size limiting is left to the caller's
  * ranking/distillation logic (MOSA's non-dominated sorting handles this).
  */

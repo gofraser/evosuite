@@ -431,14 +431,14 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Returns uncovered test-level goals for WholeSuite algorithms.
-     * <p>
-     * WholeSuite GAs use {@link org.evosuite.testsuite.TestSuiteFitnessFunction}
+     *
+     * <p>WholeSuite GAs use {@link org.evosuite.testsuite.TestSuiteFitnessFunction}
      * (not {@link TestFitnessFunction}), so {@link #getUncoveredGoalsForTestChromosomes()}
      * yields nothing. This method derives test-level goals from
      * {@link org.evosuite.coverage.FitnessFunctions#getFitnessFactory} and
      * filters out goals already covered by the best suite in the population.
-     * <p>
-     * The all-goals list is computed once (lazily) and cached. The covered-goal
+     *
+     * <p>The all-goals list is computed once (lazily) and cached. The covered-goal
      * filtering is cheap (set lookup per generation).
      */
     protected Collection<TestFitnessFunction> getUncoveredGoalsForSuiteChromosomes() {

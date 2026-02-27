@@ -63,7 +63,10 @@ public class ObjectPoolManager extends ObjectPool {
         for (GenericClass<?> clazz : pool.getClasses()) {
             Set<TestCase> tests = pool.getSequences(clazz);
             this.pool.merge(clazz, Collections.synchronizedSet(new HashSet<>(tests)),
-                    (existing, incoming) -> { existing.addAll(incoming); return existing; });
+                    (existing, incoming) -> {
+                        existing.addAll(incoming);
+                        return existing;
+                    });
         }
     }
 

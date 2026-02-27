@@ -7,6 +7,7 @@ import org.evosuite.testcase.TestCase;
  */
 public class TestCaseFormatter {
 
+    /** Formats the given test case as a code string for inclusion in a prompt. */
     public String format(TestCase testCase) {
         if (testCase == null) {
             return "";

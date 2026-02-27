@@ -13,8 +13,8 @@ import java.util.concurrent.ConcurrentMap;
 /**
  * Selects and applies the configured {@link SutContextProvider} based on
  * {@code LLM_SUT_CONTEXT_MODE} with fallback/strict semantics.
- * <p>
- * Results are cached per (className, mode) so that expensive operations like
+ *
+ * <p>Results are cached per (className, mode) so that expensive operations like
  * bytecode disassembly or decompilation are performed at most once per class per run.
  */
 public class SutContextProviderFactory {
@@ -58,6 +58,7 @@ public class SutContextProviderFactory {
         }
     }
 
+    /** Constructs a factory with default provider implementations. */
     public SutContextProviderFactory() {
         this(new SignatureContextProvider(),
                 new BytecodeContextProvider(),
@@ -65,6 +66,7 @@ public class SutContextProviderFactory {
                 new SourceCodeContextProvider());
     }
 
+    /** Constructs a factory with explicit provider implementations for testing. */
     public SutContextProviderFactory(SutContextProvider signatureProvider,
                                      SutContextProvider bytecodeProvider,
                                      SutContextProvider decompiledProvider,
@@ -180,6 +182,7 @@ public class SutContextProviderFactory {
         private final LlmSutContextMode modeUsed;
         private final boolean contextUnavailable;
 
+        /** Constructs a context result with text, mode, and availability flag. */
         public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable) {
             this.text = text;
             this.modeUsed = modeUsed;

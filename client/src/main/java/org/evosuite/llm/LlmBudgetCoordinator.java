@@ -17,6 +17,8 @@ public interface LlmBudgetCoordinator {
     boolean tryAcquire();
 
     /**
+     * Returns the remaining budget, or -1 when unlimited.
+     *
      * @return remaining budget or -1 when unlimited
      */
     long getRemaining();

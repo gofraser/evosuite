@@ -12,6 +12,7 @@ import java.util.List;
  */
 public class CoverageGoalFormatter {
 
+    /** Formats the given collection of uncovered goals into a numbered list. */
     public String format(Collection<TestFitnessFunction> goals) {
         if (goals == null || goals.isEmpty()) {
             return "No uncovered goals available.";
@@ -25,6 +26,9 @@ public class CoverageGoalFormatter {
         return String.join(System.lineSeparator(), lines);
     }
 
+    /**
+     * Formats up to {@code maxGoals} closest uncovered goals for the given test.
+     */
     public String formatClosestGoals(TestChromosome test,
                                      Collection<TestFitnessFunction> goals,
                                      int maxGoals) {

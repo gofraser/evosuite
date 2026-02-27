@@ -32,8 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * MOSA-level LLM mutation operator. Probabilistically applies semantic
  * mutation via LLM; falls back gracefully if LLM is unavailable or fails.
- * <p>
- * This operator is additive: the caller should apply standard mutation
+ *
+ * <p>This operator is additive: the caller should apply standard mutation
  * when this operator returns false.
  */
 public class LanguageModelMutation {

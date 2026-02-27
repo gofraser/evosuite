@@ -30,9 +30,9 @@ import org.evosuite.ga.diversity.SpeciesPolicy;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
 import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.LoggingUtils;
@@ -401,7 +401,8 @@ public class DynaMOSA extends AbstractMOSA {
      * Computes the ratio of LLM-parsed statements to total statements in a population.
      */
     private static double computePopulationParsedRatio(List<TestChromosome> population) {
-        int total = 0, parsed = 0;
+        int total = 0;
+        int parsed = 0;
         for (TestChromosome tc : population) {
             for (int i = 0; i < tc.getTestCase().size(); i++) {
                 total++;
@@ -423,7 +424,9 @@ public class DynaMOSA extends AbstractMOSA {
         if (!parsedRatioTimeline.isEmpty()) {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < parsedRatioTimeline.size(); i++) {
-                if (i > 0) sb.append(";");
+                if (i > 0) {
+                    sb.append(";");
+                }
                 sb.append(String.format(Locale.ROOT, "%.4f", parsedRatioTimeline.get(i)));
             }
             clientNode.trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline,

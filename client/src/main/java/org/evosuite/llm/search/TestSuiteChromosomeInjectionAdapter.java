@@ -33,8 +33,8 @@ import java.util.List;
 /**
  * Injection adapter for WholeSuite algorithms (StandardGA/MonotonicGA) that
  * evolve {@link TestSuiteChromosome}.
- * <p>
- * LLM-generated {@link TestChromosome}s cannot be inserted directly into a
+ *
+ * <p>LLM-generated {@link TestChromosome}s cannot be inserted directly into a
  * {@code TestSuiteChromosome} population. This adapter supports two policies:
  * <ul>
  *   <li>{@link LlmSuiteInjectionPolicy#NEW_SUITE} (default):

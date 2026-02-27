@@ -25,7 +25,6 @@ import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.AssertStmt;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
-import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.assertion.NullAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
@@ -2203,15 +2202,14 @@ public class StatementParser {
         return sb.append(")").toString();
     }
 
-        private void addError(com.github.javaparser.ast.Node node, String message) {
-            int line = node.getBegin().map(p -> p.line).orElse(0);
-            result.addDiagnostic(new ParseDiagnostic(
-                    ParseDiagnostic.Severity.ERROR,
-                    message,
-                    line,
-                    node.toString()));
-        }
-    
+    private void addError(com.github.javaparser.ast.Node node, String message) {
+        int line = node.getBegin().map(p -> p.line).orElse(0);
+        result.addDiagnostic(new ParseDiagnostic(
+                ParseDiagnostic.Severity.ERROR,
+                message,
+                line,
+                node.toString()));
+    }
 
     private void addWarning(Expression expr, String message) {
         int line = expr.getBegin().map(p -> p.line).orElse(0);
@@ -2223,7 +2221,8 @@ public class StatementParser {
         return createUninterpretedStatement(astStmt, astStmt.toString());
     }
 
-    private UninterpretedStatement createUninterpretedStatement(com.github.javaparser.ast.Node bindingNode, String code) {
+    private UninterpretedStatement createUninterpretedStatement(
+            com.github.javaparser.ast.Node bindingNode, String code) {
         return new UninterpretedStatement(testCase, code, collectBindings(bindingNode));
     }
 

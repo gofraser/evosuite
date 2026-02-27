@@ -315,7 +315,8 @@ public class MOSA extends AbstractMOSA {
             // Calculate dominance ranks and crowding distance
             this.rankingFunction.computeRankingAssignment(this.population, this.getUncoveredGoals());
             for (int i = 0; i < this.rankingFunction.getNumberOfSubfronts(); i++) {
-                this.distance.fastEpsilonDominanceAssignment(this.rankingFunction.getSubfront(i), this.getUncoveredGoals());
+                this.distance.fastEpsilonDominanceAssignment(
+                        this.rankingFunction.getSubfront(i), this.getUncoveredGoals());
             }
 
             final ClientNodeLocal<TestChromosome> clientNode =
@@ -460,7 +461,8 @@ public class MOSA extends AbstractMOSA {
      * Computes the ratio of LLM-parsed statements to total statements in a population.
      */
     private static double computePopulationParsedRatio(List<TestChromosome> population) {
-        int total = 0, parsed = 0;
+        int total = 0;
+        int parsed = 0;
         for (TestChromosome tc : population) {
             for (int i = 0; i < tc.getTestCase().size(); i++) {
                 total++;
@@ -482,7 +484,9 @@ public class MOSA extends AbstractMOSA {
         if (!parsedRatioTimeline.isEmpty()) {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < parsedRatioTimeline.size(); i++) {
-                if (i > 0) sb.append(";");
+                if (i > 0) {
+                    sb.append(";");
+                }
                 sb.append(String.format(Locale.ROOT, "%.4f", parsedRatioTimeline.get(i)));
             }
             clientNode.trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline,

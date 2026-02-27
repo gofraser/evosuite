@@ -27,8 +27,8 @@ import java.util.List;
 
 /**
  * Chromosome-type-aware injection adapter for LLM-generated tests.
- * <p>
- * Different GA families evolve different chromosome types:
+ *
+ * <p>Different GA families evolve different chromosome types:
  * <ul>
  *   <li>MOSA/DynaMOSA evolve {@link TestChromosome} — direct injection is valid.</li>
  *   <li>WholeSuite (StandardGA/MonotonicGA) evolve {@code TestSuiteChromosome} —
@@ -42,8 +42,8 @@ public interface LlmInjectionAdapter<T extends Chromosome<T>> {
 
     /**
      * Inject LLM-generated {@link TestChromosome}s into the given population.
-     * <p>
-     * Implementations are responsible for adapting the raw test chromosomes
+     *
+     * <p>Implementations are responsible for adapting the raw test chromosomes
      * to the target population's chromosome type and maintaining population
      * size invariants.
      *

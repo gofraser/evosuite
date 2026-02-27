@@ -114,7 +114,8 @@ public class PropertiesSuiteGAFactory
                         return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(new RandomLengthTestFactory()));
                     case ARCHIVE:
                         logger.info("Using archive chromosome factory");
-                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(new ArchiveTestChromosomeFactory()));
+                        return new TestSuiteChromosomeFactory(
+                                applyLlmFactoryWrappers(new ArchiveTestChromosomeFactory()));
                     case JUNIT:
                         logger.info("Using seeding chromosome factory");
                         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(

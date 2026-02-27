@@ -148,10 +148,10 @@ public class LlmAssertionGeneratorStrategy extends AssertionGenerator {
 
         List<LlmMessage> messages = new ArrayList<>();
         messages.add(LlmMessage.system(
-                "You are a test assertion assistant. Return only JUnit assertion statements, " +
-                "one per line. Use standard JUnit assertions (assertEquals, assertTrue, " +
-                "assertNotNull, etc). Prefer using variable names directly in assertions " +
-                "rather than method calls on those variables."));
+                "You are a test assertion assistant. Return only JUnit assertion statements, "
+                + "one per line. Use standard JUnit assertions (assertEquals, assertTrue, "
+                + "assertNotNull, etc). Prefer using variable names directly in assertions "
+                + "rather than method calls on those variables."));
 
         StringBuilder prompt = new StringBuilder();
         prompt.append("Generate meaningful assertions for this test of class ")
@@ -163,8 +163,8 @@ public class LlmAssertionGeneratorStrategy extends AssertionGenerator {
             prompt.append("The test threw: ").append(firstException.getClass().getName()).append("\n");
         }
 
-        prompt.append("\nReturn only assertion statements, one per line. " +
-                "Use the exact variable names from the test code.");
+        prompt.append("\nReturn only assertion statements, one per line. "
+                + "Use the exact variable names from the test code.");
         messages.add(LlmMessage.user(prompt.toString()));
 
         try {

@@ -28,6 +28,7 @@ public class PromptBuilder {
     private Properties.LlmSutContextMode sutContextModeUsed;
     private boolean sutContextUnavailable;
 
+    /** Creates a builder with default provider implementations. */
     public PromptBuilder() {
         this(new SystemPromptProvider(),
                 new TestClusterSummarizer(),
@@ -37,6 +38,9 @@ public class PromptBuilder {
                 SutContextProviderFactory.getInstance());
     }
 
+    /**
+     * Creates a builder using the default {@link SutContextProviderFactory} singleton.
+     */
     public PromptBuilder(SystemPromptProvider systemPromptProvider,
                          TestClusterSummarizer testClusterSummarizer,
                          SourceCodeProvider sourceCodeProvider,
@@ -46,6 +50,7 @@ public class PromptBuilder {
                 coverageGoalFormatter, testCaseFormatter, new SutContextProviderFactory());
     }
 
+    /** Creates a builder with all providers and factory explicitly specified. */
     public PromptBuilder(SystemPromptProvider systemPromptProvider,
                          TestClusterSummarizer testClusterSummarizer,
                          SourceCodeProvider sourceCodeProvider,
@@ -77,18 +82,21 @@ public class PromptBuilder {
         String text = result.getText();
         if (text != null && !text.trim().isEmpty()) {
             userSections.add(result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
-            userSections.add("IMPORTANT: Ensure that all generic types (e.g., Vector<Character>, List<String>) match the "
+            userSections.add("IMPORTANT: Ensure that all generic types "
+                    + "(e.g., Vector<Character>, List<String>) match the "
                     + "class definition exactly. Do not use generic types like Vector<String> if the class "
                     + "expects Vector<Character>.");
         }
         return this;
     }
 
+    /** Adds test cluster context (available API signatures) to the user prompt. */
     public PromptBuilder withTestClusterContext(TestCluster cluster) {
         userSections.add("Available API context:\n" + testClusterSummarizer.summarize(cluster));
         return this;
     }
 
+    /** Adds the source code of the given class to the user prompt when available. */
     public PromptBuilder withSourceCode(String className) {
         Optional<String> sourceCode = sourceCodeProvider.getSourceCode(className);
         if (sourceCode.isPresent()) {
@@ -97,16 +105,19 @@ public class PromptBuilder {
         return this;
     }
 
+    /** Adds the given uncovered coverage goals as a section in the user prompt. */
     public PromptBuilder withUncoveredGoals(Collection<TestFitnessFunction> goals) {
         userSections.add("Uncovered goals:\n" + coverageGoalFormatter.format(goals));
         return this;
     }
 
+    /** Adds an existing test case to the user prompt as context. */
     public PromptBuilder withExistingTest(TestCase test) {
         userSections.add("Existing test:\n```java\n" + testCaseFormatter.format(test) + "\n```");
         return this;
     }
 
+    /** Adds multiple existing test cases to the user prompt as context. */
     public PromptBuilder withExistingTests(List<TestCase> tests) {
         if (tests == null || tests.isEmpty()) {
             return this;
@@ -126,11 +137,13 @@ public class PromptBuilder {
         return this;
     }
 
+    /** Adds a free-form instruction string as the final user prompt section. */
     public PromptBuilder withInstruction(String instruction) {
         userSections.add(instruction);
         return this;
     }
 
+    /** Applies the specified prompt technique to the user prompt. */
     public PromptBuilder withPromptTechnique(Properties.LlmPromptTechnique technique) {
         if (technique == null || technique == Properties.LlmPromptTechnique.NONE) {
             return this;
@@ -170,7 +183,9 @@ public class PromptBuilder {
         return new PromptResult(messages, sutContextModeUsed, sutContextUnavailable);
     }
 
-    /** Returns the context mode used by the last {@link #withSutContext} call, or null if not called. */
+    /**
+     * Returns the context mode used by the last {@link #withSutContext} call, or null if not called.
+     */
     public Properties.LlmSutContextMode getSutContextModeUsed() {
         return sutContextModeUsed;
     }

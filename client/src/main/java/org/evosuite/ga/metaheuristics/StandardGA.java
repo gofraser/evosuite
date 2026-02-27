@@ -163,7 +163,8 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                 // Determine fitness
                 calculateFitnessAndSortPopulation();
                 integrateAsyncTestsIntoPopulation();
-                maybeInjectOnStagnationByFitness(getBestIndividual().getFitness(), getUncoveredGoalsForSuiteChromosomes());
+                maybeInjectOnStagnationByFitness(
+                        getBestIndividual().getFitness(), getUncoveredGoalsForSuiteChromosomes());
 
                 applyLocalSearch();
 

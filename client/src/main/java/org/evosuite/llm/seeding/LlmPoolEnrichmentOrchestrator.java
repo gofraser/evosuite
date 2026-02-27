@@ -36,6 +36,7 @@ public class LlmPoolEnrichmentOrchestrator {
     private final AtomicBoolean objectResultTracked = new AtomicBoolean(false);
     private final AtomicBoolean castResultTracked = new AtomicBoolean(false);
 
+    /** Constructs an orchestrator with explicit enricher instances and timeout setting. */
     public LlmPoolEnrichmentOrchestrator(LlmConstantPoolEnricher constantPoolEnricher,
                                          LlmObjectPoolEnricher objectPoolEnricher,
                                          LlmCastClassEnricher castClassEnricher,
@@ -111,7 +112,8 @@ public class LlmPoolEnrichmentOrchestrator {
                 logResult("Cast class", castFuture);
             }
         } catch (TimeoutException e) {
-            logger.warn("LLM cast class enrichment timed out after {}s, cancelling and opening structural gate", timeoutSeconds);
+            logger.warn("LLM cast class enrichment timed out after {}s, cancelling and opening structural gate",
+                    timeoutSeconds);
             // Cooperative cancel — sets the enricher's cancelled flag so it won't
             // mutate CastClassManager even if the underlying thread is still running.
             castClassEnricher.cancel();
@@ -168,7 +170,9 @@ public class LlmPoolEnrichmentOrchestrator {
     }
 
     private void awaitFuture(CompletableFuture<?> future, long deadline) {
-        if (future == null || future.isDone()) return;
+        if (future == null || future.isDone()) {
+            return;
+        }
         long remaining = deadline - System.currentTimeMillis();
         if (remaining <= 0) {
             future.cancel(true);
@@ -195,7 +199,9 @@ public class LlmPoolEnrichmentOrchestrator {
     }
 
     private void logResult(String label, CompletableFuture<?> future) {
-        if (future == null) return;
+        if (future == null) {
+            return;
+        }
         if (future.isCancelled()) {
             logger.info("{} enrichment: cancelled", label);
             return;

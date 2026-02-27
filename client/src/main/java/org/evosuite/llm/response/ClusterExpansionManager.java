@@ -25,6 +25,7 @@ public class ClusterExpansionManager {
     private final Lock expansionLock = new ReentrantLock();
     private volatile List<String> lastExpandedClasses = Collections.emptyList();
 
+    /** Creates an expansion manager using the SUT class loader from the current test generation context. */
     public ClusterExpansionManager() {
         this(TestGenerationContext.getInstance().getClassLoaderForSUT());
     }
@@ -33,6 +34,7 @@ public class ClusterExpansionManager {
         this.sutClassLoader = sutClassLoader;
     }
 
+    /** Attempts to expand the test cluster with classes inferred from unresolved symbols in the parse results. */
     public boolean tryExpandFrom(List<ParseResult> parseResults) {
         Set<String> unresolved = extractUnresolvedSymbols(parseResults);
         if (unresolved.isEmpty()) {
@@ -63,6 +65,7 @@ public class ClusterExpansionManager {
         }
     }
 
+    /** Extracts unresolved symbol names from the diagnostics of the given parse results. */
     public Set<String> extractUnresolvedSymbols(List<ParseResult> parseResults) {
         Set<String> unresolved = new LinkedHashSet<>();
         if (parseResults == null) {

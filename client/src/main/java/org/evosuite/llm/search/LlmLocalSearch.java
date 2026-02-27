@@ -84,7 +84,8 @@ public class LlmLocalSearch extends TestCaseLocalSearch<TestChromosome> {
         PromptResult prompt = builder.buildWithMetadata();
         try {
             String response = llmService.query(prompt, LlmFeature.LOCAL_SEARCH);
-            RepairResult result = createRepairLoop().attemptParse(response, prompt.getMessages(), LlmFeature.LOCAL_SEARCH);
+            RepairResult result = createRepairLoop().attemptParse(
+                    response, prompt.getMessages(), LlmFeature.LOCAL_SEARCH);
             if (!result.isSuccess()) {
                 LocalSearchBudget.getInstance().countLocalSearchOnTest();
                 return false;

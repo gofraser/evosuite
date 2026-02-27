@@ -100,7 +100,8 @@ public class LlmTestNameGenerator implements TestNameGenerationStrategy {
         }
 
         List<LlmMessage> messages = new ArrayList<>();
-        messages.add(LlmMessage.system("You are a test naming assistant. Return only a numbered list of method names."));
+        messages.add(LlmMessage.system(
+                "You are a test naming assistant. Return only a numbered list of method names."));
         messages.add(LlmMessage.user(prompt.toString()));
 
         String response = llmService.query(messages, LlmFeature.TEST_NAMING);

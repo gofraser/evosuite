@@ -7,6 +7,7 @@ import org.evosuite.Properties;
  */
 public class SystemPromptProvider {
 
+    /** Returns the system prompt string configured for the current output format. */
     public String getSystemPrompt() {
         String coverageDirective = " Your goal is to maximize code coverage of the class under test: "
                 + "exercise every reachable method, branch, and edge case. "
