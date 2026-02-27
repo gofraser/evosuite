@@ -26,6 +26,7 @@ import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -52,6 +53,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class ExecutableSnippetEngine {
 
     public static final ExecutableSnippetEngine INSTANCE = new ExecutableSnippetEngine();
+
+    /** An output stream that silently discards all bytes written to it. */
+    private static final OutputStream DISCARD = new OutputStream() {
+        @Override public void write(int b) { }
+        @Override public void write(byte[] b, int off, int len) { }
+    };
 
     private static final class Binding {
         private final Type type;
@@ -128,6 +135,7 @@ public final class ExecutableSnippetEngine {
         }
     }
 
+    /** Executes the given source code snippet with the provided variable bindings and returns the result. */
     public StatementResult executeStatement(String sourceCode,
                                             Map<String, Type> variableTypes,
                                             Map<String, Object> variableValues,
@@ -149,6 +157,10 @@ public final class ExecutableSnippetEngine {
         }
     }
 
+    /**
+     * Evaluates the given assertion code snippet with the provided variable bindings
+     * and returns the boolean result.
+     */
     public boolean evaluateAssertion(String assertionCode,
                                      Map<String, Type> variableTypes,
                                      Map<String, Object> variableValues) throws Throwable {
@@ -207,8 +219,8 @@ public final class ExecutableSnippetEngine {
             String classpath = buildCompilationClasspath();
             int compilationResult = compiler.run(
                     null,
-                    null,
-                    null,
+                    DISCARD,
+                    DISCARD,
                     "-classpath", classpath,
                     "-d", compilationDir.toString(),
                     sourceFile.toString()
@@ -429,6 +441,7 @@ public final class ExecutableSnippetEngine {
         ClientServices.track(variable, counter.incrementAndGet());
     }
 
+    /** Resets all metric counters to zero (for use in tests only). */
     public void resetMetricsForTesting() {
         compileFailures.set(0);
         runtimeFailures.set(0);
@@ -436,6 +449,7 @@ public final class ExecutableSnippetEngine {
         assertionEvaluationFailures.set(0);
     }
 
+    /** Returns the number of snippet compilation failures recorded since this engine was created. */
     public int getCompileFailures() {
         return compileFailures.get();
     }

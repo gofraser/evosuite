@@ -1029,7 +1029,8 @@ public class StorageManager {
             return (Project) jaxbUnmarshaller.unmarshal(stream);
         } catch (Exception e) {
             String msg = "Error in reading " + current.getAbsolutePath() + " , " + e;
-            logger.error(msg, e);
+            logger.warn(msg);
+            logger.debug(msg, e);
             throw new RuntimeException(msg);
         }
     }
