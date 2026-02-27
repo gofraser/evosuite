@@ -291,6 +291,9 @@ public class DynaMOSA extends AbstractMOSA {
                 this.evolve();
                 // Stagnation injection now happens inside evolve() in the union/ranking path
                 this.notifyIteration();
+
+                // Apply local search at configured rate (gating is inside applyLocalSearch)
+                this.applyLocalSearch(this.generateSuite());
             }
         } finally {
             // Emit operator and speciation stats

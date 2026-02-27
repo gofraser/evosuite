@@ -22,6 +22,7 @@ package org.evosuite.testcase.localsearch;
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.localsearch.LocalSearch;
+import org.evosuite.llm.search.LlmLocalSearch;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.statements.NullStatement;
@@ -48,6 +49,17 @@ public abstract class TestCaseLocalSearch<T extends Chromosome<T>> implements Lo
      * @return .
      */
     public static TestCaseLocalSearch<TestChromosome> selectTestCaseLocalSearch() {
+        if (Properties.LLM_LOCAL_SEARCH) {
+            boolean llmOnly = Properties.LLM_LOCAL_SEARCH_MODE
+                    == Properties.LlmLocalSearchMode.LLM_ONLY;
+            if (llmOnly) {
+                return new LlmLocalSearch();
+            }
+            // HYBRID: probabilistically choose LLM, else fall through to DSE/AVM
+            if (Randomness.nextDouble() <= Properties.LLM_LOCAL_SEARCH_PROBABILITY) {
+                return new LlmLocalSearch();
+            }
+        }
         final double nextDouble = Randomness.nextDouble();
         boolean useDSE = nextDouble < Properties.DSE_PROBABILITY;
         if (useDSE) {

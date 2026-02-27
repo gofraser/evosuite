@@ -482,10 +482,13 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
             logger.debug("Local search budget not yet used up");
 
             final double tossCoin = Randomness.nextDouble();
+            final boolean llmOnly = Properties.LLM_LOCAL_SEARCH
+                    && Properties.LLM_LOCAL_SEARCH_MODE == Properties.LlmLocalSearchMode.LLM_ONLY;
             final boolean shouldApplyLlm = Properties.LLM_LOCAL_SEARCH
-                    && Randomness.nextDouble() <= Properties.LLM_LOCAL_SEARCH_PROBABILITY;
-            final boolean shouldApplyDSE = localSearchType == LocalSearchSuiteType.ALWAYS_DSE
-                    || (localSearchType == LocalSearchSuiteType.DSE_AND_AVM && tossCoin <= Properties.DSE_PROBABILITY);
+                    && (llmOnly || Randomness.nextDouble() <= Properties.LLM_LOCAL_SEARCH_PROBABILITY);
+            final boolean shouldApplyDSE = !llmOnly
+                    && (localSearchType == LocalSearchSuiteType.ALWAYS_DSE
+                    || (localSearchType == LocalSearchSuiteType.DSE_AND_AVM && tossCoin <= Properties.DSE_PROBABILITY));
 
             /*
              * We create a cloned test case to play local search with it. This
@@ -500,6 +503,9 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
                 improved = applyLLM(suite, lastIndex, clonedTest, objective);
             } else if (shouldApplyDSE) {
                 improved = applyDSE(suite, lastIndex, clonedTest, objective);
+            } else if (llmOnly) {
+                // LLM_ONLY mode but LLM was not applied (e.g., no budget) — skip AVM/DSE
+                improved = false;
             } else {
                 improved = applyAVM(suite, lastIndex, clonedTest, objective);
             }
@@ -525,7 +531,7 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
      * @return a boolean.
      */
-    private boolean applyAVM(TestSuiteChromosome suite,
+    protected boolean applyAVM(TestSuiteChromosome suite,
                              int testIndex,
                              TestChromosome test,
                              LocalSearchObjective<TestSuiteChromosome> objective) {
@@ -549,7 +555,7 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
      * @return a boolean.
      */
-    private boolean applyDSE(TestSuiteChromosome suite, int testIndex, TestChromosome test,
+    protected boolean applyDSE(TestSuiteChromosome suite, int testIndex, TestChromosome test,
                              LocalSearchObjective<TestSuiteChromosome> objective) {
 
         TestSuiteLocalSearchObjective testSuiteObject = TestSuiteLocalSearchObjective
@@ -561,7 +567,7 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
         return improved;
     }
 
-    private boolean applyLLM(TestSuiteChromosome suite, int testIndex, TestChromosome test,
+    protected boolean applyLLM(TestSuiteChromosome suite, int testIndex, TestChromosome test,
                              LocalSearchObjective<TestSuiteChromosome> objective) {
 
         TestSuiteLocalSearchObjective testSuiteObject = TestSuiteLocalSearchObjective

@@ -114,6 +114,25 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected Map<Integer, List<TestChromosome>> currentSpeciesMap;
 
     /**
+     * Tracks whether the last call to {@link #shouldApplyLocalSearch()} returned
+     * true. Used by {@link #applyLocalSearch(TestSuiteChromosome)} to gate
+     * re-evaluation: when the adapter delegates LS scheduling to this MOSA
+     * instance, only re-evaluate suite tests if LS was actually applied.
+     */
+    private boolean lastLocalSearchScheduled;
+
+    /**
+     * Pending LS-produced tests to be injected into the next generation's
+     * union via {@link #collectExternalCandidates}. Populated by
+     * {@link #applyLocalSearch(TestSuiteChromosome)} with only the delta
+     * (post-LS minus pre-LS suite tests) and drained during the subsequent
+     * {@link #evolve()} call. This ensures only truly LS-introduced tests
+     * compete in ranking and may become parents for future breeding,
+     * without staging unchanged archive snapshot tests.
+     */
+    private final List<TestChromosome> pendingLsTests = new ArrayList<>();
+
+    /**
      * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
@@ -323,10 +342,21 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * <p>
      * This is the single integration point for all external candidates
      * (island immigrants, LLM async producer, LLM stagnation, etc.).
+     * It also drains any pending LS-improved tests staged by
+     * {@link #applyLocalSearch(TestSuiteChromosome)}.
      *
      * @param union the parent+offspring union to extend
      */
     protected void collectExternalCandidates(List<TestChromosome> union) {
+        // Drain LS-improved tests staged by applyLocalSearch.
+        // These have already been evaluated through calculateFitness,
+        // so we add them directly to the union without re-evaluation.
+        if (!pendingLsTests.isEmpty()) {
+            union.addAll(pendingLsTests);
+            logger.debug("Injected {} LS-improved tests into union", pendingLsTests.size());
+            pendingLsTests.clear();
+        }
+
         for (ExternalCandidateSource source : externalCandidateSources) {
             try {
                 List<TestChromosome> candidates = source.drain();
@@ -627,11 +657,100 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Applies local search.
+     * Applies local search on a snapshot of archive solutions and persists
+     * improvements back into the MOSA search state.
      *
-     * @param testSuite the test suite
+     * <h3>Persistence semantics</h3>
+     * <p>{@code testSuite} is a transient object built from
+     * {@link #generateSuite()}. The adapter delegates to
+     * {@link TestSuiteLocalSearch} which may modify or add test chromosomes
+     * in-place via AVM, DSE, or LLM search. Suite-level fitness functions
+     * called during that process already update the global {@link Archive}.
+     * <p>However, MOSA/DynaMOSA also maintain per-goal fitness bookkeeping
+     * (e.g., {@code MultiCriteriaManager} in DynaMOSA) that is only updated
+     * through {@link #calculateFitness(TestChromosome)}. Therefore, after
+     * local search completes, we re-evaluate the suite's test chromosomes
+     * through the MOSA-specific fitness path so that:
+     * <ul>
+     *   <li>The archive is confirmed up-to-date via test-level fitness.</li>
+     *   <li>DynaMOSA's goal manager unlocks structurally dependent goals.</li>
+     *   <li>The budget monitor records the coverage high-water mark.</li>
+     * </ul>
+     * <p>Population injection is handled indirectly: LS-sourced tests are
+     * staged in {@link #pendingLsTests} and drained into the next
+     * generation's union by {@link #collectExternalCandidates}. Only
+     * truly LS-introduced tests (post-LS minus pre-LS delta) are staged,
+     * so unchanged archive snapshots are never injected.
+     *
+     * <h3>Conditional execution</h3>
+     * <p>Re-evaluation only runs when {@link #shouldApplyLocalSearch()}
+     * returned true during the adapter's delegation (tracked via
+     * {@link #lastLocalSearchScheduled}). This avoids unnecessary fitness
+     * evaluations and budget consumption when LS is skipped due to
+     * rate/probability gating.
+     *
+     * @param testSuite the test suite (typically from {@link #generateSuite()})
      */
     protected void applyLocalSearch(final TestSuiteChromosome testSuite) {
+        lastLocalSearchScheduled = false;
+
+        // Snapshot pre-LS suite tests by identity so we can compute the
+        // delta afterwards (only truly LS-produced tests should be staged).
+        Set<TestChromosome> preLsTests = Collections.newSetFromMap(new IdentityHashMap<>());
+        preLsTests.addAll(testSuite.getTestChromosomes());
+
         adapter.applyLocalSearch(testSuite);
+
+        // Re-evaluate LS-improved tests through the MOSA-specific fitness
+        // path only when local search actually executed. Skipping re-evaluation
+        // when LS was not applied avoids unnecessary budget consumption.
+        if (lastLocalSearchScheduled) {
+            for (TestChromosome tc : testSuite.getTestChromosomes()) {
+                if (!isFinished()) {
+                    this.calculateFitness(tc);
+                }
+            }
+            // Stage only LS-introduced tests (post minus pre) for injection
+            // into the next generation's ranking union.
+            stageLsTestsForPersistence(testSuite.getTestChromosomes(), preLsTests);
+        }
+    }
+
+    /**
+     * Stages LS-produced tests for injection into the next generation's union.
+     * Only tests that are new in the post-LS suite (not present in the pre-LS
+     * snapshot) and not already in the current population are staged.
+     * This prevents unchanged archive snapshot tests from being incorrectly
+     * treated as LS outputs.
+     */
+    private void stageLsTestsForPersistence(List<TestChromosome> postLsTests,
+                                            Set<TestChromosome> preLsTests) {
+        pendingLsTests.clear();
+        Set<TestChromosome> existing = Collections.newSetFromMap(new IdentityHashMap<>());
+        existing.addAll(this.population);
+        for (TestChromosome tc : postLsTests) {
+            if (!preLsTests.contains(tc) && !existing.contains(tc)) {
+                pendingLsTests.add(tc);
+            }
+        }
+        if (!pendingLsTests.isEmpty()) {
+            logger.debug("Staged {} LS-improved tests for next generation",
+                    pendingLsTests.size());
+        }
+    }
+
+    /**
+     * Overrides the gating check to track whether local search was scheduled.
+     * The adapter delegates LS scheduling to this MOSA instance; the flag
+     * is read by {@link #applyLocalSearch(TestSuiteChromosome)} to decide
+     * whether post-LS re-evaluation is needed.
+     */
+    @Override
+    protected boolean shouldApplyLocalSearch() {
+        boolean should = super.shouldApplyLocalSearch();
+        if (should) {
+            lastLocalSearchScheduled = true;
+        }
+        return should;
     }
 }

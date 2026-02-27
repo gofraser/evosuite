@@ -331,6 +331,9 @@ public class MOSA extends AbstractMOSA {
             while (!this.isFinished() && this.getNumberOfUncoveredGoals() > 0) {
                 this.evolve();
                 this.notifyIteration();
+
+                // Apply local search at configured rate (gating is inside applyLocalSearch)
+                this.applyLocalSearch(this.generateSuite());
             }
 
             if (Properties.NUM_PARALLEL_CLIENTS > 1) {

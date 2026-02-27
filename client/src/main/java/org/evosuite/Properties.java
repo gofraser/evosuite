@@ -1746,10 +1746,33 @@ public class Properties {
             description = "Enable LLM-assisted local search")
     public static boolean LLM_LOCAL_SEARCH = false;
 
+    /** Dispatch mode for LLM local search. */
+    public enum LlmLocalSearchMode {
+        /** LLM competes with AVM/DSE according to probabilities. */
+        HYBRID,
+        /** Use only LLM local search; never dispatch AVM or DSE. */
+        LLM_ONLY
+    }
+
+    @Parameter(key = "llm_local_search_mode", group = "LLM",
+            description = "Dispatch mode for local search when llm_local_search=true: "
+                    + "HYBRID lets LLM compete with AVM/DSE; LLM_ONLY skips AVM/DSE entirely")
+    public static LlmLocalSearchMode LLM_LOCAL_SEARCH_MODE = LlmLocalSearchMode.HYBRID;
+
     @Parameter(key = "llm_local_search_probability", group = "LLM",
             description = "Probability of using LLM local search when local search runs")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double LLM_LOCAL_SEARCH_PROBABILITY = 0.1;
+
+    @Parameter(key = "llm_local_search_related_goals_only", group = "LLM",
+            description = "If true, include only goals related to the test under local search "
+                    + "when relation ranking is available; otherwise include all uncovered goals")
+    public static boolean LLM_LOCAL_SEARCH_RELATED_GOALS_ONLY = true;
+
+    @Parameter(key = "llm_local_search_related_goals_max", group = "LLM",
+            description = "Maximum number of related goals included in LLM local-search prompts")
+    @IntValue(min = 1)
+    public static int LLM_LOCAL_SEARCH_RELATED_GOALS_MAX = 20;
 
     @Parameter(key = "llm_enrich_constant_pool", group = "LLM",
             description = "Enable LLM enrichment of constant pools")
