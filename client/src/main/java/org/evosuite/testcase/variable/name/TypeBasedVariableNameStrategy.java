@@ -1,5 +1,5 @@
-/*
- * Copyright (C) 2010-2018 Gordon Fraser, Andrea Arcuri and EvoSuite
+/**
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
  * This file is part of EvoSuite.
@@ -17,7 +17,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package org.evosuite.testcase.variable.name;
 
 import org.apache.commons.lang3.CharUtils;

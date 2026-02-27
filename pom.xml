@@ -633,6 +633,10 @@
                         <exclude>*.txt</exclude>
                         <exclude>removed/**</exclude>
                         <exclude>llm_experiment/**</exclude>
+                        <exclude>run_experiments.py</exclude>
+                        <exclude>scripts/**</exclude>
+                        <exclude>run_debug.py</exclude>
+                        <exclude>*.md</exclude>
                     </excludes>
                 </configuration>
             </plugin>
