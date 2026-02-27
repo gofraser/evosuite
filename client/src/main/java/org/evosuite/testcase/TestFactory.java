@@ -491,10 +491,30 @@ public class TestFactory {
             addPrimitive(test, (PrimitiveStatement<?>) statement, test.size(), context);
         } else if (statement instanceof FieldStatement) {
             addField(test, ((FieldStatement) statement).getField(), test.size(), context);
+        } else if (statement instanceof AssignmentStatement) {
+            // AssignmentStatement references two existing variables (target
+            // and value).  During crossover the source parent's variable
+            // positions are meaningless in the offspring, so we skip it —
+            // the assignment is not a core test action and cannot be
+            // re-resolved from scratch.
+            logger.debug("Skipping AssignmentStatement during crossover append");
+        } else if (statement instanceof UninterpretedStatement) {
+            // UninterpretedStatement may carry variable bindings that
+            // reference positions in the source parent.  Re-resolving them
+            // in the offspring is not possible, so we copy the raw source
+            // code without bindings.  The snippet will still compile if it
+            // only uses literals/static calls; if it needs the bindings it
+            // will fail gracefully at execution time.
+            UninterpretedStatement orig = (UninterpretedStatement) statement;
+            UninterpretedStatement copy = new UninterpretedStatement(
+                    test, orig.getReturnType(), orig.getSourceCode());
+            copy.setParsedFromLlm(orig.isParsedFromLlm());
+            test.addStatement(copy);
         } else {
-            // UninterpretedStatement, ArrayStatement, AssignmentStatement,
-            // NullStatement — add directly
-            test.addStatement(statement);
+            // NullStatement, ArrayStatement — their copy() methods create
+            // fresh variable references without positional lookups, so
+            // clone is safe.
+            test.addStatement(statement.clone(test));
         }
     }
 
