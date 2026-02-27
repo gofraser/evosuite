@@ -117,6 +117,16 @@ public class ClusterExpansionManager {
             return fromJavaLang;
         }
 
+        Class<?> fromJavaUtil = loadClass("java.util." + trimmed);
+        if (fromJavaUtil != null) {
+            return fromJavaUtil;
+        }
+
+        Class<?> fromJavaIo = loadClass("java.io." + trimmed);
+        if (fromJavaIo != null) {
+            return fromJavaIo;
+        }
+
         for (Class<?> analyzed : TestCluster.getInstance().getAnalyzedClasses()) {
             if (analyzed.getSimpleName().equals(trimmed)) {
                 return analyzed;

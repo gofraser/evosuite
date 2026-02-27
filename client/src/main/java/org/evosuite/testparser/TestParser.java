@@ -50,9 +50,27 @@ public class TestParser {
     private final ClassLoader classLoader;
     private final TestMethodParser methodParser;
 
+    /** When true, all statements produced by this parser are marked as LLM-parsed. */
+    private boolean markParsedFromLlm = false;
+
     public TestParser(ClassLoader classLoader) {
         this.classLoader = classLoader;
         this.methodParser = new TestMethodParser();
+    }
+
+    /**
+     * Sets whether test cases produced by this parser should have their
+     * statements marked as originating from LLM-generated code.
+     */
+    public void setMarkParsedFromLlm(boolean mark) {
+        this.markParsedFromLlm = mark;
+    }
+
+    /**
+     * Returns whether this parser marks statements with LLM provenance.
+     */
+    public boolean isMarkParsedFromLlm() {
+        return this.markParsedFromLlm;
     }
 
     /**
@@ -64,6 +82,18 @@ public class TestParser {
     public static TestParser forSUT() {
         return new TestParser(
                 org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT());
+    }
+
+    /**
+     * Create a TestParser for LLM-generated code. Statements created by this parser
+     * will be marked with LLM provenance ({@code parsedFromLlm = true}).
+     *
+     * @return a TestParser configured with the SUT classloader and LLM provenance marking
+     */
+    public static TestParser forSUTWithLlmProvenance() {
+        TestParser parser = forSUT();
+        parser.setMarkParsedFromLlm(true);
+        return parser;
     }
 
     /**
@@ -153,7 +183,9 @@ public class TestParser {
         TypeResolver typeResolver = new TypeResolver(classLoader, imports);
         VariableScope scope = new VariableScope();
         StatementParser stmtParser = new StatementParser(testCase, typeResolver, scope, result);
+        stmtParser.setMarkParsedFromLlm(this.markParsedFromLlm);
 
+        int statementsBeforeParse = testCase.size();
         List<com.github.javaparser.ast.stmt.Statement> astStatements = methodParser.extractBody(method);
         for (int i = 0; i < astStatements.size(); ) {
             com.github.javaparser.ast.stmt.Statement astStmt = astStatements.get(i);
@@ -171,6 +203,13 @@ public class TestParser {
                 // Preserve as UninterpretedStatement so the source is not lost
                 testCase.addStatement(stmtParser.createUninterpretedStatementFromAst(astStmt));
                 i++;
+            }
+        }
+
+        // Mark all statements created during this parse pass as LLM-originated
+        if (this.markParsedFromLlm) {
+            for (int i = statementsBeforeParse; i < testCase.size(); i++) {
+                testCase.getStatement(i).setParsedFromLlm(true);
             }
         }
 

@@ -68,6 +68,9 @@ public class DynaMOSA extends AbstractMOSA {
     private final List<Integer> speciesCountTimeline = new ArrayList<>();
     private final List<Double> speciesLargestShareTimeline = new ArrayList<>();
 
+    /** Per-generation LLM-parsed statement ratio for timeline emission. */
+    private final List<Double> parsedRatioTimeline = new ArrayList<>();
+
     /**
      * Constructor based on the abstract class. {@link AbstractMOSA}.
      *
@@ -234,9 +237,10 @@ public class DynaMOSA extends AbstractMOSA {
             this.population.addAll(rankedCandidates);
         }
 
+        // Record LLM parsed-statement ratio for this generation
+        parsedRatioTimeline.add(computePopulationParsedRatio(this.population));
+
         this.currentIteration++;
-        //logger.debug("N. fronts = {}", ranking.getNumberOfSubfronts());
-        //logger.debug("1* front size = {}", ranking.getSubfront(0).size());
         logger.debug("Covered goals = {}", goalsManager.getCoveredGoals().size());
         logger.debug("Current goals = {}", goalsManager.getCurrentGoals().size());
         logger.debug("Uncovered goals = {}", goalsManager.getUncoveredGoals().size());
@@ -295,6 +299,7 @@ public class DynaMOSA extends AbstractMOSA {
                         ClientServices.getInstance().getClientNode();
                 emitOperatorStats(clientNode);
                 emitSpeciesTimelineVariables(clientNode);
+                emitParsedRatioVariables(clientNode);
             } catch (Exception e) {
                 logger.debug("Failed to emit Phase 5 stats", e);
             }
@@ -386,6 +391,40 @@ public class DynaMOSA extends AbstractMOSA {
         if (!speciesLargestShareTimeline.isEmpty()) {
             clientNode.trackOutputVariable(RuntimeVariable.Species_Largest_Share_Timeline,
                     speciesLargestShareTimeline.toString());
+        }
+    }
+
+    /**
+     * Computes the ratio of LLM-parsed statements to total statements in a population.
+     */
+    private static double computePopulationParsedRatio(List<TestChromosome> population) {
+        int total = 0, parsed = 0;
+        for (TestChromosome tc : population) {
+            for (int i = 0; i < tc.getTestCase().size(); i++) {
+                total++;
+                if (tc.getTestCase().getStatement(i).isParsedFromLlm()) {
+                    parsed++;
+                }
+            }
+        }
+        return total > 0 ? (double) parsed / total : 0.0;
+    }
+
+    /**
+     * Emit LLM parsed-statement ratio and timeline runtime variables.
+     */
+    private void emitParsedRatioVariables(ClientNodeLocal<?> clientNode) {
+        // Use population (not archive) to be consistent with per-generation timeline
+        double finalRatio = computePopulationParsedRatio(this.population);
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio, finalRatio);
+        if (!parsedRatioTimeline.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parsedRatioTimeline.size(); i++) {
+                if (i > 0) sb.append(";");
+                sb.append(String.format(Locale.ROOT, "%.4f", parsedRatioTimeline.get(i)));
+            }
+            clientNode.trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline,
+                    sb.toString());
         }
     }
 }

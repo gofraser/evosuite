@@ -359,7 +359,10 @@ public class TestSuiteGenerator {
             }
         }
 
-        if (Properties.INLINE) {
+        // LLMSTRATEGY skips minimization, inlining, and assertion-generation phases
+        boolean isLlmStrategy = Properties.STRATEGY == Properties.Strategy.LLMSTRATEGY;
+
+        if (Properties.INLINE && !isLlmStrategy) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.INLINING);
             ConstantInliner inliner = new ConstantInliner();
             // progressMonitor.setCurrentPhase("Inlining constants");
@@ -370,7 +373,7 @@ public class TestSuiteGenerator {
             inliner.inline(testSuite);
         }
 
-        if (Properties.MINIMIZE) {
+        if (Properties.MINIMIZE && !isLlmStrategy) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
             // progressMonitor.setCurrentPhase("Minimizing test cases");
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
@@ -491,7 +494,7 @@ public class TestSuiteGenerator {
             }
         }
 
-        if (Properties.ASSERTIONS) {
+        if (Properties.ASSERTIONS && !isLlmStrategy) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
             // progressMonitor.setCurrentPhase("Generating assertions");
             ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);

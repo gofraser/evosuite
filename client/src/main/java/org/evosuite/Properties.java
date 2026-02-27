@@ -1683,6 +1683,23 @@ public class Properties {
     @IntValue(min = 1)
     public static int LLM_SEED_COUNT = 5;
 
+    // --- LLM Strategy Mode ---
+    public enum LlmStrategyMode {
+        /** One-shot baseline: generate once and stop. */
+        SINGLE_PROMPT,
+        /** Iterative baseline: query, run, re-query for uncovered goals until budget exhausted. */
+        ITERATIVE_BUDGETED
+    }
+
+    @Parameter(key = "llm_strategy_mode", group = "LLM",
+            description = "Mode for LLMSTRATEGY: one-shot baseline or iterative budgeted querying")
+    public static LlmStrategyMode LLM_STRATEGY_MODE = LlmStrategyMode.SINGLE_PROMPT;
+
+    @Parameter(key = "llm_strategy_iterative_tests", group = "LLM",
+            description = "Number of tests requested per iterative LLMSTRATEGY query")
+    @IntValue(min = 1)
+    public static int LLM_STRATEGY_ITERATIVE_TESTS = 3;
+
     @Parameter(key = "llm_test_factory", group = "LLM",
             description = "Enable LLM test-factory wrapper; fallback factory remains active")
     public static boolean LLM_TEST_FACTORY = false;
@@ -2313,7 +2330,7 @@ public class Properties {
     public static boolean EXCLUDE_IBRANCHES_CUT = false;
 
     public enum Strategy {
-        ONEBRANCH, EVOSUITE, RANDOM, RANDOM_FIXED, ENTBUG, MOSUITE, DSE, NOVELTY, MAP_ELITES, LLM_BASELINE
+        ONEBRANCH, EVOSUITE, RANDOM, RANDOM_FIXED, ENTBUG, MOSUITE, DSE, NOVELTY, MAP_ELITES, LLMSTRATEGY
     }
 
     @Parameter(key = "strategy", group = "Runtime", description = "Which mode to use")

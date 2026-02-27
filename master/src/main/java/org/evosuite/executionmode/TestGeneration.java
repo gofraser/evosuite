@@ -43,6 +43,8 @@ import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.statistics.SearchStatistics;
 import org.evosuite.utils.ExternalProcessGroupHandler;
 import org.evosuite.utils.LoggingUtils;
+
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -146,21 +148,21 @@ public class TestGeneration {
                 new Option("generateNumRandom", true, "generate fixed number of random tests"),
                 new Option("generateMOSuite", "use many objective test generation (MOSA). "
                         + "This is the default behavior."),
-                new Option("generateSuiteUsingDSE", "use Dynamic Symbolic Execution to generate test suite")
+                new Option("generateSuiteUsingDSE", "use Dynamic Symbolic Execution to generate test suite"),
+                new Option("generateLlmSuite", "use LLM-based test generation")
         };
     }
 
     private static Strategy getChosenStrategy(List<String> javaOpts, CommandLine line) {
+        // Robustly extract -Dstrategy=<value> from javaOpts (case-insensitive enum match)
+        Strategy javaOptStrategy = parseStrategyFromJavaOpts(javaOpts);
+
         Strategy strategy = null;
-        if (javaOpts.contains("-Dstrategy=" + Strategy.ENTBUG.name())
-                && line.hasOption("generateTests")) {
+        if (javaOptStrategy == Strategy.ENTBUG && line.hasOption("generateTests")) {
             strategy = Strategy.ENTBUG;
-            // TODO: Find a better way to integrate this
-        } else if (javaOpts.contains("-Dstrategy=" + Strategy.NOVELTY.name())) {
-            // TODO: Find a better way to integrate this
+        } else if (javaOptStrategy == Strategy.NOVELTY) {
             strategy = Strategy.NOVELTY;
-        } else if (javaOpts.contains("-Dstrategy=" + Strategy.MAP_ELITES.name())) {
-            // TODO: Find a better way to integrate this
+        } else if (javaOptStrategy == Strategy.MAP_ELITES) {
             strategy = Strategy.MAP_ELITES;
         } else if (line.hasOption("generateTests")) {
             strategy = Strategy.ONEBRANCH;
@@ -176,8 +178,35 @@ public class TestGeneration {
             strategy = Strategy.MOSUITE;
         } else if (line.hasOption("generateSuiteUsingDSE")) {
             strategy = Strategy.DSE;
+        } else if (line.hasOption("generateLlmSuite") || javaOptStrategy == Strategy.LLMSTRATEGY) {
+            strategy = Strategy.LLMSTRATEGY;
         }
         return strategy;
+    }
+
+    /**
+     * Parses {@code -Dstrategy=<value>} from javaOpts with case-insensitive enum matching.
+     * Skips unrecognized values and returns the first valid strategy found,
+     * or {@code null} if no valid strategy option exists.
+     */
+    static Strategy parseStrategyFromJavaOpts(List<String> javaOpts) {
+        final String prefix = "-Dstrategy=";
+        for (String opt : javaOpts) {
+            if (opt.startsWith(prefix)) {
+                String value = opt.substring(prefix.length()).trim();
+                try {
+                    return Strategy.valueOf(value.toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    // Also try exact case for backward compatibility
+                    try {
+                        return Strategy.valueOf(value);
+                    } catch (IllegalArgumentException ignored) {
+                        // Unrecognized value — continue scanning remaining opts
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     private static List<List<TestGenerationResult>> generateTestsPrefix(Properties.Strategy strategy, String prefix,
@@ -394,6 +423,9 @@ public class TestGeneration {
                 break;
             case MAP_ELITES:
                 cmdLine.add("-Dstrategy=MAP_ELITES");
+                break;
+            case LLMSTRATEGY:
+                cmdLine.add("-Dstrategy=" + Strategy.LLMSTRATEGY.name());
                 break;
             default:
                 throw new RuntimeException("Unsupported strategy: " + strategy);

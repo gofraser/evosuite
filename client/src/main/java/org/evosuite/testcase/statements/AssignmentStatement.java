@@ -106,6 +106,7 @@ public class AssignmentStatement extends AbstractStatement {
 
             AssignmentStatement copy = new AssignmentStatement(newTestCase, newTarget,
                     newParam);
+            copyProvenanceFrom(copy, this);
 
             return copy;
         } catch (Exception e) {

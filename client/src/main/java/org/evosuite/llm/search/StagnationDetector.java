@@ -156,7 +156,7 @@ public class StagnationDetector {
     private TestRepairLoop createRepairLoop() {
         return new TestRepairLoop(
                 llmService,
-                TestParser.forSUT(),
+                TestParser.forSUTWithLlmProvenance(),
                 new LlmResponseParser(),
                 new ClusterExpansionManager());
     }

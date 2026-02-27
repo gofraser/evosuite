@@ -381,19 +381,34 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         String methodName = (String) ois.readObject();
         String methodDesc = (String) ois.readObject();
 
-        for (Method method : methodClass.getDeclaredMethods()) {
-            if (method.getName().equals(methodName)) {
-                if (org.objectweb.asm.Type.getMethodDescriptor(method).equals(methodDesc)) {
-                    this.method = method;
-                    return;
-                }
-            }
-        }
+        this.method = findMethod(methodClass, methodName, methodDesc);
 
         if (this.method == null) {
             throw new IllegalStateException("Unknown method for " + methodName
                     + " in class " + methodClass.getCanonicalName());
         }
+    }
+
+    private Method findMethod(Class<?> clazz, String name, String desc) {
+        Class<?> current = clazz;
+        while (current != null) {
+            for (Method m : current.getDeclaredMethods()) {
+                if (m.getName().equals(name)) {
+                    if (org.objectweb.asm.Type.getMethodDescriptor(m).equals(desc)) {
+                        return m;
+                    }
+                }
+            }
+            current = current.getSuperclass();
+        }
+        // If not found in class hierarchy, try interfaces (e.g. for default methods)
+        for (Class<?> iface : clazz.getInterfaces()) {
+            Method m = findMethod(iface, name, desc);
+            if (m != null) {
+                return m;
+            }
+        }
+        return null;
     }
 
     @Override

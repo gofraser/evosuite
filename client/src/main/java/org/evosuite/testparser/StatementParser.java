@@ -22,8 +22,10 @@ package org.evosuite.testparser;
 import com.github.javaparser.ast.ArrayCreationLevel;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.stmt.AssertStmt;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
+import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.assertion.NullAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
@@ -74,6 +76,10 @@ public class StatementParser {
 
     /** Counter for generating unique names for synthetic variables (inline literals, etc.) */
     private int syntheticVarCounter = 0;
+
+    /** When true, all statements created by this parser are marked as LLM-parsed. */
+    private boolean markParsedFromLlm = false;
+
     /**
      * Create a new StatementParser.
      *
@@ -88,6 +94,18 @@ public class StatementParser {
         this.typeResolver = typeResolver;
         this.scope = scope;
         this.result = result;
+    }
+
+    /**
+     * Sets whether statements created by this parser should be marked
+     * as originating from LLM-generated code.
+     */
+    public void setMarkParsedFromLlm(boolean mark) {
+        this.markParsedFromLlm = mark;
+    }
+
+    public boolean isMarkParsedFromLlm() {
+        return markParsedFromLlm;
     }
 
     // ========================================================================
@@ -117,6 +135,9 @@ public class StatementParser {
         if (astStmt instanceof ExpressionStmt) {
             ExpressionStmt exprStmt = (ExpressionStmt) astStmt;
             return handleExpressionStatement(exprStmt.getExpression(), allStatements, currentIndex);
+        } else if (astStmt instanceof AssertStmt) {
+            handleAssertStatement((AssertStmt) astStmt);
+            return 1;
         } else {
             // Fallback: preserve as UninterpretedStatement
             int line = astStmt.getBegin().map(p -> p.line).orElse(0);
@@ -946,6 +967,23 @@ public class StatementParser {
         } catch (Exception e) {
             addError(expr, "Failed to parse method call: " + e.getMessage());
             return null;
+        }
+    }
+
+    private void handleAssertStatement(AssertStmt assertStmt) {
+        try {
+            Expression condition = assertStmt.getCheck();
+            VariableReference var = handleExpression("__assert_cond" + syntheticVarCounter++, condition, boolean.class);
+            if (var != null) {
+                PrimitiveAssertion assertion = new PrimitiveAssertion();
+                assertion.setSource(var);
+                assertion.setValue(true);
+                attachAssertionToSource(var, assertion);
+            } else {
+                addError(assertStmt, "Cannot resolve assertion condition: " + condition);
+            }
+        } catch (Exception e) {
+            addError(assertStmt, "Failed to parse assert statement: " + e.getMessage());
         }
     }
 
@@ -2165,11 +2203,15 @@ public class StatementParser {
         return sb.append(")").toString();
     }
 
-    private void addError(Expression expr, String message) {
-        int line = expr.getBegin().map(p -> p.line).orElse(0);
-        result.addDiagnostic(new ParseDiagnostic(
-                ParseDiagnostic.Severity.ERROR, message, line, expr.toString()));
-    }
+        private void addError(com.github.javaparser.ast.Node node, String message) {
+            int line = node.getBegin().map(p -> p.line).orElse(0);
+            result.addDiagnostic(new ParseDiagnostic(
+                    ParseDiagnostic.Severity.ERROR,
+                    message,
+                    line,
+                    node.toString()));
+        }
+    
 
     private void addWarning(Expression expr, String message) {
         int line = expr.getBegin().map(p -> p.line).orElse(0);

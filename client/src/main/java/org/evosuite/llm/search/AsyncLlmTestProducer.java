@@ -88,7 +88,7 @@ public class AsyncLlmTestProducer {
     private void produceLoop() {
         TestRepairLoop repairLoop = new TestRepairLoop(
                 llmService,
-                TestParser.forSUT(),
+                TestParser.forSUTWithLlmProvenance(),
                 new LlmResponseParser(),
                 new ClusterExpansionManager());
         int generatedSinceRefresh = refreshInterval;

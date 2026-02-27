@@ -147,6 +147,7 @@ public class PrivateFieldStatement extends MethodStatement {
             VariableReference value = parameters.get(3).copy(newTestCase, offset);
 
             pf = new PrivateFieldStatement(newTestCase, ownerClass.getRawClass(), fieldName, owner, value);
+            copyProvenanceFrom(pf, this);
 
             return pf;
         } catch (NoSuchFieldException | ConstructionFailedException e) {

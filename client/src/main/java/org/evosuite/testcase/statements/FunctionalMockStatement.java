@@ -665,6 +665,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             copy.methodParameters.put(entry.getKey(), copiedArray);
         }
 
+        copyProvenanceFrom(copy, this);
+
         return copy;
     }
 

@@ -117,7 +117,7 @@ public class LlmSemanticCrossover {
     private TestRepairLoop createRepairLoop() {
         return new TestRepairLoop(
                 llmService,
-                TestParser.forSUT(),
+                TestParser.forSUTWithLlmProvenance(),
                 new LlmResponseParser(),
                 new ClusterExpansionManager());
     }

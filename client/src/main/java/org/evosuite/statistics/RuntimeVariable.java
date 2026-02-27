@@ -738,7 +738,18 @@ public enum RuntimeVariable {
     /**
      * Per-generation largest species share timeline (speciation_enabled + species_largest_share_timeline_enabled).
      */
-    Species_Largest_Share_Timeline;
+    Species_Largest_Share_Timeline,
+
+    // ---- Phase 6: Parsed-Statement Provenance ----
+
+    /**
+     * Ratio of LLM-parsed statements to total statements in the final population.
+     */
+    LLM_Parsed_Statement_Ratio,
+    /**
+     * Per-iteration or per-generation timeline of the LLM-parsed statement ratio.
+     */
+    LLM_Parsed_Statement_Ratio_Timeline;
 
     /* -------------------------------------------------- */
 

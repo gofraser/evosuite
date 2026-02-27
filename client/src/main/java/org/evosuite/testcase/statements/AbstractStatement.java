@@ -103,6 +103,25 @@ public abstract class AbstractStatement implements Statement, Serializable {
     protected String comment = "";
 
     /**
+     * Whether this statement was originally parsed from LLM-generated code.
+     * This flag is preserved through clone/copy operations so that provenance
+     * tracking survives evolutionary operators (mutation, crossover).
+     */
+    protected boolean parsedFromLlm = false;
+
+    /**
+     * Copies provenance metadata from the given source statement to this statement.
+     * Subclass {@code copy(TestCase, int)} implementations should call this on
+     * the newly created statement so that provenance survives direct-copy paths
+     * (mutation, crossover) that bypass {@link #clone(TestCase)}.
+     *
+     * @param source the statement to copy provenance from
+     */
+    protected static void copyProvenanceFrom(Statement target, AbstractStatement source) {
+        target.setParsedFromLlm(source.parsedFromLlm);
+    }
+
+    /**
      * Constructor for AbstractStatement.
      *
      * @param tc     a {@link org.evosuite.testcase.TestCase} object.
@@ -527,6 +546,7 @@ public abstract class AbstractStatement implements Statement, Serializable {
         Statement result = copy(newTestCase, 0);
         result.getReturnValue().setOriginalCode(retval.getOriginalCode());
         result.addComment(getComment());
+        copyProvenanceFrom(result, this);
         return result;
     }
 
@@ -552,5 +572,15 @@ public abstract class AbstractStatement implements Statement, Serializable {
     @Override
     public boolean isReflectionStatement() {
         return false;
+    }
+
+    @Override
+    public boolean isParsedFromLlm() {
+        return parsedFromLlm;
+    }
+
+    @Override
+    public void setParsedFromLlm(boolean parsedFromLlm) {
+        this.parsedFromLlm = parsedFromLlm;
     }
 }

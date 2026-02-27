@@ -15,7 +15,10 @@ import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testparser.ParseDiagnostic;
+import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
+import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,8 +115,10 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
 
     private void mergeProducedSeeds(List<TestChromosome> produced) {
         if (produced == null || produced.isEmpty()) {
+            LoggingUtils.getEvoLogger().info("* LLM produced 0 valid test chromosomes.");
             return;
         }
+        LoggingUtils.getEvoLogger().info("* LLM produced " + produced.size() + " valid test chromosomes.");
         llmSeeds.addAll(produced);
     }
 
@@ -121,15 +126,25 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         if (!llmService.isAvailable() || !llmService.hasBudget()) {
             return Collections.emptyList();
         }
-        int requested = Math.max(1, Properties.LLM_SEED_COUNT);
-        PromptResult prompt = buildPrompt(requested);
+        int requestedHint = Math.max(1, Properties.LLM_SEED_COUNT);
+        PromptResult prompt = buildPrompt(requestedHint);
         try {
             String response = llmService.query(prompt, LlmFeature.SEEDING);
             RepairResult repairResult = createRepairLoop().attemptParse(response, prompt.getMessages(), LlmFeature.SEEDING);
             if (!repairResult.isSuccess()) {
+                logger.debug("LLM seeding failed to produce valid tests after repair.");
+                if (repairResult.getParseResults() != null) {
+                    for (ParseResult pr : repairResult.getParseResults()) {
+                        for (ParseDiagnostic d : pr.getDiagnostics()) {
+                            LoggingUtils.getEvoLogger().info("* [LLM Parse " + d.getSeverity() + "] " + d.getMessage() + " (Line " + d.getLineNumber() + ")");
+                        }
+                    }
+                }
                 return Collections.emptyList();
             }
-            return toChromosomes(repairResult, requested);
+            List<TestChromosome> seeds = toChromosomes(repairResult);
+            logger.debug("LLM seeding produced {} valid test chromosomes.", seeds.size());
+            return seeds;
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
             logger.debug("LLM seeding unavailable: {}", e.getMessage());
             return Collections.emptyList();
@@ -156,16 +171,14 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     private TestRepairLoop createRepairLoop() {
         return new TestRepairLoop(
                 llmService,
-                TestParser.forSUT(),
+                TestParser.forSUTWithLlmProvenance(),
                 new LlmResponseParser(),
                 new ClusterExpansionManager());
     }
 
-    private List<TestChromosome> toChromosomes(RepairResult repairResult, int maxCount) {
+    private List<TestChromosome> toChromosomes(RepairResult repairResult) {
         List<TestChromosome> chromosomes = new ArrayList<>();
-        int limit = Math.max(0, maxCount);
         repairResult.getTestCases().stream()
-                .limit(limit)
                 .forEach(testCase -> {
                     TestChromosome chromosome = new TestChromosome();
                     chromosome.setTestCase(testCase);

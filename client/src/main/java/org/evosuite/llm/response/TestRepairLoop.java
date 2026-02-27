@@ -93,8 +93,23 @@ public class TestRepairLoop {
                 continue;
             }
 
-            if (hasErrors(parseResults)) {
-                String parseErrorText = formatParseErrors(parseResults);
+            // Filter out tests with errors
+            List<ParseResult> validTests = new ArrayList<>();
+            StringBuilder errorReport = new StringBuilder();
+            for (ParseResult pr : parseResults) {
+                if (pr.hasErrors()) {
+                    for (ParseDiagnostic d : pr.getDiagnostics()) {
+                        if (d.getSeverity() == ParseDiagnostic.Severity.ERROR) {
+                            errorReport.append(d.toString()).append(System.lineSeparator());
+                        }
+                    }
+                } else {
+                    validTests.add(pr);
+                }
+            }
+
+            if (validTests.isEmpty()) {
+                String parseErrorText = errorReport.toString().trim();
                 diagnostics.add(parseErrorText);
 
                 if (hasResolutionErrors(parseResults) && Properties.LLM_EXPAND_CLUSTER_ON_DEMAND) {
@@ -123,13 +138,24 @@ public class TestRepairLoop {
                 continue;
             }
 
-            String executionError = findExecutionError(parseResults);
-            if (executionError != null) {
-                diagnostics.add(executionError);
+            // Execute valid tests and further filter those that throw undeclared exceptions
+            List<ParseResult> finalTests = new ArrayList<>();
+            String lastExecutionError = null;
+            for (ParseResult pr : validTests) {
+                String executionError = checkExecution(pr);
+                if (executionError == null) {
+                    finalTests.add(pr);
+                } else {
+                    lastExecutionError = executionError;
+                    diagnostics.add(executionError);
+                }
+            }
+
+            if (finalTests.isEmpty()) {
                 if (attempt == maxAttempts) {
                     break;
                 }
-                currentResponse = requestRepairSafely(conversationHistory, executionError, feature,
+                currentResponse = requestRepairSafely(conversationHistory, lastExecutionError, feature,
                         expandedClasses, diagnostics);
                 if (currentResponse == null) {
                     break;
@@ -137,10 +163,26 @@ public class TestRepairLoop {
                 continue;
             }
 
-            return RepairResult.success(parseResults, diagnostics, attemptsUsed, expandedClasses);
+            return RepairResult.success(finalTests, diagnostics, attemptsUsed, expandedClasses);
         }
 
         return RepairResult.failure(diagnostics, attemptsUsed, expandedClasses);
+    }
+
+    private String checkExecution(ParseResult parseResult) {
+        try {
+            ExecutionResult executionResult = testExecutor.execute(parseResult.getTestCase());
+            if (executionResult != null && executionResult.hasUndeclaredException()) {
+                Integer first = executionResult.getFirstPositionOfThrownException();
+                Throwable thrown = first == null ? null : executionResult.getExceptionThrownAtPosition(first);
+                String type = thrown == null ? "UnknownException" : thrown.getClass().getName();
+                String message = thrown == null ? "" : thrown.getMessage();
+                return "Execution error in test '" + parseResult.getOriginalMethodName() + "': " + type + " - " + message;
+            }
+        } catch (Throwable executionFailure) {
+            return "Execution failure in test '" + parseResult.getOriginalMethodName() + "': " + formatThrowable(executionFailure);
+        }
+        return null;
     }
 
     private String requestRepair(List<LlmMessage> conversationHistory,

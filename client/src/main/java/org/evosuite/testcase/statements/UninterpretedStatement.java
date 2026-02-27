@@ -109,8 +109,10 @@ public class UninterpretedStatement extends AbstractStatement {
         for (Map.Entry<String, VariableReference> entry : bindings.entrySet()) {
             copiedBindings.put(entry.getKey(), entry.getValue().copy(newTestCase, offset));
         }
-        return new UninterpretedStatement(newTestCase, retval.getType(), sourceCode,
+        Statement copy = new UninterpretedStatement(newTestCase, retval.getType(), sourceCode,
                 copiedBindings, returnExpression);
+        copyProvenanceFrom(copy, this);
+        return copy;
     }
 
     @Override

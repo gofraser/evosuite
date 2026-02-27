@@ -65,7 +65,9 @@ public class NullStatement extends PrimitiveStatement<Void> {
      */
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
-        return new NullStatement(newTestCase, retval.getType());
+        NullStatement copy = new NullStatement(newTestCase, retval.getType());
+        copyProvenanceFrom(copy, this);
+        return copy;
     }
 
     /* (non-Javadoc)

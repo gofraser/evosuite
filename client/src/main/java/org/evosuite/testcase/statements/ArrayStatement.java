@@ -153,6 +153,7 @@ public class ArrayStatement extends AbstractStatement {
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
         ArrayStatement copy = new ArrayStatement(newTestCase, retval.getType(), lengths);
+        copyProvenanceFrom(copy, this);
         // copy.assertions = copyAssertions(newTestCase, offset);
         return copy;
     }

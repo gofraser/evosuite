@@ -77,6 +77,9 @@ public class PromptBuilder {
         String text = result.getText();
         if (text != null && !text.trim().isEmpty()) {
             userSections.add(result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
+            userSections.add("IMPORTANT: Ensure that all generic types (e.g., Vector<Character>, List<String>) match the "
+                    + "class definition exactly. Do not use generic types like Vector<String> if the class "
+                    + "expects Vector<Character>.");
         }
         return this;
     }

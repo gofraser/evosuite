@@ -446,6 +446,7 @@ public class MethodStatement extends EntityWithParametersStatement {
 
         }
         m.getReturnValue().setType(retval.getType()); // Actual type may have changed, e.g. subtype
+        copyProvenanceFrom(m, this);
 
         return m;
     }

@@ -85,6 +85,7 @@ public class ClientProcess {
 
         MSecurityManager.setupMasterNodeRemoteHandling(MasterNodeRemote.class);
 
+        LoggingUtils.getEvoLogger().info("* " + getPrettyPrintIdentifier() + "Strategy: " + Properties.STRATEGY);
         LoggingUtils.getEvoLogger().info("* " + getPrettyPrintIdentifier() + "Connecting to master process on port "
                 + Properties.PROCESS_COMMUNICATION_PORT);
 

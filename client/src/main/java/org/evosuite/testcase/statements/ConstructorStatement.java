@@ -254,6 +254,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
         AbstractStatement copy = new ConstructorStatement(newTestCase,
                 constructor.copy(), newParams);
+        copyProvenanceFrom(copy, this);
 
         return copy;
     }

@@ -89,6 +89,8 @@ public class FunctionalMockForAbstractClassStatement extends FunctionalMockState
             copy.methodParameters.put(entry.getKey(), copiedArray);
         }
 
+        copyProvenanceFrom(copy, this);
+
         return copy;
     }
 }

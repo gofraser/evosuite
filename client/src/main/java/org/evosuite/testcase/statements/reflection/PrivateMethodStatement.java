@@ -125,6 +125,7 @@ public class PrivateMethodStatement extends MethodStatement {
                 newCallee, newParams, isStaticMethod);
 
         assert pm.parameters.size() == this.parameters.size();
+        copyProvenanceFrom(pm, this);
 
         return pm;
     }

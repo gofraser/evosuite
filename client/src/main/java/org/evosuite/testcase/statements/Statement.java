@@ -267,6 +267,16 @@ public interface Statement {
     boolean isReflectionStatement();
 
     /**
+     * Returns true if this statement originated from LLM-generated (parsed) code.
+     */
+    boolean isParsedFromLlm();
+
+    /**
+     * Sets the LLM parser provenance flag.
+     */
+    void setParsedFromLlm(boolean parsedFromLlm);
+
+    /**
      * Tests if the throwable defined by t is declared to be thrown by the
      * underlying type. Obviously this can only return true for methods and
      * constructors.

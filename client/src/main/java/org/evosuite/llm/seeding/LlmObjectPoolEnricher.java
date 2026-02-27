@@ -312,7 +312,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
     }
 
     private static TestRepairLoop createDefaultRepairLoop(LlmService llmService) {
-        TestParser testParser = TestParser.forSUT();
+        TestParser testParser = TestParser.forSUTWithLlmProvenance();
         LlmResponseParser responseParser = new LlmResponseParser();
         ClusterExpansionManager expansionManager = new ClusterExpansionManager();
         return new TestRepairLoop(llmService, testParser, responseParser, expansionManager);

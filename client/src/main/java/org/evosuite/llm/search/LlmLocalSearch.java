@@ -83,7 +83,7 @@ public class LlmLocalSearch extends TestCaseLocalSearch<TestChromosome> {
     private TestRepairLoop createRepairLoop() {
         return new TestRepairLoop(
                 llmService,
-                TestParser.forSUT(),
+                TestParser.forSUTWithLlmProvenance(),
                 new LlmResponseParser(),
                 new ClusterExpansionManager());
     }
