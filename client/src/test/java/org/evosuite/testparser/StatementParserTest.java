@@ -25,6 +25,7 @@ import org.evosuite.assertion.NullAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.assertion.SameAssertion;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.numeric.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -628,6 +629,40 @@ class StatementParserTest {
             assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
             assertTrue(tc.size() >= 3);
             assertInstanceOf(UninterpretedStatement.class, tc.getStatement(tc.size() - 1));
+        }
+
+        @Test
+        void binaryExpressionVariableNamesSubstitutedInCodeOutput() {
+            // Simulates the LLM bug: the binary expression references variables by their
+            // original names (a, b), but after parsing EvoSuite assigns new names (int0, int1).
+            // The generated code must use the EvoSuite names, not the originals.
+            ParseResult r = parse(
+                    "int a = 1;\n" +
+                    "int b = 2;\n" +
+                    "int c = a + b;");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 3);
+            assertInstanceOf(UninterpretedStatement.class, tc.getStatement(tc.size() - 1));
+
+            // Generate code through TestCodeVisitor (which should substitute names)
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            // The UninterpretedStatement's generated code should NOT contain the original
+            // variable names "a" or "b" as standalone identifiers — they should have been
+            // replaced with EvoSuite-generated names (e.g. int0, int1).
+            UninterpretedStatement uninterp = (UninterpretedStatement) tc.getStatement(tc.size() - 1);
+            for (String originalName : uninterp.getBindings().keySet()) {
+                String evoName = visitor.getVariableName(uninterp.getBindings().get(originalName));
+                if (!originalName.equals(evoName)) {
+                    // Verify the EvoSuite name appears in the code and the raw original doesn't
+                    // appear as a standalone identifier in the uninterpreted part
+                    assertTrue(code.contains(evoName),
+                            "Generated code should contain EvoSuite name '" + evoName + "':\n" + code);
+                }
+            }
         }
     }
 

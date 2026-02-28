@@ -103,6 +103,15 @@ public class UninterpretedStatement extends AbstractStatement {
         return sourceCode;
     }
 
+    /**
+     * Returns the variable bindings captured at parse time.
+     * Keys are original source-code variable names; values are the
+     * corresponding EvoSuite VariableReferences.
+     */
+    public Map<String, VariableReference> getBindings() {
+        return bindings;
+    }
+
     public String getReturnExpression() {
         return returnExpression;
     }

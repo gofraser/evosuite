@@ -1348,8 +1348,26 @@ public class TestCodeVisitor extends TestVisitor {
 
     @Override
     public void visitUninterpretedStatement(UninterpretedStatement statement) {
-        testCode.append(statement.getSourceCode());
-        if (!statement.getSourceCode().endsWith("\n")) {
+        String code = statement.getSourceCode();
+
+        // Substitute original LLM variable names with EvoSuite-generated names
+        Map<String, VariableReference> bindings = statement.getBindings();
+        if (!bindings.isEmpty()) {
+            for (Map.Entry<String, VariableReference> entry : bindings.entrySet()) {
+                String originalName = entry.getKey();
+                String evoName = getVariableName(entry.getValue());
+                if (evoName != null && !originalName.equals(evoName)) {
+                    // Replace whole-word occurrences only (word boundary = not preceded/followed by
+                    // a Java identifier character).
+                    code = code.replaceAll(
+                            "(?<![A-Za-z0-9_$])" + java.util.regex.Pattern.quote(originalName) + "(?![A-Za-z0-9_$])",
+                            java.util.regex.Matcher.quoteReplacement(evoName));
+                }
+            }
+        }
+
+        testCode.append(code);
+        if (!code.endsWith("\n")) {
             testCode.append(NEWLINE);
         }
         String returnExpression = statement.getReturnExpression();
