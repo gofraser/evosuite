@@ -1431,4 +1431,98 @@ class StatementParserTest {
             assertEquals(0, r.getTestCase().size());
         }
     }
+
+    // ========================================================================
+    // Bug fix: Unresolved variable detection
+    // ========================================================================
+
+    @Nested
+    class UnresolvedVariableDetection {
+
+        @Test
+        void unresolvedVariableInBinaryExprProducesError() {
+            // int1 is never declared — the parser must detect and reject
+            ParseResult r = parse(
+                    "int int0 = 42;\n" +
+                    "boolean b = int0 == int1;\n");
+            assertTrue(r.hasErrors(),
+                    "Should produce error for unresolved variable int1: " + r.getDiagnostics());
+            assertTrue(r.getDiagnostics().stream()
+                    .anyMatch(d -> d.getMessage().contains("int1")));
+        }
+
+        @Test
+        void unresolvedVariableInMethodArgProducesError() {
+            ParseResult r = parse(
+                    "ArrayList<String> list = new ArrayList<>();\n" +
+                    "list.add(noSuchVar);\n");
+            assertTrue(r.hasErrors(),
+                    "Should produce error for unresolved variable noSuchVar: " + r.getDiagnostics());
+        }
+
+        @Test
+        void resolvedVariablesDoNotProduceErrors() {
+            ParseResult r = parse(
+                    "int int0 = 42;\n" +
+                    "int int1 = 99;\n" +
+                    "boolean b = int0 == int1;\n");
+            // Both int0 and int1 are defined, so no unresolved-variable errors
+            boolean hasUnresolvedError = r.getDiagnostics().stream()
+                    .anyMatch(d -> d.getMessage().contains("Unresolved variable"));
+            assertFalse(hasUnresolvedError,
+                    "Should not produce unresolved variable errors: " + r.getDiagnostics());
+        }
+    }
+
+    // ========================================================================
+    // Bug fix: Generic type mismatch detection
+    // ========================================================================
+
+    @Nested
+    class GenericTypeMismatchDetection {
+
+        @Test
+        void compatibleGenericCollectionDoesNotProduceError() {
+            // ArrayList<String> passed where List<String> is expected (supertype) is fine
+            ParseResult r = parse(
+                    "ArrayList<String> list = new ArrayList<>();\n" +
+                    "list.add(\"hello\");\n",
+                    List.of("import java.util.*;"));
+            assertFalse(r.hasErrors(),
+                    "Should not detect error for compatible generic types: " + r.getDiagnostics());
+        }
+
+        @Test
+        void stringPassedToIntMethodProducesError() {
+            // String literal cannot be passed where int is expected
+            ParseResult r = parse(
+                    "ArrayList<String> list = new ArrayList<>();\n" +
+                    "list.remove(\"notAnIndex\");\n" +
+                    "String got = list.get(\"oops\");\n",
+                    List.of("import java.util.*;"));
+            // get(String) doesn't exist — method resolution should fail
+            assertTrue(r.hasErrors(),
+                    "Should detect method resolution failure: " + r.getDiagnostics());
+        }
+    }
+
+    // ========================================================================
+    // Bug fix: Object-to-subtype mismatch detection
+    // ========================================================================
+
+    @Nested
+    class ObjectSubtypeMismatchDetection {
+
+        @Test
+        void objectPassedToSpecificTypeProducesError() {
+            // Object null passed to method expecting specific type
+            ParseResult r = parse(
+                    "ArrayList<String> list = new ArrayList<>();\n" +
+                    "Object obj = null;\n" +
+                    "list.equals(obj);\n");
+            // equals(Object) accepts Object — this should be fine
+            assertFalse(r.hasErrors(),
+                    "equals(Object) should accept Object: " + r.getDiagnostics());
+        }
+    }
 }

@@ -731,11 +731,18 @@ public class StatementParser {
 
         // Name reference: existing variable
         if (expr instanceof NameExpr) {
-            VariableReference ref = scope.resolve(((NameExpr) expr).getNameAsString());
+            String name = ((NameExpr) expr).getNameAsString();
+            VariableReference ref = scope.resolve(name);
             if (ref != null) {
                 return ref;
             }
-            // Could be a class name — fall through to unsupported
+            // Check if it's a class name — fall through to unsupported if not
+            try {
+                typeResolver.resolveClass(name);
+            } catch (ClassNotFoundException e) {
+                addError(expr, "Unresolved variable: " + name);
+                return null;
+            }
         }
 
         // Unary expression: -5, +3, !flag
@@ -885,12 +892,20 @@ public class StatementParser {
             String typeName = expr.getType().getNameAsString();
             Class<?> rawClass = typeResolver.resolveClass(typeName);
 
-            // Resolve constructor arguments
+            // Pre-resolve arguments without type hints to find the constructor
             List<VariableReference> argRefs = resolveArguments(expr.getArguments(), null, null);
 
             // Find matching constructor
             Class<?>[] argTypes = getArgTypes(argRefs);
             Constructor<?> constructor = resolveConstructor(rawClass, argTypes);
+
+            // Validate argument types against constructor parameter types
+            String mismatch = validateArgumentTypes(argRefs, constructor.getParameterTypes(),
+                    constructor.getGenericParameterTypes(), expr);
+            if (mismatch != null) {
+                addError(expr, mismatch);
+                return null;
+            }
 
             // Handle diamond type inference
             Type constructedType;
@@ -956,6 +971,14 @@ public class StatementParser {
             // Find matching method
             Class<?>[] argTypes = getArgTypes(argRefs);
             Method method = resolveMethod(targetClass, methodName, argTypes);
+
+            // Validate argument types against method parameter types (generics + casts)
+            String mismatch = validateArgumentTypes(argRefs, method.getParameterTypes(),
+                    method.getGenericParameterTypes(), expr);
+            if (mismatch != null) {
+                addError(expr, mismatch);
+                return null;
+            }
 
             GenericClass<?> ownerClass = GenericClassFactory.get(targetClass);
             GenericMethod genericMethod = new GenericMethod(method, ownerClass);
@@ -1511,15 +1534,128 @@ public class StatementParser {
     private VariableReference resolveArgument(Expression arg, Type paramType) {
         // Direct variable reference
         if (arg instanceof NameExpr) {
-            VariableReference ref = scope.resolve(((NameExpr) arg).getNameAsString());
+            String name = ((NameExpr) arg).getNameAsString();
+            VariableReference ref = scope.resolve(name);
             if (ref != null) {
                 return ref;
+            }
+            // NameExpr that is not in scope and not a class name → unresolved variable
+            try {
+                typeResolver.resolveClass(name);
+            } catch (ClassNotFoundException e) {
+                addError(arg, "Unresolved variable: " + name);
+                return null;
             }
         }
 
         // Inline literal or complex expression — create a synthetic statement
         String syntheticName = "__arg" + syntheticVarCounter++;
         return handleExpression(syntheticName, arg, paramType);
+    }
+
+    /**
+     * Validate that resolved arguments are type-compatible with method/constructor parameters.
+     * Checks for:
+     * <ul>
+     *   <li>Generic collection mismatches (e.g. ArrayList&lt;IState&gt; passed as List&lt;Transition&gt;)</li>
+     *   <li>Object-to-subtype mismatches (e.g. Object passed where CharConfig is expected)</li>
+     * </ul>
+     *
+     * @return an error message if a mismatch is found, or null if all arguments are compatible
+     */
+    private String validateArgumentTypes(List<VariableReference> argRefs,
+                                         Class<?>[] paramTypes,
+                                         Type[] genericParamTypes,
+                                         Expression expr) {
+        for (int i = 0; i < argRefs.size() && i < paramTypes.length; i++) {
+            VariableReference argRef = argRefs.get(i);
+            Class<?> argClass = argRef.getVariableClass();
+            Class<?> paramClass = paramTypes[i];
+
+            // Skip if directly assignable (including primitives, autoboxing handled elsewhere)
+            if (isAssignableFrom(paramClass, argClass)) {
+                // Check generic type arguments for collection types
+                if (genericParamTypes != null && i < genericParamTypes.length
+                        && genericParamTypes[i] instanceof java.lang.reflect.ParameterizedType) {
+                    String genericError = checkGenericCompatibility(
+                            argRef, (java.lang.reflect.ParameterizedType) genericParamTypes[i], i);
+                    if (genericError != null) {
+                        return genericError;
+                    }
+                }
+                continue;
+            }
+
+            // Object (or other supertype) passed where specific subtype is expected
+            if (!paramClass.isPrimitive() && argClass == Object.class && paramClass != Object.class) {
+                return "Argument " + i + " is Object but parameter expects "
+                        + paramClass.getSimpleName() + " — implicit cast not safe";
+            }
+
+            // General type mismatch — already handled by method resolution compatibility,
+            // but catch stragglers
+            if (!paramClass.isPrimitive() && !paramClass.isAssignableFrom(argClass)) {
+                return "Argument " + i + " type " + argClass.getSimpleName()
+                        + " is not compatible with parameter type " + paramClass.getSimpleName();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check generic type parameter compatibility between an argument's tracked generic type
+     * and the formal parameter's generic type. Detects cases like passing
+     * ArrayList&lt;IState&gt; to a parameter expecting List&lt;Transition&gt;.
+     *
+     * @return an error message if incompatible, or null if compatible or check is inconclusive
+     */
+    private String checkGenericCompatibility(VariableReference argRef,
+                                             java.lang.reflect.ParameterizedType paramGenericType,
+                                             int argIndex) {
+        // Look up the argument's generic type from the scope tracking
+        int stPos = argRef.getStPosition();
+        if (stPos < 0 || stPos >= testCase.size()) {
+            return null;
+        }
+
+        // Find the variable name from scope that maps to this ref
+        // and check its tracked GenericClass
+        GenericClass<?> argGeneric = findGenericTypeForRef(argRef);
+        if (argGeneric == null || !(argGeneric.getType() instanceof java.lang.reflect.ParameterizedType)) {
+            return null; // Can't check — no generic info tracked
+        }
+
+        java.lang.reflect.ParameterizedType argParamType =
+                (java.lang.reflect.ParameterizedType) argGeneric.getType();
+        Type[] argTypeArgs = argParamType.getActualTypeArguments();
+        Type[] paramTypeArgs = paramGenericType.getActualTypeArguments();
+
+        if (argTypeArgs.length != paramTypeArgs.length) {
+            return null; // Different arity — can't compare meaningfully
+        }
+
+        for (int j = 0; j < argTypeArgs.length; j++) {
+            Class<?> argTArg = getRawClass(argTypeArgs[j]);
+            Class<?> paramTArg = getRawClass(paramTypeArgs[j]);
+            // Skip if param type arg is a TypeVariable (unresolved generic)
+            if (paramTypeArgs[j] instanceof java.lang.reflect.TypeVariable) {
+                continue;
+            }
+            if (argTArg != Object.class && paramTArg != Object.class
+                    && !paramTArg.isAssignableFrom(argTArg) && !argTArg.isAssignableFrom(paramTArg)) {
+                return "Generic type mismatch at argument " + argIndex
+                        + ": " + argTArg.getSimpleName() + " is not compatible with "
+                        + paramTArg.getSimpleName();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Find the GenericClass tracked in scope for a given VariableReference.
+     */
+    private GenericClass<?> findGenericTypeForRef(VariableReference ref) {
+        return scope.findGenericTypeForRef(ref);
     }
 
     // ========================================================================
@@ -1692,8 +1828,23 @@ public class StatementParser {
 
     /**
      * Binary expressions are preserved as UninterpretedStatements.
+     * Rejects the expression if any referenced variable is not in scope.
      */
     private VariableReference handleBinaryExpression(String varName, BinaryExpr expr, Type declaredType) {
+        // Validate all variable references in the expression are resolvable
+        for (NameExpr nameExpr : expr.findAll(NameExpr.class)) {
+            String name = nameExpr.getNameAsString();
+            if (!scope.isDefined(name)) {
+                // Check if it's a class name rather than a variable
+                try {
+                    typeResolver.resolveClass(name);
+                } catch (ClassNotFoundException e) {
+                    addError(expr, "Unresolved variable in expression: " + name);
+                    return null;
+                }
+            }
+        }
+
         // String concatenation: try to evaluate "a" + b + c into a single String literal
         if (expr.getOperator() == BinaryExpr.Operator.PLUS && isStringConcat(expr, declaredType)) {
             String result = evaluateStringConcat(expr);

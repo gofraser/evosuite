@@ -86,4 +86,19 @@ public class VariableScope {
     public boolean isDefined(String name) {
         return variables.containsKey(name);
     }
+
+    /**
+     * Find the GenericClass tracked for a given VariableReference by reverse-lookup.
+     *
+     * @param ref the VariableReference to find
+     * @return the GenericClass, or null if not found
+     */
+    public GenericClass<?> findGenericTypeForRef(VariableReference ref) {
+        for (Map.Entry<String, VariableReference> entry : variables.entrySet()) {
+            if (entry.getValue() == ref) {
+                return genericTypes.get(entry.getKey());
+            }
+        }
+        return null;
+    }
 }

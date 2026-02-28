@@ -22,12 +22,15 @@ package org.evosuite.testparser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.variable.VariableReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Parses JUnit test source code into EvoSuite TestCase objects.
@@ -213,6 +216,40 @@ public class TestParser {
             }
         }
 
+        // Final validation: check that all VariableReferences in every statement
+        // point to valid statement indices within this test case.
+        validateVariableReferences(testCase, result);
+
         return result;
+    }
+
+    /**
+     * Validate that every VariableReference used in the test case points to a valid
+     * statement index. Orphaned references (pointing beyond the test case size or
+     * to a position after the referencing statement) indicate a parse error and
+     * the test should be rejected.
+     */
+    private void validateVariableReferences(DefaultTestCase testCase, ParseResult result) {
+        for (int i = 0; i < testCase.size(); i++) {
+            Statement stmt = testCase.getStatement(i);
+            Set<VariableReference> refs = stmt.getVariableReferences();
+            for (VariableReference ref : refs) {
+                int pos = ref.getStPosition();
+                // The return value reference for this statement will have pos == i, which is valid.
+                // References to prior statements should have pos < i.
+                // Any reference with pos < 0 or pos >= testCase.size() is orphaned.
+                if (pos < 0 || pos >= testCase.size()) {
+                    result.addDiagnostic(new ParseDiagnostic(
+                            ParseDiagnostic.Severity.ERROR,
+                            "Orphaned variable reference at statement " + i
+                                    + ": refers to statement " + pos
+                                    + " but test case has " + testCase.size() + " statements",
+                            0, stmt.getCode()));
+                    logger.warn("Orphaned variable reference in parsed test: statement {} "
+                            + "references position {} (test size: {})", i, pos, testCase.size());
+                    return;
+                }
+            }
+        }
     }
 }
