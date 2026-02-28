@@ -27,6 +27,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.ClusterExpansionManager;
@@ -89,6 +90,7 @@ public class LlmLocalSearch extends TestCaseLocalSearch<TestChromosome> {
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withExistingTest(test.getTestCase())
+                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goalsForPrompt, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
 
         if (goalsForPrompt != null && !goalsForPrompt.isEmpty()) {

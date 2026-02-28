@@ -24,6 +24,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.ClusterExpansionManager;
@@ -81,6 +82,7 @@ public class LlmSemanticCrossover {
                         .withExistingTests(java.util.Arrays.asList(
                                 parent1.getTestCase(), parent2.getTestCase()))
                         .withUncoveredGoals(goals)
+                        .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
                         .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                         .withInstruction(
                                 "Produce a single new test that semantically recombines "

@@ -24,6 +24,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.ClusterExpansionManager;
@@ -77,6 +78,7 @@ public class LlmSemanticMutation {
                         .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                         .withExistingTest(test.getTestCase())
                         .withUncoveredGoals(goals)
+                        .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
                         .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                         .withInstruction(
                                 "Produce a semantically mutated version of this test. "

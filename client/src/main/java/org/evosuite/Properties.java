@@ -1648,6 +1648,41 @@ public class Properties {
             description = "Prompting technique used across LLM requests")
     public static LlmPromptTechnique LLM_PROMPT_TECHNIQUE = LlmPromptTechnique.NONE;
 
+    @Parameter(key = "llm_few_shot_use_parsed_junit", group = "LLM",
+            description = "When FEW_SHOT is active, include parsed external JUnit tests as examples when available")
+    public static boolean LLM_FEW_SHOT_USE_PARSED_JUNIT = true;
+
+    @Parameter(key = "llm_few_shot_use_archive", group = "LLM",
+            description = "When FEW_SHOT is active, include successful internal tests from archive/population")
+    public static boolean LLM_FEW_SHOT_USE_ARCHIVE = true;
+
+    @Parameter(key = "llm_few_shot_max_examples", group = "LLM",
+            description = "Maximum number of example tests included in a FEW_SHOT prompt")
+    @IntValue(min = 1)
+    public static int LLM_FEW_SHOT_MAX_EXAMPLES = 3;
+
+    public enum LlmFewShotArchiveStrategy {
+        /** Favor archive tests covering goals related to the currently uncovered goals. */
+        GOAL_OVERLAP,
+        /** Favor tests with the broadest coverage (most covered goals, then largest size). */
+        COVERAGE_BREADTH
+    }
+
+    @Parameter(key = "llm_few_shot_archive_strategy", group = "LLM",
+            description = "Ranking strategy for selecting archive examples under FEW_SHOT")
+    public static LlmFewShotArchiveStrategy LLM_FEW_SHOT_ARCHIVE_STRATEGY =
+            LlmFewShotArchiveStrategy.GOAL_OVERLAP;
+
+    @Parameter(key = "llm_few_shot_max_chars_total", group = "LLM",
+            description = "Maximum total characters for all FEW_SHOT example blocks combined (0 = unlimited)")
+    @IntValue(min = 0)
+    public static int LLM_FEW_SHOT_MAX_CHARS_TOTAL = 8000;
+
+    @Parameter(key = "llm_few_shot_max_chars_per_example", group = "LLM",
+            description = "Maximum characters per individual FEW_SHOT example (0 = unlimited)")
+    @IntValue(min = 0)
+    public static int LLM_FEW_SHOT_MAX_CHARS_PER_EXAMPLE = 3000;
+
     @Parameter(key = "llm_source_path", group = "LLM",
             description = "Optional explicit source path for including SUT source code in prompts")
     public static String LLM_SOURCE_PATH = "";

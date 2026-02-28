@@ -43,6 +43,9 @@ class LlmCastClassEnricherTest {
     private boolean savedEnrichCastClasses;
     private boolean savedEnrichObjectPool;
     private int savedMaxSuggestions;
+    private Properties.LlmPromptTechnique savedTechnique;
+    private boolean savedUseParsed;
+    private boolean savedUseArchive;
 
     @BeforeEach
     void setUp() {
@@ -50,6 +53,9 @@ class LlmCastClassEnricherTest {
         savedEnrichCastClasses = Properties.LLM_ENRICH_CAST_CLASSES;
         savedEnrichObjectPool = Properties.LLM_ENRICH_OBJECT_POOL;
         savedMaxSuggestions = Properties.LLM_CAST_CLASS_MAX_SUGGESTIONS;
+        savedTechnique = Properties.LLM_PROMPT_TECHNIQUE;
+        savedUseParsed = Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT;
+        savedUseArchive = Properties.LLM_FEW_SHOT_USE_ARCHIVE;
         LlmService.resetInstanceForTesting();
         CastClassManager.getInstance().clear();
     }
@@ -60,6 +66,9 @@ class LlmCastClassEnricherTest {
         Properties.LLM_ENRICH_CAST_CLASSES = savedEnrichCastClasses;
         Properties.LLM_ENRICH_OBJECT_POOL = savedEnrichObjectPool;
         Properties.LLM_CAST_CLASS_MAX_SUGGESTIONS = savedMaxSuggestions;
+        Properties.LLM_PROMPT_TECHNIQUE = savedTechnique;
+        Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT = savedUseParsed;
+        Properties.LLM_FEW_SHOT_USE_ARCHIVE = savedUseArchive;
         LlmService.resetInstanceForTesting();
         CastClassManager.getInstance().clear();
     }
@@ -543,6 +552,25 @@ class LlmCastClassEnricherTest {
                 "No classes should be added to CastClassManager after cancellation");
         assertEquals(0, result.getAccepted(),
                 "Accepted count should be 0 when cancelled");
+    }
+
+    // ---- Issue 2: FEW_SHOT not injected into strict structured-output enrichers ----
+
+    @Test
+    void buildPrompt_doesNotContainFewShotSnippetsEvenWhenFewShotEnabled() {
+        Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.FEW_SHOT;
+        Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT = true;
+        Properties.LLM_FEW_SHOT_USE_ARCHIVE = false;
+
+        LlmService service = createUnavailableService();
+        LlmCastClassEnricher enricher = new LlmCastClassEnricher(service);
+
+        PromptResult result = enricher.buildPrompt("com.example.MyClass", null);
+        String combined = result.getMessages().stream()
+                .map(LlmMessage::getContent)
+                .reduce("", String::concat);
+        assertFalse(combined.contains("Existing tests:"),
+                "Cast class enricher prompt must not contain FEW_SHOT examples");
     }
 
     // ---- Helper methods ----

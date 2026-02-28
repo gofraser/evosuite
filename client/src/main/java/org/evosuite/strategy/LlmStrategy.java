@@ -28,6 +28,7 @@ import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
+import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.ClusterExpansionManager;
@@ -98,6 +99,8 @@ public class LlmStrategy extends TestGenerationStrategy {
         }
 
         emitParsedStatementRatio(suite);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.Generations, 1);
         sendExecutionStatistics();
         return suite;
     }
@@ -243,6 +246,7 @@ public class LlmStrategy extends TestGenerationStrategy {
         PromptResult prompt = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(null, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction("Generate " + testsPerQuery
                         + " JUnit test methods that maximize code coverage of the target class. "
@@ -265,6 +269,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withUncoveredGoals(uncoveredGoals)
+                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(uncoveredGoals, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction("The following coverage goals are still uncovered. "
                         + "Generate " + testsPerQuery

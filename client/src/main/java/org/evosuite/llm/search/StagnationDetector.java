@@ -24,6 +24,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.ClusterExpansionManager;
@@ -158,10 +159,14 @@ public class StagnationDetector {
 
     private PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
                                          List<TestChromosome> currentPopulation) {
+        List<TestChromosome> popCandidates = currentPopulation != null
+                ? currentPopulation : Collections.emptyList();
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withUncoveredGoals(uncoveredGoals)
+                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(
+                        uncoveredGoals, new ArrayList<>(popCandidates)))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction("The evolutionary search stagnated with no improvement for several generations. "
                         + "Generate " + testsPerRequest + " JUnit tests targeting the uncovered goals.");

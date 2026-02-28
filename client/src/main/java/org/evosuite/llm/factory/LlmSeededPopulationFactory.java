@@ -25,6 +25,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.ClusterExpansionManager;
@@ -181,13 +182,14 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     }
 
     private PromptResult buildPrompt(int requestedTests) {
+        Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction("Generate " + requestedTests + " JUnit test methods for the target class. "
                         + "Focus on diverse paths, edge cases, and branch coverage.");
-        Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
         if (goals != null && !goals.isEmpty()) {
             builder.withUncoveredGoals(goals);
         }

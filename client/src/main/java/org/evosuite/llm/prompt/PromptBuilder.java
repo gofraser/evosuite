@@ -47,6 +47,9 @@ public class PromptBuilder {
     private Properties.LlmSutContextMode sutContextModeUsed;
     private boolean sutContextUnavailable;
 
+    private List<TestCase> fewShotExamples;
+    private List<String> fewShotSnippets;
+
     /** Creates a builder with default provider implementations. */
     public PromptBuilder() {
         this(new SystemPromptProvider(),
@@ -162,6 +165,49 @@ public class PromptBuilder {
         return this;
     }
 
+    /**
+     * Sets FEW_SHOT example tests to be injected when the prompt technique is
+     * {@link Properties.LlmPromptTechnique#FEW_SHOT}.
+     *
+     * @param examples concrete test examples (may be null or empty)
+     * @return this builder
+     * @deprecated Use {@link #withFewShotSnippets(List)} for char-budget enforcement.
+     */
+    @Deprecated
+    public PromptBuilder withFewShotExamples(List<TestCase> examples) {
+        this.fewShotExamples = examples;
+        return this;
+    }
+
+    /**
+     * Sets FEW_SHOT example code snippets (already truncated per char budgets)
+     * to be injected when the prompt technique is
+     * {@link Properties.LlmPromptTechnique#FEW_SHOT}. This is the recommended
+     * API — use with {@link FewShotExampleProvider#collectSnippetsIfFewShot}.
+     *
+     * @param snippets pre-rendered and budget-bounded code snippets (may be null or empty)
+     * @return this builder
+     */
+    public PromptBuilder withFewShotSnippets(List<String> snippets) {
+        this.fewShotSnippets = snippets;
+        return this;
+    }
+
+    /** Adds pre-rendered code snippets to the user prompt as example test context. */
+    public PromptBuilder withExistingTestSnippets(List<String> snippets) {
+        if (snippets == null || snippets.isEmpty()) {
+            return this;
+        }
+        StringBuilder builder = new StringBuilder("Existing tests:\n");
+        for (String snippet : snippets) {
+            builder.append("```java\n")
+                    .append(snippet)
+                    .append("\n```\n");
+        }
+        userSections.add(builder.toString());
+        return this;
+    }
+
     /** Applies the specified prompt technique to the user prompt. */
     public PromptBuilder withPromptTechnique(Properties.LlmPromptTechnique technique) {
         if (technique == null || technique == Properties.LlmPromptTechnique.NONE) {
@@ -171,11 +217,11 @@ public class PromptBuilder {
             userSections.add("Think step by step and then provide only final Java code.");
         }
         if (technique == Properties.LlmPromptTechnique.FEW_SHOT) {
-            String addition = "Few-shot style: prefer concise assertion-driven tests with clear setup/act/assert flow.";
-            if (systemPrompt == null) {
-                systemPrompt = systemPromptProvider.getSystemPrompt();
+            if (fewShotSnippets != null && !fewShotSnippets.isEmpty()) {
+                withExistingTestSnippets(fewShotSnippets);
+            } else if (fewShotExamples != null && !fewShotExamples.isEmpty()) {
+                withExistingTests(fewShotExamples);
             }
-            systemPrompt = systemPrompt + "\n" + addition;
         }
         return this;
     }
