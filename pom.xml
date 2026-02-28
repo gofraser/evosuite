@@ -144,13 +144,13 @@
             <reporting>
                 <plugins>
                     <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>findbugs-maven-plugin</artifactId>
-                        <version>3.0.5</version>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>4.9.8.2</version>
                         <configuration>
                             <xmlOutput>true</xmlOutput>
                             <!-- tmp disabled due to issues that it does not get found in the submodules, eg Maven Plugin
-                            <excludeFilterFile>findbugs-exclude.xml</excludeFilterFile> -->
+                            <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile> -->
                         </configuration>
                     </plugin>
                     <!-- <plugin> <groupId>org.apache.maven.plugins</groupId> <artifactId>maven-checkstyle-plugin</artifactId>
@@ -571,12 +571,12 @@
                 <version>3.6.1</version>
             </plugin>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>findbugs-maven-plugin</artifactId>
-                <version>3.0.5</version>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>4.9.8.2</version>
                 <configuration>
                     <xmlOutput>true</xmlOutput>
-                    <excludeFilterFile>findbugs-exclude.xml</excludeFilterFile>
+                    <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
                 </configuration>
             </plugin>
             <plugin>
@@ -633,10 +633,6 @@
                         <exclude>*.txt</exclude>
                         <exclude>removed/**</exclude>
                         <exclude>llm_experiment/**</exclude>
-                        <exclude>run_experiments.py</exclude>
-                        <exclude>scripts/**</exclude>
-                        <exclude>run_debug.py</exclude>
-                        <exclude>*.md</exclude>
                     </excludes>
                 </configuration>
             </plugin>
