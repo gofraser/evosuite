@@ -68,9 +68,7 @@ class LlmStrategyBehaviorTest {
                     "```";
 
     private Properties.LlmStrategyMode originalMode;
-    private int originalIterativeTests;
     private Properties.Strategy originalStrategy;
-    private int originalSeedCount;
     private boolean originalMinimize;
     private boolean originalInline;
     private boolean originalAssertions;
@@ -78,9 +76,7 @@ class LlmStrategyBehaviorTest {
     @BeforeEach
     void saveProperties() {
         originalMode = Properties.LLM_STRATEGY_MODE;
-        originalIterativeTests = Properties.LLM_STRATEGY_ITERATIVE_TESTS;
         originalStrategy = Properties.STRATEGY;
-        originalSeedCount = Properties.LLM_SEED_COUNT;
         originalMinimize = Properties.MINIMIZE;
         originalInline = Properties.INLINE;
         originalAssertions = Properties.ASSERTIONS;
@@ -89,9 +85,7 @@ class LlmStrategyBehaviorTest {
     @AfterEach
     void restoreProperties() {
         Properties.LLM_STRATEGY_MODE = originalMode;
-        Properties.LLM_STRATEGY_ITERATIVE_TESTS = originalIterativeTests;
         Properties.STRATEGY = originalStrategy;
-        Properties.LLM_SEED_COUNT = originalSeedCount;
         Properties.MINIMIZE = originalMinimize;
         Properties.INLINE = originalInline;
         Properties.ASSERTIONS = originalAssertions;
@@ -104,7 +98,6 @@ class LlmStrategyBehaviorTest {
     @Test
     void singlePromptModeUsesOneShot() {
         Properties.LLM_STRATEGY_MODE = Properties.LlmStrategyMode.SINGLE_PROMPT;
-        Properties.LLM_SEED_COUNT = 1;
 
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.SEEDING, SIMPLE_JUNIT_RESPONSE);
@@ -147,7 +140,6 @@ class LlmStrategyBehaviorTest {
         // Verifies Issue 1: budget advances on every iteration, not just empty results.
         // Uses a generation-based stopping condition with limit 3.
         Properties.LLM_STRATEGY_MODE = Properties.LlmStrategyMode.ITERATIVE_BUDGETED;
-        Properties.LLM_STRATEGY_ITERATIVE_TESTS = 1;
 
         MockChatLanguageModel model = new MockChatLanguageModel();
         for (int i = 0; i < 20; i++) {
@@ -174,7 +166,6 @@ class LlmStrategyBehaviorTest {
         // Verifies that MaxTimeStoppingCondition is never force-advanced.
         // The strategy should only advance count-based conditions.
         Properties.LLM_STRATEGY_MODE = Properties.LlmStrategyMode.ITERATIVE_BUDGETED;
-        Properties.LLM_STRATEGY_ITERATIVE_TESTS = 1;
 
         MockChatLanguageModel model = new MockChatLanguageModel();
         for (int i = 0; i < 5; i++) {
@@ -237,7 +228,6 @@ class LlmStrategyBehaviorTest {
     @Test
     void iterativeStopsWhenLlmBudgetExhausted() {
         Properties.LLM_STRATEGY_MODE = Properties.LlmStrategyMode.ITERATIVE_BUDGETED;
-        Properties.LLM_STRATEGY_ITERATIVE_TESTS = 1;
 
         // Only 1 call budget - should stop after initial query
         MockChatLanguageModel model = new MockChatLanguageModel();
@@ -258,7 +248,6 @@ class LlmStrategyBehaviorTest {
     void iterativeStopsWhenAllGoalsCovered() {
         // Verifies the "all goals covered" exit path
         Properties.LLM_STRATEGY_MODE = Properties.LlmStrategyMode.ITERATIVE_BUDGETED;
-        Properties.LLM_STRATEGY_ITERATIVE_TESTS = 1;
 
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.ITERATIVE_STRATEGY, SIMPLE_JUNIT_RESPONSE);

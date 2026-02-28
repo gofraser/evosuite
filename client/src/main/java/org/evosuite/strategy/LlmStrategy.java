@@ -133,9 +133,8 @@ public class LlmStrategy extends TestGenerationStrategy {
         LlmSeededPopulationFactory seededFactory = createSeededFactory();
         long waitMillis = Math.max(1L, Properties.LLM_TIMEOUT_SECONDS * 1000L);
         List<TestChromosome> llmSeeds = seededFactory.awaitAndDrainSeeds(waitMillis);
-        int requestedHint = Math.max(1, Properties.LLM_SEED_COUNT);
-        LoggingUtils.getEvoLogger().info("* Received {} LLM seeds (prompt hint was {})",
-                llmSeeds.size(), requestedHint);
+        LoggingUtils.getEvoLogger().info("* Received {} LLM seeds",
+                llmSeeds.size());
 
         TestSuiteChromosome suite = new TestSuiteChromosome();
         llmSeeds.forEach(suite::addTest);
@@ -167,13 +166,12 @@ public class LlmStrategy extends TestGenerationStrategy {
         StoppingCondition<TestSuiteChromosome> stoppingCondition = getStoppingCondition();
         stoppingCondition.reset();
 
-        int testsPerQuery = Math.max(1, Properties.LLM_STRATEGY_ITERATIVE_TESTS);
         LlmService llmService = getLlmService();
         TestSuiteChromosome suite = new TestSuiteChromosome();
         List<Double> ratioTimeline = new ArrayList<>();
 
         // --- Initial broad-coverage query ---
-        List<TestChromosome> initialTests = queryForBroadCoverage(llmService, testsPerQuery);
+        List<TestChromosome> initialTests = queryForBroadCoverage(llmService);
         for (TestChromosome tc : initialTests) {
             suite.addTest(tc);
         }
@@ -207,8 +205,7 @@ public class LlmStrategy extends TestGenerationStrategy {
             }
 
             List<TestChromosome> newTests = queryForUncoveredGoals(
-                    llmService, uncoveredGoals, suite.getTestChromosomes(),
-                    testsPerQuery);
+                    llmService, uncoveredGoals, suite.getTestChromosomes());
 
             if (!newTests.isEmpty()) {
                 for (TestChromosome tc : newTests) {
@@ -239,7 +236,7 @@ public class LlmStrategy extends TestGenerationStrategy {
      * Initial LLM query: broad coverage of the CUT.
      */
     private List<TestChromosome> queryForBroadCoverage(
-            LlmService llmService, int testsPerQuery) {
+            LlmService llmService) {
         if (!llmService.isAvailable() || !llmService.hasBudget()) {
             return Collections.emptyList();
         }
@@ -248,12 +245,11 @@ public class LlmStrategy extends TestGenerationStrategy {
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(null, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                .withInstruction("Generate " + testsPerQuery
-                        + " JUnit test methods that maximize code coverage of the target class. "
+                .withInstruction("Generate JUnit test methods that maximize code coverage of the target class. "
                         + "Cover all reachable methods, branches, boundary values, and exception paths.")
                 .buildWithMetadata();
 
-        return queryAndParse(llmService, prompt, testsPerQuery,
+        return queryAndParse(llmService, prompt,
                 LlmFeature.ITERATIVE_STRATEGY);
     }
 
@@ -263,8 +259,7 @@ public class LlmStrategy extends TestGenerationStrategy {
     private List<TestChromosome> queryForUncoveredGoals(
             LlmService llmService,
             Collection<TestFitnessFunction> uncoveredGoals,
-            List<TestChromosome> currentTests,
-            int testsPerQuery) {
+            List<TestChromosome> currentTests) {
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
@@ -272,8 +267,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(uncoveredGoals, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction("The following coverage goals are still uncovered. "
-                        + "Generate " + testsPerQuery
-                        + " JUnit test methods specifically targeting these uncovered goals.");
+                        + "Generate JUnit test methods specifically targeting these uncovered goals.");
 
         if (currentTests != null && !currentTests.isEmpty()) {
             List<org.evosuite.testcase.TestCase> existing = currentTests.stream()
@@ -283,13 +277,13 @@ public class LlmStrategy extends TestGenerationStrategy {
             builder.withExistingTests(existing);
         }
         PromptResult prompt = builder.buildWithMetadata();
-        return queryAndParse(llmService, prompt, testsPerQuery,
+        return queryAndParse(llmService, prompt,
                 LlmFeature.ITERATIVE_STRATEGY);
     }
 
     private List<TestChromosome> queryAndParse(
             LlmService llmService, PromptResult prompt,
-            int maxTests, LlmFeature feature) {
+            LlmFeature feature) {
         try {
             String response = llmService.query(prompt, feature);
             RepairResult result = createRepairLoop(llmService)
@@ -297,7 +291,7 @@ public class LlmStrategy extends TestGenerationStrategy {
             if (!result.isSuccess()) {
                 return Collections.emptyList();
             }
-            return toChromosomes(result, maxTests);
+            return toChromosomes(result);
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
             logger.debug("LLM query failed: {}", e.getMessage());
             return Collections.emptyList();
@@ -314,10 +308,9 @@ public class LlmStrategy extends TestGenerationStrategy {
         }
     }
 
-    private List<TestChromosome> toChromosomes(RepairResult repairResult, int maxCount) {
+    private List<TestChromosome> toChromosomes(RepairResult repairResult) {
         List<TestChromosome> chromosomes = new ArrayList<>();
         repairResult.getTestCases().stream()
-                .limit(Math.max(0, maxCount))
                 .forEach(testCase -> {
                     TestChromosome tc = new TestChromosome();
                     tc.setTestCase(testCase);

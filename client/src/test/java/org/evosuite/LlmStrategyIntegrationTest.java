@@ -64,12 +64,10 @@ class LlmStrategyIntegrationTest {
                     "```";
 
     private final Properties.Strategy originalStrategy = Properties.STRATEGY;
-    private final int originalSeedCount = Properties.LLM_SEED_COUNT;
 
     @AfterEach
     void restoreProperties() {
         Properties.STRATEGY = originalStrategy;
-        Properties.LLM_SEED_COUNT = originalSeedCount;
     }
 
     @Test
@@ -81,8 +79,6 @@ class LlmStrategyIntegrationTest {
 
     @Test
     void baselineStrategyBuildsSuiteFromLlmSeeds() {
-        Properties.LLM_SEED_COUNT = 1;
-
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.SEEDING, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 2);
@@ -128,9 +124,7 @@ class LlmStrategyIntegrationTest {
     }
 
     @Test
-    void baselineStrategyKeepsAllReturnedSeedsEvenWhenHintIsLower() {
-        Properties.LLM_SEED_COUNT = 1; // prompt hint only
-
+    void baselineStrategyKeepsAllReturnedSeeds() {
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.SEEDING, TWO_TESTS_JUNIT_RESPONSE);
         LlmService service = createService(model, 2);

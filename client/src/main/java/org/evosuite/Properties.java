@@ -1716,11 +1716,6 @@ public class Properties {
             description = "Seed the initial population with LLM-generated tests")
     public static boolean LLM_SEED_INITIAL_POPULATION = false;
 
-    @Parameter(key = "llm_seed_count", group = "LLM",
-            description = "Number of LLM-generated tests to inject into the initial population")
-    @IntValue(min = 1)
-    public static int LLM_SEED_COUNT = 5;
-
     // --- LLM Strategy Mode ---
     public enum LlmStrategyMode {
         /** One-shot baseline: generate once and stop. */
@@ -1732,11 +1727,6 @@ public class Properties {
     @Parameter(key = "llm_strategy_mode", group = "LLM",
             description = "Mode for LLMSTRATEGY: one-shot baseline or iterative budgeted querying")
     public static LlmStrategyMode LLM_STRATEGY_MODE = LlmStrategyMode.SINGLE_PROMPT;
-
-    @Parameter(key = "llm_strategy_iterative_tests", group = "LLM",
-            description = "Number of tests requested per iterative LLMSTRATEGY query")
-    @IntValue(min = 1)
-    public static int LLM_STRATEGY_ITERATIVE_TESTS = 3;
 
     @Parameter(key = "llm_test_factory", group = "LLM",
             description = "Enable LLM test-factory wrapper; fallback factory remains active")

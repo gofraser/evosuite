@@ -45,17 +45,8 @@ class LlmSeededPopulationFactoryIntegrationTest {
                     "}\n" +
                     "```";
 
-    private int originalSeedCount = Properties.LLM_SEED_COUNT;
-
-    @AfterEach
-    void tearDown() {
-        Properties.LLM_SEED_COUNT = originalSeedCount;
-    }
-
     @Test
     void seedsAreConsumedBeforeFallbackFactory() {
-        Properties.LLM_SEED_COUNT = 1;
-
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.SEEDING, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 4);
@@ -83,8 +74,6 @@ class LlmSeededPopulationFactoryIntegrationTest {
 
     @Test
     void awaitAndGetChromosomeDoNotDoubleMergeSeed() {
-        Properties.LLM_SEED_COUNT = 1;
-
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.SEEDING, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 4);

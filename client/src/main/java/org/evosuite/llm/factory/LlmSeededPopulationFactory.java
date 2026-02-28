@@ -151,8 +151,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         if (!llmService.isAvailable() || !llmService.hasBudget()) {
             return Collections.emptyList();
         }
-        int requestedHint = Math.max(1, Properties.LLM_SEED_COUNT);
-        PromptResult prompt = buildPrompt(requestedHint);
+        PromptResult prompt = buildPrompt();
         try {
             String response = llmService.query(prompt, LlmFeature.SEEDING);
             RepairResult repairResult = createRepairLoop().attemptParse(
@@ -181,14 +180,14 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         }
     }
 
-    private PromptResult buildPrompt(int requestedTests) {
+    private PromptResult buildPrompt() {
         Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                .withInstruction("Generate " + requestedTests + " JUnit test methods for the target class. "
+                .withInstruction("Generate as many JUnit test methods for the target class as necessary. "
                         + "Focus on diverse paths, edge cases, and branch coverage.");
         if (goals != null && !goals.isEmpty()) {
             builder.withUncoveredGoals(goals);
