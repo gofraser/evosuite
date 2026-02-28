@@ -397,7 +397,7 @@ public class TestSuiteGenerator {
                 }
             }
         } else {
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+            if (!isLlmStrategy && !TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping minimization because not enough time is left");
             }
