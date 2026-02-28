@@ -749,7 +749,22 @@ public enum RuntimeVariable {
     /**
      * Per-iteration or per-generation timeline of the LLM-parsed statement ratio.
      */
-    LLM_Parsed_Statement_Ratio_Timeline;
+    LLM_Parsed_Statement_Ratio_Timeline,
+
+    // ---- Phase 8: Diversity Observability ----
+
+    /**
+     * Per-generation number of ranking fronts in MOSA/DynaMOSA.
+     */
+    Fronts_Count_Timeline,
+    /**
+     * Per-generation remaining (uncovered) goals count in MOSA/DynaMOSA.
+     */
+    Remaining_Goals_Timeline,
+    /**
+     * Per-generation covered goals count in MOSA/DynaMOSA.
+     */
+    Covered_Goals_Timeline;
 
     /* -------------------------------------------------- */
 

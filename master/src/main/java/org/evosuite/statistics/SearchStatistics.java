@@ -186,6 +186,13 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         sequenceOutputVariableFactories.put(RuntimeVariable.FeaturesFound.name(),
                 DirectSequenceOutputVariableFactory.getInteger(RuntimeVariable.FeaturesFound));
 
+        sequenceOutputVariableFactories.put(RuntimeVariable.Fronts_Count_Timeline.name(),
+                DirectSequenceOutputVariableFactory.getInteger(RuntimeVariable.Fronts_Count_Timeline));
+        sequenceOutputVariableFactories.put(RuntimeVariable.Remaining_Goals_Timeline.name(),
+                DirectSequenceOutputVariableFactory.getInteger(RuntimeVariable.Remaining_Goals_Timeline));
+        sequenceOutputVariableFactories.put(RuntimeVariable.Covered_Goals_Timeline.name(),
+                DirectSequenceOutputVariableFactory.getInteger(RuntimeVariable.Covered_Goals_Timeline));
+
         // sequenceOutputVariableFactories.put("Generation_History", new GenerationSequenceOutputVariableFactory());
         if (MasterServices.getInstance().getMasterNode() != null) {
             MasterServices.getInstance().getMasterNode().addListener(this);

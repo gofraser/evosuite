@@ -25,6 +25,7 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.ga.diversity.DefaultSpeciesPolicy;
+import org.evosuite.ga.diversity.PopulationDiversityComputation;
 import org.evosuite.ga.diversity.SpeciesAssigner;
 import org.evosuite.ga.diversity.SpeciesPolicy;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
@@ -240,6 +241,25 @@ public class DynaMOSA extends AbstractMOSA {
         // Record LLM parsed-statement ratio for this generation
         parsedRatioTimeline.add(computePopulationParsedRatio(this.population));
 
+        // Emit diversity value for this generation (per-sample for DirectSequenceOutputVariableFactory)
+        if (Properties.TRACK_DIVERSITY) {
+            double diversity = PopulationDiversityComputation.computeDiversity(this.population);
+            ClientServices.<TestChromosome>getInstance().getClientNode()
+                    .trackOutputVariable(RuntimeVariable.DiversityTimeline, diversity);
+        }
+
+        // Emit fronts count, remaining goals, and covered goals for this generation
+        {
+            ClientNodeLocal<TestChromosome> cn =
+                    ClientServices.<TestChromosome>getInstance().getClientNode();
+            cn.trackOutputVariable(RuntimeVariable.Fronts_Count_Timeline,
+                    this.rankingFunction.getNumberOfSubfronts());
+            cn.trackOutputVariable(RuntimeVariable.Remaining_Goals_Timeline,
+                    goalsManager.getUncoveredGoals().size());
+            cn.trackOutputVariable(RuntimeVariable.Covered_Goals_Timeline,
+                    goalsManager.getCoveredGoals().size());
+        }
+
         this.currentIteration++;
         logger.debug("Covered goals = {}", goalsManager.getCoveredGoals().size());
         logger.debug("Current goals = {}", goalsManager.getCurrentGoals().size());
@@ -433,4 +453,5 @@ public class DynaMOSA extends AbstractMOSA {
                     sb.toString());
         }
     }
+
 }

@@ -25,6 +25,7 @@ import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.ga.diversity.DefaultSpeciesPolicy;
+import org.evosuite.ga.diversity.PopulationDiversityComputation;
 import org.evosuite.ga.diversity.SpeciesAssigner;
 import org.evosuite.ga.diversity.SpeciesPolicy;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
@@ -291,6 +292,25 @@ public class MOSA extends AbstractMOSA {
         // Record LLM parsed-statement ratio for this generation
         parsedRatioTimeline.add(computePopulationParsedRatio(this.population));
 
+        // Emit diversity value for this generation (per-sample for DirectSequenceOutputVariableFactory)
+        if (Properties.TRACK_DIVERSITY) {
+            double diversity = PopulationDiversityComputation.computeDiversity(this.population);
+            ClientServices.<TestChromosome>getInstance().getClientNode()
+                    .trackOutputVariable(RuntimeVariable.DiversityTimeline, diversity);
+        }
+
+        // Emit fronts count, remaining goals, and covered goals for this generation
+        {
+            ClientNodeLocal<TestChromosome> cn =
+                    ClientServices.<TestChromosome>getInstance().getClientNode();
+            cn.trackOutputVariable(RuntimeVariable.Fronts_Count_Timeline,
+                    this.rankingFunction.getNumberOfSubfronts());
+            cn.trackOutputVariable(RuntimeVariable.Remaining_Goals_Timeline,
+                    this.getNumberOfUncoveredGoals());
+            cn.trackOutputVariable(RuntimeVariable.Covered_Goals_Timeline,
+                    this.getNumberOfCoveredGoals());
+        }
+
         this.currentIteration++;
     }
 
@@ -493,4 +513,5 @@ public class MOSA extends AbstractMOSA {
                     sb.toString());
         }
     }
+
 }

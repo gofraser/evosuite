@@ -49,23 +49,34 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
         // empty copy constructor
     }
 
+    /**
+     * Computes population diversity as {@code 1 - mean(pairwise_similarity)}.
+     * Result is clamped to [0, 1] where 0 = maximally similar, 1 = maximally diverse.
+     * When fewer than 2 individuals exist, diversity is 0.0 (not enough info).
+     */
     @Override
     public void iteration(GeneticAlgorithm<TestSuiteChromosome> algorithm) {
         List<TestSuiteChromosome> individuals = algorithm.getPopulation();
-        double diversity = 0.0;
+        double totalSimilarity = 0.0;
         int numComparisons = 0;
         for (int i = 0; i < individuals.size() - 1; i++) {
             for (int j = i + 1; j < individuals.size(); j++) {
-                double pairDiversity = getSuiteSimilarity(individuals.get(i), individuals.get(j));
-                logger.debug("Adding diversity of pair {}, {} of {}", i, j, pairDiversity);
-                diversity += pairDiversity;
+                double pairSimilarity = getSuiteSimilarity(individuals.get(i), individuals.get(j));
+                logger.debug("Adding similarity of pair {}, {} of {}", i, j, pairSimilarity);
+                totalSimilarity += pairSimilarity;
                 numComparisons += 1;
             }
         }
-        diversity = 1.0 - diversity / numComparisons;
+        double diversity;
+        if (numComparisons == 0) {
+            diversity = 0.0;
+        } else {
+            diversity = 1.0 - totalSimilarity / numComparisons;
+        }
+        // Clamp to [0, 1] — Needleman-Wunsch similarity can exceed [0, 1] in edge cases
+        diversity = Math.max(0.0, Math.min(1.0, diversity));
         logger.info("Resulting diversity for {} pairs: {}", numComparisons, diversity);
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.DiversityTimeline, diversity);
-
     }
 
     public static final int GAP_PENALTY = -2;

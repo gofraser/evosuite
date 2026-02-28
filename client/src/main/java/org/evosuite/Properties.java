@@ -1968,6 +1968,22 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double SPECIATION_HYBRID_PHENOTYPIC_WEIGHT = 0.7;
 
+    // ---- Diversity tracking (Phase 8) ----
+
+    @Parameter(key = "diversity_sample_size", group = "Speciation",
+            description = "Maximum number of pairs to sample for diversity computation (0 = all pairs)")
+    @IntValue(min = 0)
+    public static int DIVERSITY_SAMPLE_SIZE = 0;
+
+    @Parameter(key = "stf_enabled", group = "Speciation",
+            description = "Enable State Transition Frequency (STF) distance for diversity tracking (optional, not default)")
+    public static boolean STF_ENABLED = false;
+
+    @Parameter(key = "stf_jaccard_weight", group = "Speciation",
+            description = "Weight of Jaccard component when STF is enabled in hybrid mode (0.0 = pure STF, 1.0 = pure Jaccard)")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double STF_JACCARD_WEIGHT = 0.0;
+
     // ---------------------------------------------------------------
     // Sandbox
     @Parameter(key = "sandbox", group = "Sandbox", description = "Execute tests in a sandbox environment")
