@@ -366,12 +366,23 @@ public class DefaultTestCase implements TestCase, Serializable {
         DefaultTestCase t = null;
         t = new DefaultTestCase(); //Note: cannot use super.clone() due to final fields :(
 
+        // Pass 1: clone all statements and return values so the full structure
+        // exists before any assertion tries to resolve variable references.
+        // Assertions may contain forward references (e.g., when the LLM parser
+        // inlines a method call such as assertEquals(a, a.copy()) which appends
+        // a new statement after the assertion's source statement).
         for (Statement s : statements) {
             Statement copy = s.clone(t);
             t.statements.add(copy);
             copy.setRetval(s.getReturnValue().clone(t));
-            copy.setAssertions(s.copyAssertions(t, 0));
         }
+
+        // Pass 2: copy assertions now that all statements are present in t.
+        for (int i = 0; i < statements.size(); i++) {
+            t.getStatement(i).setAssertions(
+                    statements.get(i).copyAssertions(t, 0));
+        }
+
         t.coveredGoals.addAll(coveredGoals);
         t.accessedEnvironment.copyFrom(accessedEnvironment);
         t.isFailing = isFailing;
