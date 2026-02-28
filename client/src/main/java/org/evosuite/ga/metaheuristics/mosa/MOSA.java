@@ -392,6 +392,9 @@ public class MOSA extends AbstractMOSA {
 
             // Emit LLM parsed-statement ratio and timeline
             emitParsedRatioVariables(clientNode);
+
+            // Emit disruption analysis statistics
+            emitDisruptionStats(clientNode);
         } finally {
             shutdownLlmAssistance();
         }

@@ -91,7 +91,7 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
         return jaccardDistance(setA, setB);
     }
 
-    static Set<Integer> getCoveredBranches(TestChromosome tc) {
+    public static Set<Integer> getCoveredBranches(TestChromosome tc) {
         ExecutionResult result = tc.getLastExecutionResult();
         if (result == null || result.getTrace() == null) {
             return Collections.emptySet();
@@ -103,7 +103,7 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
         return branches;
     }
 
-    static Set<Integer> getCoveredLines(TestChromosome tc) {
+    public static Set<Integer> getCoveredLines(TestChromosome tc) {
         ExecutionResult result = tc.getLastExecutionResult();
         if (result == null || result.getTrace() == null) {
             return Collections.emptySet();
@@ -112,7 +112,7 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    static Set<FitnessFunction<?>> getCoveredGoals(TestChromosome tc) {
+    public static Set<FitnessFunction<?>> getCoveredGoals(TestChromosome tc) {
         Map<FitnessFunction<TestChromosome>, Double> fitnessValues = tc.getFitnessValues();
         Set<FitnessFunction<?>> covered = new HashSet<>();
         for (Map.Entry<FitnessFunction<TestChromosome>, Double> entry : fitnessValues.entrySet()) {
@@ -123,7 +123,7 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
         return covered;
     }
 
-    static Set<String> getMethodSignatures(TestChromosome tc) {
+    public static Set<String> getMethodSignatures(TestChromosome tc) {
         ExecutionResult result = tc.getLastExecutionResult();
         if (result == null || result.getTrace() == null) {
             return Collections.emptySet();
@@ -139,7 +139,7 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
      * Compute Jaccard distance = 1 - |A ∩ B| / |A ∪ B|.
      * Returns 1.0 when both sets are empty (maximally uninformative).
      */
-    static <T> double jaccardDistance(Set<T> a, Set<T> b) {
+    public static <T> double jaccardDistance(Set<T> a, Set<T> b) {
         if (a.isEmpty() && b.isEmpty()) {
             return 1.0;
         }

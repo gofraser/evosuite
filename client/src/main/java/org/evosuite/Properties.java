@@ -1984,6 +1984,21 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double STF_JACCARD_WEIGHT = 0.0;
 
+    // ---- Operator Disruption Analysis (Phase 8b) ----
+
+    @Parameter(key = "llm_operator_disruption_analysis_enabled", group = "LLM",
+            description = "Enable per-operator disruption event recording for standard vs semantic operators")
+    public static boolean LLM_OPERATOR_DISRUPTION_ANALYSIS_ENABLED = false;
+
+    @Parameter(key = "llm_operator_disruption_evaluate_isolated", group = "LLM",
+            description = "When disruption analysis is enabled, run isolated intermediate fitness probes "
+                    + "post-crossover (pre-mutation) and post-mutation in MOSA/DynaMOSA")
+    public static boolean LLM_OPERATOR_DISRUPTION_EVALUATE_ISOLATED = false;
+
+    @Parameter(key = "llm_operator_disruption_output_dir", group = "LLM",
+            description = "Directory for disruption sidecar artifacts; empty resolves under REPORT_DIR")
+    public static String LLM_OPERATOR_DISRUPTION_OUTPUT_DIR = "";
+
     // ---------------------------------------------------------------
     // Sandbox
     @Parameter(key = "sandbox", group = "Sandbox", description = "Execute tests in a sandbox environment")

@@ -764,7 +764,38 @@ public enum RuntimeVariable {
     /**
      * Per-generation covered goals count in MOSA/DynaMOSA.
      */
-    Covered_Goals_Timeline;
+    Covered_Goals_Timeline,
+
+    // ---- Phase 8b: Operator Disruption Analysis ----
+
+    /**
+     * Total disruption events recorded (all operator kinds and sources).
+     */
+    Disruption_Events_Total,
+    /**
+     * Disruption events for standard mutation.
+     */
+    Disruption_Standard_Mutations,
+    /**
+     * Disruption events for semantic (LLM) mutation.
+     */
+    Disruption_Semantic_Mutations,
+    /**
+     * Disruption events for standard crossover.
+     */
+    Disruption_Standard_Crossovers,
+    /**
+     * Disruption events for semantic (LLM) crossover.
+     */
+    Disruption_Semantic_Crossovers,
+    /**
+     * Number of semantic operator fallbacks to standard operator.
+     */
+    Disruption_Semantic_Fallbacks,
+    /**
+     * Path to sidecar disruption CSV artifact for this run.
+     */
+    Disruption_Sidecar_Path;
 
     /* -------------------------------------------------- */
 

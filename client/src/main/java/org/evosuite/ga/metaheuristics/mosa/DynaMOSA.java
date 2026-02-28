@@ -323,6 +323,7 @@ public class DynaMOSA extends AbstractMOSA {
                 emitOperatorStats(clientNode);
                 emitSpeciesTimelineVariables(clientNode);
                 emitParsedRatioVariables(clientNode);
+                emitDisruptionStats(clientNode);
             } catch (Exception e) {
                 logger.debug("Failed to emit Phase 5 stats", e);
             }

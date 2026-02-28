@@ -62,11 +62,20 @@ public class LanguageModelMutation {
      */
     public boolean tryMutate(TestChromosome offspring,
                              Collection<TestFitnessFunction> goals) {
+        return tryMutateWithResult(offspring, goals).isAppliedSemantic();
+    }
+
+    /**
+     * Attempt LLM semantic mutation, returning rich metadata about
+     * whether the semantic path was attempted, applied, or skipped.
+     */
+    public OperatorAttemptResult tryMutateWithResult(TestChromosome offspring,
+                                                     Collection<TestFitnessFunction> goals) {
         if (!Properties.LLM_OPERATOR_ENABLED) {
-            return false;
+            return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.DISABLED);
         }
         if (Randomness.nextDouble() > Properties.LLM_MUTATION_PROBABILITY) {
-            return false;
+            return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.PROBABILITY);
         }
 
         try {
@@ -75,13 +84,13 @@ public class LanguageModelMutation {
                 offspring.setTestCase(mutant.getTestCase());
                 offspring.setChanged(true);
                 appliedCount.incrementAndGet();
-                return true;
+                return OperatorAttemptResult.semanticApplied();
             }
         } catch (Exception e) {
             logger.debug("LLM mutation failed unexpectedly: {}", e.getMessage());
         }
         fallbackCount.incrementAndGet();
-        return false;
+        return OperatorAttemptResult.semanticFallback();
     }
 
     public int getAppliedCount() {

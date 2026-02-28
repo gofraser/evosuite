@@ -29,8 +29,17 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.comparators.DominanceComparator;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.llm.search.DisruptionEvent;
+import org.evosuite.llm.search.DisruptionEvent.OperatorKind;
+import org.evosuite.llm.search.DisruptionEvent.OperatorOutcome;
+import org.evosuite.llm.search.DisruptionEvent.OperatorSource;
+import org.evosuite.llm.search.DisruptionHelper;
+import org.evosuite.llm.search.DisruptionRecorder;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
+import org.evosuite.llm.search.OperatorAttemptResult;
+import org.evosuite.rmi.service.ClientNodeLocal;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -207,6 +216,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      */
     protected List<TestChromosome> breedNextGeneration() {
         List<TestChromosome> offspringPopulation = new ArrayList<>(Properties.POPULATION);
+        final boolean disruptionEnabled = DisruptionRecorder.isEnabled();
+        final boolean isolatedProbes = DisruptionRecorder.isIsolatedProbeEnabled();
+        final DisruptionRecorder recorder = disruptionEnabled ? DisruptionRecorder.getInstance() : null;
 
         // Build identity-based reverse lookup for intra-species mating restriction.
         // Maps each individual to its species ID for O(1) lookup of parent1's species.
@@ -235,65 +247,55 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             TestChromosome parent2 = selectParent2(parent1, individualToSpecies);
             TestChromosome offspring1 = parent1.clone();
             TestChromosome offspring2 = parent2.clone();
+
+            // Capture pre-crossover state for disruption analysis
+            int preCrossStmts1 = disruptionEnabled ? DisruptionHelper.statementCount(offspring1) : 0;
+            int preCrossStmts2 = disruptionEnabled ? DisruptionHelper.statementCount(offspring2) : 0;
+
             // Try LLM crossover first, then fall back to standard crossover
-            boolean llmCrossoverApplied = false;
+            OperatorAttemptResult crossoverResult = OperatorAttemptResult.standardOnly(
+                    OperatorAttemptResult.SkipReason.NOT_CONFIGURED);
+            boolean crossoverApplied = false;
             if (llmCrossover != null) {
                 try {
-                    llmCrossoverApplied = llmCrossover.tryCrossover(
+                    crossoverResult = llmCrossover.tryCrossoverWithResult(
                             offspring1, offspring2, getUncoveredGoals());
                 } catch (Exception e) {
                     logger.debug("LLM crossover error; falling back to standard", e);
+                    crossoverResult = OperatorAttemptResult.semanticFallback();
                 }
             }
-            if (!llmCrossoverApplied && Randomness.nextDouble() <= Properties.CROSSOVER_RATE) {
+            boolean standardCrossoverApplied = false;
+            if (!crossoverResult.isAppliedSemantic() && Randomness.nextDouble() <= Properties.CROSSOVER_RATE) {
                 try {
                     this.crossoverFunction.crossOver(offspring1, offspring2);
+                    standardCrossoverApplied = true;
+                    crossoverApplied = true;
                 } catch (ConstructionFailedException e) {
                     logger.debug("CrossOver failed.");
                     continue;
                 }
+            } else if (crossoverResult.isAppliedSemantic()) {
+                crossoverApplied = true;
+            }
+
+            // Record crossover disruption events — also record semantic fallback attempts
+            // even when standard crossover gate rejects (fix: dropped fallback events)
+            if (disruptionEnabled && (crossoverApplied || crossoverResult.isAttemptedSemantic())) {
+                recordCrossoverDisruption(recorder, offspring1, parent1, parent2,
+                        preCrossStmts1, crossoverResult, crossoverApplied, isolatedProbes);
             }
 
             this.removeUnusedVariables(offspring1);
             this.removeUnusedVariables(offspring2);
 
-            // apply mutation on offspring1 (try LLM first)
-            boolean llmMut1 = false;
-            if (llmMutation != null) {
-                try {
-                    llmMut1 = llmMutation.tryMutate(offspring1, getUncoveredGoals());
-                } catch (Exception e) {
-                    logger.debug("LLM mutation error; falling back to standard", e);
-                }
-            }
-            if (!llmMut1) {
-                this.mutate(offspring1, parent1);
-            }
-            if (offspring1.isChanged()) {
-                this.clearCachedResults(offspring1);
-                offspring1.updateAge(this.currentIteration);
-                this.calculateFitness(offspring1);
-                offspringPopulation.add(offspring1);
-            }
+            // Process offspring1: mutation + optional disruption recording
+            processOffspringMutation(offspring1, parent1, offspringPopulation,
+                    disruptionEnabled, isolatedProbes, recorder);
 
-            // apply mutation on offspring2 (try LLM first)
-            boolean llmMut2 = false;
-            if (llmMutation != null) {
-                try {
-                    llmMut2 = llmMutation.tryMutate(offspring2, getUncoveredGoals());
-                } catch (Exception e) {
-                    logger.debug("LLM mutation error; falling back to standard", e);
-                }
-            }
-            if (!llmMut2) {
-                this.mutate(offspring2, parent2);
-            }
-            if (offspring2.isChanged()) {
-                this.clearCachedResults(offspring2);
-                offspring2.updateAge(this.currentIteration);
-                this.calculateFitness(offspring2);
-                offspringPopulation.add(offspring2);
-            }
+            // Process offspring2: mutation + optional disruption recording
+            processOffspringMutation(offspring2, parent2, offspringPopulation,
+                    disruptionEnabled, isolatedProbes, recorder);
         }
         // Add new randomly generate tests
         for (int i = 0; i < Properties.POPULATION * Properties.P_TEST_INSERTION; i++) {
@@ -313,6 +315,234 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
         logger.debug("Number of offsprings = {}", offspringPopulation.size());
         return offspringPopulation;
+    }
+
+    /**
+     * Apply mutation to offspring with optional disruption recording.
+     * Extracts the repeated mutation logic for offspring1 and offspring2.
+     * Records mutation event even when offspring is unchanged (fix: lost attempts).
+     */
+    private void processOffspringMutation(TestChromosome offspring, TestChromosome parent,
+                                           List<TestChromosome> offspringPopulation,
+                                           boolean disruptionEnabled, boolean isolatedProbes,
+                                           DisruptionRecorder recorder) {
+        int preMutStmts = disruptionEnabled ? DisruptionHelper.statementCount(offspring) : 0;
+
+        // Isolated probe: evaluate post-crossover state before mutation
+        TestChromosome postCrossoverSnapshot = null;
+        boolean crossoverProbeFailure = false;
+        double isolatedFitnessPostCrossover = Double.NaN;
+        if (isolatedProbes) {
+            postCrossoverSnapshot = offspring.clone();
+            try {
+                this.clearCachedResults(postCrossoverSnapshot);
+                this.calculateFitness(postCrossoverSnapshot);
+                isolatedFitnessPostCrossover = DisruptionHelper.aggregateFitness(postCrossoverSnapshot);
+            } catch (Exception e) {
+                logger.debug("Disruption isolated post-crossover probe failed", e);
+                crossoverProbeFailure = true;
+                postCrossoverSnapshot = null;
+            }
+        }
+
+        OperatorAttemptResult mutResult = OperatorAttemptResult.standardOnly(
+                OperatorAttemptResult.SkipReason.NOT_CONFIGURED);
+        if (llmMutation != null) {
+            try {
+                mutResult = llmMutation.tryMutateWithResult(offspring, getUncoveredGoals());
+            } catch (Exception e) {
+                logger.debug("LLM mutation error; falling back to standard", e);
+                mutResult = OperatorAttemptResult.semanticFallback();
+            }
+        }
+        if (!mutResult.isAppliedSemantic()) {
+            this.mutate(offspring, parent);
+        }
+        if (offspring.isChanged()) {
+            this.clearCachedResults(offspring);
+            offspring.updateAge(this.currentIteration);
+            this.calculateFitness(offspring);
+
+            // Record mutation disruption event (accepted)
+            if (disruptionEnabled) {
+                recordMutationDisruption(recorder, offspring, parent,
+                        preMutStmts, mutResult, postCrossoverSnapshot,
+                        isolatedFitnessPostCrossover, crossoverProbeFailure, true);
+            }
+
+            offspringPopulation.add(offspring);
+        } else {
+            // Record mutation disruption event even when unchanged (not accepted)
+            if (disruptionEnabled) {
+                recordMutationDisruption(recorder, offspring, parent,
+                        preMutStmts, mutResult, postCrossoverSnapshot,
+                        isolatedFitnessPostCrossover, crossoverProbeFailure, false);
+            }
+        }
+    }
+
+    /**
+     * Record a crossover disruption event. Captures syntactic disruption and
+     * optional isolated probe metrics. Records even for semantic fallback
+     * attempts where no standard crossover was subsequently applied.
+     */
+    private void recordCrossoverDisruption(DisruptionRecorder recorder,
+                                            TestChromosome offspring,
+                                            TestChromosome parent1,
+                                            TestChromosome parent2,
+                                            int preStmtCount,
+                                            OperatorAttemptResult attemptResult,
+                                            boolean crossoverApplied,
+                                            boolean isolatedProbes) {
+        try {
+            int postStmts = DisruptionHelper.statementCount(offspring);
+            int delta = postStmts - preStmtCount;
+            int added = Math.max(delta, 0);
+            int removed = Math.max(-delta, 0);
+
+            // Fitness pre = parent fitness (available from prior evaluation)
+            double fitnessPre = DisruptionHelper.aggregateFitness(parent1);
+
+            DisruptionEvent.Builder builder = DisruptionEvent.builder()
+                    .generation(this.currentIteration)
+                    .eventIndex(recorder.nextEventIndex())
+                    .operatorKind(OperatorKind.CROSSOVER)
+                    .operatorSource(attemptResult.toOperatorSource())
+                    .outcome(attemptResult.toOperatorOutcome())
+                    .parent1Hash(System.identityHashCode(parent1))
+                    .parent2Hash(System.identityHashCode(parent2))
+                    .offspringHash(System.identityHashCode(offspring))
+                    .fitnessPreOperator(fitnessPre)
+                    .statementCountBefore(preStmtCount)
+                    .statementCountAfter(postStmts)
+                    .statementCountDelta(delta)
+                    .editsAdded(added)
+                    .editsRemoved(removed);
+
+            // If no crossover actually applied (semantic fallback + rate gate rejected),
+            // mark acceptance as false since offspring is unchanged from parent clone
+            if (!crossoverApplied) {
+                builder.acceptedIntoOffspring(false);
+            }
+            // Otherwise acceptedIntoOffspring remains null (unknown until mutation)
+
+            // Isolated probe: evaluate post-crossover snapshot for crossover event
+            if (isolatedProbes && crossoverApplied) {
+                TestChromosome snapshot = offspring.clone();
+                boolean probeFailure = false;
+                double isolatedFitness = Double.NaN;
+                try {
+                    this.clearCachedResults(snapshot);
+                    this.calculateFitness(snapshot);
+                    isolatedFitness = DisruptionHelper.aggregateFitness(snapshot);
+                } catch (Exception e) {
+                    logger.debug("Disruption isolated crossover probe failed", e);
+                    probeFailure = true;
+                }
+                builder.isolatedProbe(true);
+                builder.isolatedFitnessPostCrossover(isolatedFitness);
+                if (probeFailure) {
+                    builder.probeFailure(true);
+                }
+                // Compute execution-level metrics between parent and snapshot
+                if (!probeFailure && DisruptionHelper.isEvaluated(snapshot)
+                        && DisruptionHelper.isEvaluated(parent1)) {
+                    builder.branchJaccardDistance(
+                            DisruptionHelper.branchJaccardDistance(parent1, snapshot));
+                    builder.lineJaccardDistance(
+                            DisruptionHelper.lineJaccardDistance(parent1, snapshot));
+                    builder.goalJaccardDistance(
+                            DisruptionHelper.goalJaccardDistance(parent1, snapshot));
+                    builder.speciationMetricDistance(
+                            DisruptionHelper.speciationDistance(parent1, snapshot));
+                }
+            }
+
+            recorder.record(builder.build());
+        } catch (Exception e) {
+            logger.debug("Failed to record crossover disruption event", e);
+        }
+    }
+
+    /**
+     * Record a mutation disruption event. Captures fitness, syntactic, and
+     * execution-level disruption metrics. Uses OperatorAttemptResult for
+     * accurate source/outcome classification.
+     *
+     * @param accepted true if offspring.isChanged() and was added to population
+     */
+    private void recordMutationDisruption(DisruptionRecorder recorder,
+                                           TestChromosome offspring,
+                                           TestChromosome parent,
+                                           int preStmtCount,
+                                           OperatorAttemptResult attemptResult,
+                                           TestChromosome postCrossoverSnapshot,
+                                           double isolatedFitnessPostCrossover,
+                                           boolean crossoverProbeFailure,
+                                           boolean accepted) {
+        try {
+            int postStmts = DisruptionHelper.statementCount(offspring);
+            int delta = postStmts - preStmtCount;
+            int added = Math.max(delta, 0);
+            int removed = Math.max(-delta, 0);
+
+            // Fitness: use parent's prior fitness as pre
+            double fitnessPre = DisruptionHelper.aggregateFitness(parent);
+            // Post fitness only available when offspring was evaluated (accepted)
+            double fitnessPost = accepted ? DisruptionHelper.aggregateFitness(offspring) : Double.NaN;
+            double fitnessDelta = Double.isNaN(fitnessPre) || Double.isNaN(fitnessPost)
+                    ? Double.NaN : fitnessPost - fitnessPre;
+
+            DisruptionEvent.Builder builder = DisruptionEvent.builder()
+                    .generation(this.currentIteration)
+                    .eventIndex(recorder.nextEventIndex())
+                    .operatorKind(OperatorKind.MUTATION)
+                    .operatorSource(attemptResult.toOperatorSource())
+                    .outcome(attemptResult.toOperatorOutcome())
+                    .parent1Hash(System.identityHashCode(parent))
+                    .offspringHash(System.identityHashCode(offspring))
+                    .fitnessPreOperator(fitnessPre)
+                    .fitnessPostOperator(fitnessPost)
+                    .fitnessDelta(fitnessDelta)
+                    .statementCountBefore(preStmtCount)
+                    .statementCountAfter(postStmts)
+                    .statementCountDelta(delta)
+                    .editsAdded(added)
+                    .editsRemoved(removed)
+                    .acceptedIntoOffspring(accepted);
+
+            // Execution-level disruption (only when both offspring and parent are evaluated)
+            if (accepted && DisruptionHelper.isEvaluated(offspring) && DisruptionHelper.isEvaluated(parent)) {
+                builder.branchJaccardDistance(DisruptionHelper.branchJaccardDistance(parent, offspring));
+                builder.lineJaccardDistance(DisruptionHelper.lineJaccardDistance(parent, offspring));
+                builder.goalJaccardDistance(DisruptionHelper.goalJaccardDistance(parent, offspring));
+                builder.speciationMetricDistance(DisruptionHelper.speciationDistance(parent, offspring));
+            }
+
+            // Isolated probe data
+            if (postCrossoverSnapshot != null || crossoverProbeFailure) {
+                builder.isolatedProbe(true);
+                builder.isolatedFitnessPostCrossover(isolatedFitnessPostCrossover);
+
+                if (accepted) {
+                    // Post-mutation fitness is the offspring fitness (just calculated)
+                    double isolatedFitnessPostMutation = fitnessPost;
+                    builder.isolatedFitnessPostMutation(isolatedFitnessPostMutation);
+
+                    if (!Double.isNaN(isolatedFitnessPostCrossover) && !Double.isNaN(isolatedFitnessPostMutation)) {
+                        builder.isolatedMutationDelta(isolatedFitnessPostMutation - isolatedFitnessPostCrossover);
+                    }
+                }
+
+                if (crossoverProbeFailure) {
+                    builder.probeFailure(true);
+                }
+            }
+
+            recorder.record(builder.build());
+        } catch (Exception e) {
+            logger.debug("Failed to record mutation disruption event", e);
+        }
     }
 
     /**
@@ -625,7 +855,48 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
     @Override
     protected void notifySearchFinished() {
+        // Flush disruption analysis sidecar before search listeners fire
+        if (DisruptionRecorder.isEnabled()) {
+            try {
+                DisruptionRecorder.getInstance().flush();
+            } catch (Exception e) {
+                logger.warn("Failed to flush disruption recorder", e);
+            }
+        }
         super.notifySearchFinished();
+    }
+
+    /**
+     * Emit disruption analysis runtime variables to statistics.csv.
+     * Safe to call when disruption analysis is disabled (emits zeros/empty).
+     * Uses resolveSidecarPath() so the path is deterministic before flush.
+     */
+    protected void emitDisruptionStats(ClientNodeLocal<?> clientNode) {
+        if (DisruptionRecorder.isEnabled()) {
+            DisruptionRecorder rec = DisruptionRecorder.getInstance();
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Events_Total,
+                    rec.getTotalEvents());
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Standard_Mutations,
+                    rec.getStandardMutations());
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Mutations,
+                    rec.getSemanticMutations());
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Standard_Crossovers,
+                    rec.getStandardCrossovers());
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Crossovers,
+                    rec.getSemanticCrossovers());
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Fallbacks,
+                    rec.getSemanticFallbacks());
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Sidecar_Path,
+                    rec.getTotalEvents() > 0 ? rec.resolveSidecarPath() : "");
+        } else {
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Events_Total, 0);
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Standard_Mutations, 0);
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Mutations, 0);
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Standard_Crossovers, 0);
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Crossovers, 0);
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Fallbacks, 0);
+            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Sidecar_Path, "");
+        }
     }
 
     /**
