@@ -43,6 +43,9 @@
                         <configuration>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
                             <createDependencyReducedPom>true</createDependencyReducedPom>
+                            <!-- Disable minimizeJar for re-shading; the input is already
+                                 a minimized uber-jar and dependency analysis cannot work. -->
+                            <minimizeJar>false</minimizeJar>
                             <relocations>
                                 <relocation>
                                     <pattern>org.evosuite</pattern>
@@ -65,6 +68,9 @@
                         <goals>
                             <goal>test-jar</goal>
                         </goals>
+                        <configuration>
+                            <skipIfEmpty>true</skipIfEmpty>
+                        </configuration>
                     </execution>
                 </executions>
                 <inherited>true</inherited>

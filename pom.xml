@@ -36,7 +36,6 @@
         <module>runtime</module>
         <module>plugins</module>
         <module>standalone_runtime</module>
-        <module>shaded</module>
     </modules>
 
     <developers>
@@ -193,8 +192,6 @@
             </activation>
             <properties>
                 <publish.classifier>jdk11plus</publish.classifier>
-                <compiler.target>1.8</compiler.target>
-                <compiler.source>1.8</compiler.source>
                 <exclude.tests.concolic>**/*Concolic*.java</exclude.tests.concolic>
                 <exclude.tests.mimeType>**/*TestMIMEType.java</exclude.tests.mimeType>
                 <!-- Mockito 5+ requires Java 11+ -->
@@ -226,18 +223,43 @@
                 <jdk>1.8</jdk>
             </activation>
             <properties>
-                <compiler.target>1.8</compiler.target>
-                <compiler.source>1.8</compiler.source>
                 <exclude.tests.concolic />
                 <exclude.tests.mimeType />
                 <mockito.version>4.11.0</mockito.version>
                 <bytebuddy.version>1.12.23</bytebuddy.version>
                 <logback.version>1.2.13</logback.version>
             </properties>
+            <build>
+                <plugins>
+                    <!-- JDK 8 javac does not support the release flag;
+                         fall back to source/target for JDK 8 builds. -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <source>1.8</source>
+                            <target>1.8</target>
+                            <encoding>${project.build.sourceEncoding}</encoding>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>default-compile</id>
+                                <configuration>
+                                    <release combine.self="override" />
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>with-shaded</id>
+            <modules>
+                <module>shaded</module>
+            </modules>
         </profile>
     </profiles>
-
-
     <dependencyManagement>
         <!-- It is important that _no_ GPL library is used here. Note, in some
             cases, a GPL licencse can have "classpath" exceptions, like usually for Oracle
@@ -649,17 +671,23 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.15.0</version>
                 <configuration>
-                    <source>${compiler.source}</source>
-                    <target>${compiler.target}</target>
                     <encoding>${project.build.sourceEncoding}</encoding>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <configuration>
+                            <release>8</release>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>3.12.0</version>
                 <configuration>
-                    <source>${compiler.source}</source>
+                    <source>8</source>
                     <additionalOptions>-Xdoclint:none</additionalOptions>
                 </configuration>
             </plugin>
@@ -700,6 +728,9 @@
                 <version>3.5.4</version>
                 <configuration>
                     <!--<rerunFailingTestsCount>${rerunFailingTestsCount}</rerunFailingTestsCount>-->
+                    <!-- EvoSuite tests modify global state (classloaders, static fields,
+                         security managers) and cannot safely share a JVM. Each test class
+                         gets a fresh fork to ensure isolation. -->
                     <forkCount>1</forkCount>
                     <reuseForks>false</reuseForks>
                     <reportFormat>xml</reportFormat>
@@ -795,6 +826,33 @@
                             <configuration>
                                 <shadedArtifactAttached>false</shadedArtifactAttached>
                                 <createDependencyReducedPom>true</createDependencyReducedPom>
+                                <minimizeJar>false</minimizeJar>
+                                <filters>
+                                    <filter>
+                                        <artifact>org.evosuite:*</artifact>
+                                        <includes><include>**</include></includes>
+                                    </filter>
+                                    <filter>
+                                        <artifact>ch.qos.logback:*</artifact>
+                                        <includes><include>**</include></includes>
+                                    </filter>
+                                    <filter>
+                                        <artifact>org.slf4j:*</artifact>
+                                        <includes><include>**</include></includes>
+                                    </filter>
+                                    <filter>
+                                        <artifact>org.jetbrains.kotlin:*</artifact>
+                                        <includes><include>**</include></includes>
+                                    </filter>
+                                    <filter>
+                                        <artifact>dev.langchain4j:*</artifact>
+                                        <includes><include>**</include></includes>
+                                    </filter>
+                                    <filter>
+                                        <artifact>net.bytebuddy:*</artifact>
+                                        <includes><include>**</include></includes>
+                                    </filter>
+                                </filters>
                                 <transformers>
                                     <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                                 </transformers>
@@ -894,12 +952,10 @@
         <integrationTests>**/*IntTest.java</integrationTests>
         <rerunFailingTestsCount>0</rerunFailingTestsCount>
 
-        <compiler.target>1.8</compiler.target>
-        <compiler.source>1.8</compiler.source>
-
         <mockito.version>4.11.0</mockito.version>
         <bytebuddy.version>1.12.23</bytebuddy.version>
         <logback.version>1.2.13</logback.version>
+        <langchain4j.version>0.35.0</langchain4j.version>
         <publish.classifier></publish.classifier>
 
         <jaxb.version>2.3.3</jaxb.version>
