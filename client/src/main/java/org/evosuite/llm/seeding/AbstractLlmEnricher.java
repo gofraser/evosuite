@@ -48,6 +48,11 @@ public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.Enrichme
         return t;
     });
 
+    static {
+        Runtime.getRuntime().addShutdownHook(new Thread(LLM_ENRICHMENT_EXECUTOR::shutdownNow,
+                "llm-enrichment-shutdown"));
+    }
+
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     protected final LlmService llmService;
     protected final LlmFeature feature;
