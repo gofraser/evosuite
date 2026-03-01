@@ -23,12 +23,14 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.setup.TestUsageChecker;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.environment.EnvironmentStatements;
 import org.evosuite.testcase.variable.*;
@@ -331,12 +333,25 @@ public class VariableResolver {
             ObjectPoolManager objectPool = ObjectPoolManager.getInstance();
             if (Randomness.nextDouble() <= Properties.P_OBJECT_POOL && objectPool.hasSequence(clazz)) {
                 TestCase sequence = objectPool.getRandomSequence(clazz);
-                VariableReference targetObject = sequence.getLastObject(type);
-                int returnPos = position + targetObject.getStPosition();
-                for (int i = 0; i < sequence.size(); i++) {
-                    test.addStatement(sequence.getStatement(i).copy(test, position), position + i);
+                if (sequence != null) {
+                    int originalSize = test.size();
+                    try {
+                        VariableReference targetObject = sequence.getLastObject(type);
+                        int returnPos = position + targetObject.getStPosition();
+                        for (int i = 0; i < sequence.size(); i++) {
+                            test.addStatement(sequence.getStatement(i).copy(test, position), position + i);
+                        }
+                        int usageCount = objectPool.incrementSequenceUsageCount();
+                        ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, usageCount);
+                        return test.getStatement(returnPos).getReturnValue();
+                    } catch (Exception e) {
+                        // Roll back any partially inserted statements
+                        while (test.size() > originalSize) {
+                            test.remove(test.size() - 1);
+                        }
+                        logger.debug("Object pool sequence insertion failed, falling through: {}", e.getMessage());
+                    }
                 }
-                return test.getStatement(returnPos).getReturnValue();
             }
 
             return createObject(test, type, position, context, config);

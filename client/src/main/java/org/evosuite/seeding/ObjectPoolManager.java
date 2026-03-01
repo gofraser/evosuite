@@ -27,12 +27,16 @@ import org.evosuite.utils.generic.GenericClassFactory;
 
 import java.io.File;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ObjectPoolManager extends ObjectPool {
 
     private static final long serialVersionUID = 6287216639197977371L;
 
     private static volatile ObjectPoolManager instance = null;
+
+    /** Counts successful pool sequence usages during test generation. */
+    private final AtomicInteger sequenceUsageCount = new AtomicInteger(0);
 
     private ObjectPoolManager() {
         initialisePool();
@@ -117,9 +121,24 @@ public class ObjectPoolManager extends ObjectPool {
      */
     public void reset() {
         pool.clear();
+        sequenceUsageCount.set(0);
         synchronized (ObjectPoolManager.class) {
             ObjectPoolManager.instance = null;
         }
+    }
+
+    /**
+     * Increments and returns the running count of successful pool sequence usages.
+     */
+    public int incrementSequenceUsageCount() {
+        return sequenceUsageCount.incrementAndGet();
+    }
+
+    /**
+     * Returns the total number of times a pool sequence was successfully used.
+     */
+    public int getSequenceUsageCount() {
+        return sequenceUsageCount.get();
     }
 
 }

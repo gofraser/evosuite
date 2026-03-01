@@ -669,6 +669,10 @@ public enum RuntimeVariable {
      */
     LLM_Object_Pool_Sequences_Added,
     /**
+     * Number of times an object-pool sequence was successfully used during test generation.
+     */
+    Object_Pool_Sequence_Used,
+    /**
      * Number of tests renamed by LLM post-processing.
      */
     LLM_Tests_Renamed,

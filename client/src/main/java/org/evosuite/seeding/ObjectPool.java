@@ -186,12 +186,14 @@ public class ObjectPool implements Serializable {
      */
     protected void filterUnaccessibleTests() {
         for (Set<TestCase> testSet : pool.values()) {
-            Iterator<TestCase> testIterator = testSet.iterator();
-            while (testIterator.hasNext()) {
-                TestCase currentTest = testIterator.next();
-                if (!currentTest.isAccessible()) {
-                    logger.info("Removing test containing inaccessible elements");
-                    testIterator.remove();
+            synchronized (testSet) {
+                Iterator<TestCase> testIterator = testSet.iterator();
+                while (testIterator.hasNext()) {
+                    TestCase currentTest = testIterator.next();
+                    if (!currentTest.isAccessible()) {
+                        logger.info("Removing test containing inaccessible elements");
+                        testIterator.remove();
+                    }
                 }
             }
         }
