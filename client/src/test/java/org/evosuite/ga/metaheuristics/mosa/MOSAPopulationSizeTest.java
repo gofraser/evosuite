@@ -216,6 +216,39 @@ class MOSAPopulationSizeTest {
                 "Non-speciation path should not exceed base target");
     }
 
+    /**
+     * Even if speciation processing fails mid-way, fallback must still preserve
+     * all front-0 members.
+     */
+    @Test
+    void speciationFailureFallbackStillPreservesFront0() {
+        Properties.SPECIATION_ENABLED = true;
+        Properties.SPECIES_BALANCE_PARENT_SELECTION = false;
+        Properties.SPECIES_SURVIVAL_CAP = 1.0;
+        Properties.SPECIES_TIMELINE_ENABLED = true;
+        Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;
+
+        int basePopSize = 4;
+        int front0Size = 6;
+
+        List<TestChromosome> front0 = makeChromosomes(front0Size);
+        List<TestChromosome> front1 = makeChromosomes(4);
+
+        PopSizeTestMOSA mosa = new ThrowingTimelineMOSA(
+                () -> new TestChromosome(), front0, front1, basePopSize);
+
+        mosa.evolve();
+
+        Set<TestChromosome> popSet = Collections.newSetFromMap(new IdentityHashMap<>());
+        popSet.addAll(mosa.getPopulation());
+        for (TestChromosome tc : front0) {
+            assertTrue(popSet.contains(tc),
+                    "Fallback path must keep all front-0 members");
+        }
+        assertEquals(front0Size, mosa.getPopulation().size(),
+                "Fallback path should still use effective target based on front-0");
+    }
+
     // ------- helpers -------
 
     private static List<TestChromosome> makeChromosomes(int n) {
@@ -269,6 +302,25 @@ class MOSAPopulationSizeTest {
         @Override
         protected void calculateFitness(TestChromosome c) {
             // no-op
+        }
+    }
+
+    /**
+     * Test variant that forces an exception inside the speciation block.
+     */
+    private static class ThrowingTimelineMOSA extends PopSizeTestMOSA {
+        private static final long serialVersionUID = 1L;
+
+        ThrowingTimelineMOSA(ChromosomeFactory<TestChromosome> factory,
+                             List<TestChromosome> front0,
+                             List<TestChromosome> front1,
+                             int initialPopSize) {
+            super(factory, front0, front1, initialPopSize);
+        }
+
+        @Override
+        protected void emitSpeciesTimeline(Map<Integer, List<TestChromosome>> speciesMap) {
+            throw new RuntimeException("forced speciation failure");
         }
     }
 

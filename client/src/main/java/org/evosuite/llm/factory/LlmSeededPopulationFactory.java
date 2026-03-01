@@ -28,8 +28,6 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.response.ClusterExpansionManager;
-import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
@@ -37,7 +35,6 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
-import org.evosuite.testparser.TestParser;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -154,7 +151,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         PromptResult prompt = buildPrompt();
         try {
             String response = llmService.query(prompt, LlmFeature.SEEDING);
-            RepairResult repairResult = createRepairLoop().attemptParse(
+            RepairResult repairResult = TestRepairLoop.createDefault(llmService).attemptParse(
                     response, prompt.getMessages(), LlmFeature.SEEDING);
             if (!repairResult.isSuccess()) {
                 logger.debug("LLM seeding failed to produce valid tests after repair.");
@@ -168,7 +165,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                 }
                 return Collections.emptyList();
             }
-            List<TestChromosome> seeds = toChromosomes(repairResult);
+            List<TestChromosome> seeds = repairResult.toChromosomes();
             logger.debug("LLM seeding produced {} valid test chromosomes.", seeds.size());
             return seeds;
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
@@ -195,22 +192,4 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         return builder.buildWithMetadata();
     }
 
-    private TestRepairLoop createRepairLoop() {
-        return new TestRepairLoop(
-                llmService,
-                TestParser.forSUTWithLlmProvenance(),
-                new LlmResponseParser(),
-                new ClusterExpansionManager());
-    }
-
-    private List<TestChromosome> toChromosomes(RepairResult repairResult) {
-        List<TestChromosome> chromosomes = new ArrayList<>();
-        repairResult.getTestCases().stream()
-                .forEach(testCase -> {
-                    TestChromosome chromosome = new TestChromosome();
-                    chromosome.setTestCase(testCase);
-                    chromosomes.add(chromosome);
-                });
-        return chromosomes;
-    }
 }

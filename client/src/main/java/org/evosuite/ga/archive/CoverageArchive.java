@@ -184,7 +184,7 @@ public class CoverageArchive extends Archive {
      */
     @Override
     public Set<TestFitnessFunction> getUncoveredTargets() {
-        return this.uncovered;
+        return new LinkedHashSet<>(this.uncovered);
     }
 
     private Set<TestFitnessFunction> getTargets() {

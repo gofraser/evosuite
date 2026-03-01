@@ -27,14 +27,11 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.response.ClusterExpansionManager;
-import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.testparser.TestParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -111,11 +108,7 @@ public class AsyncLlmTestProducer {
     }
 
     private void produceLoop() {
-        TestRepairLoop repairLoop = new TestRepairLoop(
-                llmService,
-                TestParser.forSUTWithLlmProvenance(),
-                new LlmResponseParser(),
-                new ClusterExpansionManager());
+        TestRepairLoop repairLoop = TestRepairLoop.createDefault(llmService);
         int generatedSinceRefresh = refreshInterval;
         Collection<TestFitnessFunction> currentGoals = Collections.emptyList();
 
@@ -145,7 +138,7 @@ public class AsyncLlmTestProducer {
                 RepairResult result = repairLoop.attemptParse(
                         response, prompt.getMessages(), LlmFeature.ASYNC_PRODUCER);
                 if (result.isSuccess()) {
-                    for (TestChromosome chromosome : toChromosomes(result)) {
+                    for (TestChromosome chromosome : result.toChromosomes()) {
                         testQueue.offer(chromosome);
                     }
                 }
@@ -171,16 +164,6 @@ public class AsyncLlmTestProducer {
             logger.debug("Async producer goal snapshot failed: {}", e.getMessage());
             return Collections.emptyList();
         }
-    }
-
-    private List<TestChromosome> toChromosomes(RepairResult result) {
-        List<TestChromosome> chromosomes = new ArrayList<>();
-        result.getTestCases().forEach(testCase -> {
-            TestChromosome chromosome = new TestChromosome();
-            chromosome.setTestCase(testCase);
-            chromosomes.add(chromosome);
-        });
-        return chromosomes;
     }
 
     private void sleepDelay() {

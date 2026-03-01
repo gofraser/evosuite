@@ -27,15 +27,12 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.response.ClusterExpansionManager;
-import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.testparser.TestParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -138,12 +135,12 @@ public class StagnationDetector {
         PromptResult prompt = buildPrompt(uncoveredGoals, currentPopulation);
         try {
             String response = llmService.query(prompt, LlmFeature.STAGNATION);
-            RepairResult result = createRepairLoop().attemptParse(
+            RepairResult result = TestRepairLoop.createDefault(llmService).attemptParse(
                     response, prompt.getMessages(), LlmFeature.STAGNATION);
             if (!result.isSuccess()) {
                 return Collections.emptyList();
             }
-            return toChromosomes(result, testsPerRequest);
+            return result.toChromosomes(testsPerRequest);
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
             logger.debug("Stagnation LLM request failed: {}", e.getMessage());
             return Collections.emptyList();
@@ -184,23 +181,4 @@ public class StagnationDetector {
         return builder.buildWithMetadata();
     }
 
-    private TestRepairLoop createRepairLoop() {
-        return new TestRepairLoop(
-                llmService,
-                TestParser.forSUTWithLlmProvenance(),
-                new LlmResponseParser(),
-                new ClusterExpansionManager());
-    }
-
-    private List<TestChromosome> toChromosomes(RepairResult repairResult, int maxCount) {
-        List<TestChromosome> chromosomes = new ArrayList<>();
-        repairResult.getTestCases().stream()
-                .limit(Math.max(0, maxCount))
-                .forEach(testCase -> {
-                    TestChromosome chromosome = new TestChromosome();
-                    chromosome.setTestCase(testCase);
-                    chromosomes.add(chromosome);
-                });
-        return chromosomes;
-    }
 }

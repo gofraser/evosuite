@@ -44,6 +44,18 @@ public class TestRepairLoop {
     private final TestExecutor testExecutor;
     private final int maxAttempts;
 
+    /**
+     * Creates a standard repair loop wired to the given LLM service, using
+     * the SUT-aware parser, default response parser, and cluster expansion manager.
+     */
+    public static TestRepairLoop createDefault(LlmService llmService) {
+        return new TestRepairLoop(
+                llmService,
+                TestParser.forSUTWithLlmProvenance(),
+                new LlmResponseParser(),
+                new ClusterExpansionManager());
+    }
+
     /** Creates a repair loop using Properties-configured max attempts and a default test executor. */
     public TestRepairLoop(LlmService llmService,
                           TestParser testParser,
@@ -142,8 +154,11 @@ public class TestRepairLoop {
                         diagnostics.add("Cluster expansion failure: " + formatThrowable(expansionFailure));
                     }
                     if (expanded) {
-                        expandedClasses.clear();
-                        expandedClasses.addAll(clusterExpansionManager.getLastExpandedClasses());
+                        for (String cls : clusterExpansionManager.getLastExpandedClasses()) {
+                            if (!expandedClasses.contains(cls)) {
+                                expandedClasses.add(cls);
+                            }
+                        }
                         diagnostics.add("Expanded cluster with: " + expandedClasses);
                         continue;
                     }
@@ -237,15 +252,6 @@ public class TestRepairLoop {
         }
     }
 
-    private boolean hasErrors(List<ParseResult> parseResults) {
-        for (ParseResult parseResult : parseResults) {
-            if (parseResult.hasErrors()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private boolean hasResolutionErrors(List<ParseResult> parseResults) {
         for (ParseResult parseResult : parseResults) {
             for (ParseDiagnostic diagnostic : parseResult.getDiagnostics()) {
@@ -261,37 +267,6 @@ public class TestRepairLoop {
             }
         }
         return false;
-    }
-
-    private String formatParseErrors(List<ParseResult> parseResults) {
-        StringBuilder builder = new StringBuilder();
-        for (ParseResult parseResult : parseResults) {
-            for (ParseDiagnostic diagnostic : parseResult.getDiagnostics()) {
-                if (diagnostic.getSeverity() != ParseDiagnostic.Severity.ERROR) {
-                    continue;
-                }
-                builder.append(diagnostic.toString()).append(System.lineSeparator());
-            }
-        }
-        return builder.toString().trim();
-    }
-
-    private String findExecutionError(List<ParseResult> parseResults) {
-        for (ParseResult parseResult : parseResults) {
-            try {
-                ExecutionResult executionResult = testExecutor.execute(parseResult.getTestCase());
-                if (executionResult != null && executionResult.hasUndeclaredException()) {
-                    Integer first = executionResult.getFirstPositionOfThrownException();
-                    Throwable thrown = first == null ? null : executionResult.getExceptionThrownAtPosition(first);
-                    String type = thrown == null ? "UnknownException" : thrown.getClass().getName();
-                    String message = thrown == null ? "" : thrown.getMessage();
-                    return "Execution error: " + type + " - " + message;
-                }
-            } catch (Throwable executionFailure) {
-                return "Execution failure: " + formatThrowable(executionFailure);
-            }
-        }
-        return null;
     }
 
     private String formatThrowable(Throwable throwable) {

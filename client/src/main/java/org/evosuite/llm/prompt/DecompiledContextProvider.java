@@ -49,6 +49,13 @@ public class DecompiledContextProvider implements SutContextProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(DecompiledContextProvider.class);
 
+    /** Shared single-thread executor for decompilation tasks. Daemon thread so JVM exit is not blocked. */
+    private static final ExecutorService DECOMPILER_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "cfr-decompiler");
+        t.setDaemon(true);
+        return t;
+    });
+
     @Override
     public Optional<String> getContext(String className, TestCluster cluster) {
         if (className == null || className.trim().isEmpty()) {
@@ -56,9 +63,8 @@ public class DecompiledContextProvider implements SutContextProvider {
         }
 
         int timeoutSeconds = Math.max(1, Properties.LLM_DECOMPILER_TIMEOUT_SECONDS);
-        ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            Future<Optional<String>> future = executor.submit(new DecompileTask(className));
+            Future<Optional<String>> future = DECOMPILER_EXECUTOR.submit(new DecompileTask(className));
             return future.get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             logger.debug("CFR decompiler timed out after {}s for {}", timeoutSeconds, className);
@@ -69,8 +75,6 @@ public class DecompiledContextProvider implements SutContextProvider {
         } catch (ExecutionException e) {
             logger.debug("CFR decompilation failed for {}: {}", className, e.getMessage());
             return Optional.empty();
-        } finally {
-            executor.shutdownNow();
         }
     }
 

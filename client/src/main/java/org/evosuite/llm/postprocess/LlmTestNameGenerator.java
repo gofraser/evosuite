@@ -54,6 +54,10 @@ public class LlmTestNameGenerator implements TestNameGenerationStrategy {
     /** Valid Java method name: starts with letter/underscore, camelCase, reasonable length. */
     private static final Pattern VALID_METHOD_NAME = Pattern.compile("^[a-z][a-zA-Z0-9_]{0,127}$");
 
+    private static final Set<String> RESERVED_METHOD_NAMES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            "class", "return", "void", "public", "private",
+            "static", "final", "abstract", "new", "this", "super", "null", "true", "false")));
+
     private final Map<TestCase, String> testToName = new IdentityHashMap<>();
     private final AtomicInteger testsRenamed = new AtomicInteger();
     private final AtomicInteger fallbacks = new AtomicInteger();
@@ -163,10 +167,7 @@ public class LlmTestNameGenerator implements TestNameGenerationStrategy {
         if (!VALID_METHOD_NAME.matcher(name).matches()) {
             return false;
         }
-        // Reject common Java keywords that could appear
-        Set<String> reserved = Set.of("class", "return", "void", "public", "private",
-                "static", "final", "abstract", "new", "this", "super", "null", "true", "false");
-        return !reserved.contains(name);
+        return !RESERVED_METHOD_NAMES.contains(name);
     }
 
     @Override

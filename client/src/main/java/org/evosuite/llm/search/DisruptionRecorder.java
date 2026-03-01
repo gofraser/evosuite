@@ -46,7 +46,7 @@ public class DisruptionRecorder {
 
     private static final Logger logger = LoggerFactory.getLogger(DisruptionRecorder.class);
 
-    private static DisruptionRecorder instance;
+    private static volatile DisruptionRecorder instance;
 
     private final List<DisruptionEvent> events = Collections.synchronizedList(new ArrayList<>());
     private final AtomicInteger eventCounter = new AtomicInteger(0);

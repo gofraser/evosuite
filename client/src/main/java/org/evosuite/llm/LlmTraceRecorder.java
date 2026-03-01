@@ -47,6 +47,7 @@ public class LlmTraceRecorder {
 
     private final LlmConfiguration configuration;
     private final Path traceFile;
+    private boolean directoryCreated;
 
     /** Constructs a trace recorder for the given LLM configuration. */
     public LlmTraceRecorder(LlmConfiguration configuration) {
@@ -114,7 +115,10 @@ public class LlmTraceRecorder {
 
         synchronized (this) {
             try {
-                Files.createDirectories(traceFile.getParent());
+                if (!directoryCreated) {
+                    Files.createDirectories(traceFile.getParent());
+                    directoryCreated = true;
+                }
                 Files.write(traceFile,
                         Collections.singleton(json + System.lineSeparator()),
                         StandardCharsets.UTF_8,
@@ -130,11 +134,12 @@ public class LlmTraceRecorder {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             for (LlmMessage message : messages) {
-                String role = message == null || message.getRole() == null ? "" : message.getRole().name();
-                String content = message == null ? "" : message.getContent();
-                digest.update(role.getBytes(StandardCharsets.UTF_8));
+                if (message == null) {
+                    continue;
+                }
+                digest.update(message.getRole().name().getBytes(StandardCharsets.UTF_8));
                 digest.update((byte) 0x1F);
-                digest.update((content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
+                digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
                 digest.update((byte) 0x1E);
             }
             return toHex(digest.digest());
@@ -150,11 +155,12 @@ public class LlmTraceRecorder {
     private List<Map<String, String>> toSerializableMessages(List<LlmMessage> messages) {
         List<Map<String, String>> serialized = new ArrayList<>();
         for (LlmMessage message : messages) {
+            if (message == null) {
+                continue;
+            }
             Map<String, String> jsonMessage = new LinkedHashMap<>();
-            String role = message == null || message.getRole() == null ? "" : message.getRole().name();
-            String content = message == null ? "" : message.getContent();
-            jsonMessage.put("role", role);
-            jsonMessage.put("content", content);
+            jsonMessage.put("role", message.getRole().name());
+            jsonMessage.put("content", message.getContent());
             serialized.add(jsonMessage);
         }
         return serialized;

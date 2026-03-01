@@ -59,4 +59,22 @@ public final class LlmMessage {
     public String getContent() {
         return content;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof LlmMessage)) return false;
+        LlmMessage that = (LlmMessage) o;
+        return role == that.role && content.equals(that.content);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * role.hashCode() + content.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return role + ": " + content;
+    }
 }

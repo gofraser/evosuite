@@ -31,7 +31,14 @@ import java.util.*;
 
 /**
  * This Class manages the goals to consider during the search according to their structural
- * dependencies.
+ * dependencies. It handles only branch coverage goals.
+ *
+ * <p><strong>Design note:</strong> This class shares significant structural overlap with
+ * {@link MultiCriteriaManager}, including the branch maps ({@code branchCoverageTrueMap},
+ * {@code branchCoverageFalseMap}, {@code branchlessMethodCoverageMap}), the
+ * {@link BranchFitnessGraph}, and the trace-based archive update logic. A future refactoring
+ * could unify these by making {@code BranchesManager} delegate to or extend
+ * {@code MultiCriteriaManager} with a branch-only criterion configuration.
  *
  * @author Annibale Panichella, Fitsum Meshesha Kifetew
  */

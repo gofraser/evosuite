@@ -375,6 +375,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             asyncProducer.stop();
             asyncProducer = null;
         }
+        org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
     }
 
     protected void integrateAsyncTestsIntoPopulation() {

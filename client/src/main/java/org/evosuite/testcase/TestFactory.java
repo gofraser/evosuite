@@ -482,15 +482,18 @@ public class TestFactory {
         GenerationContext context = new GenerationContext();
 
         if (statement instanceof ConstructorStatement) {
-            addConstructor(test, ((ConstructorStatement) statement).getConstructor(),
+            VariableReference inserted = addConstructor(test, ((ConstructorStatement) statement).getConstructor(),
                     test.size(), context);
+            propagateParsedFromLlm(test, statement, inserted);
         } else if (statement instanceof MethodStatement) {
             GenericMethod method = ((MethodStatement) statement).getMethod();
-            addMethod(test, method, test.size(), context);
+            VariableReference inserted = addMethod(test, method, test.size(), context);
+            propagateParsedFromLlm(test, statement, inserted);
         } else if (statement instanceof PrimitiveStatement<?>) {
             addPrimitive(test, (PrimitiveStatement<?>) statement, test.size(), context);
         } else if (statement instanceof FieldStatement) {
-            addField(test, ((FieldStatement) statement).getField(), test.size(), context);
+            VariableReference inserted = addField(test, ((FieldStatement) statement).getField(), test.size(), context);
+            propagateParsedFromLlm(test, statement, inserted);
         } else if (statement instanceof AssignmentStatement) {
             // AssignmentStatement references two existing variables (target
             // and value).  During crossover the source parent's variable
@@ -516,6 +519,19 @@ public class TestFactory {
             // clone is safe.
             test.addStatement(statement.clone(test));
         }
+    }
+
+    private void propagateParsedFromLlm(TestCase test, Statement source, VariableReference inserted) {
+        if (inserted == null) {
+            return;
+        }
+
+        int statementPosition = inserted.getStPosition();
+        if (statementPosition < 0 || statementPosition >= test.size()) {
+            return;
+        }
+
+        test.getStatement(statementPosition).setParsedFromLlm(source.isParsedFromLlm());
     }
 
     /**

@@ -166,6 +166,12 @@ public class ClusterExpansionManager {
         }
     }
 
+    /** Common words in diagnostics that should not be treated as class names. */
+    private static final Set<String> DIAGNOSTIC_NOISE_WORDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            "Cannot", "Error", "Not", "The", "This", "But", "Expected", "Found",
+            "Type", "Variable", "Method", "Class", "Package", "Symbol", "Already",
+            "Incompatible", "Required", "Unreachable", "Undefined", "Unknown")));
+
     private void collectSymbols(String source, Set<String> output) {
         if (source == null || source.isEmpty()) {
             return;
@@ -178,7 +184,10 @@ public class ClusterExpansionManager {
 
         Matcher simple = SIMPLE_CLASS_PATTERN.matcher(source);
         while (simple.find()) {
-            output.add(simple.group(1));
+            String name = simple.group(1);
+            if (!DIAGNOSTIC_NOISE_WORDS.contains(name)) {
+                output.add(name);
+            }
         }
     }
 }

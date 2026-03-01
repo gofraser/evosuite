@@ -28,14 +28,11 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.response.ClusterExpansionManager;
-import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.testparser.TestParser;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -103,7 +100,7 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
     private TestChromosome generateViaLlm() {
         PromptResult prompt = buildPrompt();
         String response = llmService.query(prompt, LlmFeature.TEST_FACTORY);
-        RepairResult repairResult = createRepairLoop().attemptParse(
+        RepairResult repairResult = TestRepairLoop.createDefault(llmService).attemptParse(
                 response, prompt.getMessages(), LlmFeature.TEST_FACTORY);
         if (!repairResult.isSuccess() || repairResult.getTestCases().isEmpty()) {
             return null;
@@ -127,11 +124,4 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         return builder.buildWithMetadata();
     }
 
-    private TestRepairLoop createRepairLoop() {
-        return new TestRepairLoop(
-                llmService,
-                TestParser.forSUTWithLlmProvenance(),
-                new LlmResponseParser(),
-                new ClusterExpansionManager());
-    }
 }

@@ -62,9 +62,9 @@ public class LlmAssertionGenerator {
                     + "ArrayEquals|Throws|DoesNotThrow|That|Timeout)\\s*\\(.*\\)\\s*;$");
 
     /** Tokens that should never appear in assertion arguments (injection indicators). */
-    private static final Set<String> SUSPICIOUS_TOKENS = Set.of(
+    private static final Set<String> SUSPICIOUS_TOKENS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "Runtime", "exec(", "System.exit", "ProcessBuilder",
-            "import ", "class ", "void ", "new File(", "delete(", "forName(");
+            "import ", "class ", "void ", "new File(", "delete(", "forName(")));
 
     public enum Mode {
         /** Assert observed behavior from execution results. */

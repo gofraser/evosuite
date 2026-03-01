@@ -25,8 +25,6 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.response.ClusterExpansionManager;
-import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.seeding.ObjectPoolManager;
@@ -35,7 +33,6 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testparser.ParseResult;
-import org.evosuite.testparser.TestParser;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 
@@ -69,7 +66,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
      * Creates an enricher with default repair loop configuration.
      */
     public LlmObjectPoolEnricher(LlmService llmService) {
-        this(llmService, createDefaultRepairLoop(llmService));
+        this(llmService, TestRepairLoop.createDefault(llmService));
     }
 
     @Override
@@ -209,7 +206,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
 
             try {
                 GenericClass<?> genericClass = GenericClassFactory.get(type);
-                ObjectPoolManager.getInstance().addSequence(genericClass, testCase);
+                ObjectPoolManager.getInstance().addSequence(genericClass, testCase.clone());
                 insertions++;
                 logger.debug("Inserted sequence under type key: {}", type.getName());
             } catch (Throwable t) {
@@ -326,13 +323,6 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
                         + "Do NOT include assertions - focus on object construction only.")
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
         return builder.buildWithMetadata();
-    }
-
-    private static TestRepairLoop createDefaultRepairLoop(LlmService llmService) {
-        TestParser testParser = TestParser.forSUTWithLlmProvenance();
-        LlmResponseParser responseParser = new LlmResponseParser();
-        ClusterExpansionManager expansionManager = new ClusterExpansionManager();
-        return new TestRepairLoop(llmService, testParser, responseParser, expansionManager);
     }
 
     /**

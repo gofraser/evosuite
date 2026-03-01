@@ -62,6 +62,8 @@ public class PromptBuilder {
 
     /**
      * Creates a builder using the default {@link SutContextProviderFactory} singleton.
+     * <p><b>Note:</b> Each builder instance should be used for a single {@link #build()} or
+     * {@link #buildWithMetadata()} call. Do not reuse builders across multiple prompts.
      */
     public PromptBuilder(SystemPromptProvider systemPromptProvider,
                          TestClusterSummarizer testClusterSummarizer,
@@ -69,7 +71,7 @@ public class PromptBuilder {
                          CoverageGoalFormatter coverageGoalFormatter,
                          TestCaseFormatter testCaseFormatter) {
         this(systemPromptProvider, testClusterSummarizer, sourceCodeProvider,
-                coverageGoalFormatter, testCaseFormatter, new SutContextProviderFactory());
+                coverageGoalFormatter, testCaseFormatter, SutContextProviderFactory.getInstance());
     }
 
     /** Creates a builder with all providers and factory explicitly specified. */

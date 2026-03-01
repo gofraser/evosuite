@@ -30,15 +30,12 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.response.ClusterExpansionManager;
-import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
-import org.evosuite.testparser.TestParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,13 +102,15 @@ public class LlmLocalSearch extends TestCaseLocalSearch<TestChromosome> {
         PromptResult prompt = builder.buildWithMetadata();
         try {
             String response = llmService.query(prompt, LlmFeature.LOCAL_SEARCH);
-            RepairResult result = createRepairLoop().attemptParse(
+            RepairResult result = TestRepairLoop.createDefault(llmService).attemptParse(
                     response, prompt.getMessages(), LlmFeature.LOCAL_SEARCH);
             if (!result.isSuccess()) {
                 LocalSearchBudget.getInstance().countLocalSearchOnTest();
                 return false;
             }
-            for (TestChromosome candidate : toChromosomes(result)) {
+            List<TestChromosome> candidates = result.toChromosomes();
+            for (TestChromosome candidate : candidates) {
+                candidate.setChanged(true);
                 if (objective.hasImproved(candidate)) {
                     LocalSearchBudget.getInstance().countLocalSearchOnTest();
                     return true;
@@ -201,22 +200,4 @@ public class LlmLocalSearch extends TestCaseLocalSearch<TestChromosome> {
         return ranked;
     }
 
-    private TestRepairLoop createRepairLoop() {
-        return new TestRepairLoop(
-                llmService,
-                TestParser.forSUTWithLlmProvenance(),
-                new LlmResponseParser(),
-                new ClusterExpansionManager());
-    }
-
-    private List<TestChromosome> toChromosomes(RepairResult result) {
-        java.util.ArrayList<TestChromosome> candidates = new java.util.ArrayList<>();
-        result.getTestCases().forEach(testCase -> {
-            TestChromosome chromosome = new TestChromosome();
-            chromosome.setTestCase(testCase);
-            chromosome.setChanged(true);
-            candidates.add(chromosome);
-        });
-        return candidates;
-    }
 }

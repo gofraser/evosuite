@@ -27,14 +27,11 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.response.ClusterExpansionManager;
-import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.testparser.TestParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,7 +64,7 @@ public class LlmSemanticMutation {
      */
     public TestChromosome mutateSemantically(TestChromosome test,
                                               Collection<TestFitnessFunction> goals) {
-        if (test == null || !llmService.isAvailable()) {
+        if (test == null || !llmService.isAvailable() || !llmService.hasBudget()) {
             return null;
         }
 
@@ -88,7 +85,7 @@ public class LlmSemanticMutation {
                         .buildWithMetadata();
 
                 String response = llmService.query(prompt, LlmFeature.SEMANTIC_MUTATION);
-                RepairResult result = createRepairLoop().attemptParse(
+                RepairResult result = TestRepairLoop.createDefault(llmService).attemptParse(
                         response, prompt.getMessages(), LlmFeature.SEMANTIC_MUTATION);
                 if (result.isSuccess() && !result.getTestCases().isEmpty()) {
                     TestChromosome mutant = new TestChromosome();
@@ -110,11 +107,4 @@ public class LlmSemanticMutation {
         return null;
     }
 
-    private TestRepairLoop createRepairLoop() {
-        return new TestRepairLoop(
-                llmService,
-                TestParser.forSUTWithLlmProvenance(),
-                new LlmResponseParser(),
-                new ClusterExpansionManager());
-    }
 }

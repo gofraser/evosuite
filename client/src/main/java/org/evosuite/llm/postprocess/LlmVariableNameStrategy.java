@@ -75,7 +75,7 @@ public class LlmVariableNameStrategy extends AbstractVariableNameStrategy {
     private final AtomicInteger variablesRenamed = new AtomicInteger();
     private final AtomicInteger fallbackCount = new AtomicInteger();
 
-    private int typeCounter = 0;
+    private final AtomicInteger typeCounter = new AtomicInteger();
 
     /** Returns true if the current thread is inside an LLM rendering call. */
     static boolean isRenderingForLlm() {
@@ -189,6 +189,11 @@ public class LlmVariableNameStrategy extends AbstractVariableNameStrategy {
         return result;
     }
 
+    private static final Set<String> RESERVED_VARIABLE_NAMES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            "class", "return", "void", "public", "private",
+            "static", "final", "abstract", "new", "this", "super", "null", "true", "false",
+            "int", "long", "double", "float", "boolean", "char", "byte", "short")));
+
     static boolean isValidVariableName(String name) {
         if (name == null || name.isEmpty()) {
             return false;
@@ -196,10 +201,7 @@ public class LlmVariableNameStrategy extends AbstractVariableNameStrategy {
         if (!VALID_VAR_NAME.matcher(name).matches()) {
             return false;
         }
-        Set<String> reserved = Set.of("class", "return", "void", "public", "private",
-                "static", "final", "abstract", "new", "this", "super", "null", "true", "false",
-                "int", "long", "double", "float", "boolean", "char", "byte", "short");
-        return !reserved.contains(name);
+        return !RESERVED_VARIABLE_NAMES.contains(name);
     }
 
     private String createTypeBasedName(VariableReference variable) {
@@ -209,7 +211,7 @@ public class LlmVariableNameStrategy extends AbstractVariableNameStrategy {
         }
         // Lowercase first char
         typeName = Character.toLowerCase(typeName.charAt(0)) + typeName.substring(1);
-        return typeName + (typeCounter++);
+        return typeName + typeCounter.getAndIncrement();
     }
 
     @Override

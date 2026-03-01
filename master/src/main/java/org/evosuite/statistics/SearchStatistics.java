@@ -192,6 +192,13 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 DirectSequenceOutputVariableFactory.getInteger(RuntimeVariable.Remaining_Goals_Timeline));
         sequenceOutputVariableFactories.put(RuntimeVariable.Covered_Goals_Timeline.name(),
                 DirectSequenceOutputVariableFactory.getInteger(RuntimeVariable.Covered_Goals_Timeline));
+        
+        sequenceOutputVariableFactories.put(RuntimeVariable.Species_Count_Timeline.name(),
+                DirectSequenceOutputVariableFactory.getInteger(RuntimeVariable.Species_Count_Timeline));
+        sequenceOutputVariableFactories.put(RuntimeVariable.Species_Largest_Share_Timeline.name(),
+                DirectSequenceOutputVariableFactory.getDouble(RuntimeVariable.Species_Largest_Share_Timeline));
+        sequenceOutputVariableFactories.put(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline.name(),
+                DirectSequenceOutputVariableFactory.getDouble(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline));
 
         // sequenceOutputVariableFactories.put("Generation_History", new GenerationSequenceOutputVariableFactory());
         if (MasterServices.getInstance().getMasterNode() != null) {
@@ -397,7 +404,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * Shorthand for getOutputVariables(individual, false).
      */
     private Map<String, OutputVariable<?>> getOutputVariables(TestSuiteChromosome individual) {
-        return getOutputVariables(individual, false);
+        return getOutputVariables(individual, Properties.IGNORE_MISSING_STATISTICS);
     }
 
     /**

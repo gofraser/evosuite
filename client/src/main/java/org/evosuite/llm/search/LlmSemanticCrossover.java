@@ -27,14 +27,11 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.response.ClusterExpansionManager;
-import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.testparser.TestParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +67,7 @@ public class LlmSemanticCrossover {
                                                  TestChromosome parent2,
                                                  Collection<TestFitnessFunction> goals) {
         if (parent1 == null || parent2 == null
-                || !llmService.isAvailable()) {
+                || !llmService.isAvailable() || !llmService.hasBudget()) {
             return null;
         }
 
@@ -93,7 +90,7 @@ public class LlmSemanticCrossover {
                         .buildWithMetadata();
 
                 String response = llmService.query(prompt, LlmFeature.SEMANTIC_CROSSOVER);
-                RepairResult result = createRepairLoop().attemptParse(
+                RepairResult result = TestRepairLoop.createDefault(llmService).attemptParse(
                         response, prompt.getMessages(), LlmFeature.SEMANTIC_CROSSOVER);
                 if (result.isSuccess() && !result.getTestCases().isEmpty()) {
                     TestChromosome child = new TestChromosome();
@@ -115,11 +112,4 @@ public class LlmSemanticCrossover {
         return null;
     }
 
-    private TestRepairLoop createRepairLoop() {
-        return new TestRepairLoop(
-                llmService,
-                TestParser.forSUTWithLlmProvenance(),
-                new LlmResponseParser(),
-                new ClusterExpansionManager());
-    }
 }

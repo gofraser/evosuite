@@ -22,6 +22,8 @@ package org.evosuite.llm.prompt;
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmMessage;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -38,7 +40,9 @@ public final class PromptResult {
     public PromptResult(List<LlmMessage> messages,
                         Properties.LlmSutContextMode sutContextMode,
                         boolean contextUnavailable) {
-        this.messages = messages;
+        this.messages = messages == null
+                ? Collections.emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(messages));
         this.sutContextMode = sutContextMode;
         this.contextUnavailable = contextUnavailable;
     }

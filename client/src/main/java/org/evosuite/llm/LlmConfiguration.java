@@ -27,6 +27,7 @@ import java.util.UUID;
 
 /**
  * Immutable snapshot of runtime LLM configuration.
+ * Use {@link Builder} for constructing instances programmatically.
  */
 public class LlmConfiguration {
 
@@ -68,6 +69,11 @@ public class LlmConfiguration {
         this.traceEnabled = traceEnabled;
         this.traceDir = traceDir;
         this.runId = runId;
+    }
+
+    /** Returns a new builder for constructing LlmConfiguration instances. */
+    public static Builder builder() {
+        return new Builder();
     }
 
     /**
@@ -151,5 +157,40 @@ public class LlmConfiguration {
 
     public String getRunId() {
         return runId;
+    }
+
+    /** Fluent builder for {@link LlmConfiguration}. */
+    public static class Builder {
+        private Properties.LlmProvider provider = Properties.LlmProvider.NONE;
+        private String model = "";
+        private String apiKey = "";
+        private String baseUrl = "";
+        private double temperature = 0.0;
+        private int maxTokens = 1024;
+        private int timeoutSeconds = 30;
+        private int retryMaxAttempts = 2;
+        private int retryBaseDelayMs = 1000;
+        private boolean traceEnabled = false;
+        private Path traceDir = Paths.get("evosuite-report", "llm-traces");
+        private String runId = UUID.randomUUID().toString();
+
+        public Builder provider(Properties.LlmProvider provider) { this.provider = provider; return this; }
+        public Builder model(String model) { this.model = model; return this; }
+        public Builder apiKey(String apiKey) { this.apiKey = apiKey; return this; }
+        public Builder baseUrl(String baseUrl) { this.baseUrl = baseUrl; return this; }
+        public Builder temperature(double temperature) { this.temperature = temperature; return this; }
+        public Builder maxTokens(int maxTokens) { this.maxTokens = maxTokens; return this; }
+        public Builder timeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; return this; }
+        public Builder retryMaxAttempts(int retryMaxAttempts) { this.retryMaxAttempts = retryMaxAttempts; return this; }
+        public Builder retryBaseDelayMs(int retryBaseDelayMs) { this.retryBaseDelayMs = retryBaseDelayMs; return this; }
+        public Builder traceEnabled(boolean traceEnabled) { this.traceEnabled = traceEnabled; return this; }
+        public Builder traceDir(Path traceDir) { this.traceDir = traceDir; return this; }
+        public Builder runId(String runId) { this.runId = runId; return this; }
+
+        public LlmConfiguration build() {
+            return new LlmConfiguration(provider, model, apiKey, baseUrl, temperature,
+                    maxTokens, timeoutSeconds, retryMaxAttempts, retryBaseDelayMs,
+                    traceEnabled, traceDir, runId);
+        }
     }
 }

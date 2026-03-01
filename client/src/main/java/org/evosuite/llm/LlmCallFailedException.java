@@ -21,6 +21,9 @@ package org.evosuite.llm;
 
 /**
  * Raised when an LLM request fails (after retries for retryable failures).
+ * <p>The {@code retryable} flag records whether the root cause was retryable;
+ * since the service already exhausted retries before throwing, callers typically
+ * only use this flag for diagnostic logging.
  */
 public class LlmCallFailedException extends RuntimeException {
 

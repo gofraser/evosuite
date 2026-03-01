@@ -96,7 +96,11 @@ public class LlmService implements AutoCloseable {
         this.statistics = statistics;
         this.traceRecorder = traceRecorder;
         this.jitterRandom = jitterRandom;
-        this.executorService = Executors.newSingleThreadExecutor();
+        this.executorService = Executors.newCachedThreadPool(r -> {
+            Thread t = new Thread(r, "llm-timeout-guard");
+            t.setDaemon(true);
+            return t;
+        });
         this.available = available;
     }
 
@@ -181,13 +185,29 @@ public class LlmService implements AutoCloseable {
     private static ChatLanguageModel createProviderModel(LlmConfiguration config) {
         switch (config.getProvider()) {
             case OPENAI:
+                checkClassAvailable("dev.langchain4j.model.openai.OpenAiChatModel",
+                        "langchain4j-open-ai", "OPENAI");
                 return createOpenAiModel(config);
             case OLLAMA:
+                checkClassAvailable("dev.langchain4j.model.ollama.OllamaChatModel",
+                        "langchain4j-ollama", "OLLAMA");
                 return createOllamaModel(config);
             case ANTHROPIC:
+                checkClassAvailable("dev.langchain4j.model.anthropic.AnthropicChatModel",
+                        "langchain4j-anthropic", "ANTHROPIC");
                 return createAnthropicModel(config);
             default:
                 throw new IllegalArgumentException("Unsupported LLM provider: " + config.getProvider());
+        }
+    }
+
+    private static void checkClassAvailable(String className, String artifactId, String provider) {
+        try {
+            Class.forName(className);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException(
+                    "LLM provider " + provider + " requires dev.langchain4j:" + artifactId
+                    + " on the classpath. Add it as a dependency or use the shaded uber-jar.");
         }
     }
 
@@ -432,9 +452,21 @@ public class LlmService implements AutoCloseable {
         return (className + " " + message).toLowerCase();
     }
 
+    private static final java.util.Map<Integer, java.util.regex.Pattern> HTTP_CODE_PATTERNS;
+    static {
+        java.util.Map<Integer, java.util.regex.Pattern> map = new java.util.HashMap<>();
+        for (int code : new int[]{400, 401, 403, 404, 422, 429, 500, 502, 503, 504}) {
+            map.put(code, java.util.regex.Pattern.compile(".*\\b" + code + "\\b.*", java.util.regex.Pattern.DOTALL));
+        }
+        HTTP_CODE_PATTERNS = Collections.unmodifiableMap(map);
+    }
+
     private static boolean containsHttpCode(String text, int code) {
-        String token = String.valueOf(code);
-        return text.matches(".*\\b" + token + "\\b.*");
+        java.util.regex.Pattern pattern = HTTP_CODE_PATTERNS.get(code);
+        if (pattern == null) {
+            return text.matches(".*\\b" + code + "\\b.*");
+        }
+        return pattern.matcher(text).matches();
     }
 
     private static List<Throwable> causalChain(Throwable root) {

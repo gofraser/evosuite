@@ -418,9 +418,9 @@ public class FewShotExampleProvider {
     static String stableKey(TestCase tc) {
         if (tc == null) return "";
         try {
-            return tc.toCode();
+            return String.valueOf(tc.hashCode()) + ":" + tc.size();
         } catch (Exception e) {
-            return String.valueOf(tc.hashCode());
+            return String.valueOf(System.identityHashCode(tc));
         }
     }
 

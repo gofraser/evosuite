@@ -22,6 +22,7 @@ package org.evosuite.llm;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.numeric.BooleanPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
@@ -59,6 +60,7 @@ class LlmProvenanceCopyPathTest {
         public Target() {}
         public Target(int x) { this.field = x; }
         public int doSomething(int x) { return x; }
+        public static int staticDoSomething() { return 1; }
     }
 
     // ----------------------------------------------------------------
@@ -403,5 +405,56 @@ class LlmProvenanceCopyPathTest {
 
         assertTrue(copy3.isParsedFromLlm(),
                 "parsedFromLlm must survive transitive direct copy() chain");
+    }
+
+    @Test
+    void appendConstructorStatementPreservesProvenance() throws Exception {
+        DefaultTestCase source = new DefaultTestCase();
+        Constructor<?> ctor = Target.class.getConstructor();
+        GenericConstructor gc = new GenericConstructor(ctor, Target.class);
+        ConstructorStatement stmt = new ConstructorStatement(source, gc, Collections.emptyList());
+        stmt.setParsedFromLlm(true);
+        source.addStatement(stmt);
+
+        DefaultTestCase offspring = new DefaultTestCase();
+        TestFactory.getInstance().appendStatement(offspring, source.getStatement(0));
+
+        assertEquals(1, offspring.size());
+        assertTrue(offspring.getStatement(0).isParsedFromLlm(),
+                "parsedFromLlm should survive crossover append for ConstructorStatement");
+    }
+
+    @Test
+    void appendStaticFieldStatementPreservesProvenance() throws Exception {
+        DefaultTestCase source = new DefaultTestCase();
+        Field f = Target.class.getField("staticField");
+        GenericField gf = new GenericField(f, Target.class);
+        FieldStatement stmt = new FieldStatement(source, gf, null);
+        stmt.setParsedFromLlm(true);
+        source.addStatement(stmt);
+
+        DefaultTestCase offspring = new DefaultTestCase();
+        TestFactory.getInstance().appendStatement(offspring, source.getStatement(0));
+
+        assertEquals(1, offspring.size());
+        assertTrue(offspring.getStatement(0).isParsedFromLlm(),
+                "parsedFromLlm should survive crossover append for FieldStatement");
+    }
+
+    @Test
+    void appendStaticMethodStatementPreservesProvenance() throws Exception {
+        DefaultTestCase source = new DefaultTestCase();
+        Method m = Target.class.getMethod("staticDoSomething");
+        GenericMethod gm = new GenericMethod(m, Target.class);
+        MethodStatement stmt = new MethodStatement(source, gm, null, Collections.emptyList());
+        stmt.setParsedFromLlm(true);
+        source.addStatement(stmt);
+
+        DefaultTestCase offspring = new DefaultTestCase();
+        TestFactory.getInstance().appendStatement(offspring, source.getStatement(0));
+
+        assertEquals(1, offspring.size());
+        assertTrue(offspring.getStatement(0).isParsedFromLlm(),
+                "parsedFromLlm should survive crossover append for MethodStatement");
     }
 }

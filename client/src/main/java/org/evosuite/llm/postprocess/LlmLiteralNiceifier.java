@@ -102,7 +102,9 @@ public class LlmLiteralNiceifier {
             return;
         }
 
-        // Apply replacements
+        // Apply replacements — setValue on PrimitiveStatement doesn't change test
+        // structure, so statement indices remain valid throughout the loop.
+        // Note: all occurrences of the same original value get the same replacement.
         for (LiteralInfo info : literals) {
             String replacement = replacements.get(info.originalValue);
             if (replacement != null && !replacement.equals(info.originalValue)) {
@@ -245,8 +247,9 @@ public class LlmLiteralNiceifier {
         if (s == null) {
             return null;
         }
-        return s.replace("\\\"", "\"")
-                .replace("\\\\", "\\")
+        // Order matters: unescape backslashes first so that \\\" becomes \" then "
+        return s.replace("\\\\", "\\")
+                .replace("\\\"", "\"")
                 .replace("\\n", "\n")
                 .replace("\\t", "\t");
     }

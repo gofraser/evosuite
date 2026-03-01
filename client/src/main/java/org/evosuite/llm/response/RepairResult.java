@@ -20,6 +20,7 @@
 package org.evosuite.llm.response;
 
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testparser.ParseResult;
 
 import java.util.ArrayList;
@@ -99,5 +100,38 @@ public class RepairResult {
             tests.add(parseResult.getTestCase());
         }
         return tests;
+    }
+
+    /**
+     * Converts parsed test cases into {@link TestChromosome} instances.
+     *
+     * @return list of chromosomes wrapping the test cases
+     */
+    public List<TestChromosome> toChromosomes() {
+        List<TestChromosome> chromosomes = new ArrayList<>();
+        for (TestCase testCase : getTestCases()) {
+            TestChromosome chromosome = new TestChromosome();
+            chromosome.setTestCase(testCase);
+            chromosomes.add(chromosome);
+        }
+        return chromosomes;
+    }
+
+    /**
+     * Converts up to {@code maxCount} parsed test cases into {@link TestChromosome} instances.
+     *
+     * @param maxCount maximum number of chromosomes to return
+     * @return list of chromosomes (size ≤ maxCount)
+     */
+    public List<TestChromosome> toChromosomes(int maxCount) {
+        List<TestCase> testCases = getTestCases();
+        int limit = Math.max(0, Math.min(maxCount, testCases.size()));
+        List<TestChromosome> chromosomes = new ArrayList<>(limit);
+        for (int i = 0; i < limit; i++) {
+            TestChromosome chromosome = new TestChromosome();
+            chromosome.setTestCase(testCases.get(i));
+            chromosomes.add(chromosome);
+        }
+        return chromosomes;
     }
 }
