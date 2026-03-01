@@ -146,6 +146,18 @@ when writing a new class (or re-factoring a current one), fields should come fir
 
 
 ---------------------------------------------
+BUILD COMMANDS
+
+The default build excludes the "shaded" module (which re-shades the
+master uber-jar for the Maven plugin) to save ~9 seconds:
+
+  mvn package -DskipTests          # fast development build
+  mvn package -DskipTests -Pwith-shaded   # full build including shaded jar
+
+Parallel builds are enabled by default via .mvn/maven.config (-T 1C).
+
+
+---------------------------------------------
 HOW TO MAKE A RELEASE
 
 To use the Maven plugin, and to link the "runtime" jar (plus dependencies)
@@ -168,7 +180,7 @@ Commit and push the changed pom files.
 
 To deploy to Maven Central, execute:
 
-  mvn clean source:jar javadoc:jar gpg:sign -PsignJars -DskipTests deploy
+  mvn clean source:jar javadoc:jar gpg:sign -PsignJars,with-shaded -DskipTests deploy
 
 Note: this requires that you have configured GPG on your machine with the right
 valid keys.
