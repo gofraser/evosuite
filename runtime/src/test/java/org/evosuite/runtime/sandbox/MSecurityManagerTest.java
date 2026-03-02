@@ -363,5 +363,16 @@ public class MSecurityManagerTest {
         future.get(1000, TimeUnit.MILLISECONDS);
     }
 
+    @Test
+    public void testAllowsDefineClassPermission() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                System.getSecurityManager().checkPermission(new RuntimePermission("defineClass"));
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
+
 
 }

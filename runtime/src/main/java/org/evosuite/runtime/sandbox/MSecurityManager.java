@@ -161,6 +161,11 @@ public class MSecurityManager extends SecurityManager {
      * Check whether a privileged thread should use the sandbox as for SUT code.
      */
     private volatile Thread privilegedThreadToIgnore;
+    /**
+     * Re-entrant depth for privilegedThreadToIgnore.
+     * A single privileged thread can enter nested unsafe sections.
+     */
+    private volatile int privilegedThreadToIgnoreNesting;
 
     /**
      * Name of all the methods in the MasterNodeRemote interface.
@@ -189,6 +194,7 @@ public class MSecurityManager extends SecurityManager {
         defaultManager = System.getSecurityManager();
         executingTestCase = false;
         privilegedThreadToIgnore = null;
+        privilegedThreadToIgnoreNesting = 0;
         unrecognizedPermissions = new CopyOnWriteArraySet<>();
 
         filesToDelete = new CopyOnWriteArraySet<>();
@@ -248,13 +254,22 @@ public class MSecurityManager extends SecurityManager {
      * @throws IllegalStateException if the thread is already executing unsafe code
      */
     public void goingToExecuteUnsafeCodeOnSameThread() throws SecurityException, IllegalStateException {
-        if (!privilegedThreads.contains(Thread.currentThread())) {
+        Thread current = Thread.currentThread();
+        if (!privilegedThreads.contains(current)) {
             throw new SecurityException("Current thread is not privileged");
+        }
+        if (privilegedThreadToIgnore == null) {
+            privilegedThreadToIgnore = current;
+            privilegedThreadToIgnoreNesting = 1;
+            return;
+        }
+        if (privilegedThreadToIgnore == current) {
+            privilegedThreadToIgnoreNesting++;
+            return;
         }
         if (privilegedThreadToIgnore != null) {
             throw new IllegalStateException("The thread is already executing unsafe code");
         }
-        privilegedThreadToIgnore = Thread.currentThread();
     }
 
     /**
@@ -283,14 +298,19 @@ public class MSecurityManager extends SecurityManager {
      */
     public void doneWithExecutingUnsafeCodeOnSameThread() throws SecurityException,
             IllegalStateException {
-        if (!privilegedThreads.contains(Thread.currentThread())) {
+        Thread current = Thread.currentThread();
+        if (!privilegedThreads.contains(current)) {
             throw new SecurityException(
                     "Only a privileged thread can return from unsafe code execution");
         }
-        if (privilegedThreadToIgnore == null) {
+        if (privilegedThreadToIgnore == null || privilegedThreadToIgnore != current) {
             throw new IllegalStateException("The thread was not executing unsafe code");
         }
-        privilegedThreadToIgnore = null;
+        privilegedThreadToIgnoreNesting--;
+        if (privilegedThreadToIgnoreNesting <= 0) {
+            privilegedThreadToIgnore = null;
+            privilegedThreadToIgnoreNesting = 0;
+        }
     }
 
     /**
@@ -1059,6 +1079,7 @@ public class MSecurityManager extends SecurityManager {
          */
         if (name.equals("getClassLoader") || name.equals("createClassLoader")
                 || name.startsWith("accessClassInPackage")
+                || name.equals("defineClass")
                 || name.startsWith("defineClassInPackage")
                 || name.equals("setContextClassLoader")
                 || name.equals("enableContextClassLoaderOverride")
@@ -1251,6 +1272,14 @@ public class MSecurityManager extends SecurityManager {
         //Java 7 permissions:
         if (name.equals("getFileSystemAttributes") || name.equals("fileSystemProvider")) {
             return true;
+        }
+
+        /*
+         * SUT may probe optional FTP providers through URL handlers.
+         * Keep this denied by default and avoid noisy "unrecognized permission" warnings.
+         */
+        if (name.equals("ftpClientProvider")) {
+            return false;
         }
 
 
