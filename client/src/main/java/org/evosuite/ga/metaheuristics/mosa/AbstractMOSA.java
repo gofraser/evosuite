@@ -38,14 +38,12 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
 import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
 import org.evosuite.llm.search.BreedingDisruptionObserver;
-import org.evosuite.llm.search.DisruptionEvent;
-import org.evosuite.llm.search.DisruptionEvent.OperatorOutcome;
-import org.evosuite.llm.search.DisruptionEvent.OperatorSource;
 import org.evosuite.llm.search.DisruptionHelper;
 import org.evosuite.llm.search.DisruptionRecorder;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.OperatorAttemptResult;
+import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.statistics.RuntimeVariable;
@@ -177,6 +175,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      */
     public AbstractMOSA(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
+        setLlmInjectionAdapter(new TestChromosomeInjectionAdapter());
 
         this.suiteFitnessFunctions = new LinkedHashMap<>();
         for (Properties.Criterion criterion : Properties.CRITERION) {
@@ -883,12 +882,29 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         this.notifySearchStarted();
         this.currentIteration = 0;
 
+        // Seed with LLM tests if enabled
+        this.seedPopulation();
+
         // Create a random parent population P0
         this.generateInitialPopulation(Properties.POPULATION);
 
         // Determine fitness
         this.calculateFitness();
         this.notifyIteration();
+    }
+
+    @Override
+    protected void injectInitialSeeds(List<TestChromosome> llmSeeds) {
+        if (llmSeeds == null || llmSeeds.isEmpty()) {
+            return;
+        }
+        for (TestChromosome seed : llmSeeds) {
+            if (population.size() >= Properties.POPULATION) {
+                break;
+            }
+            this.fitnessFunctions.forEach(seed::addFitness);
+            population.add(seed);
+        }
     }
 
     /**

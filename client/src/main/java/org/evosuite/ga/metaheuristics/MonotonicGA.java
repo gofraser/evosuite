@@ -205,6 +205,9 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         notifySearchStarted();
         currentIteration = 0;
 
+        // Seed with LLM tests if enabled
+        this.seedPopulation();
+
         // Set up initial population
         generateInitialPopulation(Properties.POPULATION);
         logger.debug("Calculating fitness of initial population");

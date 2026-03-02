@@ -66,6 +66,10 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         this.uncoveredGoalsSupplier = uncoveredGoalsSupplier == null ? Collections::emptyList : uncoveredGoalsSupplier;
     }
 
+    public ChromosomeFactory<TestChromosome> getFallbackFactory() {
+        return fallback;
+    }
+
     @Override
     public TestChromosome getChromosome() {
         if (!shouldUseLlm()) {

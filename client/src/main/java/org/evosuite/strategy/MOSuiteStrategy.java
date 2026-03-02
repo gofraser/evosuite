@@ -67,12 +67,6 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
 
         GeneticAlgorithm<TestSuiteChromosome> algorithm = algorithmFactory.getSearchAlgorithm();
 
-        // Override chromosome factory
-        // TODO handle this better by introducing generics
-        ChromosomeFactory<TestSuiteChromosome> factory =
-                new TestSuiteChromosomeFactoryMock(new RandomLengthTestFactory());
-        algorithm.setChromosomeFactory(factory);
-
         if (Properties.SERIALIZE_GA || Properties.CLIENT_ON_THREAD) {
             TestGenerationResultBuilder.getInstance().setGeneticAlgorithm(algorithm);
         }

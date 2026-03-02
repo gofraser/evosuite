@@ -39,6 +39,7 @@ import org.evosuite.ga.populationlimit.IndividualPopulationLimit;
 import org.evosuite.ga.populationlimit.PopulationLimit;
 import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
 import org.evosuite.llm.search.LlmInjectionAdapter;
 import org.evosuite.llm.search.StagnationDetector;
@@ -46,6 +47,8 @@ import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
+import org.evosuite.llm.factory.LlmTestChromosomeFactory;
+import org.evosuite.testsuite.factories.TestSuiteChromosomeFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
@@ -98,6 +101,60 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * Generator for initial population.
      */
     protected ChromosomeFactory<T> chromosomeFactory;
+
+    public void seedPopulation() {
+        if (!Properties.LLM_SEED_INITIAL_POPULATION) {
+            return;
+        }
+        List<TestChromosome> llmSeeds = drainInitialLlmSeeds();
+        if (llmSeeds.isEmpty()) {
+            return;
+        }
+        injectInitialSeeds(llmSeeds);
+    }
+
+    protected List<TestChromosome> drainInitialLlmSeeds() {
+        LlmSeededPopulationFactory seededFactory = resolveLlmSeededPopulationFactory();
+        if (seededFactory == null) {
+            return Collections.emptyList();
+        }
+        long waitMillis = Math.max(1L, Properties.LLM_TIMEOUT_SECONDS * 1000L);
+        return seededFactory.awaitAndDrainSeeds(waitMillis);
+    }
+
+    protected void injectInitialSeeds(List<TestChromosome> llmSeeds) {
+        if (llmInjectionAdapter == null) {
+            logger.debug("No LLM injection adapter resolved for initial seeds; dropping {} seed(s)",
+                    llmSeeds.size());
+            return;
+        }
+        llmInjectionAdapter.inject(llmSeeds, population, fitnessFunctions, Properties.POPULATION);
+    }
+
+    private LlmSeededPopulationFactory resolveLlmSeededPopulationFactory() {
+        ChromosomeFactory<?> factory = unwrapFactory(chromosomeFactory);
+        if (factory instanceof LlmSeededPopulationFactory) {
+            return (LlmSeededPopulationFactory) factory;
+        }
+        return null;
+    }
+
+    private ChromosomeFactory<?> unwrapFactory(ChromosomeFactory<?> factory) {
+        ChromosomeFactory<?> current = factory;
+        int guard = 0;
+        while (current != null && guard++ < 8) {
+            if (current instanceof TestSuiteChromosomeFactory) {
+                current = ((TestSuiteChromosomeFactory) current).getTestChromosomeFactory();
+                continue;
+            }
+            if (current instanceof LlmTestChromosomeFactory) {
+                current = ((LlmTestChromosomeFactory) current).getFallbackFactory();
+                continue;
+            }
+            break;
+        }
+        return current;
+    }
 
     /**
      * Listeners.
@@ -336,23 +393,15 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
                                            boolean maximizationObjective) {
-        initializeLlmAssistance(uncoveredGoalsSupplier, maximizationObjective, createDefaultInjectionAdapter());
+        initializeLlmAssistance(uncoveredGoalsSupplier, maximizationObjective, llmInjectionAdapter);
     }
 
-    /**
-     * Auto-detect the appropriate injection adapter based on population chromosome type.
-     */
-    @SuppressWarnings("unchecked")
-    protected LlmInjectionAdapter<T> createDefaultInjectionAdapter() {
-        if (!population.isEmpty()) {
-            if (population.get(0) instanceof TestSuiteChromosome) {
-                return (LlmInjectionAdapter<T>) new org.evosuite.llm.search.TestSuiteChromosomeInjectionAdapter();
-            }
-            if (population.get(0) instanceof TestChromosome) {
-                return (LlmInjectionAdapter<T>) new org.evosuite.llm.search.TestChromosomeInjectionAdapter();
-            }
-        }
-        return null;
+    public void setLlmInjectionAdapter(LlmInjectionAdapter<T> injectionAdapter) {
+        this.llmInjectionAdapter = injectionAdapter;
+    }
+
+    public LlmInjectionAdapter<T> getLlmInjectionAdapter() {
+        return llmInjectionAdapter;
     }
 
     protected void initializeAsyncProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {

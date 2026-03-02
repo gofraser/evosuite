@@ -237,7 +237,8 @@ class LlmMosaIntegrationTest {
             super(factory);
         }
 
-        private void seedPopulation() {
+        @Override
+        public void seedPopulation() {
             population.clear();
             population.add(new TestChromosome());
         }
@@ -276,7 +277,8 @@ class LlmMosaIntegrationTest {
             super(factory);
         }
 
-        private void seedPopulation() {
+        @Override
+        public void seedPopulation() {
             population.clear();
             population.add(new TestChromosome());
             population.add(new TestChromosome());

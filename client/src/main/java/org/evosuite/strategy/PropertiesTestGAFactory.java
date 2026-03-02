@@ -67,6 +67,7 @@ import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.factory.LlmTestChromosomeFactory;
+import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.seeding.TestCaseRecycler;
 import org.evosuite.testcase.RelativeTestLengthBloatControl;
 import org.evosuite.testcase.TestCaseReplacementFunction;
@@ -281,6 +282,7 @@ public class PropertiesTestGAFactory
 
         // FIXXME
         GeneticAlgorithm<TestChromosome> ga = getGeneticAlgorithm(factory);
+        ga.setLlmInjectionAdapter(new TestChromosomeInjectionAdapter());
 
         if (Properties.NEW_STATISTICS) {
             ga.addListener(new org.evosuite.statistics.StatisticsListener<>());

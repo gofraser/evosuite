@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Integration tests for WholeSuite (StandardGA/MonotonicGA) LLM injection.
  * Verifies:
- * - suite-level adapter is auto-detected
+ * - suite-level adapter can be explicitly configured
  * - uncovered-goal supplier produces goals for suite populations
  * - injected tests are wrapped in TestSuiteChromosome (never raw TestChromosome)
  * - injection is not silently disabled due to empty-goal issue
@@ -71,14 +71,14 @@ class LlmWholeSuiteIntegrationTest {
     }
 
     @Test
-    void autoDetectsTestSuiteChromosomeAdapter() {
+    void acceptsExplicitTestSuiteChromosomeAdapter() {
         SuiteGA ga = new SuiteGA(() -> newSuite());
         ga.addFitnessFunction(new DummySuiteFitness());
-        ga.seedPopulation();
+        ga.setAdapter(new TestSuiteChromosomeInjectionAdapter());
 
-        LlmInjectionAdapter<?> adapter = ga.createDefaultInjectionAdapter();
+        LlmInjectionAdapter<?> adapter = ga.getLlmInjectionAdapter();
 
-        assertNotNull(adapter, "should auto-detect adapter for suite population");
+        assertNotNull(adapter, "should expose explicitly configured adapter");
         assertTrue(adapter instanceof TestSuiteChromosomeInjectionAdapter,
                 "should be TestSuiteChromosomeInjectionAdapter, got: " + adapter.getClass().getName());
     }
@@ -217,7 +217,8 @@ class LlmWholeSuiteIntegrationTest {
             super(factory);
         }
 
-        void seedPopulation() {
+        @Override
+        public void seedPopulation() {
             population.clear();
             population.add(newSuite());
             population.add(newSuite());
