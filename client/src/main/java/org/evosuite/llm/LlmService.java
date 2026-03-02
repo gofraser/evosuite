@@ -324,6 +324,7 @@ public class LlmService implements AutoCloseable {
                 return response.getText();
             } catch (Exception e) {
                 lastError = unwrap(e);
+                logger.debug("LLM call failed (attempt {}/{}): {}", attempt, maxTries, lastError.getMessage());
                 boolean retryable = isRetryable(lastError);
                 if (!retryable || attempt == maxTries) {
                     statistics.recordFailure(feature);
