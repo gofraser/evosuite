@@ -19,11 +19,10 @@
  */
 package org.evosuite.rmi;
 
-import org.evosuite.utils.Randomness;
-
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class UtilsRMI {
 
@@ -39,7 +38,9 @@ public class UtilsRMI {
      */
     public static Remote exportObject(Remote obj) throws RemoteException {
         int port = 2000;
-        port += Randomness.nextInt(20000);
+        // Use JVM-local randomness (not EvoSuite Randomness) to avoid cross-run
+        // deterministic collisions when many runs share the same seed.
+        port += ThreadLocalRandom.current().nextInt(20000);
 
         final int TRIES = 100;
         for (int i = 0; i < TRIES; i++) {
@@ -50,8 +51,8 @@ public class UtilsRMI {
                 // ignored
             }
         }
-
-        return UnicastRemoteObject.exportObject(obj, port);
+        // Last resort: let the OS pick a free ephemeral port.
+        return UnicastRemoteObject.exportObject(obj, 0);
     }
 
     /**

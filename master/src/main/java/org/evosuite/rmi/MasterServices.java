@@ -22,7 +22,6 @@ package org.evosuite.rmi;
 import org.evosuite.rmi.service.MasterNodeImpl;
 import org.evosuite.rmi.service.MasterNodeLocal;
 import org.evosuite.rmi.service.MasterNodeRemote;
-import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +34,7 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * This class should be used only in the Master process, not the clients.
@@ -94,7 +94,9 @@ public class MasterServices {
          */
 
         int port = 2000;
-        port += Randomness.nextInt(20000);
+        // Use JVM-local randomness to avoid deterministic collisions across runs
+        // started with identical EvoSuite seeds.
+        port += ThreadLocalRandom.current().nextInt(20000);
 
         final int TRIES = 100;
         List<Integer> candidates = new ArrayList<>(TRIES + 2);
@@ -118,10 +120,7 @@ public class MasterServices {
                 return true;
             } catch (RemoteException e) {
                 lastException = e;
-                // Try to reuse an existing registry on this port
-                if (attachToExistingRegistry(candidatePort)) {
-                    return true;
-                }
+                // Port is in use or registry creation failed; keep searching for a free port.
             }
         }
 
@@ -137,18 +136,6 @@ public class MasterServices {
             return socket.getLocalPort();
         } catch (IOException e) {
             return null;
-        }
-    }
-
-    private boolean attachToExistingRegistry(int port) {
-        try {
-            Registry existing = LocateRegistry.getRegistry("127.0.0.1", port);
-            existing.list(); // force connection attempt
-            registry = existing;
-            registryPort = port;
-            return true;
-        } catch (RemoteException e) {
-            return false;
         }
     }
 
