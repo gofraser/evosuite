@@ -280,8 +280,10 @@ public class MockList {
                 try {
                     StaticReplacementMock m = (StaticReplacementMock) mock.newInstance();
                     name = m.getMockedClassName();
-                } catch (Exception e) {
-                    logger.error("Failed to create instance of mock " + mock.getCanonicalName());
+                } catch (Throwable t) {
+                    // Optional mocks for newer JDK APIs can fail to initialize on older runtimes.
+                    // Treat them as unavailable instead of aborting class instrumentation.
+                    logger.debug("Skipping unavailable mock {}", mock.getCanonicalName(), t);
                     continue;
                 }
             } else {

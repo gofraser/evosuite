@@ -260,17 +260,21 @@ public class MethodCallReplacementCache {
                 String mockedName;
                 try {
                     mockedName = ((StaticReplacementMock) mock.newInstance()).getMockedClassName();
-                } catch (InstantiationException | IllegalAccessException e1) {
-                    logger.error("Cannot instantiate mock " + mock.getCanonicalName());
+                } catch (Throwable t) {
+                    // Optional mocks for newer JDK APIs may fail to initialize on older runtimes.
+                    // In that case we skip the mock instead of aborting instrumentation.
+                    logger.debug("Skipping unavailable mock {}", mock.getCanonicalName(), t);
                     continue;
                 }
                 Class<?> mocked;
                 try {
                     mocked = StaticReplacementMock.class.getClassLoader().loadClass(mockedName);
-                } catch (ClassNotFoundException e) {
-                    // should never happen
-                    logger.error(
-                            "Mock class " + mock.getCanonicalName() + " has non-existent mocked target " + mockedName);
+                } catch (Throwable t) {
+                    logger.debug(
+                            "Skipping mock {} because target {} is unavailable",
+                            mock.getCanonicalName(),
+                            mockedName,
+                            t);
                     continue;
                 }
 
