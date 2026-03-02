@@ -1165,6 +1165,15 @@ public class MSecurityManager extends SecurityManager {
         if (name.endsWith("bytebuddy.createJavaDispatcher")) {
             return true;
         }
+        // ByteBuddy agent accessor, potentially shaded (e.g., org.evosuite.shaded.net.bytebuddy.agent.getInstrumentation)
+        if (name.endsWith("bytebuddy.agent.getInstrumentation")) {
+            return true;
+        }
+
+        // Access to ProcessHandle management operations in newer JDKs.
+        if (name.equals("manageProcess")) {
+            return true;
+        }
 
         /*
          * those are perfectly fine

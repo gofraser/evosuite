@@ -340,5 +340,28 @@ public class MSecurityManagerTest {
         future.get((long) Math.pow(1000, 1000), TimeUnit.MILLISECONDS);
     }
 
+    @Test
+    public void testAllowsByteBuddyGetInstrumentationPermission() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                System.getSecurityManager()
+                        .checkPermission(new RuntimePermission("org.evosuite.shaded.net.bytebuddy.agent.getInstrumentation"));
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
+
+    @Test
+    public void testAllowsManageProcessPermission() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                System.getSecurityManager().checkPermission(new RuntimePermission("manageProcess"));
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
+
 
 }
