@@ -95,6 +95,7 @@ public class TestMutator {
                 parameters.add(test.getRandomObject(effectiveType, position));
             }
             MethodStatement m = new MethodStatement(test, method, callee, parameters, retval);
+            m.setParsedFromLlm(statement.isParsedFromLlm());
             test.setStatement(m, position);
             logger.debug("Using method {}", m.getCode());
 
@@ -114,7 +115,7 @@ public class TestMutator {
                 parameters.add(test.getRandomObject(effectiveType, position));
             }
             ConstructorStatement c = new ConstructorStatement(test, constructor, retval, parameters);
-
+            c.setParsedFromLlm(statement.isParsedFromLlm());
             test.setStatement(c, position);
             logger.debug("Using constructor {}", c.getCode());
 
@@ -128,6 +129,7 @@ public class TestMutator {
 
             try {
                 FieldStatement f = new FieldStatement(test, field, source, retval);
+                f.setParsedFromLlm(statement.isParsedFromLlm());
                 test.setStatement(f, position);
                 logger.debug("Using field {}", f.getCode());
             } catch (Throwable e) {
