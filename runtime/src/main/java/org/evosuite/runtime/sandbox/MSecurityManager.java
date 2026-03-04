@@ -1040,7 +1040,7 @@ public class MSecurityManager extends SecurityManager {
         /*
          * this seems needed when analyzing classpath, but not fully sure of its consequences
          */
-        return name.startsWith("putProviderProperty.");
+        return name.startsWith("putProviderProperty.") || name.startsWith("insertProvider.");
 
         /*
          * createAccessControlContext setPolicy createPolicy.{policy type} setProperty.{key} 
@@ -1085,6 +1085,8 @@ public class MSecurityManager extends SecurityManager {
                 || name.equals("enableContextClassLoaderOverride")
                 || name.equals("accessDeclaredMembers")
                 || name.equals("accessSystemModules")
+                || name.equals("getStackWalkerWithClassReference")
+                || name.startsWith("getClassLoader.")
                 || name.equals("closeClassLoader")) {
             return true;
         }
@@ -1458,6 +1460,17 @@ public class MSecurityManager extends SecurityManager {
                         return true;
                     }
                 }
+            } else if (fp.getName().contains("byteBuddyAgent") && fp.getName().startsWith(System.getProperty("java.io.tmpdir"))) {
+                /*
+                 * Mockito/ByteBuddy dynamically generates temporary agent jar files.
+                 * Allowing this ensures that Mockito proxies can be correctly
+                 * generated without violating sandbox permissions.
+                 */
+                for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
+                    if (e.getClassName().startsWith("net.bytebuddy.")) {
+                        return true;
+                    }
+                }
             }
         } else if (action.equals("delete")) {
             if (fp.getName().contains("clover.db.liverec")) {
@@ -1470,6 +1483,25 @@ public class MSecurityManager extends SecurityManager {
                         return true;
                     }
                 }
+            } else if (fp.getName().contains("byteBuddyAgent") && fp.getName().startsWith(System.getProperty("java.io.tmpdir"))) {
+                /*
+                 * Mockito/ByteBuddy tries to clean up the temporary agent jar files.
+                 */
+                for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
+                    if (e.getClassName().startsWith("net.bytebuddy.")) {
+                        return true;
+                    }
+                }
+            }
+        } else if (action.equals("execute")) {
+            if (fp.getName().endsWith(File.separator + "java") || fp.getName().endsWith(File.separator + "java.exe")) {
+                /*
+                 * Dynamic agent attachment tools (like Mockito's ByteBuddy or Jacoco)
+                 * sometimes need to spawn a small secondary JVM simply to attach an agent.
+                 * Allowing execution of the Java binary enables these tools to run 
+                 * without breaking out of the sandbox.
+                 */
+                return true;
             }
         }
 

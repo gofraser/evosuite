@@ -374,5 +374,82 @@ public class MSecurityManagerTest {
         future.get(1000, TimeUnit.MILLISECONDS);
     }
 
+    @Test
+    public void testAllowsGetStackWalkerWithClassReferencePermission() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                System.getSecurityManager().checkPermission(new RuntimePermission("getStackWalkerWithClassReference"));
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
+
+    @Test
+    public void testAllowsGetClassLoaderPortalPermission() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                System.getSecurityManager().checkPermission(new RuntimePermission("getClassLoader.portal"));
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
+
+    @Test
+    public void testDeniesByteBuddyAgentFilePermissionForNormalClasses() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                String tmpDir = System.getProperty("java.io.tmpdir");
+                if (!tmpDir.endsWith(File.separator)) {
+                    tmpDir += File.separator;
+                }
+                String agentJar = tmpDir + "byteBuddyAgent12345.jar";
+                try {
+                    System.getSecurityManager().checkPermission(new FilePermission(agentJar, "write"));
+                    Assertions.fail("Should have thrown SecurityException for non-ByteBuddy caller");
+                } catch (SecurityException e) {
+                    // Expected behavior: normal classes cannot write byteBuddyAgent jar files
+                }
+                
+                try {
+                    System.getSecurityManager().checkPermission(new FilePermission(agentJar, "delete"));
+                    Assertions.fail("Should have thrown SecurityException for non-ByteBuddy caller");
+                } catch (SecurityException e) {
+                    // Expected behavior: normal classes cannot delete byteBuddyAgent jar files
+                }
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
+
+    @Test
+    public void testAllowsInsertProviderSecurityPermission() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                System.getSecurityManager().checkPermission(new java.security.SecurityPermission("insertProvider.BC"));
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
+
+    @Test
+    public void testAllowsJavaExecuteFilePermission() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                // Test unix-like java path
+                String javaUnix = "/opt/java/openjdk/bin/java";
+                System.getSecurityManager().checkPermission(new java.io.FilePermission(javaUnix, "execute"));
+                
+                // Test windows-like java path
+                String javaWin = "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe";
+                System.getSecurityManager().checkPermission(new java.io.FilePermission(javaWin, "execute"));
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
 
 }
