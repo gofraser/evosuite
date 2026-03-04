@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.AbstractMap;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -243,7 +244,14 @@ public class ControlFlowDistanceCalculator {
         }
 
         // Minimal distance between target node and path
-        for (MethodCall call : result.getTrace().getMethodCalls()) {
+        // Trace data may still be extended while fitness is computed in parallel.
+        // Iterate on a stable snapshot to avoid fail-fast iterator exceptions.
+        List<MethodCall> methodCalls = result.getTrace().getMethodCalls();
+        List<MethodCall> callsSnapshot;
+        synchronized (methodCalls) {
+            callsSnapshot = new ArrayList<>(methodCalls);
+        }
+        for (MethodCall call : callsSnapshot) {
             if (call.className.equals(className) && call.methodName.equals(methodName)) {
                 ControlFlowDistance distance;
                 Map<BranchOutcome, ControlFlowDistance> memoizedDistances = new HashMap<>();
