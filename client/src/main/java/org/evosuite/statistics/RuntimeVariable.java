@@ -770,7 +770,7 @@ public enum RuntimeVariable {
      */
     Covered_Goals_Timeline,
 
-    // ---- Phase 8b: Operator Disruption Analysis ----
+    // ---- Operator Disruption Analysis ----
 
     /**
      * Total disruption events recorded (all operator kinds and sources).
