@@ -38,12 +38,14 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericClassUtils;
+import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.PrintStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -366,15 +368,29 @@ public class DefaultTestCase implements TestCase, Serializable {
         DefaultTestCase t = null;
         t = new DefaultTestCase(); //Note: cannot use super.clone() due to final fields :(
 
-        // Pass 1: clone all statements and return values so the full structure
-        // exists before any assertion tries to resolve variable references.
-        // Assertions may contain forward references (e.g., when the LLM parser
-        // inlines a method call such as assertEquals(a, a.copy()) which appends
-        // a new statement after the assertion's source statement).
+        // Pre-seed placeholders for all statement positions so variable copy()
+        // can resolve both backward and forward references during cloning.
         for (Statement s : statements) {
+            t.statements.add(new ClonePlaceholderStatement(t, createPlaceholderRetval(t, s.getReturnValue())));
+        }
+
+        // Refine placeholders that require subtype-specific state.
+        for (int i = 0; i < statements.size(); i++) {
+            VariableReference original = statements.get(i).getReturnValue();
+            if (original instanceof ArrayReference || original instanceof ArrayIndex
+                    || original instanceof FieldReference || original instanceof ConstantValue) {
+                t.getStatement(i).setRetval(original.copy(t, 0));
+            }
+        }
+
+        // Pass 1: clone all statements and reuse the pre-seeded return values.
+        for (int i = 0; i < statements.size(); i++) {
+            Statement s = statements.get(i);
             Statement copy = s.clone(t);
-            t.statements.add(copy);
-            copy.setRetval(s.getReturnValue().clone(t));
+            VariableReference preSeededRetval = t.getStatement(i).getReturnValue();
+            copy.setRetval(preSeededRetval);
+            preSeededRetval.setOriginalCode(s.getReturnValue().getOriginalCode());
+            t.statements.set(i, copy);
         }
 
         // Pass 2: copy assertions now that all statements are present in t.
@@ -390,6 +406,65 @@ public class DefaultTestCase implements TestCase, Serializable {
         //t.exception_statement = exception_statement;
         //t.exceptionThrown = exceptionThrown;
         return t;
+    }
+
+    private VariableReference createPlaceholderRetval(DefaultTestCase t, VariableReference original) {
+        if (original instanceof ArrayReference) {
+            int dimensions = Math.max(1, ArrayStatement.determineDimensions(original.getType()));
+            return new ArrayReference(t, original.getGenericClass(), new int[dimensions]);
+        }
+        return new VariableReferenceImpl(t, original.getGenericClass());
+    }
+
+    /**
+     * Internal placeholder used while cloning to ensure all statement positions
+     * are addressable before statement copy() resolves variable references.
+     */
+    private static final class ClonePlaceholderStatement extends AbstractStatement {
+        private static final long serialVersionUID = 1L;
+
+        private ClonePlaceholderStatement(TestCase tc, VariableReference retval) {
+            super(tc, retval);
+        }
+
+        @Override
+        public Statement copy(TestCase newTestCase, int offset) {
+            return new ClonePlaceholderStatement(newTestCase, retval.copy(newTestCase, offset));
+        }
+
+        @Override
+        public Throwable execute(Scope scope, PrintStream out) {
+            return null;
+        }
+
+        @Override
+        public Set<VariableReference> getVariableReferences() {
+            Set<VariableReference> refs = new LinkedHashSet<>();
+            refs.add(retval);
+            return refs;
+        }
+
+        @Override
+        public void replace(VariableReference oldVar, VariableReference newVar) {
+            if (retval.equals(oldVar)) {
+                retval = newVar;
+            }
+        }
+
+        @Override
+        public boolean same(Statement s) {
+            return s instanceof ClonePlaceholderStatement;
+        }
+
+        @Override
+        public boolean isAssignmentStatement() {
+            return false;
+        }
+
+        @Override
+        public GenericAccessibleObject<?> getAccessibleObject() {
+            return null;
+        }
     }
 
     /**

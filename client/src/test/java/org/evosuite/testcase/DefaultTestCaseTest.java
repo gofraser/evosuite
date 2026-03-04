@@ -19,8 +19,16 @@
  */
 package org.evosuite.testcase;
 
+import org.evosuite.testcase.statements.ArrayStatement;
+import org.evosuite.testcase.statements.AssignmentStatement;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.testcase.variable.ArrayIndex;
+import org.evosuite.testcase.variable.ArrayReference;
+import org.evosuite.testcase.variable.VariableReference;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
 
 public class DefaultTestCaseTest {
 
@@ -30,5 +38,28 @@ public class DefaultTestCaseTest {
         DefaultTestCase tc = new DefaultTestCase();
         DefaultTestCase clone = tc.clone();
         Assertions.assertNotSame(tc.statements, clone.statements);
+    }
+
+    @Test
+    public void testCloneWithForwardReferenceInAssignmentStatement() {
+        DefaultTestCase tc = new DefaultTestCase();
+
+        ArrayStatement arrayStmt = new ArrayStatement(tc, int[].class, 1);
+        tc.addStatement(arrayStmt);
+
+        IntPrimitiveStatement valueBefore = new IntPrimitiveStatement(tc, 1);
+        tc.addStatement(valueBefore);
+
+        IntPrimitiveStatement valueAfter = new IntPrimitiveStatement(tc, 2);
+        VariableReference forwardValue = tc.addStatement(valueAfter);
+
+        ArrayReference arrayRef = (ArrayReference) arrayStmt.getReturnValue();
+        ArrayIndex target = new ArrayIndex(tc, arrayRef, Collections.singletonList(0));
+        AssignmentStatement assignment = new AssignmentStatement(tc, target, forwardValue);
+        tc.addStatement(assignment, 2);
+
+        DefaultTestCase clone = tc.clone();
+        Assertions.assertEquals(tc.size(), clone.size());
+        Assertions.assertDoesNotThrow(() -> clone.toCode());
     }
 }
