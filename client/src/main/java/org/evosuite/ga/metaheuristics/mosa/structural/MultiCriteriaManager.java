@@ -239,6 +239,9 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
             MethodCoverageTestFitness method = new MethodCoverageTestFitness(branch.getClassName(), branch.getMethod());
             this.dependencies.get(branch).add(method);
+            if (!archive.hasTarget(method)) {
+                archive.addTarget(method);
+            }
         }
     }
 
@@ -252,6 +255,9 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
             MethodNoExceptionCoverageTestFitness method = new MethodNoExceptionCoverageTestFitness(
                     branch.getClassName(), branch.getMethod());
             this.dependencies.get(branch).add(method);
+            if (!archive.hasTarget(method)) {
+                archive.addTarget(method);
+            }
         }
     }
 
@@ -266,6 +272,9 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
             for (CallContext context : callGraph.getMethodEntryPoint(branch.getClassName(), branch.getMethod())) {
                 CBranchTestFitness cbranch = new CBranchTestFitness(branch.getBranchGoal(), context);
                 this.dependencies.get(branch).add(cbranch);
+                if (!archive.hasTarget(cbranch)) {
+                    archive.addTarget(cbranch);
+                }
                 logger.debug("Added context branch: " + cbranch);
             }
         }
