@@ -93,12 +93,62 @@ public class LlmStatistics {
 
     /** Publishes collected LLM statistics as EvoSuite runtime variables. */
     public void publishRuntimeVariables() {
+        initializeRuntimeVariables();
         ClientServices.track(RuntimeVariable.LLM_Calls, getTotalCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, getSuccessfulCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Failed, getFailedCalls());
         ClientServices.track(RuntimeVariable.LLM_Input_Tokens, getInputTokens());
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, getOutputTokens());
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, getTotalLatencyMs());
+    }
+
+    /**
+     * Initializes all LLM-related runtime variables to 0.
+     * This ensures that requested statistics variables are present in the output
+     * even if the corresponding features are disabled or never triggered.
+     */
+    private void initializeRuntimeVariables() {
+        ClientServices.track(RuntimeVariable.LLM_Calls, 0);
+        ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, 0);
+        ClientServices.track(RuntimeVariable.LLM_Calls_Failed, 0);
+        ClientServices.track(RuntimeVariable.LLM_Input_Tokens, 0);
+        ClientServices.track(RuntimeVariable.LLM_Output_Tokens, 0);
+        ClientServices.track(RuntimeVariable.LLM_Latency_Millis, 0);
+        ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, 0);
+        ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, 0);
+        ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, 0);
+        ClientServices.track(RuntimeVariable.LLM_Constants_Added_NonSUT, 0);
+        ClientServices.track(RuntimeVariable.LLM_Object_Pool_Sequences_Added, 0);
+        ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, 0);
+        ClientServices.track(RuntimeVariable.LLM_Tests_Renamed, 0);
+        ClientServices.track(RuntimeVariable.LLM_Test_Naming_Fallbacks, 0);
+        ClientServices.track(RuntimeVariable.LLM_Variables_Renamed, 0);
+        ClientServices.track(RuntimeVariable.LLM_Variable_Naming_Fallbacks, 0);
+        ClientServices.track(RuntimeVariable.LLM_Assertions_Added, 0);
+        ClientServices.track(RuntimeVariable.LLM_Assertion_Fallbacks, 0);
+        ClientServices.track(RuntimeVariable.LLM_Literals_Niceified, 0);
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, 0);
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Runtime_Failures, 0);
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Statement_Execution_Failures, 0);
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Assertion_Evaluation_Failures, 0);
+        ClientServices.track(RuntimeVariable.LLM_Semantic_Mutations, 0);
+        ClientServices.track(RuntimeVariable.LLM_Semantic_Mutation_Fallbacks, 0);
+        ClientServices.track(RuntimeVariable.LLM_Semantic_Crossovers, 0);
+        ClientServices.track(RuntimeVariable.LLM_Semantic_Crossover_Fallbacks, 0);
+        ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio, 0.0);
+        ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline, 0.0);
+        ClientServices.track(RuntimeVariable.Species_Largest_Share_Timeline, 0.0);
+        ClientServices.track(RuntimeVariable.Species_Count_Timeline, 0);
+        ClientServices.track(RuntimeVariable.DiversityTimeline, 0.0);
+        ClientServices.track(RuntimeVariable.Covered_Goals_Timeline, 0);
+        ClientServices.track(RuntimeVariable.Remaining_Goals_Timeline, 0);
+        ClientServices.track(RuntimeVariable.Fronts_Count_Timeline, 0);
+        ClientServices.track(RuntimeVariable.Disruption_Events_Total, 0);
+        ClientServices.track(RuntimeVariable.Disruption_Standard_Mutations, 0);
+        ClientServices.track(RuntimeVariable.Disruption_Semantic_Mutations, 0);
+        ClientServices.track(RuntimeVariable.Disruption_Standard_Crossovers, 0);
+        ClientServices.track(RuntimeVariable.Disruption_Semantic_Crossovers, 0);
+        ClientServices.track(RuntimeVariable.Disruption_Semantic_Fallbacks, 0);
     }
 
     private static final class FeatureStats {
