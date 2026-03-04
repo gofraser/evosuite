@@ -204,6 +204,9 @@ public class LlmAssertionGeneratorStrategy extends AssertionGenerator {
         int testSizeBefore = test.size();
 
         for (String assertionStr : assertionStrings) {
+            if (isAssertionAlreadyPresent(test, assertionStr)) {
+                continue;
+            }
             int assertionsBefore = countAssertions(test);
             try {
                 com.github.javaparser.ast.stmt.Statement ast =
@@ -234,6 +237,28 @@ public class LlmAssertionGeneratorStrategy extends AssertionGenerator {
             }
         }
         return attached;
+    }
+
+    private boolean isAssertionAlreadyPresent(TestCase test, String assertionStr) {
+        String normalizedNew = assertionStr.trim();
+        if (normalizedNew.endsWith(";")) {
+            normalizedNew = normalizedNew.substring(0, normalizedNew.length() - 1);
+        }
+
+        for (Assertion existing : test.getAssertions()) {
+            String existingCode = existing.getCode();
+            if (existingCode == null) {
+                continue;
+            }
+            String normalizedExisting = existingCode.trim();
+            if (normalizedExisting.endsWith(";")) {
+                normalizedExisting = normalizedExisting.substring(0, normalizedExisting.length() - 1);
+            }
+            if (normalizedNew.equals(normalizedExisting)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
