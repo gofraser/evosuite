@@ -2097,6 +2097,17 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
 
+        // If this assignment statement introduces a new variable (i.e., the retval is
+        // "owned" by this statement), we need to include the type declaration.
+        // For reassignments to existing variables, field references, or array indices,
+        // we omit the type since the variable was already declared.
+        boolean needsTypeDeclaration = !(retval instanceof FieldReference)
+                && !(retval instanceof ArrayIndex)
+                && retval.getStPosition() == statement.getPosition();
+
+        if (needsTypeDeclaration) {
+            testCode.append(getClassName(retval) + " ");
+        }
         testCode.append(getVariableName(retval) + " = " + cast + getVariableName(parameter)
                 + ";" + NEWLINE);
         addAssertions(statement);
