@@ -30,7 +30,7 @@ import java.net.Socket;
 /*
  * this could should be used by the external process that run the test case
  */
-public class ExternalProcessUtilities {
+public class ExternalProcessUtilities implements AutoCloseable {
     /**
      * Constant <code>logger</code>.
      */
@@ -56,6 +56,7 @@ public class ExternalProcessUtilities {
      * @return a boolean.
      */
     public boolean connectToMainProcess() {
+        close();
 
         try {
             connection = new Socket("127.0.0.1", Properties.PROCESS_COMMUNICATION_PORT);
@@ -134,6 +135,8 @@ public class ExternalProcessUtilities {
             out.flush();
         } catch (Exception e) {
             logger.error("error in sending messages", e);
+        } finally {
+            close();
         }
 
         //main process will kill this one, but we can exit here just to be sure
@@ -142,6 +145,37 @@ public class ExternalProcessUtilities {
         } catch (InterruptedException e) {
             logger.debug("Thread interrupted while waiting after sending results from client to master",
                     e);
+        }
+    }
+
+    @Override
+    public void close() {
+        if (in != null) {
+            try {
+                in.close();
+            } catch (Exception e) {
+                logger.debug("Error while closing input stream", e);
+            } finally {
+                in = null;
+            }
+        }
+        if (out != null) {
+            try {
+                out.close();
+            } catch (Exception e) {
+                logger.debug("Error while closing output stream", e);
+            } finally {
+                out = null;
+            }
+        }
+        if (connection != null) {
+            try {
+                connection.close();
+            } catch (Exception e) {
+                logger.debug("Error while closing socket connection", e);
+            } finally {
+                connection = null;
+            }
         }
     }
 }

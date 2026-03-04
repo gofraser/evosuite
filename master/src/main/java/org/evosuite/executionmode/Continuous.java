@@ -136,16 +136,25 @@ public class Continuous {
         /*
          * Based on command line option, execute one of the different CTG command
          */
+        boolean startedSpawnProcessManager = false;
         if (command.equals(Command.EXECUTE)) {
 
             if (Properties.SPAWN_PROCESS_MANAGER_PORT == null) {
                 //CTG can be very risky to keep running without a spawn process manager
                 int port = SpawnProcessKeepAliveChecker.getInstance().startServer();
                 Properties.SPAWN_PROCESS_MANAGER_PORT = port;
+                startedSpawnProcessManager = port > 0;
             }
 
-            String result = ctg.execute();
-            LoggingUtils.getEvoLogger().info(result);
+            try {
+                String result = ctg.execute();
+                LoggingUtils.getEvoLogger().info(result);
+            } finally {
+                if (startedSpawnProcessManager) {
+                    SpawnProcessKeepAliveChecker.getInstance().stopServer();
+                    Properties.SPAWN_PROCESS_MANAGER_PORT = null;
+                }
+            }
         } else if (command.equals(Command.CLEAN)) {
             boolean cleaned = ctg.clean();
             if (cleaned) {

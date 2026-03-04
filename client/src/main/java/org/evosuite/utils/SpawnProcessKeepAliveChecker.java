@@ -27,7 +27,9 @@ import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Set;
 import java.util.Scanner;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -53,6 +55,8 @@ public class SpawnProcessKeepAliveChecker {
     private volatile ServerSocket server;
     private volatile Thread serverThread;
     private volatile Thread clientThread;
+    private volatile Socket clientSocket;
+    private final Set<Socket> keepAliveSockets = ConcurrentHashMap.newKeySet();
 
     /**
      * Return the singleton instance.
@@ -89,6 +93,7 @@ public class SpawnProcessKeepAliveChecker {
                     try {
                         Socket socket = server.accept();
                         socket.setKeepAlive(true);
+                        keepAliveSockets.add(socket);
                         executor.submit(new KeepAliveTask(socket));
                         logger.info("Registered remote process from " + socket.getRemoteSocketAddress());
                     } catch (IOException e) {
@@ -125,6 +130,15 @@ public class SpawnProcessKeepAliveChecker {
             serverThread.interrupt();
             serverThread = null;
         }
+
+        for (Socket socket : keepAliveSockets) {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                logger.debug("Error while closing keep-alive socket", e);
+            }
+        }
+        keepAliveSockets.clear();
     }
 
     /**
@@ -144,9 +158,9 @@ public class SpawnProcessKeepAliveChecker {
 
                 boolean failed = false;
 
-                try {
-                    Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
-                    Scanner in = new Scanner(socket.getInputStream());
+                try (Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
+                     Scanner in = new Scanner(socket.getInputStream())) {
+                    clientSocket = socket;
 
                     sleep(DELTA_MS);
 
@@ -191,10 +205,19 @@ public class SpawnProcessKeepAliveChecker {
             clientThread.interrupt();
             clientThread = null;
         }
+        if (clientSocket != null) {
+            try {
+                clientSocket.close();
+            } catch (IOException e) {
+                logger.debug("Error while closing client keep-alive socket", e);
+            } finally {
+                clientSocket = null;
+            }
+        }
     }
 
 
-    private static class KeepAliveTask implements Runnable {
+    private class KeepAliveTask implements Runnable {
 
         private final Socket socket;
 
@@ -204,14 +227,19 @@ public class SpawnProcessKeepAliveChecker {
 
         @Override
         public void run() {
-            try {
-                PrintWriter out = new PrintWriter(socket.getOutputStream());
-                while (socket.isConnected()) {
+            try (Socket s = socket;
+                 PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
+                while (!Thread.currentThread().isInterrupted() && !s.isClosed()) {
                     out.println(STILL_ALIVE);
+                    if (out.checkError()) {
+                        break;
+                    }
                     Thread.sleep(DELTA_MS);
                 }
             } catch (Exception e) {
                 //expected when remote host dies
+            } finally {
+                keepAliveSockets.remove(socket);
             }
         }
     }
