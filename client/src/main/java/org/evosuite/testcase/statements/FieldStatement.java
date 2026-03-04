@@ -391,6 +391,15 @@ public class FieldStatement extends AbstractStatement {
         return false;
     }
 
+    @Override
+    public boolean isValid() {
+        assert (super.isValid());
+        if (source != null) {
+            source.getStPosition();
+        }
+        return true;
+    }
+
     /* (non-Javadoc)
      * @see org.evosuite.testcase.StatementInterface#changeClassLoader(java.lang.ClassLoader)
      */
