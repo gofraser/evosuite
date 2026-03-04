@@ -391,6 +391,18 @@ public class AssignmentStatement extends AbstractStatement {
                     // Need to check array status because commons lang
                     // is sometimes confused about what is assignable
                     if (parameter.isArray() == newRetVal.isArray()) {
+                        // Check that no later statement depends on the old retval
+                        VariableReference oldRetval = retval;
+                        boolean hasDownstreamUse = false;
+                        for (int i = oldRetval.getStPosition() + 1; i < tc.size(); i++) {
+                            if (tc.getStatement(i).references(oldRetval)) {
+                                hasDownstreamUse = true;
+                                break;
+                            }
+                        }
+                        if (hasDownstreamUse) {
+                            return false; // Cannot safely change target
+                        }
                         retval = newRetVal;
                         assert (isValid());
                         return true;
