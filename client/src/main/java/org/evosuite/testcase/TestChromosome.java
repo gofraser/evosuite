@@ -357,6 +357,27 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
+     * Returns the insertion anchor (last known valid statement) for insertion mutations.
+     *
+     * <p>If the last execution threw at statement {@code pos}, insertion must happen before that
+     * statement, so this method returns {@code pos - 1}. This still allows change/delete mutations
+     * to target the throwing statement through {@link #getLastMutatableStatement()}.
+     */
+    private int getLastInsertionAnchor() {
+        final ExecutionResult result = getLastExecutionResult();
+        final int size = test.size();
+
+        if (result != null && !result.noThrownExceptions()) {
+            final int pos = result.getFirstPositionOfThrownException();
+            if (pos >= size) {
+                return size - 1;
+            }
+            return pos - 1;
+        }
+        return test.size() - 1;
+    }
+
+    /**
      * Each statement is deleted with probability 1/length.
      *
      * @return true if the chromosome was changed.
@@ -478,7 +499,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
             count++;
             // Insert at position as during initialization (i.e., using helper sequences)
-            int position = testFactory.insertRandomStatement(test, getLastMutatableStatement());
+            int position = testFactory.insertRandomStatement(test, getLastInsertionAnchor());
 
             if (position >= 0 && position < test.size()) {
                 changed = true;
