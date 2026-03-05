@@ -312,13 +312,24 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                 List<Type> missing = fms.updateMockedMethods();
                 int pos = st.getPosition();
                 logger.debug("Generating parameters for mock call");
-                // Added 'null' as additional parameter - fix for @NotNull annotations issue on evo mailing list
-                List<VariableReference> refs = TestFactory.getInstance().satisfyParameters(test, null, missing,
-                        null, pos, 0, true, false, true);
+
+                List<VariableReference> refs;
+                try {
+                    // Use depth=1 because we are resolving dependencies of an existing
+                    // mock, not generating a top-level object.
+                    refs = TestFactory.getInstance().satisfyParameters(test, null, missing,
+                            null, pos, 1, true, false, true);
+                } catch (Exception e) {
+                    // Concrete generators may fail (e.g. recursion depth exceeded).
+                    // Fall back to directly creating functional mocks for each type.
+                    logger.debug("satisfyParameters failed for mock of {}, creating mock fallbacks",
+                            fms.getReturnType());
+                    refs = createMockFallbacks(test, missing, st.getPosition());
+                }
                 fms.addMissingInputs(refs);
             } catch (Exception e) {
-                //shouldn't really happen because, in the worst case, we could create mocks for missing parameters
-                String msg = "Functional mock problem: " + e;
+                String msg = "Functional mock problem for " + fms.getReturnType()
+                        + ": " + e.getClass().getSimpleName() + ": " + e.getMessage();
                 AtMostOnceLogger.warn(logger, msg);
                 fms.fillWithNullRefs();
                 return changed;
@@ -330,6 +341,30 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         }
 
         return changed;
+    }
+
+    /**
+     * Creates mock fallbacks for missing return types when satisfyParameters fails.
+     * For each missing type, tries to create a functional mock. If the type cannot be
+     * mocked, creates a null reference instead.
+     */
+    private List<VariableReference> createMockFallbacks(TestCase test, List<Type> missing, int position)
+            throws ConstructionFailedException {
+        List<VariableReference> refs = new ArrayList<>();
+        TestFactory tf = TestFactory.getInstance();
+        GenerationContext context = GenerationContext.fromDepth(1);
+        for (Type type : missing) {
+            VariableReference ref;
+            if (FunctionalMockStatement.canBeFunctionalMocked(type)) {
+                ref = tf.addFunctionalMock(test, type, position, context);
+                position = ref.getStPosition() + 1;
+            } else {
+                ref = tf.createNull(test, type, position, context);
+                position++;
+            }
+            refs.add(ref);
+        }
+        return refs;
     }
 
     /**
