@@ -494,6 +494,18 @@ public class TestFactory {
         } else if (statement instanceof FieldStatement) {
             VariableReference inserted = addField(test, ((FieldStatement) statement).getField(), test.size(), context);
             propagateParsedFromLlm(test, statement, inserted);
+        } else if (statement instanceof FunctionalMockStatement) {
+            // FunctionalMockStatement.copy() looks up parameter positions in
+            // the source test case, which are invalid in the offspring.
+            // Create a fresh mock instead.
+            FunctionalMockStatement mockStmt = (FunctionalMockStatement) statement;
+            Type mockType = mockStmt.getReturnType();
+            if (mockStmt instanceof FunctionalMockForAbstractClassStatement) {
+                addFunctionalMockForAbstractClass(test, mockType, test.size(),
+                        context);
+            } else {
+                addFunctionalMock(test, mockType, test.size(), context);
+            }
         } else if (statement instanceof AssignmentStatement) {
             // AssignmentStatement references two existing variables (target
             // and value).  During crossover the source parent's variable
