@@ -299,13 +299,34 @@ public final class VirtualFileSystem {
     }
 
     private void markAccessedFile(String path) {
-
         if (path.contains("\"")) {
             //shouldn't really have paths with ". Furthermore, " would mess up the writing of JUnit files
             return;
         }
 
         accessedFiles.add(path);
+    }
+
+    /**
+     * Registers a file path as accessed, even if the corresponding file does not exist.
+     *
+     * <p>This is useful for mocked constructors that fail fast (e.g., with
+     * FileNotFoundException) before any read/write operation is performed,
+     * so the augmenter can discover the SUT needs the file.
+     *
+     * @param rawPath a raw file path (relative or absolute)
+     */
+    public void registerAccessedFile(String rawPath) {
+        if (rawPath == null) {
+            return;
+        }
+        if (delegate != null) {
+            invokeDelegate("registerAccessedFile", new Class<?>[]{String.class}, rawPath);
+            return;
+        }
+
+        String path = new File(rawPath).getAbsolutePath();
+        markAccessedFile(path);
     }
 
     /**
