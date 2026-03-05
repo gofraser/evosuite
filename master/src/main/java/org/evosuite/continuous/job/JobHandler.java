@@ -404,7 +404,6 @@ public class JobHandler extends Thread {
         commands.add("-Dmax_size=" + Properties.MAX_SIZE);
 
         commands.add("-Dlog_timeout=false");
-        commands.add("-Dplot=false");
         commands.add("-Dtest_comments=false");
         commands.add("-Dshow_progress=false");
         commands.add("-Dsave_all_data=false");
