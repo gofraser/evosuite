@@ -27,6 +27,7 @@ import org.evosuite.graphs.GraphPool;
 import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.mock.MockList;
+import org.evosuite.runtime.testdata.EnvironmentDataList;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.utils.Java9InvisiblePackage;
 import org.evosuite.utils.LoggingUtils;
@@ -192,6 +193,12 @@ public class TestUsageChecker {
 
         if (c.getName().startsWith("junit")) {
             return false;
+        }
+
+        // Environment data classes (eg EvoSuiteFile) are runtime support types that
+        // should remain usable when their corresponding mocking subsystem is enabled.
+        if (EnvironmentDataList.getListOfClasses().contains(c)) {
+            return true;
         }
 
         if (TestClusterUtils.isEvoSuiteClass(c) && !MockList.isAMockClass(c.getCanonicalName())) {
