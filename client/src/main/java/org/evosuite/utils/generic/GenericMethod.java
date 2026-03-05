@@ -521,7 +521,17 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     @Override
     public GenericMethod copyWithOwnerFromReturnType(GenericClass<?> returnType) {
-        GenericMethod copy = new GenericMethod(method, returnType);
+        // For methods (unlike constructors), the return type is NOT the owner.
+        // Instantiate the owner's type variables using the return type's type variable map,
+        // but keep the owner as the declaring class.
+        GenericClass<?> newOwner;
+        try {
+            newOwner = getOwnerClass().getGenericInstantiation(returnType.getTypeVariableMap());
+        } catch (ConstructionFailedException e) {
+            // If instantiation fails, keep the original owner unchanged
+            newOwner = GenericClassFactory.get(owner);
+        }
+        GenericMethod copy = new GenericMethod(method, newOwner);
         copyTypeVariables(copy);
         return copy;
     }
