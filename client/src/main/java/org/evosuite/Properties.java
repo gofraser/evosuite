@@ -1265,7 +1265,8 @@ public class Properties {
     public static boolean PRINT_TO_SYSTEM = false;
 
     @Parameter(key = "plot", group = "Output",
-            description = "Create plots of size and fitness")
+            description = "Deprecated, no effect (legacy size/fitness plotting)")
+    @Deprecated
     public static boolean PLOT = false;
 
     @Parameter(key = "coverage_matrix", group = "Output",
