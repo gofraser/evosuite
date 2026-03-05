@@ -95,6 +95,11 @@ public class MockFileInputStream extends FileInputStream implements LeakingResou
             throw new MockNullPointerException();
         }
 
+        // Record attempted access even if opening fails with FileNotFoundException.
+        // This lets the augmenter discover that the SUT needs this file, so it can
+        // add EvoSuiteFile statements to create it.
+        VirtualFileSystem.getInstance().registerAccessedFile(path);
+
         VFile vf = NativeMockedIO.getFileForReading(path);
         if (vf == null) {
             throw new FileNotFoundException();
