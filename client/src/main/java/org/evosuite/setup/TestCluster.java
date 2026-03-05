@@ -540,6 +540,11 @@ public class TestCluster {
                 }
             }
             logger.debug("Found generators for {}: {}", clazz, targetGenerators.size());
+            if (logger.isDebugEnabled()) {
+                for (GenericAccessibleObject<?> gen : targetGenerators) {
+                    logger.debug("  generator: {} (owner={})", gen, gen.getOwnerClass());
+                }
+            }
         }
 
 
@@ -1116,7 +1121,8 @@ public class TestCluster {
             }
         } else {
             cacheGenerators(clazz);
-            Set<GenericAccessibleObject<?>> baseCandidates = new LinkedHashSet<>(generatorCache.get(clazz));
+            Set<GenericAccessibleObject<?>> allGenerators = generatorCache.get(clazz);
+            Set<GenericAccessibleObject<?>> baseCandidates = new LinkedHashSet<>(allGenerators);
             baseCandidates.removeAll(excluded);
 
             if (generatorRefToExclude != null) {
@@ -1128,6 +1134,25 @@ public class TestCluster {
 
             if (baseCandidates.isEmpty()) {
                 return null;
+            }
+
+            // Detect circular dependencies: if a generator for this type was already visited
+            // (i.e., the visited set excluded some generators for this type) and all remaining
+            // generators also require the target type as a parameter, bail out early instead of
+            // recursing through each one.
+            boolean alreadyTriedGeneratorForThisType =
+                    allGenerators.stream().anyMatch(excluded::contains);
+            if (alreadyTriedGeneratorForThisType) {
+                Set<GenericAccessibleObject<?>> nonCircular = baseCandidates.stream()
+                        .filter(gen -> !generatorRequiresType(gen, clazz))
+                        .collect(toCollection(LinkedHashSet::new));
+                if (nonCircular.isEmpty()) {
+                    logger.debug("All remaining generators for {} require the target type as a parameter; "
+                            + "aborting to avoid circular recursion", clazz);
+                    return null;
+                }
+                // Prefer non-circular generators to avoid unnecessary recursion
+                baseCandidates = nonCircular;
             }
 
             if (recursionDepth >= Properties.MAX_RECURSION / 2) {
@@ -1167,8 +1192,136 @@ public class TestCluster {
             return null;
         }
 
-        return Randomness.choice(compatible);
+        // Prefer generators whose parameters are easier to satisfy: fewer parameters,
+        // primitive/String params, and parameters that have known generators.
+        // Non-circular generators are also preferred over circular ones.
+        return selectWeightedGenerator(compatible, clazz);
 
+    }
+
+    /**
+     * Selects a generator from the compatible list using weighted random selection that
+     * favours generators whose parameters are easier to satisfy. This reduces wasted
+     * construction attempts compared to uniform random selection.
+     */
+    private GenericAccessibleObject<?> selectWeightedGenerator(
+            List<GenericAccessibleObject<?>> compatible, GenericClass<?> targetType) {
+        if (compatible.size() == 1) {
+            return compatible.get(0);
+        }
+
+        double[] weights = new double[compatible.size()];
+        for (int i = 0; i < compatible.size(); i++) {
+            weights[i] = scoreGenerator(compatible.get(i), targetType);
+        }
+
+        // Weighted random selection
+        double totalWeight = 0;
+        for (double w : weights) {
+            totalWeight += w;
+        }
+        if (totalWeight <= 0) {
+            return Randomness.choice(compatible);
+        }
+
+        double r = Randomness.nextDouble() * totalWeight;
+        double cumulative = 0;
+        for (int i = 0; i < compatible.size(); i++) {
+            cumulative += weights[i];
+            if (r <= cumulative) {
+                return compatible.get(i);
+            }
+        }
+        return compatible.get(compatible.size() - 1);
+    }
+
+    /**
+     * Scores a generator based on how likely it is to succeed. Higher is better.
+     * Considers: number of parameters, whether parameters are primitive/simple,
+     * whether the generator is circular (requires the target type), and whether
+     * parameter types have known generators.
+     */
+    private double scoreGenerator(GenericAccessibleObject<?> generator, GenericClass<?> targetType) {
+        double score = 1.0;
+
+        // Penalise circular generators — they can only work if the type is already
+        // available, so non-circular generators should be tried first.
+        if (generatorRequiresType(generator, targetType)) {
+            score *= 0.1;
+        }
+
+        // Static methods and constructors are cheaper than instance methods
+        // (no callee creation needed)
+        if (generator.isStatic() || generator.isConstructor()) {
+            score *= 2.0;
+        }
+
+        if (generator instanceof GenericExecutable) {
+            Type[] paramTypes = ((GenericExecutable<?, ?>) generator).getRawParameterTypes();
+            // Fewer parameters = easier to satisfy
+            score /= (1.0 + paramTypes.length);
+
+            for (Type paramType : paramTypes) {
+                if (paramType instanceof Class) {
+                    Class<?> paramClass = (Class<?>) paramType;
+                    if (paramClass.isPrimitive() || paramClass == String.class
+                            || Number.class.isAssignableFrom(paramClass)
+                            || paramClass == Boolean.class || paramClass == Character.class) {
+                        // Simple types — always satisfiable
+                        score *= 1.5;
+                    } else if (paramClass.isArray() && paramClass.getComponentType().isPrimitive()) {
+                        score *= 1.3;
+                    } else if (!hasGenerator(GenericClassFactory.get(paramClass))) {
+                        // No known generator for this parameter — very unlikely to succeed
+                        score *= 0.1;
+                    }
+                }
+            }
+        }
+
+        // Non-static methods also need a callee; check if the owner type has generators
+        if (generator.isMethod() && !generator.isStatic()) {
+            if (!hasGenerator(generator.getOwnerClass())) {
+                score *= 0.1;
+            }
+        }
+
+        return score;
+    }
+
+    /**
+     * Checks whether a generator requires the given target type as one of its parameters
+     * (or as the owner/caller type for non-static methods). This is used to detect circular
+     * dependencies where all generators for a type T themselves require a T to be constructed.
+     *
+     * <p>Only flags a parameter as circular when the parameter type IS-A target type (i.e.,
+     * the parameter is the target type itself or a subtype). A parameter that is a supertype
+     * of the target (e.g., {@code Object}, {@code AutoCloseable}) can be satisfied by many
+     * other types and does not indicate a circular dependency.
+     */
+    private boolean generatorRequiresType(GenericAccessibleObject<?> generator, GenericClass<?> targetType) {
+        Class<?> targetRaw = targetType.getRawClass();
+        // For non-static methods, the owner type (caller) is also a dependency
+        if (generator.isMethod() && !generator.isStatic()) {
+            if (targetType.isAssignableFrom(generator.getOwnerClass())) {
+                return true;
+            }
+        }
+        // Check explicit parameters for constructors and methods.
+        // A parameter creates a circular dependency only when the parameter type is the
+        // target type or a subtype of it — satisfying it would require producing the
+        // very type we are trying to generate.
+        if (generator instanceof GenericExecutable) {
+            for (Type paramType : ((GenericExecutable<?, ?>) generator).getRawParameterTypes()) {
+                if (paramType instanceof Class) {
+                    Class<?> paramClass = (Class<?>) paramType;
+                    if (targetRaw.isAssignableFrom(paramClass)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private GenericAccessibleObject<?> instantiateGenerator(GenericAccessibleObject<?> generator,
