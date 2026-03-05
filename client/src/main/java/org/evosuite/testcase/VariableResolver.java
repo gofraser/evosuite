@@ -378,9 +378,24 @@ public class VariableResolver {
         GenericClass<?> clazz = GenericClassFactory.get(type);
         VariableReference ret = null;
 
+        // When resolving a dependency (depth > 0) for an interface or abstract class,
+        // use a baseline mock probability even when P_FUNCTIONAL_MOCKING is 0, and bypass
+        // the FUNCTIONAL_MOCKING_PERCENT time gate. Concrete generators for types like
+        // java.sql.Connection often fail at runtime, and mocking provides a reliable fallback.
+        boolean isDeepInterfaceOrAbstract = context.getDepth() > 0
+                && (clazz.getRawClass().isInterface() || clazz.isAbstract());
+        double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
+        boolean bypassTimeGate = false;
+        if (isDeepInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR) {
+            effectiveMockProb = Math.max(effectiveMockProb, 0.5);
+            bypassTimeGate = true;
+        }
+
+        boolean pastTimeGate = bypassTimeGate
+                || TimeController.getInstance().getPhasePercentage() >= Properties.FUNCTIONAL_MOCKING_PERCENT;
         if (config.isCanUseMocks()
-                && TimeController.getInstance().getPhasePercentage() >= Properties.FUNCTIONAL_MOCKING_PERCENT
-                && Randomness.nextDouble() < Properties.P_FUNCTIONAL_MOCKING
+                && pastTimeGate
+                && Randomness.nextDouble() < effectiveMockProb
                 && FunctionalMockStatement.canBeFunctionalMocked(type)) {
             ret = testFactory.addFunctionalMock(test, type, position, context.deeper());
         } else {
