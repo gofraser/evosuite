@@ -77,16 +77,12 @@ public class TestGeneration {
 
         /* Updating properties strategy */
         if (strategy == null) {
+            // Default to MOSUITE if nothing is specified
             strategy = Strategy.MOSUITE;
         }
         Properties.STRATEGY = strategy;
 
         List<List<TestGenerationResult>> results = new ArrayList<>();
-
-        if (line.getOptions().length == 0) {
-            Help.execute(options);
-            return results;
-        }
 
         String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
         if (cp == null || cp.isEmpty()) {

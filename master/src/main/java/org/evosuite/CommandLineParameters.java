@@ -89,8 +89,10 @@ public class CommandLineParameters {
         Properties.Algorithm algo = Properties.ALGORITHM;
         Properties.Strategy strategy = Properties.STRATEGY;
 
-        // Many-objective algorithms require MOSUITE strategy
-        if (isManyObjectiveAlgorithm(algo) && strategy != Properties.Strategy.MOSUITE) {
+        // Many-objective algorithms require MOSUITE or LLMSTRATEGY strategy
+        if (isManyObjectiveAlgorithm(algo) 
+                && strategy != Properties.Strategy.MOSUITE 
+                && strategy != Properties.Strategy.LLMSTRATEGY) {
             LoggingUtils.getEvoLogger().warn(
                     "* WARNING: Algorithm {} is designed for MOSUITE strategy, but {} is selected. "
                             + "Consider using -Dstrategy=MOSUITE", algo, strategy);
