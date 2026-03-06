@@ -288,10 +288,14 @@ public final class ExecutionModeUtils {
         addOpen(cmdLine, "java.base/java.nio=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.net=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.security=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.text=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.util.regex=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.util.concurrent=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt=ALL-UNNAMED");
+        addOpen(cmdLine, "java.desktop/java.awt.font=ALL-UNNAMED");
         // Internal JDK packages sometimes used by legacy dependencies
+        addExport(cmdLine, "java.xml.crypto/org.jcp.xml.dsig.internal.dom=ALL-UNNAMED");
+        addExport(cmdLine, "jdk.javadoc/jdk.javadoc.internal.api=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/sun.nio.ch=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/sun.security.util=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/sun.net=ALL-UNNAMED");
@@ -306,6 +310,17 @@ public final class ExecutionModeUtils {
      */
     private static void addOpen(List<String> cmdLine, String value) {
         cmdLine.add("--add-opens");
+        cmdLine.add(value);
+    }
+
+    /**
+     * Helper method to add the --add-exports argument to the command line.
+     *
+     * @param cmdLine The list of command line arguments to modify.
+     * @param value   The value for the --add-exports argument.
+     */
+    private static void addExport(List<String> cmdLine, String value) {
+        cmdLine.add("--add-exports");
         cmdLine.add(value);
     }
 

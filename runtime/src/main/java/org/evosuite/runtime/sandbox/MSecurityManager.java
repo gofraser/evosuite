@@ -1494,14 +1494,17 @@ public class MSecurityManager extends SecurityManager {
                         return true;
                     }
                 }
-            } else if (fp.getName().contains("byteBuddyAgent") && fp.getName().startsWith(System.getProperty("java.io.tmpdir"))) {
+            } else if ((fp.getName().contains("byteBuddyAgent") || fp.getName().contains("mockitoboot"))
+                    && fp.getName().startsWith(System.getProperty("java.io.tmpdir"))) {
                 /*
                  * Mockito/ByteBuddy dynamically generates temporary agent jar files.
+                 * Mockito uses "mockitoboot*.jar" while ByteBuddy uses "byteBuddyAgent*.jar".
                  * Allowing this ensures that Mockito proxies can be correctly
                  * generated without violating sandbox permissions.
                  */
                 for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
-                    if (e.getClassName().startsWith("net.bytebuddy.")) {
+                    if (e.getClassName().startsWith("net.bytebuddy.")
+                            || e.getClassName().startsWith("org.mockito.")) {
                         return true;
                     }
                 }
@@ -1517,12 +1520,14 @@ public class MSecurityManager extends SecurityManager {
                         return true;
                     }
                 }
-            } else if (fp.getName().contains("byteBuddyAgent") && fp.getName().startsWith(System.getProperty("java.io.tmpdir"))) {
+            } else if ((fp.getName().contains("byteBuddyAgent") || fp.getName().contains("mockitoboot"))
+                    && fp.getName().startsWith(System.getProperty("java.io.tmpdir"))) {
                 /*
                  * Mockito/ByteBuddy tries to clean up the temporary agent jar files.
                  */
                 for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
-                    if (e.getClassName().startsWith("net.bytebuddy.")) {
+                    if (e.getClassName().startsWith("net.bytebuddy.")
+                            || e.getClassName().startsWith("org.mockito.")) {
                         return true;
                     }
                 }
