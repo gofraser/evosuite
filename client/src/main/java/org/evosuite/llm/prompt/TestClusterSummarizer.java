@@ -26,8 +26,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -217,7 +220,7 @@ public class TestClusterSummarizer {
             for (Constructor<?> ctor : constructors) {
                 if (sb.length() > 0) sb.append('\n');
                 sb.append("  ").append(rawClass.getSimpleName())
-                        .append('(').append(parameterList(ctor.getParameterTypes())).append(')');
+                        .append('(').append(genericParameterList(ctor.getGenericParameterTypes())).append(')');
             }
         }
         return sb.toString();
@@ -245,34 +248,140 @@ public class TestClusterSummarizer {
         return deps;
     }
 
-    /** Summarizes the constructor and public method signatures of the given class. */
+    /** Summarizes the class as a rich pseudo-Java declaration with fields, generics, and exceptions. */
     public String summarizeClass(GenericClass<?> clazz) {
         if (clazz == null || clazz.getRawClass() == null) {
             return "Unknown class";
         }
 
         Class<?> raw = clazz.getRawClass();
-        StringBuilder builder = new StringBuilder();
-        builder.append("Class: ").append(raw.getName()).append(System.lineSeparator());
+        StringBuilder b = new StringBuilder();
 
-        builder.append("Constructors:").append(System.lineSeparator());
-        for (Constructor<?> constructor : raw.getConstructors()) {
-            builder.append("  ").append(constructor.getName())
-                    .append('(').append(parameterList(constructor.getParameterTypes())).append(')')
-                    .append(System.lineSeparator());
+        // Class declaration line
+        int mod = raw.getModifiers();
+        if (Modifier.isPublic(mod)) b.append("public ");
+        if (Modifier.isAbstract(mod) && !raw.isInterface() && !raw.isEnum()) b.append("abstract ");
+
+        if (raw.isEnum()) {
+            b.append("enum ");
+        } else if (raw.isInterface()) {
+            b.append("interface ");
+        } else {
+            b.append("class ");
+        }
+        b.append(raw.getSimpleName());
+
+        // Type parameters
+        TypeVariable<?>[] typeParams = raw.getTypeParameters();
+        if (typeParams.length > 0) {
+            b.append('<');
+            for (int i = 0; i < typeParams.length; i++) {
+                if (i > 0) b.append(", ");
+                b.append(typeParams[i].getName());
+                Type[] bounds = typeParams[i].getBounds();
+                if (bounds.length > 0 && !(bounds.length == 1 && bounds[0] == Object.class)) {
+                    b.append(" extends ");
+                    for (int j = 0; j < bounds.length; j++) {
+                        if (j > 0) b.append(" & ");
+                        b.append(genericTypeName(bounds[j]));
+                    }
+                }
+            }
+            b.append('>');
         }
 
-        builder.append("Public methods:").append(System.lineSeparator());
-        for (Method method : raw.getMethods()) {
+        // Superclass (skip Object and Enum)
+        if (!raw.isInterface() && !raw.isEnum()) {
+            Type superType = raw.getGenericSuperclass();
+            if (superType != null && superType != Object.class) {
+                b.append(" extends ").append(genericTypeName(superType));
+            }
+        }
+
+        // Interfaces
+        Type[] ifaces = raw.getGenericInterfaces();
+        if (ifaces.length > 0) {
+            b.append(raw.isInterface() ? " extends " : " implements ");
+            for (int i = 0; i < ifaces.length; i++) {
+                if (i > 0) b.append(", ");
+                b.append(genericTypeName(ifaces[i]));
+            }
+        }
+
+        b.append(" {").append(System.lineSeparator());
+
+        // Enum constants
+        if (raw.isEnum()) {
+            Object[] constants = raw.getEnumConstants();
+            if (constants != null && constants.length > 0) {
+                b.append("  ");
+                for (int i = 0; i < constants.length; i++) {
+                    if (i > 0) b.append(", ");
+                    b.append(((Enum<?>) constants[i]).name());
+                }
+                b.append(System.lineSeparator());
+            }
+        }
+
+        // Fields (skip private and protected — not accessible from test code)
+        Field[] fields = raw.getDeclaredFields();
+        boolean hasFields = false;
+        for (Field field : fields) {
+            if (field.isSynthetic()) continue;
+            int fm = field.getModifiers();
+            if (Modifier.isPrivate(fm) || Modifier.isProtected(fm)) continue;
+            // Skip enum internal fields ($VALUES, etc.)
+            if (raw.isEnum() && (field.getName().equals("$VALUES")
+                    || (Modifier.isStatic(fm) && Modifier.isFinal(fm)
+                        && field.getType() == raw))) continue;
+            if (!hasFields) {
+                b.append(System.lineSeparator()).append("  // Fields").append(System.lineSeparator());
+                hasFields = true;
+            }
+            b.append("  ");
+            if (Modifier.isPublic(fm)) b.append("public ");
+            if (Modifier.isStatic(fm)) b.append("static ");
+            if (Modifier.isFinal(fm)) b.append("final ");
+            b.append(genericTypeName(field.getGenericType())).append(' ').append(field.getName());
+            b.append(System.lineSeparator());
+        }
+
+        // Constructors
+        Constructor<?>[] constructors = raw.getConstructors();
+        if (constructors.length > 0) {
+            b.append(System.lineSeparator()).append("  // Constructors").append(System.lineSeparator());
+            for (Constructor<?> ctor : constructors) {
+                b.append("  ").append(raw.getSimpleName())
+                        .append('(').append(genericParameterList(ctor.getGenericParameterTypes())).append(')');
+                b.append(throwsClause(ctor.getGenericExceptionTypes()));
+                b.append(System.lineSeparator());
+            }
+        }
+
+        // Public methods
+        Method[] methods = raw.getMethods();
+        boolean hasMethodHeader = false;
+        for (Method method : methods) {
             if (!Modifier.isPublic(method.getModifiers()) || method.getDeclaringClass() == Object.class) {
                 continue;
             }
-            builder.append("  ").append(method.getReturnType().getSimpleName()).append(' ')
+            if (!hasMethodHeader) {
+                b.append(System.lineSeparator()).append("  // Public methods").append(System.lineSeparator());
+                hasMethodHeader = true;
+            }
+            b.append("  ");
+            int mm = method.getModifiers();
+            if (Modifier.isStatic(mm)) b.append("static ");
+            if (Modifier.isAbstract(mm)) b.append("abstract ");
+            b.append(genericTypeName(method.getGenericReturnType())).append(' ')
                     .append(method.getName())
-                    .append('(').append(parameterList(method.getParameterTypes())).append(')')
-                    .append(System.lineSeparator());
+                    .append('(').append(genericParameterList(method.getGenericParameterTypes())).append(')');
+            b.append(throwsClause(method.getGenericExceptionTypes()));
+            b.append(System.lineSeparator());
         }
-        return builder.toString();
+
+        b.append('}').append(System.lineSeparator());
+        return b.toString();
     }
 
     /** Returns a string listing the constructors that can generate instances of the given type. */
@@ -283,7 +392,7 @@ public class TestClusterSummarizer {
         Class<?> raw = type.getRawClass();
         List<String> lines = new ArrayList<>();
         for (Constructor<?> constructor : raw.getConstructors()) {
-            lines.add(raw.getSimpleName() + "(" + parameterList(constructor.getParameterTypes()) + ")");
+            lines.add(raw.getSimpleName() + "(" + genericParameterList(constructor.getGenericParameterTypes()) + ")");
         }
         return String.join(System.lineSeparator(), lines);
     }
@@ -294,6 +403,30 @@ public class TestClusterSummarizer {
             names.add(parameterType.getSimpleName());
         }
         return String.join(", ", names);
+    }
+
+    /** Returns the type name with {@code java.lang.} prefix stripped for readability. */
+    static String genericTypeName(Type type) {
+        if (type == null) return "void";
+        String name = type.getTypeName();
+        // Strip java.lang. prefix but not java.lang.reflect. or sub-packages
+        return name.replaceAll("\\bjava\\.lang\\.(?![a-z])", "");
+    }
+
+    /** Joins generic type names into a comma-separated parameter list. */
+    static String genericParameterList(Type[] types) {
+        if (types == null || types.length == 0) return "";
+        List<String> names = new ArrayList<>();
+        for (Type t : types) {
+            names.add(genericTypeName(t));
+        }
+        return String.join(", ", names);
+    }
+
+    /** Returns " throws X, Y" or empty string if no exceptions. */
+    static String throwsClause(Type[] exceptionTypes) {
+        if (exceptionTypes == null || exceptionTypes.length == 0) return "";
+        return " throws " + genericParameterList(exceptionTypes);
     }
 
     private Set<Class<?>> collectAvailableClasses(TestCluster cluster) {

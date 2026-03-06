@@ -36,6 +36,8 @@ public class SystemPromptProvider {
                 + "Do NOT use @Before or @After methods. Do NOT use class-level fields. "
                 + "Do NOT use helper methods or inner classes. All setup and variable declarations "
                 + "must happen inside the @Test method itself. "
+                + "Only access public and package-private members (methods, constructors, and fields). "
+                + "Do NOT access private or protected members directly — they are not accessible from test code. "
                 + "Prefer real objects and constructors over mocking. Only use Mockito as a last resort "
                 + "when a dependency cannot be instantiated directly. "
                 + "Return raw Java code only. Do NOT wrap code in markdown fences (```). "
