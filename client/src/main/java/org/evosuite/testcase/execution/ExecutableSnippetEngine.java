@@ -19,17 +19,22 @@
  */
 package org.evosuite.testcase.execution;
 
+import org.evosuite.Properties;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 import java.io.File;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.net.URL;
@@ -51,6 +56,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Compiles and executes Java snippets used by fallback parser artifacts.
  */
 public final class ExecutableSnippetEngine {
+
+    private static final Logger logger = LoggerFactory.getLogger(ExecutableSnippetEngine.class);
 
     public static final ExecutableSnippetEngine INSTANCE = new ExecutableSnippetEngine();
 
@@ -217,17 +224,25 @@ public final class ExecutableSnippetEngine {
             Files.write(sourceFile, source.getBytes(StandardCharsets.UTF_8));
 
             String classpath = buildCompilationClasspath();
+            ByteArrayOutputStream errStream = new ByteArrayOutputStream();
             int compilationResult = compiler.run(
                     null,
                     DISCARD,
-                    DISCARD,
+                    errStream,
                     "-classpath", classpath,
                     "-d", compilationDir.toString(),
                     sourceFile.toString()
             );
             if (compilationResult != 0) {
                 increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
-                throw new SnippetCompilationException("Snippet compilation failed for " + className);
+                String diagnostics = errStream.toString(StandardCharsets.UTF_8.name()).trim();
+                String message = "Snippet compilation failed for " + className;
+                if (!diagnostics.isEmpty()) {
+                    message += ": " + diagnostics;
+                }
+                logger.debug("Snippet compilation classpath: {}", classpath);
+                logger.debug("Snippet source:\n{}", source);
+                throw new SnippetCompilationException(message);
             }
 
             Class<?> compiledClass = Class.forName(className, true, snippetClassLoader);
@@ -247,11 +262,15 @@ public final class ExecutableSnippetEngine {
                                              String returnExpression) {
         String className = classNameFor(key);
         StringBuilder src = new StringBuilder();
+        appendImports(src, bindings);
         src.append("public class ").append(className).append(" {\n");
         src.append("  @SuppressWarnings(\"unchecked\")\n");
         src.append("  public static Object run(java.util.Map<String,Object> __vars) throws Throwable {\n");
         appendVariableDeclarations(src, bindings);
-        src.append(sourceCode).append("\n");
+        // Rewrite bare "return;" → "return null;" so it is compatible with the
+        // Object return type of this wrapper method.  The LLM sometimes produces
+        // void-style returns inside try/catch or guard blocks.
+        src.append(sourceCode.replaceAll("(?m)^(\\s*)return\\s*;", "$1return null;")).append("\n");
         appendVariableWriteBack(src, bindings);
         if (returnExpression != null && !returnExpression.trim().isEmpty()) {
             src.append("    return ").append(returnExpression).append(";\n");
@@ -268,7 +287,9 @@ public final class ExecutableSnippetEngine {
                                              Map<String, Binding> bindings) {
         String className = classNameFor(key);
         StringBuilder src = new StringBuilder();
-        src.append("import static org.junit.Assert.*;\n");
+        appendImports(src, bindings);
+        src.append("import static org.junit.jupiter.api.Assertions.*;\n");
+        src.append("import static org.junit.jupiter.api.Assumptions.*;\n");
         src.append("public class ").append(className).append(" {\n");
         src.append("  @SuppressWarnings(\"unchecked\")\n");
         src.append("  public static Object run(java.util.Map<String,Object> __vars) throws Throwable {\n");
@@ -294,6 +315,119 @@ public final class ExecutableSnippetEngine {
         for (String name : bindings.keySet()) {
             src.append("    __vars.put(\"").append(escape(name)).append("\", ").append(name).append(");\n");
         }
+    }
+
+    /**
+     * Emits import statements for all classes known to the TestCluster and
+     * all binding types, so that unqualified class names (including inner
+     * classes like enums) used in the snippet source code resolve correctly.
+     */
+    private void appendImports(StringBuilder src, Map<String, Binding> bindings) {
+        Set<String> imports = new LinkedHashSet<>();
+        Set<String> wildcardClassImports = new LinkedHashSet<>();
+
+        // Import public classes from the TestCluster — these are the SUT and
+        // its dependencies that EvoSuite has analyzed.
+        // We track simple names to avoid collisions (e.g., two classes both
+        // named "Color" from different packages).
+        Map<String, String> simpleNameToFqn = new LinkedHashMap<>();
+        Set<String> collidingSimpleNames = new LinkedHashSet<>();
+        try {
+            for (Class<?> cls : org.evosuite.setup.TestCluster.getInstance().getAnalyzedClasses()) {
+                addClassImport(cls, simpleNameToFqn, collidingSimpleNames);
+                // Add a wildcard import if the class has at least one public
+                // inner class/enum.  If getDeclaredClasses() fails (e.g.,
+                // because a transitive dependency like javax.media.j3d is
+                // absent), we emit the wildcard import optimistically — losing
+                // all inner types is worse than a private-access error on one.
+                String canonical = cls.getCanonicalName();
+                if (canonical != null) {
+                    try {
+                        if (hasPublicDeclaredClass(cls)) {
+                            wildcardClassImports.add(canonical);
+                        }
+                    } catch (NoClassDefFoundError ignored) {
+                        wildcardClassImports.add(canonical);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // TestCluster may not be initialized
+        }
+
+        for (Map.Entry<String, String> entry : simpleNameToFqn.entrySet()) {
+            if (!collidingSimpleNames.contains(entry.getKey())) {
+                imports.add(entry.getValue());
+            }
+        }
+
+        // Also import packages of all binding types (in case they are not in
+        // the cluster, e.g. JDK types like BufferedImage)
+        Set<String> importedPackages = new LinkedHashSet<>();
+        for (Binding binding : bindings.values()) {
+            Class<?> raw = rawTypeFor(binding.type);
+            if (raw.isArray()) {
+                raw = rawComponentType(raw);
+            }
+            if (raw.isPrimitive()) {
+                continue;
+            }
+            Package pkg = raw.getPackage();
+            if (pkg != null && !"java.lang".equals(pkg.getName())) {
+                importedPackages.add(pkg.getName());
+            }
+        }
+
+        // JUnit 5 assertion/assumption methods (assertEquals, assertThrows, assumeTrue, etc.)
+        src.append("import static org.junit.jupiter.api.Assertions.*;\n");
+        src.append("import static org.junit.jupiter.api.Assumptions.*;\n");
+        src.append("import org.junit.jupiter.api.*;\n");
+
+        for (String name : imports) {
+            src.append("import ").append(name).append(";\n");
+        }
+        // Wildcard-import each analyzed class that has public inner types
+        for (String className : wildcardClassImports) {
+            src.append("import ").append(className).append(".*;\n");
+        }
+        for (String pkg : importedPackages) {
+            src.append("import ").append(pkg).append(".*;\n");
+        }
+    }
+
+    private boolean hasPublicDeclaredClass(Class<?> cls) {
+        for (Class<?> inner : cls.getDeclaredClasses()) {
+            if (java.lang.reflect.Modifier.isPublic(inner.getModifiers())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void addClassImport(Class<?> cls,
+                                Map<String, String> simpleNameToFqn,
+                                Set<String> collidingSimpleNames) {
+        if (!java.lang.reflect.Modifier.isPublic(cls.getModifiers())) {
+            return;
+        }
+        String name = cls.getCanonicalName();
+        if (name == null || name.startsWith("java.lang.")) {
+            return;
+        }
+        String simpleName = cls.getSimpleName();
+        if (simpleNameToFqn.containsKey(simpleName)) {
+            collidingSimpleNames.add(simpleName);
+        } else {
+            simpleNameToFqn.put(simpleName, name);
+        }
+    }
+
+    private Class<?> rawComponentType(Class<?> arrayType) {
+        Class<?> component = arrayType;
+        while (component.isArray()) {
+            component = component.getComponentType();
+        }
+        return component;
     }
 
     private String readExpression(Class<?> rawType, String varName) {
@@ -345,6 +479,15 @@ public final class ExecutableSnippetEngine {
 
     private String buildCompilationClasspath() {
         Set<String> entries = new LinkedHashSet<>();
+        // Include the SUT classpath so that target classes are visible to javac
+        String sutClassPath = Properties.CP;
+        if (sutClassPath != null && !sutClassPath.trim().isEmpty()) {
+            for (String entry : sutClassPath.split(File.pathSeparator)) {
+                if (!entry.trim().isEmpty()) {
+                    entries.add(entry.trim());
+                }
+            }
+        }
         String javaClassPath = System.getProperty("java.class.path");
         if (javaClassPath != null && !javaClassPath.trim().isEmpty()) {
             for (String entry : javaClassPath.split(File.pathSeparator)) {

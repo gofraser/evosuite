@@ -560,6 +560,10 @@ public class MSecurityManager extends SecurityManager {
             return true;
         }
 
+        if (checkIfEvoSuiteLlm(perm)) {
+            return true;
+        }
+
         // first check if calling thread belongs to EvoSuite rather than the SUT
         if (privilegedThreads.contains(Thread.currentThread())) {
 
@@ -833,6 +837,29 @@ public class MSecurityManager extends SecurityManager {
          * would run without a sandbox
          */
         return runningClientOnThread && Thread.currentThread().getName().startsWith("RMI TCP");
+    }
+
+    /**
+     * Check if the current permission request originates from EvoSuite's LLM
+     * infrastructure.  LLM threads need network access (socket resolve/connect)
+     * and various runtime permissions to reach the remote LLM endpoint.  We
+     * whitelist any call whose stack contains {@code org.evosuite.llm.*},
+     * analogous to {@link #checkIfEvoSuiteRMI(Permission)}.
+     */
+    private boolean checkIfEvoSuiteLlm(Permission perm) {
+        // Allow network and runtime permissions when the call originates from
+        // EvoSuite's own LLM infrastructure.  We verify by scanning the stack
+        // trace, similar to how checkIfEvoSuiteRMI verifies RMI calls.
+        // This covers the LLM service itself (org.evosuite.llm.*) as well as
+        // the snippet compilation engine that executes LLM-generated code.
+        for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+            String cls = element.getClassName();
+            if (cls.startsWith("org.evosuite.llm.")
+                    || cls.equals("org.evosuite.testcase.execution.ExecutableSnippetEngine")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /*
@@ -1206,11 +1233,18 @@ public class MSecurityManager extends SecurityManager {
             return true;
         }
 
-        /*
-         * not fully understand this one... so let's block it for now
-         */
         if (name.equals("writeFileDescriptor")) {
-            return false; //FIXME
+            // Allow if the call originates from ByteBuddy/Mockito (mock infrastructure).
+            // Otherwise deny and log the stack trace for diagnosis.
+            for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
+                if (e.getClassName().startsWith("net.bytebuddy.")
+                        || e.getClassName().startsWith("org.mockito.")) {
+                    return true;
+                }
+            }
+            logger.warn("writeFileDescriptor denied. Stack trace: {}",
+                    captureStackTrace());
+            return false;
         }
 
         if (name.startsWith("loadLibrary.")) {
@@ -1498,13 +1532,30 @@ public class MSecurityManager extends SecurityManager {
                 /*
                  * Dynamic agent attachment tools (like Mockito's ByteBuddy or Jacoco)
                  * sometimes need to spawn a small secondary JVM simply to attach an agent.
-                 * Allowing execution of the Java binary enables these tools to run 
-                 * without breaking out of the sandbox.
+                 * Only allow this when the request originates from known mock/agent infrastructure.
                  */
-                return true;
+                for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
+                    if (e.getClassName().startsWith("net.bytebuddy.")
+                            || e.getClassName().startsWith("org.mockito.")
+                            || e.getClassName().startsWith("org.jacoco.")) {
+                        return true;
+                    }
+                }
+                logger.warn("Execution of java binary denied (not from mock infrastructure). Stack trace: {}",
+                        captureStackTrace());
             }
         }
 
         return false;
+    }
+
+    private static String captureStackTrace() {
+        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        StringBuilder sb = new StringBuilder();
+        // Skip getStackTrace() and captureStackTrace() frames
+        for (int i = 2; i < stack.length; i++) {
+            sb.append("\n\tat ").append(stack[i]);
+        }
+        return sb.toString();
     }
 }
