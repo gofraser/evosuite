@@ -140,8 +140,9 @@ public class SutContextProviderFactory {
         }
 
         if (context.isPresent()) {
-            TruncateResult tr = truncate(context.get());
-            return new ContextResult(tr.text, mode, false, tr.truncated);
+            TruncateResult tr = truncate(context.get(), mode);
+            return new ContextResult(tr.text, mode, false, tr.truncated, tr.commentsStripped,
+                    tr.selectivelyTruncated);
         }
 
         // Primary failed — apply fallback policy
@@ -162,8 +163,9 @@ public class SutContextProviderFactory {
                 fallbackContext = Optional.empty();
             }
             if (fallbackContext.isPresent()) {
-                TruncateResult tr = truncate(fallbackContext.get());
-                return new ContextResult(tr.text, LlmSutContextMode.SIGNATURE_ONLY, false, tr.truncated);
+                TruncateResult tr = truncate(fallbackContext.get(), LlmSutContextMode.SIGNATURE_ONLY);
+                return new ContextResult(tr.text, LlmSutContextMode.SIGNATURE_ONLY, false, tr.truncated,
+                        tr.commentsStripped, tr.selectivelyTruncated);
             }
             return new ContextResult("", LlmSutContextMode.SIGNATURE_ONLY, true);
         }
@@ -187,21 +189,55 @@ public class SutContextProviderFactory {
         }
     }
 
-    private TruncateResult truncate(String text) {
+    private TruncateResult truncate(String text, LlmSutContextMode mode) {
         int maxChars = Properties.LLM_CONTEXT_MAX_CHARS;
         if (maxChars <= 0 || text.length() <= maxChars) {
-            return new TruncateResult(text, false);
+            return new TruncateResult(text, false, false, false);
         }
-        return new TruncateResult(text.substring(0, maxChars) + "\n... (truncated)", true);
+
+        // Try stripping comments to fit within budget
+        String stripped = JavaCommentStripper.stripComments(text);
+        if (stripped.length() <= maxChars) {
+            return new TruncateResult(stripped, false, true, false);
+        }
+
+        // Try selective method truncation before hard truncation
+        SelectiveMethodTruncator truncator = truncatorFor(mode);
+        if (truncator != null) {
+            String selective = truncator.truncate(stripped, maxChars);
+            if (selective != null) {
+                return new TruncateResult(selective, false, true, true);
+            }
+            logger.debug("Selective truncation failed for mode {}, falling back to hard truncation", mode);
+        }
+
+        // Still too large — hard-truncate the stripped text
+        return new TruncateResult(stripped.substring(0, maxChars) + "\n... (truncated)", true, true, false);
+    }
+
+    static SelectiveMethodTruncator truncatorFor(LlmSutContextMode mode) {
+        switch (mode) {
+            case SOURCE_CODE:
+            case DECOMPILED_SOURCE:
+                return new JavaSourceSelectiveTruncator();
+            case BYTECODE_DISASSEMBLED:
+                return new BytecodeSelectiveTruncator();
+            default:
+                return null;
+        }
     }
 
     private static class TruncateResult {
         final String text;
         final boolean truncated;
+        final boolean commentsStripped;
+        final boolean selectivelyTruncated;
 
-        TruncateResult(String text, boolean truncated) {
+        TruncateResult(String text, boolean truncated, boolean commentsStripped, boolean selectivelyTruncated) {
             this.text = text;
             this.truncated = truncated;
+            this.commentsStripped = commentsStripped;
+            this.selectivelyTruncated = selectivelyTruncated;
         }
     }
 
@@ -213,18 +249,34 @@ public class SutContextProviderFactory {
         private final LlmSutContextMode modeUsed;
         private final boolean contextUnavailable;
         private final boolean contextTruncated;
+        private final boolean commentsStripped;
+        private final boolean selectivelyTruncated;
 
         public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable) {
-            this(text, modeUsed, contextUnavailable, false);
+            this(text, modeUsed, contextUnavailable, false, false, false);
         }
 
         /** Constructs a context result with text, mode, availability, and truncation flags. */
         public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable,
                              boolean contextTruncated) {
+            this(text, modeUsed, contextUnavailable, contextTruncated, false, false);
+        }
+
+        /** Constructs a context result with text, mode, availability, truncation, and comment-stripping flags. */
+        public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable,
+                             boolean contextTruncated, boolean commentsStripped) {
+            this(text, modeUsed, contextUnavailable, contextTruncated, commentsStripped, false);
+        }
+
+        /** Constructs a context result with all metadata flags including selective truncation. */
+        public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable,
+                             boolean contextTruncated, boolean commentsStripped, boolean selectivelyTruncated) {
             this.text = text;
             this.modeUsed = modeUsed;
             this.contextUnavailable = contextUnavailable;
             this.contextTruncated = contextTruncated;
+            this.commentsStripped = commentsStripped;
+            this.selectivelyTruncated = selectivelyTruncated;
         }
 
         public String getText() {
@@ -241,6 +293,14 @@ public class SutContextProviderFactory {
 
         public boolean isContextTruncated() {
             return contextTruncated;
+        }
+
+        public boolean isCommentsStripped() {
+            return commentsStripped;
+        }
+
+        public boolean isSelectivelyTruncated() {
+            return selectivelyTruncated;
         }
     }
 }

@@ -236,6 +236,72 @@ class SutContextProviderFactoryTest {
         assertEquals(2, countingProvider.callCount, "Provider should be called again after cache clear");
     }
 
+    @Test
+    void selectiveTruncationFiresForSourceCodeBeforeHardTruncation() {
+        Properties.LLM_SUT_CONTEXT_MODE = LlmSutContextMode.SOURCE_CODE;
+        Properties.LLM_CONTEXT_FALLBACK_ENABLED = true;
+
+        // A Java class large enough to exceed budget but parseable
+        String largeClass = "public class Big {\n"
+                + "    private int x;\n"
+                + "    public Big() { this.x = 42; }\n"
+                + "    public int getX() { return x; }\n"
+                + "    private void helper() {\n"
+                + "        System.out.println(\"long private helper method body that takes space\");\n"
+                + "        System.out.println(\"more lines to make it larger and exceed the budget\");\n"
+                + "    }\n"
+                + "}\n";
+        // Set budget between stubbed size and full size
+        Properties.LLM_CONTEXT_MAX_CHARS = largeClass.length() - 50;
+
+        SutContextProvider stubProvider = new StubProvider(largeClass);
+        SutContextProviderFactory factory = new SutContextProviderFactory(
+                stubProvider, stubProvider, stubProvider, stubProvider);
+
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Big", null);
+        assertTrue(result.isSelectivelyTruncated(), "Should report selective truncation");
+        assertFalse(result.isContextTruncated(), "Should NOT hard-truncate");
+        assertTrue(result.getText().contains("getX"), "Should preserve public method");
+        assertTrue(result.getText().length() <= Properties.LLM_CONTEXT_MAX_CHARS,
+                "Result should fit within budget");
+    }
+
+    @Test
+    void selectiveTruncationMetadataPropagates() {
+        Properties.LLM_SUT_CONTEXT_MODE = LlmSutContextMode.SOURCE_CODE;
+        Properties.LLM_CONTEXT_FALLBACK_ENABLED = true;
+
+        String largeClass = "public class Propagate {\n"
+                + "    private int x;\n"
+                + "    public Propagate() { this.x = 1; }\n"
+                + "    public int getX() { return x; }\n"
+                + "    private void bigHelper() {\n"
+                + "        System.out.println(\"line1 of big helper that is very long padding\");\n"
+                + "        System.out.println(\"line2 of big helper that is very long padding\");\n"
+                + "    }\n"
+                + "}\n";
+        Properties.LLM_CONTEXT_MAX_CHARS = largeClass.length() - 30;
+
+        SutContextProvider stubProvider = new StubProvider(largeClass);
+        SutContextProviderFactory factory = new SutContextProviderFactory(
+                stubProvider, stubProvider, stubProvider, stubProvider);
+
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Propagate", null);
+        assertTrue(result.isSelectivelyTruncated());
+        assertFalse(result.isContextTruncated());
+    }
+
+    @Test
+    void truncatorForReturnsCorrectImplementations() {
+        assertTrue(SutContextProviderFactory.truncatorFor(LlmSutContextMode.SOURCE_CODE)
+                instanceof JavaSourceSelectiveTruncator);
+        assertTrue(SutContextProviderFactory.truncatorFor(LlmSutContextMode.DECOMPILED_SOURCE)
+                instanceof JavaSourceSelectiveTruncator);
+        assertTrue(SutContextProviderFactory.truncatorFor(LlmSutContextMode.BYTECODE_DISASSEMBLED)
+                instanceof BytecodeSelectiveTruncator);
+        assertNull(SutContextProviderFactory.truncatorFor(LlmSutContextMode.SIGNATURE_ONLY));
+    }
+
     // --- Test helpers ---
 
     private static class StubProvider implements SutContextProvider {

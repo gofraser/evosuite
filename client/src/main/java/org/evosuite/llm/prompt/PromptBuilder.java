@@ -47,6 +47,8 @@ public class PromptBuilder {
     private Properties.LlmSutContextMode sutContextModeUsed;
     private boolean sutContextUnavailable;
     private boolean sutContextTruncated;
+    private boolean sutContextCommentsStripped;
+    private boolean sutContextSelectivelyTruncated;
     private boolean clusterSummaryTruncated;
     private int clusterSummaryChars;
 
@@ -107,6 +109,8 @@ public class PromptBuilder {
         this.sutContextModeUsed = result.getModeUsed();
         this.sutContextUnavailable = result.isContextUnavailable();
         this.sutContextTruncated = result.isContextTruncated();
+        this.sutContextCommentsStripped = result.isCommentsStripped();
+        this.sutContextSelectivelyTruncated = result.isSelectivelyTruncated();
         String text = result.getText();
         if (text != null && !text.trim().isEmpty()) {
             userSections.add(result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
@@ -114,6 +118,8 @@ public class PromptBuilder {
                     + "(e.g., Vector<Character>, List<String>) match the "
                     + "class definition exactly. Do not use generic types like Vector<String> if the class "
                     + "expects Vector<Character>.");
+            userSections.add("IMPORTANT: Do NOT access private or protected fields or methods. "
+                    + "Only use public and package-private members in the generated tests.");
         }
         return this;
     }
@@ -269,6 +275,7 @@ public class PromptBuilder {
         messages.add(LlmMessage.system(resolvedSystem));
         messages.add(LlmMessage.user(userPrompt));
         return new PromptResult(messages, sutContextModeUsed, sutContextUnavailable, sutContextTruncated,
+                sutContextCommentsStripped, sutContextSelectivelyTruncated,
                 clusterSummaryTruncated, clusterSummaryChars);
     }
 

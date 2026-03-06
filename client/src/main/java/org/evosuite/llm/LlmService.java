@@ -303,7 +303,8 @@ public class LlmService implements AutoCloseable {
         }
         return queryInternal(promptResult.getMessages(), feature,
                 promptResult.getSutContextMode(), promptResult.isContextUnavailable(),
-                promptResult.isContextTruncated(),
+                promptResult.isContextTruncated(), promptResult.isContextCommentsStripped(),
+                promptResult.isContextSelectivelyTruncated(),
                 promptResult.isClusterSummaryTruncated(), promptResult.getClusterSummaryChars());
     }
 
@@ -312,13 +313,15 @@ public class LlmService implements AutoCloseable {
                                  boolean contextUnavailable,
                                  boolean contextTruncated) {
         return queryInternal(messages, feature, sutContextMode, contextUnavailable, contextTruncated,
-                false, 0);
+                false, false, false, 0);
     }
 
     private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
                                  Properties.LlmSutContextMode sutContextMode,
                                  boolean contextUnavailable,
                                  boolean contextTruncated,
+                                 boolean contextCommentsStripped,
+                                 boolean contextSelectivelyTruncated,
                                  boolean clusterSummaryTruncated,
                                  int clusterSummaryChars) {
         if (!available) {
@@ -348,8 +351,8 @@ public class LlmService implements AutoCloseable {
                 traceRecorder.recordCall(feature, messages, response.getText(), response.getInputTokens(),
                         response.getOutputTokens(), latency, status, attempt, false,
                         Collections.<String>emptyList(), "",
-                        sutContextMode, contextUnavailable, contextTruncated,
-                        clusterSummaryTruncated, clusterSummaryChars);
+                        sutContextMode, contextUnavailable, contextTruncated, contextCommentsStripped,
+                        contextSelectivelyTruncated, clusterSummaryTruncated, clusterSummaryChars);
                 return response.getText();
             } catch (Exception e) {
                 lastError = unwrap(e);
@@ -380,8 +383,8 @@ public class LlmService implements AutoCloseable {
                     traceRecorder.recordCall(feature, messages, "", 0, 0,
                             System.currentTimeMillis() - start, "FAILED", attempt,
                             false, Collections.<String>emptyList(), lastError.getClass().getSimpleName(),
-                            sutContextMode, contextUnavailable, contextTruncated,
-                            clusterSummaryTruncated, clusterSummaryChars);
+                            sutContextMode, contextUnavailable, contextTruncated, contextCommentsStripped,
+                            contextSelectivelyTruncated, clusterSummaryTruncated, clusterSummaryChars);
                     throw new LlmCallFailedException(
                             "LLM query failed after " + attempt + " attempt(s): " + friendly, lastError, retryable);
                 }

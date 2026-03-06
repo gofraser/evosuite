@@ -108,10 +108,10 @@ public class LlmTraceRecorder {
                            boolean contextTruncated) {
         recordCall(feature, messages, responseText, inputTokens, outputTokens, latencyMs,
                 parseStatus, repairAttempt, expansionAttempted, expandedClasses, errorType,
-                sutContextMode, contextUnavailable, contextTruncated, false, 0);
+                sutContextMode, contextUnavailable, contextTruncated, false, false, 0);
     }
 
-    /** Records a call with full context, cluster summary, and truncation metadata. */
+    /** Records a call with full context, comment-stripping, cluster summary, and truncation metadata. */
     public void recordCall(LlmFeature feature,
                            List<LlmMessage> messages,
                            String responseText,
@@ -126,6 +126,32 @@ public class LlmTraceRecorder {
                            org.evosuite.Properties.LlmSutContextMode sutContextMode,
                            boolean contextUnavailable,
                            boolean contextTruncated,
+                           boolean contextCommentsStripped,
+                           boolean clusterSummaryTruncated,
+                           int clusterSummaryChars) {
+        recordCall(feature, messages, responseText, inputTokens, outputTokens, latencyMs,
+                parseStatus, repairAttempt, expansionAttempted, expandedClasses, errorType,
+                sutContextMode, contextUnavailable, contextTruncated, contextCommentsStripped,
+                false, clusterSummaryTruncated, clusterSummaryChars);
+    }
+
+    /** Records a call with all metadata including selective truncation. */
+    public void recordCall(LlmFeature feature,
+                           List<LlmMessage> messages,
+                           String responseText,
+                           int inputTokens,
+                           int outputTokens,
+                           long latencyMs,
+                           String parseStatus,
+                           int repairAttempt,
+                           boolean expansionAttempted,
+                           List<String> expandedClasses,
+                           String errorType,
+                           org.evosuite.Properties.LlmSutContextMode sutContextMode,
+                           boolean contextUnavailable,
+                           boolean contextTruncated,
+                           boolean contextCommentsStripped,
+                           boolean contextSelectivelyTruncated,
                            boolean clusterSummaryTruncated,
                            int clusterSummaryChars) {
         if (!configuration.isTraceEnabled()) {
@@ -154,6 +180,8 @@ public class LlmTraceRecorder {
         traceRecord.put("sut_context_mode", sutContextMode == null ? "" : sutContextMode.name());
         traceRecord.put("context_unavailable", contextUnavailable);
         traceRecord.put("context_truncated", contextTruncated);
+        traceRecord.put("context_comments_stripped", contextCommentsStripped);
+        traceRecord.put("context_selectively_truncated", contextSelectivelyTruncated);
         traceRecord.put("cluster_summary_truncated", clusterSummaryTruncated);
         traceRecord.put("cluster_summary_chars", clusterSummaryChars);
         String json = GSON.toJson(traceRecord);
