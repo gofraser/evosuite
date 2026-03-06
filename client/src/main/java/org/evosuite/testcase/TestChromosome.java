@@ -161,20 +161,21 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     public void crossOver(TestChromosome other, int position1, int position2)
             throws ConstructionFailedException {
         logger.debug("Crossover starting");
-        TestChromosome offspring = new TestChromosome();
         TestFactory testFactory = TestFactory.getInstance();
 
-        for (int i = 0; i < position1; i++) {
-            offspring.test.addStatement(test.getStatement(i).clone(offspring.test));
-        }
+        // Clone the full test case first, then chop to the crossover point.
+        // This avoids out-of-bounds errors when statements contain forward
+        // variable references (e.g., AssignmentStatement targeting a later variable).
+        TestCase offspringTest = test.clone();
+        offspringTest.chop(position1);
 
         for (int i = position2; i < other.size(); i++) {
-            testFactory.appendStatement(offspring.test,
+            testFactory.appendStatement(offspringTest,
                     other.test.getStatement(i));
         }
         if (!Properties.CHECK_MAX_LENGTH
-                || offspring.test.size() <= Properties.CHROMOSOME_LENGTH) {
-            test = offspring.test;
+                || offspringTest.size() <= Properties.CHROMOSOME_LENGTH) {
+            test = offspringTest;
             setChanged(true);
         }
     }
