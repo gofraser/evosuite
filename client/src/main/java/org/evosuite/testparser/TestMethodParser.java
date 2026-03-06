@@ -19,6 +19,7 @@
  */
 package org.evosuite.testparser;
 
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
@@ -44,9 +45,20 @@ public class TestMethodParser {
 
     /**
      * Parse a complete test class source string into a CompilationUnit AST.
+     * Comment attribution is disabled to avoid a JavaParser bug
+     * ({@code ParseProblemException: Cannot compare the positions of nodes if
+     * container node does not have a range}) that triggers when programmatically
+     * constructed AST nodes lack position information.
      */
     public CompilationUnit parseSource(String sourceCode) {
-        return StaticJavaParser.parse(sourceCode);
+        ParserConfiguration config = StaticJavaParser.getParserConfiguration();
+        boolean previous = config.isAttributeComments();
+        try {
+            config.setAttributeComments(false);
+            return StaticJavaParser.parse(sourceCode);
+        } finally {
+            config.setAttributeComments(previous);
+        }
     }
 
     /**
@@ -185,7 +197,7 @@ public class TestMethodParser {
             }
         }
         sb.append("public class __ParseWrapper__ {\n");
-        sb.append("    @org.junit.Test\n");
+        sb.append("    @org.junit.jupiter.api.Test\n");
         sb.append("    public void __testMethod__() {\n");
         sb.append(methodBody);
         sb.append("\n    }\n");

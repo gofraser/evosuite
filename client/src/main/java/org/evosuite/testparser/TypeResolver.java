@@ -153,10 +153,15 @@ public class TypeResolver {
             throw new ClassNotFoundException("Cannot resolve type: " + typeName);
         }
 
-        // Check explicit imports
+        // Check explicit imports (but fall through if the imported class
+        // does not exist — the LLM may have guessed wrong package names)
         String fqn = importMap.get(typeName);
         if (fqn != null) {
-            return loadClass(fqn);
+            try {
+                return loadClass(fqn);
+            } catch (ClassNotFoundException ignored) {
+                // Import points to a non-existent class; try other resolution paths
+            }
         }
 
         // Check java.lang.*
@@ -180,6 +185,19 @@ public class TypeResolver {
             return org.evosuite.setup.TestCluster.getInstance().getClass(typeName);
         } catch (Exception ignored) {
             // TestCluster may not be initialized outside of EvoSuite context
+        }
+
+        // Try as inner class of any analyzed class (e.g., "Quality" → "PhotoRenderer$Quality")
+        try {
+            for (Class<?> analyzed : org.evosuite.setup.TestCluster.getInstance().getAnalyzedClasses()) {
+                try {
+                    return loadClass(analyzed.getName() + "$" + typeName);
+                } catch (ClassNotFoundException ignored) {
+                    // Not an inner class of this one
+                }
+            }
+        } catch (Exception ignored) {
+            // TestCluster may not be initialized
         }
 
         throw new ClassNotFoundException("Cannot resolve type: " + typeName);

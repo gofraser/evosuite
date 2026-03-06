@@ -30,6 +30,7 @@ import org.evosuite.assertion.NullAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.assertion.SameAssertion;
 import org.evosuite.seeding.ConstantPoolManager;
+import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.*;
@@ -918,6 +919,7 @@ public class StatementParser {
             }
 
             GenericClass<?> ownerClass = GenericClassFactory.get(constructedType);
+            TestClusterUtils.makeAccessible(constructor);
             GenericConstructor genericConstructor = new GenericConstructor(constructor, ownerClass);
 
             ConstructorStatement stmt = new ConstructorStatement(testCase, genericConstructor, argRefs);
@@ -981,6 +983,7 @@ public class StatementParser {
             }
 
             GenericClass<?> ownerClass = GenericClassFactory.get(targetClass);
+            TestClusterUtils.makeAccessible(method);
             GenericMethod genericMethod = new GenericMethod(method, ownerClass);
 
             MethodStatement stmt = new MethodStatement(testCase, genericMethod, callee, argRefs);
@@ -1038,6 +1041,7 @@ public class StatementParser {
             case "assertNotSame":
             case "assertArrayEquals":
             case "assertThrows":
+            case "assertDoesNotThrow":
                 return true;
             default:
                 return false;
@@ -1086,6 +1090,9 @@ public class StatementParser {
                     return;
                 case "assertThrows":
                     handleAssertThrows(args);
+                    return;
+                case "assertDoesNotThrow":
+                    handleAssertDoesNotThrow(args);
                     return;
                 default:
                     break;
@@ -1352,6 +1359,40 @@ public class StatementParser {
     }
 
     /**
+     * assertDoesNotThrow(() -> { ... }) — extract the lambda body as regular
+     * statements, identical to assertThrows handling but without an expected
+     * exception class argument.
+     */
+    private void handleAssertDoesNotThrow(List<Expression> args) {
+        if (args.isEmpty()) {
+            return;
+        }
+
+        LambdaExpr lambda = null;
+        for (Expression arg : args) {
+            if (arg instanceof LambdaExpr) {
+                lambda = (LambdaExpr) arg;
+                break;
+            }
+        }
+
+        if (lambda == null) {
+            return;
+        }
+
+        com.github.javaparser.ast.stmt.Statement body = lambda.getBody();
+        if (body instanceof BlockStmt) {
+            for (com.github.javaparser.ast.stmt.Statement stmt : ((BlockStmt) body).getStatements()) {
+                parseStatement(stmt);
+            }
+        } else if (body instanceof ExpressionStmt) {
+            handleExpressionStatement(((ExpressionStmt) body).getExpression());
+        } else {
+            parseStatement(body);
+        }
+    }
+
+    /**
      * Pick the argument that's a variable name from a 2-arg assertion call.
      * Returns null if neither is a simple NameExpr.
      */
@@ -1469,7 +1510,13 @@ public class StatementParser {
                 return handleEnumConstant(targetClass, fieldName, expr);
             }
 
-            Field field = targetClass.getField(fieldName);
+            Field field;
+            try {
+                field = targetClass.getField(fieldName);
+            } catch (NoSuchFieldException nsfe) {
+                field = targetClass.getDeclaredField(fieldName);
+            }
+            TestClusterUtils.makeAccessible(field);
             GenericClass<?> ownerClass = GenericClassFactory.get(targetClass);
             GenericField genericField = new GenericField(field, ownerClass);
 
