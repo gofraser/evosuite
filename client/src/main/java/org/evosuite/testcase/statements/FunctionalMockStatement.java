@@ -778,8 +778,10 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                     ret = mock(targetClass.getRawClass(), settings);
                 } catch (IllegalStateException e) {
                     if (!shouldForceSubclassMockMaker() && isMockitoPluginInitFailure(e)) {
-                        logger.warn("Mockito plugin init failed, retrying with subclass"
-                                + " mock maker for {}", targetClass);
+                        AtMostOnceLogger.warn(logger, "Mockito inline mock maker unavailable,"
+                                + " falling back to subclass mock maker."
+                                + " This is expected on some JVM configurations.");
+                        logger.debug("Subclass mock maker fallback for {}", targetClass);
                         ret = mock(targetClass.getRawClass(), createSubclassMockSettings());
                     } else {
                         throw e;

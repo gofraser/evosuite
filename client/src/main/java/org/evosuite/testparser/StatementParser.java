@@ -52,6 +52,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -900,6 +901,11 @@ public class StatementParser {
             Class<?>[] argTypes = getArgTypes(argRefs);
             Constructor<?> constructor = resolveConstructor(rawClass, argTypes);
 
+            if (!isAccessibleMember(constructor)) {
+                addError(expr, rawClass.getSimpleName() + " constructor has private access");
+                return null;
+            }
+
             // Validate argument types against constructor parameter types
             String mismatch = validateArgumentTypes(argRefs, constructor.getParameterTypes(),
                     constructor.getGenericParameterTypes(), expr);
@@ -973,6 +979,12 @@ public class StatementParser {
             // Find matching method
             Class<?>[] argTypes = getArgTypes(argRefs);
             Method method = resolveMethod(targetClass, methodName, argTypes);
+
+            if (!isAccessibleMember(method)) {
+                addError(expr, method.getName() + "() has private access in "
+                        + targetClass.getSimpleName());
+                return null;
+            }
 
             // Validate argument types against method parameter types (generics + casts)
             String mismatch = validateArgumentTypes(argRefs, method.getParameterTypes(),
@@ -1515,6 +1527,11 @@ public class StatementParser {
                 field = targetClass.getField(fieldName);
             } catch (NoSuchFieldException nsfe) {
                 field = targetClass.getDeclaredField(fieldName);
+            }
+            if (!isAccessibleMember(field)) {
+                addError(expr, field.getName() + " has private access in "
+                        + targetClass.getSimpleName());
+                return null;
             }
             TestClusterUtils.makeAccessible(field);
             GenericClass<?> ownerClass = GenericClassFactory.get(targetClass);
@@ -2076,6 +2093,12 @@ public class StatementParser {
                     }
                 }
 
+                if (!isAccessibleMember(field)) {
+                    addError(assignExpr, field.getName() + " has private access in "
+                            + ownerClass.getSimpleName());
+                    return;
+                }
+
                 // Resolve the value being assigned
                 VariableReference valueRef = handleExpression(
                         "__val" + syntheticVarCounter++, value, field.getType());
@@ -2398,6 +2421,18 @@ public class StatementParser {
             sb.append(types[i].getSimpleName());
         }
         return sb.append(")").toString();
+    }
+
+    /**
+     * Returns true if the member is accessible from a test class (public or package-private).
+     * Private and protected members cannot be accessed from compiled test source.
+     */
+    private boolean isAccessibleMember(java.lang.reflect.Member member) {
+        int mod = member.getModifiers();
+        if (Modifier.isPublic(mod)) return true;
+        if (Modifier.isPrivate(mod) || Modifier.isProtected(mod)) return false;
+        // Package-private: allow (test may be in same package)
+        return true;
     }
 
     private void addError(com.github.javaparser.ast.Node node, String message) {

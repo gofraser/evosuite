@@ -20,6 +20,7 @@
 package org.evosuite.testparser;
 
 import com.github.javaparser.ast.type.*;
+import org.evosuite.classpath.ResourceList;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -204,6 +205,14 @@ public class TypeResolver {
     }
 
     private Class<?> loadClass(String fqn) throws ClassNotFoundException {
+        String projectCandidate = findProjectClassCandidate(fqn);
+        if (projectCandidate != null) {
+            return Class.forName(projectCandidate, false, classLoader);
+        }
+        if (isDefinitelyMissingProjectClass(fqn)) {
+            throw new ClassNotFoundException(fqn);
+        }
+
         try {
             return Class.forName(fqn, false, classLoader);
         } catch (ClassNotFoundException e) {
@@ -219,6 +228,70 @@ public class TypeResolver {
             }
             throw e;
         }
+    }
+
+    /**
+     * For SUT/dependency classes, consult ResourceList first and prefer an exact
+     * classpath hit (including nested-class '$' forms) before probing the classloader.
+     * This avoids noisy failed class-loading attempts in InstrumentingClassLoader.
+     */
+    private String findProjectClassCandidate(String fqn) {
+        if (!usesInstrumentingClassLoader()) {
+            return null;
+        }
+        try {
+            ResourceList resources = ResourceList.getInstance(classLoader);
+            if (resources.hasClass(fqn)) {
+                return fqn;
+            }
+
+            String nested = fqn;
+            int dot = nested.lastIndexOf('.');
+            while (dot > 0) {
+                nested = nested.substring(0, dot) + "$" + nested.substring(dot + 1);
+                if (resources.hasClass(nested)) {
+                    return nested;
+                }
+                dot = nested.lastIndexOf('.', dot - 1);
+            }
+        } catch (Throwable ignored) {
+            // ResourceList may be unavailable in some test-only environments.
+        }
+        return null;
+    }
+
+    /**
+     * Returns true if we can determine this is a non-JDK class that is absent
+     * from the scanned project/dependency classpath.
+     */
+    private boolean isDefinitelyMissingProjectClass(String fqn) {
+        if (!usesInstrumentingClassLoader()) {
+            return false;
+        }
+        if (isLikelyJdkClassName(fqn)) {
+            return false;
+        }
+        try {
+            ResourceList resources = ResourceList.getInstance(classLoader);
+            return findProjectClassCandidate(fqn) == null && !resources.hasClass(fqn);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private boolean usesInstrumentingClassLoader() {
+        return classLoader instanceof org.evosuite.instrumentation.InstrumentingClassLoader;
+    }
+
+    private static boolean isLikelyJdkClassName(String fqn) {
+        return fqn.startsWith("java.")
+                || fqn.startsWith("javax.")
+                || fqn.startsWith("jdk.")
+                || fqn.startsWith("sun.")
+                || fqn.startsWith("com.sun.")
+                || fqn.startsWith("org.w3c.")
+                || fqn.startsWith("org.xml.")
+                || fqn.startsWith("org.ietf.");
     }
 
     /**

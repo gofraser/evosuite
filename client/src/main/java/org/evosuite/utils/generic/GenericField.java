@@ -176,6 +176,10 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
     }
 
     private static boolean makeFieldAccessible(Field field) {
+        if (Modifier.isPublic(field.getModifiers())
+                && Modifier.isPublic(field.getDeclaringClass().getModifiers())) {
+            return true;
+        }
         try {
             field.setAccessible(true);
             return true;

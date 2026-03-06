@@ -357,6 +357,11 @@ public class TestCluster {
      * @param call the generator call
      */
     public void addGenerator(GenericClass<?> target, GenericAccessibleObject<?> call) {
+        if (!call.isAccessible()) {
+            logger.warn("Skipping inaccessible generator {} for target {}", call, target);
+            return;
+        }
+
         if (!generators.containsKey(target)) {
             generators.put(target, new LinkedHashSet<>());
         }
@@ -374,6 +379,11 @@ public class TestCluster {
      * @param call the modifier call
      */
     public void addModifier(GenericClass<?> target, GenericAccessibleObject<?> call) {
+        if (!call.isAccessible()) {
+            logger.warn("Skipping inaccessible modifier {} for target {}", call, target);
+            return;
+        }
+
         if (!modifiers.containsKey(target)) {
             modifiers.put(target, new LinkedHashSet<>());
         }

@@ -163,6 +163,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         if (method.getReturnType().equals(Void.TYPE)
                 || method.getName().equals("equals")
                 || method.getName().equals("hashCode")
+                || method.getName().equals("toString")
                 || Modifier.isPrivate(modifiers)) {
 
             return false;

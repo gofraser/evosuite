@@ -54,6 +54,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
     private static final Logger logger = LoggerFactory.getLogger(GenericMethod.class);
 
     private transient Method method;
+    private transient boolean reflectionAccessible = true;
 
     /**
      * <p>Constructor for GenericMethod.</p>
@@ -64,7 +65,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
     public GenericMethod(Method method, GenericClass<?> clazz) {
         super(clazz);
         this.method = method;
-        this.method.setAccessible(true);
+        this.reflectionAccessible = makeMethodAccessible(this.method);
     }
 
     /**
@@ -219,7 +220,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     @Override
     public boolean isAccessible() {
-        return TestUsageChecker.canUse(method);
+        return reflectionAccessible && TestUsageChecker.canUse(method);
     }
 
     @Override
@@ -387,6 +388,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
             throw new IllegalStateException("Unknown method for " + methodName
                     + " in class " + methodClass.getCanonicalName());
         }
+        this.reflectionAccessible = makeMethodAccessible(this.method);
     }
 
     private Method findMethod(Class<?> clazz, String name, String desc) {
@@ -443,7 +445,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
                     }
                     if (equals) {
                         this.method = newMethod;
-                        this.method.setAccessible(true);
+                        this.reflectionAccessible = makeMethodAccessible(this.method);
                         return;
                     }
                 }
@@ -453,6 +455,20 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
             LoggingUtils.getEvoLogger().info("Class not found - keeping old class loader ", e);
         } catch (SecurityException e) {
             LoggingUtils.getEvoLogger().info("Class not found - keeping old class loader ", e);
+        }
+    }
+
+    private static boolean makeMethodAccessible(Method method) {
+        if (Modifier.isPublic(method.getModifiers())
+                && Modifier.isPublic(method.getDeclaringClass().getModifiers())) {
+            return true;
+        }
+        try {
+            method.setAccessible(true);
+            return true;
+        } catch (RuntimeException e) {
+            logger.debug("Cannot make method accessible: {}", method, e);
+            return false;
         }
     }
 

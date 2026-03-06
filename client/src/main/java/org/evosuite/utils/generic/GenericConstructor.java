@@ -42,20 +42,24 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
     private static final long serialVersionUID = 1361882947700615341L;
 
     private transient Constructor<?> constructor;
+    private transient boolean reflectionAccessible = true;
 
     public GenericConstructor(Constructor<?> constructor, Class<?> clazz) {
         super(GenericClassFactory.get(clazz));
         this.constructor = constructor;
+        this.reflectionAccessible = makeConstructorAccessible(this.constructor);
     }
 
     public GenericConstructor(Constructor<?> constructor, GenericClass<?> owner) {
         super(GenericClassFactory.get(owner));
         this.constructor = constructor;
+        this.reflectionAccessible = makeConstructorAccessible(this.constructor);
     }
 
     public GenericConstructor(Constructor<?> constructor, Type type) {
         super(GenericClassFactory.get(type));
         this.constructor = constructor;
+        this.reflectionAccessible = makeConstructorAccessible(this.constructor);
     }
 
     @Override
@@ -80,7 +84,7 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
                 }
                 if (equals) {
                     this.constructor = newConstructor;
-                    this.constructor.setAccessible(true);
+                    this.reflectionAccessible = makeConstructorAccessible(this.constructor);
                     break;
                 }
             }
@@ -244,7 +248,7 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
 
     @Override
     public boolean isAccessible() {
-        return TestUsageChecker.canUse(constructor);
+        return reflectionAccessible && TestUsageChecker.canUse(constructor);
     }
 
     /* (non-Javadoc)
@@ -326,6 +330,7 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         for (Constructor<?> constructor : constructorClass.getDeclaredConstructors()) {
             if (org.objectweb.asm.Type.getConstructorDescriptor(constructor).equals(constructorDesc)) {
                 this.constructor = constructor;
+                this.reflectionAccessible = makeConstructorAccessible(this.constructor);
                 return;
             }
         }
@@ -393,6 +398,20 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
             return other.constructor == null;
         } else {
             return constructor.equals(other.constructor);
+        }
+    }
+
+    private static boolean makeConstructorAccessible(Constructor<?> constructor) {
+        if (Modifier.isPublic(constructor.getModifiers())
+                && Modifier.isPublic(constructor.getDeclaringClass().getModifiers())) {
+            return true;
+        }
+        try {
+            constructor.setAccessible(true);
+            return true;
+        } catch (RuntimeException e) {
+            logger.debug("Cannot make constructor accessible: {}", constructor, e);
+            return false;
         }
     }
 }
