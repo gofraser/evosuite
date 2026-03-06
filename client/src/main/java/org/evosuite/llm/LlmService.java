@@ -34,10 +34,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import javax.tools.ToolProvider;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.InterruptedIOException;
 import java.net.ConnectException;
+import java.net.HttpURLConnection;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,6 +51,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Entry-point for all LLM calls, including budget and retry enforcement.
@@ -283,7 +290,7 @@ public class LlmService implements AutoCloseable {
     }
 
     public String query(List<LlmMessage> messages, LlmFeature feature) {
-        return queryInternal(messages, feature, null, false);
+        return queryInternal(messages, feature, null, false, false);
     }
 
     /**
@@ -295,12 +302,25 @@ public class LlmService implements AutoCloseable {
             throw new IllegalArgumentException("promptResult must not be null");
         }
         return queryInternal(promptResult.getMessages(), feature,
-                promptResult.getSutContextMode(), promptResult.isContextUnavailable());
+                promptResult.getSutContextMode(), promptResult.isContextUnavailable(),
+                promptResult.isContextTruncated(),
+                promptResult.isClusterSummaryTruncated(), promptResult.getClusterSummaryChars());
     }
 
     private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
                                  Properties.LlmSutContextMode sutContextMode,
-                                 boolean contextUnavailable) {
+                                 boolean contextUnavailable,
+                                 boolean contextTruncated) {
+        return queryInternal(messages, feature, sutContextMode, contextUnavailable, contextTruncated,
+                false, 0);
+    }
+
+    private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
+                                 Properties.LlmSutContextMode sutContextMode,
+                                 boolean contextUnavailable,
+                                 boolean contextTruncated,
+                                 boolean clusterSummaryTruncated,
+                                 int clusterSummaryChars) {
         if (!available) {
             throw new LlmCallFailedException("LLM service is unavailable",
                     new IllegalStateException("LLM provider is not configured"), false);
@@ -316,25 +336,56 @@ public class LlmService implements AutoCloseable {
             try {
                 LlmResponse response = invokeWithTimeout(messages, feature);
                 long latency = System.currentTimeMillis() - start;
+                boolean truncated = response.getOutputTokens() > 0
+                        && response.getOutputTokens() >= configuration.getMaxTokens() - 1;
+                if (truncated) {
+                    logger.warn("LLM response likely truncated: outputTokens={} >= maxTokens={}. "
+                                    + "Consider increasing -Dllm_max_tokens.",
+                            response.getOutputTokens(), configuration.getMaxTokens());
+                }
+                String status = truncated ? "TRUNCATED" : "SUCCESS";
                 statistics.recordCall(feature, response.getInputTokens(), response.getOutputTokens(), latency);
                 traceRecorder.recordCall(feature, messages, response.getText(), response.getInputTokens(),
-                        response.getOutputTokens(), latency, "SUCCESS", attempt, false,
+                        response.getOutputTokens(), latency, status, attempt, false,
                         Collections.<String>emptyList(), "",
-                        sutContextMode, contextUnavailable);
+                        sutContextMode, contextUnavailable, contextTruncated,
+                        clusterSummaryTruncated, clusterSummaryChars);
                 return response.getText();
             } catch (Exception e) {
                 lastError = unwrap(e);
-                logger.debug("LLM call failed (attempt {}/{}): {}", attempt, maxTries, lastError.getMessage());
                 boolean retryable = isRetryable(lastError);
                 if (!retryable || attempt == maxTries) {
+                    String friendly = friendlyMessage(lastError);
+                    if (!retryable) {
+                        logger.warn("LLM call failed (attempt {}/{}): {}", attempt, maxTries, friendly);
+                    } else {
+                        logger.warn("LLM call failed after {} attempts: {}", attempt, friendly);
+                    }
+                    if (isInvalidModelError(friendly)) {
+                        List<String> available = fetchAvailableModelIds();
+                        if (!available.isEmpty()) {
+                            String configuredModel = configuration.getModel();
+                            if (configuredModel != null && available.contains(configuredModel.trim())) {
+                                logger.warn("Model '{}' exists at {} but the request was rejected"
+                                                + " — check your API key and permissions",
+                                        configuredModel, configuration.getBaseUrl());
+                            } else {
+                                logger.warn("Available models at {}: {}", configuration.getBaseUrl(),
+                                        String.join(", ", available));
+                            }
+                        }
+                    }
+                    logger.debug("Full LLM error detail", lastError);
                     statistics.recordFailure(feature);
                     traceRecorder.recordCall(feature, messages, "", 0, 0,
                             System.currentTimeMillis() - start, "FAILED", attempt,
                             false, Collections.<String>emptyList(), lastError.getClass().getSimpleName(),
-                            sutContextMode, contextUnavailable);
+                            sutContextMode, contextUnavailable, contextTruncated,
+                            clusterSummaryTruncated, clusterSummaryChars);
                     throw new LlmCallFailedException(
-                            "LLM query failed after " + attempt + " attempt(s)", lastError, retryable);
+                            "LLM query failed after " + attempt + " attempt(s): " + friendly, lastError, retryable);
                 }
+                logger.debug("LLM call failed (attempt {}/{}): {}; retrying...", attempt, maxTries, friendlyMessage(lastError));
                 sleepBackoff(attempt);
             }
         }
@@ -480,6 +531,120 @@ public class LlmService implements AutoCloseable {
         }
         return chain;
     }
+
+    /**
+     * Extracts a human-readable message from an LLM error, stripping away raw
+     * JSON and exception class names that are not useful in log output.
+     */
+    static String friendlyMessage(Throwable error) {
+        if (error == null) {
+            return "unknown error";
+        }
+        String raw = error.getMessage();
+        if (raw == null || raw.isEmpty()) {
+            return error.getClass().getSimpleName();
+        }
+
+        // Try to extract the inner "message" field from JSON error bodies
+        // e.g. {"error":{"message":"...","type":"...","code":"..."}}
+        Matcher m = JSON_ERROR_MESSAGE.matcher(raw);
+        if (m.find()) {
+            String inner = m.group(1).trim();
+            // The inner message may itself be a Python-style dict string;
+            // try to pull the value of 'error' from it.
+            Matcher nested = NESTED_ERROR_VALUE.matcher(inner);
+            if (nested.find()) {
+                return nested.group(1).trim();
+            }
+            return inner;
+        }
+
+        return raw;
+    }
+
+    private static final Pattern JSON_ERROR_MESSAGE =
+            Pattern.compile("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+
+    private static final Pattern NESTED_ERROR_VALUE =
+            Pattern.compile("'error'\\s*:\\s*'((?:[^'\\\\]|\\\\.)*)'");
+
+    private static final Pattern INVALID_MODEL_PATTERN =
+            Pattern.compile("(?i)invalid model|model.{0,20}not found|does not exist");
+
+    /**
+     * Returns true if the error message indicates the configured model name
+     * was rejected by the server.
+     */
+    static boolean isInvalidModelError(String message) {
+        return message != null && INVALID_MODEL_PATTERN.matcher(message).find();
+    }
+
+    /**
+     * Queries the {@code /v1/models} endpoint and returns a sorted list of
+     * available model IDs.  Returns an empty list on any failure (network
+     * error, non-OpenAI provider, etc.) — this is a best-effort helper for
+     * diagnostics only.
+     */
+    List<String> fetchAvailableModelIds() {
+        String base = configuration.getBaseUrl();
+        if (isBlank(base)) {
+            return Collections.emptyList();
+        }
+        base = base.trim();
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        // The base URL may already include /v1 (e.g. "https://host/v1")
+        String endpoint;
+        if (base.endsWith("/v1")) {
+            endpoint = base + "/models";
+        } else {
+            endpoint = base + "/v1/models";
+        }
+
+        try {
+            logger.debug("Querying available models at {}", endpoint);
+            HttpURLConnection conn = (HttpURLConnection) new URL(endpoint).openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5_000);
+            conn.setReadTimeout(5_000);
+            if (!isBlank(configuration.getApiKey())) {
+                conn.setRequestProperty("Authorization", "Bearer " + configuration.getApiKey().trim());
+            }
+
+            int status = conn.getResponseCode();
+            if (status != 200) {
+                logger.debug("Models endpoint returned HTTP {}", status);
+                return Collections.emptyList();
+            }
+
+            StringBuilder sb = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
+            }
+
+            // Minimal JSON extraction — pull all "id" values from the response
+            // without requiring a JSON library.  The /v1/models response looks
+            // like: {"data":[{"id":"model-1",...},{"id":"model-2",...},...]}
+            List<String> ids = new ArrayList<>();
+            Matcher m = MODEL_ID_PATTERN.matcher(sb.toString());
+            while (m.find()) {
+                ids.add(m.group(1));
+            }
+            Collections.sort(ids);
+            return ids;
+        } catch (Exception e) {
+            logger.debug("Failed to fetch available models from {}: {}", endpoint, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private static final Pattern MODEL_ID_PATTERN =
+            Pattern.compile("\"id\"\\s*:\\s*\"([^\"]+)\"");
 
     public interface ChatLanguageModel {
         LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) throws Exception;
