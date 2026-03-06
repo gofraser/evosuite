@@ -24,6 +24,7 @@ import org.apache.commons.io.FileUtils;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.runtime.sandbox.Sandbox;
+import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
@@ -34,6 +35,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,6 +55,9 @@ public class JUnitAnalyzerTest {
     private static final boolean DEFAULT_ASSERTS_FOR_EVO = Properties.ENABLE_ASSERTS_FOR_EVOSUITE;
     private static final boolean DEFAULT_SCAFFOLDING = Properties.TEST_SCAFFOLDING;
     private static final Properties.OutputFormat DEFAULT_TEST_FORMAT = Properties.TEST_FORMAT;
+    private static final boolean DEFAULT_TEST_EXTENSION_MODE = Properties.TEST_EXTENSION_MODE;
+    private static final boolean DEFAULT_RESET_STATIC_FIELDS = Properties.RESET_STATIC_FIELDS;
+    private static final String DEFAULT_TARGET_CLASS = Properties.TARGET_CLASS;
 
     private File file = new File(OpenStream.FILE_NAME);
 
@@ -78,6 +84,9 @@ public class JUnitAnalyzerTest {
         Properties.ENABLE_ASSERTS_FOR_EVOSUITE = DEFAULT_ASSERTS_FOR_EVO;
         Properties.TEST_SCAFFOLDING = DEFAULT_SCAFFOLDING;
         Properties.TEST_FORMAT = DEFAULT_TEST_FORMAT;
+        Properties.TEST_EXTENSION_MODE = DEFAULT_TEST_EXTENSION_MODE;
+        Properties.RESET_STATIC_FIELDS = DEFAULT_RESET_STATIC_FIELDS;
+        Properties.TARGET_CLASS = DEFAULT_TARGET_CLASS;
     }
 
     @Test
@@ -195,6 +204,40 @@ public class JUnitAnalyzerTest {
 
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
         Assertions.assertFalse(JUnitAnalyzer.isJUnit5AnalyzerSelectedForCurrentFormat());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testCompileChecksInExtensionModeUseTargetClassForInitOrder() throws Exception {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
+        Properties.TEST_SCAFFOLDING = false;
+        Properties.TEST_EXTENSION_MODE = true;
+        Properties.RESET_STATIC_FIELDS = true;
+        Properties.TARGET_CLASS = OpenStream.class.getCanonicalName();
+
+        File dir = JUnitAnalyzer.createNewTmpDir();
+        Assertions.assertNotNull(dir);
+        try {
+            Method compileTests = JUnitAnalyzer.class.getDeclaredMethod("compileTests", List.class, File.class);
+            compileTests.setAccessible(true);
+
+            List<TestCase> tests = new ArrayList<>();
+            tests.add(new DefaultTestCase());
+            List<File> generated = (List<File>) compileTests.invoke(null, tests, dir);
+
+            Assertions.assertNotNull(generated);
+            File javaFile = generated.stream()
+                    .filter(file -> file.getName().endsWith(".java"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("Expected at least one generated Java file"));
+            String code = new String(Files.readAllBytes(javaFile.toPath()), StandardCharsets.UTF_8);
+
+            Assertions.assertTrue(code.contains("private static final String[] EVO_INIT_ORDER = {\""
+                    + Properties.TARGET_CLASS + "\"};"));
+            Assertions.assertFalse(code.contains("_tmp_\"};"));
+        } finally {
+            FileUtils.deleteDirectory(dir);
+        }
     }
 
 

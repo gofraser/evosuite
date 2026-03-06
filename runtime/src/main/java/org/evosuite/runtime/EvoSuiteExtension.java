@@ -63,6 +63,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
     static final String EAGER_GUI_INIT_PROPERTY = "evosuite.extension.eager_gui_init";
     private static final Pattern ESTEST_PATTERN = Pattern.compile("(.+)_ESTest(?:_\\d+)?");
     private static final Pattern FAILED_ESTEST_PATTERN = Pattern.compile("(.+)_Failed_ESTest(?:_\\d+)?");
+    private static final Pattern ANALYZER_TMP_BASE_PATTERN = Pattern.compile("(.+)_\\d+_tmp_");
 
     private final Class<?> testClass;
     private final ThreadStopper threadStopper;
@@ -231,13 +232,21 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         String fqcn = testClass.getName();
         Matcher matcher = FAILED_ESTEST_PATTERN.matcher(fqcn);
         if (matcher.matches()) {
-            return matcher.group(1);
+            return normalizeAnalyzerTmpBase(matcher.group(1));
         }
         matcher = ESTEST_PATTERN.matcher(fqcn);
         if (matcher.matches()) {
-            return matcher.group(1);
+            return normalizeAnalyzerTmpBase(matcher.group(1));
         }
         return RuntimeSettings.className != null ? RuntimeSettings.className : "unknown";
+    }
+
+    private static String normalizeAnalyzerTmpBase(String inferredClassName) {
+        Matcher tmpMatcher = ANALYZER_TMP_BASE_PATTERN.matcher(inferredClassName);
+        if (tmpMatcher.matches()) {
+            return tmpMatcher.group(1);
+        }
+        return inferredClassName;
     }
 
     private void initializeDiscoveredClasses() {

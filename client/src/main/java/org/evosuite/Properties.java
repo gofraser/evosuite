@@ -1246,7 +1246,7 @@ public class Properties {
 
     @Parameter(key = "test_scaffolding", group = "Output",
             description = "Generate all the scaffolding needed to run EvoSuite JUnit tests in a separate file")
-    public static boolean TEST_SCAFFOLDING = true;
+    public static boolean TEST_SCAFFOLDING = false;
 
     @Parameter(key = "max_length_test_case", group = "Output",
             description = "Maximum number of statements (normal statements and assertions)")
@@ -1258,7 +1258,7 @@ public class Properties {
 
     @Parameter(key = "test_extension_mode", group = "Output",
             description = "Use experimental JUnit5 extension output mode (legacy scaffolding remains available)")
-    public static boolean TEST_EXTENSION_MODE = false;
+    public static boolean TEST_EXTENSION_MODE = true;
 
     @Parameter(key = "print_to_system", group = "Output",
             description = "Allow test output on console")
@@ -2018,7 +2018,7 @@ public class Properties {
 
     @Parameter(key = "use_separate_classloader", group = "Sandbox",
             description = "Usa a separate classloader in the final test cases")
-    public static boolean USE_SEPARATE_CLASSLOADER = true;
+    public static boolean USE_SEPARATE_CLASSLOADER = false;
 
 
     // ---------------------------------------------------------------

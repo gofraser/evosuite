@@ -36,6 +36,9 @@ public class EvoSuiteExtensionDiscoveryTest {
     static class Example_Failed_ESTest {
     }
 
+    static class Example_7_tmp__ESTest {
+    }
+
     static class UnrelatedName {
     }
 
@@ -54,6 +57,12 @@ public class EvoSuiteExtensionDiscoveryTest {
     @Test
     public void testInferTargetClassFromFailedTestName() {
         String inferred = EvoSuiteExtension.inferTargetClassName(Example_Failed_ESTest.class);
+        Assertions.assertEquals("org.evosuite.runtime.EvoSuiteExtensionDiscoveryTest$Example", inferred);
+    }
+
+    @Test
+    public void testInferTargetClassFromAnalyzerTemporaryTestName() {
+        String inferred = EvoSuiteExtension.inferTargetClassName(Example_7_tmp__ESTest.class);
         Assertions.assertEquals("org.evosuite.runtime.EvoSuiteExtensionDiscoveryTest$Example", inferred);
     }
 

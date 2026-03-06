@@ -451,6 +451,13 @@ public abstract class JUnitAnalyzer {
 
         TestSuiteWriter suite = new TestSuiteWriter();
         suite.insertAllTests(tests);
+        if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
+                && Properties.TEST_EXTENSION_MODE
+                && Properties.RESET_STATIC_FIELDS
+                && Properties.TARGET_CLASS != null
+                && !Properties.TARGET_CLASS.trim().isEmpty()) {
+            suite.setExtensionInitializationOrder(Collections.singletonList(Properties.TARGET_CLASS));
+        }
 
         //to get name, remove all package before last '.'
         int beginIndex = Properties.TARGET_CLASS.lastIndexOf(".") + 1;
