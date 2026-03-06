@@ -41,6 +41,11 @@ public class LlmResponseParser {
     private static final Pattern ASSERT_CALL_PATTERN =
             Pattern.compile("\\bassert(Equals|True|False|NotNull|Null|That|Throws)\\s*\\(");
 
+    private static final Pattern LEADING_FENCE_PATTERN =
+            Pattern.compile("^\\s*```(?:java)?\\s*\\n?", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TRAILING_FENCE_PATTERN =
+            Pattern.compile("\\n?\\s*```\\s*$");
+
     /**
      * Extracts Java source code blocks from a free-form LLM response string.
      */
@@ -65,6 +70,14 @@ public class LlmResponseParser {
             }
         }
 
+        // Fallback for truncated responses: opening fence present but no closing fence
+        if (blocks.isEmpty()) {
+            String stripped = stripLeadingAndTrailingFences(response);
+            if (!stripped.equals(response.trim()) && looksLikeJava(stripped)) {
+                blocks.add(stripped);
+            }
+        }
+
         if (blocks.isEmpty() && looksLikeJava(response)) {
             blocks.add(response.trim());
         }
@@ -73,14 +86,39 @@ public class LlmResponseParser {
     }
 
     /**
+     * Strips leading/trailing markdown code fences from a response, handling
+     * truncated responses where the closing fence may be missing.
+     */
+    private String stripLeadingAndTrailingFences(String response) {
+        String result = LEADING_FENCE_PATTERN.matcher(response).replaceFirst("");
+        result = TRAILING_FENCE_PATTERN.matcher(result).replaceFirst("");
+        return result.trim();
+    }
+
+    private static final Pattern PACKAGE_DECLARATION_PATTERN =
+            Pattern.compile("^\\s*package\\s+[\\w.]+\\s*;", Pattern.MULTILINE);
+
+    /**
      * Extracts or synthesises a complete Java class from the LLM response,
      * using {@code className} as the class name.
      */
     public String extractTestClass(String response, String className) {
+        return extractTestClass(response, className, null);
+    }
+
+    /**
+     * Extracts or synthesises a complete Java class from the LLM response,
+     * using {@code className} as the class name. If the extracted code does
+     * not contain a package declaration and {@code packageName} is non-null,
+     * the package declaration is prepended so that the test resides in the
+     * same package as the SUT (enabling access to package-private members).
+     */
+    public String extractTestClass(String response, String className, String packageName) {
         List<String> blocks = extractCodeBlocks(response);
         String code = blocks.isEmpty() ? "" : blocks.get(0);
         if (code.isEmpty()) {
-            return "public class " + className + " {\n"
+            return packageDeclaration(packageName)
+                    + "public class " + className + " {\n"
                     + "    " + getTestAnnotation() + "\n"
                     + "    public void generatedTest() {\n"
                     + "    }\n"
@@ -88,7 +126,7 @@ public class LlmResponseParser {
         }
 
         if (code.contains("class ")) {
-            return code;
+            return ensurePackageDeclaration(code, packageName);
         }
 
         StringBuilder imports = new StringBuilder();
@@ -107,10 +145,35 @@ public class LlmResponseParser {
             bodyCode = getTestAnnotation() + "\npublic void generatedTest() {\n" + bodyCode + "\n}";
         }
 
-        return imports.toString()
+        return packageDeclaration(packageName)
+                + imports.toString()
                 + "public class " + className + " {\n"
                 + indent(bodyCode)
                 + "\n}";
+    }
+
+    /**
+     * Returns a package declaration string, or empty string if packageName is null/empty.
+     */
+    private String packageDeclaration(String packageName) {
+        if (packageName == null || packageName.isEmpty()) {
+            return "";
+        }
+        return "package " + packageName + ";" + System.lineSeparator() + System.lineSeparator();
+    }
+
+    /**
+     * If the code does not already contain a package declaration and packageName
+     * is non-null, prepend one.
+     */
+    private String ensurePackageDeclaration(String code, String packageName) {
+        if (packageName == null || packageName.isEmpty()) {
+            return code;
+        }
+        if (PACKAGE_DECLARATION_PATTERN.matcher(code).find()) {
+            return code;
+        }
+        return "package " + packageName + ";" + System.lineSeparator() + System.lineSeparator() + code;
     }
 
     private String getTestAnnotation() {

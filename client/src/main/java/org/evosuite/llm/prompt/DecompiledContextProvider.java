@@ -26,6 +26,11 @@ import org.evosuite.setup.TestCluster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -92,21 +97,25 @@ public class DecompiledContextProvider implements SutContextProvider {
 
         @Override
         public Optional<String> call() {
-            try {
-                String resourcePath = className.replace('.', '/') + ".class";
-                ClassLoader cl = Thread.currentThread().getContextClassLoader();
-                if (cl == null) {
-                    cl = DecompiledContextProvider.class.getClassLoader();
-                }
-                java.net.URL classUrl = cl.getResource(resourcePath);
-                if (classUrl == null) {
-                    return Optional.empty();
-                }
+            String resourcePath = className.replace('.', '/') + ".class";
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+            if (cl == null) {
+                cl = DecompiledContextProvider.class.getClassLoader();
+            }
 
-                String classFilePath = classUrl.toURI().getPath();
-                if (classFilePath == null) {
-                    return Optional.empty();
-                }
+            // Use getResourceAsStream instead of getResource().toURI().getPath()
+            // to correctly handle classes inside JARs.
+            InputStream is = cl.getResourceAsStream(resourcePath);
+            if (is == null) {
+                logger.debug("Class file not found on classpath: {}", resourcePath);
+                return Optional.empty();
+            }
+
+            Path tempFile = null;
+            try {
+                // CFR requires a filesystem path, so materialize bytes to a temp file.
+                tempFile = Files.createTempFile("evosuite-cfr-", ".class");
+                Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
 
                 CollectingSinkFactory sinkFactory = new CollectingSinkFactory();
                 Map<String, String> options = new HashMap<>();
@@ -118,14 +127,30 @@ public class DecompiledContextProvider implements SutContextProvider {
                         .withOutputSink(sinkFactory)
                         .build();
 
-                driver.analyse(Collections.singletonList(classFilePath));
+                driver.analyse(Collections.singletonList(tempFile.toString()));
                 String result = sinkFactory.getOutput();
                 if (result.trim().isEmpty()) {
+                    logger.debug("CFR produced empty output for {}", className);
                     return Optional.empty();
                 }
                 return Optional.of(result);
-            } catch (Exception e) {
+            } catch (IOException e) {
+                logger.debug("Failed to decompile {}: {}", className, e.getMessage());
                 return Optional.empty();
+            } catch (Exception e) {
+                logger.debug("Unexpected error decompiling {}: {}", className, e.getMessage());
+                return Optional.empty();
+            } finally {
+                try {
+                    is.close();
+                } catch (IOException ignored) {
+                }
+                if (tempFile != null) {
+                    try {
+                        Files.deleteIfExists(tempFile);
+                    } catch (IOException ignored) {
+                    }
+                }
             }
         }
     }

@@ -140,8 +140,8 @@ public class SutContextProviderFactory {
         }
 
         if (context.isPresent()) {
-            String text = truncate(context.get());
-            return new ContextResult(text, mode, false);
+            TruncateResult tr = truncate(context.get());
+            return new ContextResult(tr.text, mode, false, tr.truncated);
         }
 
         // Primary failed — apply fallback policy
@@ -161,9 +161,11 @@ public class SutContextProviderFactory {
                 logger.debug("Signature fallback also failed for {}: {}", className, e.getMessage());
                 fallbackContext = Optional.empty();
             }
-            String text = fallbackContext.isPresent() ? truncate(fallbackContext.get()) : "";
-            boolean unavailable = !fallbackContext.isPresent();
-            return new ContextResult(text, LlmSutContextMode.SIGNATURE_ONLY, unavailable);
+            if (fallbackContext.isPresent()) {
+                TruncateResult tr = truncate(fallbackContext.get());
+                return new ContextResult(tr.text, LlmSutContextMode.SIGNATURE_ONLY, false, tr.truncated);
+            }
+            return new ContextResult("", LlmSutContextMode.SIGNATURE_ONLY, true);
         }
 
         // Strict mode: leave context empty and flag unavailable
@@ -185,12 +187,22 @@ public class SutContextProviderFactory {
         }
     }
 
-    private String truncate(String text) {
+    private TruncateResult truncate(String text) {
         int maxChars = Properties.LLM_CONTEXT_MAX_CHARS;
         if (maxChars <= 0 || text.length() <= maxChars) {
-            return text;
+            return new TruncateResult(text, false);
         }
-        return text.substring(0, maxChars) + "\n... (truncated)";
+        return new TruncateResult(text.substring(0, maxChars) + "\n... (truncated)", true);
+    }
+
+    private static class TruncateResult {
+        final String text;
+        final boolean truncated;
+
+        TruncateResult(String text, boolean truncated) {
+            this.text = text;
+            this.truncated = truncated;
+        }
     }
 
     /**
@@ -200,12 +212,19 @@ public class SutContextProviderFactory {
         private final String text;
         private final LlmSutContextMode modeUsed;
         private final boolean contextUnavailable;
+        private final boolean contextTruncated;
 
-        /** Constructs a context result with text, mode, and availability flag. */
         public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable) {
+            this(text, modeUsed, contextUnavailable, false);
+        }
+
+        /** Constructs a context result with text, mode, availability, and truncation flags. */
+        public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable,
+                             boolean contextTruncated) {
             this.text = text;
             this.modeUsed = modeUsed;
             this.contextUnavailable = contextUnavailable;
+            this.contextTruncated = contextTruncated;
         }
 
         public String getText() {
@@ -218,6 +237,10 @@ public class SutContextProviderFactory {
 
         public boolean isContextUnavailable() {
             return contextUnavailable;
+        }
+
+        public boolean isContextTruncated() {
+            return contextTruncated;
         }
     }
 }

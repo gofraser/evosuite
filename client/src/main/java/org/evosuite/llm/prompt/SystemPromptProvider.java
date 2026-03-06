@@ -35,12 +35,17 @@ public class SystemPromptProvider {
         String structuralDirectives = " IMPORTANT: Each @Test method MUST be completely self-contained. "
                 + "Do NOT use @Before or @After methods. Do NOT use class-level fields. "
                 + "Do NOT use helper methods or inner classes. All setup and variable declarations "
-                + "must happen inside the @Test method itself.";
+                + "must happen inside the @Test method itself. "
+                + "Prefer real objects and constructors over mocking. Only use Mockito as a last resort "
+                + "when a dependency cannot be instantiated directly. "
+                + "Return raw Java code only. Do NOT wrap code in markdown fences (```). "
+                + "Do NOT include any prose or explanation.";
 
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5) {
             return "You are an expert Java test generation assistant integrated into EvoSuite. "
                     + "Generate only valid Java JUnit5 test code using org.junit.jupiter.api annotations. "
-                    + "Return code only."
+                    + "Return code only. Follow method signatures and generic types from the provided context strictly. "
+                    + "Use assertThrows() for exception testing instead of @Test(expected=...)."
                     + structuralDirectives
                     + coverageDirective;
         }
