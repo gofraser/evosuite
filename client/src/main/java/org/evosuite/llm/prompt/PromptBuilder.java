@@ -46,6 +46,9 @@ public class PromptBuilder {
     private final List<String> userSections = new ArrayList<>();
     private Properties.LlmSutContextMode sutContextModeUsed;
     private boolean sutContextUnavailable;
+    private boolean sutContextTruncated;
+    private boolean clusterSummaryTruncated;
+    private int clusterSummaryChars;
 
     private List<TestCase> fewShotExamples;
     private List<String> fewShotSnippets;
@@ -103,6 +106,7 @@ public class PromptBuilder {
                 sutContextProviderFactory.getContext(className, cluster);
         this.sutContextModeUsed = result.getModeUsed();
         this.sutContextUnavailable = result.isContextUnavailable();
+        this.sutContextTruncated = result.isContextTruncated();
         String text = result.getText();
         if (text != null && !text.trim().isEmpty()) {
             userSections.add(result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
@@ -117,6 +121,23 @@ public class PromptBuilder {
     /** Adds test cluster context (available API signatures) to the user prompt. */
     public PromptBuilder withTestClusterContext(TestCluster cluster) {
         userSections.add("Available API context:\n" + testClusterSummarizer.summarize(cluster));
+        return this;
+    }
+
+    /**
+     * Adds a compact dependency summary (constructors, enum constants) to the user prompt.
+     * The CUT itself is excluded since it's already covered by {@link #withSutContext}.
+     */
+    public PromptBuilder withTestClusterContext(String className, TestCluster cluster) {
+        TestClusterSummarizer.DependencySummaryResult result =
+                testClusterSummarizer.summarizeDependencies(
+                        cluster, className, Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS);
+        this.clusterSummaryTruncated = result.isTruncated();
+        this.clusterSummaryChars = result.getTotalCharsBeforeTruncation();
+        String summary = result.getText();
+        if (summary != null && !summary.trim().isEmpty()) {
+            userSections.add("Available types and constructors:\n" + summary);
+        }
         return this;
     }
 
@@ -247,7 +268,8 @@ public class PromptBuilder {
         List<LlmMessage> messages = new ArrayList<>();
         messages.add(LlmMessage.system(resolvedSystem));
         messages.add(LlmMessage.user(userPrompt));
-        return new PromptResult(messages, sutContextModeUsed, sutContextUnavailable);
+        return new PromptResult(messages, sutContextModeUsed, sutContextUnavailable, sutContextTruncated,
+                clusterSummaryTruncated, clusterSummaryChars);
     }
 
     /**

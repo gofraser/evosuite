@@ -131,7 +131,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             seedsMerged.set(false);
             Thread.currentThread().interrupt();
         } catch (ExecutionException e) {
-            logger.debug("Could not merge async LLM seeds: {}", e.getMessage());
+            logger.warn("Could not merge async LLM seeds: {}", e.getMessage());
         }
     }
 
@@ -154,12 +154,16 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             RepairResult repairResult = TestRepairLoop.createDefault(llmService).attemptParse(
                     response, prompt.getMessages(), LlmFeature.SEEDING);
             if (!repairResult.isSuccess()) {
-                logger.debug("LLM seeding failed to produce valid tests after repair.");
+                logger.warn("LLM seeding failed to produce valid tests after {} attempt(s).",
+                        repairResult.getAttemptsUsed());
+                for (String diag : repairResult.getDiagnostics()) {
+                    logger.warn("  LLM repair diagnostic: {}", diag);
+                }
                 if (repairResult.getParseResults() != null) {
                     for (ParseResult pr : repairResult.getParseResults()) {
                         for (ParseDiagnostic d : pr.getDiagnostics()) {
-                            LoggingUtils.getEvoLogger().info("* [LLM Parse " + d.getSeverity() + "] "
-                                    + d.getMessage() + " (Line " + d.getLineNumber() + ")");
+                            logger.warn("  [LLM Parse {}] {} (Line {})",
+                                    d.getSeverity(), d.getMessage(), d.getLineNumber());
                         }
                     }
                 }
@@ -169,10 +173,10 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             logger.debug("LLM seeding produced {} valid test chromosomes.", seeds.size());
             return seeds;
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
-            logger.debug("LLM seeding unavailable: {}", e.getMessage());
+            logger.warn("LLM seeding unavailable: {}", e.getMessage());
             return Collections.emptyList();
         } catch (RuntimeException e) {
-            logger.debug("LLM seeding failed: {}", e.getMessage());
+            logger.warn("LLM seeding failed: {}", e.getMessage(), e);
             return Collections.emptyList();
         }
     }
@@ -182,6 +186,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction("Generate as many JUnit test methods for the target class as necessary. "

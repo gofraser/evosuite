@@ -1238,7 +1238,7 @@ public class Properties {
     }
 
     @Parameter(key = "test_format", group = "Output", description = "Format of the resulting test cases")
-    public static OutputFormat TEST_FORMAT = OutputFormat.JUNIT4;
+    public static OutputFormat TEST_FORMAT = OutputFormat.JUNIT5;
 
     @Parameter(key = "test_comments", group = "Output",
             description = "Include a header with coverage information for each test")
@@ -1619,7 +1619,7 @@ public class Properties {
     @Parameter(key = "llm_max_tokens", group = "LLM",
             description = "Maximum output tokens per LLM response")
     @IntValue(min = 1)
-    public static int LLM_MAX_TOKENS = 4096;
+    public static int LLM_MAX_TOKENS = 16384;
 
     @Parameter(key = "llm_timeout_seconds", group = "LLM",
             description = "Timeout in seconds for each LLM request attempt")
@@ -1707,6 +1707,12 @@ public class Properties {
                     + "(0 means unlimited; default 32000 for cost control)")
     @IntValue(min = 0)
     public static int LLM_CONTEXT_MAX_CHARS = 32000;
+
+    @Parameter(key = "llm_cluster_summary_max_chars", group = "LLM",
+            description = "Maximum characters for the test cluster dependency summary in LLM prompts "
+                    + "(0 means unlimited; default 4000)")
+    @IntValue(min = 0)
+    public static int LLM_CLUSTER_SUMMARY_MAX_CHARS = 4000;
 
     @Parameter(key = "llm_decompiler_timeout_seconds", group = "LLM",
             description = "Timeout in seconds for decompiler-based context extraction")

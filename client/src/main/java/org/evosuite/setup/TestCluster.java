@@ -816,10 +816,22 @@ public class TestCluster {
             }
         }
 
-        // Then try to match a postfix
+        // Then try to match a postfix (both package separator '.' and inner class separator '$')
         for (Class<?> clazz : analyzedClasses) {
-            if (clazz.getName().endsWith("." + name)) {
+            if (clazz.getName().endsWith("." + name)
+                    || clazz.getName().endsWith("$" + name)) {
                 return clazz;
+            }
+        }
+
+        // Also try interpreting dots in the name as inner class separators
+        if (name.contains(".")) {
+            String innerName = name.replace('.', '$');
+            for (Class<?> clazz : analyzedClasses) {
+                if (clazz.getName().endsWith("." + innerName)
+                        || clazz.getName().endsWith("$" + innerName)) {
+                    return clazz;
+                }
             }
         }
 
@@ -844,6 +856,13 @@ public class TestCluster {
         return generators.values().stream()
                 .flatMap(Set::stream)
                 .collect(toCollection(LinkedHashSet::new));
+    }
+
+    /**
+     * Returns an unmodifiable view of the generators map, keyed by the type they produce.
+     */
+    public Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> getGeneratorsByType() {
+        return Collections.unmodifiableMap(generators);
     }
 
     /**

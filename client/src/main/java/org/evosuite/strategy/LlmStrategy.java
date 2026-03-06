@@ -70,6 +70,12 @@ public class LlmStrategy extends TestGenerationStrategy {
 
     @Override
     public TestSuiteChromosome generateTests() {
+        // JUnit 5 tests are incompatible with the separate-classloader scaffolding.
+        // Force it off so the generated tests are directly runnable.
+        if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5) {
+            Properties.USE_SEPARATE_CLASSLOADER = false;
+        }
+
         LoggingUtils.getEvoLogger().info("* Using LLM strategy (mode={})",
                 Properties.LLM_STRATEGY_MODE);
 
@@ -243,6 +249,7 @@ public class LlmStrategy extends TestGenerationStrategy {
         PromptResult prompt = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(null, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction("Generate JUnit test methods that maximize code coverage of the target class. "
@@ -263,6 +270,7 @@ public class LlmStrategy extends TestGenerationStrategy {
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withUncoveredGoals(uncoveredGoals)
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(uncoveredGoals, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
@@ -293,10 +301,10 @@ public class LlmStrategy extends TestGenerationStrategy {
             }
             return toChromosomes(result);
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
-            logger.debug("LLM query failed: {}", e.getMessage());
+            logger.warn("LLM query failed during generation: {}", e.getMessage());
             return Collections.emptyList();
         } catch (RuntimeException e) {
-            logger.debug("LLM query crashed: {}", e.getMessage());
+            logger.error("LLM query crashed during generation", e);
             return Collections.emptyList();
         }
     }
