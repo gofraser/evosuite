@@ -29,13 +29,30 @@ import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Applies parse -> validate -> execute and iterative LLM repair.
  */
 public class TestRepairLoop {
+
+    private static final Logger logger = LoggerFactory.getLogger(TestRepairLoop.class);
+
+    /** Error patterns that the LLM cannot fix (missing native libs, sandbox, etc.). */
+    private static final Set<String> UNFIXABLE_ERROR_PATTERNS = new HashSet<>(Arrays.asList(
+            "NoClassDefFoundError",
+            "ExceptionInInitializerError",
+            "UnsatisfiedLinkError",
+            "AccessControlException",
+            "java.security.AccessControlException"
+    ));
 
     private final LlmService llmService;
     private final TestParser testParser;
@@ -92,21 +109,30 @@ public class TestRepairLoop {
         List<String> expandedClasses = new ArrayList<>();
         String currentResponse = llmResponse;
         int attemptsUsed = 0;
+        String previousError = null;
+
+        // Accumulate the full conversation so repair requests include prior turns
+        List<LlmMessage> conversation = new ArrayList<>();
+        if (conversationHistory != null) {
+            conversation.addAll(conversationHistory);
+        }
 
         for (int attempt = 0; attempt <= maxAttempts; attempt++) {
             attemptsUsed = attempt + 1;
             List<ParseResult> parseResults;
             try {
-                String extractedClass = responseParser.extractTestClass(currentResponse, "GeneratedLlmTest");
+                String sutPackage = getSutPackage();
+                String extractedClass = responseParser.extractTestClass(currentResponse, "GeneratedLlmTest", sutPackage);
                 parseResults = testParser.parseTestClass(extractedClass);
             } catch (Throwable parserFailure) {
                 String parserFailureText = "Parser failure: " + formatThrowable(parserFailure);
                 diagnostics.add(parserFailureText);
-                if (attempt == maxAttempts) {
+                if (attempt == maxAttempts || shouldSkipRepair(parserFailureText, previousError, diagnostics)) {
                     break;
                 }
-                currentResponse = requestRepairSafely(conversationHistory, parserFailureText, feature,
-                        expandedClasses, diagnostics);
+                previousError = parserFailureText;
+                currentResponse = requestRepairSafely(conversation, currentResponse, parserFailureText,
+                        feature, expandedClasses, diagnostics);
                 if (currentResponse == null) {
                     break;
                 }
@@ -116,11 +142,12 @@ public class TestRepairLoop {
             if (parseResults == null || parseResults.isEmpty()) {
                 String parseErrorText = "Parser produced no test methods.";
                 diagnostics.add(parseErrorText);
-                if (attempt == maxAttempts) {
+                if (attempt == maxAttempts || shouldSkipRepair(parseErrorText, previousError, diagnostics)) {
                     break;
                 }
-                currentResponse = requestRepairSafely(conversationHistory, parseErrorText, feature,
-                        expandedClasses, diagnostics);
+                previousError = parseErrorText;
+                currentResponse = requestRepairSafely(conversation, currentResponse, parseErrorText,
+                        feature, expandedClasses, diagnostics);
                 if (currentResponse == null) {
                     break;
                 }
@@ -164,11 +191,12 @@ public class TestRepairLoop {
                     }
                 }
 
-                if (attempt == maxAttempts) {
+                if (attempt == maxAttempts || shouldSkipRepair(parseErrorText, previousError, diagnostics)) {
                     break;
                 }
-                currentResponse = requestRepairSafely(conversationHistory, parseErrorText, feature,
-                        expandedClasses, diagnostics);
+                previousError = parseErrorText;
+                currentResponse = requestRepairSafely(conversation, currentResponse, parseErrorText,
+                        feature, expandedClasses, diagnostics);
                 if (currentResponse == null) {
                     break;
                 }
@@ -189,11 +217,12 @@ public class TestRepairLoop {
             }
 
             if (finalTests.isEmpty()) {
-                if (attempt == maxAttempts) {
+                if (attempt == maxAttempts || shouldSkipRepair(lastExecutionError, previousError, diagnostics)) {
                     break;
                 }
-                currentResponse = requestRepairSafely(conversationHistory, lastExecutionError, feature,
-                        expandedClasses, diagnostics);
+                previousError = lastExecutionError;
+                currentResponse = requestRepairSafely(conversation, currentResponse, lastExecutionError,
+                        feature, expandedClasses, diagnostics);
                 if (currentResponse == null) {
                     break;
                 }
@@ -224,28 +253,55 @@ public class TestRepairLoop {
         return null;
     }
 
-    private String requestRepair(List<LlmMessage> conversationHistory,
+    /**
+     * Sends a repair request and accumulates the conversation with the assistant's
+     * previous response and the error feedback, so subsequent repairs have full context.
+     */
+    private String requestRepair(List<LlmMessage> conversation,
+                                 String previousResponse,
                                  String error,
                                  LlmFeature feature,
                                  List<String> expandedClasses) {
-        List<LlmMessage> request = new ArrayList<>();
-        if (conversationHistory != null) {
-            request.addAll(conversationHistory);
+        // Add the assistant's last response to the conversation
+        if (previousResponse != null && !previousResponse.isEmpty()) {
+            conversation.add(LlmMessage.assistant(previousResponse));
         }
         if (!expandedClasses.isEmpty()) {
-            request.add(LlmMessage.user("Cluster expanded with newly resolved classes: " + expandedClasses));
+            conversation.add(LlmMessage.system("Cluster expanded with newly resolved classes: " + expandedClasses));
         }
-        request.add(LlmMessage.user("Repair this test based on the following issue:\n" + error));
-        return llmService.query(request, feature);
+        conversation.add(LlmMessage.user(
+                "The following issue was found in the generated tests:\n" + error
+                + "\n\nPlease provide the corrected complete test class with all test methods."));
+        return llmService.query(conversation, feature);
     }
 
-    private String requestRepairSafely(List<LlmMessage> conversationHistory,
+    /**
+     * Returns true if the error should not be sent to the LLM for repair
+     * (either because it is an environment-level error that the LLM cannot fix,
+     * or because it is identical to the previous error, indicating a stuck loop).
+     */
+    private boolean shouldSkipRepair(String error, String previousError, List<String> diagnostics) {
+        if (isUnfixableError(error)) {
+            logger.info("Aborting repair: unfixable environment error detected: {}", error);
+            diagnostics.add("Skipped repair: unfixable environment error");
+            return true;
+        }
+        if (previousError != null && previousError.equals(error)) {
+            logger.info("Aborting repair: identical error on consecutive attempts: {}", error);
+            diagnostics.add("Skipped repair: identical error repeated");
+            return true;
+        }
+        return false;
+    }
+
+    private String requestRepairSafely(List<LlmMessage> conversation,
+                                       String previousResponse,
                                        String error,
                                        LlmFeature feature,
                                        List<String> expandedClasses,
                                        List<String> diagnostics) {
         try {
-            return requestRepair(conversationHistory, error, feature, expandedClasses);
+            return requestRepair(conversation, previousResponse, error, feature, expandedClasses);
         } catch (Throwable repairFailure) {
             diagnostics.add("Repair request failure: " + formatThrowable(repairFailure));
             return null;
@@ -264,6 +320,36 @@ public class TestRepairLoop {
                 if (message.contains("cannot") || message.contains("unresolved") || message.contains("not found")) {
                     return true;
                 }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Derives the SUT's package name from {@link Properties#TARGET_CLASS}
+     * so that the generated test class resides in the same package, enabling
+     * access to package-private members.
+     */
+    private static String getSutPackage() {
+        String target = Properties.TARGET_CLASS;
+        if (target == null || target.isEmpty()) {
+            return null;
+        }
+        int lastDot = target.lastIndexOf('.');
+        return lastDot > 0 ? target.substring(0, lastDot) : null;
+    }
+
+    /**
+     * Returns true if the error is an environment-level problem that the LLM
+     * cannot fix (missing native libraries, sandbox restrictions, etc.).
+     */
+    static boolean isUnfixableError(String error) {
+        if (error == null) {
+            return false;
+        }
+        for (String pattern : UNFIXABLE_ERROR_PATTERNS) {
+            if (error.contains(pattern)) {
+                return true;
             }
         }
         return false;
