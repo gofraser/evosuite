@@ -66,6 +66,33 @@ public class InheritanceTreeGenerator {
     private static final String shadedJdkFilePattern = "JDK_inheritance_%d_shaded.xml";
     private static final Map<String, String> jrtClassResourcePathByClassName = new HashMap<>();
 
+    private static XStream newConfiguredXStream() {
+        XStream xstream = new XStream();
+        XStream.setupDefaultSecurity(xstream);
+        xstream.allowTypesByWildcard(new String[]{
+                "org.evosuite.**",
+                "shaded.org.evosuite.**",
+                "org.jgrapht.**",
+                "shaded.org.jgrapht.**"
+        });
+        configureInheritanceTreeAliases(xstream);
+        return xstream;
+    }
+
+    private static void configureInheritanceTreeAliases(XStream xstream) {
+        String currentName = InheritanceTree.class.getName();
+        String unshadedName = currentName.startsWith("shaded.")
+                ? currentName.substring("shaded.".length())
+                : currentName;
+        String shadedName = currentName.startsWith("shaded.")
+                ? currentName
+                : "shaded." + currentName;
+
+        xstream.aliasType(currentName, InheritanceTree.class);
+        xstream.aliasType(unshadedName, InheritanceTree.class);
+        xstream.aliasType(shadedName, InheritanceTree.class);
+    }
+
     /**
      * Iterate over items in classpath and analyze them.
      *
@@ -494,9 +521,7 @@ public class InheritanceTreeGenerator {
         try {
             String outputFile = getJdkResourceFileNameForCurrentJvm(false);
             FileOutputStream stream = new FileOutputStream(new File(resourceFolder, outputFile));
-            XStream xstream = new XStream();
-            XStream.setupDefaultSecurity(xstream);
-            xstream.allowTypesByWildcard(new String[]{"org.evosuite.**", "org.jgrapht.**"});
+            XStream xstream = newConfiguredXStream();
             xstream.toXML(inheritanceTree, stream);
         } catch (FileNotFoundException e) {
             logger.error("", e);
@@ -509,9 +534,7 @@ public class InheritanceTreeGenerator {
      * @return the JDK inheritance tree
      */
     public static InheritanceTree readJDKData() {
-        XStream xstream = new XStream();
-        XStream.setupDefaultSecurity(xstream);
-        xstream.allowTypesByWildcard(new String[]{"org.evosuite.**", "org.jgrapht.**"});
+        XStream xstream = newConfiguredXStream();
 
         String primaryFileName = "/" + getJdkResourceFileNameForCurrentJvm(PackageInfo.isCurrentlyShaded());
         InputStream inheritance = InheritanceTreeGenerator.class
@@ -544,9 +567,7 @@ public class InheritanceTreeGenerator {
      * @throws IOException if an error occurs
      */
     public static InheritanceTree readInheritanceTree(String fileName) throws IOException {
-        XStream xstream = new XStream();
-        XStream.setupDefaultSecurity(xstream);
-        xstream.allowTypesByWildcard(new String[]{"org.evosuite.**", "org.jgrapht.**"});
+        XStream xstream = newConfiguredXStream();
         GZIPInputStream inheritance = new GZIPInputStream(new FileInputStream(new File(fileName)));
         return (InheritanceTree) xstream.fromXML(inheritance);
     }
@@ -560,9 +581,7 @@ public class InheritanceTreeGenerator {
      */
     public static InheritanceTree readUncompressedInheritanceTree(String fileName)
             throws IOException {
-        XStream xstream = new XStream();
-        XStream.setupDefaultSecurity(xstream);
-        xstream.allowTypesByWildcard(new String[]{"org.evosuite.**", "org.jgrapht.**"});
+        XStream xstream = newConfiguredXStream();
         try (InputStream inheritance = new FileInputStream(fileName)) {
             return (InheritanceTree) xstream.fromXML(inheritance);
         }
@@ -576,9 +595,7 @@ public class InheritanceTreeGenerator {
      * @throws IOException if an error occurs
      */
     public static void writeInheritanceTree(InheritanceTree tree, File file) throws IOException {
-        XStream xstream = new XStream();
-        XStream.setupDefaultSecurity(xstream);
-        xstream.allowTypesByWildcard(new String[]{"org.evosuite.**", "org.jgrapht.**"});
+        XStream xstream = newConfiguredXStream();
         try (GZIPOutputStream output = new GZIPOutputStream(new FileOutputStream(file))) {
             xstream.toXML(tree, output);
         }

@@ -36,6 +36,7 @@
         <module>runtime</module>
         <module>plugins</module>
         <module>standalone_runtime</module>
+        <module>shaded</module>
     </modules>
 
     <developers>
@@ -252,12 +253,6 @@
                     </plugin>
                 </plugins>
             </build>
-        </profile>
-        <profile>
-            <id>with-shaded</id>
-            <modules>
-                <module>shaded</module>
-            </modules>
         </profile>
     </profiles>
     <dependencyManagement>

@@ -20,6 +20,9 @@
 package org.evosuite.setup;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.junit.jupiter.api.Assertions;
@@ -65,6 +68,19 @@ public class InheritanceTreeGeneratorTest {
     public void canLoadJdkClassStream() {
         InputStream stream = InheritanceTreeGenerator.getJdkClassStream("java.lang.Object");
         Assertions.assertNotNull(stream);
+    }
+
+    @Test
+    public void canReadShadedInheritanceTreeXmlInUnshadedBuild() throws Exception {
+        Path tempFile = Files.createTempFile("evosuite-shaded-itree-", ".xml");
+        Files.write(tempFile,
+                "<shaded.org.evosuite.setup.InheritanceTree/>".getBytes(StandardCharsets.UTF_8));
+        try {
+            InheritanceTree tree = InheritanceTreeGenerator.readUncompressedInheritanceTree(tempFile.toString());
+            Assertions.assertNotNull(tree);
+        } finally {
+            Files.deleteIfExists(tempFile);
+        }
     }
 
 }
