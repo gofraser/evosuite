@@ -324,18 +324,44 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         ois.defaultReadObject();
 
         // Read/initialize additional fields
-        Class<?> constructorClass = TestGenerationContext.getInstance().getClassLoaderForSUT()
-                .loadClass((String) ois.readObject());
+        String className = (String) ois.readObject();
         String constructorDesc = (String) ois.readObject();
-        for (Constructor<?> constructor : constructorClass.getDeclaredConstructors()) {
-            if (org.objectweb.asm.Type.getConstructorDescriptor(constructor).equals(constructorDesc)) {
-                this.constructor = constructor;
-                this.reflectionAccessible = makeConstructorAccessible(this.constructor);
-                return;
+
+        ClassLoader[] candidateLoaders = new ClassLoader[]{
+                TestGenerationContext.getInstance().getClassLoaderForSUT(),
+                Thread.currentThread().getContextClassLoader(),
+                GenericConstructor.class.getClassLoader(),
+                ClassLoader.getSystemClassLoader()
+        };
+        ClassLoader previous = null;
+        Throwable lastError = null;
+
+        for (ClassLoader loader : candidateLoaders) {
+            if (loader == null || loader == previous) {
+                continue;
+            }
+            previous = loader;
+
+            try {
+                Class<?> constructorClass = GenericClassImpl.getClass(className, loader);
+                for (Constructor<?> constructor : constructorClass.getDeclaredConstructors()) {
+                    if (org.objectweb.asm.Type.getConstructorDescriptor(constructor).equals(constructorDesc)) {
+                        this.constructor = constructor;
+                        this.reflectionAccessible = makeConstructorAccessible(this.constructor);
+                        return;
+                    }
+                }
+            } catch (ClassNotFoundException | LinkageError e) {
+                lastError = e;
             }
         }
 
-        throw new IllegalStateException("Unknown constructor in class " + constructorClass.getCanonicalName());
+        IllegalStateException exception =
+                new IllegalStateException("Unknown constructor " + constructorDesc + " in class " + className);
+        if (lastError != null) {
+            exception.initCause(lastError);
+        }
+        throw exception;
     }
 
     /* (non-Javadoc)

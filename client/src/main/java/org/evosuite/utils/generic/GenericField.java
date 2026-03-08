@@ -248,20 +248,40 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         ois.defaultReadObject();
 
         // Read/initialize additional fields
-        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT()
-                .loadClass((String) ois.readObject());
+        String className = (String) ois.readObject();
         String fieldName = (String) ois.readObject();
 
-        try {
-            field = methodClass.getDeclaredField(fieldName);
-            reflectionAccessible = makeFieldAccessible(field);
-        } catch (SecurityException e) {
-            throw new IllegalStateException("Unknown field for " + fieldName
-                    + " in class " + methodClass.getCanonicalName());
-        } catch (NoSuchFieldException e) {
-            throw new IllegalStateException("Unknown field for " + fieldName
-                    + " in class " + methodClass.getCanonicalName());
+        ClassLoader[] candidateLoaders = new ClassLoader[]{
+                TestGenerationContext.getInstance().getClassLoaderForSUT(),
+                Thread.currentThread().getContextClassLoader(),
+                GenericField.class.getClassLoader(),
+                ClassLoader.getSystemClassLoader()
+        };
+        ClassLoader previous = null;
+        Throwable lastError = null;
+
+        for (ClassLoader loader : candidateLoaders) {
+            if (loader == null || loader == previous) {
+                continue;
+            }
+            previous = loader;
+
+            try {
+                Class<?> fieldClass = GenericClassImpl.getClass(className, loader);
+                field = fieldClass.getDeclaredField(fieldName);
+                reflectionAccessible = makeFieldAccessible(field);
+                return;
+            } catch (ClassNotFoundException | LinkageError | SecurityException | NoSuchFieldException e) {
+                lastError = e;
+            }
         }
+
+        IllegalStateException exception =
+                new IllegalStateException("Unknown field " + fieldName + " in class " + className);
+        if (lastError != null) {
+            exception.initCause(lastError);
+        }
+        throw exception;
     }
 
     @Override

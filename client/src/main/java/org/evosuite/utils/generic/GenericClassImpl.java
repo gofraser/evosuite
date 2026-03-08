@@ -106,11 +106,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
     }
 
-    private static Class<?> getClass(String name) throws ClassNotFoundException {
+    static Class<?> getClass(String name) throws ClassNotFoundException {
         return getClass(name, TestGenerationContext.getInstance().getClassLoaderForSUT());
     }
 
-    private static Class<?> getClass(String name, ClassLoader loader)
+    static Class<?> getClass(String name, ClassLoader loader)
             throws ClassNotFoundException {
         if (name.equals("void")) {
             return void.class;
@@ -141,8 +141,59 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         } else if (name.endsWith(".class")) {
             return getClass(name.replace(".class", ""), loader);
         } else {
-            return loader.loadClass(name);
+            return loadClassWithFallback(name, loader);
         }
+    }
+
+    private static Class<?> loadClassWithFallback(String name, ClassLoader preferredLoader)
+            throws ClassNotFoundException {
+        ClassNotFoundException classNotFound = null;
+        LinkageError linkageError = null;
+
+        ClassLoader[] loaders = new ClassLoader[]{
+                preferredLoader,
+                Thread.currentThread().getContextClassLoader(),
+                GenericClassImpl.class.getClassLoader(),
+                ClassLoader.getSystemClassLoader()
+        };
+
+        ClassLoader previous = null;
+        for (ClassLoader loader : loaders) {
+            if (loader == null || loader == previous) {
+                continue;
+            }
+            previous = loader;
+
+            try {
+                return loader.loadClass(name);
+            } catch (ClassNotFoundException e) {
+                if (classNotFound == null) {
+                    classNotFound = e;
+                } else {
+                    classNotFound.addSuppressed(e);
+                }
+            } catch (LinkageError e) {
+                if (linkageError == null) {
+                    linkageError = e;
+                } else {
+                    linkageError.addSuppressed(e);
+                }
+            }
+        }
+
+        if (classNotFound != null) {
+            if (linkageError != null) {
+                classNotFound.addSuppressed(linkageError);
+            }
+            throw classNotFound;
+        }
+
+        ClassNotFoundException wrapped = new ClassNotFoundException(
+                "Failed to load class " + name + " due to linkage issues");
+        if (linkageError != null) {
+            wrapped.initCause(linkageError);
+        }
+        throw wrapped;
     }
 
     /**

@@ -373,22 +373,46 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         ois.defaultReadObject();
 
         // Read/initialize additional fields
-        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(
-                (String) ois.readObject());
-
+        String className = (String) ois.readObject();
         // TODO: What was the point of this??
         // methodClass = TestCluster.classLoader.loadClass(methodClass.getName());
 
         String methodName = (String) ois.readObject();
         String methodDesc = (String) ois.readObject();
 
-        this.method = findMethod(methodClass, methodName, methodDesc);
+        ClassLoader[] candidateLoaders = new ClassLoader[]{
+                TestGenerationContext.getInstance().getClassLoaderForSUT(),
+                Thread.currentThread().getContextClassLoader(),
+                GenericMethod.class.getClassLoader(),
+                ClassLoader.getSystemClassLoader()
+        };
+        ClassLoader previous = null;
+        Throwable lastError = null;
 
-        if (this.method == null) {
-            throw new IllegalStateException("Unknown method for " + methodName
-                    + " in class " + methodClass.getCanonicalName());
+        for (ClassLoader loader : candidateLoaders) {
+            if (loader == null || loader == previous) {
+                continue;
+            }
+            previous = loader;
+
+            try {
+                Class<?> methodClass = GenericClassImpl.getClass(className, loader);
+                this.method = findMethod(methodClass, methodName, methodDesc);
+                if (this.method != null) {
+                    this.reflectionAccessible = makeMethodAccessible(this.method);
+                    return;
+                }
+            } catch (ClassNotFoundException | LinkageError e) {
+                lastError = e;
+            }
         }
-        this.reflectionAccessible = makeMethodAccessible(this.method);
+
+        IllegalStateException exception =
+                new IllegalStateException("Unknown method " + methodName + " in class " + className);
+        if (lastError != null) {
+            exception.initCause(lastError);
+        }
+        throw exception;
     }
 
     private Method findMethod(Class<?> clazz, String name, String desc) {
