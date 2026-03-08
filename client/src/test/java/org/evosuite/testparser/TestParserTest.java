@@ -192,4 +192,30 @@ class TestParserTest {
         ParseResult result = parser.parseTestMethod(source, "testPlain");
         assertNull(result.getExpectedExceptionClass());
     }
+
+    @Test
+    void constructorErrorListsAvailableConstructors() {
+        // java.io.File has no no-arg constructor — calling new File() should fail
+        // and the error message should list the available constructors
+        String source = "import java.io.File;\n"
+                + "public class MyTest {\n"
+                + "    @org.junit.Test\n"
+                + "    public void testBadConstructor() {\n"
+                + "        File f = new File();\n"
+                + "    }\n"
+                + "}\n";
+
+        ParseResult result = parser.parseTestMethod(source, "testBadConstructor");
+        assertTrue(result.hasErrors());
+        String errorText = result.getDiagnostics().stream()
+                .filter(d -> d.getSeverity() == ParseDiagnostic.Severity.ERROR)
+                .map(ParseDiagnostic::getMessage)
+                .filter(m -> m.contains("No matching constructor"))
+                .findFirst()
+                .orElse("");
+        assertTrue(errorText.contains("Available constructors"),
+                "Error should list available constructors but was: " + errorText);
+        assertTrue(errorText.contains("File("),
+                "Error should show File constructor signatures but was: " + errorText);
+    }
 }

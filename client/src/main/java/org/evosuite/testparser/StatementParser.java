@@ -1032,9 +1032,105 @@ public class StatementParser {
         String name = methodCall.getNameAsString();
         if (isAssertionMethodName(name)) {
             handleAssertionCall(methodCall);
+        } else if (tryHandleStandaloneStubbingCall(methodCall)) {
+            // Handled as standalone Mockito stubbing (when/thenReturn or doReturn/when)
         } else {
             handleMethodCall(methodCall, void.class);
         }
+    }
+
+    /**
+     * Try to handle a standalone Mockito stubbing expression that is not adjacent
+     * to its mock declaration. This handles patterns like:
+     * <ul>
+     *   <li>when(mockVar.method(args)).thenReturn(value)</li>
+     *   <li>doReturn(value).when(mockVar).method(args)</li>
+     * </ul>
+     * The mock variable must already be registered in scope and its statement
+     * must be a FunctionalMockStatement.
+     *
+     * @return true if the expression was handled as a stubbing call
+     */
+    private boolean tryHandleStandaloneStubbingCall(MethodCallExpr methodCall) {
+        // Detect the mock variable name from the stubbing pattern
+        String mockVarName = extractMockVarFromStubbingPattern(methodCall);
+        if (mockVarName == null) {
+            return false;
+        }
+
+        // Look up the mock variable in scope
+        VariableReference mockRef = scope.resolve(mockVarName);
+        if (mockRef == null) {
+            return false;
+        }
+
+        // Retrieve the statement and verify it's a FunctionalMockStatement
+        Statement stmt = testCase.getStatement(mockRef.getStPosition());
+        if (!(stmt instanceof FunctionalMockStatement)) {
+            return false;
+        }
+        FunctionalMockStatement mockStmt = (FunctionalMockStatement) stmt;
+
+        // Get the target class info for method resolution
+        Class<?> targetClass = mockStmt.getTargetClass();
+        GenericClass<?> targetGenericClass = scope.resolveGenericType(mockVarName);
+        if (targetGenericClass == null) {
+            targetGenericClass = GenericClassFactory.get(targetClass);
+        }
+
+        // Try parsing with the existing stubbing chain parser
+        StubbingInfo info = parseStubbingChain(methodCall, mockVarName, targetClass, targetGenericClass);
+        if (info == null) {
+            return false;
+        }
+
+        mockStmt.addMethodStubbing(info.descriptor, info.returnValues);
+        return true;
+    }
+
+    /**
+     * Extract the mock variable name from a stubbing expression, or null
+     * if this is not a recognized stubbing pattern.
+     */
+    private String extractMockVarFromStubbingPattern(MethodCallExpr expr) {
+        // Pattern: when(mockVar.method(args)).thenReturn(...)
+        if ("thenReturn".equals(expr.getNameAsString())) {
+            if (!expr.getScope().isPresent() || !(expr.getScope().get() instanceof MethodCallExpr)) {
+                return null;
+            }
+            MethodCallExpr whenCall = (MethodCallExpr) expr.getScope().get();
+            if (!"when".equals(whenCall.getNameAsString()) || whenCall.getArguments().size() != 1) {
+                return null;
+            }
+            Expression whenArg = whenCall.getArgument(0);
+            if (!(whenArg instanceof MethodCallExpr)) {
+                return null;
+            }
+            MethodCallExpr innerCall = (MethodCallExpr) whenArg;
+            if (!innerCall.getScope().isPresent() || !(innerCall.getScope().get() instanceof NameExpr)) {
+                return null;
+            }
+            return ((NameExpr) innerCall.getScope().get()).getNameAsString();
+        }
+
+        // Pattern: doReturn(...).when(mockVar).method(...)
+        // outerCall is .method(...), scope is when(...), scope of when is doReturn(...)
+        if (expr.getScope().isPresent() && expr.getScope().get() instanceof MethodCallExpr) {
+            MethodCallExpr whenCall = (MethodCallExpr) expr.getScope().get();
+            if ("when".equals(whenCall.getNameAsString()) && whenCall.getArguments().size() == 1) {
+                Expression whenArg = whenCall.getArgument(0);
+                if (whenArg instanceof NameExpr) {
+                    // Check that when()'s scope is doReturn(...)
+                    if (whenCall.getScope().isPresent()
+                            && whenCall.getScope().get() instanceof MethodCallExpr
+                            && "doReturn".equals(((MethodCallExpr) whenCall.getScope().get()).getNameAsString())) {
+                        return ((NameExpr) whenArg).getNameAsString();
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     // ========================================================================
@@ -2142,8 +2238,18 @@ public class StatementParser {
             }
         }
 
-        throw new NoSuchMethodException("No matching constructor found for " + clazz.getName()
-                + " with args " + formatTypes(argTypes));
+        StringBuilder msg = new StringBuilder();
+        msg.append("No matching constructor found for ").append(clazz.getName())
+           .append(" with args ").append(formatTypes(argTypes));
+        Constructor<?>[] declared = clazz.getDeclaredConstructors();
+        if (declared.length > 0) {
+            msg.append(". Available constructors: ");
+            for (int i = 0; i < declared.length; i++) {
+                if (i > 0) msg.append("; ");
+                msg.append(clazz.getSimpleName()).append(formatTypes(declared[i].getParameterTypes()));
+            }
+        }
+        throw new NoSuchMethodException(msg.toString());
     }
 
     /**
