@@ -216,8 +216,9 @@ public class MockList {
             if (EvoSuiteMock.class.isAssignableFrom(klass)) {
                 list.add((Class<? extends EvoSuiteMock>) klass);
             }
-        } catch (ClassNotFoundException e) {
-            // optional mock for a newer JDK, ignore on older runtimes
+        } catch (ClassNotFoundException | LinkageError e) {
+            // Optional mocks for newer JDK APIs can fail to load on older runtimes
+            // (eg missing JDK classes or unsupported class file versions).
         }
     }
 
