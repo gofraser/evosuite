@@ -87,8 +87,12 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
      */
     @Override
     public void clear() {
-        copyOnWrite();
-        trace.clear();
+        if (trace.getProxyCount() > 1) {
+            trace.removeProxy();
+            trace = new ExecutionTraceImpl();
+        } else {
+            trace.clear();
+        }
     }
 
     /**

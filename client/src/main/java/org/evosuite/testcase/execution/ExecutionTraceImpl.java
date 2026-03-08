@@ -652,6 +652,11 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         initializedClasses = new ArrayList<>();
         classesWithStaticReads = new HashSet<>();
         classesWithStaticWrites = new HashSet<>();
+
+        trueDistancesSum.clear();
+        falseDistancesSum.clear();
+        coveredMethodContext.clear();
+        explicitException = null;
     }
 
     /**
@@ -698,6 +703,15 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         copy.coveredTrueContext.putAll(coveredTrueContext);
         copy.coveredFalseContext.putAll(coveredFalseContext);
         copy.coveredPredicateContext.putAll(coveredPredicateContext);
+        
+        for (Entry<String, Map<CallContext, Integer>> entry : coveredMethodContext.entrySet()) {
+            copy.coveredMethodContext.put(entry.getKey(), new HashMap<>(entry.getValue()));
+        }
+
+        copy.trueDistancesSum.putAll(trueDistancesSum);
+        copy.falseDistancesSum.putAll(falseDistancesSum);
+
+        copy.explicitException = explicitException;
 
         copy.initializedClasses.addAll(initializedClasses);
         copy.classesWithStaticReads.addAll(classesWithStaticReads);

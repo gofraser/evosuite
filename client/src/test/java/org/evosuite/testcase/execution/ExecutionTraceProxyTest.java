@@ -40,4 +40,37 @@ public class ExecutionTraceProxyTest {
         Assertions.assertEquals(20.0, falseDistances.get(1), 0.001, "Should return false distances");
         Assertions.assertEquals(10.0, trueDistances.get(1), 0.001, "Should return true distances");
     }
+    @Test
+    public void testClearSharedProxy() {
+        ExecutionTraceImpl impl = new ExecutionTraceImpl();
+        impl.getTrueDistancesSum().put(1, 10.0);
+        
+        ExecutionTraceProxy proxy1 = new ExecutionTraceProxy(impl);
+        ExecutionTraceProxy proxy2 = (ExecutionTraceProxy) proxy1.lazyClone();
+        
+        Assertions.assertEquals(2, impl.getProxyCount());
+        
+        // Clearing proxy1 should NOT clear impl, but should detach proxy1
+        proxy1.clear();
+        
+        Assertions.assertEquals(1, impl.getProxyCount());
+        Assertions.assertEquals(10.0, impl.getTrueDistancesSum().get(1), 0.001);
+        Assertions.assertTrue(proxy1.getTrueDistancesSum().isEmpty());
+    }
+
+    @Test
+    public void testClearSoleOwnerProxy() {
+        ExecutionTraceImpl impl = new ExecutionTraceImpl();
+        impl.getTrueDistancesSum().put(1, 10.0);
+        
+        ExecutionTraceProxy proxy1 = new ExecutionTraceProxy(impl);
+        
+        Assertions.assertEquals(1, impl.getProxyCount());
+        
+        // Clearing proxy1 SHOULD clear impl
+        proxy1.clear();
+        
+        Assertions.assertEquals(1, impl.getProxyCount());
+        Assertions.assertTrue(impl.getTrueDistancesSum().isEmpty());
+    }
 }
