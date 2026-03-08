@@ -819,12 +819,11 @@ public class ExternalProcessGroupHandler {
             if (allowDoneAsFinished && state == ClientState.DONE) {
                 return true;
             }
-            if (state == ClientState.DONE) {
-                SearchStatistics stats = SearchStatistics.getInstance(clientId);
-                if (!stats.getTestGenerationResults().isEmpty() && stats.hasEssentialOutputVariables()) {
-                    return true;
-                }
-            }
+            // Note: we intentionally do NOT treat DONE + hasEssentialOutputVariables as
+            // terminal here. The client transitions from DONE to FINISHED only after
+            // flushing all remaining statistics via the statisticsThread. Returning early
+            // on DONE would let the Master kill the client process before all variables
+            // have been sent over RMI.
             try {
                 Thread.sleep(pollMs);
             } catch (InterruptedException e) {

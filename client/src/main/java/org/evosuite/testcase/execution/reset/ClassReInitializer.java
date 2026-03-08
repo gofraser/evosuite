@@ -34,6 +34,7 @@ import org.evosuite.testcase.variable.VariableReference;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -48,7 +49,8 @@ import java.util.List;
  */
 public class ClassReInitializer {
 
-    private final List<String> initializedClasses = new LinkedList<>();
+    private final LinkedHashSet<String> initializedClasses = new LinkedHashSet<>();
+    private final Object initializedClassesLock = new Object();
 
     private static ClassReInitializer instance = null;
 
@@ -152,15 +154,20 @@ public class ClassReInitializer {
         List<String> classesInitializedDuringTestExecution = trace.getInitializedClasses();
         this.addInitializedClasses(classesInitializedDuringTestExecution);
 
+        final List<String> initializedClassesSnapshot;
+        synchronized (initializedClassesLock) {
+            initializedClassesSnapshot = new LinkedList<>(initializedClasses);
+        }
+
         // if no initialized classes, then there are no classes to
         // re-initialized. Therefore, we should return
-        if (initializedClasses.isEmpty()) {
+        if (initializedClassesSnapshot.isEmpty()) {
             return;
         } else {
 
             // second, re-initialize classes
             if (resetAllObservedClasses) {
-                ClassReInitializeExecutor.getInstance().resetClasses(initializedClasses);
+                ClassReInitializeExecutor.getInstance().resetClasses(initializedClassesSnapshot);
             } else {
                 // reset only classes that were "observed" to have some
                 // GETSTATIC/PUTSTATIC updating their state during test
@@ -210,7 +217,7 @@ public class ClassReInitializer {
      * @param classNameWithDots the initialized class name with dots
      */
     private void addInitializedClass(String classNameWithDots) {
-        if (!initializedClasses.contains(classNameWithDots)) {
+        synchronized (initializedClassesLock) {
             initializedClasses.add(classNameWithDots);
         }
     }
@@ -227,7 +234,9 @@ public class ClassReInitializer {
     }
 
     public List<String> getInitializedClasses() {
-        return new LinkedList<>(this.initializedClasses);
+        synchronized (initializedClassesLock) {
+            return new LinkedList<>(this.initializedClasses);
+        }
     }
 
 

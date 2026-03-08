@@ -87,6 +87,12 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     private final BlockingQueue<OutputVariable> outputVariableQueue = new LinkedBlockingQueue<>();
 
+    /**
+     * Sentinel object placed on the queue to signal the statistics thread to terminate
+     * after processing all preceding items.
+     */
+    private static final OutputVariable POISON_PILL = new OutputVariable(null, null);
+
     private Collection<Set<T>> bestSolutions;
 
     private Thread statisticsThread;
@@ -405,36 +411,28 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     /**
      * Stops the client node, terminating the statistics thread and the search executor.
+     *
+     * <p>Uses a poison-pill pattern: a sentinel object is placed on the output variable queue
+     * so the statistics thread finishes sending all preceding items and then exits cleanly,
+     * without being interrupted mid-RMI call (which would lose the in-flight variable).</p>
      */
     public void stop() {
         logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client stop() begin");
         if (statisticsThread != null) {
-            logger.info(ClientProcess.getPrettyPrintIdentifier() + "Stopping statisticsThread");
-            statisticsThread.interrupt();
-            List<OutputVariable> vars = new ArrayList<>();
-            outputVariableQueue.drainTo(vars);
-            for (OutputVariable ov : vars) {
-                try {
-                    if (!ensureMasterNode()) {
-                        if (Properties.CLIENT_ON_THREAD) {
-                            fallbackSetOutputVariable(ov.variable, ov.value);
-                            continue;
-                        }
-                        logger.warn("Master node is not available; skipping statistics flush on stop");
-                        break;
-                    }
-                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
-                } catch (RemoteException e) {
-                    logger.error("Error when exporting statistics: " + ov.variable + "=" + ov.value, e);
-                    break;
-                }
-            }
+            logger.info(ClientProcess.getPrettyPrintIdentifier() + "Stopping statisticsThread via poison pill");
+            outputVariableQueue.offer(POISON_PILL);
 
             try {
                 logger.info(ClientProcess.getPrettyPrintIdentifier() + "Waiting for statisticsThread to join");
-                statisticsThread.join(3000);
+                statisticsThread.join(10_000);
             } catch (InterruptedException e) {
-                logger.error("Failed to stop statisticsThread in time");
+                logger.error("Interrupted while waiting for statisticsThread");
+            }
+
+            if (statisticsThread.isAlive()) {
+                logger.warn(ClientProcess.getPrettyPrintIdentifier()
+                        + "statisticsThread did not terminate in time; force-interrupting");
+                statisticsThread.interrupt();
             }
             statisticsThread = null;
         }
@@ -458,10 +456,13 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             statisticsThread = new Thread() {
                 @Override
                 public void run() {
-                    while (!this.isInterrupted()) {
+                    while (true) {
                         OutputVariable ov = null;
                         try {
                             ov = outputVariableQueue.take(); //this is blocking
+                            if (ov == POISON_PILL) {
+                                break; // clean exit after all real items have been sent
+                            }
                             if (!ensureMasterNode()) {
                                 if (Properties.CLIENT_ON_THREAD) {
                                     fallbackSetOutputVariable(ov.variable, ov.value);
