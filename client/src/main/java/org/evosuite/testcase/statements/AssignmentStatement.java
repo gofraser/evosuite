@@ -219,10 +219,14 @@ public class AssignmentStatement extends AbstractStatement {
     @Override
     public void replace(VariableReference var1, VariableReference var2) {
         if (retval.equals(var1)) {
-            retval = var2;
+            if (isAssignable(var2, parameter)) {
+                retval = var2;
+            }
         }
         if (parameter.equals(var1)) {
-            parameter = var2;
+            if (isAssignable(retval, var2)) {
+                parameter = var2;
+            }
         } else {
             parameter.replaceAdditionalVariableReference(var1, var2);
         }
@@ -286,6 +290,10 @@ public class AssignmentStatement extends AbstractStatement {
         return true;
     }
 
+    private static boolean isAssignable(VariableReference target, VariableReference value) {
+        return GenericClassUtils.isAssignable(target.getType(), value.getType());
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -334,7 +342,11 @@ public class AssignmentStatement extends AbstractStatement {
             if (value instanceof ArrayReference) {
                 if (GenericClassUtils.isAssignable(value.getComponentType(),
                         parameter.getType())) {
-                    for (int index = 0; index < ((ArrayReference) value).getArrayLength(); index++) {
+                    // Use the structural length from the ArrayStatement rather than the
+                    // runtime ArrayReference length, which Scope.setObject() can corrupt
+                    // during test execution (e.g. via array reassignment).
+                    int length = getStructuralArrayLength((ArrayReference) value);
+                    for (int index = 0; index < length; index++) {
                         variables.add(new ArrayIndex(tc, (ArrayReference) value, index));
                     }
                 }
@@ -362,6 +374,22 @@ public class AssignmentStatement extends AbstractStatement {
             }
         }
         return variables;
+    }
+
+    /**
+     * Get the structural array length from the corresponding {@link ArrayStatement},
+     * which is immune to runtime corruption by {@code Scope.setObject()}.
+     * Falls back to the runtime length if no matching ArrayStatement is found.
+     */
+    private int getStructuralArrayLength(ArrayReference arrayRef) {
+        int pos = arrayRef.getStPosition();
+        if (pos >= 0 && pos < tc.size()) {
+            Statement stmt = tc.getStatement(pos);
+            if (stmt instanceof ArrayStatement) {
+                return ((ArrayStatement) stmt).size();
+            }
+        }
+        return arrayRef.getArrayLength();
     }
 
     /* (non-Javadoc)

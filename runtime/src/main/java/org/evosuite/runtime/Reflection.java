@@ -125,7 +125,7 @@ public class Reflection {
         if (field.getType().equals(int.class)) {
             field.setInt(sourceObject, getIntValue(value));
         } else if (field.getType().equals(boolean.class)) {
-            field.setBoolean(sourceObject, (Boolean) value);
+            field.setBoolean(sourceObject, getBooleanValue(value));
         } else if (field.getType().equals(byte.class)) {
             field.setByte(sourceObject, (byte) getIntValue(value));
         } else if (field.getType().equals(char.class)) {
@@ -190,6 +190,20 @@ public class Reflection {
             return (char) ((Number) object).intValue();
         } else {
             return '0';
+        }
+    }
+
+    private static boolean getBooleanValue(Object object) {
+        if (object instanceof Boolean) {
+            return (Boolean) object;
+        } else if (object instanceof Number) {
+            return ((Number) object).intValue() != 0;
+        } else if (object instanceof Character) {
+            return (Character) object != 0;
+        } else if (object instanceof String) {
+            return Boolean.parseBoolean((String) object);
+        } else {
+            return false;
         }
     }
 
