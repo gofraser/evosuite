@@ -61,6 +61,9 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.net.InetSocketAddress;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.withSettings;
@@ -100,6 +103,10 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     private static final long serialVersionUID = -8177814473724093381L;
 
     private static final Logger logger = LoggerFactory.getLogger(FunctionalMockStatement.class);
+    private static final Set<String> unmockableTargetClasses = ConcurrentHashMap.newKeySet();
+    private static final AtomicBoolean functionalMockingGloballyDisabled = new AtomicBoolean(false);
+    private static final AtomicInteger functionalMockingAttempts = new AtomicInteger(0);
+    private static final AtomicInteger functionalMockingInitFailures = new AtomicInteger(0);
 
     /**
      * This list needs to be kept sorted.
@@ -158,7 +165,10 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         Inputs.checkNull(targetClass);
 
         Class<?> rawType = GenericClassFactory.get(retvalType).getRawClass();
-        if (!targetClass.getRawClass().equals(rawType)) {
+        Class<?> targetRawClass = targetClass.getRawClass();
+        if (!targetRawClass.equals(rawType)
+                && !targetRawClass.isAssignableFrom(rawType)
+                && !rawType.isAssignableFrom(targetRawClass)) {
             throw new IllegalArgumentException("Mismatch between raw type " + rawType + " and target class "
                     + targetClass);
         }
@@ -722,20 +732,106 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         return msg.contains("MockMaker") || msg.contains("Mockito is unable to load");
     }
 
-    private static Throwable getRootCause(Throwable throwable) {
+    private static boolean hasCause(Throwable throwable, Class<? extends Throwable> expectedType) {
         Throwable current = throwable;
-        while (current != null && current.getCause() != null && current.getCause() != current) {
-            current = current.getCause();
+        while (current != null) {
+            if (expectedType.isInstance(current)) {
+                return true;
+            }
+            Throwable next = current.getCause();
+            if (next == current) {
+                break;
+            }
+            current = next;
         }
-        return current;
+        return false;
     }
 
     private static boolean isCodeUnderTestInitializationFailure(Throwable throwable) {
-        Throwable rootCause = getRootCause(throwable);
-        return rootCause instanceof NoClassDefFoundError
-                || rootCause instanceof ExceptionInInitializerError
-                || rootCause instanceof ClassNotFoundException
-                || rootCause instanceof LinkageError;
+        return hasCause(throwable, NoClassDefFoundError.class)
+                || hasCause(throwable, ExceptionInInitializerError.class)
+                || hasCause(throwable, ClassNotFoundException.class)
+                || hasCause(throwable, LinkageError.class);
+    }
+
+    private static boolean shouldTrySubclassFallbackForFailure(Throwable throwable) {
+        return isCodeUnderTestInitializationFailure(throwable) || isMockitoPluginInitFailure(throwable);
+    }
+
+    private static boolean shouldDisableFunctionalMockingGlobally(int attempts, int failures) {
+        if (Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE == Properties.FunctionalMockingFailoverMode.OFF) {
+            return false;
+        }
+        if (attempts <= 0 || failures < Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_COUNT) {
+            return false;
+        }
+        double ratio = ((double) failures) / ((double) attempts);
+        return ratio >= Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_RATIO;
+    }
+
+    private static boolean isClassLevelFailoverEnabled() {
+        return Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE == Properties.FunctionalMockingFailoverMode.CLASS;
+    }
+
+    private static boolean isClassBlacklisted(String className) {
+        return unmockableTargetClasses.contains(className);
+    }
+
+    private static void handleRecoverableMockFailure(GenericClass<?> targetClass, Throwable failure)
+            throws CodeUnderTestException {
+        handleRecoverableMockFailure(targetClass.getRawClass().getName(), failure);
+    }
+
+    private static void handleRecoverableMockFailure(String className, Throwable failure)
+            throws CodeUnderTestException {
+        int failures = functionalMockingInitFailures.incrementAndGet();
+        int attempts = functionalMockingAttempts.get();
+
+        if (isClassLevelFailoverEnabled() && unmockableTargetClasses.add(className)) {
+            AtMostOnceLogger.warn(logger,
+                    "Disabling functional mocking for class " + className
+                            + " due to initialization failure: "
+                            + failure.getClass().getSimpleName());
+        }
+
+        if (shouldDisableFunctionalMockingGlobally(attempts, failures)
+                && functionalMockingGloballyDisabled.compareAndSet(false, true)) {
+            Properties.P_FUNCTIONAL_MOCKING = 0.0;
+            Properties.MOCK_IF_NO_GENERATOR = false;
+            AtMostOnceLogger.warn(logger,
+                    "Disabling functional mocking globally after " + failures + "/" + attempts
+                            + " initialization failures");
+        }
+
+        throw new CodeUnderTestException(failure);
+    }
+
+    static void resetMockingFailoverStateForTests() {
+        unmockableTargetClasses.clear();
+        functionalMockingGloballyDisabled.set(false);
+        functionalMockingAttempts.set(0);
+        functionalMockingInitFailures.set(0);
+    }
+
+    static boolean isFunctionalMockingGloballyDisabledForTests() {
+        return functionalMockingGloballyDisabled.get();
+    }
+
+    static boolean isClassBlacklistedForTests(String className) {
+        return isClassBlacklisted(className);
+    }
+
+    static boolean isCodeUnderTestInitializationFailureForTests(Throwable throwable) {
+        return isCodeUnderTestInitializationFailure(throwable);
+    }
+
+    static void registerMockAttemptForTests() {
+        functionalMockingAttempts.incrementAndGet();
+    }
+
+    static void registerRecoverableMockFailureForTests(String className, Throwable failure)
+            throws CodeUnderTestException {
+        handleRecoverableMockFailure(className, failure);
     }
 
     @Override
@@ -765,12 +861,23 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 IllegalArgumentException, IllegalAccessException,
                 InstantiationException, CodeUnderTestException {
 
+            String className = targetClass.getRawClass().getName();
+            if (functionalMockingGloballyDisabled.get()) {
+                throw new CodeUnderTestException(new IllegalStateException(
+                        "Functional mocking disabled globally due to repeated initialization failures"));
+            }
+            if (isClassBlacklisted(className)) {
+                throw new CodeUnderTestException(new IllegalStateException(
+                        "Functional mocking disabled for class due to prior initialization failure: " + className));
+            }
+
             // First create the listener
             listener = createInvocationListener();
 
             //then create the mock
-            Object ret;
+            Object ret = null;
             try {
+                functionalMockingAttempts.incrementAndGet();
                 logger.debug("Mockito: create mock for {}", targetClass);
 
                 MockSettings settings = createMockSettings();
@@ -785,6 +892,20 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                         ret = mock(targetClass.getRawClass(), createSubclassMockSettings());
                     } else {
                         throw e;
+                    }
+                } catch (Throwable t) {
+                    if (!shouldForceSubclassMockMaker() && shouldTrySubclassFallbackForFailure(t)) {
+                        AtMostOnceLogger.warn(logger, "Retrying Mockito mock creation for "
+                                + targetClass + " with subclass mock maker after failure: "
+                                + t.getClass().getSimpleName());
+                        try {
+                            ret = mock(targetClass.getRawClass(), createSubclassMockSettings());
+                        } catch (Throwable retryFailure) {
+                            retryFailure.addSuppressed(t);
+                            throw retryFailure;
+                        }
+                    } else {
+                        throw t;
                     }
                 }
 
@@ -926,10 +1047,13 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             } catch (java.lang.NoClassDefFoundError e) {
                 AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass
                         + " due to failed class initialization: " + e.getMessage());
-                return; //or should throw an exception?
+                handleRecoverableMockFailure(targetClass, e);
             } catch (IllegalStateException e) {
                 AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass
                         + " due to ISE: " + e.getMessage());
+                if (isCodeUnderTestInitializationFailure(e)) {
+                    handleRecoverableMockFailure(targetClass, e);
+                }
                 throw new CodeUnderTestException(e);
             } catch (MockitoException | IllegalAccessException | IllegalAccessError
                     | IllegalArgumentException e) {
@@ -943,7 +1067,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 AtMostOnceLogger.error(logger, "Failed to use Mockito on " + targetClass
                         + ": " + t.getMessage());
                 if (isCodeUnderTestInitializationFailure(t)) {
-                    throw new CodeUnderTestException(t);
+                    handleRecoverableMockFailure(targetClass, t);
                 }
                 throw new EvosuiteError(t);
             }

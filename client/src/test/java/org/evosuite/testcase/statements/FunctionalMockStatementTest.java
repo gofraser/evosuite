@@ -84,6 +84,12 @@ public class FunctionalMockStatementTest {
         String[] getStringArray(int[] input);
     }
 
+    public interface Parameter {
+    }
+
+    public static class PdfFileParam implements Parameter {
+    }
+
     public static int base(Foo foo) {
         return foo.getInt();
     }
@@ -675,6 +681,20 @@ public class FunctionalMockStatementTest {
 
         val = (Integer) scope.getObject(result);
         Assertions.assertEquals(MOCKED_VALUE, val.intValue());
+    }
+
+    @Test
+    public void testCopyAllowsCompatibleRawTypeAndTargetClass() {
+        TestCase tc = new DefaultTestCase();
+        FunctionalMockStatement mockStmt = new FunctionalMockStatement(
+                tc, PdfFileParam.class, GenericClassFactory.get(Parameter.class));
+        tc.addStatement(mockStmt);
+
+        Statement copy = mockStmt.copy(new DefaultTestCase(), 0);
+
+        Assertions.assertNotNull(copy);
+        Assertions.assertTrue(copy instanceof FunctionalMockStatement);
+        Assertions.assertEquals(PdfFileParam.class, copy.getReturnClass());
     }
 
 }

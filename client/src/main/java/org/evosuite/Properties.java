@@ -400,6 +400,28 @@ public class Properties {
     @DoubleValue(min = 1)
     public static int FUNCTIONAL_MOCKING_INPUT_LIMIT = 5;
 
+    public enum FunctionalMockingFailoverMode {
+        OFF,
+        CLASS,
+        GLOBAL
+    }
+
+    @Parameter(key = "functional_mocking_failover_mode", group = "Test Creation",
+            description = "How to react to functional mocking initialization failures")
+    public static FunctionalMockingFailoverMode FUNCTIONAL_MOCKING_FAILOVER_MODE =
+            FunctionalMockingFailoverMode.CLASS;
+
+    @Parameter(key = "functional_mocking_failure_threshold_count", group = "Test Creation",
+            description = "Minimum number of functional mocking initialization failures before "
+                    + "global failover can disable functional mocking")
+    @IntValue(min = 1)
+    public static int FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_COUNT = 20;
+
+    @Parameter(key = "functional_mocking_failure_threshold_ratio", group = "Test Creation",
+            description = "Failure ratio threshold [0,1] to disable functional mocking globally")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_RATIO = 0.30;
+
     @Parameter(key = "num_parallel_clients", group = "Test Creation",
             description = "Number of EvoSuite clients to run in parallel")
     public static int NUM_PARALLEL_CLIENTS = 1;
