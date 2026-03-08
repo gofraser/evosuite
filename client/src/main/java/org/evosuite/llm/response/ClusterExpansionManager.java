@@ -170,7 +170,16 @@ public class ClusterExpansionManager {
     private static final Set<String> DIAGNOSTIC_NOISE_WORDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "Cannot", "Error", "Not", "The", "This", "But", "Expected", "Found",
             "Type", "Variable", "Method", "Class", "Package", "Symbol", "Already",
-            "Incompatible", "Required", "Unreachable", "Undefined", "Unknown")));
+            "Incompatible", "Required", "Unreachable", "Undefined", "Unknown",
+            "Failed", "No", "Unresolved", "Object", "Null", "Scope", "Access",
+            "Return", "Value", "Argument", "Parameter", "Missing", "Duplicate",
+            "Invalid", "Illegal", "Abstract", "Static", "Void", "Int", "Long",
+            "Boolean", "Double", "Float", "Char", "Byte", "Short", "String",
+            "If", "For", "While", "Try", "Catch", "Throw", "New",
+            "Test", "Assert", "Override", "Deprecated")));
+
+    /** Minimum length for simple class name matches to avoid noise from short tokens. */
+    private static final int MIN_SIMPLE_NAME_LENGTH = 3;
 
     private void collectSymbols(String source, Set<String> output) {
         if (source == null || source.isEmpty()) {
@@ -179,15 +188,53 @@ public class ClusterExpansionManager {
 
         Matcher fqcn = FQCN_PATTERN.matcher(source);
         while (fqcn.find()) {
-            output.add(fqcn.group(1));
+            String match = fqcn.group(1);
+            if (looksLikeFullyQualifiedClassName(match)) {
+                output.add(match);
+            }
         }
 
         Matcher simple = SIMPLE_CLASS_PATTERN.matcher(source);
         while (simple.find()) {
             String name = simple.group(1);
+            if (name.length() < MIN_SIMPLE_NAME_LENGTH) {
+                continue;
+            }
             if (!DIAGNOSTIC_NOISE_WORDS.contains(name)) {
                 output.add(name);
             }
         }
+    }
+
+    /**
+     * Returns true if the dotted name looks like a fully qualified class name rather than
+     * a variable-style dotted path. Heuristics:
+     * <ul>
+     *   <li>All segments except the last must be all-lowercase (package convention)</li>
+     *   <li>The last segment must start with an uppercase letter (class convention)</li>
+     *   <li>Must have at least 2 segments</li>
+     * </ul>
+     */
+    static boolean looksLikeFullyQualifiedClassName(String dottedName) {
+        if (dottedName == null || dottedName.isEmpty()) {
+            return false;
+        }
+        String[] segments = dottedName.split("\\.");
+        if (segments.length < 2) {
+            return false;
+        }
+        // All segments except the last must look like package names (lowercase, no uppercase)
+        for (int i = 0; i < segments.length - 1; i++) {
+            String seg = segments[i];
+            if (seg.isEmpty()) return false;
+            for (int j = 0; j < seg.length(); j++) {
+                if (Character.isUpperCase(seg.charAt(j))) {
+                    return false;
+                }
+            }
+        }
+        // Last segment must start with uppercase (class name convention)
+        String lastSeg = segments[segments.length - 1];
+        return !lastSeg.isEmpty() && Character.isUpperCase(lastSeg.charAt(0));
     }
 }

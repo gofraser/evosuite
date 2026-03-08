@@ -232,6 +232,27 @@ class LlmAssertionGeneratorStrategyTest {
     }
 
     @Test
+    void parseAndAttach_mixedKnownAndUnknownIdentifiers_rejected() {
+        DefaultTestCase tc = new DefaultTestCase();
+        VariableReference intRef = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String varName = visitor.getVariableName(intRef);
+
+        Map<String, VariableReference> varMap = new LinkedHashMap<>();
+        varMap.put(varName, intRef);
+
+        // Known + unknown identifier must be rejected to avoid unresolved symbols in emitted code.
+        String assertionStr = "assertFalse(" + varName + " == int3);";
+
+        LlmAssertionGeneratorStrategy strategy = new LlmAssertionGeneratorStrategy();
+        int attached = strategy.parseAndAttachAssertions(tc, List.of(assertionStr), varMap);
+
+        assertEquals(0, attached, "Assertions containing unresolved variable identifiers must be rejected");
+    }
+
+    @Test
     void parseAndAttach_emptyList_returnsZero() {
         DefaultTestCase tc = new DefaultTestCase();
         tc.addStatement(new IntPrimitiveStatement(tc, 42));

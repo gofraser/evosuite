@@ -23,6 +23,9 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.SystemPromptProvider;
+import org.evosuite.llm.prompt.TestClusterSummarizer;
+import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testparser.ParseDiagnostic;
@@ -37,6 +40,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Applies parse -> validate -> execute and iterative LLM repair.
@@ -44,6 +48,10 @@ import java.util.Set;
 public class TestRepairLoop {
 
     private static final Logger logger = LoggerFactory.getLogger(TestRepairLoop.class);
+
+    /** Pattern to normalize line numbers for fuzzy error comparison. */
+    private static final Pattern LINE_NUMBER_PATTERN = Pattern.compile(
+            "(?<=\\(line |line |Line )\\d+|(?<=position )\\d+");
 
     /** Error patterns that the LLM cannot fix (missing native libs, sandbox, etc.). */
     private static final Set<String> UNFIXABLE_ERROR_PATTERNS = new HashSet<>(Arrays.asList(
@@ -60,17 +68,42 @@ public class TestRepairLoop {
     private final ClusterExpansionManager clusterExpansionManager;
     private final TestExecutor testExecutor;
     private final int maxAttempts;
+    private final String systemPrompt;
+    private final String sutContextSummary;
+    private boolean expansionAttempted;
 
     /**
      * Creates a standard repair loop wired to the given LLM service, using
      * the SUT-aware parser, default response parser, and cluster expansion manager.
      */
     public static TestRepairLoop createDefault(LlmService llmService) {
+        String systemPrompt = null;
+        String sutContext = null;
+        try {
+            systemPrompt = new SystemPromptProvider().getSystemPrompt();
+        } catch (Throwable t) {
+            logger.debug("Could not obtain system prompt for repair context", t);
+        }
+        try {
+            TestCluster cluster = TestCluster.getInstance();
+            if (cluster != null) {
+                TestClusterSummarizer.DependencySummaryResult deps =
+                        new TestClusterSummarizer().summarizeDependencies(
+                                cluster, Properties.TARGET_CLASS, 4000);
+                sutContext = deps.getText();
+            }
+        } catch (Throwable t) {
+            logger.debug("Could not obtain SUT context summary for repair context", t);
+        }
         return new TestRepairLoop(
                 llmService,
                 TestParser.forSUTWithLlmProvenance(),
                 new LlmResponseParser(),
-                new ClusterExpansionManager());
+                new ClusterExpansionManager(),
+                new DefaultExecutor(),
+                Properties.LLM_REPAIR_ATTEMPTS,
+                systemPrompt,
+                sutContext);
     }
 
     /** Creates a repair loop using Properties-configured max attempts and a default test executor. */
@@ -83,22 +116,39 @@ public class TestRepairLoop {
                 responseParser,
                 clusterExpansionManager,
                 new DefaultExecutor(),
-                Properties.LLM_REPAIR_ATTEMPTS);
+                Properties.LLM_REPAIR_ATTEMPTS,
+                null,
+                null);
     }
 
-    /** Creates a repair loop with explicit executor and attempt count. */
+    /** Creates a repair loop with explicit executor and attempt count (no system prompt/SUT context). */
     public TestRepairLoop(LlmService llmService,
                           TestParser testParser,
                           LlmResponseParser responseParser,
                           ClusterExpansionManager clusterExpansionManager,
                           TestExecutor testExecutor,
                           int maxAttempts) {
+        this(llmService, testParser, responseParser, clusterExpansionManager,
+                testExecutor, maxAttempts, null, null);
+    }
+
+    /** Creates a repair loop with explicit executor, attempt count, and optional repair context. */
+    public TestRepairLoop(LlmService llmService,
+                          TestParser testParser,
+                          LlmResponseParser responseParser,
+                          ClusterExpansionManager clusterExpansionManager,
+                          TestExecutor testExecutor,
+                          int maxAttempts,
+                          String systemPrompt,
+                          String sutContextSummary) {
         this.llmService = llmService;
         this.testParser = testParser;
         this.responseParser = responseParser;
         this.clusterExpansionManager = clusterExpansionManager;
         this.testExecutor = testExecutor;
         this.maxAttempts = Math.max(0, maxAttempts);
+        this.systemPrompt = systemPrompt;
+        this.sutContextSummary = sutContextSummary;
     }
 
     /** Attempts to parse the LLM response and repair it iteratively if parsing fails. */
@@ -132,7 +182,7 @@ public class TestRepairLoop {
                 }
                 previousError = parserFailureText;
                 currentResponse = requestRepairSafely(conversation, currentResponse, parserFailureText,
-                        feature, expandedClasses, diagnostics);
+                        feature, expandedClasses, diagnostics, attempt + 2);
                 if (currentResponse == null) {
                     break;
                 }
@@ -147,7 +197,7 @@ public class TestRepairLoop {
                 }
                 previousError = parseErrorText;
                 currentResponse = requestRepairSafely(conversation, currentResponse, parseErrorText,
-                        feature, expandedClasses, diagnostics);
+                        feature, expandedClasses, diagnostics, attempt + 2);
                 if (currentResponse == null) {
                     break;
                 }
@@ -175,19 +225,26 @@ public class TestRepairLoop {
 
                 if (hasResolutionErrors(parseResults) && Properties.LLM_EXPAND_CLUSTER_ON_DEMAND) {
                     boolean expanded = false;
+                    this.expansionAttempted = true;
                     try {
                         expanded = clusterExpansionManager.tryExpandFrom(parseResults);
                     } catch (Throwable expansionFailure) {
                         diagnostics.add("Cluster expansion failure: " + formatThrowable(expansionFailure));
                     }
                     if (expanded) {
+                        boolean addedNew = false;
                         for (String cls : clusterExpansionManager.getLastExpandedClasses()) {
                             if (!expandedClasses.contains(cls)) {
                                 expandedClasses.add(cls);
+                                addedNew = true;
                             }
                         }
-                        diagnostics.add("Expanded cluster with: " + expandedClasses);
-                        continue;
+                        if (addedNew) {
+                            diagnostics.add("Expanded cluster with: " + expandedClasses);
+                            continue;
+                        }
+                        logger.info("Cluster expansion produced no new classes; stopping expansion loop");
+                        diagnostics.add("Skipped expansion: no new classes resolved");
                     }
                 }
 
@@ -196,7 +253,7 @@ public class TestRepairLoop {
                 }
                 previousError = parseErrorText;
                 currentResponse = requestRepairSafely(conversation, currentResponse, parseErrorText,
-                        feature, expandedClasses, diagnostics);
+                        feature, expandedClasses, diagnostics, attempt + 2);
                 if (currentResponse == null) {
                     break;
                 }
@@ -222,7 +279,7 @@ public class TestRepairLoop {
                 }
                 previousError = lastExecutionError;
                 currentResponse = requestRepairSafely(conversation, currentResponse, lastExecutionError,
-                        feature, expandedClasses, diagnostics);
+                        feature, expandedClasses, diagnostics, attempt + 2);
                 if (currentResponse == null) {
                     break;
                 }
@@ -261,7 +318,15 @@ public class TestRepairLoop {
                                  String previousResponse,
                                  String error,
                                  LlmFeature feature,
-                                 List<String> expandedClasses) {
+                                 List<String> expandedClasses,
+                                 int repairAttempt) {
+        // Ensure system prompt is at the front of the conversation
+        if (systemPrompt != null && !systemPrompt.isEmpty()
+                && (conversation.isEmpty()
+                    || !conversation.get(0).getContent().equals(systemPrompt))) {
+            conversation.add(0, LlmMessage.system(systemPrompt));
+        }
+
         // Add the assistant's last response to the conversation
         if (previousResponse != null && !previousResponse.isEmpty()) {
             conversation.add(LlmMessage.assistant(previousResponse));
@@ -269,10 +334,23 @@ public class TestRepairLoop {
         if (!expandedClasses.isEmpty()) {
             conversation.add(LlmMessage.system("Cluster expanded with newly resolved classes: " + expandedClasses));
         }
-        conversation.add(LlmMessage.user(
-                "The following issue was found in the generated tests:\n" + error
-                + "\n\nPlease provide the corrected complete test class with all test methods."));
-        return llmService.query(conversation, feature);
+
+        // Build repair message with error + SUT context reminder
+        StringBuilder repairMessage = new StringBuilder();
+        repairMessage.append("The following issue was found in the generated tests:\n")
+                     .append(error);
+        if (sutContextSummary != null && !sutContextSummary.isEmpty()) {
+            repairMessage.append("\n\nFor reference, here are the available constructors and methods:\n")
+                         .append(sutContextSummary);
+        }
+        repairMessage.append("\n\nPlease provide the corrected complete test class with all test methods.");
+
+        conversation.add(LlmMessage.user(repairMessage.toString()));
+
+        boolean expanded = this.expansionAttempted;
+        this.expansionAttempted = false;
+        return llmService.query(conversation, feature, repairAttempt,
+                expanded, expandedClasses);
     }
 
     /**
@@ -286,12 +364,24 @@ public class TestRepairLoop {
             diagnostics.add("Skipped repair: unfixable environment error");
             return true;
         }
-        if (previousError != null && previousError.equals(error)) {
-            logger.info("Aborting repair: identical error on consecutive attempts: {}", error);
+        if (previousError != null && normalizeError(previousError).equals(normalizeError(error))) {
+            logger.info("Aborting repair: equivalent error on consecutive attempts: {}", error);
             diagnostics.add("Skipped repair: identical error repeated");
             return true;
         }
         return false;
+    }
+
+    /**
+     * Normalizes an error string for fuzzy comparison by replacing line numbers
+     * with a placeholder, so that the same logical error at different positions
+     * is recognized as a stuck loop.
+     */
+    static String normalizeError(String error) {
+        if (error == null) {
+            return "";
+        }
+        return LINE_NUMBER_PATTERN.matcher(error).replaceAll("N");
     }
 
     private String requestRepairSafely(List<LlmMessage> conversation,
@@ -299,9 +389,10 @@ public class TestRepairLoop {
                                        String error,
                                        LlmFeature feature,
                                        List<String> expandedClasses,
-                                       List<String> diagnostics) {
+                                       List<String> diagnostics,
+                                       int repairAttempt) {
         try {
-            return requestRepair(conversation, previousResponse, error, feature, expandedClasses);
+            return requestRepair(conversation, previousResponse, error, feature, expandedClasses, repairAttempt);
         } catch (Throwable repairFailure) {
             diagnostics.add("Repair request failure: " + formatThrowable(repairFailure));
             return null;

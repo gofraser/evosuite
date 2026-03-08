@@ -26,6 +26,7 @@ import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
+import org.evosuite.setup.TestCluster;
 import org.evosuite.seeding.ObjectPool;
 import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.testcase.DefaultTestCase;
@@ -446,6 +447,44 @@ class LlmObjectPoolEnricherTest {
         assertEquals(1, result.getRejectedNoType());
         assertEquals(1, result.getRejectedValidation());
         assertEquals(1, result.getRejectedAddFailure());
+    }
+
+    // ---- buildTypeConstructionContext tests ----
+
+    @Test
+    void buildTypeConstructionContext_includesConstructors() {
+        LlmObjectPoolEnricher enricher = createEnricherWithMocks();
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getGeneratorsByType()).thenReturn(Collections.emptyMap());
+
+        List<String> types = Arrays.asList("java.io.File");
+        String context = enricher.buildTypeConstructionContext(types, cluster);
+
+        assertTrue(context.contains("java.io.File"), "Should list the type: " + context);
+        assertTrue(context.contains("Constructors:"), "Should have Constructors label: " + context);
+        assertTrue(context.contains("File("), "Should show File constructors: " + context);
+    }
+
+    @Test
+    void buildTypeConstructionContext_capsAt2000Chars() {
+        LlmObjectPoolEnricher enricher = createEnricherWithMocks();
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getGeneratorsByType()).thenReturn(Collections.emptyMap());
+
+        // Create many types to exceed 2000 chars
+        List<String> types = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            types.add("com.example.very.long.package.name.ClassWithLongName" + i);
+        }
+        String context = enricher.buildTypeConstructionContext(types, cluster);
+
+        assertTrue(context.length() <= 2100, "Should be capped near 2000 chars: " + context.length());
+    }
+
+    @Test
+    void buildTypeConstructionContext_emptyOnNullCluster() {
+        LlmObjectPoolEnricher enricher = createEnricherWithMocks();
+        assertEquals("", enricher.buildTypeConstructionContext(Arrays.asList("java.io.File"), null));
     }
 
     // ---- Issue 2: FEW_SHOT not injected into strict structured-output enrichers ----

@@ -35,6 +35,7 @@ public class LlmStatistics {
     private final AtomicLong totalCalls = new AtomicLong();
     private final AtomicLong successfulCalls = new AtomicLong();
     private final AtomicLong failedCalls = new AtomicLong();
+    private final AtomicLong timedOutCalls = new AtomicLong();
     private final AtomicLong inputTokens = new AtomicLong();
     private final AtomicLong outputTokens = new AtomicLong();
     private final AtomicLong totalLatencyMs = new AtomicLong();
@@ -58,6 +59,13 @@ public class LlmStatistics {
         perFeature.computeIfAbsent(feature, ignored -> new FeatureStats()).recordFailure();
     }
 
+    /** Records an LLM call timeout for the given feature. */
+    public void recordTimeout(LlmFeature feature) {
+        totalCalls.incrementAndGet();
+        timedOutCalls.incrementAndGet();
+        perFeature.computeIfAbsent(feature, ignored -> new FeatureStats()).recordTimeout();
+    }
+
     public long getTotalCalls() {
         return totalCalls.get();
     }
@@ -68,6 +76,10 @@ public class LlmStatistics {
 
     public long getFailedCalls() {
         return failedCalls.get();
+    }
+
+    public long getTimedOutCalls() {
+        return timedOutCalls.get();
     }
 
     public long getInputTokens() {
@@ -97,6 +109,7 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Calls, getTotalCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, getSuccessfulCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Failed, getFailedCalls());
+        ClientServices.track(RuntimeVariable.LLM_Calls_TimedOut, getTimedOutCalls());
         ClientServices.track(RuntimeVariable.LLM_Input_Tokens, getInputTokens());
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, getOutputTokens());
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, getTotalLatencyMs());
@@ -111,6 +124,7 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Calls, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Failed, 0);
+        ClientServices.track(RuntimeVariable.LLM_Calls_TimedOut, 0);
         ClientServices.track(RuntimeVariable.LLM_Input_Tokens, 0);
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, 0);
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, 0);
@@ -154,6 +168,7 @@ public class LlmStatistics {
     private static final class FeatureStats {
         private final AtomicLong calls = new AtomicLong();
         private final AtomicLong failures = new AtomicLong();
+        private final AtomicLong timedOut = new AtomicLong();
         private final AtomicLong input = new AtomicLong();
         private final AtomicLong output = new AtomicLong();
         private final AtomicLong latency = new AtomicLong();
@@ -170,23 +185,30 @@ public class LlmStatistics {
             failures.incrementAndGet();
         }
 
+        void recordTimeout() {
+            calls.incrementAndGet();
+            timedOut.incrementAndGet();
+        }
+
         /** Returns an immutable snapshot of this feature's statistics. */
         FeatureSnapshot snapshot() {
-            return new FeatureSnapshot(calls.get(), failures.get(), input.get(), output.get(), latency.get());
+            return new FeatureSnapshot(calls.get(), failures.get(), timedOut.get(), input.get(), output.get(), latency.get());
         }
     }
 
     public static final class FeatureSnapshot {
         private final long calls;
         private final long failures;
+        private final long timedOut;
         private final long inputTokens;
         private final long outputTokens;
         private final long latencyMs;
 
         /** Constructs a snapshot with per-feature call, failure, token, and latency counts. */
-        public FeatureSnapshot(long calls, long failures, long inputTokens, long outputTokens, long latencyMs) {
+        public FeatureSnapshot(long calls, long failures, long timedOut, long inputTokens, long outputTokens, long latencyMs) {
             this.calls = calls;
             this.failures = failures;
+            this.timedOut = timedOut;
             this.inputTokens = inputTokens;
             this.outputTokens = outputTokens;
             this.latencyMs = latencyMs;
@@ -198,6 +220,10 @@ public class LlmStatistics {
 
         public long getFailures() {
             return failures;
+        }
+
+        public long getTimedOut() {
+            return timedOut;
         }
 
         public long getInputTokens() {

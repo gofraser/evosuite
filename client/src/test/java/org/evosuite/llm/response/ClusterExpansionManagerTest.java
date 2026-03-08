@@ -28,6 +28,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
 
@@ -74,5 +75,64 @@ class ClusterExpansionManagerTest {
         ArgumentCaptor<java.util.Collection<Class<?>>> captor = ArgumentCaptor.forClass(java.util.Collection.class);
         verify(generator).addNewDependencies(captor.capture());
         assertTrue(captor.getValue().contains(java.util.ArrayList.class));
+    }
+
+    @Test
+    void filtersNoiseWordsFromDiagnostics() {
+        ClusterExpansionManager manager = new ClusterExpansionManager(getClass().getClassLoader());
+        ParseResult result = new ParseResult(new DefaultTestCase(), "test");
+        result.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                "Failed to resolve Object. No class found. Unresolved symbol.", 1,
+                "Object obj = new Missing();"));
+
+        Set<String> symbols = manager.extractUnresolvedSymbols(Collections.singletonList(result));
+
+        assertFalse(symbols.contains("Failed"), "Failed should be filtered as noise");
+        assertFalse(symbols.contains("Object"), "Object should be filtered as noise");
+        assertFalse(symbols.contains("No"), "No should be filtered as noise");
+        assertFalse(symbols.contains("Unresolved"), "Unresolved should be filtered as noise");
+        assertFalse(symbols.contains("Missing"), "Missing should be filtered as noise");
+    }
+
+    @Test
+    void rejectsVariableStyleDottedPaths() {
+        ClusterExpansionManager manager = new ClusterExpansionManager(getClass().getClassLoader());
+        ParseResult result = new ParseResult(new DefaultTestCase(), "test");
+        result.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                "room3D.numChildren is not valid", 1,
+                "int x = room3D.numChildren;"));
+
+        Set<String> symbols = manager.extractUnresolvedSymbols(Collections.singletonList(result));
+
+        assertFalse(symbols.contains("room3D.numChildren"),
+                "Variable-style dotted path should be rejected (first segment is lowercase-ish)");
+    }
+
+    @Test
+    void acceptsLegitimateClassNames() {
+        ClusterExpansionManager manager = new ClusterExpansionManager(getClass().getClassLoader());
+        ParseResult result = new ParseResult(new DefaultTestCase(), "test");
+        result.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                "cannot find symbol com.example.MyService", 1,
+                "MyService svc = new com.example.MyService();"));
+
+        Set<String> symbols = manager.extractUnresolvedSymbols(Collections.singletonList(result));
+
+        assertTrue(symbols.contains("com.example.MyService"),
+                "Legitimate FQCN should be accepted");
+        assertTrue(symbols.contains("MyService"),
+                "Legitimate simple class name should be accepted");
+    }
+
+    @Test
+    void filtersTwoCharSimpleNames() {
+        ClusterExpansionManager manager = new ClusterExpansionManager(getClass().getClassLoader());
+        ParseResult result = new ParseResult(new DefaultTestCase(), "test");
+        result.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                "Xy is not a type", 1, "Xy x;"));
+
+        Set<String> symbols = manager.extractUnresolvedSymbols(Collections.singletonList(result));
+
+        assertFalse(symbols.contains("Xy"), "Two-char names should be filtered");
     }
 }

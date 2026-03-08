@@ -294,6 +294,33 @@ public class LlmService implements AutoCloseable {
     }
 
     /**
+     * Query with an explicit repair attempt number for trace recording.
+     * Use this when calling the LLM as part of a repair loop so that the
+     * trace correctly records which repair iteration produced this call.
+     *
+     * @param repairAttempt the 1-based repair attempt number (1 = initial, 2+ = repair)
+     */
+    public String query(List<LlmMessage> messages, LlmFeature feature, int repairAttempt) {
+        return queryInternal(messages, feature, null, false, false,
+                false, false, false, 0, repairAttempt);
+    }
+
+    /**
+     * Query with repair attempt number and cluster expansion metadata for trace recording.
+     *
+     * @param repairAttempt      the 1-based repair attempt number
+     * @param expansionAttempted whether cluster expansion was attempted before this call
+     * @param expandedClasses    classes that were expanded into the cluster
+     */
+    public String query(List<LlmMessage> messages, LlmFeature feature,
+                        int repairAttempt, boolean expansionAttempted,
+                        List<String> expandedClasses) {
+        return queryInternal(messages, feature, null, false, false,
+                false, false, false, 0, repairAttempt,
+                expansionAttempted, expandedClasses);
+    }
+
+    /**
      * Query with context metadata propagated to trace recording.
      * Prefer this overload when building prompts via {@link PromptResult}.
      */
@@ -313,7 +340,7 @@ public class LlmService implements AutoCloseable {
                                  boolean contextUnavailable,
                                  boolean contextTruncated) {
         return queryInternal(messages, feature, sutContextMode, contextUnavailable, contextTruncated,
-                false, false, false, 0);
+                false, false, false, 0, 1);
     }
 
     private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
@@ -324,10 +351,42 @@ public class LlmService implements AutoCloseable {
                                  boolean contextSelectivelyTruncated,
                                  boolean clusterSummaryTruncated,
                                  int clusterSummaryChars) {
+        return queryInternal(messages, feature, sutContextMode, contextUnavailable, contextTruncated,
+                contextCommentsStripped, contextSelectivelyTruncated, clusterSummaryTruncated,
+                clusterSummaryChars, 1);
+    }
+
+    private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
+                                 Properties.LlmSutContextMode sutContextMode,
+                                 boolean contextUnavailable,
+                                 boolean contextTruncated,
+                                 boolean contextCommentsStripped,
+                                 boolean contextSelectivelyTruncated,
+                                 boolean clusterSummaryTruncated,
+                                 int clusterSummaryChars,
+                                 int repairAttempt) {
+        return queryInternal(messages, feature, sutContextMode, contextUnavailable, contextTruncated,
+                contextCommentsStripped, contextSelectivelyTruncated, clusterSummaryTruncated,
+                clusterSummaryChars, repairAttempt, false, Collections.<String>emptyList());
+    }
+
+    private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
+                                 Properties.LlmSutContextMode sutContextMode,
+                                 boolean contextUnavailable,
+                                 boolean contextTruncated,
+                                 boolean contextCommentsStripped,
+                                 boolean contextSelectivelyTruncated,
+                                 boolean clusterSummaryTruncated,
+                                 int clusterSummaryChars,
+                                 int repairAttempt,
+                                 boolean expansionAttempted,
+                                 List<String> expandedClasses) {
         if (!available) {
             throw new LlmCallFailedException("LLM service is unavailable",
                     new IllegalStateException("LLM provider is not configured"), false);
         }
+        List<String> safeExpandedClasses = expandedClasses == null
+                ? Collections.<String>emptyList() : expandedClasses;
         int maxTries = Math.max(1, configuration.getRetryMaxAttempts() + 1);
         Throwable lastError = null;
 
@@ -349,8 +408,8 @@ public class LlmService implements AutoCloseable {
                 String status = truncated ? "TRUNCATED" : "SUCCESS";
                 statistics.recordCall(feature, response.getInputTokens(), response.getOutputTokens(), latency);
                 traceRecorder.recordCall(feature, messages, response.getText(), response.getInputTokens(),
-                        response.getOutputTokens(), latency, status, attempt, false,
-                        Collections.<String>emptyList(), "",
+                        response.getOutputTokens(), latency, status, repairAttempt, expansionAttempted,
+                        safeExpandedClasses, "",
                         sutContextMode, contextUnavailable, contextTruncated, contextCommentsStripped,
                         contextSelectivelyTruncated, clusterSummaryTruncated, clusterSummaryChars);
                 return response.getText();
@@ -379,10 +438,14 @@ public class LlmService implements AutoCloseable {
                         }
                     }
                     logger.debug("Full LLM error detail", lastError);
-                    statistics.recordFailure(feature);
+                    if (lastError instanceof TimeoutException) {
+                        statistics.recordTimeout(feature);
+                    } else {
+                        statistics.recordFailure(feature);
+                    }
                     traceRecorder.recordCall(feature, messages, "", 0, 0,
-                            System.currentTimeMillis() - start, "FAILED", attempt,
-                            false, Collections.<String>emptyList(), lastError.getClass().getSimpleName(),
+                            System.currentTimeMillis() - start, "FAILED", repairAttempt,
+                            expansionAttempted, safeExpandedClasses, lastError.getClass().getSimpleName(),
                             sutContextMode, contextUnavailable, contextTruncated, contextCommentsStripped,
                             contextSelectivelyTruncated, clusterSummaryTruncated, clusterSummaryChars);
                     throw new LlmCallFailedException(

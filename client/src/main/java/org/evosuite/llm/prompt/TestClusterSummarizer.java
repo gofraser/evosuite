@@ -33,6 +33,8 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -106,7 +108,9 @@ public class TestClusterSummarizer {
 
     /**
      * Produces a compact dependency summary showing available types,
-     * their constructors (with parameter types), and enum constants.
+     * their constructors, static factory methods, and modifier methods.
+     * Types are sorted by relevance tier: direct CUT dependencies first,
+     * then SUT types, then third-party types. JDK types are omitted entirely.
      *
      * @param cluster         the test cluster
      * @param targetClassName fully qualified name of the CUT (excluded from output)
@@ -118,15 +122,22 @@ public class TestClusterSummarizer {
             return new DependencySummaryResult("", false, 0);
         }
 
-        // Collect direct dependency type names from CUT constructors
+        // Collect direct dependency type names from CUT constructors and methods
         Set<String> directDependencyNames = collectDirectDependencies(cluster, targetClassName);
+
+        // Derive the SUT package prefix (top two segments, e.g. "com.example")
+        String sutPrefix = extractSutPrefix(targetClassName);
 
         // Collect all types from the generators map
         Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorsByType = cluster.getGeneratorsByType();
 
-        // Build per-type summaries, partitioned into direct deps vs others
-        List<TypeSummary> directDeps = new ArrayList<>();
-        List<TypeSummary> otherDeps = new ArrayList<>();
+        // Build a modifier lookup: class name -> set of modifier methods from the cluster
+        Map<String, Set<GenericAccessibleObject<?>>> modifiersByClassName = buildModifierLookup(cluster);
+
+        // Build per-type summaries, partitioned into 3 tiers
+        List<TypeSummary> tier1DirectDeps = new ArrayList<>();
+        List<TypeSummary> tier2SutTypes = new ArrayList<>();
+        List<TypeSummary> tier3ThirdParty = new ArrayList<>();
 
         for (Map.Entry<GenericClass<?>, Set<GenericAccessibleObject<?>>> entry : generatorsByType.entrySet()) {
             GenericClass<?> genClass = entry.getKey();
@@ -143,27 +154,38 @@ public class TestClusterSummarizer {
             if (rawClass.isPrimitive() || EXCLUDED_TYPES.contains(className)) {
                 continue;
             }
+            // Omit JDK types entirely — LLMs already know their APIs
+            if (isJdkType(className)) {
+                continue;
+            }
 
-            String line = formatTypeSummary(rawClass);
+            Set<GenericAccessibleObject<?>> generators = entry.getValue();
+            Set<GenericAccessibleObject<?>> modifiers = modifiersByClassName.getOrDefault(className, Collections.emptySet());
+            String line = formatTypeSummary(rawClass, generators, modifiers);
             if (line == null || line.isEmpty()) {
                 continue;
             }
 
             TypeSummary summary = new TypeSummary(rawClass.getSimpleName(), line);
-            if (directDependencyNames.contains(className)) {
-                directDeps.add(summary);
-            } else {
-                otherDeps.add(summary);
+            int tier = classifyTier(className, directDependencyNames, sutPrefix);
+            switch (tier) {
+                case 1: tier1DirectDeps.add(summary); break;
+                case 2: tier2SutTypes.add(summary); break;
+                default: tier3ThirdParty.add(summary); break;
             }
         }
 
-        // Sort each partition alphabetically
-        directDeps.sort((a, b) -> a.simpleName.compareToIgnoreCase(b.simpleName));
-        otherDeps.sort((a, b) -> a.simpleName.compareToIgnoreCase(b.simpleName));
+        // Sort each tier alphabetically
+        tier1DirectDeps.sort((a, b) -> a.simpleName.compareToIgnoreCase(b.simpleName));
+        tier2SutTypes.sort((a, b) -> a.simpleName.compareToIgnoreCase(b.simpleName));
+        tier3ThirdParty.sort((a, b) -> a.simpleName.compareToIgnoreCase(b.simpleName));
+
+        // Merge tiers in order
+        List<TypeSummary> allDeps = new ArrayList<>(tier1DirectDeps);
+        allDeps.addAll(tier2SutTypes);
+        allDeps.addAll(tier3ThirdParty);
 
         // Compute total chars without budget for metadata
-        List<TypeSummary> allDeps = new ArrayList<>(directDeps);
-        allDeps.addAll(otherDeps);
         int totalChars = 0;
         for (TypeSummary ts : allDeps) {
             totalChars += ts.line.length() + 1; // +1 for newline
@@ -173,22 +195,12 @@ public class TestClusterSummarizer {
         StringBuilder sb = new StringBuilder();
         boolean budgetExceeded = false;
 
-        for (TypeSummary ts : directDeps) {
+        for (TypeSummary ts : allDeps) {
             if (maxChars > 0 && sb.length() + ts.line.length() + 1 > maxChars) {
                 budgetExceeded = true;
                 break;
             }
             sb.append(ts.line).append('\n');
-        }
-
-        if (!budgetExceeded) {
-            for (TypeSummary ts : otherDeps) {
-                if (maxChars > 0 && sb.length() + ts.line.length() + 1 > maxChars) {
-                    budgetExceeded = true;
-                    break;
-                }
-                sb.append(ts.line).append('\n');
-            }
         }
 
         if (budgetExceeded) {
@@ -199,11 +211,14 @@ public class TestClusterSummarizer {
     }
 
     /**
-     * Formats a single type as a summary line.
+     * Formats a single type as a summary block.
      * For enums: "  EnumName { VALUE_A, VALUE_B, VALUE_C }"
-     * For classes: one line per constructor "  ClassName(ParamType1, ParamType2)"
+     * For classes: constructors, static factory methods from generators,
+     * and public modifier methods from the cluster.
      */
-    private String formatTypeSummary(Class<?> rawClass) {
+    private String formatTypeSummary(Class<?> rawClass,
+                                     Set<GenericAccessibleObject<?>> generators,
+                                     Set<GenericAccessibleObject<?>> modifiers) {
         StringBuilder sb = new StringBuilder();
         if (rawClass.isEnum()) {
             Object[] constants = rawClass.getEnumConstants();
@@ -216,36 +231,88 @@ public class TestClusterSummarizer {
                 sb.append(" }");
             }
         } else {
+            // Constructors from reflection
             Constructor<?>[] constructors = rawClass.getConstructors();
             for (Constructor<?> ctor : constructors) {
                 if (sb.length() > 0) sb.append('\n');
                 sb.append("  ").append(rawClass.getSimpleName())
                         .append('(').append(genericParameterList(ctor.getGenericParameterTypes())).append(')');
             }
+
+            // Static factory methods from generators (methods that aren't constructors)
+            if (generators != null) {
+                for (GenericAccessibleObject<?> gen : generators) {
+                    if (gen.isMethod() && gen.isStatic()) {
+                        Method method = ((java.lang.reflect.AccessibleObject) gen.getAccessibleObject()) instanceof Method
+                                ? (Method) gen.getAccessibleObject() : null;
+                        if (method != null) {
+                            if (sb.length() > 0) sb.append('\n');
+                            sb.append("  static ").append(rawClass.getSimpleName())
+                                    .append(' ').append(method.getName())
+                                    .append('(').append(genericParameterList(method.getGenericParameterTypes())).append(')');
+                        }
+                    }
+                }
+            }
+
+            // Public modifier methods from the cluster
+            if (modifiers != null) {
+                Set<String> seen = new HashSet<>();
+                for (GenericAccessibleObject<?> mod : modifiers) {
+                    if (mod.isMethod()) {
+                        Method method = mod.getAccessibleObject() instanceof Method
+                                ? (Method) mod.getAccessibleObject() : null;
+                        if (method != null && Modifier.isPublic(method.getModifiers())) {
+                            String sig = method.getName() + "(" + genericParameterList(method.getGenericParameterTypes()) + ")";
+                            if (seen.add(sig)) {
+                                if (sb.length() > 0) sb.append('\n');
+                                sb.append("  ").append(genericTypeName(method.getGenericReturnType()))
+                                        .append(' ').append(sig);
+                            }
+                        }
+                    }
+                }
+            }
         }
         return sb.toString();
     }
 
     /**
-     * Collects fully qualified names of types that appear as constructor parameters
-     * of the CUT (direct dependencies).
+     * Collects fully qualified names of types that appear as constructor parameters,
+     * public method parameters, or public method return types of the CUT (direct dependencies).
      */
     private Set<String> collectDirectDependencies(TestCluster cluster, String targetClassName) {
         Set<String> deps = new HashSet<>();
         try {
             Class<?> cutClass = Class.forName(targetClassName, false,
                     Thread.currentThread().getContextClassLoader());
+            // Constructor parameter types
             for (Constructor<?> ctor : cutClass.getConstructors()) {
                 for (Class<?> paramType : ctor.getParameterTypes()) {
-                    if (!paramType.isPrimitive() && !EXCLUDED_TYPES.contains(paramType.getName())) {
-                        deps.add(paramType.getName());
-                    }
+                    addIfRelevant(deps, paramType);
                 }
+            }
+            // Public method parameter and return types
+            for (Method method : cutClass.getMethods()) {
+                if (!Modifier.isPublic(method.getModifiers()) || method.getDeclaringClass() == Object.class) {
+                    continue;
+                }
+                for (Class<?> paramType : method.getParameterTypes()) {
+                    addIfRelevant(deps, paramType);
+                }
+                Class<?> returnType = method.getReturnType();
+                addIfRelevant(deps, returnType);
             }
         } catch (ClassNotFoundException e) {
             logger.debug("Could not load CUT class for dependency analysis: {}", targetClassName);
         }
         return deps;
+    }
+
+    private void addIfRelevant(Set<String> deps, Class<?> type) {
+        if (!type.isPrimitive() && !EXCLUDED_TYPES.contains(type.getName())) {
+            deps.add(type.getName());
+        }
     }
 
     /** Summarizes the class as a rich pseudo-Java declaration with fields, generics, and exceptions. */
@@ -397,6 +464,43 @@ public class TestClusterSummarizer {
         return String.join(System.lineSeparator(), lines);
     }
 
+    /**
+     * Returns a semicolon-separated summary of constructors and static factory methods
+     * for the given type, using both reflection and the test cluster's generator map.
+     */
+    public String summarizeGeneratorsFromCluster(GenericClass<?> type, TestCluster cluster) {
+        if (type == null || type.getRawClass() == null) {
+            return "";
+        }
+        Class<?> raw = type.getRawClass();
+        List<String> signatures = new ArrayList<>();
+
+        // Public constructors from reflection
+        for (Constructor<?> ctor : raw.getConstructors()) {
+            signatures.add(raw.getSimpleName() + "(" + genericParameterList(ctor.getGenericParameterTypes()) + ")");
+        }
+
+        // Static factory methods from cluster generators
+        if (cluster != null) {
+            Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorsByType = cluster.getGeneratorsByType();
+            Set<GenericAccessibleObject<?>> generators = generatorsByType.get(type);
+            if (generators != null) {
+                for (GenericAccessibleObject<?> gen : generators) {
+                    if (gen.isMethod() && gen.isStatic()) {
+                        if (gen.getAccessibleObject() instanceof Method) {
+                            Method method = (Method) gen.getAccessibleObject();
+                            signatures.add("static " + raw.getSimpleName() + " "
+                                    + method.getName() + "("
+                                    + genericParameterList(method.getGenericParameterTypes()) + ")");
+                        }
+                    }
+                }
+            }
+        }
+
+        return String.join("; ", signatures);
+    }
+
     private String parameterList(Class<?>[] parameterTypes) {
         List<String> names = new ArrayList<>();
         for (Class<?> parameterType : parameterTypes) {
@@ -467,6 +571,60 @@ public class TestClusterSummarizer {
                 logger.debug("Failed to collect generated class from cluster call {}", call, e);
             }
         }
+    }
+
+    /** Returns true if the class name belongs to a JDK package (java.* or javax.*). */
+    static boolean isJdkType(String className) {
+        return className.startsWith("java.") || className.startsWith("javax.");
+    }
+
+    /**
+     * Classifies a type into a relevance tier.
+     * @return 1 for direct CUT dependency, 2 for SUT type, 3 for third-party
+     */
+    static int classifyTier(String className, Set<String> directDependencyNames, String sutPrefix) {
+        if (directDependencyNames.contains(className)) {
+            return 1;
+        }
+        if (sutPrefix != null && !sutPrefix.isEmpty() && className.startsWith(sutPrefix + ".")) {
+            return 2;
+        }
+        return 3;
+    }
+
+    /**
+     * Extracts the top-level SUT package prefix from a fully qualified class name.
+     * Uses the first two package segments (e.g., "com.example.foo.Bar" → "com.example").
+     */
+    static String extractSutPrefix(String className) {
+        if (className == null) return "";
+        int firstDot = className.indexOf('.');
+        if (firstDot < 0) return "";
+        int secondDot = className.indexOf('.', firstDot + 1);
+        if (secondDot < 0) return className.substring(0, firstDot);
+        return className.substring(0, secondDot);
+    }
+
+    /**
+     * Builds a lookup from class name to the set of modifier objects from the cluster.
+     */
+    private Map<String, Set<GenericAccessibleObject<?>>> buildModifierLookup(TestCluster cluster) {
+        Map<String, Set<GenericAccessibleObject<?>>> lookup = new HashMap<>();
+        Set<GenericAccessibleObject<?>> allModifiers = cluster.getModifiers();
+        if (allModifiers == null) return lookup;
+        for (GenericAccessibleObject<?> mod : allModifiers) {
+            if (mod == null) continue;
+            try {
+                GenericClass<?> owner = mod.getOwnerClass();
+                if (owner != null && owner.getRawClass() != null) {
+                    String name = owner.getRawClass().getName();
+                    lookup.computeIfAbsent(name, k -> new HashSet<>()).add(mod);
+                }
+            } catch (Exception e) {
+                logger.debug("Failed to get owner class from modifier {}", mod, e);
+            }
+        }
+        return lookup;
     }
 
     private static class TypeSummary {

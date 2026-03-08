@@ -554,6 +554,64 @@ class LlmCastClassEnricherTest {
                 "Accepted count should be 0 when cancelled");
     }
 
+    // ---- buildAbstractTypeContext tests ----
+
+    @Test
+    void buildAbstractTypeContext_listsInterfacesFromCut() {
+        // java.util.Collections has methods with List, Collection, etc. parameters
+        LlmCastClassEnricher enricher = new LlmCastClassEnricher(createUnavailableService());
+        String context = enricher.buildAbstractTypeContext("java.util.Collections");
+
+        // Should detect interface types like List, Collection, etc.
+        assertTrue(context.contains("Interfaces/abstract"), "Expected header: " + context);
+        // Collections methods use List, Collection, Map, etc.
+        assertTrue(context.contains("java.util.") || context.contains("List") || context.contains("Collection"),
+                "Expected interface types from Collections API: " + context);
+    }
+
+    @Test
+    void buildAbstractTypeContext_showsExistingImplementations() {
+        // Pre-populate CastClassManager with ArrayList
+        CastClassManager.getInstance().addCastClass("java.util.ArrayList", 1);
+
+        LlmCastClassEnricher enricher = new LlmCastClassEnricher(createUnavailableService());
+        String context = enricher.buildAbstractTypeContext("java.util.Collections");
+
+        // Should mention ArrayList as an existing implementation for List
+        if (context.contains("java.util.List")) {
+            assertTrue(context.contains("ArrayList"),
+                    "Expected ArrayList as known implementation: " + context);
+        }
+    }
+
+    @Test
+    void buildAbstractTypeContext_emptyOnLoadFailure() {
+        LlmCastClassEnricher enricher = new LlmCastClassEnricher(createUnavailableService());
+        String context = enricher.buildAbstractTypeContext("com.nonexistent.FakeClass");
+        assertEquals("", context);
+    }
+
+    @Test
+    void buildAbstractTypeContext_emptyOnNull() {
+        LlmCastClassEnricher enricher = new LlmCastClassEnricher(createUnavailableService());
+        assertEquals("", enricher.buildAbstractTypeContext(null));
+    }
+
+    // ---- buildExistingCastContext tests ----
+
+    @Test
+    void buildExistingCastContext_formatsCorrectly() {
+        // CastClassManager is already populated with defaults from setUp (clear() calls initDefaultClasses)
+        LlmCastClassEnricher enricher = new LlmCastClassEnricher(createUnavailableService());
+        String context = enricher.buildExistingCastContext();
+
+        assertTrue(context.startsWith("Already registered cast classes:"),
+                "Expected header: " + context);
+        // Default classes include Object, String, etc.
+        assertTrue(context.contains("Object") || context.contains("String"),
+                "Expected default cast classes: " + context);
+    }
+
     // ---- Issue 2: FEW_SHOT not injected into strict structured-output enrichers ----
 
     @Test

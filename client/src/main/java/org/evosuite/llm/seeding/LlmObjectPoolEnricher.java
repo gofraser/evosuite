@@ -33,6 +33,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testparser.ParseResult;
+import org.evosuite.llm.prompt.TestClusterSummarizer;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 
@@ -301,19 +302,47 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         return types;
     }
 
-    PromptResult buildPrompt(String className, TestCluster cluster, List<String> typeNames) {
-        StringBuilder typeList = new StringBuilder();
-        int limit = Math.min(typeNames.size(), 10);
-        for (int i = 0; i < limit; i++) {
-            typeList.append("- ").append(typeNames.get(i)).append("\n");
+    String buildTypeConstructionContext(List<String> typeNames, TestCluster cluster) {
+        if (cluster == null || typeNames == null || typeNames.isEmpty()) {
+            return "";
         }
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        ClassLoader cl = Thread.currentThread().getContextClassLoader();
+        StringBuilder sb = new StringBuilder("Key types to construct:\n");
+        int limit = Math.min(typeNames.size(), 10);
+
+        for (int i = 0; i < limit; i++) {
+            String typeName = typeNames.get(i);
+            String constructors;
+            try {
+                Class<?> clazz = Class.forName(typeName, false, cl);
+                GenericClass<?> gc = GenericClassFactory.get(clazz);
+                constructors = summarizer.summarizeGeneratorsFromCluster(gc, cluster);
+            } catch (Throwable t) {
+                constructors = "(class not loadable)";
+            }
+
+            String entry = "- " + typeName + "\n  Constructors: "
+                    + (constructors.isEmpty() ? "(none)" : constructors) + "\n";
+            if (sb.length() + entry.length() > 2000) {
+                break;
+            }
+            sb.append(entry);
+        }
+
+        return sb.toString();
+    }
+
+    PromptResult buildPrompt(String className, TestCluster cluster, List<String> typeNames) {
+        String typeContext = buildTypeConstructionContext(typeNames, cluster);
 
         PromptBuilder builder = new PromptBuilder();
         builder.withSystemPrompt()
                 .withSutContext(className, cluster)
                 .withInstruction(
                         "Generate Java test methods that construct objects useful for testing " + className + ".\n\n"
-                        + "Key types involved:\n" + typeList + "\n"
+                        + typeContext + "\n"
                         + "For each type, create a @Test method that:\n"
                         + "1. Constructs an instance with interesting state\n"
                         + "2. Exercises constructors, setters, and builder patterns\n"

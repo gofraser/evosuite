@@ -24,11 +24,15 @@ import org.evosuite.llm.*;
 import org.evosuite.llm.mock.MockChatLanguageModel;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,8 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class LlmConstantPoolEnricherTest {
 
@@ -308,6 +311,56 @@ class LlmConstantPoolEnricherTest {
                 .reduce("", String::concat);
         assertFalse(combined.contains("Existing tests:"),
                 "Constant pool enricher prompt must not contain FEW_SHOT examples");
+    }
+
+    // ---- buildParameterTypeDigest tests ----
+
+    @Test
+    void buildParameterTypeDigest_includesMethodsWithConstantParams() throws Exception {
+        TestCluster cluster = mock(TestCluster.class);
+
+        // Mock a method void setValue(String)
+        GenericAccessibleObject<?> call = mock(GenericAccessibleObject.class);
+        when(call.isMethod()).thenReturn(true);
+        Method method = String.class.getMethod("substring", int.class);
+        doReturn(method).when(call).getAccessibleObject();
+
+        List<GenericAccessibleObject<?>> testCalls = new ArrayList<>();
+        testCalls.add(call);
+        when(cluster.getTestCalls()).thenReturn(testCalls);
+
+        LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(createUnavailableService());
+        String digest = enricher.buildParameterTypeDigest(cluster);
+
+        assertTrue(digest.contains("substring"), "Expected method name: " + digest);
+        assertTrue(digest.contains("int"), "Expected parameter type: " + digest);
+        assertTrue(digest.contains("CUT methods"), "Expected header: " + digest);
+    }
+
+    @Test
+    void buildParameterTypeDigest_excludesNonConstantParams() throws Exception {
+        TestCluster cluster = mock(TestCluster.class);
+
+        // Mock a method with only non-constant params (e.g., Object param)
+        GenericAccessibleObject<?> call = mock(GenericAccessibleObject.class);
+        when(call.isMethod()).thenReturn(true);
+        Method method = ArrayList.class.getMethod("addAll", java.util.Collection.class);
+        doReturn(method).when(call).getAccessibleObject();
+
+        List<GenericAccessibleObject<?>> testCalls = new ArrayList<>();
+        testCalls.add(call);
+        when(cluster.getTestCalls()).thenReturn(testCalls);
+
+        LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(createUnavailableService());
+        String digest = enricher.buildParameterTypeDigest(cluster);
+
+        assertEquals("", digest, "Should exclude methods with only non-constant params");
+    }
+
+    @Test
+    void buildParameterTypeDigest_emptyOnNullCluster() {
+        LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(createUnavailableService());
+        assertEquals("", enricher.buildParameterTypeDigest(null));
     }
 
     // ---- Helper methods ----

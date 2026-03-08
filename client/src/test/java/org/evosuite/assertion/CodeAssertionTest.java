@@ -21,12 +21,15 @@ package org.evosuite.assertion;
 
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.junit.jupiter.api.Test;
+
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -195,5 +198,25 @@ class CodeAssertionTest {
         tc.getStatement(0).addAssertion(a);
         assertEquals(1, tc.getStatement(0).getAssertions().size());
         assertTrue(tc.getStatement(0).getAssertions().contains(a));
+    }
+
+    @Test
+    void getReferencedVariables_includesAllBoundVariablesFromCode() {
+        TestCase tc = new DefaultTestCase();
+        VariableReference intRef = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+        VariableReference strRef = tc.addStatement(new StringPrimitiveStatement(tc, "hello"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String intName = visitor.getVariableName(intRef);
+        String strName = visitor.getVariableName(strRef);
+
+        CodeAssertion a = new CodeAssertion("assertTrue(" + intName + " == 42 || " + strName + ".length() > 0);");
+        a.setSource(intRef);
+        tc.getStatement(0).addAssertion(a);
+
+        Set<VariableReference> referenced = a.getReferencedVariables();
+        assertTrue(referenced.contains(intRef));
+        assertTrue(referenced.contains(strRef));
     }
 }

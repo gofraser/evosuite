@@ -20,6 +20,7 @@
 package org.evosuite.assertion;
 
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.expr.NameExpr;
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
@@ -273,15 +274,27 @@ public class LlmAssertionGeneratorStrategy extends AssertionGenerator {
             return 0;
         }
 
-        // Find all referenced known variables
+        // Find all referenced identifiers and ensure variable-like names resolve.
+        // This prevents unresolved symbols from leaking into emitted test code.
+        Set<String> referencedIdentifiers = extractReferencedIdentifiers(assertionStr);
         VariableReference bestRef = null;
         boolean hasAnyKnownVar = false;
-        for (Map.Entry<String, VariableReference> entry : varNameMap.entrySet()) {
-            if (assertionStr.contains(entry.getKey())) {
+        for (String identifier : referencedIdentifiers) {
+            VariableReference ref = varNameMap.get(identifier);
+            if (ref != null) {
                 hasAnyKnownVar = true;
-                if (bestRef == null || entry.getValue().getStPosition() > bestRef.getStPosition()) {
-                    bestRef = entry.getValue();
+                if (bestRef == null || ref.getStPosition() > bestRef.getStPosition()) {
+                    bestRef = ref;
                 }
+                continue;
+            }
+
+            // Allow unresolved type-like identifiers (e.g. Math, TimeUnit), but reject
+            // unresolved variable-like identifiers that would fail compilation.
+            if (!looksLikeTypeOrClassIdentifier(identifier)) {
+                logger.debug("Rejecting CodeAssertion with unresolved identifier '{}': {}",
+                        identifier, assertionStr);
+                return 0;
             }
         }
 
@@ -306,6 +319,25 @@ public class LlmAssertionGeneratorStrategy extends AssertionGenerator {
         codeAssertion.setSource(sourceRef);
         targetStmt.addAssertion(codeAssertion);
         return 1;
+    }
+
+    private Set<String> extractReferencedIdentifiers(String assertionStr) {
+        try {
+            com.github.javaparser.ast.stmt.Statement ast =
+                    StaticJavaParser.parseStatement(assertionStr);
+            Set<String> names = new LinkedHashSet<>();
+            for (NameExpr nameExpr : ast.findAll(NameExpr.class)) {
+                names.add(nameExpr.getNameAsString());
+            }
+            return names;
+        } catch (Exception e) {
+            logger.debug("Could not parse assertion to inspect identifiers: {}", assertionStr);
+            return Collections.emptySet();
+        }
+    }
+
+    private boolean looksLikeTypeOrClassIdentifier(String identifier) {
+        return !identifier.isEmpty() && Character.isUpperCase(identifier.charAt(0));
     }
 
     private int countAssertions(TestCase test) {

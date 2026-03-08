@@ -637,6 +637,10 @@ public enum RuntimeVariable {
      */
     LLM_Calls_Failed,
     /**
+     * Number of LLM calls that timed out after retries.
+     */
+    LLM_Calls_TimedOut,
+    /**
      * Total number of prompt tokens sent to providers.
      */
     LLM_Input_Tokens,

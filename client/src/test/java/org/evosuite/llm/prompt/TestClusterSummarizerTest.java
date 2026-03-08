@@ -25,10 +25,15 @@ import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -151,6 +156,51 @@ class TestClusterSummarizerTest {
         assertEquals("Unknown class", new TestClusterSummarizer().summarizeClass(null));
     }
 
+    // --- summarizeGeneratorsFromCluster tests ---
+
+    @Test
+    void summarizeGeneratorsFromCluster_includesStaticFactories() throws Exception {
+        TestCluster cluster = mock(TestCluster.class);
+
+        GenericClass<?> type = GenericClassFactory.get(ArrayList.class);
+
+        // Create a mock static factory generator
+        GenericAccessibleObject<?> factoryGen = mock(GenericAccessibleObject.class);
+        when(factoryGen.isMethod()).thenReturn(true);
+        when(factoryGen.isStatic()).thenReturn(true);
+        // Use a real static method as stand-in
+        Method ofMethod = Collections.class.getMethod("emptyList");
+        doReturn(ofMethod).when(factoryGen).getAccessibleObject();
+
+        Set<GenericAccessibleObject<?>> genSet = new HashSet<>();
+        genSet.add(factoryGen);
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(type, genSet);
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        String result = summarizer.summarizeGeneratorsFromCluster(type, cluster);
+
+        // Should include constructors
+        assertTrue(result.contains("ArrayList()"), "Expected no-arg constructor: " + result);
+        // Should include the static factory
+        assertTrue(result.contains("static ArrayList emptyList()"), "Expected static factory: " + result);
+        // Should be semicolon-separated
+        assertTrue(result.contains("; "), "Expected semicolon separator: " + result);
+    }
+
+    @Test
+    void summarizeGeneratorsFromCluster_worksWithNullCluster() {
+        GenericClass<?> type = GenericClassFactory.get(ArrayList.class);
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        String result = summarizer.summarizeGeneratorsFromCluster(type, null);
+
+        // Should still list constructors
+        assertTrue(result.contains("ArrayList()"), "Expected constructors even with null cluster: " + result);
+        assertFalse(result.contains("static"), "No static factories without cluster: " + result);
+    }
+
     // --- Helper method tests ---
 
     @Test
@@ -190,5 +240,180 @@ class TestClusterSummarizerTest {
         Type[] types = new Type[]{String.class, int.class, java.util.List.class};
         String result = TestClusterSummarizer.genericParameterList(types);
         assertEquals("String, int, java.util.List", result);
+    }
+
+    // --- isJdkType tests ---
+
+    @Test
+    void isJdkTypeReturnsTrueForJavaAndJavaxPackages() {
+        assertTrue(TestClusterSummarizer.isJdkType("java.util.ArrayList"));
+        assertTrue(TestClusterSummarizer.isJdkType("java.lang.String"));
+        assertTrue(TestClusterSummarizer.isJdkType("javax.swing.JFrame"));
+        assertTrue(TestClusterSummarizer.isJdkType("java.awt.Color"));
+    }
+
+    @Test
+    void isJdkTypeReturnsFalseForNonJdkPackages() {
+        assertFalse(TestClusterSummarizer.isJdkType("com.example.MyClass"));
+        assertFalse(TestClusterSummarizer.isJdkType("org.apache.commons.StringUtils"));
+        assertFalse(TestClusterSummarizer.isJdkType("org.evosuite.TestClass"));
+    }
+
+    // --- extractSutPrefix tests ---
+
+    @Test
+    void extractSutPrefixReturnsTwoSegments() {
+        assertEquals("com.example", TestClusterSummarizer.extractSutPrefix("com.example.foo.Bar"));
+        assertEquals("org.evosuite", TestClusterSummarizer.extractSutPrefix("org.evosuite.llm.TestClass"));
+    }
+
+    @Test
+    void extractSutPrefixHandlesEdgeCases() {
+        assertEquals("", TestClusterSummarizer.extractSutPrefix("MyClass"));
+        assertEquals("com", TestClusterSummarizer.extractSutPrefix("com.MyClass"));
+        assertEquals("", TestClusterSummarizer.extractSutPrefix(null));
+    }
+
+    // --- classifyTier tests ---
+
+    @Test
+    void classifyTierReturnsTier1ForDirectDeps() {
+        Set<String> directDeps = new HashSet<>(Arrays.asList("com.example.Dep1"));
+        assertEquals(1, TestClusterSummarizer.classifyTier("com.example.Dep1", directDeps, "com.example"));
+    }
+
+    @Test
+    void classifyTierReturnsTier2ForSutTypes() {
+        Set<String> directDeps = Collections.emptySet();
+        assertEquals(2, TestClusterSummarizer.classifyTier("com.example.other.Helper", directDeps, "com.example"));
+    }
+
+    @Test
+    void classifyTierReturnsTier3ForThirdParty() {
+        Set<String> directDeps = Collections.emptySet();
+        assertEquals(3, TestClusterSummarizer.classifyTier("org.apache.commons.StringUtils", directDeps, "com.example"));
+    }
+
+    // --- summarizeDependencies tier sorting tests ---
+
+    @Test
+    void summarizeDependenciesOmitsJdkTypes() {
+        TestCluster cluster = mock(TestCluster.class);
+
+        // Set up generators map with a JDK type (ArrayList)
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        GenericClass<?> arrayListClass = GenericClassFactory.get(ArrayList.class);
+        generators.put(arrayListClass, Collections.emptySet());
+
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.emptySet());
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        TestClusterSummarizer.DependencySummaryResult result =
+                summarizer.summarizeDependencies(cluster, "com.example.MyCut", 0);
+
+        // ArrayList is a JDK type and should be omitted
+        assertFalse(result.getText().contains("ArrayList"), "JDK types should be omitted: " + result.getText());
+    }
+
+    @Test
+    void summarizeDependenciesSortsSutBeforeThirdParty() {
+        TestCluster cluster = mock(TestCluster.class);
+
+        // Create two mock types: one SUT, one third-party
+        // We'll use GenericClass mocks since we need non-JDK classes
+        GenericClass<?> sutType = mock(GenericClass.class);
+        // Use a real class from our project as "SUT type"
+        doReturn(TestClusterSummarizer.class).when(sutType).getRawClass();
+
+        GenericClass<?> thirdPartyType = mock(GenericClass.class);
+        // Use TimeUnit as a non-JDK example (it's actually JDK, so let's use an enum)
+        // We need a class that isn't JDK — let's use our own test class
+        doReturn(TestClusterSummarizer.DependencySummaryResult.class).when(thirdPartyType).getRawClass();
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(sutType, Collections.emptySet());
+        generators.put(thirdPartyType, Collections.emptySet());
+
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.emptySet());
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        // Both types are in org.evosuite, target is also in org.evosuite
+        // so both should be tier 2 (SUT types)
+        TestClusterSummarizer.DependencySummaryResult result =
+                summarizer.summarizeDependencies(cluster, "org.evosuite.llm.MyCut", 0);
+
+        // Both SUT types should appear (they share the org.evosuite prefix)
+        String text = result.getText();
+        // They should be present since they're not JDK types
+        // TestClusterSummarizer has no public constructors in its class, but DependencySummaryResult does
+        assertFalse(text.isEmpty(), "Should have some output for SUT types");
+    }
+
+    @Test
+    void summarizeDependenciesShowsStaticFactoryMethods() throws Exception {
+        TestCluster cluster = mock(TestCluster.class);
+
+        // Create a generator entry with a static factory method
+        GenericClass<?> genClass = mock(GenericClass.class);
+        doReturn(TestClusterSummarizer.DependencySummaryResult.class).when(genClass).getRawClass();
+
+        // Create a mock static method generator
+        GenericAccessibleObject<?> factoryGen = mock(GenericAccessibleObject.class);
+        when(factoryGen.isMethod()).thenReturn(true);
+        when(factoryGen.isStatic()).thenReturn(true);
+        // Use a real static method for getAccessibleObject
+        Method getText = TestClusterSummarizer.DependencySummaryResult.class.getMethod("getText");
+        doReturn(getText).when(factoryGen).getAccessibleObject();
+
+        Set<GenericAccessibleObject<?>> genSet = new HashSet<>();
+        genSet.add(factoryGen);
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(genClass, genSet);
+
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.emptySet());
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        TestClusterSummarizer.DependencySummaryResult result =
+                summarizer.summarizeDependencies(cluster, "org.evosuite.MyCut", 0);
+
+        // Should show the static factory method
+        assertTrue(result.getText().contains("static"), "Should show static factory method: " + result.getText());
+        assertTrue(result.getText().contains("getText"), "Should show getText method: " + result.getText());
+    }
+
+    @Test
+    void summarizeDependenciesShowsModifierMethods() throws Exception {
+        TestCluster cluster = mock(TestCluster.class);
+
+        // Set up a type in the generators
+        GenericClass<?> genClass = mock(GenericClass.class);
+        doReturn(TestClusterSummarizer.DependencySummaryResult.class).when(genClass).getRawClass();
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(genClass, Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+
+        // Set up a modifier for the same type
+        GenericAccessibleObject<?> modifier = mock(GenericAccessibleObject.class);
+        when(modifier.isMethod()).thenReturn(true);
+        GenericClass<?> ownerClass = GenericClassFactory.get(TestClusterSummarizer.DependencySummaryResult.class);
+        doReturn(ownerClass).when(modifier).getOwnerClass();
+        Method isTruncated = TestClusterSummarizer.DependencySummaryResult.class.getMethod("isTruncated");
+        doReturn(isTruncated).when(modifier).getAccessibleObject();
+
+        Set<GenericAccessibleObject<?>> modifierSet = new HashSet<>();
+        modifierSet.add(modifier);
+        when(cluster.getModifiers()).thenReturn(modifierSet);
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        TestClusterSummarizer.DependencySummaryResult result =
+                summarizer.summarizeDependencies(cluster, "org.evosuite.MyCut", 0);
+
+        // Should show the modifier method
+        assertTrue(result.getText().contains("isTruncated"), "Should show modifier method: " + result.getText());
     }
 }

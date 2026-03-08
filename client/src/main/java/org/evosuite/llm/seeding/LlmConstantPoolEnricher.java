@@ -27,7 +27,12 @@ import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestCluster;
 
+import org.evosuite.utils.generic.GenericAccessibleObject;
+
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,6 +58,13 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
     static final Pattern NAN_PATTERN = Pattern.compile("(?i)\\b(?:double\\.)?nan\\b");
     static final Pattern INFINITY_PATTERN =
             Pattern.compile("(?i)(?:double\\.)?(positive_|negative_)?([+-])?infinity\\b");
+
+    private static final Set<Class<?>> CONSTANT_COMPATIBLE_TYPES = new HashSet<>(Arrays.<Class<?>>asList(
+            String.class, int.class, Integer.class, long.class, Long.class,
+            double.class, Double.class, float.class, Float.class,
+            boolean.class, Boolean.class, char.class, Character.class,
+            byte.class, Byte.class, short.class, Short.class
+    ));
 
     public LlmConstantPoolEnricher(LlmService llmService) {
         super(llmService, LlmFeature.CONSTANT_POOL_ENRICHMENT);
@@ -112,7 +124,54 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
         return EnrichmentResult.failure(reason);
     }
 
+    String buildParameterTypeDigest(TestCluster cluster) {
+        if (cluster == null) {
+            return "";
+        }
+        List<GenericAccessibleObject<?>> testCalls = cluster.getTestCalls();
+        if (testCalls == null || testCalls.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (GenericAccessibleObject<?> call : testCalls) {
+            if (!call.isMethod() || !(call.getAccessibleObject() instanceof Method)) {
+                continue;
+            }
+            Method method = (Method) call.getAccessibleObject();
+            Class<?>[] paramTypes = method.getParameterTypes();
+            boolean hasConstantParam = false;
+            for (Class<?> paramType : paramTypes) {
+                if (CONSTANT_COMPATIBLE_TYPES.contains(paramType)) {
+                    hasConstantParam = true;
+                    break;
+                }
+            }
+            if (!hasConstantParam) {
+                continue;
+            }
+
+            StringBuilder paramList = new StringBuilder();
+            for (int i = 0; i < paramTypes.length; i++) {
+                if (i > 0) paramList.append(", ");
+                paramList.append(paramTypes[i].getSimpleName());
+            }
+            String line = "  " + method.getName() + "(" + paramList + ")\n";
+            if (sb.length() + line.length() > 1000) {
+                break;
+            }
+            sb.append(line);
+        }
+
+        if (sb.length() == 0) {
+            return "";
+        }
+        return "\nCUT methods that accept constant-compatible parameters:\n" + sb.toString();
+    }
+
     PromptResult buildPrompt(String className, TestCluster cluster) {
+        String paramDigest = buildParameterTypeDigest(cluster);
+
         PromptBuilder builder = new PromptBuilder();
         builder.withSystemPrompt()
                 .withSutContext(className, cluster)
@@ -133,7 +192,8 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
                         + "2147483647\n"
                         + "0L\n"
                         + "3.14\n"
-                        + "1.0f\n\n"
+                        + "1.0f\n"
+                        + paramDigest + "\n"
                         + "Only provide the literal values, no explanations needed.")
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
         return builder.buildWithMetadata();

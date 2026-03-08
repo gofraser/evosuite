@@ -19,6 +19,8 @@
  */
 package org.evosuite.assertion;
 
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.expr.NameExpr;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
@@ -26,8 +28,11 @@ import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.variable.VariableReference;
 
 import java.lang.reflect.Type;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Assertion that holds a raw JUnit assertion code string. Used as a fallback
@@ -106,6 +111,22 @@ public class CodeAssertion extends Assertion {
         return codeString;
     }
 
+    @Override
+    public Set<VariableReference> getReferencedVariables() {
+        Set<VariableReference> referenced = new LinkedHashSet<>();
+        Map<String, VariableReference> bindings = buildVariableBindings();
+        for (String identifier : extractReferencedIdentifiers()) {
+            VariableReference ref = bindings.get(identifier);
+            if (ref != null) {
+                referenced.add(ref);
+            }
+        }
+        if (source != null) {
+            referenced.add(source);
+        }
+        return referenced;
+    }
+
     private Map<String, VariableReference> buildVariableBindings() {
         if (cachedBindings != null
                 && cachedBindingsTestCase != null
@@ -147,6 +168,22 @@ public class CodeAssertion extends Assertion {
         cachedBindingsTestCase = tc;
         cachedBindingsTestSize = tc.size();
         return map;
+    }
+
+    private Set<String> extractReferencedIdentifiers() {
+        if (codeString == null || codeString.isEmpty()) {
+            return Collections.emptySet();
+        }
+        try {
+            com.github.javaparser.ast.stmt.Statement ast = StaticJavaParser.parseStatement(codeString);
+            Set<String> names = new LinkedHashSet<>();
+            for (NameExpr nameExpr : ast.findAll(NameExpr.class)) {
+                names.add(nameExpr.getNameAsString());
+            }
+            return names;
+        } catch (Exception ignored) {
+            return Collections.emptySet();
+        }
     }
 
     @Override

@@ -142,7 +142,7 @@ public class PromptBuilder {
         this.clusterSummaryChars = result.getTotalCharsBeforeTruncation();
         String summary = result.getText();
         if (summary != null && !summary.trim().isEmpty()) {
-            userSections.add("Available types and constructors:\n" + summary);
+            userSections.add("Available dependency types (standard Java library classes may also be used freely):\n" + summary);
         }
         return this;
     }

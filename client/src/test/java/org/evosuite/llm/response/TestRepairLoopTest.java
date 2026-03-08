@@ -34,6 +34,8 @@ import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -77,13 +79,13 @@ class TestRepairLoopTest {
         assertTrue(result.isSuccess());
         assertEquals(2, result.getAttemptsUsed());
         verify(expansionManager, times(1)).tryExpandFrom(anyList());
-        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR));
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
     }
 
     @Test
     void requestsRepairWhenParseErrorCannotBeExpanded() {
         LlmService llmService = mock(LlmService.class);
-        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR)))
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
                 .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
 
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
@@ -117,13 +119,13 @@ class TestRepairLoopTest {
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
-        verify(llmService, times(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR));
+        verify(llmService, times(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
     }
 
     @Test
     void parserExceptionIsCapturedAndRepairAttempted() {
         LlmService llmService = mock(LlmService.class);
-        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR)))
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
                 .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
 
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
@@ -153,13 +155,13 @@ class TestRepairLoopTest {
 
         assertTrue(result.isSuccess());
         assertTrue(result.getDiagnostics().stream().anyMatch(d -> d.contains("Parser failure")));
-        verify(llmService, times(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR));
+        verify(llmService, times(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
     }
 
     @Test
     void executorExceptionIsCapturedAndRepairAttempted() {
         LlmService llmService = mock(LlmService.class);
-        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR)))
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
                 .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
 
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
@@ -191,13 +193,13 @@ class TestRepairLoopTest {
 
         assertTrue(result.isSuccess());
         assertTrue(result.getDiagnostics().stream().anyMatch(d -> d.contains("Execution failure")));
-        verify(llmService, times(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR));
+        verify(llmService, times(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
     }
 
     @Test
     void emptyParseResultTriggersRepairInsteadOfSuccess() {
         LlmService llmService = mock(LlmService.class);
-        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR)))
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
                 .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
 
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
@@ -227,6 +229,55 @@ class TestRepairLoopTest {
 
         assertTrue(result.isSuccess());
         assertTrue(result.getDiagnostics().stream().anyMatch(d -> d.contains("no test methods")));
-        verify(llmService, times(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR));
+        verify(llmService, times(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void stopsRepairWhenErrorDiffersOnlyInLineNumbers() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        // Parser returns errors that differ only in line numbers
+        AtomicInteger calls = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                int call = calls.getAndIncrement();
+                int line = 10 + call;  // line number changes each time
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "No matching constructor found for Foo with args ()", line,
+                        "new Foo()"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void test(){ new Foo(); }\n```");
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService, parser, new LlmResponseParser(), expansionManager,
+                testCase -> new ExecutionResult(testCase), 3);
+
+        RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getDiagnostics().stream().anyMatch(d -> d.contains("identical error repeated")));
+        // Should stop after 2 attempts (initial + 1 repair), not exhaust all 3
+        verify(llmService, atMost(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void normalizeErrorReplacesLineNumbers() {
+        assertEquals(
+                "ERROR (line N): Failed at position N",
+                TestRepairLoop.normalizeError("ERROR (line 42): Failed at position 7"));
+        assertEquals(
+                "ERROR (line N): something\nERROR (line N): other",
+                TestRepairLoop.normalizeError("ERROR (line 10): something\nERROR (line 20): other"));
+        assertEquals("", TestRepairLoop.normalizeError(null));
+        assertEquals("no numbers here", TestRepairLoop.normalizeError("no numbers here"));
     }
 }

@@ -30,6 +30,9 @@ import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.utils.generic.GenericClass;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -277,7 +280,122 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
         return new EnrichmentResult(true, suggested, validated, classesAdded, failureReason);
     }
 
+    private static final Set<String> TOO_GENERIC_TYPES = new HashSet<>(Arrays.asList(
+            "java.lang.Object", "java.io.Serializable", "java.lang.Comparable"
+    ));
+
+    String buildAbstractTypeContext(String className) {
+        if (className == null) {
+            return "";
+        }
+        Class<?> cutClass;
+        try {
+            cutClass = Class.forName(className, false,
+                    Thread.currentThread().getContextClassLoader());
+        } catch (Throwable t) {
+            return "";
+        }
+
+        // Collect interface/abstract types from CUT API
+        Set<Class<?>> abstractTypes = new LinkedHashSet<>();
+        try {
+            for (Constructor<?> ctor : cutClass.getConstructors()) {
+                for (Class<?> paramType : ctor.getParameterTypes()) {
+                    if (isAbstractOrInterface(paramType)) {
+                        abstractTypes.add(paramType);
+                    }
+                }
+            }
+            for (Method method : cutClass.getMethods()) {
+                if (!java.lang.reflect.Modifier.isPublic(method.getModifiers())
+                        || method.getDeclaringClass() == Object.class) {
+                    continue;
+                }
+                for (Class<?> paramType : method.getParameterTypes()) {
+                    if (isAbstractOrInterface(paramType)) {
+                        abstractTypes.add(paramType);
+                    }
+                }
+                Class<?> returnType = method.getReturnType();
+                if (isAbstractOrInterface(returnType)) {
+                    abstractTypes.add(returnType);
+                }
+            }
+        } catch (Throwable t) {
+            logger.debug("Error inspecting CUT methods for abstract types: {}", t.getMessage());
+        }
+
+        if (abstractTypes.isEmpty()) {
+            return "";
+        }
+
+        // Check existing cast classes for known implementations
+        Set<GenericClass<?>> castClasses = CastClassManager.getInstance().getCastClasses();
+
+        StringBuilder sb = new StringBuilder("\nInterfaces/abstract classes used in the SUT API:\n");
+        for (Class<?> abstractType : abstractTypes) {
+            List<String> knownImpls = new ArrayList<>();
+            for (GenericClass<?> gc : castClasses) {
+                try {
+                    Class<?> castRaw = gc.getRawClass();
+                    if (castRaw != null && abstractType.isAssignableFrom(castRaw)
+                            && castRaw != abstractType) {
+                        knownImpls.add(castRaw.getSimpleName());
+                    }
+                } catch (Throwable t) {
+                    // skip
+                }
+            }
+
+            String implInfo = knownImpls.isEmpty()
+                    ? "(no concrete implementations registered)"
+                    : "(already have: " + String.join(", ", knownImpls) + ")";
+            String line = "- " + abstractType.getName() + " " + implInfo + "\n";
+            if (sb.length() + line.length() > 1500) {
+                break;
+            }
+            sb.append(line);
+        }
+
+        return sb.toString();
+    }
+
+    private static boolean isAbstractOrInterface(Class<?> type) {
+        if (type == null || type.isPrimitive() || type.isArray()) {
+            return false;
+        }
+        if (TOO_GENERIC_TYPES.contains(type.getName())) {
+            return false;
+        }
+        return type.isInterface() || Modifier.isAbstract(type.getModifiers());
+    }
+
+    String buildExistingCastContext() {
+        Set<GenericClass<?>> castClasses = CastClassManager.getInstance().getCastClasses();
+        if (castClasses == null || castClasses.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder("Already registered cast classes: ");
+        boolean first = true;
+        for (GenericClass<?> gc : castClasses) {
+            if (gc.getRawClass() == null) continue;
+            String name = gc.getRawClass().getSimpleName();
+            if (!first) sb.append(", ");
+            first = false;
+            sb.append(name);
+            if (sb.length() > 500) {
+                sb.append(", ...");
+                break;
+            }
+        }
+        return sb.toString() + "\n";
+    }
+
     PromptResult buildPrompt(String className, TestCluster cluster) {
+        String abstractTypeContext = buildAbstractTypeContext(className);
+        String existingCastContext = buildExistingCastContext();
+
         PromptBuilder builder = new PromptBuilder();
         builder.withSystemPrompt()
                 .withSutContext(className, cluster)
@@ -287,7 +405,9 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
                         + "Think about:\n"
                         + "- Concrete implementations of interfaces/abstract classes used by " + className + "\n"
                         + "- Subclasses that appear in instanceof checks or type casts\n"
-                        + "- Common collection types, wrapper types, or domain types relevant to the API\n\n"
+                        + "- Common collection types, wrapper types, or domain types relevant to the API\n"
+                        + abstractTypeContext
+                        + existingCastContext + "\n"
                         + "Return your answer as a JSON object with a single key \"suggestions\" containing "
                         + "an array of fully-qualified Java class names (strings).\n\n"
                         + "Example:\n"
