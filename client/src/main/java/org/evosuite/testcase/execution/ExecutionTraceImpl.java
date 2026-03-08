@@ -649,9 +649,11 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         coveredFalseContext = new HashMap<>();
         coveredPredicateContext = new HashMap<>();
 
-        initializedClasses = new ArrayList<>();
-        classesWithStaticReads = new HashSet<>();
-        classesWithStaticWrites = new HashSet<>();
+        synchronized (staticStateLock) {
+            initializedClasses = new ArrayList<>();
+            classesWithStaticReads = new HashSet<>();
+            classesWithStaticWrites = new HashSet<>();
+        }
 
         trueDistancesSum.clear();
         falseDistancesSum.clear();
@@ -713,9 +715,11 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
         copy.explicitException = explicitException;
 
-        copy.initializedClasses.addAll(initializedClasses);
-        copy.classesWithStaticReads.addAll(classesWithStaticReads);
-        copy.classesWithStaticWrites.addAll(classesWithStaticWrites);
+        synchronized (staticStateLock) {
+            copy.initializedClasses.addAll(initializedClasses);
+            copy.classesWithStaticReads.addAll(classesWithStaticReads);
+            copy.classesWithStaticWrites.addAll(classesWithStaticWrites);
+        }
 
         copy.methodId = methodId;
         copy.duCounter = duCounter;
@@ -1972,27 +1976,35 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      * This set keeps those classes that have a static write (i.e. PUTSTATIC)
      * during test execution.
      */
-    private HashSet<String> classesWithStaticWrites = new HashSet<>();
+    private final Object staticStateLock = new Object();
+
+    private Set<String> classesWithStaticWrites = new HashSet<>();
 
     @Override
     public void putStaticPassed(String classNameWithDots, String fieldName) {
-        classesWithStaticWrites.add(classNameWithDots);
+        synchronized (staticStateLock) {
+            classesWithStaticWrites.add(classNameWithDots);
+        }
     }
 
     /**
      * This set keeps those classes that have a static read (i.e. GETSTATIC)
      * during test execution.
      */
-    private HashSet<String> classesWithStaticReads = new HashSet<>();
+    private Set<String> classesWithStaticReads = new HashSet<>();
 
     @Override
     public void getStaticPassed(String classNameWithDots, String fieldName) {
-        classesWithStaticReads.add(classNameWithDots);
+        synchronized (staticStateLock) {
+            classesWithStaticReads.add(classNameWithDots);
+        }
     }
 
     @Override
     public Set<String> getClassesWithStaticWrites() {
-        return classesWithStaticWrites;
+        synchronized (staticStateLock) {
+            return new HashSet<>(classesWithStaticWrites);
+        }
     }
 
     /**
@@ -2009,19 +2021,25 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      */
     @Override
     public void classInitialized(String classNameWithDots) {
-        if (!initializedClasses.contains(classNameWithDots)) {
-            initializedClasses.add(classNameWithDots);
+        synchronized (staticStateLock) {
+            if (!initializedClasses.contains(classNameWithDots)) {
+                initializedClasses.add(classNameWithDots);
+            }
         }
     }
 
     @Override
     public List<String> getInitializedClasses() {
-        return initializedClasses;
+        synchronized (staticStateLock) {
+            return new LinkedList<>(initializedClasses);
+        }
     }
 
     @Override
     public Set<String> getClassesWithStaticReads() {
-        return classesWithStaticReads;
+        synchronized (staticStateLock) {
+            return new HashSet<>(classesWithStaticReads);
+        }
     }
 
 }
