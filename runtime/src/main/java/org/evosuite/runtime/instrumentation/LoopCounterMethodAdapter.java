@@ -39,6 +39,15 @@ public class LoopCounterMethodAdapter extends MethodVisitor {
     private static final String LOOP_COUNTER = Type.getInternalName(LoopCounter.class);
 
     /**
+     * Tracks the number of uninitialized objects currently on the stack
+     * (i.e., objects created by NEW but not yet initialized by {@code <init>}).
+     * We must not inject instrumentation while uninitialized objects are on the
+     * stack, because ASM's COMPUTE_FRAMES cannot merge frame types that contain
+     * INVOKESTATIC/INVOKEVIRTUAL calls interleaved with UNINITIALIZED types.
+     */
+    private int uninitializedCount = 0;
+
+    /**
      * <p>Constructor for LoopCounterMethodAdapter.</p>
      *
      * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
@@ -55,8 +64,29 @@ public class LoopCounterMethodAdapter extends MethodVisitor {
     }
 
     @Override
+    public void visitTypeInsn(int opcode, String type) {
+        if (opcode == Opcodes.NEW) {
+            uninitializedCount++;
+        }
+        super.visitTypeInsn(opcode, type);
+    }
+
+    @Override
+    public void visitMethodInsn(int opcode, String owner, String name,
+                                String descriptor, boolean isInterface) {
+        if (opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name)) {
+            if (uninitializedCount > 0) {
+                uninitializedCount--;
+            }
+        }
+        super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+    }
+
+    @Override
     public void visitJumpInsn(int opcode, Label label) {
-        addInstrumentation(); //add instrumentation before of the jump
+        if (uninitializedCount == 0) {
+            addInstrumentation();
+        }
         super.visitJumpInsn(opcode, label);
     }
 
