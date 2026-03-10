@@ -186,7 +186,9 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         } else {
             ConstantPool constantPool = ConstantPoolManager.getInstance().getConstantPool();
             String candidateString = constantPool.getRandomString();
-            if (Properties.MAX_STRING > 0 && candidateString.length() < Properties.MAX_STRING) {
+            if (candidateString != null
+                    && Properties.MAX_STRING > 0
+                    && candidateString.length() < Properties.MAX_STRING) {
                 value = candidateString;
             } else {
                 value = Randomness.nextString(Randomness.nextInt(Properties.STRING_LENGTH));
