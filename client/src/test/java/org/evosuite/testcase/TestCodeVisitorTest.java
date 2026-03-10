@@ -29,9 +29,11 @@ import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ClassPrimitiveStatement;
 import org.evosuite.testcase.statements.EnumPrimitiveStatement;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
 import org.evosuite.utils.generic.Person;
@@ -80,6 +82,17 @@ public class TestCodeVisitorTest {
 
     public abstract static class FakeAbstractClass {
 
+    }
+
+    public interface MessageHandler {
+        String handle();
+    }
+
+    public static class MessageMultiplexer implements MessageHandler {
+        @Override
+        public String handle() {
+            return "ok";
+        }
     }
 
     public static class Country {
@@ -255,6 +268,21 @@ public class TestCodeVisitorTest {
         String code = tc.toCode();
         System.out.println(tc);
         assertFalse(code.contains("longArray0[0] = (Long) shortArray0[1]"));
+    }
+
+    @Test
+    public void testFunctionalMockWithAssignableRawAndTargetTypes() {
+        TestCase tc = new DefaultTestCase();
+        FunctionalMockStatement mockStatement = new FunctionalMockStatement(
+                tc, MessageMultiplexer.class, GenericClassFactory.get(MessageHandler.class));
+        tc.addStatement(mockStatement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("mock("));
+        assertTrue(code.contains("MessageMultiplexer"));
     }
 
     @Test

@@ -229,6 +229,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 || rawClass.equals(Class.class)
                 || rawClass.isArray() || rawClass.isPrimitive() || rawClass.isAnonymousClass()
                 || rawClass.isEnum()
+                || isSealed(rawClass)
+                || isRecord(rawClass)
                 // note: Mockito can handle package-level classes,
                 // but we get all kinds of weird exceptions with instrumentation :(
                 || !Modifier.isPublic(rawClass.getModifiers())) {
@@ -281,6 +283,24 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         );
 
         return !avoid.contains(rawClass);
+    }
+
+    private static boolean isSealed(Class<?> rawClass) {
+        try {
+            Method isSealed = Class.class.getMethod("isSealed");
+            return (Boolean) isSealed.invoke(rawClass);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            return false;
+        }
+    }
+
+    private static boolean isRecord(Class<?> rawClass) {
+        try {
+            Method isRecord = Class.class.getMethod("isRecord");
+            return (Boolean) isRecord.invoke(rawClass);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            return false;
+        }
     }
 
     /**
@@ -1060,8 +1080,13 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 // FIXME: Happens for reasons I don't understand. By throwing a
                 // CodeUnderTestException EvoSuite will just ignore that mocking
                 // statement and continue, instead of crashing
-                AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass
-                        + " due to IAE: " + e.getMessage());
+                if (isSealed(targetClass.getRawClass()) || isRecord(targetClass.getRawClass())) {
+                    AtMostOnceLogger.warn(logger, "Cannot use Mockito on " + targetClass
+                            + " as it is a sealed class or a record: " + e.getMessage());
+                } else {
+                    AtMostOnceLogger.error(logger, "Cannot use Mockito on " + targetClass
+                            + " due to IAE: " + e.getMessage());
+                }
                 throw new CodeUnderTestException(e); //or should throw an exception?
             } catch (Throwable t) {
                 AtMostOnceLogger.error(logger, "Failed to use Mockito on " + targetClass

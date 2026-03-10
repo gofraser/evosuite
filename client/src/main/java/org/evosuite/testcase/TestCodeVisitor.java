@@ -317,7 +317,7 @@ public class TestCodeVisitor extends TestVisitor {
 
         GenericClass<?> c = GenericClassFactory.get(clazz);
         String name = c.getSimpleName();
-        if (classNames.containsValue(name)) {
+        if (hasSimpleNameConflict(clazz, name)) {
             name = clazz.getCanonicalName();
         } else {
             /*
@@ -363,6 +363,21 @@ public class TestCodeVisitor extends TestVisitor {
         classNames.put(clazz, name);
 
         return name;
+    }
+
+    private boolean hasSimpleNameConflict(Class<?> clazz, String simpleName) {
+        String canonicalName = clazz.getCanonicalName();
+        for (Map.Entry<Class<?>, String> entry : classNames.entrySet()) {
+            if (!simpleName.equals(entry.getValue())) {
+                continue;
+            }
+            Class<?> existingClass = entry.getKey();
+            String existingCanonical = existingClass.getCanonicalName();
+            if (!Objects.equals(canonicalName, existingCanonical)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1401,13 +1416,14 @@ public class TestCodeVisitor extends TestVisitor {
 
         StringBuffer result = new StringBuffer();
 
-        //by construction, we should avoid cases like:
-        //  Object obj = mock(Foo.class);
-        //as it leads to problems when setting up "when(...)", and anyway it would make no sense
+        // By construction, we should avoid cases like:
+        //   Object obj = mock(Foo.class);
+        // as it leads to problems when setting up "when(...)", and anyway it would make little sense.
+        // However, parser/seeding paths can produce compatible-but-not-equal raw/target pairs,
+        // e.g. Impl var with Interface target, so we resolve to a concrete compatible raw class.
         Class<?> rawClass = GenericClassFactory.get(retval.getType()).getRawClass();
         Class<?> targetClass = st.getTargetClass();
-        assert rawClass.getName().equals(targetClass.getName()) :
-                "Mismatch between variable raw type " + rawClass + " and mocked " + targetClass;
+        rawClass = resolveFunctionalMockRawClass(rawClass, targetClass);
         String rawClassName = getClassName(rawClass);
 
 
@@ -1503,6 +1519,23 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         testCode.append(result);
+    }
+
+    private Class<?> resolveFunctionalMockRawClass(Class<?> variableRawClass, Class<?> mockedTargetClass) {
+        if (variableRawClass.equals(mockedTargetClass)) {
+            return variableRawClass;
+        }
+
+        if (variableRawClass.isAssignableFrom(mockedTargetClass)) {
+            return mockedTargetClass;
+        }
+
+        if (mockedTargetClass.isAssignableFrom(variableRawClass)) {
+            return variableRawClass;
+        }
+
+        throw new IllegalStateException("Mismatch between variable raw type " + variableRawClass
+                + " and mocked " + mockedTargetClass);
     }
 
     private String getParameterStringForFMthatReturnPrimitive(Class<?> returnType, List<VariableReference> parameters) {
