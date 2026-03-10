@@ -1,0 +1,2 @@
+# Required for doubly shaded Mockito (standalone shaded launcher).
+shaded.org.evosuite.shaded.org.mockito.internal.creation.bytebuddy.SubclassByteBuddyMockMaker

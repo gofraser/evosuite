@@ -32,6 +32,9 @@ import org.evosuite.runtime.util.SystemInUtil;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
+import org.evosuite.testcase.statements.Statement;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -272,7 +275,12 @@ public class TestCaseExecutor implements ThreadFactory {
      */
     public ExecutionResult execute(TestCase tc, int timeout) {
         Scope scope = new Scope();
-        ExecutionResult result = execute(tc, scope, timeout);
+        ExecutionResult result;
+        try {
+            result = execute(tc, scope, timeout);
+        } finally {
+            clearInlineMocksIfNeeded(tc);
+        }
 
         if (Properties.RESET_STATIC_FIELDS) {
             logger.debug("Resetting classes after execution");
@@ -494,6 +502,25 @@ public class TestCaseExecutor implements ThreadFactory {
                 PermissionStatistics.getInstance().countThreads(threadGroup.activeCount());
             }
             TestCluster.getInstance().handleRuntimeAccesses(tc);
+        }
+    }
+
+    /**
+     * Release Mockito inline mock state if the test case used functional mocks.
+     * Prevents OOM during long searches where thousands of mock objects accumulate
+     * in Mockito's internal state. Safe because each execution creates a fresh
+     * Scope — no mock survives to the next execution.
+     */
+    private static void clearInlineMocksIfNeeded(TestCase tc) {
+        for (Statement s : tc) {
+            if (s instanceof FunctionalMockStatement) {
+                try {
+                    Mockito.framework().clearInlineMocks();
+                } catch (Throwable ignored) {
+                    // Mockito not on classpath, or inline mock maker not active
+                }
+                return;
+            }
         }
     }
 

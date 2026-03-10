@@ -1,0 +1,2 @@
+# Required for shaded Mockito: points to the shaded MockMaker implementation.
+org.evosuite.shaded.org.mockito.internal.creation.bytebuddy.SubclassByteBuddyMockMaker
