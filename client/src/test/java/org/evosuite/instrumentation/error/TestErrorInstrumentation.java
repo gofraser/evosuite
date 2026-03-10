@@ -30,11 +30,13 @@ public class TestErrorInstrumentation {
 
     private ErrorConditionMethodAdapter mv;
     private NullPointerExceptionInstrumentation npeInstrumentation;
+    private CollectionCapacityInstrumentation collectionCapacityInstrumentation;
 
     @BeforeEach
     public void setUp() {
         mv = mock(ErrorConditionMethodAdapter.class);
         npeInstrumentation = new NullPointerExceptionInstrumentation(mv);
+        collectionCapacityInstrumentation = new CollectionCapacityInstrumentation(mv);
         // Default behavior for newLocal to return some index
         when(mv.newLocal(any(Type.class))).thenReturn(1);
         when(mv.getMethodName()).thenReturn("testMethod");
@@ -81,5 +83,36 @@ public class TestErrorInstrumentation {
         // Should not duplicate or tag branch
         verify(mv, never()).dup();
         verify(mv, never()).tagBranch();
+    }
+
+    @Test
+    public void testCollectionCapacityGuardForArrayListIntCtor() {
+        collectionCapacityInstrumentation.visitMethodInsn(
+                Opcodes.INVOKESPECIAL, "java/util/ArrayList", "<init>", "(I)V", false);
+
+        verify(mv).visitFieldInsn(Opcodes.GETSTATIC, "org/evosuite/Properties",
+                "COLLECTION_CAPACITY_LIMIT", "I");
+        verify(mv).visitJumpInsn(eq(Opcodes.IF_ICMPLT), any());
+        verify(mv).visitTypeInsn(Opcodes.NEW,
+                "org/evosuite/testcase/execution/TestCaseExecutor$TimeoutExceeded");
+    }
+
+    @Test
+    public void testCollectionCapacityGuardForMapCtor() {
+        collectionCapacityInstrumentation.visitMethodInsn(
+                Opcodes.INVOKESPECIAL, "java/util/HashMap", "<init>", "(IF)V", false);
+
+        verify(mv).visitFieldInsn(Opcodes.GETSTATIC, "org/evosuite/Properties",
+                "MAP_CAPACITY_LIMIT", "I");
+        verify(mv).visitJumpInsn(eq(Opcodes.IF_ICMPLT), any());
+    }
+
+    @Test
+    public void testCollectionCapacityGuardIgnoredWhenFirstArgNotInt() {
+        collectionCapacityInstrumentation.visitMethodInsn(
+                Opcodes.INVOKESPECIAL, "java/util/ArrayList", "<init>", "(Ljava/util/Collection;)V", false);
+
+        verify(mv, never()).visitFieldInsn(eq(Opcodes.GETSTATIC), eq("org/evosuite/Properties"),
+                anyString(), eq("I"));
     }
 }

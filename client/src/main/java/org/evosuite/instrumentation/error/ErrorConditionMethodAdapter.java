@@ -114,6 +114,9 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.VECTOR)) {
             instrumentation.add(new VectorInstrumentation(this));
         }
+        if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.COLLECTIONCAPACITY)) {
+            instrumentation.add(new CollectionCapacityInstrumentation(this));
+        }
     }
 
 

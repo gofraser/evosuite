@@ -2221,7 +2221,8 @@ public class Properties {
     public static boolean ERROR_BRANCHES = false;
 
     public enum ErrorInstrumentation {
-        ARRAY, CAST, DEQUE, DIVISIONBYZERO, LINKEDHASHSET, NPE, OVERFLOW, QUEUE, STACK, VECTOR, LIST
+        ARRAY, CAST, DEQUE, DIVISIONBYZERO, LINKEDHASHSET, NPE, OVERFLOW, QUEUE, STACK, VECTOR, LIST,
+        COLLECTIONCAPACITY
     }
 
     @Parameter(key = "error_instrumentation", description = "Which instrumentation to use for error checks")
@@ -2229,7 +2230,7 @@ public class Properties {
             ErrorInstrumentation.ARRAY, ErrorInstrumentation.CAST, ErrorInstrumentation.DEQUE,
             ErrorInstrumentation.DIVISIONBYZERO, ErrorInstrumentation.LINKEDHASHSET,
             ErrorInstrumentation.NPE, ErrorInstrumentation.OVERFLOW, ErrorInstrumentation.QUEUE,
-            ErrorInstrumentation.STACK, ErrorInstrumentation.VECTOR};
+            ErrorInstrumentation.STACK, ErrorInstrumentation.VECTOR, ErrorInstrumentation.COLLECTIONCAPACITY};
 
     @Parameter(key = "enable_asserts_for_evosuite",
             description = "When running EvoSuite clients, for debugging purposes check its assserts")
@@ -2264,6 +2265,14 @@ public class Properties {
     @Parameter(key = "array_limit", group = "Test Execution",
             description = "Hard limit on array allocation in the code")
     public static int ARRAY_LIMIT = 1000000;
+
+    @Parameter(key = "collection_capacity_limit", group = "Test Execution",
+            description = "Hard limit on collection constructor capacity in the code")
+    public static int COLLECTION_CAPACITY_LIMIT = 1000000;
+
+    @Parameter(key = "map_capacity_limit", group = "Test Execution",
+            description = "Hard limit on map constructor capacity in the code")
+    public static int MAP_CAPACITY_LIMIT = 1000000;
 
     @Parameter(key = "max_mutants", group = "Test Execution",
             description = "Maximum number of mutants to target at the same time")
