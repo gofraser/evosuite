@@ -35,11 +35,13 @@ import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
 /**
@@ -142,6 +144,14 @@ public abstract class TestGenerationStrategy {
      * @return true if tests can be generated
      */
     protected boolean canGenerateTestsForSUT() {
+        if (Properties.hasTargetClassBeenLoaded()) {
+            Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
+            if (targetClass != null && targetClass.isEnum()
+                    && !hasUserTestableMethod(targetClass)) {
+                return false;
+            }
+        }
+
         if (TestCluster.getInstance().getNumTestCalls() > 0) {
             return true;
         }
@@ -150,6 +160,18 @@ public abstract class TestGenerationStrategy {
         final InstrumentingClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
         final int numMethods = CFGMethodAdapter.getNumMethods(cl);
         return Properties.P_REFLECTION_ON_PRIVATE > 0.0 && numMethods > 0;
+    }
+
+    static boolean hasUserTestableMethod(Class<?> targetClass) {
+        for (Method method : targetClass.getDeclaredMethods()) {
+            if (TestUsageChecker.isCompilerGeneratedEnumMethod(method)) {
+                continue;
+            }
+            if (TestUsageChecker.canUse(method, targetClass)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

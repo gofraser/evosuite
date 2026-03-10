@@ -55,6 +55,20 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
 
     private static final Logger logger = LoggerFactory.getLogger(MOSuiteStrategy.class);
 
+    /**
+     * Creates the GA used by this strategy.
+     */
+    protected GeneticAlgorithm<TestSuiteChromosome> createSearchAlgorithm() {
+        return new PropertiesSuiteGAFactory().getSearchAlgorithm();
+    }
+
+    /**
+     * Returns the configured goal factories.
+     */
+    protected List<TestFitnessFactory<? extends TestFitnessFunction>> getConfiguredGoalFactories() {
+        return getFitnessFactories();
+    }
+
     @Override
     public TestSuiteChromosome generateTests() {
         // Currently only LIPS uses its own Archive
@@ -63,9 +77,7 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
         }
 
         // Set up search algorithm
-        PropertiesSuiteGAFactory algorithmFactory = new PropertiesSuiteGAFactory();
-
-        GeneticAlgorithm<TestSuiteChromosome> algorithm = algorithmFactory.getSearchAlgorithm();
+        GeneticAlgorithm<TestSuiteChromosome> algorithm = createSearchAlgorithm();
 
         if (Properties.SERIALIZE_GA || Properties.CLIENT_ON_THREAD) {
             TestGenerationResultBuilder.getInstance().setGeneticAlgorithm(algorithm);
@@ -74,7 +86,7 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
         long startTime = System.currentTimeMillis() / 1000;
 
         // What's the search target
-        List<TestFitnessFactory<? extends TestFitnessFunction>> goalFactories = getFitnessFactories();
+        List<TestFitnessFactory<? extends TestFitnessFunction>> goalFactories = getConfiguredGoalFactories();
         List<FitnessFunction<TestSuiteChromosome>> fitnessFunctions = new ArrayList<>();
 
         for (TestFitnessFactory<? extends TestFitnessFunction> f : goalFactories) {
@@ -93,7 +105,7 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
                 ClientProcess.getPrettyPrintIdentifier(),
                 Properties.ALGORITHM.name(), fitnessFunctions.size());
 
-        if (fitnessFunctions.isEmpty() && !ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
+        if (fitnessFunctions.isEmpty()) {
             LoggingUtils.getEvoLogger().info("* No coverage goals found for the target class {}",
                     Properties.TARGET_CLASS);
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, 0);
