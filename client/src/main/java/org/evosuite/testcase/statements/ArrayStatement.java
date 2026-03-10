@@ -266,7 +266,7 @@ public class ArrayStatement extends AbstractStatement {
      */
     @Override
     public boolean isValid() {
-        int maxAssignment = 0;
+        int maxAssignment = -1;
         for (Statement statement : this.tc) {
             for (VariableReference var : statement.getVariableReferences()) {
                 if (var.getAdditionalVariableReference() == this.retval) {
@@ -274,12 +274,14 @@ public class ArrayStatement extends AbstractStatement {
                     while (currentVar instanceof FieldReference) {
                         currentVar = ((FieldReference) currentVar).getSource();
                     }
-                    ArrayIndex index = (ArrayIndex) currentVar;
-                    maxAssignment = Math.max(maxAssignment, index.getArrayIndex());
+                    if (currentVar instanceof ArrayIndex) {
+                        ArrayIndex index = (ArrayIndex) currentVar;
+                        maxAssignment = Math.max(maxAssignment, index.getArrayIndex());
+                    }
                 }
             }
         }
-        if (maxAssignment > lengths[0]) {
+        if (maxAssignment >= lengths[0]) {
             logger.warn("Max assignment = " + maxAssignment + ", length = " + lengths[0]);
             return false;
         }
@@ -309,6 +311,7 @@ public class ArrayStatement extends AbstractStatement {
                         LoggingUtils.getEvoLogger().error(test.toCode());
                         LoggingUtils.getEvoLogger().error("{} , {}", statement.getPosition(),
                                 statement.getCode());
+                        continue;
                     }
                     ArrayIndex index = (ArrayIndex) currentVar;
                     maxAssignment = Math.max(maxAssignment, index.getArrayIndex());
@@ -338,8 +341,8 @@ public class ArrayStatement extends AbstractStatement {
         }
 
         // TODO: Need to make sure this doesn't happen by construction
-        if (newLength <= 0) {
-            newLength = 1;
+        if (newLength <= maxAssignment) {
+            newLength = maxAssignment + 1;
         }
 
         lengths[dim] = newLength;

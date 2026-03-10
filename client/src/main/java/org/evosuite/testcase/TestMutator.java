@@ -325,7 +325,7 @@ public class TestMutator {
                     replacement.remove();
                 }
             } else if (r instanceof ArrayReference) {
-                if (maxIndex >= ((ArrayReference) r).getArrayLength()) {
+                if (maxIndex >= ((ArrayReference) r).getStructuralArrayLength()) {
                     replacement.remove();
                 }
             } else if (!replacingPrimitive) {
@@ -522,8 +522,9 @@ public class TestMutator {
             logger.debug("Chosen object is array ");
 
             ArrayReference array = (ArrayReference) var;
-            if (array.getArrayLength() > 0) {
-                for (int i = 0; i < array.getArrayLength(); i++) {
+            int length = array.getStructuralArrayLength();
+            if (length > 0) {
+                for (int i = 0; i < length; i++) {
                     logger.debug("Assigning array index {}", i);
                     int oldLen = test.size();
                     try {

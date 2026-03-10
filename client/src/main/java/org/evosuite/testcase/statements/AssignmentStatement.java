@@ -286,8 +286,52 @@ public class AssignmentStatement extends AbstractStatement {
     @Override
     public boolean isValid() {
         assert (super.isValid());
-        parameter.getStPosition();
+
+        if (!isDefinedInTest(parameter)) {
+            return false;
+        }
+
+        if (retval instanceof ArrayIndex) {
+            ArrayIndex arrayIndex = (ArrayIndex) retval;
+            ArrayReference arrayRef = arrayIndex.getArray();
+            if (!isDefinedInTest(arrayRef)) {
+                return false;
+            }
+
+            List<Integer> lengths = arrayRef.getStructuralLengths();
+            List<Integer> indices = arrayIndex.getArrayIndices();
+            if (indices.isEmpty() || indices.size() > lengths.size()) {
+                return false;
+            }
+
+            for (int i = 0; i < indices.size(); i++) {
+                int index = indices.get(i);
+                int length = lengths.get(i);
+                if (index < 0 || index >= length) {
+                    return false;
+                }
+            }
+        }
         return true;
+    }
+
+    private boolean isDefinedInTest(VariableReference reference) {
+        if (reference == null) {
+            return false;
+        }
+        if (reference instanceof ArrayIndex) {
+            return isDefinedInTest(((ArrayIndex) reference).getArray());
+        }
+        if (reference instanceof FieldReference) {
+            return isDefinedInTest(((FieldReference) reference).getSource());
+        }
+        for (int i = 0; i < tc.size(); i++) {
+            VariableReference value = tc.getStatement(i).getReturnValue();
+            if (reference.equals(value)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isAssignable(VariableReference target, VariableReference value) {
@@ -382,14 +426,7 @@ public class AssignmentStatement extends AbstractStatement {
      * Falls back to the runtime length if no matching ArrayStatement is found.
      */
     private int getStructuralArrayLength(ArrayReference arrayRef) {
-        int pos = arrayRef.getStPosition();
-        if (pos >= 0 && pos < tc.size()) {
-            Statement stmt = tc.getStatement(pos);
-            if (stmt instanceof ArrayStatement) {
-                return ((ArrayStatement) stmt).size();
-            }
-        }
-        return arrayRef.getArrayLength();
+        return arrayRef.getStructuralArrayLength();
     }
 
     /* (non-Javadoc)

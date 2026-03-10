@@ -156,6 +156,9 @@ public class ArrayLocalSearch extends StatementLocalSearch {
                 p.size());
         ExecutionResult oldResult = test.getLastExecutionResult();
         oldLength = p.size();
+
+        // Minimum allowed length based on existing array index assignments
+        int minLength = getMinArrayLength(test.getTestCase(), p);
         boolean done = false;
         while (!done) {
             if (LocalSearchBudget.getInstance().isFinished()) {
@@ -185,7 +188,7 @@ public class ArrayLocalSearch extends StatementLocalSearch {
                 test.setChanged(false);
 
             } else {
-                if (oldLength > 0) {
+                if (oldLength > minLength) {
                     // Restore original, try -1
                     p.setSize(oldLength);
                     test.setLastExecutionResult(oldResult);
@@ -201,7 +204,7 @@ public class ArrayLocalSearch extends StatementLocalSearch {
                     hasImproved = true;
 
                     boolean improved = true;
-                    while (improved && p.size() > 0) {
+                    while (improved && p.size() > minLength) {
                         if (LocalSearchBudget.getInstance().isFinished()) {
                             break;
                         }
@@ -226,4 +229,22 @@ public class ArrayLocalSearch extends StatementLocalSearch {
         return hasImproved;
     }
 
+    private int getMinArrayLength(org.evosuite.testcase.TestCase test, ArrayStatement statement) {
+        int maxAssignment = -1;
+        for (Statement s : test) {
+            for (org.evosuite.testcase.variable.VariableReference var : s.getVariableReferences()) {
+                if (var.getAdditionalVariableReference() == statement.getReturnValue()) {
+                    org.evosuite.testcase.variable.VariableReference currentVar = var;
+                    while (currentVar instanceof org.evosuite.testcase.variable.FieldReference) {
+                        currentVar = ((org.evosuite.testcase.variable.FieldReference) currentVar).getSource();
+                    }
+                    if (currentVar instanceof org.evosuite.testcase.variable.ArrayIndex) {
+                        org.evosuite.testcase.variable.ArrayIndex index = (org.evosuite.testcase.variable.ArrayIndex) currentVar;
+                        maxAssignment = Math.max(maxAssignment, index.getArrayIndex());
+                    }
+                }
+            }
+        }
+        return maxAssignment + 1;
+    }
 }

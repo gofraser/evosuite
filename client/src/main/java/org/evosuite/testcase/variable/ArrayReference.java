@@ -109,6 +109,31 @@ public class ArrayReference extends VariableReferenceImpl {
     }
 
     /**
+     * Returns lengths as defined by the structural array declaration in the test model
+     * (ie, {@link ArrayStatement}), if available. Falls back to runtime-inferred lengths.
+     */
+    public List<Integer> getStructuralLengths() {
+        for (int i = 0; i < testCase.size(); i++) {
+            Statement statement = testCase.getStatement(i);
+            if (statement.getReturnValue().equals(this) && statement instanceof ArrayStatement) {
+                return ((ArrayStatement) statement).getLengths();
+            }
+        }
+        return getLengths();
+    }
+
+    /**
+     * Returns the first-dimension structural length when available.
+     */
+    public int getStructuralArrayLength() {
+        List<Integer> structuralLengths = getStructuralLengths();
+        if (structuralLengths.isEmpty()) {
+            return 0;
+        }
+        return structuralLengths.get(0);
+    }
+
+    /**
      * Setter for the field <code>lengths</code>.
      *
      * @param lengths an array of int.
