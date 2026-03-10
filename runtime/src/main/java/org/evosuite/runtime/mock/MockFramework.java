@@ -37,6 +37,7 @@ package org.evosuite.runtime.mock;
 public class MockFramework {
 
     private static final String MOCK_ENABLED_PROPERTY = "evosuite.mock.enabled";
+    private static final ThreadLocal<Boolean> resolvingEnabled = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private static volatile boolean active = false;
 
     /**
@@ -71,13 +72,20 @@ public class MockFramework {
      * @return true if mocking is enabled.
      */
     public static boolean isEnabled() {
+        if (resolvingEnabled.get()) {
+            return active;
+        }
+
         try {
+            resolvingEnabled.set(Boolean.TRUE);
             String property = java.lang.System.getProperty(MOCK_ENABLED_PROPERTY);
             if (property != null) {
                 return Boolean.parseBoolean(property);
             }
         } catch (RuntimeException ignored) {
             // Fall back to local state below.
+        } finally {
+            resolvingEnabled.set(Boolean.FALSE);
         }
         return active;
     }
