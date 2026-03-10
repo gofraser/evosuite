@@ -815,6 +815,12 @@ public class TestSuiteWriter implements Opcodes {
         }
 
         if (wasSecurityException) {
+            if (!Properties.TEST_SCAFFOLDING) {
+                builder.append(BLOCK_SPACE);
+                builder.append("ExecutorService " + Scaffolding.EXECUTOR_SERVICE
+                        + " = Executors.newCachedThreadPool();");
+                builder.append(NEWLINE);
+            }
             builder.append(BLOCK_SPACE);
             builder.append("Future<?> future = " + Scaffolding.EXECUTOR_SERVICE
                     + ".submit(new Runnable(){ ");
@@ -865,6 +871,11 @@ public class TestSuiteWriter implements Opcodes {
             builder.append(BLOCK_SPACE);
             builder.append("future.get(" + time + ", TimeUnit.MILLISECONDS);");
             builder.append(NEWLINE);
+            if (!Properties.TEST_SCAFFOLDING) {
+                builder.append(BLOCK_SPACE);
+                builder.append(Scaffolding.EXECUTOR_SERVICE + ".shutdownNow();");
+                builder.append(NEWLINE);
+            }
         }
 
         // ---------   end of the body ----------------------------
