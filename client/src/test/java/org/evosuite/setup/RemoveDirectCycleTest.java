@@ -19,62 +19,50 @@
  */
 package org.evosuite.setup;
 
-import org.evosuite.utils.generic.GenericClass;
-import org.evosuite.utils.generic.GenericClassFactory;
-import org.evosuite.utils.generic.GenericConstructor;
-import org.evosuite.utils.generic.GenericMethod;
-import org.junit.jupiter.api.BeforeEach;
+import com.examples.with.different.packagename.setup.ClassUsingCycleWithEscape;
+import com.examples.with.different.packagename.setup.CycleWithEscapeX;
+import com.examples.with.different.packagename.setup.CycleWithEscapeY;
+import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
+import org.evosuite.classpath.ClassPathHandler;
 import org.junit.jupiter.api.Test;
 
-import java.util.Set;
-import org.evosuite.utils.generic.GenericAccessibleObject;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests that {@code removeDirectCycle} does not over-aggressively remove
+ * generators when the owner class has an alternative constructor that
+ * breaks the cycle.
+ *
+ * <p>Scenario: X has constructors X() and X(Y), plus a method Y getY().
+ * The cycle X(Y) &harr; x.getY() is escapable via the no-arg constructor X(),
+ * so Y should still have a generator after cleanup.</p>
+ */
 public class RemoveDirectCycleTest {
-
-    public static class Y {}
-
-    public static class X {
-        public X() {}
-        public X(Y y) {}
-        public Y getY() { return new Y(); }
-    }
-
-    @BeforeEach
-    public void setUp() {
-        TestCluster.reset();
-    }
 
     @Test
     public void testRemoveDirectCycleAggressiveness() throws Exception {
-        TestCluster cluster = TestCluster.getInstance();
+        String targetClass = ClassUsingCycleWithEscape.class.getName();
+        Properties.TARGET_CLASS = targetClass;
+        List<String> classpath = new ArrayList<>();
+        String cp = System.getProperty("user.dir") + "/target/test-classes";
+        classpath.add(cp);
+        ClassPathHandler.getInstance().addElementToTargetProjectClassPath(cp);
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
 
-        GenericClass<?> typeX = GenericClassFactory.get(X.class);
-        GenericClass<?> typeY = GenericClassFactory.get(Y.class);
+        DependencyAnalysis.analyzeClass(targetClass, classpath);
 
-        // Generators for X
-        GenericConstructor xCtor1 = new GenericConstructor(X.class.getConstructor(), typeX);
-        GenericConstructor xCtor2 = new GenericConstructor(X.class.getConstructor(Y.class), typeX);
+        ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
 
-        cluster.addGenerator(typeX, xCtor1);
-        cluster.addGenerator(typeX, xCtor2);
+        assertTrue(TestCluster.getInstance().hasGenerator(
+                        cl.loadClass(CycleWithEscapeX.class.getName())),
+                "X should have generators");
 
-        // Generator for Y: x.getY()
-        GenericMethod yGen = new GenericMethod(X.class.getMethod("getY"), typeX);
-        cluster.addGenerator(typeY, yGen);
-
-        // Verification before clean up
-        assertTrue(cluster.hasGenerator(typeX));
-        assertTrue(cluster.hasGenerator(typeY));
-
-        // Run cleanup
-        cluster.removeUnusableGenerators();
-
-        // Verification after clean up
-        assertTrue(cluster.hasGenerator(typeX), "X should still have generators");
-
-        // This is expected to FAIL with current buggy implementation
-        assertTrue(cluster.hasGenerator(typeY), "Y should still have generator because X has a no-arg constructor");
+        assertTrue(TestCluster.getInstance().hasGenerator(
+                        cl.loadClass(CycleWithEscapeY.class.getName())),
+                "Y should still have generator because X has a no-arg constructor");
     }
 }

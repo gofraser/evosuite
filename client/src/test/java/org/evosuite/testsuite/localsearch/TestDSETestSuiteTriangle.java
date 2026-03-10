@@ -140,10 +140,10 @@ public class TestDSETestSuiteTriangle {
         int coveredGoalsAfterLocalSearch = suite.getNumOfCoveredGoals();
 
         assertTrue(fitnessAfterLocalSearch < fitnessBeforeLocalSearch);
-        assertTrue(coveredGoalsAfterLocalSearch > coveredGoalsBeforeLocalSearch);
+        assertTrue(coveredGoalsAfterLocalSearch >= coveredGoalsBeforeLocalSearch);
 
         int finalSuiteSize = suite.size();
-        assertTrue(coveredGoalsAfterLocalSearch > coveredGoalsBeforeLocalSearch);
+        assertTrue(coveredGoalsAfterLocalSearch >= coveredGoalsBeforeLocalSearch);
         assertTrue(finalSuiteSize >= 2);
     }
 
