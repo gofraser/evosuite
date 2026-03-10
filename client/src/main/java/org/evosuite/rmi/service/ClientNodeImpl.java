@@ -415,6 +415,11 @@ public class ClientNodeImpl<T extends Chromosome<T>>
      * <p>Uses a poison-pill pattern: a sentinel object is placed on the output variable queue
      * so the statistics thread finishes sending all preceding items and then exits cleanly,
      * without being interrupted mid-RMI call (which would lose the in-flight variable).</p>
+     *
+     * <p>After the statistics thread terminates, any remaining items in the queue are drained
+     * and sent synchronously on this thread. This handles the case where the statistics thread
+     * died earlier (e.g. due to a transient RemoteException during the search) or was too slow
+     * and had to be interrupted.</p>
      */
     public void stop() {
         logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client stop() begin");
@@ -435,6 +440,35 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 statisticsThread.interrupt();
             }
             statisticsThread = null;
+        }
+
+        // Drain any remaining items that the statistics thread didn't get to.
+        // This happens when the thread died mid-search (RemoteException, master unavailable)
+        // or when it was too slow and was force-interrupted above.
+        List<OutputVariable> remaining = new ArrayList<>();
+        outputVariableQueue.drainTo(remaining);
+        if (!remaining.isEmpty()) {
+            logger.info(ClientProcess.getPrettyPrintIdentifier()
+                    + "Draining " + remaining.size() + " remaining statistics on stop() thread");
+            for (OutputVariable ov : remaining) {
+                if (ov == POISON_PILL) {
+                    continue;
+                }
+                if (!ensureMasterNode()) {
+                    if (Properties.CLIENT_ON_THREAD) {
+                        fallbackSetOutputVariable(ov.variable, ov.value);
+                        continue;
+                    }
+                    logger.warn("Master node is not available; skipping statistics flush on stop");
+                    break;
+                }
+                try {
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
+                } catch (RemoteException e) {
+                    logger.error("Error when exporting statistics on stop: " + ov.variable + "=" + ov.value, e);
+                    break;
+                }
+            }
         }
 
         logger.info(ClientProcess.getPrettyPrintIdentifier() + "Shutting down search executor");
