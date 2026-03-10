@@ -25,6 +25,7 @@ import org.evosuite.utils.generic.WildcardTypeImpl;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
@@ -34,6 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestFactoryClassLiteralNormalizationTest {
+
+    private static class GenericHolder<T> {
+        Class<T>[] classArray;
+    }
 
     @Test
     public void normalizeClassLiteralParameterizedArgumentByErasure() throws Exception {
@@ -57,6 +62,21 @@ public class TestFactoryClassLiteralNormalizationTest {
 
         assertEquals(Class.class, normalizedType.getRawType());
         assertTrue(normalizedType.getActualTypeArguments()[0] instanceof WildcardType);
+    }
+
+    @Test
+    public void normalizeArrayOfClassTypeVariableToWildcardBoundedArray() throws Exception {
+        Type classArray = GenericHolder.class.getDeclaredField("classArray").getGenericType();
+
+        Type normalized = TestFactory.normalizeTypeVariablesToWildcardsIfNeeded(classArray);
+
+        assertTrue(normalized instanceof GenericArrayType);
+        Type componentType = ((GenericArrayType) normalized).getGenericComponentType();
+        assertTrue(componentType instanceof ParameterizedType);
+
+        ParameterizedType parameterizedComponentType = (ParameterizedType) componentType;
+        assertEquals(Class.class, parameterizedComponentType.getRawType());
+        assertTrue(parameterizedComponentType.getActualTypeArguments()[0] instanceof WildcardType);
     }
 
     private static Type normalizeClassLiteralTypeArgumentByErasure(Type type) throws Exception {

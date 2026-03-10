@@ -32,7 +32,9 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service for creating statements during test case generation.
@@ -135,8 +137,8 @@ public class StatementFactory {
                     context.deeper(),
                     VariableResolutionConfig.defaultConfig());
             
-            if (isListCapacityConstructor(constructor)) {
-                validateOrAdjustListCapacityParameter(test, position, parameters);
+            if (isCapacitySensitiveCollectionConstructor(constructor)) {
+                validateOrAdjustCapacityParameter(test, constructor, position, parameters);
             }
             int newLength = test.size();
             position += (newLength - length);
@@ -150,21 +152,23 @@ public class StatementFactory {
         }
     }
 
-    private boolean isListCapacityConstructor(GenericConstructor constructor) {
+    private boolean isCapacitySensitiveCollectionConstructor(GenericConstructor constructor) {
         Class<?> rawType = constructor.getRawGeneratedType();
-        if (rawType == null || !List.class.isAssignableFrom(rawType)) {
+        if (rawType == null
+                || (!Collection.class.isAssignableFrom(rawType) && !Map.class.isAssignableFrom(rawType))) {
             return false;
         }
         Class<?>[] rawParams = constructor.getConstructor().getParameterTypes();
-        return rawParams.length == 1 && rawParams[0].equals(int.class);
+        return rawParams.length > 0 && rawParams[0].equals(int.class);
     }
 
-    private void validateOrAdjustListCapacityParameter(TestCase test,
-                                                              int insertionPosition,
-                                                              List<VariableReference> parameters)
+    private void validateOrAdjustCapacityParameter(TestCase test,
+                                                   GenericConstructor constructor,
+                                                   int insertionPosition,
+                                                   List<VariableReference> parameters)
             throws ConstructionFailedException {
         if (parameters == null || parameters.isEmpty()) {
-            throw new ConstructionFailedException("Missing list capacity parameter");
+            throw new ConstructionFailedException("Missing capacity parameter");
         }
         VariableReference param = parameters.get(0);
         Statement st = test.getStatement(param.getStPosition());
@@ -174,14 +178,22 @@ public class StatementFactory {
         org.evosuite.testcase.statements.numeric.IntPrimitiveStatement intStatement =
                 (org.evosuite.testcase.statements.numeric.IntPrimitiveStatement) st;
         int value = intStatement.getValue();
-        int maxCapacity = Math.max(0, Properties.MAX_ARRAY);
+        int maxCapacity = getCapacityLimit(constructor);
         if (value < 0 || value > maxCapacity) {
             if (param.getStPosition() < insertionPosition) {
-                throw new ConstructionFailedException("List capacity too large: " + value);
+                throw new ConstructionFailedException("Collection/Map capacity too large: " + value);
             }
             int bounded = Randomness.nextInt(maxCapacity + 1);
             intStatement.setValue(bounded);
         }
+    }
+
+    private int getCapacityLimit(GenericConstructor constructor) {
+        Class<?> rawType = constructor.getRawGeneratedType();
+        if (rawType != null && Map.class.isAssignableFrom(rawType)) {
+            return Math.max(0, Properties.MAP_CAPACITY_LIMIT);
+        }
+        return Math.max(0, Properties.COLLECTION_CAPACITY_LIMIT);
     }
 
     /**
@@ -350,7 +362,7 @@ public class StatementFactory {
             }
         }
 
-        Type expectedFieldType = testFactory.normalizeClassLiteralTypeArgumentByErasure(field.getFieldType());
+        Type expectedFieldType = testFactory.normalizeTypeVariablesToWildcardsIfNeeded(field.getFieldType());
         VariableReference var = testFactory.createOrReuseVariable(test, expectedFieldType,
                 position, context, callee, true, false, false);
         int newLength = test.size();
@@ -360,9 +372,10 @@ public class StatementFactory {
         if (f.equals(var)) {
             throw new ConstructionFailedException("Self assignment");
         }
-        if (!var.isAssignableTo(f.getType())) {
-            String message = var + " cannot be assigned to " + f.getType();
-            testFactory.throwCannotAssignIfNeeded(message, test, position, f.getType(), var);
+        Type expectedAssignmentType = testFactory.normalizeTypeVariablesToWildcardsIfNeeded(f.getType());
+        if (!var.isAssignableTo(expectedAssignmentType)) {
+            String message = var + " cannot be assigned to " + expectedAssignmentType;
+            testFactory.throwCannotAssignIfNeeded(message, test, position, expectedAssignmentType, var);
             throw new ConstructionFailedException(message);
         }
 
@@ -391,15 +404,16 @@ public class StatementFactory {
         }
 
         int length = test.size();
-        Type expectedFieldType = testFactory.normalizeClassLiteralTypeArgumentByErasure(field.getFieldType());
+        Type expectedFieldType = testFactory.normalizeTypeVariablesToWildcardsIfNeeded(field.getFieldType());
         VariableReference value = testFactory.createOrReuseVariable(test, expectedFieldType,
                 position, context, callee, true, false, true);
 
         int newLength = test.size();
         position += (newLength - length);
-        if (!value.isAssignableTo(field.getFieldType())) {
-            String message = value + " cannot be assigned to " + field.getFieldType();
-            testFactory.throwCannotAssignIfNeeded(message, test, position, field.getFieldType(), value);
+        Type expectedAssignmentType = testFactory.normalizeTypeVariablesToWildcardsIfNeeded(field.getFieldType());
+        if (!value.isAssignableTo(expectedAssignmentType)) {
+            String message = value + " cannot be assigned to " + expectedAssignmentType;
+            testFactory.throwCannotAssignIfNeeded(message, test, position, expectedAssignmentType, value);
             throw new ConstructionFailedException(message);
         }
 

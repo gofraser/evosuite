@@ -343,10 +343,19 @@ public class TestFactory {
     }
 
     static Type normalizeTypeVariablesToWildcardsIfNeeded(Type type) {
+        if (type instanceof GenericArrayType) {
+            GenericArrayType genericArrayType = (GenericArrayType) type;
+            Type normalizedComponentType = normalizeTypeVariablesToWildcardsIfNeeded(
+                    genericArrayType.getGenericComponentType());
+            return GenericArrayTypeImpl.createArrayType(normalizedComponentType);
+        }
+
         GenericClass<?> parameterClass = GenericClassFactory.get(type);
         Type normalizedType = type;
         if (parameterClass.hasTypeVariables()) {
             normalizedType = parameterClass.getWithWildcardTypes().getType();
+        } else if (type instanceof TypeVariable || type instanceof ParameterizedType) {
+            normalizedType = GenericUtils.replaceTypeVariablesWithWildcards(type);
         }
         return normalizeClassLiteralTypeArgumentByErasure(normalizedType);
     }
@@ -357,6 +366,13 @@ public class TestFactory {
      * generated class literals can be assigned without triggering false generic mismatches.
      */
     static Type normalizeClassLiteralTypeArgumentByErasure(Type type) {
+        if (type instanceof GenericArrayType) {
+            GenericArrayType arrayType = (GenericArrayType) type;
+            Type normalizedComponentType = normalizeClassLiteralTypeArgumentByErasure(
+                    arrayType.getGenericComponentType());
+            return GenericArrayTypeImpl.createArrayType(normalizedComponentType);
+        }
+
         if (!(type instanceof ParameterizedType)) {
             return type;
         }
@@ -1722,6 +1738,14 @@ public class TestFactory {
      * @return true if it is assignable
      */
     static boolean isClassLiteralAssignableByErasure(Type expectedType, Type actualType) {
+        if (expectedType instanceof GenericArrayType && actualType instanceof GenericArrayType) {
+            GenericArrayType expectedArray = (GenericArrayType) expectedType;
+            GenericArrayType actualArray = (GenericArrayType) actualType;
+            return isClassLiteralAssignableByErasure(
+                    expectedArray.getGenericComponentType(),
+                    actualArray.getGenericComponentType());
+        }
+
         if (!(expectedType instanceof ParameterizedType) || !(actualType instanceof ParameterizedType)) {
             return false;
         }
