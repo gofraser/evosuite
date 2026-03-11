@@ -42,6 +42,9 @@ public class DefaultRandomAccessQueue<T> implements RandomAccessQueue<T> {
      */
     @Override
     public synchronized void restrictedAdd(T value) {
+        if (value == null) {
+            return;
+        }
         if (!valueSet.contains(value)) {
             queue.add(value);
             valueSet.add(value);
@@ -50,7 +53,7 @@ public class DefaultRandomAccessQueue<T> implements RandomAccessQueue<T> {
     }
 
     private void reduceSize() {
-        if (queue.size() > Properties.DYNAMIC_POOL_SIZE) {
+        if (queue.size() > Math.max(1, Properties.DYNAMIC_POOL_SIZE)) {
             T value = queue.poll();
             valueSet.remove(value);
         }

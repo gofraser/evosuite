@@ -39,13 +39,16 @@ public class FrequencyBasedRandomAccessQueue<T> implements RandomAccessQueue<T> 
      */
     @Override
     public synchronized void restrictedAdd(T value) {
+        if (value == null) {
+            return;
+        }
         values.addConstant(value);
         queue.add(value);
         reduceSize();
     }
 
     private void reduceSize() {
-        if (queue.size() > Properties.DYNAMIC_POOL_SIZE) {
+        if (queue.size() > Math.max(1, Properties.DYNAMIC_POOL_SIZE)) {
             T value = queue.poll();
             values.removeConstant(value);
         }

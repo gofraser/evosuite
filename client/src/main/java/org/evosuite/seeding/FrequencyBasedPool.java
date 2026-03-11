@@ -39,6 +39,9 @@ public class FrequencyBasedPool<T> {
      * @param value the constant to add
      */
     public synchronized void addConstant(T value) {
+        if (value == null) {
+            return;
+        }
         numConstants++;
         constants.put(value, constants.getOrDefault(value, 0) + 1);
     }

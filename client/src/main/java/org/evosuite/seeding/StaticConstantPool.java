@@ -45,6 +45,9 @@ public class StaticConstantPool implements ConstantPool {
         private boolean dirty = false;
 
         public synchronized void add(T element) {
+            if (element == null) {
+                return;
+            }
             if (set.add(element)) {
                 list.add(element);
                 dirty = true;
