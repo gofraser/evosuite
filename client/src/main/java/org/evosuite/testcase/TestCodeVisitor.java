@@ -1703,6 +1703,8 @@ public class TestCodeVisitor extends TestVisitor {
                     calleeStr += "((" + getClassName(declaringClass) + ")" + calleeName + ")";
                 }
             } else {
+                boolean calleeDeclaresMethod =
+                        hasMethodBySignatureName(callee.getVariableClass(), method.getMethod());
                 // If the method is not public and this is a subclass in a different package we need to cast
                 if (!method.isPublic() && !method.getDeclaringClass().equals(callee.getVariableClass())
                         && callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
@@ -1714,7 +1716,8 @@ public class TestCodeVisitor extends TestVisitor {
                     } else {
                         calleeStr += getVariableName(callee);
                     }
-                } else if (!callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
+                } else if (!calleeDeclaresMethod
+                        || !callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
                     try {
                         // If the concrete callee class has that method then it's ok
                         callee.getVariableClass().getDeclaredMethod(method.getName(), method.getRawParameterTypes());
@@ -1769,6 +1772,45 @@ public class TestCodeVisitor extends TestVisitor {
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
+    }
+
+    private boolean hasMethodBySignatureName(Class<?> clazz, Method target) {
+        if (clazz == null || target == null) {
+            return false;
+        }
+        for (Method candidate : clazz.getMethods()) {
+            if (!candidate.getName().equals(target.getName())) {
+                continue;
+            }
+            if (sameParameterTypeNames(candidate.getParameterTypes(), target.getParameterTypes())) {
+                return true;
+            }
+        }
+        Class<?> current = clazz;
+        while (current != null) {
+            for (Method candidate : current.getDeclaredMethods()) {
+                if (!candidate.getName().equals(target.getName())) {
+                    continue;
+                }
+                if (sameParameterTypeNames(candidate.getParameterTypes(), target.getParameterTypes())) {
+                    return true;
+                }
+            }
+            current = current.getSuperclass();
+        }
+        return false;
+    }
+
+    private boolean sameParameterTypeNames(Class<?>[] left, Class<?>[] right) {
+        if (left.length != right.length) {
+            return false;
+        }
+        for (int i = 0; i < left.length; i++) {
+            if (!Objects.equals(left[i].getName(), right[i].getName())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean assertionReferencesReturnValue(Statement statement, VariableReference returnValue) {

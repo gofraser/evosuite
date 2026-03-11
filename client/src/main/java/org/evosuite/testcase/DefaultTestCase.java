@@ -1255,6 +1255,12 @@ public class DefaultTestCase implements TestCase, Serializable {
                                         Class<?> abstractClass) {
 
         if (!methodStatement.isStatic() && methodStatement.getCallee().equals(var)) {
+            Class<?> declaringClass = methodStatement.getMethod().getMethod().getDeclaringClass();
+            if (!declaringClass.isAssignableFrom(abstractClass)) {
+                // The call is bound to a method declared on a type not reachable from the widened type.
+                // Removing the downcast would make the statement model invalid for cloning/compilation.
+                return true;
+            }
             if (MethodUtils.getAccessibleMethod(abstractClass, methodStatement.getMethodName(),
                     methodStatement.getMethod().getRawParameterTypes()) == null) {
                 // Need downcast for real

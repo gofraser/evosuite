@@ -312,10 +312,18 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     public static boolean canBeFunctionalMocked(Type type) {
 
         Class<?> rawClass = GenericClassFactory.get(type).getRawClass();
+        String targetClassName = Properties.TARGET_CLASS;
+        if (targetClassName != null && !targetClassName.isEmpty()) {
+            String rawClassName = rawClass.getName();
+            if (rawClassName.equals(targetClassName)
+                    || rawClassName.startsWith(targetClassName + "$")) {
+                return false;
+            }
+        }
+
         final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
 
-        if (Properties.hasTargetClassBeenLoaded()
-                && GenericClassUtils.isAssignable(targetClass, rawClass)) {
+        if (targetClass != null && GenericClassUtils.isAssignable(targetClass, rawClass)) {
             return false;
         }
 

@@ -170,8 +170,16 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         offspringTest.chop(position1);
 
         for (int i = position2; i < other.size(); i++) {
-            testFactory.appendStatement(offspringTest,
-                    other.test.getStatement(i));
+            try {
+                testFactory.appendStatement(offspringTest,
+                        other.test.getStatement(i));
+            } catch (RuntimeException e) {
+                Statement st = other.test.getStatement(i);
+                AtMostOnceLogger.warn(logger,
+                        "Skipping statement during crossover due to runtime failure: "
+                                + st.getClass().getSimpleName() + " at position " + i
+                                + " (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ")");
+            }
         }
         if (!Properties.CHECK_MAX_LENGTH
                 || offspringTest.size() <= Properties.CHROMOSOME_LENGTH) {

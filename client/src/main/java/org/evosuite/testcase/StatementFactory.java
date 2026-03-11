@@ -73,8 +73,13 @@ public class StatementFactory {
         }
 
         //TODO this needs to be fixed once we handle Generics in mocks
-        FunctionalMockStatement fms = new FunctionalMockStatement(test, type, GenericClassFactory.get(type));
-        return test.addStatement(fms, position);
+        try {
+            FunctionalMockStatement fms = new FunctionalMockStatement(test, type, GenericClassFactory.get(type));
+            return test.addStatement(fms, position);
+        } catch (IllegalArgumentException e) {
+            throw new ConstructionFailedException("Cannot create functional mock for "
+                    + GenericClassFactory.get(type).getRawClass().getName() + ": " + e.getMessage());
+        }
     }
 
     /**
@@ -101,10 +106,15 @@ public class StatementFactory {
         }
 
         //TODO this needs to be fixed once we handle Generics in mocks
-        FunctionalMockForAbstractClassStatement fms = new FunctionalMockForAbstractClassStatement(test,
-                type,
-                GenericClassFactory.get(type));
-        return test.addStatement(fms, position);
+        try {
+            FunctionalMockForAbstractClassStatement fms = new FunctionalMockForAbstractClassStatement(test,
+                    type,
+                    GenericClassFactory.get(type));
+            return test.addStatement(fms, position);
+        } catch (IllegalArgumentException e) {
+            throw new ConstructionFailedException("Cannot create abstract-class functional mock for "
+                    + GenericClassFactory.get(type).getRawClass().getName() + ": " + e.getMessage());
+        }
     }
 
     /**

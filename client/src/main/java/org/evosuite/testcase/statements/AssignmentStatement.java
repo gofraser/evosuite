@@ -286,52 +286,23 @@ public class AssignmentStatement extends AbstractStatement {
     @Override
     public boolean isValid() {
         assert (super.isValid());
-
-        if (!isDefinedInTest(parameter)) {
-            return false;
-        }
-
         if (retval instanceof ArrayIndex) {
             ArrayIndex arrayIndex = (ArrayIndex) retval;
             ArrayReference arrayRef = arrayIndex.getArray();
-            if (!isDefinedInTest(arrayRef)) {
-                return false;
-            }
 
             List<Integer> lengths = arrayRef.getStructuralLengths();
             List<Integer> indices = arrayIndex.getArrayIndices();
-            if (indices.isEmpty() || indices.size() > lengths.size()) {
+            if (indices.size() != 1 || lengths.isEmpty()) {
                 return false;
             }
 
-            for (int i = 0; i < indices.size(); i++) {
-                int index = indices.get(i);
-                int length = lengths.get(i);
-                if (index < 0 || index >= length) {
-                    return false;
-                }
+            int index = indices.get(0);
+            int length = lengths.get(0);
+            if (index < 0 || index >= length) {
+                return false;
             }
         }
         return true;
-    }
-
-    private boolean isDefinedInTest(VariableReference reference) {
-        if (reference == null) {
-            return false;
-        }
-        if (reference instanceof ArrayIndex) {
-            return isDefinedInTest(((ArrayIndex) reference).getArray());
-        }
-        if (reference instanceof FieldReference) {
-            return isDefinedInTest(((FieldReference) reference).getSource());
-        }
-        for (int i = 0; i < tc.size(); i++) {
-            VariableReference value = tc.getStatement(i).getReturnValue();
-            if (reference.equals(value)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static boolean isAssignable(VariableReference target, VariableReference value) {

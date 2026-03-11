@@ -285,7 +285,7 @@ public class StatementParser {
                 }
             } else {
                 // For regular mocks, try but fall back if not mockable
-                if (!FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(mockTargetClass)) {
+                if (!FunctionalMockStatement.canBeFunctionalMocked(mockTargetClass)) {
                     return 0;
                 }
             }
