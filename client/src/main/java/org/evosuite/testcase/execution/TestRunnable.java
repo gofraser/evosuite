@@ -56,7 +56,7 @@ public class TestRunnable implements InterfaceTestRunnable {
 
     private final Scope scope;
 
-    protected boolean runFinished;
+    protected volatile boolean runFinished;
 
     /**
      * Map a thrown exception ('value') with the the position ('key') in the
