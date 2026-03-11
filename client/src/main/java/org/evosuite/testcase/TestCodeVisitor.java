@@ -1722,7 +1722,7 @@ public class TestCodeVisitor extends TestVisitor {
                         // If the concrete callee class has that method then it's ok
                         callee.getVariableClass().getDeclaredMethod(method.getName(), method.getRawParameterTypes());
                         calleeStr += getVariableName(callee);
-                    } catch (NoSuchMethodException e) {
+                    } catch (NoSuchMethodException | NoClassDefFoundError e) {
                         // If not we need to cast to the subtype. If callee is unrelated,
                         // cast via Object to keep code compilable.
                         Class<?> declaringClass = method.getMethod().getDeclaringClass();
