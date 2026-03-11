@@ -2167,7 +2167,8 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         if (rawClass == null) {
             oos.writeObject(null);
         } else {
-            oos.writeObject(rawClass.getName());
+            Class<?> serializableRawClass = normalizeMockitoGeneratedClass(rawClass);
+            oos.writeObject(serializableRawClass.getName());
             if (type instanceof ParameterizedType) {
                 oos.writeObject(Boolean.TRUE);
                 ParameterizedType pt = (ParameterizedType) type;
@@ -2182,6 +2183,31 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                 oos.writeObject(Boolean.FALSE);
             }
         }
+    }
+
+    private static Class<?> normalizeMockitoGeneratedClass(Class<?> clazz) {
+        Class<?> current = clazz;
+        while (current != null && isMockitoGeneratedClass(current)) {
+            Class<?> superClass = current.getSuperclass();
+            if (superClass != null && superClass != Object.class) {
+                current = superClass;
+                continue;
+            }
+
+            Class<?>[] interfaces = current.getInterfaces();
+            if (interfaces.length > 0) {
+                return interfaces[0];
+            }
+
+            return Object.class;
+        }
+
+        return current != null ? current : Object.class;
+    }
+
+    private static boolean isMockitoGeneratedClass(Class<?> clazz) {
+        String className = clazz.getName();
+        return className.contains("$MockitoMock$") || className.contains("EnhancerByMockito");
     }
 
 }
