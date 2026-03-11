@@ -65,13 +65,12 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
         return new ResourceController<>(this);
     }
 
-    private boolean hasExceededResources() {
+    private String exceededResource() {
 
-        if (TestCaseExecutor.getInstance().getNumStalledThreads() >= Properties.MAX_STALLED_THREADS) {
-            logger.info("* Too many stalled threads: "
-                    + TestCaseExecutor.getInstance().getNumStalledThreads() + " / "
-                    + Properties.MAX_STALLED_THREADS);
-            return true;
+        int stalledThreads = TestCaseExecutor.getInstance().getNumStalledThreads();
+        if (stalledThreads >= Properties.MAX_STALLED_THREADS) {
+            return "too many stalled threads: " + stalledThreads
+                    + " (limit " + Properties.MAX_STALLED_THREADS + ")";
         }
 
         Runtime runtime = Runtime.getRuntime();
@@ -85,16 +84,16 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
             freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
 
             if (freeMem < Properties.MIN_FREE_MEM) {
-                logger.info("* Running out of memory, giving up: " + freeMem + " / "
-                        + runtime.maxMemory() + " - need " + Properties.MIN_FREE_MEM);
-                return true;
+                return "low memory: " + (freeMem / 1024 / 1024) + " MB free of "
+                        + (runtime.maxMemory() / 1024 / 1024) + " MB (need "
+                        + (Properties.MIN_FREE_MEM / 1024 / 1024) + " MB)";
             } else {
                 logger.trace("* Garbage collection recovered sufficient memory: "
                         + freeMem + " / " + runtime.maxMemory());
             }
         }
 
-        return false;
+        return null;
     }
 
     /**
@@ -128,7 +127,8 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
      */
     @Override
     public void fitnessEvaluation(T individual) {
-        if (hasExceededResources()) {
+        String reason = exceededResource();
+        if (reason != null) {
             /*
              * TODO: for now, we just stop the search. in case of running out of memory, other options could
              * be to reduce the population size, eg by using "removeWorstIndividuals". but before that,
@@ -136,7 +136,7 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
              */
             stopComputation = true;
             ga.addStoppingCondition(this);
-            logger.warn("Shutting down the search due to running out of computational resources");
+            logger.warn("Shutting down the search due to resource limit: {}", reason);
         }
     }
 

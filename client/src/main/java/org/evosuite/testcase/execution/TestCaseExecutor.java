@@ -279,7 +279,7 @@ public class TestCaseExecutor implements ThreadFactory {
         try {
             result = execute(tc, scope, timeout);
         } finally {
-            clearInlineMocksIfNeeded(tc);
+            clearInlineMocksIfNeeded(tc, scope);
         }
 
         if (Properties.RESET_STATIC_FIELDS) {
@@ -421,6 +421,10 @@ public class TestCaseExecutor implements ThreadFactory {
                     logger.info(elem.toString());
                 }
                 logger.info(tc.toCode());
+
+                // Interrupt early — breaks out of wait(), sleep(), blocking I/O
+                currentThread.interrupt();
+
                 boolean loopCounter = LoopCounter.getInstance().isActivated();
                 while (isInStaticInit()) {
                     // LoopCounter and killswitch check the stacktrace often
@@ -442,6 +446,8 @@ public class TestCaseExecutor implements ThreadFactory {
 
                 if (!callable.isRunFinished()) {
                     handler.getLastTask().cancel(true);
+                    // Re-interrupt in case the first one was swallowed
+                    currentThread.interrupt();
                     logger.info("Run not finished, waiting...");
                     try {
                         executor.awaitTermination(Properties.SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
@@ -452,24 +458,27 @@ public class TestCaseExecutor implements ThreadFactory {
                 }
 
                 if (!callable.isRunFinished()) {
-                    logger.info("Run still not finished, replacing executor.");
+                    logger.warn("Run still not finished, replacing executor. "
+                            + "Thread {} is stuck at:", currentThread.getName());
+                    for (StackTraceElement element : currentThread.getStackTrace()) {
+                        logger.warn("  {}", element);
+                    }
                     try {
                         executor.shutdownNow();
                         if (currentThread.isAlive()) {
-                            logger.info("Thread survived - unsafe operation.");
-                            for (StackTraceElement element : currentThread.getStackTrace()) {
-                                logger.info(element.toString());
+                            // Thread.stop() was removed in Java 20+.
+                            // Make the thread daemon so it won't prevent shutdown,
+                            // and interrupt it one more time.
+                            try {
+                                currentThread.setDaemon(true);
+                            } catch (IllegalThreadStateException ignored) {
+                                // Cannot change daemon status of a running thread
+                                // in all JVMs, but worth trying
                             }
-                            logger.info("Killing thread:");
-                            for (StackTraceElement elem : currentThread.getStackTrace()) {
-                                logger.info(elem.toString());
-                            }
-                            currentThread.stop();
+                            currentThread.interrupt();
                         }
-                    } catch (ThreadDeath t) {
-                        logger.info("ThreadDeath.");
                     } catch (Throwable t) {
-                        logger.info("Throwable: " + t);
+                        logger.info("Exception during thread cleanup: {}", t.getMessage());
                     }
                     ExecutionTracer.disable();
                     executor = Executors.newSingleThreadExecutor(this);
@@ -506,20 +515,43 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
-     * Release Mockito inline mock state if the test case used functional mocks.
-     * Prevents OOM during long searches where thousands of mock objects accumulate
-     * in Mockito's internal state. Safe because each execution creates a fresh
-     * Scope — no mock survives to the next execution.
+     * Release Mockito mock state if the test case used functional mocks.
+     * <p>
+     * Two distinct leaks must be addressed:
+     * <ol>
+     *   <li>{@code clearInlineMocks()} releases the inline mock maker's internal
+     *       weak-reference map (object → mock handler).</li>
+     *   <li>{@code Mockito.clearInvocations(mock)} drains the per-mock
+     *       {@code registeredInvocations} LinkedList inside each handler.
+     *       Without this, a single mock called in a tight loop can accumulate
+     *       hundreds of millions of invocation records (&gt;1 GB).</li>
+     * </ol>
+     * Both cleanups are safe because EvoSuite tracks invocations independently
+     * via {@code EvoInvocationListener}, which is read at mutation time
+     * <em>before</em> re-execution — Mockito's own invocation log is never
+     * consulted by the search.
      */
-    private static void clearInlineMocksIfNeeded(TestCase tc) {
+    private static void clearInlineMocksIfNeeded(TestCase tc, Scope scope) {
+        boolean hasMocks = false;
         for (Statement s : tc) {
             if (s instanceof FunctionalMockStatement) {
+                hasMocks = true;
+                // Clear the per-mock invocation list to free the LinkedList memory.
                 try {
-                    Mockito.framework().clearInlineMocks();
+                    Object mockObj = scope.getObject(s.getReturnValue());
+                    if (mockObj != null) {
+                        Mockito.clearInvocations(mockObj);
+                    }
                 } catch (Throwable ignored) {
-                    // Mockito not on classpath, or inline mock maker not active
+                    // Mock may not have been created (execution failed early)
                 }
-                return;
+            }
+        }
+        if (hasMocks) {
+            try {
+                Mockito.framework().clearInlineMocks();
+            } catch (Throwable ignored) {
+                // Mockito not on classpath, or inline mock maker not active
             }
         }
     }
@@ -548,7 +580,15 @@ public class TestCaseExecutor implements ThreadFactory {
      * @return a int.
      */
     public int getNumStalledThreads() {
-        stalledThreads.removeIf(t -> !t.isAlive());
+        // Re-interrupt stalled threads — they may have swallowed earlier
+        // interrupts and gone back to blocking.  Also prune dead ones.
+        stalledThreads.removeIf(t -> {
+            if (!t.isAlive()) {
+                return true;
+            }
+            t.interrupt();
+            return false;
+        });
         return stalledThreads.size();
     }
 
@@ -571,6 +611,7 @@ public class TestCaseExecutor implements ThreadFactory {
         threadGroup = new ThreadGroup(TEST_EXECUTION_THREAD_GROUP);
         currentThread = new Thread(threadGroup, r);
         currentThread.setName(TEST_EXECUTION_THREAD + "_" + threadCounter);
+        currentThread.setDaemon(true);
         threadCounter++;
         currentThread.setContextClassLoader(TestGenerationContext.getInstance().getClassLoaderForSUT());
         ExecutionTracer.setThread(currentThread);

@@ -63,7 +63,7 @@ public class FunctionalMockForAbstractClassStatement extends FunctionalMockState
     }
 
     protected MockSettings createMockSettings() {
-        return withSettings().defaultAnswer(CALLS_REAL_METHODS).invocationListeners(listener);
+        return withSettings().stubOnly().defaultAnswer(CALLS_REAL_METHODS).invocationListeners(listener);
     }
 
     @Override

@@ -277,6 +277,15 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
+        // Reject I/O source classes whose consumers loop until a termination
+        // signal (e.g. EOF = -1).  A mock's default int return is 0, which is a
+        // valid character/byte, so the consumer loops forever and the thread
+        // stalls until timeout.
+        if (java.io.Reader.class.isAssignableFrom(rawClass)
+                || java.io.InputStream.class.isAssignableFrom(rawClass)) {
+            return false;
+        }
+
         // ad-hoc list of classes we should not really mock
         List<Class<?>> avoid = Arrays.asList(
         // add here if needed
@@ -713,7 +722,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     protected MockSettings createMockSettings() {
-        MockSettings settings = withSettings().invocationListeners(listener);
+        // stubOnly() prevents Mockito from recording invocations in its internal
+        // LinkedList, which otherwise grows unboundedly when a mock is called in
+        // a tight loop and causes OOM.  EvoSuite tracks invocations independently
+        // via EvoInvocationListener, so the Mockito invocation log is never needed.
+        MockSettings settings = withSettings().stubOnly().invocationListeners(listener);
         if (shouldForceSubclassMockMaker()) {
             settings = settings.mockMaker(MockMakers.SUBCLASS);
         }
@@ -721,7 +734,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     private MockSettings createSubclassMockSettings() {
-        return withSettings().invocationListeners(listener)
+        return withSettings().stubOnly().invocationListeners(listener)
                 .mockMaker(MockMakers.SUBCLASS);
     }
 

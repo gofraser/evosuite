@@ -1800,8 +1800,7 @@ public class TestCodeVisitor extends TestVisitor {
                 current = current.getSuperclass();
             }
         } catch (NoClassDefFoundError e) {
-            logger.warn("Could not resolve all types while checking method signature on {}: {}",
-                    clazz.getName(), e.getMessage());
+            // Missing transitive dependency — cannot verify signature match
             return false;
         }
         return false;
