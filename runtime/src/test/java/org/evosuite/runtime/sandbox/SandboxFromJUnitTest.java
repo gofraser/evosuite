@@ -99,6 +99,11 @@ public class SandboxFromJUnitTest {
 
     }
 
+    @Test
+    public void testDoneIsIdempotent() {
+        Assertions.assertDoesNotThrow(Sandbox::doneWithExecutingSUTCode);
+    }
+
 }
 
 
@@ -108,5 +113,4 @@ class Foo {
         System.exit(0);
     }
 }
-
 

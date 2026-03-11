@@ -197,7 +197,16 @@ public class Sandbox {
             }
             return;
         }
-        manager.goingToEndTestCase();
+        if (!manager.isExecutingTestCase()) {
+            logger.debug("Ignoring sandbox cleanup request because no test case is marked as executing");
+            return;
+        }
+        try {
+            manager.goingToEndTestCase();
+        } catch (IllegalStateException e) {
+            // Teardown can race with timeout recovery when stale execution threads are replaced.
+            logger.debug("Ignoring sandbox cleanup race while ending test case: {}", e.getMessage());
+        }
     }
 
     /**
