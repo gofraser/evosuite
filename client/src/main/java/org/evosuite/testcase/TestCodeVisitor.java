@@ -1778,17 +1778,8 @@ public class TestCodeVisitor extends TestVisitor {
         if (clazz == null || target == null) {
             return false;
         }
-        for (Method candidate : clazz.getMethods()) {
-            if (!candidate.getName().equals(target.getName())) {
-                continue;
-            }
-            if (sameParameterTypeNames(candidate.getParameterTypes(), target.getParameterTypes())) {
-                return true;
-            }
-        }
-        Class<?> current = clazz;
-        while (current != null) {
-            for (Method candidate : current.getDeclaredMethods()) {
+        try {
+            for (Method candidate : clazz.getMethods()) {
                 if (!candidate.getName().equals(target.getName())) {
                     continue;
                 }
@@ -1796,7 +1787,22 @@ public class TestCodeVisitor extends TestVisitor {
                     return true;
                 }
             }
-            current = current.getSuperclass();
+            Class<?> current = clazz;
+            while (current != null) {
+                for (Method candidate : current.getDeclaredMethods()) {
+                    if (!candidate.getName().equals(target.getName())) {
+                        continue;
+                    }
+                    if (sameParameterTypeNames(candidate.getParameterTypes(), target.getParameterTypes())) {
+                        return true;
+                    }
+                }
+                current = current.getSuperclass();
+            }
+        } catch (NoClassDefFoundError e) {
+            logger.warn("Could not resolve all types while checking method signature on {}: {}",
+                    clazz.getName(), e.getMessage());
+            return false;
         }
         return false;
     }
