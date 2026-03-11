@@ -41,7 +41,7 @@ public class DefaultRandomAccessQueue<T> implements RandomAccessQueue<T> {
      * @see org.evosuite.primitives.RandomAccessQueue#restrictedAdd(java.lang.Object)
      */
     @Override
-    public void restrictedAdd(T value) {
+    public synchronized void restrictedAdd(T value) {
         if (!valueSet.contains(value)) {
             queue.add(value);
             valueSet.add(value);
@@ -60,12 +60,12 @@ public class DefaultRandomAccessQueue<T> implements RandomAccessQueue<T> {
      * @see org.evosuite.primitives.RandomAccessQueue#getRandomValue()
      */
     @Override
-    public T getRandomValue() {
+    public synchronized T getRandomValue() {
         return Randomness.choice(valueSet);
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         String res = "[ ";
         for (final Object element : queue) {
             res += element + " ";

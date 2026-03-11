@@ -38,7 +38,7 @@ public class FrequencyBasedRandomAccessQueue<T> implements RandomAccessQueue<T> 
      * @see org.evosuite.primitives.RandomAccessQueue#restrictedAdd(java.lang.Object)
      */
     @Override
-    public void restrictedAdd(T value) {
+    public synchronized void restrictedAdd(T value) {
         values.addConstant(value);
         queue.add(value);
         reduceSize();
@@ -55,12 +55,12 @@ public class FrequencyBasedRandomAccessQueue<T> implements RandomAccessQueue<T> 
      * @see org.evosuite.primitives.RandomAccessQueue#getRandomValue()
      */
     @Override
-    public T getRandomValue() {
+    public synchronized T getRandomValue() {
         return values.getRandomConstant();
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         String res = "[ ";
         for (final Object element : queue) {
             res += element + " ";
