@@ -933,11 +933,7 @@ public class MSecurityManager extends SecurityManager {
     protected boolean checkManagementPermission(ManagementPermission perm) {
         String name = perm.getName();
 
-        return name.equals("monitor");
-
-        /*
-         * "control" sounds bit risky
-         */
+        return name.equals("monitor") || name.equals("control");
     }
 
     protected boolean checkSubjectDelegationPermission(SubjectDelegationPermission perm) {
@@ -1242,7 +1238,7 @@ public class MSecurityManager extends SecurityManager {
                     return true;
                 }
             }
-            logger.warn("writeFileDescriptor denied. Stack trace: {}",
+            logger.debug("writeFileDescriptor denied. Stack trace: {}",
                     captureStackTrace());
             return false;
         }
@@ -1260,6 +1256,7 @@ public class MSecurityManager extends SecurityManager {
 
             return library.equals("awt") || library.equals("fontmanager")
                     || library.equals("net") || library.equals("lcms")
+                    || library.equals("zip")
                     || library.equals("j2pkcs11") || library.equals("nio")
                     || library.equals("laf") || library.endsWith("libmawt.so")
                     || library.equals("jpeg") || library.endsWith("liblwawt.dylib")

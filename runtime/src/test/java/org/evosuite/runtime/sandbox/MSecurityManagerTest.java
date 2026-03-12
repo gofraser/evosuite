@@ -397,6 +397,17 @@ public class MSecurityManagerTest {
     }
 
     @Test
+    public void testAllowsLoadLibraryZipPermission() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                System.getSecurityManager().checkPermission(new RuntimePermission("loadLibrary.zip"));
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
+
+    @Test
     public void testDeniesByteBuddyAgentFilePermissionForNormalClasses() throws Exception {
         Future<?> future = executor.submit(new Runnable() {
             @Override
