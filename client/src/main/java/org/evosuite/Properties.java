@@ -366,6 +366,10 @@ public class Properties {
     @Parameter(key = "headless_mode", group = "Test Generation", description = "Run Java in AWT Headless mode")
     public static boolean HEADLESS_MODE = true;
 
+    @Parameter(key = "headless_filter_cut_calls", group = "Test Generation",
+            description = "If true, filter out headless-incompatible constructors/methods of the class under test")
+    public static boolean HEADLESS_FILTER_CUT_CALLS = false;
+
     @Parameter(key = "p_reflection_on_private", group = "Test Creation",
             description = "Probability [0,1] of using reflection to set private fields or call private methods")
     @DoubleValue(min = 0.0, max = 1.0)
@@ -1317,6 +1321,10 @@ public class Properties {
     @Deprecated
     //this gives quite a few issues. and hopefully the problems it was aimed to fix are no longer
     public static boolean JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
+
+    @Parameter(key = "junit_unstable_diagnostics", group = "Output",
+            description = "Print detailed origin diagnostics for unstable tests detected during JUnit check")
+    public static boolean JUNIT_UNSTABLE_DIAGNOSTICS = false;
 
     @Parameter(key = "junit_suffix", group = "Output",
             description = "Suffix that is appended at each generated JUnit file name")

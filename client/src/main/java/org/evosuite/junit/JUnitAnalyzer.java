@@ -277,6 +277,10 @@ public abstract class JUnitAnalyzer {
                 logger.warn("Found unstable test named " + testName + " -> "
                         + failure.getExceptionClassName() + ": " + failure.getMessage());
 
+                if (Properties.JUNIT_UNSTABLE_DIAGNOSTICS) {
+                    logger.warn(buildUnstableDiagnostics(testName, failure));
+                }
+
                 for (String elem : failure.getExceptionStackTrace()) {
                     logger.info("Exception trace: {}", elem);
                 }
@@ -352,6 +356,90 @@ public abstract class JUnitAnalyzer {
 
     private static JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses) {
         return getVersionDependentAnalyzer().runJUnitOnCurrentProcess(testClasses);
+    }
+
+    private static String buildUnstableDiagnostics(String testName, JUnitFailure failure) {
+        List<String> trace = failure.getExceptionStackTrace();
+        String category = classifyUnstableFailure(testName, trace);
+        String firstInterestingFrame = firstInterestingFrame(trace);
+        String firstLoopCounterFrame = firstFrameContaining(trace, "org.evosuite.runtime.LoopCounter.checkLoop");
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Unstable diagnostics for ").append(testName)
+                .append(": category=").append(category);
+        if (firstInterestingFrame != null) {
+            sb.append(", firstInterestingFrame=").append(firstInterestingFrame);
+        }
+        if (firstLoopCounterFrame != null) {
+            sb.append(", loopCounterFrame=").append(firstLoopCounterFrame);
+        }
+        return sb.toString();
+    }
+
+    private static String classifyUnstableFailure(String testName, List<String> trace) {
+        if (trace == null || trace.isEmpty()) {
+            return "unknown";
+        }
+        if (containsAny(trace,
+                "org.evosuite.runtime.EvoSuiteExtension.beforeEach",
+                "org.evosuite.runtime.EvoSuiteExtension.afterEach",
+                "org.evosuite.runtime.classhandling.ClassResetter",
+                "org.evosuite.runtime.classhandling.JDKClassResetter",
+                "org.evosuite.runtime.classhandling.ClassStateSupport")) {
+            return "extension_or_reset";
+        }
+        if (containsAny(trace,
+                "org.junit.jupiter.api.Assertions",
+                "org.junit.Assert")) {
+            return "assertion";
+        }
+        if (containsAny(trace, "." + testName + "(")) {
+            return "test_body";
+        }
+        if (containsAny(trace, "org.evosuite.runtime.LoopCounter.checkLoop")) {
+            return "loop_counter_no_user_frame";
+        }
+        return "other_runtime";
+    }
+
+    private static boolean containsAny(List<String> trace, String... needles) {
+        for (String frame : trace) {
+            for (String needle : needles) {
+                if (frame != null && frame.contains(needle)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String firstInterestingFrame(List<String> trace) {
+        for (String frame : trace) {
+            if (frame == null) {
+                continue;
+            }
+            if (frame.contains("org.evosuite.runtime.")
+                    || frame.contains("org.evosuite.junit.")
+                    || frame.contains("org.junit.")
+                    || frame.contains("java.base/")
+                    || frame.contains("jdk.internal.")) {
+                continue;
+            }
+            return frame.trim();
+        }
+        return null;
+    }
+
+    private static String firstFrameContaining(List<String> trace, String marker) {
+        if (trace == null) {
+            return null;
+        }
+        for (String frame : trace) {
+            if (frame != null && frame.contains(marker)) {
+                return frame.trim();
+            }
+        }
+        return null;
     }
 
     static boolean isJUnit5AnalyzerSelectedForCurrentFormat() {

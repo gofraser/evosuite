@@ -34,11 +34,27 @@ import org.evosuite.utils.generic.GenericField;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 /**
  * Created by gordon on 27/12/2016.
  */
 public class DowncastTest {
+
+    public interface ReceiverApi {
+        void ping();
+    }
+
+    public static class ReceiverImpl implements ReceiverApi {
+        public ReceiverApi asApi() {
+            return this;
+        }
+
+        @Override
+        public void ping() {
+            // no-op
+        }
+    }
 
     @Test
     public void testUnnecessaryDownCast() throws NoSuchMethodException {
@@ -180,6 +196,22 @@ public class DowncastTest {
         test.removeDownCasts();
         FieldReference fr2 = (FieldReference) test.getStatement(3).getReturnValue();
         assertEquals(AbstractSuperclass.class, fr2.getSource().getVariableClass());
+    }
+
+    @Test
+    public void testDowncastRemovalKeepsDowncastForImplementationDeclaredCalleeMethod() throws NoSuchMethodException {
+        TestCaseBuilder builder = new TestCaseBuilder();
+        VariableReference receiver = builder.appendConstructor(ReceiverImpl.class.getDeclaredConstructor());
+        VariableReference apiRef = builder.appendMethod(receiver, ReceiverImpl.class.getMethod("asApi"));
+        apiRef.setType(ReceiverImpl.class); // Simulate runtime refined type before downcast cleanup
+        builder.appendMethod(apiRef, ReceiverImpl.class.getMethod("ping"));
+
+        DefaultTestCase test = builder.getDefaultTestCase();
+        test.removeDownCasts();
+
+        // Keep implementation type because the following call is bound to ReceiverImpl#ping.
+        assertEquals(ReceiverImpl.class, test.getStatement(apiRef.getStPosition()).getReturnClass());
+        assertDoesNotThrow(test::clone);
     }
 
 }

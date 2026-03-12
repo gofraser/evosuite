@@ -399,6 +399,10 @@ public class TestCluster {
      */
     public void addTestCall(GenericAccessibleObject<?> call) throws IllegalArgumentException {
         Inputs.checkNull(call);
+        if (shouldFilterHeadlessIncompatibleTestCall(call)) {
+            logger.debug("Skipping headless-incompatible test call: {}", call);
+            return;
+        }
         testMethods.add(call);
     }
 
@@ -1095,6 +1099,9 @@ public class TestCluster {
 
         List<GenericAccessibleObject<?>> compatible = new ArrayList<>();
         for (GenericAccessibleObject<?> candidate : generators) {
+            if (isHeadlessIncompatibleGenerator(candidate)) {
+                continue;
+            }
             GenericAccessibleObject<?> instantiated = instantiateGenerator(candidate, clazz);
             if (instantiated != null && instantiated.getGeneratedClass().isAssignableTo(clazz)) {
                 compatible.add(instantiated);
@@ -1162,6 +1169,12 @@ public class TestCluster {
             logger.debug("Candidate generators for " + clazz + ": " + baseCandidates.size());
 
             if (baseCandidates.isEmpty()) {
+                return null;
+            }
+
+            baseCandidates.removeIf(this::isHeadlessIncompatibleGenerator);
+            if (baseCandidates.isEmpty()) {
+                logger.debug("All candidate generators for {} were filtered out by headless mode", clazz);
                 return null;
             }
 
@@ -1262,6 +1275,27 @@ public class TestCluster {
             }
         }
         return compatible.get(compatible.size() - 1);
+    }
+
+    private boolean isHeadlessIncompatibleGenerator(GenericAccessibleObject<?> generator) {
+        if (!Properties.HEADLESS_MODE || !generator.isConstructor()) {
+            return false;
+        }
+
+        return isAssignableToTypeName(generator.getDeclaringClass(), "java.awt.Window");
+    }
+
+    private boolean shouldFilterHeadlessIncompatibleTestCall(GenericAccessibleObject<?> call) {
+        return Properties.HEADLESS_FILTER_CUT_CALLS && isHeadlessIncompatibleGenerator(call);
+    }
+
+    private boolean isAssignableToTypeName(Class<?> type, String superTypeName) {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            if (superTypeName.equals(current.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1503,6 +1537,7 @@ public class TestCluster {
     public GenericAccessibleObject<?> getRandomTestCall(TestCase test)
             throws ConstructionFailedException {
         List<GenericAccessibleObject<?>> candidateTestMethods = new ArrayList<>(testMethods);
+        candidateTestMethods.removeIf(this::shouldFilterHeadlessIncompatibleTestCall);
 
         if (candidateTestMethods.isEmpty()) {
             logger.debug("No more calls");
@@ -1561,6 +1596,9 @@ public class TestCluster {
         List<GenericAccessibleObject<?>> result = new ArrayList<>();
 
         for (GenericAccessibleObject<?> ao : testMethods) {
+            if (shouldFilterHeadlessIncompatibleTestCall(ao)) {
+                continue;
+            }
             if (ao.getOwnerClass().hasWildcardOrTypeVariables()) {
                 try {
                     GenericClass<?> concreteClass = ao.getOwnerClass().getGenericInstantiation();
