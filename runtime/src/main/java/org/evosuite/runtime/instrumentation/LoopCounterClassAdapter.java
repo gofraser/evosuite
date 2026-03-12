@@ -29,6 +29,7 @@ import org.objectweb.asm.Opcodes;
  * @author Andrea Arcuri
  */
 public class LoopCounterClassAdapter extends ClassVisitor {
+    private String className;
 
     /**
      * <p>Constructor for LoopCounterClassAdapter.</p>
@@ -37,6 +38,12 @@ public class LoopCounterClassAdapter extends ClassVisitor {
      */
     public LoopCounterClassAdapter(ClassVisitor cv) {
         super(Opcodes.ASM9, cv);
+    }
+
+    @Override
+    public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+        className = name;
+        super.visit(version, access, name, signature, superName, interfaces);
     }
 
     @Override
@@ -57,6 +64,6 @@ public class LoopCounterClassAdapter extends ClassVisitor {
         }
 
 
-        return new LoopCounterMethodAdapter(mv, name, desc);
+        return new LoopCounterMethodAdapter(mv, className, access, name, desc);
     }
 }

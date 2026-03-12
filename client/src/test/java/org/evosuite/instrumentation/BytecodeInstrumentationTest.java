@@ -21,8 +21,13 @@ package org.evosuite.instrumentation;
 
 import org.evosuite.Properties;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -86,5 +91,74 @@ public class BytecodeInstrumentationTest {
 
         assertFalse(BytecodeInstrumentation.checkIfEvoSuitePackage("com.example.MyClass"));
         assertFalse(BytecodeInstrumentation.checkIfEvoSuitePackage("java.lang.String"));
+    }
+
+    @Test
+    public void testRetriesWithoutLoopCounterOnAsmFrameFailure() {
+        Properties.MAX_LOOP_ITERATIONS = 1;
+        RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation();
+        ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug9"));
+
+        byte[] transformed = instrumentation.transformBytes(getClass().getClassLoader(), "sample/Bug9", reader);
+
+        Assertions.assertArrayEquals(RetryProbeInstrumentation.SUCCESS_BYTES, transformed);
+        Assertions.assertEquals(2, instrumentation.invocations);
+        Assertions.assertTrue(instrumentation.firstInvocationEnabledLoopCounter);
+        Assertions.assertFalse(instrumentation.secondInvocationEnabledLoopCounter);
+    }
+
+    @Test
+    public void testNoRetryWhenLoopCounterDisabled() {
+        Properties.MAX_LOOP_ITERATIONS = -1;
+        RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation();
+        ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug10"));
+
+        Assertions.assertThrows(ArrayIndexOutOfBoundsException.class,
+                () -> instrumentation.transformBytes(getClass().getClassLoader(), "sample/Bug10", reader));
+        Assertions.assertEquals(1, instrumentation.invocations);
+    }
+
+    private static byte[] createSimpleClassBytes(String internalName) {
+        ClassWriter writer = new ClassWriter(0);
+        writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
+
+        MethodVisitor constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        constructor.visitCode();
+        constructor.visitVarInsn(Opcodes.ALOAD, 0);
+        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        constructor.visitInsn(Opcodes.RETURN);
+        constructor.visitMaxs(1, 1);
+        constructor.visitEnd();
+
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static class RetryProbeInstrumentation extends BytecodeInstrumentation {
+        private static final byte[] SUCCESS_BYTES = new byte[]{7, 1, 9};
+        private int invocations = 0;
+        private boolean firstInvocationEnabledLoopCounter = false;
+        private boolean secondInvocationEnabledLoopCounter = true;
+
+        @Override
+        protected byte[] transformBytesInternal(ClassLoader classLoader, String className, String classNameWithDots,
+                                                ClassReader reader, int readFlags, boolean enableLoopCounter) {
+            invocations++;
+            if (invocations == 1) {
+                firstInvocationEnabledLoopCounter = enableLoopCounter;
+                throw createAsmLikeFrameMergeFailure();
+            }
+            secondInvocationEnabledLoopCounter = enableLoopCounter;
+            return SUCCESS_BYTES;
+        }
+
+        private ArrayIndexOutOfBoundsException createAsmLikeFrameMergeFailure() {
+            ArrayIndexOutOfBoundsException ex = new ArrayIndexOutOfBoundsException("Index -1 out of bounds for length 0");
+            ex.setStackTrace(new StackTraceElement[]{
+                    new StackTraceElement("org.evosuite.shaded.org.objectweb.asm.Frame", "merge", "Frame.java", 1280),
+                    new StackTraceElement("org.evosuite.shaded.org.objectweb.asm.MethodWriter", "computeAllFrames", "MethodWriter.java", 1612)
+            });
+            return ex;
+        }
     }
 }

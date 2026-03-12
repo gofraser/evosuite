@@ -187,6 +187,20 @@ public class BytecodeInstrumentation {
 
         TransformationStatistics.reset();
 
+        try {
+            return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, true);
+        } catch (RuntimeException | Error t) {
+            if (config.maxLoopIterations() >= 0 && isAsmFrameMergeFailure(t)) {
+                logger.warn("Retrying instrumentation of {} without loop counter due to ASM frame merge failure: {}",
+                        classNameWithDots, t.getMessage());
+                return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, false);
+            }
+            throw t;
+        }
+    }
+
+    protected byte[] transformBytesInternal(ClassLoader classLoader, String className, String classNameWithDots,
+                                            ClassReader reader, int readFlags, boolean enableLoopCounter) {
         /*
          * To use COMPUTE_FRAMES we need to remove JSR commands. Therefore, we
          * have a JSRInlinerAdapter in NonTargetClassAdapter as well as
@@ -202,20 +216,19 @@ public class BytecodeInstrumentation {
             cv = new TraceClassVisitor(cv, new PrintWriter(System.err));
         }
 
-        cv = createAdapterChain(cv, className, classNameWithDots, classLoader);
+        cv = createAdapterChain(cv, className, classNameWithDots, classLoader, enableLoopCounter);
 
         if (shouldApplyTestabilityTransformation(classNameWithDots)) {
             return applyTestabilityTransformation(reader, cv, writer, className, classNameWithDots,
                     classLoader, readFlags);
-        } else {
-            reader.accept(cv, readFlags);
         }
 
+        reader.accept(cv, readFlags);
         return writer.toByteArray();
     }
 
     private ClassVisitor createAdapterChain(ClassVisitor cv, String className, String classNameWithDots,
-                                            ClassLoader classLoader) {
+                                            ClassLoader classLoader, boolean enableLoopCounter) {
         if (config.resetStaticFields()) {
             cv = new StaticAccessClassAdapter(cv, className);
         }
@@ -225,7 +238,7 @@ public class BytecodeInstrumentation {
             cv = new PurityAnalysisClassVisitor(cv, className, purityAnalyzer);
         }
 
-        if (config.maxLoopIterations() >= 0) {
+        if (enableLoopCounter && config.maxLoopIterations() >= 0) {
             cv = new LoopCounterClassAdapter(cv);
         }
 
@@ -251,6 +264,25 @@ public class BytecodeInstrumentation {
         }
 
         return cv;
+    }
+
+    private boolean isAsmFrameMergeFailure(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof ArrayIndexOutOfBoundsException || current instanceof IndexOutOfBoundsException) {
+                for (StackTraceElement element : current.getStackTrace()) {
+                    String className = element.getClassName();
+                    if (className.endsWith(".Frame") && "merge".equals(element.getMethodName())) {
+                        return true;
+                    }
+                    if (className.endsWith(".MethodWriter") && "computeAllFrames".equals(element.getMethodName())) {
+                        return true;
+                    }
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private ClassVisitor addTargetTransformationAdapters(ClassVisitor cv, String className, ClassLoader classLoader) {
