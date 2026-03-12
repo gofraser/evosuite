@@ -23,6 +23,7 @@ import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -109,9 +110,22 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                 }
             }
         }
-        // Also process chained inspectors (e.g., getList().size())
+        // Also process chained inspectors (e.g., getList().size()).
+        // Use the declared return type of the creating statement rather than
+        // var.getVariableClass(), because Scope.set() may have narrowed the
+        // variable's type to the runtime class.  After test-case cloning the
+        // variable reverts to the declared type, so only methods accessible on
+        // that type will compile in the generated test.
+        Class<?> declaredType = var.getVariableClass();
+        if (declaringStatement instanceof MethodStatement) {
+            Class<?> methodReturnType =
+                    ((MethodStatement) declaringStatement).getMethod().getMethod().getReturnType();
+            if (methodReturnType.isAssignableFrom(declaredType)) {
+                declaredType = methodReturnType;
+            }
+        }
         List<ChainedInspector> chainedInspectors = InspectorManager.getInstance()
-                .getChainedInspectors(var.getVariableClass());
+                .getChainedInspectors(declaredType);
 
         for (ChainedInspector ci : chainedInspectors) {
 
