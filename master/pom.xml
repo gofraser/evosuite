@@ -210,14 +210,25 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-		<configuration>
-		  <artifactSet>
-                    <excludes>
-                      <!-- the eclipse plugin needs this -->
-                      <exclude>*:xml-apis</exclude>
-                    </excludes>
-                  </artifactSet>
-		</configuration>
+                <configuration>
+                    <artifactSet>
+                        <excludes>
+                            <!-- the eclipse plugin needs this -->
+                            <exclude>*:xml-apis</exclude>
+                        </excludes>
+                    </artifactSet>
+                    <filters combine.children="append">
+                        <filter>
+                            <artifact>*:mockito-core</artifact>
+                            <excludes>
+                                <!-- Replaced by evosuite-runtime's no-op LocationFactory
+                                     to skip expensive StackWalker on every mock invocation -->
+                                <exclude>org/mockito/internal/debugging/LocationFactory.class</exclude>
+                                <exclude>org/mockito/internal/debugging/LocationFactory$*.class</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
             </plugin>
 
             <!-- create single jar with also shaded classes, eg ASM -->
