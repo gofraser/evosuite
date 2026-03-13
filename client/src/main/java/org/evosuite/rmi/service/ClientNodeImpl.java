@@ -51,6 +51,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     private static final Logger logger = LoggerFactory.getLogger(ClientNodeImpl.class);
     private static final long serialVersionUID = 485858845631346580L;
+    private static final long RMI_STATE_NOTIFY_TIMEOUT_MS = 3_000L;
+    private static final long RMI_RESULT_NOTIFY_TIMEOUT_MS = 5_000L;
 
     /**
      * The current state/phase in which this client process is (eg, search or assertion generation).
@@ -152,8 +154,6 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 results.add(generator.generateTestSuite());
                 // TODO: Why?
                 // GeneticAlgorithm<?> ga = generator.getEmployedGeneticAlgorithm();
-
-                masterNode.evosuite_collectTestGenerationResult(clientRmiIdentifier, results);
             } catch (Throwable t) {
                 logger.error("Error when generating tests for: "
                         + Properties.TARGET_CLASS + " with seed "
@@ -163,6 +163,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                         + Properties.TARGET_CLASS + ": " + t));
             }
 
+            sendTestGenerationResultBestEffort(results);
             changeState(ClientState.DONE);
 
             if (Properties.SANDBOX) {
@@ -201,8 +202,9 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     public void waitUntilDone() {
         try {
             doneLatch.await();
-        } catch (InterruptedException ignored) {
-            // ignored
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.warn("Interrupted while waiting for DONE latch (state={})", state);
         }
     }
 
@@ -246,18 +248,6 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
         TimeController.getInstance().updateState(state);
 
-        try {
-            if (ensureMasterNode()) {
-                masterNode.evosuite_informChangeOfStateInClient(clientRmiIdentifier, state, information);
-            } else if (Properties.CLIENT_ON_THREAD) {
-                logger.debug("Master node is not available; skipping changeState notification");
-            } else {
-                logger.warn("Master node is not available; skipping changeState notification");
-            }
-        } catch (RemoteException e) {
-            logger.error("Cannot inform master of change of state", e);
-        }
-
         if (this.state.equals(ClientState.DONE)) {
             doneLatch.countDown();
         }
@@ -265,6 +255,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         if (this.state.equals(ClientState.FINISHED)) {
             finishedLatch.countDown();
         }
+
+        notifyMasterOfStateChangeBestEffort(state, information);
     }
 
     @Override
@@ -540,6 +532,61 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             logger.warn("Failed to resolve master node from registry", e);
             return false;
         }
+    }
+
+    private interface RemoteAction {
+        void execute() throws RemoteException;
+    }
+
+    private void runRemoteActionBestEffort(String actionName, long timeoutMs, RemoteAction action) {
+        Thread remoteActionThread = new Thread(() -> {
+            try {
+                action.execute();
+            } catch (RemoteException e) {
+                logger.error("Cannot complete remote action: " + actionName, e);
+            } catch (Throwable t) {
+                logger.error("Unexpected error during remote action: " + actionName, t);
+            }
+        }, "ClientNodeRemoteAction-" + actionName);
+        remoteActionThread.setDaemon(true);
+        remoteActionThread.start();
+
+        try {
+            remoteActionThread.join(timeoutMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+
+        if (remoteActionThread.isAlive()) {
+            logger.warn("Remote action {} did not finish within {} ms; continuing locally.",
+                    actionName, timeoutMs);
+            remoteActionThread.interrupt();
+        }
+    }
+
+    private void notifyMasterOfStateChangeBestEffort(ClientState state, ClientStateInformation information) {
+        if (!ensureMasterNode()) {
+            if (Properties.CLIENT_ON_THREAD) {
+                logger.debug("Master node is not available; skipping changeState notification");
+            } else {
+                logger.warn("Master node is not available; skipping changeState notification");
+            }
+            return;
+        }
+
+        runRemoteActionBestEffort("notifyState-" + state.name(), RMI_STATE_NOTIFY_TIMEOUT_MS,
+                () -> masterNode.evosuite_informChangeOfStateInClient(clientRmiIdentifier, state, information));
+    }
+
+    private void sendTestGenerationResultBestEffort(List<TestGenerationResult> results) {
+        if (!ensureMasterNode()) {
+            logger.warn("Master node is not available; skipping test generation result export");
+            return;
+        }
+
+        runRemoteActionBestEffort("collectTestGenerationResult", RMI_RESULT_NOTIFY_TIMEOUT_MS,
+                () -> masterNode.evosuite_collectTestGenerationResult(clientRmiIdentifier, results));
     }
 
     protected void fallbackSetOutputVariable(RuntimeVariable variable, Object value) {

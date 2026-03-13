@@ -599,7 +599,13 @@ public class TestGeneration {
             LoggingUtils.getEvoLogger().info("* Could not connect to client process");
         }
 
-        boolean hasFailed = writeStatistics();
+        boolean hasFailed;
+        if (handler.hasClientFailureDetected()) {
+            logger.error("Skipping statistics writing because one or more client processes terminated unexpectedly.");
+            hasFailed = true;
+        } else {
+            hasFailed = writeStatistics();
+        }
 
         /*
          * FIXME: it is unclear what is the relation between TestGenerationResult and writeStatistics()

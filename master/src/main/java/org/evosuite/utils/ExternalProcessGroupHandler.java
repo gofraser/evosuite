@@ -37,6 +37,7 @@ import java.rmi.RemoteException;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /*
  * this code should be used by the main master process.
@@ -80,6 +81,7 @@ public class ExternalProcessGroupHandler {
      * allow DONE to be treated as terminal to avoid waiting for FINISHED.
      */
     private boolean allowDoneAsFinished = false;
+    private volatile boolean clientFailureDetected = false;
 
     public ExternalProcessGroupHandler() {
         this(1);
@@ -101,6 +103,7 @@ public class ExternalProcessGroupHandler {
         this.processKillHooks = new Thread[nrOfProcesses];
         this.latches = new CountDownLatch[nrOfProcesses];
         this.hsErrFiles = new String[nrOfProcesses];
+        this.clientFailureDetected = false;
     }
 
     /**
@@ -714,6 +717,7 @@ public class ExternalProcessGroupHandler {
      * @return a {@link java.lang.Object} object.
      */
     public TestGenerationResult waitForResult(int timeout) {
+        clientFailureDetected = false;
         try {
             long start = System.currentTimeMillis();
             Map<String, ClientNodeRemote> clients = MasterServices.getInstance()
@@ -754,6 +758,17 @@ public class ExternalProcessGroupHandler {
                 }
 
                 if (!finished) {
+                    int processIndex = parseClientIndex(entry.getKey());
+                    if (processIndex >= 0 && !isClientProcessAlive(processIndex)) {
+                        logger.error("Client {} process has already terminated while master state is {}.",
+                                entry.getKey(),
+                                MasterServices.getInstance().getMasterNode().getCurrentState(entry.getKey()));
+                        clientFailureDetected = true;
+                        finished = true;
+                    }
+                }
+
+                if (!finished) {
                     /*
                      * TODO what to do here? Try to stop the client through RMI?
                      * Or check in which state it is, and based on that decide if giving more time?
@@ -761,6 +776,8 @@ public class ExternalProcessGroupHandler {
                     logger.error("Class " + Properties.TARGET_CLASS
                             + ". Clients have not finished yet, although a timeout occurred.\n"
                             + MasterServices.getInstance().getMasterNode().getSummaryOfClientStatuses());
+                    clientFailureDetected = true;
+                    dumpClientProcessThreads(entry.getKey());
                 }
             }
         } catch (InterruptedException e) {
@@ -781,6 +798,7 @@ public class ExternalProcessGroupHandler {
             }
 
             if (crashOccurred) {
+                clientFailureDetected = true;
                 logger.error(msg, e);
             }
         }
@@ -808,9 +826,17 @@ public class ExternalProcessGroupHandler {
             throws RemoteException {
         final long deadline = System.currentTimeMillis() + timeoutMs;
         final long pollMs = 250L;
+        final int processIndex = parseClientIndex(clientId);
         while (System.currentTimeMillis() < deadline) {
             ClientState state = MasterServices.getInstance().getMasterNode().getCurrentState(clientId);
             if (state == ClientState.FINISHED) {
+                return true;
+            }
+            if (processIndex >= 0 && !isClientProcessAlive(processIndex)) {
+                logger.error("Client {} process is no longer alive; treating as finished even though state is {}.",
+                        clientId, state);
+                logUnexpectedClientTermination(processIndex, clientId, state);
+                clientFailureDetected = true;
                 return true;
             }
             if (clientRunningOnThread != null && !clientRunningOnThread.isAlive()) {
@@ -831,7 +857,9 @@ public class ExternalProcessGroupHandler {
                 return false;
             }
         }
-        logger.error("Timeout while waiting for client " + clientId + " to finish.");
+        logger.error("Timeout while waiting for client " + clientId + " to finish."
+                + " ProcessAlive=" + (processIndex >= 0 && isClientProcessAlive(processIndex)));
+        clientFailureDetected = true;
         return false;
     }
 
@@ -850,5 +878,241 @@ public class ExternalProcessGroupHandler {
             }
         }
         return false;
+    }
+
+    private void dumpClientProcessThreads(String clientId) {
+        int processIndex = parseClientIndex(clientId);
+        if (processIndex < 0 || processIndex >= processGroup.length) {
+            logger.error("Cannot map client id '{}' to process index for thread dump", clientId);
+            return;
+        }
+        Process process = processGroup[processIndex];
+        if (process == null) {
+            logger.error("Cannot dump threads for client '{}' because process is null", clientId);
+            return;
+        }
+
+        Long pid = getPidCompat(process);
+        if (pid == null || pid <= 0L) {
+            logger.error("Cannot obtain PID for client '{}' thread dump", clientId);
+            return;
+        }
+
+        logger.error("Collecting thread dump for client '{}' (pid={})", clientId, pid);
+        if (!runThreadDumpCommand(new String[]{resolveJavaTool("jcmd"), String.valueOf(pid), "Thread.print", "-l"},
+                "jcmd")) {
+            if (!runThreadDumpCommand(new String[]{resolveJavaTool("jstack"), "-l", String.valueOf(pid)}, "jstack")) {
+                requestSignalThreadDump(pid.longValue(), clientId);
+            }
+        }
+    }
+
+    private int parseClientIndex(String clientId) {
+        if (clientId == null) {
+            return -1;
+        }
+        String digits = clientId.replaceAll("\\D+", "");
+        if (digits.isEmpty()) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(digits);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private String resolveJavaTool(String toolName) {
+        String javaHome = System.getProperty("java.home");
+        if (javaHome != null && !javaHome.isEmpty()) {
+            File tool = new File(javaHome + File.separator + "bin" + File.separator + toolName);
+            if (tool.exists() && tool.canExecute()) {
+                return tool.getAbsolutePath();
+            }
+        }
+        return toolName;
+    }
+
+    private Long getPidCompat(Process process) {
+        if (process == null) {
+            return null;
+        }
+        try {
+            // Java 9+: Process#pid()
+            Object value = Process.class.getMethod("pid").invoke(process);
+            if (value instanceof Long) {
+                return (Long) value;
+            }
+        } catch (Throwable ignored) {
+            // Java 8 or restricted runtime
+        }
+        try {
+            // Java 8 HotSpot implementation detail
+            java.lang.reflect.Field field = process.getClass().getDeclaredField("pid");
+            field.setAccessible(true);
+            Object value = field.get(process);
+            if (value instanceof Integer) {
+                return ((Integer) value).longValue();
+            }
+            if (value instanceof Long) {
+                return (Long) value;
+            }
+        } catch (Throwable ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    private boolean runThreadDumpCommand(String[] command, String label) {
+        Process dumpProcess = null;
+        try {
+            dumpProcess = new ProcessBuilder(command)
+                    .redirectErrorStream(true)
+                    .start();
+
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(dumpProcess.getInputStream()))) {
+                String line;
+                int lines = 0;
+                final int maxLines = 400;
+                while ((line = reader.readLine()) != null) {
+                    if (lines < maxLines) {
+                        output.append(line).append(System.lineSeparator());
+                    }
+                    lines++;
+                }
+                if (lines > maxLines) {
+                    output.append("... thread dump truncated after ").append(maxLines).append(" lines")
+                            .append(System.lineSeparator());
+                }
+            }
+
+            boolean finished = dumpProcess.waitFor(8, TimeUnit.SECONDS);
+            if (!finished) {
+                dumpProcess.destroyForcibly();
+                logger.error("Thread dump command '{}' timed out", label);
+                return false;
+            }
+
+            int exit = dumpProcess.exitValue();
+            if (exit != 0) {
+                logger.error("Thread dump command '{}' failed with exit code {}. Output:\n{}",
+                        label, exit, output);
+                return false;
+            }
+
+            logger.error("Thread dump from '{}':\n{}", label, output);
+            return true;
+        } catch (Exception e) {
+            logger.error("Failed to run thread dump command '{}': {}", label, e.getMessage());
+            return false;
+        } finally {
+            if (dumpProcess != null) {
+                try {
+                    dumpProcess.getInputStream().close();
+                } catch (Exception ignored) {
+                }
+                try {
+                    dumpProcess.getErrorStream().close();
+                } catch (Exception ignored) {
+                }
+                try {
+                    dumpProcess.getOutputStream().close();
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    private void requestSignalThreadDump(long pid, String clientId) {
+        logger.error("Attach-based thread dump failed for client '{}'. Sending SIGQUIT to pid {}.", clientId, pid);
+        runProcessSnapshotCommand(new String[]{"kill", "-3", String.valueOf(pid)}, "kill -3");
+        runProcessSnapshotCommand(new String[]{"ps", "-o", "pid,ppid,stat,time,command", "-p", String.valueOf(pid)},
+                "ps");
+        logger.error("Requested SIGQUIT thread dump from client '{}'. Check client stderr output for 'Full thread dump'.",
+                clientId);
+    }
+
+    private void runProcessSnapshotCommand(String[] command, String label) {
+        Process commandProcess = null;
+        try {
+            commandProcess = new ProcessBuilder(command)
+                    .redirectErrorStream(true)
+                    .start();
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(commandProcess.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append(System.lineSeparator());
+                }
+            }
+            boolean finished = commandProcess.waitFor(3, TimeUnit.SECONDS);
+            if (!finished) {
+                commandProcess.destroyForcibly();
+                logger.error("Command '{}' timed out", label);
+                return;
+            }
+            logger.error("Command '{}' exit={} output:\n{}", label, commandProcess.exitValue(), output);
+        } catch (Exception e) {
+            logger.error("Failed to run command '{}': {}", label, e.getMessage());
+        } finally {
+            if (commandProcess != null) {
+                try {
+                    commandProcess.getInputStream().close();
+                } catch (Exception ignored) {
+                }
+                try {
+                    commandProcess.getErrorStream().close();
+                } catch (Exception ignored) {
+                }
+                try {
+                    commandProcess.getOutputStream().close();
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    private boolean isClientProcessAlive(int processIndex) {
+        if (processIndex < 0 || processIndex >= processGroup.length) {
+            return false;
+        }
+        Process process = processGroup[processIndex];
+        if (process == null) {
+            return false;
+        }
+        try {
+            process.exitValue();
+            return false;
+        } catch (IllegalThreadStateException e) {
+            return true;
+        }
+    }
+
+    public boolean hasClientFailureDetected() {
+        return clientFailureDetected;
+    }
+
+    private void logUnexpectedClientTermination(int processIndex, String clientId, ClientState lastKnownState) {
+        int exitCode = Integer.MIN_VALUE;
+        try {
+            Process process = processGroup[processIndex];
+            if (process != null) {
+                exitCode = process.exitValue();
+            }
+        } catch (Throwable ignored) {
+            // ignore
+        }
+
+        logger.error("Client {} terminated unexpectedly. lastKnownState={}, exitCode={}",
+                clientId, lastKnownState,
+                exitCode == Integer.MIN_VALUE ? "<unknown>" : String.valueOf(exitCode));
+
+        if (didClientJVMCrash(processIndex)) {
+            String err = getAndDeleteHsErrFile(processIndex);
+            if (err != null && !err.isEmpty()) {
+                logger.error("Detected client JVM crash dump header:\n{}", err);
+            }
+        }
     }
 }
