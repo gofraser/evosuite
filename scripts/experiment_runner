@@ -128,7 +128,6 @@ run_evosuite() {
   -Dreport_dir="${report_dir}" \
   -Dtest_dir="${test_dir}" \
   -Dshow_progress='false' \
-  -Dplot='false' \
   -Dclient_on_thread='false' \
   "${user_configuration_array[@]}" \
   &> "${log_file}" &

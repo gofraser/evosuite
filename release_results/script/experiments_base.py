@@ -134,7 +134,7 @@ def getEvoSuiteCall(seed, configId, config, project, clazz, id, strategy, coreIn
 
 
 # Creates the scripts for a given config and seed range
-def createJobs(minSeed, maxSeed, configId, config, startNum, strategy="-generateSuite"):
+def createJobs(minSeed, maxSeed, configId, config, startNum, strategy="-generateMOSuite"):
   global SCRIPTDIR
   global CASESTUDY_DIR
   global JOB_ID
@@ -220,7 +220,7 @@ ENTRIES_PER_JOB= math.ceil( (N_CONF * (NUM_CLASSES * (MAXSEED - MINSEED)) / floa
 
 # Create the actual jobs
 
-createJobs(MINSEED, MAXSEED, CONFIG_NAME , " " , 0, "-generateSuite")
+createJobs(MINSEED, MAXSEED, CONFIG_NAME , " " , 0, "-generateMOSuite")
 
 print "Seeds: %d, projects: %d, configs: %d" % ((MAXSEED - MINSEED), NUM_CLASSES, CONFIG_ID)
 print "Total number of jobs created: %d" % (JOB_ID+1)
