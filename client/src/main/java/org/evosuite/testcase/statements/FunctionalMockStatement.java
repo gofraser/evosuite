@@ -19,7 +19,6 @@
  */
 package org.evosuite.testcase.statements;
 
-import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
@@ -46,7 +45,6 @@ import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericClassUtils;
-import org.mockito.MockMakers;
 import org.mockito.MockSettings;
 import org.mockito.Mockito;
 import org.mockito.exceptions.base.MockitoException;
@@ -283,6 +281,19 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // stalls until timeout.
         if (java.io.Reader.class.isAssignableFrom(rawClass)
                 || java.io.InputStream.class.isAssignableFrom(rawClass)) {
+            return false;
+        }
+
+        // Reject ClassLoader types.  Mockito's SubclassByteBuddyMockMaker
+        // generates a subclass of the mocked type, so a ClassLoader mock IS a
+        // ClassLoader.  On JDK 25+, instantiating a dynamically-generated
+        // ClassLoader subclass triggers a JVM guarantee failure
+        // (moduleEntry.cpp: "unnamed module is null") because the unnamed module
+        // for the new ClassLoader is not properly initialized.  Even on older
+        // JDKs, mocking ClassLoaders is semantically dangerous — the mock may be
+        // used as a parent loader by other code, corrupting the class loading
+        // hierarchy.
+        if (ClassLoader.class.isAssignableFrom(rawClass)) {
             return false;
         }
 
@@ -726,51 +737,52 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // LinkedList, which otherwise grows unboundedly when a mock is called in
         // a tight loop and causes OOM.  EvoSuite tracks invocations independently
         // via EvoInvocationListener, so the Mockito invocation log is never needed.
-        MockSettings settings = withSettings().stubOnly().invocationListeners(listener);
-        if (shouldForceSubclassMockMaker()) {
-            settings = settings.mockMaker(MockMakers.SUBCLASS);
+        //
+        // No explicit MockMaker is specified here.  The SubclassByteBuddyMockMaker
+        // is configured as the default via the mockito-extensions SPI file
+        // (mockito-extensions/org.evosuite.shaded.org.mockito.plugins.MockMaker).
+        // Specifying MockMakers.SUBCLASS explicitly would cause Mockito 5.x to
+        // load a SECOND mock maker instance (because the alias "mock-maker-subclass"
+        // now resolves to ByteBuddyMockMaker, not SubclassByteBuddyMockMaker),
+        // triggering an internal AssertionError in MockUtil.getMockHandlerOrNull.
+        return withSettings().stubOnly().invocationListeners(listener);
+    }
+
+    /**
+     * Log Mockito mock-maker configuration once, at the first mock creation attempt.
+     * Uses reflection on the shaded MockUtil to report which mock makers are registered
+     * and whether the SubclassByteBuddyMockMaker SPI override was picked up.
+     */
+    private static volatile boolean mockMakerDiagnosticsLogged;
+
+    private static void logMockMakerDiagnosticsOnce() {
+        if (mockMakerDiagnosticsLogged || !logger.isDebugEnabled()) {
+            return;
         }
-        return settings;
-    }
-
-    private MockSettings createSubclassMockSettings() {
-        return withSettings().stubOnly().invocationListeners(listener)
-                .mockMaker(MockMakers.SUBCLASS);
-    }
-
-    private static boolean shouldForceSubclassMockMaker() {
-        int major = getJavaMajorVersion();
-        if (major >= 25) {
-            // Keep Mockito's default mock maker unless explicitly forced.
-            // For Java 25+, subclass mode remains available via fallback logic
-            // when plugin initialization fails, or via explicit opt-in.
-            return Boolean.getBoolean("evosuite.mockito.subclass");
-        }
-        return false;
-    }
-
-    private static int getJavaMajorVersion() {
+        mockMakerDiagnosticsLogged = true;
         try {
-            String version = SystemUtils.JAVA_VERSION;
-            if (version == null || version.isEmpty()) {
-                return 0;
+            @SuppressWarnings("unchecked")
+            java.util.Map<?, ?> makers = (java.util.Map<?, ?>)
+                    getDeclaredFieldValue(Mockito.class.getPackage().getName()
+                            + ".internal.util.MockUtil", "mockMakers");
+            if (makers != null) {
+                logger.debug("Mockito mock makers registered: {}, keys: {}",
+                        makers.size(), makers.keySet());
             }
-            String[] parts = version.split("\\.");
-            return Integer.parseInt(parts[0]);
-        } catch (Exception e) {
-            return 0;
+        } catch (Throwable ignored) {
+            // Reflection may fail on different Mockito versions; not critical
         }
     }
 
-    private static boolean isMockitoPluginInitFailure(Throwable t) {
-        if (!(t instanceof IllegalStateException)) {
-            return false;
+    private static Object getDeclaredFieldValue(String className, String fieldName) {
+        try {
+            Class<?> clazz = Class.forName(className);
+            java.lang.reflect.Field f = clazz.getDeclaredField(fieldName);
+            f.setAccessible(true);
+            return f.get(null);
+        } catch (Throwable t) {
+            return null;
         }
-        String msg = t.getMessage();
-        if (msg == null) {
-            return false;
-        }
-        return msg.contains("MockMaker") || msg.contains("Mockito is unable to load");
     }
 
     private static boolean hasCause(Throwable throwable, Class<? extends Throwable> expectedType) {
@@ -793,10 +805,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 || hasCause(throwable, ExceptionInInitializerError.class)
                 || hasCause(throwable, ClassNotFoundException.class)
                 || hasCause(throwable, LinkageError.class);
-    }
-
-    private static boolean shouldTrySubclassFallbackForFailure(Throwable throwable) {
-        return isCodeUnderTestInitializationFailure(throwable) || isMockitoPluginInitFailure(throwable);
     }
 
     private static boolean shouldDisableFunctionalMockingGlobally(int attempts, int failures) {
@@ -919,36 +927,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             Object ret = null;
             try {
                 functionalMockingAttempts.incrementAndGet();
+                logMockMakerDiagnosticsOnce();
                 logger.debug("Mockito: create mock for {}", targetClass);
 
                 MockSettings settings = createMockSettings();
-                try {
-                    ret = mock(targetClass.getRawClass(), settings);
-                } catch (IllegalStateException e) {
-                    if (!shouldForceSubclassMockMaker() && isMockitoPluginInitFailure(e)) {
-                        AtMostOnceLogger.warn(logger, "Mockito inline mock maker unavailable,"
-                                + " falling back to subclass mock maker."
-                                + " This is expected on some JVM configurations.");
-                        logger.debug("Subclass mock maker fallback for {}", targetClass);
-                        ret = mock(targetClass.getRawClass(), createSubclassMockSettings());
-                    } else {
-                        throw e;
-                    }
-                } catch (Throwable t) {
-                    if (!shouldForceSubclassMockMaker() && shouldTrySubclassFallbackForFailure(t)) {
-                        AtMostOnceLogger.warn(logger, "Retrying Mockito mock creation for "
-                                + targetClass + " with subclass mock maker after failure: "
-                                + t.getClass().getSimpleName());
-                        try {
-                            ret = mock(targetClass.getRawClass(), createSubclassMockSettings());
-                        } catch (Throwable retryFailure) {
-                            retryFailure.addSuppressed(t);
-                            throw retryFailure;
-                        }
-                    } else {
-                        throw t;
-                    }
-                }
+                ret = mock(targetClass.getRawClass(), settings);
 
                 //execute all "when" statements
                 int index = 0;

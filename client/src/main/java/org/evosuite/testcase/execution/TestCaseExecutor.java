@@ -279,7 +279,7 @@ public class TestCaseExecutor implements ThreadFactory {
         try {
             result = execute(tc, scope, timeout);
         } finally {
-            clearInlineMocksIfNeeded(tc, scope);
+            clearMockInvocationsIfNeeded(tc, scope);
         }
 
         if (Properties.RESET_STATIC_FIELDS) {
@@ -517,26 +517,25 @@ public class TestCaseExecutor implements ThreadFactory {
     /**
      * Release Mockito mock state if the test case used functional mocks.
      * <p>
-     * Two distinct leaks must be addressed:
-     * <ol>
-     *   <li>{@code clearInlineMocks()} releases the inline mock maker's internal
-     *       weak-reference map (object → mock handler).</li>
-     *   <li>{@code Mockito.clearInvocations(mock)} drains the per-mock
-     *       {@code registeredInvocations} LinkedList inside each handler.
-     *       Without this, a single mock called in a tight loop can accumulate
-     *       hundreds of millions of invocation records (&gt;1 GB).</li>
-     * </ol>
+     * EvoSuite always uses {@code SubclassByteBuddyMockMaker} (not the inline
+     * mock maker), so {@code framework().clearInlineMocks()} is intentionally
+     * omitted — it is a no-op for subclass mocks and risks interacting with an
+     * accidentally-loaded inline mock maker, which can corrupt mock handler state.
+     * <p>
+     * {@code Mockito.clearInvocations(mock)} drains the per-mock
+     * {@code registeredInvocations} LinkedList inside each handler.  Although
+     * mocks are now created with {@code stubOnly()} (which disables invocation
+     * recording), this call is kept as defense-in-depth for any code path that
+     * creates mocks without that flag.
+     * <p>
      * Both cleanups are safe because EvoSuite tracks invocations independently
      * via {@code EvoInvocationListener}, which is read at mutation time
      * <em>before</em> re-execution — Mockito's own invocation log is never
      * consulted by the search.
      */
-    private static void clearInlineMocksIfNeeded(TestCase tc, Scope scope) {
-        boolean hasMocks = false;
+    private static void clearMockInvocationsIfNeeded(TestCase tc, Scope scope) {
         for (Statement s : tc) {
             if (s instanceof FunctionalMockStatement) {
-                hasMocks = true;
-                // Clear the per-mock invocation list to free the LinkedList memory.
                 try {
                     Object mockObj = scope.getObject(s.getReturnValue());
                     if (mockObj != null) {
@@ -545,13 +544,6 @@ public class TestCaseExecutor implements ThreadFactory {
                 } catch (Throwable ignored) {
                     // Mock may not have been created (execution failed early)
                 }
-            }
-        }
-        if (hasMocks) {
-            try {
-                Mockito.framework().clearInlineMocks();
-            } catch (Throwable ignored) {
-                // Mockito not on classpath, or inline mock maker not active
             }
         }
     }

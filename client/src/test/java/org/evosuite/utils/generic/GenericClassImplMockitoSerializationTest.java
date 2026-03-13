@@ -26,6 +26,7 @@ import org.mockito.Mockito;
 import java.io.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.withSettings;
 
 public class GenericClassImplMockitoSerializationTest {
 
@@ -34,7 +35,12 @@ public class GenericClassImplMockitoSerializationTest {
         String previousCp = Properties.CP;
         try {
             Properties.CP = System.getProperty("java.class.path");
-            Throwable mock = Mockito.mock(Throwable.class);
+            // Use SubclassByteBuddyMockMaker explicitly (by class name, not by
+            // alias) to ensure the mock class has $MockitoMock$ in its name.
+            // The "mock-maker-subclass" alias resolves to ByteBuddyMockMaker in
+            // Mockito 5.x, which is the inline maker — not what we want here.
+            Throwable mock = Mockito.mock(Throwable.class, withSettings()
+                    .mockMaker("org.mockito.internal.creation.bytebuddy.SubclassByteBuddyMockMaker"));
             Class<?> mockClass = mock.getClass();
             assertTrue(mockClass.getName().contains("$MockitoMock$"));
 

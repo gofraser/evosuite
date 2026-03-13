@@ -271,7 +271,7 @@ public final class ExecutionModeUtils {
     }
 
     /**
-     * Adds module opens arguments for Java 9+ compatibility.
+     * Adds module opens and JDK-compatibility arguments for Java 9+.
      *
      * @param cmdLine The list of command line arguments to modify.
      */
@@ -300,6 +300,12 @@ public final class ExecutionModeUtils {
         addOpen(cmdLine, "java.base/sun.security.util=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/sun.net=ALL-UNNAMED");
         addOpen(cmdLine, "jdk.unsupported/sun.misc=ALL-UNNAMED");
+
+        // Enable ByteBuddy's experimental support for newer JDK versions.
+        // Without this, ByteBuddy may generate classes with an unsupported class
+        // file version or fail to handle module system changes on JDK 25+.
+        // This matches the flag already set in the Maven test configuration.
+        cmdLine.add("-Dnet.bytebuddy.experimental=true");
     }
 
     /**

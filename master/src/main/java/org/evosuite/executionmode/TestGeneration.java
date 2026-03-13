@@ -528,6 +528,13 @@ public class TestGeneration {
                 cmdLineClone.add(1, definedEAforSUT);
             }
 
+            // Always disable assertions for shaded third-party libraries.
+            // Mockito 5.x has an internal assertion in MockUtil.getMockHandlerOrNull
+            // that triggers AssertionError when multiple MockMaker instances are
+            // registered.  Since shaded classes live under org.evosuite.shaded.*,
+            // they inherit the EvoSuite assertion flag — this disables them explicitly.
+            cmdLineClone.add(1, "-da:" + PackageInfo.getShadedPackageForThirdPartyLibraries() + "...");
+
             if (!Properties.CLIENT_ON_THREAD) {
                 /*
                  * We want to completely mute the SUT. So, we block all outputs from client, and use a remote logging
