@@ -38,7 +38,7 @@ public class AtMostOnceLogger {
     private static final Map<Logger, Set<String>> atMostOnceLogs = new ConcurrentHashMap<>();
 
 
-    private static synchronized void logAtMostOnce(Logger logger, String message, boolean error) {
+    private static synchronized void logAtMostOnce(Logger logger, String message, Level level) {
         Inputs.checkNull(logger, message);
 
         Set<String> previous = atMostOnceLogs.get(logger);
@@ -50,19 +50,37 @@ public class AtMostOnceLogger {
         if (!previous.contains(message)) {
             previous.add(message);
 
-            if (error) {
-                logger.error(message);
-            } else {
-                logger.warn(message);
+            switch (level) {
+                case ERROR:
+                    logger.error(message);
+                    break;
+                case WARN:
+                    logger.warn(message);
+                    break;
+                case DEBUG:
+                    logger.debug(message);
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown level: " + level);
             }
         }
     }
 
     public static void warn(Logger logger, String message) {
-        logAtMostOnce(logger, message, false);
+        logAtMostOnce(logger, message, Level.WARN);
     }
 
     public static void error(Logger logger, String message) {
-        logAtMostOnce(logger, message, true);
+        logAtMostOnce(logger, message, Level.ERROR);
+    }
+
+    public static void debug(Logger logger, String message) {
+        logAtMostOnce(logger, message, Level.DEBUG);
+    }
+
+    private enum Level {
+        DEBUG,
+        WARN,
+        ERROR
     }
 }
