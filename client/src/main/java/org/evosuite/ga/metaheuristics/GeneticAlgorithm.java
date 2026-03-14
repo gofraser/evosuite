@@ -420,11 +420,14 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     protected void shutdownLlmAssistance() {
+        boolean llmWasActive = asyncProducer != null || stagnationDetector != null;
         if (asyncProducer != null) {
             asyncProducer.stop();
             asyncProducer = null;
         }
-        org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
+        if (llmWasActive) {
+            org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
+        }
     }
 
     protected void integrateAsyncTestsIntoPopulation() {
