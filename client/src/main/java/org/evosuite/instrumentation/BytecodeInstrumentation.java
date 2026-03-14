@@ -188,26 +188,44 @@ public class BytecodeInstrumentation {
         TransformationStatistics.reset();
 
         try {
-            return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, true);
+            return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, true,
+                    ClassWriter.COMPUTE_FRAMES);
         } catch (RuntimeException | Error t) {
-            if (config.maxLoopIterations() >= 0 && isAsmFrameMergeFailure(t)) {
+            if (!isAsmFrameMergeFailure(t)) {
+                throw t;
+            }
+            // Retry 1: disable loop counter (it adds branches that can confuse frame computation)
+            if (config.maxLoopIterations() >= 0) {
                 logger.warn("Retrying instrumentation of {} without loop counter due to ASM frame merge failure: {}",
                         classNameWithDots, t.getMessage());
-                return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, false);
+                try {
+                    return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, false,
+                            ClassWriter.COMPUTE_FRAMES);
+                } catch (RuntimeException | Error t2) {
+                    if (!isAsmFrameMergeFailure(t2)) {
+                        throw t2;
+                    }
+                    // Fall through to COMPUTE_MAXS fallback
+                }
             }
-            throw t;
+            // Retry 2: fall back to COMPUTE_MAXS — produces less optimal stack map frames
+            // but avoids the ASM Frame.merge bug on complex bytecode patterns
+            logger.warn("Retrying instrumentation of {} with COMPUTE_MAXS due to persistent ASM frame merge failure",
+                    classNameWithDots);
+            return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, false,
+                    ClassWriter.COMPUTE_MAXS);
         }
     }
 
     protected byte[] transformBytesInternal(ClassLoader classLoader, String className, String classNameWithDots,
-                                            ClassReader reader, int readFlags, boolean enableLoopCounter) {
+                                            ClassReader reader, int readFlags, boolean enableLoopCounter,
+                                            int writerFlags) {
         /*
          * To use COMPUTE_FRAMES we need to remove JSR commands. Therefore, we
          * have a JSRInlinerAdapter in NonTargetClassAdapter as well as
          * CFGAdapter.
          */
-        int asmFlags = ClassWriter.COMPUTE_FRAMES;
-        ClassWriter writer = new ComputeClassWriter(asmFlags);
+        ClassWriter writer = new ComputeClassWriter(writerFlags);
 
         ClassVisitor cv = writer;
         if (logger.isDebugEnabled()) {

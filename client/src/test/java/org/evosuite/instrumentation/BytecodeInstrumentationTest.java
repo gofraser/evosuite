@@ -96,7 +96,7 @@ public class BytecodeInstrumentationTest {
     @Test
     public void testRetriesWithoutLoopCounterOnAsmFrameFailure() {
         Properties.MAX_LOOP_ITERATIONS = 1;
-        RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation();
+        RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation(1);
         ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug9"));
 
         byte[] transformed = instrumentation.transformBytes(getClass().getClassLoader(), "sample/Bug9", reader);
@@ -105,17 +105,40 @@ public class BytecodeInstrumentationTest {
         Assertions.assertEquals(2, instrumentation.invocations);
         Assertions.assertTrue(instrumentation.firstInvocationEnabledLoopCounter);
         Assertions.assertFalse(instrumentation.secondInvocationEnabledLoopCounter);
+        // First two attempts use COMPUTE_FRAMES
+        Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[0]);
+        Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[1]);
     }
 
     @Test
-    public void testNoRetryWhenLoopCounterDisabled() {
+    public void testFallsBackToComputeMaxsWhenFramesFails() {
+        Properties.MAX_LOOP_ITERATIONS = 1;
+        // Fail both COMPUTE_FRAMES attempts (with and without loop counter)
+        RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation(2);
+        ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug11"));
+
+        byte[] transformed = instrumentation.transformBytes(getClass().getClassLoader(), "sample/Bug11", reader);
+
+        Assertions.assertArrayEquals(RetryProbeInstrumentation.SUCCESS_BYTES, transformed);
+        Assertions.assertEquals(3, instrumentation.invocations);
+        Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[0]);
+        Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[1]);
+        Assertions.assertEquals(ClassWriter.COMPUTE_MAXS, instrumentation.writerFlagsPerInvocation[2]);
+    }
+
+    @Test
+    public void testFallsBackToComputeMaxsWhenLoopCounterDisabled() {
         Properties.MAX_LOOP_ITERATIONS = -1;
-        RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation();
+        // Loop counter disabled: skips retry 1, goes straight to COMPUTE_MAXS fallback
+        RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation(1);
         ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug10"));
 
-        Assertions.assertThrows(ArrayIndexOutOfBoundsException.class,
-                () -> instrumentation.transformBytes(getClass().getClassLoader(), "sample/Bug10", reader));
-        Assertions.assertEquals(1, instrumentation.invocations);
+        byte[] transformed = instrumentation.transformBytes(getClass().getClassLoader(), "sample/Bug10", reader);
+
+        Assertions.assertArrayEquals(RetryProbeInstrumentation.SUCCESS_BYTES, transformed);
+        Assertions.assertEquals(2, instrumentation.invocations);
+        Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[0]);
+        Assertions.assertEquals(ClassWriter.COMPUTE_MAXS, instrumentation.writerFlagsPerInvocation[1]);
     }
 
     private static byte[] createSimpleClassBytes(String internalName) {
@@ -136,19 +159,33 @@ public class BytecodeInstrumentationTest {
 
     private static class RetryProbeInstrumentation extends BytecodeInstrumentation {
         private static final byte[] SUCCESS_BYTES = new byte[]{7, 1, 9};
+        private final int failCount;
         private int invocations = 0;
         private boolean firstInvocationEnabledLoopCounter = false;
         private boolean secondInvocationEnabledLoopCounter = true;
+        private final int[] writerFlagsPerInvocation = new int[4];
+
+        RetryProbeInstrumentation(int failCount) {
+            this.failCount = failCount;
+        }
 
         @Override
         protected byte[] transformBytesInternal(ClassLoader classLoader, String className, String classNameWithDots,
-                                                ClassReader reader, int readFlags, boolean enableLoopCounter) {
+                                                ClassReader reader, int readFlags, boolean enableLoopCounter,
+                                                int writerFlags) {
+            int idx = invocations;
             invocations++;
-            if (invocations == 1) {
+            if (idx < writerFlagsPerInvocation.length) {
+                writerFlagsPerInvocation[idx] = writerFlags;
+            }
+            if (idx == 0) {
                 firstInvocationEnabledLoopCounter = enableLoopCounter;
+            } else if (idx == 1) {
+                secondInvocationEnabledLoopCounter = enableLoopCounter;
+            }
+            if (idx < failCount) {
                 throw createAsmLikeFrameMergeFailure();
             }
-            secondInvocationEnabledLoopCounter = enableLoopCounter;
             return SUCCESS_BYTES;
         }
 
