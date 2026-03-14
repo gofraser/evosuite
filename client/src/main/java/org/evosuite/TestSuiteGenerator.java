@@ -263,7 +263,9 @@ public class TestSuiteGenerator {
          * TODO: when we will have several processes running in parallel, we ll
          * need to handle the gathering of the statistics.
          */
-        org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
+        if (Properties.LLM_PROVIDER != Properties.LlmProvider.NONE) {
+            org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
+        }
         ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_STATISTICS);
 
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Done!");
