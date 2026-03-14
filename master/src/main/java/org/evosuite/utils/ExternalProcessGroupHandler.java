@@ -757,7 +757,7 @@ public class ExternalProcessGroupHandler {
                     finished = true;
                 }
 
-                if (!finished) {
+                if (!finished && clientRunningOnThread == null) {
                     int processIndex = parseClientIndex(entry.getKey());
                     if (processIndex >= 0 && !isClientProcessAlive(processIndex)) {
                         logger.error("Client {} process has already terminated while master state is {}.",
@@ -832,14 +832,16 @@ public class ExternalProcessGroupHandler {
             if (state == ClientState.FINISHED) {
                 return true;
             }
-            if (processIndex >= 0 && !isClientProcessAlive(processIndex)) {
+            if (clientRunningOnThread != null) {
+                // Running in-process (system test mode): check thread liveness, not process
+                if (!clientRunningOnThread.isAlive()) {
+                    return true;
+                }
+            } else if (processIndex >= 0 && !isClientProcessAlive(processIndex)) {
                 logger.error("Client {} process is no longer alive; treating as finished even though state is {}.",
                         clientId, state);
                 logUnexpectedClientTermination(processIndex, clientId, state);
                 clientFailureDetected = true;
-                return true;
-            }
-            if (clientRunningOnThread != null && !clientRunningOnThread.isAlive()) {
                 return true;
             }
             if (allowDoneAsFinished && state == ClientState.DONE) {
