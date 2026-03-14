@@ -380,13 +380,15 @@ public class TestCodeVisitorTest {
         //getAge();
         Method m2 = Person.class.getDeclaredMethod("getAge");
         GenericMethod gm2 = new GenericMethod(m2, Person.class);
-        VariableReference var1 = TestFactory.getInstance().addMethod(tc, gm2,3,0);
+        MethodStatement ms2 = new MethodStatement(tc, gm2, person, Arrays.asList());
+        VariableReference var1 = tc.addStatement(ms2);
         AssignmentStatement as0 = new AssignmentStatement(tc, var0, var1);
         tc.addStatement(as0);
         //isAdult();
         Method m3 = Person.class.getDeclaredMethod("isAdult");
         GenericMethod gm3 = new GenericMethod(m3, Person.class);
-        VariableReference var2 = TestFactory.getInstance().addMethod(tc, gm3,4,0);
+        MethodStatement ms3 = new MethodStatement(tc, gm3, person, Arrays.asList());
+        VariableReference var2 = tc.addStatement(ms3);
         AssignmentStatement as1 = new AssignmentStatement(tc, var2, var2);
         tc.addStatement(as1);
 
@@ -426,13 +428,15 @@ public class TestCodeVisitorTest {
         //getAge();
         Method m2 = Person.class.getDeclaredMethod("getAge");
         GenericMethod gm2 = new GenericMethod(m2, Person.class);
-        VariableReference var1 = TestFactory.getInstance().addMethod(tc, gm2,3,0);
+        MethodStatement ms2 = new MethodStatement(tc, gm2, person, Arrays.asList());
+        VariableReference var1 = tc.addStatement(ms2);
         AssignmentStatement as0 = new AssignmentStatement(tc, var0, var1);
         tc.addStatement(as0);
         //isAdult();
         Method m3 = Person.class.getDeclaredMethod("isAdult");
         GenericMethod gm3 = new GenericMethod(m3, Person.class);
-        VariableReference var2 = TestFactory.getInstance().addMethod(tc, gm3,4,0);
+        MethodStatement ms3 = new MethodStatement(tc, gm3, person, Arrays.asList());
+        VariableReference var2 = tc.addStatement(ms3);
         AssignmentStatement as1 = new AssignmentStatement(tc, var2, var2);
         tc.addStatement(as1);
 
