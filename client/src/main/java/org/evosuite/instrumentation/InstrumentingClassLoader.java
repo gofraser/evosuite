@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 
 /**
@@ -47,6 +48,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class InstrumentingClassLoader extends ClassLoader {
 
     private static final Logger logger = LoggerFactory.getLogger(InstrumentingClassLoader.class);
+    private static final Pattern BINARY_CLASS_NAME_PATTERN =
+            Pattern.compile("^[\\p{L}_$][\\p{L}\\p{N}_$]*(\\.[\\p{L}_$][\\p{L}\\p{N}_$]*)*$");
 
     private final BytecodeInstrumentation instrumentation;
     private final Map<String, Class<?>> classes = new ConcurrentHashMap<>();
@@ -194,13 +197,54 @@ public class InstrumentingClassLoader extends ClassLoader {
             // LinkageError or other unexpected errors, which we want to wrap as ClassNotFoundException
             // to conform to the ClassLoader contract and logging.
             if (isMissingClassError(t)) {
-                AtMostOnceLogger.warn(logger, "Error while loading class (one-time): " + t.getMessage());
+                if (shouldWarnForMissingClass(fullyQualifiedTargetClass)) {
+                    AtMostOnceLogger.warn(logger, "Error while loading class (one-time): " + t.getMessage());
+                } else {
+                    AtMostOnceLogger.debug(logger, "Error while loading class (one-time): " + t.getMessage());
+                }
                 logger.debug("Full stack trace while loading class {}", fullyQualifiedTargetClass, t);
             } else {
                 logger.error("Error while loading class: " + t.getMessage(), t);
             }
             throw new ClassNotFoundException(t.getMessage(), t);
         }
+    }
+
+    private static boolean shouldWarnForMissingClass(String className) {
+        String normalized = normalizeClassName(className);
+        if (normalized == null || !BINARY_CLASS_NAME_PATTERN.matcher(normalized).matches()) {
+            return false;
+        }
+
+        String targetClass = Properties.TARGET_CLASS;
+        if (targetClass != null && !targetClass.isEmpty()) {
+            if (normalized.equals(targetClass) || normalized.startsWith(targetClass + "$")) {
+                return true;
+            }
+
+            int lastDot = targetClass.lastIndexOf('.');
+            if (lastDot > 0) {
+                String targetPackage = targetClass.substring(0, lastDot);
+                if (normalized.startsWith(targetPackage + ".")) {
+                    return true;
+                }
+            }
+        }
+
+        try {
+            ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+            return ResourceList.getInstance(sutLoader).hasClass(normalized);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static String normalizeClassName(String className) {
+        if (className == null) {
+            return null;
+        }
+        String normalized = className.replace('/', '.');
+        return normalized.endsWith(".class") ? normalized.substring(0, normalized.length() - 6) : normalized;
     }
 
     private static boolean isMissingClassError(Throwable t) {
