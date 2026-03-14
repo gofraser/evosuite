@@ -49,6 +49,15 @@ public class Scope {
     }
 
     /**
+     * Clear all variable references and their values from this scope.
+     * Used to release object references when a test execution thread stalls
+     * and the scope can no longer be safely cleaned up per-mock.
+     */
+    public synchronized void clear() {
+        pool.clear();
+    }
+
+    /**
      * Set variable to new value.
      *
      * @param reference VariableReference

@@ -21,6 +21,7 @@ package org.evosuite.testcase.execution;
 
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.dse.VMError;
 import org.evosuite.runtime.System.SystemExitException;
 import org.evosuite.runtime.jvm.ShutdownHookHandler;
@@ -163,10 +164,18 @@ public class TestRunnable implements InterfaceTestRunnable {
     @SuppressWarnings("removal") // ThreadDeath is deprecated for removal but still needed for Thread.stop() handling
     public ExecutionResult call() {
 
+        // Ensure each run starts with the expected loader, even if prior SUT code changed it.
+        // ForkJoinWorkerThread (specifically InnocuousForkJoinWorkerThread) hard-codes a
+        // SecurityException in setContextClassLoader, so skip it for those thread types.
+        if (!(Thread.currentThread() instanceof java.util.concurrent.ForkJoinWorkerThread)) {
+            Thread.currentThread().setContextClassLoader(TestGenerationContext.getInstance().getClassLoaderForSUT());
+        }
+
         exceptionsThrown.clear();
 
         runFinished = false;
         ExecutionResult result = new ExecutionResult(test, null);
+        resetMockitoProgressStateBestEffort();
         // TODO: Moved this to TestCaseExecutor so it is not part of the test execution timeout
         //        Runtime.getInstance().resetRuntime();
         ExecutionTracer.enable();
@@ -226,6 +235,7 @@ public class TestRunnable implements InterfaceTestRunnable {
                     + Properties.TARGET_CLASS + ": "
                     + e.getMessage(), e);
         } finally {
+            resetMockitoProgressStateBestEffort();
             if (!Properties.PRINT_TO_SYSTEM) {
                 LoggingUtils.restorePreviousOutAndErrStream();
             }
@@ -249,6 +259,28 @@ public class TestRunnable implements InterfaceTestRunnable {
         result.setWasAnyPropertyWritten(org.evosuite.runtime.System.wasAnyPropertyWritten());
 
         return result;
+    }
+
+    /**
+     * Clear any half-finished Mockito stubbing state left over from a prior
+     * test that may have timed out mid-stubbing. Without this, the next test
+     * would fail with {@code UnfinishedStubbingException}.
+     */
+    private static void resetMockitoProgressStateBestEffort() {
+        try {
+            Class<?> progressClass = Class.forName(
+                    "org.mockito.internal.progress.ThreadSafeMockingProgress");
+            java.lang.reflect.Method mockingProgress =
+                    progressClass.getMethod("mockingProgress");
+            Object progress = mockingProgress.invoke(null);
+            if (progress != null) {
+                java.lang.reflect.Method reset =
+                        progress.getClass().getMethod("reset");
+                reset.invoke(progress);
+            }
+        } catch (Throwable ignored) {
+            // Mockito internals unavailable or changed; proceed without reset.
+        }
     }
 
     /**

@@ -276,10 +276,20 @@ public class TestCaseExecutor implements ThreadFactory {
     public ExecutionResult execute(TestCase tc, int timeout) {
         Scope scope = new Scope();
         ExecutionResult result;
+        boolean timedOutExecution = false;
+        boolean workerThreadStillAliveAfterTimeout = false;
         try {
             result = execute(tc, scope, timeout);
+            timedOutExecution = result != null && result.hasTimeout();
+            workerThreadStillAliveAfterTimeout = timedOutExecution
+                    && currentThread != null
+                    && currentThread.isAlive();
         } finally {
-            clearMockInvocationsIfNeeded(tc, scope);
+            clearMockInvocationsIfNeeded(tc, scope, timedOutExecution,
+                    workerThreadStillAliveAfterTimeout);
+        }
+        if (timedOutExecution && workerThreadStillAliveAfterTimeout) {
+            rotateExecutorAfterStalledTimeout();
         }
 
         if (Properties.RESET_STATIC_FIELDS) {
@@ -396,96 +406,98 @@ public class TestCaseExecutor implements ThreadFactory {
             }
             return result; // FIXME: is this reachable?
         } catch (TimeoutException e1) {
-            // System.setOut(systemOut);
-            // System.setErr(systemErr);
-
             if (Properties.LOG_TIMEOUT) {
                 logger.warn("Timeout occurred for " + Properties.TARGET_CLASS);
             }
             logger.info("TimeoutException, need to stop runner", e1);
             ExecutionTracer.setKillSwitch(true);
-            try {
-                handler.getLastTask().get(Properties.SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e2) {
-                // Ignore
-            } catch (ExecutionException e2) {
-                // Ignore
-            } catch (TimeoutException e2) {
-                // Ignore
-            }
-            // task.cancel(true);
 
-            if (!callable.isRunFinished()) {
-                logger.info("Cancelling thread:");
-                for (StackTraceElement elem : currentThread.getStackTrace()) {
-                    logger.info(elem.toString());
-                }
-                logger.info(tc.toCode());
-
-                // Interrupt early — breaks out of wait(), sleep(), blocking I/O
+            // Interrupt immediately — the kill switch only works at instrumented
+            // checkpoints, but the thread may be blocked in JDK code (e.g.,
+            // DelayQueue.take, Thread.sleep) that only responds to interrupt.
+            if (currentThread != null) {
                 currentThread.interrupt();
+            }
+            waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
 
+            if (needsTimeoutCleanup(handler)) {
+                // If the thread is in a static initializer, let it finish:
+                // throwing inside <clinit> would leave the class broken.
                 boolean loopCounter = LoopCounter.getInstance().isActivated();
-                while (isInStaticInit()) {
-                    // LoopCounter and killswitch check the stacktrace often
-                    // and that is costly - to speed things up we deactivate it
-                    // until we're outside the static constructor
+                while (needsTimeoutCleanup(handler)
+                        && currentThread != null
+                        && currentThread.isAlive()
+                        && isInStaticInit()) {
                     LoopCounter.getInstance().setActive(false);
                     ExecutionTracer.setKillSwitch(false);
                     logger.info("Run still not finished, but awaiting for static initializer to finish.");
-
-                    try {
-                        executor.awaitTermination(Properties.SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
-                    } catch (InterruptedException e) {
-                        logger.info("Interrupted");
-                        e.printStackTrace();
-                    }
+                    waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
                 }
                 LoopCounter.getInstance().setActive(loopCounter);
                 ExecutionTracer.setKillSwitch(true);
+            }
 
-                if (!callable.isRunFinished()) {
-                    handler.getLastTask().cancel(true);
-                    // Re-interrupt in case the first one was swallowed
-                    currentThread.interrupt();
-                    logger.info("Run not finished, waiting...");
-                    try {
-                        executor.awaitTermination(Properties.SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
-                    } catch (InterruptedException e) {
-                        logger.info("Interrupted");
-                        e.printStackTrace();
+            if (needsTimeoutCleanup(handler)) {
+                logger.info("Cancelling thread:");
+                if (currentThread != null) {
+                    for (StackTraceElement elem : currentThread.getStackTrace()) {
+                        logger.info(elem.toString());
                     }
                 }
+                logger.info(tc.toCode());
 
-                if (!callable.isRunFinished()) {
-                    logger.warn("Run still not finished, replacing executor. "
-                            + "Thread {} is stuck at:", currentThread.getName());
+                // Re-interrupt in case the first one was swallowed
+                if (currentThread != null) {
+                    currentThread.interrupt();
+                }
+                waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
+            }
+
+            if (needsTimeoutCleanup(handler)) {
+                // Last resort: cancel the task and wait once more
+                FutureTask<?> task = handler.getLastTask();
+                if (task != null) {
+                    task.cancel(true);
+                }
+                if (currentThread != null) {
+                    currentThread.interrupt();
+                }
+                try {
+                    // After cancel, get() throws CancellationException immediately,
+                    // so fall back to a timed join on the thread itself.
+                    if (currentThread != null) {
+                        currentThread.join(Properties.SHUTDOWN_TIMEOUT);
+                    }
+                } catch (InterruptedException e) {
+                    // Ignore
+                }
+            }
+
+            waitForTimeoutExitGracePeriod(handler);
+
+            if (needsTimeoutCleanup(handler)) {
+                logger.warn("Run still not finished, replacing executor. "
+                        + "Thread {} is stuck at:",
+                        currentThread == null ? "<null>" : currentThread.getName());
+                if (currentThread != null) {
                     for (StackTraceElement element : currentThread.getStackTrace()) {
                         logger.warn("  {}", element);
                     }
-                    try {
-                        executor.shutdownNow();
-                        if (currentThread.isAlive()) {
-                            // Thread.stop() was removed in Java 20+.
-                            // Make the thread daemon so it won't prevent shutdown,
-                            // and interrupt it one more time.
-                            try {
-                                currentThread.setDaemon(true);
-                            } catch (IllegalThreadStateException ignored) {
-                                // Cannot change daemon status of a running thread
-                                // in all JVMs, but worth trying
-                            }
-                            currentThread.interrupt();
-                        }
-                    } catch (Throwable t) {
-                        logger.info("Exception during thread cleanup: {}", t.getMessage());
-                    }
-                    ExecutionTracer.disable();
-                    executor = Executors.newSingleThreadExecutor(this);
                 }
-            } else {
-                logger.info("Run is finished - " + currentThread.isAlive() + ": " + getNumStalledThreads());
-
+                try {
+                    executor.shutdownNow();
+                    if (currentThread != null && currentThread.isAlive()) {
+                        try {
+                            currentThread.setDaemon(true);
+                        } catch (IllegalThreadStateException ignored) {
+                        }
+                        currentThread.interrupt();
+                    }
+                } catch (Throwable t) {
+                    logger.info("Exception during thread cleanup: {}", t.getMessage());
+                }
+                ExecutionTracer.disable();
+                executor = Executors.newSingleThreadExecutor(this);
             }
             ExecutionTracer.disable();
 
@@ -532,8 +544,22 @@ public class TestCaseExecutor implements ThreadFactory {
      * via {@code EvoInvocationListener}, which is read at mutation time
      * <em>before</em> re-execution — Mockito's own invocation log is never
      * consulted by the search.
+     * <p>
+     * We only skip cleanup when the <em>current</em> test's worker thread is
+     * still alive after a timeout — it might be inside Mockito code and
+     * concurrent cleanup could deadlock. Stalled threads from prior executions
+     * do not block cleanup; they are already abandoned.
      */
-    private static void clearMockInvocationsIfNeeded(TestCase tc, Scope scope) {
+    private void clearMockInvocationsIfNeeded(TestCase tc, Scope scope,
+                                              boolean timedOutExecution,
+                                              boolean workerThreadStillAliveAfterTimeout) {
+        if (timedOutExecution && workerThreadStillAliveAfterTimeout) {
+            logger.warn("Skipping Mockito cleanup because the current execution thread "
+                    + "is still alive after timeout. Clearing scope to release objects.");
+            scope.clear();
+            return;
+        }
+
         for (Statement s : tc) {
             if (s instanceof FunctionalMockStatement) {
                 try {
@@ -548,7 +574,21 @@ public class TestCaseExecutor implements ThreadFactory {
         }
     }
 
+    private synchronized void rotateExecutorAfterStalledTimeout() {
+        logger.warn("Rotating TestCaseExecutor worker after timeout with live thread "
+                + "to avoid leaking thread-local state.");
+        if (executor != null) {
+            executor.shutdownNow();
+        }
+        executor = Executors.newSingleThreadExecutor(this);
+        currentThread = null;
+        threadGroup = null;
+    }
+
     private boolean isInStaticInit() {
+        if (currentThread == null) {
+            return false;
+        }
         for (StackTraceElement elem : currentThread.getStackTrace()) {
             if (elem.getMethodName().equals("<clinit>")) {
                 return true;
@@ -566,8 +606,55 @@ public class TestCaseExecutor implements ThreadFactory {
         return false;
     }
 
+    private boolean needsTimeoutCleanup(TimeoutHandler<?> handler) {
+        FutureTask<?> task = handler.getLastTask();
+        if (task == null) {
+            return false;
+        }
+        return !task.isDone();
+    }
+
+    private void waitForLastTask(TimeoutHandler<?> handler, long timeoutMillis) {
+        FutureTask<?> task = handler.getLastTask();
+        if (task == null) {
+            return;
+        }
+        try {
+            task.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException
+                 | CancellationException ignored) {
+        }
+    }
+
+    private boolean isLikelyExitingFromTimeout() {
+        if (currentThread == null || !currentThread.isAlive()) {
+            return false;
+        }
+        for (StackTraceElement element : currentThread.getStackTrace()) {
+            if (element.getClassName().equals(ExecutionTracer.class.getName())
+                    && element.getMethodName().equals("checkTimeout")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void waitForTimeoutExitGracePeriod(TimeoutHandler<?> handler) {
+        long graceMillis = Math.min(Properties.SHUTDOWN_TIMEOUT, 1000L);
+        if (graceMillis <= 0) {
+            return;
+        }
+
+        final long deadline = System.currentTimeMillis() + graceMillis;
+        while (needsTimeoutCleanup(handler)
+                && isLikelyExitingFromTimeout()
+                && System.currentTimeMillis() < deadline) {
+            long remaining = deadline - System.currentTimeMillis();
+            waitForLastTask(handler, Math.max(1L, Math.min(100L, remaining)));
+        }
+    }
+
     /**
-     * <p>getNumStalledThreads.</p>
      *
      * @return a int.
      */
@@ -592,9 +679,13 @@ public class TestCaseExecutor implements ThreadFactory {
         if (currentThread != null && currentThread.isAlive()) {
             currentThread.setPriority(Thread.MIN_PRIORITY);
             stalledThreads.add(currentThread);
-            logger.info("Current number of stalled threads: " + getNumStalledThreads());
-        } else {
-            logger.info("No stalled threads");
+            int numStalled = getNumStalledThreads();
+            logger.info("Current number of stalled threads: " + numStalled);
+            if (numStalled > 20) {
+                logger.warn("High number of stalled execution threads ({}). "
+                        + "This may indicate a resource leak from tests that cannot be interrupted.",
+                        numStalled);
+            }
         }
 
         if (threadGroup != null) {
