@@ -132,7 +132,8 @@ public class MethodStatement extends EntityWithParametersStatement {
 
         // Baseline safety: regardless of owner generic metadata, an instance-method
         // callee must be assignable to the reflective declaring class.
-        if (!GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)) {
+        if (!GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)
+                && !isAssignableByName(method.getDeclaringClass(), calleeType)) {
             return false;
         }
 
@@ -144,12 +145,20 @@ public class MethodStatement extends EntityWithParametersStatement {
         // Fall back to raw declaring-class compatibility when the callee type is raw/non-parameterized.
         // This is needed for cloned statements where type arguments may be erased on the variable type.
         if (!(method.getOwnerType() instanceof ParameterizedType)
-                && GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)) {
+                && (GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)
+                    || isAssignableByName(method.getDeclaringClass(), calleeType))) {
             return true;
         }
         if (method.getOwnerType() instanceof ParameterizedType
                 && !(calleeType instanceof ParameterizedType)
-                && GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)) {
+                && (GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)
+                    || isAssignableByName(method.getDeclaringClass(), calleeType))) {
+            return true;
+        }
+
+        // Cross-classloader fallback: owner type and callee type may be from different
+        // classloaders (e.g., during test case cloning after context resets).
+        if (isAssignableByName(method.getOwnerType(), calleeType)) {
             return true;
         }
 
@@ -161,6 +170,73 @@ public class MethodStatement extends EntityWithParametersStatement {
         }
 
         return false;
+    }
+
+    /**
+     * Name-based assignability check that handles cross-classloader scenarios where
+     * Class.isAssignableFrom() fails because the Class objects are from different classloaders.
+     */
+    private static boolean isAssignableByName(java.lang.reflect.Type lhsType,
+                                              java.lang.reflect.Type rhsType) {
+        Class<?> lhsClass = toRawClass(lhsType);
+        Class<?> rhsClass = toRawClass(rhsType);
+        if (lhsClass == null || rhsClass == null) {
+            return false;
+        }
+        if (lhsClass == rhsClass) {
+            return true;
+        }
+        String lhsName = lhsClass.getName();
+        String rhsName = rhsClass.getName();
+        if (lhsName.equals(rhsName)) {
+            return true;
+        }
+        // Walk the superclass chain of rhsClass by name
+        for (Class<?> sup = rhsClass.getSuperclass(); sup != null; sup = sup.getSuperclass()) {
+            if (lhsName.equals(sup.getName())) {
+                return true;
+            }
+        }
+        // Walk the interface chain of rhsClass by name
+        for (Class<?> iface : getAllInterfaces(rhsClass)) {
+            if (lhsName.equals(iface.getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Class<?> toRawClass(java.lang.reflect.Type type) {
+        if (type instanceof Class<?>) {
+            return (Class<?>) type;
+        }
+        if (type instanceof ParameterizedType) {
+            java.lang.reflect.Type raw = ((ParameterizedType) type).getRawType();
+            if (raw instanceof Class<?>) {
+                return (Class<?>) raw;
+            }
+        }
+        return null;
+    }
+
+    private static Set<Class<?>> getAllInterfaces(Class<?> clazz) {
+        Set<Class<?>> interfaces = new LinkedHashSet<>();
+        for (Class<?> c = clazz; c != null; c = c.getSuperclass()) {
+            for (Class<?> iface : c.getInterfaces()) {
+                if (interfaces.add(iface)) {
+                    collectSuperInterfaces(iface, interfaces);
+                }
+            }
+        }
+        return interfaces;
+    }
+
+    private static void collectSuperInterfaces(Class<?> iface, Set<Class<?>> result) {
+        for (Class<?> superIface : iface.getInterfaces()) {
+            if (result.add(superIface)) {
+                collectSuperInterfaces(superIface, result);
+            }
+        }
     }
 
     private void init(GenericMethod method, VariableReference callee) throws IllegalArgumentException {
