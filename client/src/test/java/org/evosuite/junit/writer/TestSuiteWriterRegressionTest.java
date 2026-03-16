@@ -32,7 +32,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class TestSuiteWriterRegressionTest {
@@ -233,6 +237,30 @@ public class TestSuiteWriterRegressionTest {
         Assertions.assertFalse(code.contains("EvoSuiteExtension"));
         Assertions.assertTrue(generated.stream().anyMatch(f -> f.getName().endsWith("_scaffolding.java")));
         Assertions.assertTrue(Files.exists(tempDir.resolve("LegacyJ5ScaffTest_scaffolding.java")));
+        deleteTempDir(tempDir);
+    }
+
+    @Test
+    public void testWriterEnforcesUniqueMethodNamesWhenGeneratedNamesCollide() throws Exception {
+        Path tempDir = Files.createTempDirectory("evosuite-unique-methods-");
+        configureDefaults();
+        Properties.TEST_NAMING_STRATEGY = Properties.TestNamingStrategy.COVERAGE;
+
+        TestSuiteWriter writer = new TestSuiteWriter();
+        writer.insertAllTests(Arrays.asList(new DefaultTestCase(), new DefaultTestCase()));
+        writer.writeTestSuite("UniqueMethodNamesTest", tempDir.toString(), Collections.emptyList());
+
+        String code = readFile(tempDir.resolve("UniqueMethodNamesTest.java"));
+        Pattern methodPattern = Pattern.compile("public void\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\(\\)\\s+throws Throwable");
+        Matcher matcher = methodPattern.matcher(code);
+        Set<String> names = new HashSet<>();
+        int count = 0;
+        while (matcher.find()) {
+            count++;
+            names.add(matcher.group(1));
+        }
+        Assertions.assertEquals(2, count);
+        Assertions.assertEquals(2, names.size());
         deleteTempDir(tempDir);
     }
 

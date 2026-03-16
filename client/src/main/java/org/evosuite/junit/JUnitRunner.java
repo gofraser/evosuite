@@ -56,10 +56,12 @@ public class JUnitRunner {
 
     /**
      * Executes the JUnit tests using the configured test format (JUnit 4 or 5).
+     * When running in measureCoverage mode, auto-detects JUnit 4 tests based on
+     * the presence of {@code org.junit.Test} annotations on methods.
      */
     public void run() {
 
-        if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT4) {
+        if (shouldRunAsJUnit4()) {
             Request request = Request.aClass(this.junitClass);
             logger.warn("Running Junit 4 test");
             JUnitCore junit = new JUnitCore();
@@ -78,6 +80,24 @@ public class JUnitRunner {
         } else {
             logger.warn("Can't run junit test with test format: {}", Properties.TEST_FORMAT);
         }
+    }
+
+    /**
+     * Determines whether to run the test class with JUnit 4.
+     * Returns true if TEST_FORMAT is JUNIT4, or if the class has methods
+     * annotated with {@code org.junit.Test} (JUnit 4 annotation).
+     */
+    private boolean shouldRunAsJUnit4() {
+        if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT4) {
+            return true;
+        }
+        // Auto-detect JUnit 4 tests: check for org.junit.Test annotations
+        for (java.lang.reflect.Method m : this.junitClass.getMethods()) {
+            if (m.isAnnotationPresent(org.junit.Test.class)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

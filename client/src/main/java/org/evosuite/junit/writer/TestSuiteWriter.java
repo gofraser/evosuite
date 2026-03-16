@@ -90,6 +90,8 @@ public class TestSuiteWriter implements Opcodes {
 
     private TestNameGenerationStrategy nameGenerator = null;
     private List<String> extensionInitializationOrder = Collections.emptyList();
+    private final Set<String> emittedMethodNames = new HashSet<>();
+    private final Map<String, Integer> emittedMethodNameSuffixes = new HashMap<>();
 
     /**
      * Set the order in which extensions should be initialized.
@@ -383,6 +385,7 @@ public class TestSuiteWriter implements Opcodes {
         boolean wasSecurityException = TestSuiteWriterUtils.hasAnySecurityException(results);
 
         StringBuilder builder = new StringBuilder();
+        resetEmittedMethodNameTracking();
 
         builder.append(getHeader(name, name, results, requirements));
 
@@ -414,6 +417,7 @@ public class TestSuiteWriter implements Opcodes {
         boolean wasSecurityException = results.get(testId).hasSecurityException();
 
         StringBuilder builder = new StringBuilder();
+        resetEmittedMethodNameTracking();
 
         builder.append(getHeader(name + "_" + testId, name, results, requirements));
 
@@ -785,6 +789,7 @@ public class TestSuiteWriter implements Opcodes {
             // if TestNameGenerator did not generate a name, fall back to original naming
             methodName = TestSuiteWriterUtils.getNameOfTest(testCases, number);
         }
+        methodName = ensureUniqueMethodName(methodName);
         builder.append(adapter.getMethodDefinition(methodName));
 
         /*
@@ -888,6 +893,26 @@ public class TestSuiteWriter implements Opcodes {
         TestGenerationResultBuilder.getInstance().setTestCase(methodName, testCode, test,
                 testInfo, result);
         return testCode;
+    }
+
+    private void resetEmittedMethodNameTracking() {
+        emittedMethodNames.clear();
+        emittedMethodNameSuffixes.clear();
+    }
+
+    private String ensureUniqueMethodName(String baseName) {
+        if (emittedMethodNames.add(baseName)) {
+            return baseName;
+        }
+
+        int suffix = emittedMethodNameSuffixes.getOrDefault(baseName, 1);
+        String candidate = baseName + "_" + suffix;
+        while (!emittedMethodNames.add(candidate)) {
+            suffix++;
+            candidate = baseName + "_" + suffix;
+        }
+        emittedMethodNameSuffixes.put(baseName, suffix + 1);
+        return candidate;
     }
 
     /**
