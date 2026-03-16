@@ -1477,7 +1477,6 @@ public class TestCodeVisitor extends TestVisitor {
             }
 
             GenericClass<?> returnType = md.getReturnClass();
-            // Class<?> returnType = md.getMethod().getReturnType();
 
             String parameterString;
 
@@ -1489,7 +1488,11 @@ public class TestCodeVisitor extends TestVisitor {
                         types[i] = Object.class;
                         isOverloaded = true;
                     } else {
-                        types[i] = params.get(i).getType();
+                        // Use the method's return type, not the variable's type.
+                        // For null references the variable type defaults to Object,
+                        // but the cast must match the mocked method's return type
+                        // (e.g. String, not Object) to produce compilable code.
+                        types[i] = returnType.getType();
                     }
                 }
 

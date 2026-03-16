@@ -421,19 +421,30 @@ public class TestCaseExecutor implements ThreadFactory {
             waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
 
             if (needsTimeoutCleanup(handler)) {
-                // If the thread is in a static initializer, let it finish:
+                // If the thread is in a static initializer or classloading, let it finish:
                 // throwing inside <clinit> would leave the class broken.
                 boolean loopCounter = LoopCounter.getInstance().isActivated();
+                boolean wasInStaticInit = false;
                 while (needsTimeoutCleanup(handler)
                         && currentThread != null
                         && currentThread.isAlive()
                         && isInStaticInit()) {
+                    wasInStaticInit = true;
                     LoopCounter.getInstance().setActive(false);
                     ExecutionTracer.setKillSwitch(false);
                     logger.info("Run still not finished, but awaiting for static initializer to finish.");
                     waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
                 }
                 LoopCounter.getInstance().setActive(loopCounter);
+
+                if (wasInStaticInit && needsTimeoutCleanup(handler)) {
+                    // The initial timeout was consumed by classloading/static initialization.
+                    // Give the actual test code a fresh timeout budget so it gets a fair chance.
+                    logger.info("Static initializer finished; granting fresh timeout of {}ms for test execution.", timeout);
+                    ExecutionTracer.setKillSwitch(false);
+                    waitForLastTask(handler, timeout);
+                }
+
                 ExecutionTracer.setKillSwitch(true);
             }
 
@@ -476,16 +487,16 @@ public class TestCaseExecutor implements ThreadFactory {
             waitForTimeoutExitGracePeriod(handler);
 
             if (needsTimeoutCleanup(handler)) {
-                logger.warn("Run still not finished, replacing executor. "
-                        + "Thread {} is stuck at:",
+                logger.warn("Run still not finished, thread {} is stuck at:",
                         currentThread == null ? "<null>" : currentThread.getName());
                 if (currentThread != null) {
                     for (StackTraceElement element : currentThread.getStackTrace()) {
                         logger.warn("  {}", element);
                     }
                 }
+                // Try one last time to clean up the stuck thread.
+                // Executor rotation is handled by the outer execute() method.
                 try {
-                    executor.shutdownNow();
                     if (currentThread != null && currentThread.isAlive()) {
                         try {
                             currentThread.setDaemon(true);
@@ -497,7 +508,6 @@ public class TestCaseExecutor implements ThreadFactory {
                     logger.info("Exception during thread cleanup: {}", t.getMessage());
                 }
                 ExecutionTracer.disable();
-                executor = Executors.newSingleThreadExecutor(this);
             }
             ExecutionTracer.disable();
 
@@ -577,12 +587,25 @@ public class TestCaseExecutor implements ThreadFactory {
     private synchronized void rotateExecutorAfterStalledTimeout() {
         logger.warn("Rotating TestCaseExecutor worker after timeout with live thread "
                 + "to avoid leaking thread-local state.");
+        // Track the stalled thread so ResourceController can count it and
+        // stop the search before we accumulate too many.
+        if (currentThread != null && currentThread.isAlive()) {
+            currentThread.setPriority(Thread.MIN_PRIORITY);
+            stalledThreads.add(currentThread);
+        }
         if (executor != null) {
             executor.shutdownNow();
         }
         executor = Executors.newSingleThreadExecutor(this);
         currentThread = null;
         threadGroup = null;
+        int numStalled = getNumStalledThreads();
+        if (numStalled > 0) {
+            logger.warn("Total stalled threads: {}. ResourceController will stop the search at {}.",
+                    numStalled, Properties.MAX_STALLED_THREADS);
+        }
+        // Hint the GC to reclaim objects released by scope.clear() for the stalled execution.
+        System.gc();
     }
 
     private boolean isInStaticInit() {

@@ -154,7 +154,10 @@ public class BaseDeterminismSystemTest {
 
     private static String filter(String s) {
 
-        List<String> skip = Arrays.asList("sun.reflect.GeneratedMethodAccessor");
+        List<String> skip = Arrays.asList(
+                "sun.reflect.GeneratedMethodAccessor",
+                "Connecting to master process on port"
+        );
 
         StringBuffer buffer = new StringBuffer(s.length());
         Scanner scanner = new Scanner(s);

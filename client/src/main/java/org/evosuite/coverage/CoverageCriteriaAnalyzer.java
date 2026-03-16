@@ -184,6 +184,13 @@ public class CoverageCriteriaAnalyzer {
         if (reinstrumented) {
             TestGenerationContext.getInstance().resetContext();
             Properties.getInitializedTargetClass();
+
+            // Migrate test cases to the new classloader so that reflection objects
+            // (Method, Constructor, Class) point to classes from the current classloader.
+            for (TestChromosome test : testSuite.getTestChromosomes()) {
+                DefaultTestCase dtest = (DefaultTestCase) test.getTestCase();
+                dtest.changeClassLoader(TestGenerationContext.getInstance().getClassLoaderForSUT());
+            }
         }
     }
 

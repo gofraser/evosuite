@@ -147,11 +147,19 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
      */
     public Type[] getExactParameterTypes(Constructor<?> m, Type type) {
         Type[] parameterTypes = m.getGenericParameterTypes();
-        Type exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
-                m.getDeclaringClass());
-        if (exactDeclaringType == null) { // capture(type) is not a subtype of m.getDeclaringClass()
-            throw new IllegalArgumentException("The constructor " + m
-                    + " is not a member of type " + type);
+        Type exactDeclaringType = null;
+        try {
+            exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
+                    m.getDeclaringClass());
+        } catch (java.lang.TypeNotPresentException e) {
+            // May happen with dependency issues involving annotations:
+            // https://bugs.java.com/view_bug.do?bug_id=JDK-7183985
+        }
+        if (exactDeclaringType == null) {
+            // This can happen when 'type' and the declaring class are loaded by
+            // different classloaders (same name, different Class objects).
+            // Fall back to erased parameter types.
+            return m.getParameterTypes();
         }
 
         Type[] result = new Type[parameterTypes.length];
