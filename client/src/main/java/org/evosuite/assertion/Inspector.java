@@ -81,6 +81,9 @@ public class Inspector implements Serializable {
         Object ret = null;
 
         try {
+            if (this.method == null) {
+                throw new IllegalStateException("Inspector method not resolved (possible classloader constraint)");
+            }
             ret = this.method.invoke(object);
         } finally {
             if (needsSandbox) {
@@ -195,17 +198,38 @@ public class Inspector implements Serializable {
         ois.defaultReadObject();
 
         // Read/initialize additional fields
-        this.clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass((String) ois.readObject());
-        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT()
-                .loadClass((String) ois.readObject());
-
+        String className = (String) ois.readObject();
+        String methodClassName = (String) ois.readObject();
         String methodName = (String) ois.readObject();
         String methodDesc = (String) ois.readObject();
 
-        for (Method method : methodClass.getDeclaredMethods()) {
-            if (method.getName().equals(methodName)) {
-                if (Type.getMethodDescriptor(method).equals(methodDesc)) {
-                    this.method = method;
+        try {
+            this.clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
+            Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT()
+                    .loadClass(methodClassName);
+            resolveMethod(methodClass, methodName, methodDesc);
+        } catch (LinkageError e) {
+            // Loader constraint violation: the SUT classloader and the deserializing thread's
+            // classloader have incompatible definitions of a type referenced by this class.
+            // Fall back to the context classloader which is consistent with the RMI thread.
+            try {
+                ClassLoader fallback = Thread.currentThread().getContextClassLoader();
+                if (fallback != null) {
+                    this.clazz = fallback.loadClass(className);
+                    Class<?> methodClass = fallback.loadClass(methodClassName);
+                    resolveMethod(methodClass, methodName, methodDesc);
+                }
+            } catch (LinkageError | ClassNotFoundException ignored) {
+                // Inspector will be non-functional (method stays null) but won't crash
+            }
+        }
+    }
+
+    private void resolveMethod(Class<?> methodClass, String methodName, String methodDesc) {
+        for (Method m : methodClass.getDeclaredMethods()) {
+            if (m.getName().equals(methodName)) {
+                if (Type.getMethodDescriptor(m).equals(methodDesc)) {
+                    this.method = m;
                     this.method.setAccessible(true);
                     return;
                 }
