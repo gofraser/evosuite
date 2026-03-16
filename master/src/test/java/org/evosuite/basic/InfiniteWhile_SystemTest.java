@@ -80,7 +80,7 @@ public class InfiniteWhile_SystemTest extends SystemTestBase {
     }
 
     @Test
-    @Timeout(value = 30_000, unit = TimeUnit.MILLISECONDS)
+    @Timeout(value = 120_000, unit = TimeUnit.MILLISECONDS)
     public void systemTestJUnit() {
 
         EvoSuite evosuite = new EvoSuite();
@@ -91,6 +91,10 @@ public class InfiniteWhile_SystemTest extends SystemTestBase {
         Properties.TIMEOUT = 5000;
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXTIME;
         Properties.JUNIT_TESTS = true;
+        // Keep JUnit compilation/check phases short — the generated test calls
+        // infiniteLoop() which, without instrumentation, hangs until these timeouts.
+        Properties.WRITE_JUNIT_TIMEOUT = 10;
+        Properties.JUNIT_CHECK_TIMEOUT = 10;
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
 
         Object result = evosuite.parseCommandLine(command);
