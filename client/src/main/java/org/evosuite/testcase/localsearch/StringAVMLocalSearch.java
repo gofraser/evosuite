@@ -68,7 +68,6 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
         }
 
         if (affected) {
-
             boolean hasImproved = false;
 
             // First try to remove each of the characters
@@ -124,6 +123,7 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
                         + newString + "/" + newString.length());
 
                 if (objective.hasImproved(test)) {
+                    improvement = true;
                     done = false;
 
                     iterate(2, objective, test, p, i, statement);
@@ -142,6 +142,7 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
                     p.setValue(newString);
 
                     if (objective.hasImproved(test)) {
+                        improvement = true;
                         done = false;
                         iterate(-2, objective, test, p, i, statement);
                         oldValue = p.getValue();

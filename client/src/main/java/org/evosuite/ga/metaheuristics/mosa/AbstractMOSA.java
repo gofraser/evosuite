@@ -158,15 +158,17 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
     /**
      * Speciation assigner. Always non-null; uses a no-op implementation when
-     * speciation is disabled.
+     * speciation is disabled. Transient because lambdas/anonymous classes are
+     * not serializable and this field is not needed after RMI transfer.
      */
-    protected final SpeciesAssigner speciesAssigner;
+    protected final transient SpeciesAssigner speciesAssigner;
 
     /**
      * Speciation policy. Always non-null; uses a no-op implementation when
-     * speciation is disabled.
+     * speciation is disabled. Transient because anonymous inner classes are
+     * not serializable and this field is not needed after RMI transfer.
      */
-    protected final SpeciesPolicy speciesPolicy;
+    protected final transient SpeciesPolicy speciesPolicy;
 
     /**
      * Constructor.
@@ -251,6 +253,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     public void addFitnessFunction(final FitnessFunction<TestChromosome> function) {
         if (function instanceof TestFitnessFunction) {
             fitnessFunctions.add((TestFitnessFunction) function);
+            localObjective.addFitnessFunction(function);
         } else {
             throw new IllegalArgumentException("Only TestFitnessFunctions are supported");
         }

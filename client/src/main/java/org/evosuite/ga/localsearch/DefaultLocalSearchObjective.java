@@ -24,12 +24,15 @@ import org.evosuite.ga.FitnessFunction;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * The Default local search objective only stores a list of fitness functions.
- * It cannot be used to check if an individual has changed, improved or if the objective
- * has been reached.
+ * Default local search objective that evaluates fitness improvement by re-evaluating
+ * the chromosome's fitness functions after each mutation and comparing with the
+ * pre-mutation baseline. This is used when GAs operate directly on individual
+ * chromosomes (e.g., MOSA with TestChromosomes) rather than through a test suite wrapper.
  *
  * @author Gordon Fraser
  */
@@ -44,26 +47,75 @@ public class DefaultLocalSearchObjective<T extends Chromosome<T>> implements Loc
     private boolean isMaximization = false;
 
     /**
-     * This operation is not supported by this class.
-     *
-     * @return boolean
-     * @throws UnsupportedOperationException always
+     * Returns false since this objective has no stored chromosome reference
+     * to check goal completion. The {@link LocalSearchBudget} controls termination.
      */
     @Override
     public boolean isDone() {
-        throw new UnsupportedOperationException("Not implemented for default objective");
+        return false;
+    }
+
+    @Override
+    public boolean hasImproved(T chromosome) {
+        return hasChanged(chromosome) < 0;
+    }
+
+    @Override
+    public boolean hasNotWorsened(T chromosome) {
+        return hasChanged(chromosome) < 1;
     }
 
     /**
-     * This operation is not supported by this class.
-     *
-     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
-     * @return boolean
-     * @throws UnsupportedOperationException always
+     * Re-evaluates the chromosome's fitness and compares with the pre-mutation
+     * baseline (the fitness values currently stored on the chromosome before
+     * re-evaluation). Returns -1 if improved, 1 if worsened, 0 if unchanged.
+     * On worsening, the chromosome's fitness values are restored to the baseline.
      */
     @Override
-    public boolean hasImproved(T chromosome) {
-        throw new UnsupportedOperationException("Not implemented for default objective");
+    public int hasChanged(T chromosome) {
+        if (fitnessFunctions.isEmpty()) {
+            return 0;
+        }
+
+        // Snapshot all fitness values before re-evaluation for potential restore.
+        // The stored values reflect the pre-mutation state because the mutation
+        // only changes the test case content, not the cached fitness values.
+        Map<FitnessFunction<T>, Double> fullBaseline =
+                new LinkedHashMap<>(chromosome.getFitnessValues());
+
+        double baselineSum = 0.0;
+        for (FitnessFunction<T> ff : fitnessFunctions) {
+            Double value = fullBaseline.get(ff);
+            if (value != null) {
+                baselineSum += value;
+            }
+        }
+
+        // Re-evaluate the mutated chromosome
+        chromosome.setChanged(true);
+        LocalSearchBudget.getInstance().countFitnessEvaluation();
+        double newSum = 0.0;
+        for (FitnessFunction<T> ff : fitnessFunctions) {
+            newSum += ff.getFitness(chromosome);
+        }
+
+        if (isFitnessBetter(newSum, baselineSum)) {
+            return -1;
+        } else {
+            // Restore pre-mutation fitness so subsequent calls use the correct baseline.
+            // This is needed for both "worsened" and "unchanged" because ff.getFitness()
+            // updates the chromosome's fitness cache as a side effect.
+            chromosome.setFitnessValues(fullBaseline);
+            return isFitnessWorse(newSum, baselineSum) ? 1 : 0;
+        }
+    }
+
+    private boolean isFitnessBetter(double newFitness, double oldFitness) {
+        return isMaximization ? newFitness > oldFitness : newFitness < oldFitness;
+    }
+
+    private boolean isFitnessWorse(double newFitness, double oldFitness) {
+        return isMaximization ? newFitness < oldFitness : newFitness > oldFitness;
     }
 
     @Override
@@ -83,44 +135,9 @@ public class DefaultLocalSearchObjective<T extends Chromosome<T>> implements Loc
         return isMaximization;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.LocalSearchObjective#getFitnessFunction()
-     */
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return the list of fitness functions.
-     */
+    /** {@inheritDoc} */
     @Override
     public List<FitnessFunction<T>> getFitnessFunctions() {
         return fitnessFunctions;
     }
-
-
-    /**
-     * This operation is not supported by this class.
-     *
-     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
-     * @return int
-     * @throws UnsupportedOperationException always
-     */
-    @Override
-    public int hasChanged(T chromosome) {
-        throw new UnsupportedOperationException("Not implemented for default objective");
-    }
-
-    /**
-     * This operation is not supported by this class.
-     *
-     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
-     * @return boolean
-     * @throws UnsupportedOperationException always
-     */
-    @Override
-    public boolean hasNotWorsened(T chromosome) {
-        throw new UnsupportedOperationException("Not implemented for default objective");
-    }
-
-
 }

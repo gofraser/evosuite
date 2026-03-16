@@ -179,11 +179,18 @@ public class CoverageAnalysis {
                 CoverageCriteriaAnalyzer.analyzeCoverage(testSuite, pc);
             }
 
-            // Generate test suite
+            // Track coverage statistics before writing JUnit tests, since
+            // writeJUnitTestsAndCreateResult may fail on some targets.
+            StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
+            int coveredGoals = testSuite.getCoveredGoals().size();
+            double coverage = goals == 0 ? 1.0 : ((double) coveredGoals) / ((double) goals);
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals);
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Covered_Goals, coveredGoals);
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Coverage, coverage);
+
+            // Generate test suite (may fail, but coverage is already tracked)
             TestSuiteGenerator.writeJUnitTestsAndCreateResult(testSuite);
 
-            StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals);
             if (Properties.COVERAGE_MATRIX) {
                 throw new IllegalArgumentException(
                         "Coverage matrix not yet available when measuring coverage of a carved test suite");

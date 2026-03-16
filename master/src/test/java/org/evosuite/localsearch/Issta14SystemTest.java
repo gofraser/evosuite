@@ -53,10 +53,12 @@ public class Issta14SystemTest extends SystemTestBase {
         EvoSuite evosuite = new EvoSuite();
         String targetClass = IsstaFoo.class.getCanonicalName();
         Properties.TARGET_CLASS = targetClass;
+        Properties.STRATEGY = Properties.Strategy.MOSUITE;
+        Properties.ALGORITHM = Properties.Algorithm.MOSA;
 
         Properties.DSE_PROBABILITY = 0.0; // force using only LS, no DSE
 
-        String[] command = new String[]{"-generateSuite", "-class",
+        String[] command = new String[]{"-class",
                 targetClass};
 
         Object result = evosuite.parseCommandLine(command);

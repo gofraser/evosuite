@@ -549,6 +549,9 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             }
         }, "ClientNodeRemoteAction-" + actionName);
         remoteActionThread.setDaemon(true);
+        // RMI calls are EvoSuite infrastructure; mark this helper thread as privileged
+        // so sandbox checks do not treat it as SUT-originated network access.
+        Sandbox.addPrivilegedThread(remoteActionThread);
         remoteActionThread.start();
 
         try {

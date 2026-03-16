@@ -40,9 +40,25 @@ public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
     private static final long serialVersionUID = 1556980428376303737L;
     private static final Logger logger = LoggerFactory.getLogger(MOSATestSuiteAdapter.class);
 
+    /**
+     * Cached best individual, snapshotted after generateSolution() completes
+     * while the archive is still populated. Post-search cleanup
+     * (CoverageCriteriaAnalyzer → resetContext → Archive.reset) clears the
+     * archive, so later calls to getBestIndividual() must use this cache.
+     * Non-transient so it survives RMI serialization (CLIENT_ON_THREAD).
+     */
+    private TestSuiteChromosome cachedBestIndividual;
+
     public MOSATestSuiteAdapter(final AbstractMOSA algorithm) {
         super(algorithm);
         algorithm.setAdapter(this);
+    }
+
+    @Override
+    public void generateSolution() {
+        super.generateSolution();
+        // Snapshot while the archive is still populated.
+        cachedBestIndividual = buildBestIndividual();
     }
 
     /*
@@ -90,6 +106,13 @@ public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
      */
     @Override
     public TestSuiteChromosome getBestIndividual() {
+        if (cachedBestIndividual != null) {
+            return cachedBestIndividual;
+        }
+        return buildBestIndividual();
+    }
+
+    private TestSuiteChromosome buildBestIndividual() {
         TestSuiteChromosome best = getAlgorithm().generateSuite();
         int archiveSolutions = best.getTestChromosomes().size();
         if (best.getTestChromosomes().isEmpty()) {
