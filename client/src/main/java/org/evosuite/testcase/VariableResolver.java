@@ -393,10 +393,11 @@ public class VariableResolver {
 
         boolean pastTimeGate = bypassTimeGate
                 || TimeController.getInstance().getPhasePercentage() >= Properties.FUNCTIONAL_MOCKING_PERCENT;
-        if (config.isCanUseMocks()
-                && pastTimeGate
-                && Randomness.nextDouble() < effectiveMockProb
-                && FunctionalMockStatement.canBeFunctionalMocked(type)) {
+        boolean canUseMocks = config.isCanUseMocks();
+        double roll = Randomness.nextDouble();
+        boolean rollPassed = roll < effectiveMockProb;
+        boolean canMock = rollPassed ? FunctionalMockStatement.canBeFunctionalMocked(type) : false;
+        if (canUseMocks && pastTimeGate && rollPassed && canMock) {
             ret = testFactory.addFunctionalMock(test, type, position, context.deeper());
         } else {
             VariableReference generatorRefToExclude = config.isExcludeCalleeGenerators()

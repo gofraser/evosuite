@@ -22,6 +22,7 @@ package org.evosuite.rmi;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -35,43 +36,70 @@ import java.rmi.server.UnicastRemoteObject;
 public class OpenRegistryTest {
 
     @Test
+    @Timeout(20)
     public void openTest() throws RemoteException, NotBoundException {
         Assumptions.assumeTrue(canBindServerSocket(), "Socket binding is not permitted in this environment");
 
-        int port = 2000;
+        final String previousHostname = System.getProperty("java.rmi.server.hostname");
+        System.setProperty("java.rmi.server.hostname", "127.0.0.1");
 
-        for (int i = 0; i < 10000; i++) {
+        int port = 2000;
+        Registry registry = null;
+        Registry createdRegistry = null;
+        FooImpl foo = null;
+
+        try {
+            for (int i = 0; i < 1000; i++) {
+                try {
+                    createdRegistry = LocateRegistry.createRegistry(port);
+                    break;
+                } catch (java.rmi.server.ExportException e) {
+                    //it could happen that the port is already in use
+                    port++;
+                }
+            }
+
+            registry = LocateRegistry.getRegistry(port);
+            Assertions.assertNotNull(registry);
+
             try {
                 LocateRegistry.createRegistry(port);
-                break;
-            } catch (java.rmi.server.ExportException e) {
-                //it could happen that the port is already in use
-                port++;
+                Assertions.fail();
+            } catch (Exception e) {
+            }
+
+            try {
+                ServerSocket socket = new ServerSocket(port);
+                Assertions.fail();
+            } catch (Exception e) {
+            }
+
+            foo = new FooImpl();
+            Ifoo stub = (Ifoo) UnicastRemoteObject.exportObject(foo, 0);
+            String service = "Foo";
+            createdRegistry.rebind(service, stub);
+
+            Ifoo lookedup = (Ifoo) createdRegistry.lookup(service);
+            Assertions.assertEquals("Hello World", lookedup.getString());
+        } finally {
+            if (foo != null) {
+                try {
+                    UnicastRemoteObject.unexportObject(foo, true);
+                } catch (Exception ignored) {
+                }
+            }
+            if (createdRegistry != null) {
+                try {
+                    UnicastRemoteObject.unexportObject(createdRegistry, true);
+                } catch (Exception ignored) {
+                }
+            }
+            if (previousHostname != null) {
+                System.setProperty("java.rmi.server.hostname", previousHostname);
+            } else {
+                System.clearProperty("java.rmi.server.hostname");
             }
         }
-
-        Registry registry = LocateRegistry.getRegistry(port);
-        Assertions.assertNotNull(registry);
-
-        try {
-            LocateRegistry.createRegistry(port);
-            Assertions.fail();
-        } catch (Exception e) {
-        }
-
-        try {
-            ServerSocket socket = new ServerSocket(port);
-            Assertions.fail();
-        } catch (Exception e) {
-        }
-
-        FooImpl foo = new FooImpl();
-        Ifoo stub = (Ifoo) UnicastRemoteObject.exportObject(foo, port);
-        String service = "Foo";
-        registry.rebind(service, stub);
-
-        Ifoo lookedup = (Ifoo) registry.lookup(service);
-        Assertions.assertEquals("Hello World", lookedup.getString());
     }
 
     private static boolean canBindServerSocket() {

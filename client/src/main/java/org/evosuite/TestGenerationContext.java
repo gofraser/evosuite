@@ -173,6 +173,7 @@ public class TestGenerationContext {
         classLoader = new InstrumentingClassLoader();
 
         TestCaseExecutor.pullDown();
+        TestCaseExecutor.resetAdaptiveTimeoutStateIfPresent();
 
         ExecutionTracer.getExecutionTracer().clear();
 

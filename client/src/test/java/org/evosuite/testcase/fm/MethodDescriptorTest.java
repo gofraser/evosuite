@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.fm;
 
+import com.googlecode.gentyref.TypeToken;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Created by foo on 20/12/15.
  */
 public class MethodDescriptorTest {
+
+    private interface BoundedFoo<T extends Number> {
+        String foo(T parameter);
+    }
 
     @Test
     public void testMatcher() throws Exception {
@@ -47,5 +52,18 @@ public class MethodDescriptorTest {
         assertTrue(res.contains("Key"), res);
 
         assertFalse(res.contains("$"), res);
+    }
+
+    @Test
+    public void testMatcherResolvesConstrainedGenericParameter() throws Exception {
+        Method m = BoundedFoo.class.getDeclaredMethod("foo", Number.class);
+        MethodDescriptor md = new MethodDescriptor(
+                m,
+                GenericClassFactory.get(new TypeToken<BoundedFoo<Integer>>() {
+                }.getType()));
+
+        String res = md.getInputParameterMatchers();
+        assertTrue(res.contains("anyInt()"), res);
+        assertFalse(res.contains("nullable(java.lang.Number.class)"), res);
     }
 }
