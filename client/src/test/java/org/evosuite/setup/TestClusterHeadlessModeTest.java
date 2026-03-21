@@ -20,6 +20,7 @@
 package org.evosuite.setup;
 
 import org.evosuite.Properties;
+import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -29,17 +30,29 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.JFrame;
+import java.awt.HeadlessException;
 import java.util.Collections;
 
 public class TestClusterHeadlessModeTest {
 
+    /** A fake CUT that extends JFrame — used to test that CUT constructors
+     *  are NOT filtered when the JFrame mock is available. */
+    @SuppressWarnings("serial")
+    static class FakeJFrameSubclass extends JFrame {
+        public FakeJFrameSubclass() throws HeadlessException {
+            super();
+        }
+    }
+
     private static final boolean DEFAULT_HEADLESS_MODE = Properties.HEADLESS_MODE;
     private static final boolean DEFAULT_HEADLESS_FILTER_CUT_CALLS = Properties.HEADLESS_FILTER_CUT_CALLS;
+    private static final boolean DEFAULT_MOCK_GUI = RuntimeSettings.mockGUI;
 
     @AfterEach
     public void tearDown() {
         Properties.HEADLESS_MODE = DEFAULT_HEADLESS_MODE;
         Properties.HEADLESS_FILTER_CUT_CALLS = DEFAULT_HEADLESS_FILTER_CUT_CALLS;
+        RuntimeSettings.mockGUI = DEFAULT_MOCK_GUI;
         TestCluster.reset();
     }
 
@@ -63,28 +76,63 @@ public class TestClusterHeadlessModeTest {
     }
 
     @Test
-    public void testWindowConstructorAddedAsTestCallInHeadlessModeByDefault() throws Exception {
+    public void testWindowConstructorAutoFilteredAsTestCallInHeadlessMode() throws Exception {
         TestCluster.reset();
         TestCluster cluster = TestCluster.getInstance();
         GenericConstructor frameConstructor = new GenericConstructor(JFrame.class.getConstructor(), JFrame.class);
 
+        // Headless-incompatible constructors are auto-filtered regardless of
+        // HEADLESS_FILTER_CUT_CALLS, because they always throw HeadlessException.
         Properties.HEADLESS_MODE = true;
         Properties.HEADLESS_FILTER_CUT_CALLS = false;
+        cluster.addTestCall(frameConstructor);
+        Assertions.assertEquals(0, cluster.getNumTestCalls());
+        Assertions.assertTrue(cluster.getTestCalls().isEmpty());
+    }
+
+    @Test
+    public void testWindowConstructorAllowedWhenNotHeadless() throws Exception {
+        TestCluster.reset();
+        TestCluster cluster = TestCluster.getInstance();
+        GenericConstructor frameConstructor = new GenericConstructor(JFrame.class.getConstructor(), JFrame.class);
+
+        Properties.HEADLESS_MODE = false;
         cluster.addTestCall(frameConstructor);
         Assertions.assertEquals(1, cluster.getNumTestCalls());
         Assertions.assertEquals(1, cluster.getTestCalls().size());
     }
 
     @Test
-    public void testWindowConstructorFilteredAsTestCallWhenConfigured() throws Exception {
+    public void testCutExtendingJFrameNotFilteredWhenMockAvailable() throws Exception {
         TestCluster.reset();
         TestCluster cluster = TestCluster.getInstance();
-        GenericConstructor frameConstructor = new GenericConstructor(JFrame.class.getConstructor(), JFrame.class);
 
+        // Enable GUI mocks so MockJFrame is registered
+        RuntimeSettings.mockGUI = true;
         Properties.HEADLESS_MODE = true;
-        Properties.HEADLESS_FILTER_CUT_CALLS = true;
-        cluster.addTestCall(frameConstructor);
-        Assertions.assertEquals(0, cluster.getNumTestCalls());
-        Assertions.assertTrue(cluster.getTestCalls().isEmpty());
+
+        // The CUT's constructor declares HeadlessException but extends JFrame
+        // which has a mock — so it should NOT be filtered.
+        GenericConstructor cutConstructor = new GenericConstructor(
+                FakeJFrameSubclass.class.getConstructor(), FakeJFrameSubclass.class);
+        cluster.addTestCall(cutConstructor);
+        Assertions.assertEquals(1, cluster.getNumTestCalls(),
+                "CUT constructor extending mocked JFrame should not be filtered");
+    }
+
+    @Test
+    public void testCutExtendingJFrameFilteredWhenMockNotAvailable() throws Exception {
+        TestCluster.reset();
+        TestCluster cluster = TestCluster.getInstance();
+
+        // Disable GUI mocks — no MockJFrame available
+        RuntimeSettings.mockGUI = false;
+        Properties.HEADLESS_MODE = true;
+
+        GenericConstructor cutConstructor = new GenericConstructor(
+                FakeJFrameSubclass.class.getConstructor(), FakeJFrameSubclass.class);
+        cluster.addTestCall(cutConstructor);
+        Assertions.assertEquals(0, cluster.getNumTestCalls(),
+                "CUT constructor should be filtered when no mock available");
     }
 }

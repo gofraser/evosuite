@@ -137,6 +137,26 @@ public class GuiSupport {
     }
 
 
+    /**
+     * Temporarily disable headless mode so that mock Window/Frame/JFrame
+     * constructors can call their JDK super-constructors without
+     * triggering {@link java.awt.HeadlessException}.
+     * <p>
+     * Must be paired with {@link #restoreHeadlessAfterMockConstruction()}.
+     */
+    public static void disableHeadlessForMockConstruction() {
+        setHeadless(false);
+    }
+
+    /**
+     * Re-enable headless mode after a mock constructor has completed.
+     *
+     * @see #disableHeadlessForMockConstruction()
+     */
+    public static void restoreHeadlessAfterMockConstruction() {
+        setHeadless(true);
+    }
+
     private static void setHeadless(boolean isHeadless) {
 
         //changing system property is not enough
