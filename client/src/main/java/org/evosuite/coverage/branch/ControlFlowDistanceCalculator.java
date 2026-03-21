@@ -36,12 +36,10 @@ import org.slf4j.LoggerFactory;
 import java.util.AbstractMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -81,7 +79,10 @@ public class ControlFlowDistanceCalculator {
     private static final Logger logger = LoggerFactory.getLogger(ControlFlowDistanceCalculator.class);
 
     private static final int TIMEOUT_APPROACH_LEVEL = 20;
+    private static final int MAX_BFS_EXPANSIONS =
+            Integer.getInteger("evosuite.cfd.max_expansions", 2_000);
     private static final Map<Integer, Integer> CDG_DEPTH_CACHE = new ConcurrentHashMap<>();
+    private static final Map<Integer, CdgAncestorInfo> CDG_ANCESTOR_CACHE = new ConcurrentHashMap<>();
 
     /**
      * Calculates the ControlFlowDistance indicating how far away the given
@@ -224,6 +225,7 @@ public class ControlFlowDistanceCalculator {
         return distance;
     }
 
+
     private static ControlFlowDistance getNonRootDistance(ExecutionResult result,
                                                           Branch branch, boolean value) {
 
@@ -243,7 +245,10 @@ public class ControlFlowDistanceCalculator {
             resultDistance.setApproachLevel(cdgDepth + 1);
         }
 
-        // Minimal distance between target node and path
+        // The CDG ancestor info is purely structural and independent of any
+        // execution trace.  Cache it so the BFS runs at most once per branch.
+        CdgAncestorInfo ancestorInfo = getAncestorInfo(branch);
+
         // Trace data may still be extended while fitness is computed in parallel.
         // Iterate on a stable snapshot to avoid fail-fast iterator exceptions.
         List<MethodCall> methodCalls = result.getTrace().getMethodCalls();
@@ -253,12 +258,11 @@ public class ControlFlowDistanceCalculator {
         }
         for (MethodCall call : callsSnapshot) {
             if (call.className.equals(className) && call.methodName.equals(methodName)) {
-                ControlFlowDistance distance;
-                Map<BranchOutcome, ControlFlowDistance> memoizedDistances = new HashMap<>();
-                Set<Integer> activeBranches = new HashSet<>();
-                distance = getNonRootDistance(result, call, branch, value, className,
-                        methodName, memoizedDistances, activeBranches);
-                if (distance.compareTo(resultDistance) < 0) {
+                Map<Integer, MinBranchDistances> branchTraceMinDistances =
+                        buildBranchTraceMinDistances(call);
+                ControlFlowDistance distance = lookupDistance(branch, value,
+                        ancestorInfo, branchTraceMinDistances);
+                if (distance != null && distance.compareTo(resultDistance) < 0) {
                     resultDistance = distance;
                 }
             }
@@ -267,143 +271,179 @@ public class ControlFlowDistanceCalculator {
         return resultDistance;
     }
 
-    private static ControlFlowDistance getNonRootDistance(ExecutionResult result,
-                                                          MethodCall call, Branch branch, boolean value,
-                                                          String className,
-                                                          String methodName,
-                                                          Map<BranchOutcome, ControlFlowDistance> memoizedDistances,
-                                                          Set<Integer> activeBranches) {
-
-        if (branch == null) {
-            throw new IllegalStateException(
-                    "expect getNonRootDistance() to only be called if this goal's branch is not a root branch");
-        }
-        if (call == null) {
-            throw new IllegalArgumentException("null given");
-        }
-
-        BranchOutcome branchOutcome = new BranchOutcome(branch.getActualBranchId(), value);
-        ControlFlowDistance memoizedDistance = memoizedDistances.get(branchOutcome);
-        if (memoizedDistance != null) {
-            return copyDistance(memoizedDistance);
-        }
-
-        if (!activeBranches.add(branch.getActualBranchId())) {
-            // Fast escape for cycles discovered during recursive distance expansion.
-            // Computing CDG depth here can be very expensive and does not improve
-            // guidance quality for cyclic dependencies.
-            return worstPossibleDistanceWithoutCDGComputation();
-        }
-
-        try {
-            List<Double> trueDistances = call.trueDistanceTrace;
-            List<Double> falseDistances = call.falseDistanceTrace;
-
-            Set<Integer> branchTracePositions = determineBranchTracePositions(call, branch);
-
-            if (!branchTracePositions.isEmpty()) {
-
-                // branch was traced in given path
-                ControlFlowDistance resultDistance = new ControlFlowDistance(0, Double.MAX_VALUE);
-
-                for (Integer branchTracePosition : branchTracePositions) {
-                    if (value) {
-                        resultDistance.setBranchDistance(Math.min(resultDistance.getBranchDistance(),
-                                trueDistances.get(branchTracePosition)));
-                    } else {
-                        resultDistance.setBranchDistance(Math.min(resultDistance.getBranchDistance(),
-                                falseDistances.get(branchTracePosition)));
-                    }
-                }
-
-                if (resultDistance.getBranchDistance() == Double.MAX_VALUE) {
-                    throw new IllegalStateException("should be impossible");
-                }
-
-                memoizedDistances.put(branchOutcome, copyDistance(resultDistance));
-                return resultDistance;
-            }
-
-            ControlFlowDistance controlDependenceDistance = getControlDependenceDistancesFor(
-                    result,
-                    call,
-                    branch.getInstruction(),
-                    className,
-                    methodName,
-                    memoizedDistances,
-                    activeBranches);
-
-            controlDependenceDistance.increaseApproachLevel();
-            memoizedDistances.put(branchOutcome, copyDistance(controlDependenceDistance));
-
-            return controlDependenceDistance;
-        } finally {
-            activeBranches.remove(branch.getActualBranchId());
-        }
-    }
-
-    private static ControlFlowDistance getControlDependenceDistancesFor(
-            ExecutionResult result, MethodCall call, BytecodeInstruction instruction,
-            String className, String methodName,
-            Map<BranchOutcome, ControlFlowDistance> memoizedDistances,
-            Set<Integer> activeBranches) {
-
-        Set<ControlFlowDistance> cdDistances = getDistancesForControlDependentBranchesOf(result,
-                call,
-                instruction,
-                className,
-                methodName,
-                memoizedDistances,
-                activeBranches);
-
-        if (cdDistances == null) {
-            throw new IllegalStateException("expect cdDistances to never be null");
-        }
-
-        return Collections.min(cdDistances);
+    /**
+     * Returns the cached CDG ancestor info for the given branch, computing it
+     * via BFS on the first call.  The result is purely structural (depends only
+     * on the control-dependency graph, not on any execution trace) and is
+     * therefore safe to cache globally.
+     */
+    private static CdgAncestorInfo getAncestorInfo(Branch branch) {
+        return CDG_ANCESTOR_CACHE.computeIfAbsent(branch.getActualBranchId(),
+                ignored -> computeAncestorInfo(branch));
     }
 
     /**
-     * Returns a set containing the ControlFlowDistances in the given result for
-     * all branches the given instruction is control dependent on.
+     * BFS over the control dependency graph rooted at {@code branch} to
+     * discover all ancestor (branchId, value) pairs and their minimum approach
+     * levels, plus the minimum terminal approach level for root-dependent or
+     * exception-handler paths.
+     *
+     * <p>The approach level for an ancestor at BFS depth D is D (for traced
+     * branches) or D+1 (for terminal nodes), matching the semantics of the
+     * original recursive algorithm.
      */
-    private static Set<ControlFlowDistance> getDistancesForControlDependentBranchesOf(
-            ExecutionResult result, MethodCall call, BytecodeInstruction instruction,
-            String className, String methodName,
-            Map<BranchOutcome, ControlFlowDistance> memoizedDistances,
-            Set<Integer> activeBranches) {
+    private static CdgAncestorInfo computeAncestorInfo(Branch branch) {
+        Map<Long, Integer> levels = new HashMap<>();
+        int terminalLevel = Integer.MAX_VALUE;
 
-        if (isExceptionHandlerEntry(instruction)) {
-            Set<ControlFlowDistance> resultDistance = new HashSet<>();
-            resultDistance.add(new ControlFlowDistance());
-            return resultDistance;
+        BytecodeInstruction startInstruction = branch.getInstruction();
+
+        // Check if the target branch's instruction is itself terminal
+        if (isExceptionHandlerEntry(startInstruction)) {
+            terminalLevel = 1;
         }
 
-        Set<ControlFlowDistance> resultDistance = new HashSet<>();
-        Set<ControlDependency> nextToLookAt = instruction.getControlDependencies();
+        Set<ControlDependency> startDeps = startInstruction.getControlDependencies();
+        if (startDeps.isEmpty() && terminalLevel > 1) {
+            terminalLevel = 1;
+        }
 
-        for (ControlDependency next : nextToLookAt) {
-            if (instruction.equals(next.getBranch().getInstruction())) {
-                continue; // avoid loops
+        // BFS from control dependencies of the target branch (level 1+)
+        Queue<BfsEntry> queue = new ArrayDeque<>();
+        Set<Long> visited = new HashSet<>();
+
+        // Mark the target branch as visited (both true/false) to avoid cycles
+        visited.add(toBranchOutcomeKey(branch.getActualBranchId(), true));
+        visited.add(toBranchOutcomeKey(branch.getActualBranchId(), false));
+
+        boolean hasNonSelfLoopDep = false;
+        for (ControlDependency dep : startDeps) {
+            if (startInstruction.equals(dep.getBranch().getInstruction())) {
+                continue;
+            }
+            hasNonSelfLoopDep = true;
+            boolean depValue = dep.getBranchExpressionValue();
+            long depKey = toBranchOutcomeKey(
+                    dep.getBranch().getActualBranchId(), depValue);
+            if (visited.add(depKey)) {
+                levels.put(depKey, 1);
+                queue.add(new BfsEntry(dep.getBranch(), depValue, 1));
+            }
+        }
+        if (!hasNonSelfLoopDep && !startDeps.isEmpty()) {
+            terminalLevel = Math.min(terminalLevel, 1);
+        }
+
+        int expansions = 0;
+        while (!queue.isEmpty()) {
+            BfsEntry entry = queue.poll();
+
+            if (++expansions > MAX_BFS_EXPANSIONS) {
+                break;
             }
 
-            boolean nextValue = next.getBranchExpressionValue();
-            ControlFlowDistance nextDistance = getNonRootDistance(result, call,
-                    next.getBranch(),
-                    nextValue, className,
-                    methodName,
-                    memoizedDistances,
-                    activeBranches);
-            assert (nextDistance != null);
-            resultDistance.add(nextDistance);
+            BytecodeInstruction instruction = entry.branch.getInstruction();
+
+            if (isExceptionHandlerEntry(instruction)) {
+                terminalLevel = Math.min(terminalLevel, entry.approachLevel + 1);
+                continue;
+            }
+
+            Set<ControlDependency> deps = instruction.getControlDependencies();
+            if (deps.isEmpty()) {
+                terminalLevel = Math.min(terminalLevel, entry.approachLevel + 1);
+                continue;
+            }
+
+            boolean hasNonSelf = false;
+            for (ControlDependency dep : deps) {
+                if (instruction.equals(dep.getBranch().getInstruction())) {
+                    continue;
+                }
+                hasNonSelf = true;
+                boolean depValue = dep.getBranchExpressionValue();
+                long depKey = toBranchOutcomeKey(
+                        dep.getBranch().getActualBranchId(), depValue);
+                if (visited.add(depKey)) {
+                    levels.put(depKey, entry.approachLevel + 1);
+                    queue.add(new BfsEntry(dep.getBranch(), depValue,
+                            entry.approachLevel + 1));
+                }
+            }
+            if (!hasNonSelf) {
+                terminalLevel = Math.min(terminalLevel, entry.approachLevel + 1);
+            }
         }
 
-        if (resultDistance.isEmpty()) {
-            // instruction only dependent on root branch
-            resultDistance.add(new ControlFlowDistance());
+        return new CdgAncestorInfo(levels, terminalLevel);
+    }
+
+    /**
+     * Looks up the minimum distance for the target branch using the cached
+     * ancestor info and the per-call traced branch distances.  Runs in
+     * O(traced_branches) time.
+     *
+     * @return the minimum distance, or {@code null} if no path was found
+     */
+    private static ControlFlowDistance lookupDistance(
+            Branch branch, boolean value,
+            CdgAncestorInfo ancestorInfo,
+            Map<Integer, MinBranchDistances> branchTraceMinDistances) {
+
+        ControlFlowDistance best = null;
+
+        // Level 0: check the target branch itself (only the desired value)
+        MinBranchDistances targetTraced =
+                branchTraceMinDistances.get(branch.getActualBranchId());
+        if (targetTraced != null) {
+            double branchDist = value
+                    ? targetTraced.trueMinDistance : targetTraced.falseMinDistance;
+            if (branchDist < Double.MAX_VALUE) {
+                best = new ControlFlowDistance(0, branchDist);
+            }
         }
 
-        return resultDistance;
+        // Levels 1+: check ancestor branches from CDG
+        for (Map.Entry<Integer, MinBranchDistances> entry :
+                branchTraceMinDistances.entrySet()) {
+            int branchId = entry.getKey();
+            MinBranchDistances distances = entry.getValue();
+
+            if (distances.trueMinDistance < Double.MAX_VALUE) {
+                Integer level = ancestorInfo.ancestorApproachLevels.get(
+                        toBranchOutcomeKey(branchId, true));
+                if (level != null) {
+                    ControlFlowDistance candidate =
+                            new ControlFlowDistance(level, distances.trueMinDistance);
+                    if (best == null || candidate.compareTo(best) < 0) {
+                        best = candidate;
+                    }
+                }
+            }
+
+            if (distances.falseMinDistance < Double.MAX_VALUE) {
+                Integer level = ancestorInfo.ancestorApproachLevels.get(
+                        toBranchOutcomeKey(branchId, false));
+                if (level != null) {
+                    ControlFlowDistance candidate =
+                            new ControlFlowDistance(level, distances.falseMinDistance);
+                    if (best == null || candidate.compareTo(best) < 0) {
+                        best = candidate;
+                    }
+                }
+            }
+        }
+
+        // Terminal path: method was called but the chain leads to root/handler
+        if (ancestorInfo.terminalApproachLevel < Integer.MAX_VALUE) {
+            ControlFlowDistance terminal =
+                    new ControlFlowDistance(ancestorInfo.terminalApproachLevel, 0.0);
+            if (best == null || terminal.compareTo(best) < 0) {
+                best = terminal;
+            }
+        }
+
+        return best;
     }
 
     /**
@@ -476,47 +516,56 @@ public class ControlFlowDistanceCalculator {
         }
     }
 
-    private static Set<Integer> determineBranchTracePositions(MethodCall call,
-                                                              Branch branch) {
-
-        Set<Integer> positions = new HashSet<>();
+    private static Map<Integer, MinBranchDistances> buildBranchTraceMinDistances(MethodCall call) {
+        Map<Integer, MinBranchDistances> minDistances = new HashMap<>();
         List<Integer> path = call.branchTrace;
-        for (int pos = 0; pos < path.size(); pos++) {
-            if (path.get(pos) == branch.getActualBranchId()) {
-                positions.add(pos);
-            }
+        List<Double> trueDistances = call.trueDistanceTrace;
+        List<Double> falseDistances = call.falseDistanceTrace;
+        int maxPos = Math.min(path.size(), Math.min(trueDistances.size(), falseDistances.size()));
+        for (int pos = 0; pos < maxPos; pos++) {
+            int branchId = path.get(pos);
+            MinBranchDistances distances = minDistances.computeIfAbsent(branchId,
+                    ignored -> new MinBranchDistances());
+            distances.trueMinDistance = Math.min(distances.trueMinDistance, trueDistances.get(pos));
+            distances.falseMinDistance = Math.min(distances.falseMinDistance, falseDistances.get(pos));
         }
-        return positions;
+        return minDistances;
+    }
+    private static long toBranchOutcomeKey(int branchId, boolean branchValue) {
+        return (((long) branchId) << 1) | (branchValue ? 1L : 0L);
     }
 
-    private static ControlFlowDistance copyDistance(ControlFlowDistance original) {
-        return new ControlFlowDistance(original.getApproachLevel(), original.getBranchDistance());
+    private static final class MinBranchDistances {
+        private double trueMinDistance = Double.MAX_VALUE;
+        private double falseMinDistance = Double.MAX_VALUE;
     }
 
-    private static final class BranchOutcome {
-        private final int branchId;
-        private final boolean branchValue;
+    private static final class BfsEntry {
+        final Branch branch;
+        final boolean value;
+        final int approachLevel;
 
-        private BranchOutcome(int branchId, boolean branchValue) {
-            this.branchId = branchId;
-            this.branchValue = branchValue;
+        BfsEntry(Branch branch, boolean value, int approachLevel) {
+            this.branch = branch;
+            this.value = value;
+            this.approachLevel = approachLevel;
         }
+    }
 
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof BranchOutcome)) {
-                return false;
-            }
-            BranchOutcome that = (BranchOutcome) o;
-            return branchId == that.branchId && branchValue == that.branchValue;
-        }
+    /**
+     * Cached CDG ancestor information for a branch.  Contains the approach
+     * level for every (branchId, value) pair reachable from the target branch
+     * via control dependencies, plus the terminal approach level for paths
+     * that reach a root-dependent or exception-handler node.
+     */
+    private static final class CdgAncestorInfo {
+        final Map<Long, Integer> ancestorApproachLevels;
+        final int terminalApproachLevel;
 
-        @Override
-        public int hashCode() {
-            return Objects.hash(branchId, branchValue);
+        CdgAncestorInfo(Map<Long, Integer> ancestorApproachLevels,
+                         int terminalApproachLevel) {
+            this.ancestorApproachLevels = ancestorApproachLevels;
+            this.terminalApproachLevel = terminalApproachLevel;
         }
     }
 

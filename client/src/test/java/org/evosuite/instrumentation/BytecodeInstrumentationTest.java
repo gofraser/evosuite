@@ -104,16 +104,16 @@ public class BytecodeInstrumentationTest {
         Assertions.assertArrayEquals(RetryProbeInstrumentation.SUCCESS_BYTES, transformed);
         Assertions.assertEquals(2, instrumentation.invocations);
         Assertions.assertTrue(instrumentation.firstInvocationEnabledLoopCounter);
-        Assertions.assertFalse(instrumentation.secondInvocationEnabledLoopCounter);
-        // First two attempts use COMPUTE_FRAMES
+        Assertions.assertTrue(instrumentation.secondInvocationEnabledLoopCounter);
+        // First attempt COMPUTE_FRAMES, then retry with COMPUTE_MAXS keeping loop counter.
         Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[0]);
-        Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[1]);
+        Assertions.assertEquals(ClassWriter.COMPUTE_MAXS, instrumentation.writerFlagsPerInvocation[1]);
     }
 
     @Test
     public void testFallsBackToComputeMaxsWhenFramesFails() {
         Properties.MAX_LOOP_ITERATIONS = 1;
-        // Fail both COMPUTE_FRAMES attempts (with and without loop counter)
+        // Fail initial COMPUTE_FRAMES and retry COMPUTE_MAXS (both with loop counter)
         RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation(2);
         ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug11"));
 
@@ -122,8 +122,8 @@ public class BytecodeInstrumentationTest {
         Assertions.assertArrayEquals(RetryProbeInstrumentation.SUCCESS_BYTES, transformed);
         Assertions.assertEquals(3, instrumentation.invocations);
         Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[0]);
-        Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[1]);
-        Assertions.assertEquals(ClassWriter.COMPUTE_MAXS, instrumentation.writerFlagsPerInvocation[2]);
+        Assertions.assertEquals(ClassWriter.COMPUTE_MAXS, instrumentation.writerFlagsPerInvocation[1]);
+        Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[2]);
     }
 
     @Test

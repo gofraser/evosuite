@@ -194,23 +194,41 @@ public class BytecodeInstrumentation {
             if (!isAsmFrameMergeFailure(t)) {
                 throw t;
             }
-            // Retry 1: disable loop counter (it adds branches that can confuse frame computation)
+            // Retry 1: keep loop counter but use COMPUTE_MAXS — the loop counter adds
+            // branches that can confuse COMPUTE_FRAMES, but COMPUTE_MAXS avoids the
+            // Frame.merge path entirely while preserving infinite loop protection.
             if (config.maxLoopIterations() >= 0) {
-                logger.warn("Retrying instrumentation of {} without loop counter due to ASM frame merge failure: {}",
+                logger.warn("Retrying instrumentation of {} with COMPUTE_MAXS (keeping loop counter) "
+                                + "due to ASM frame merge failure: {}",
                         classNameWithDots, t.getMessage());
                 try {
-                    return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, false,
-                            ClassWriter.COMPUTE_FRAMES);
+                    return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, true,
+                            ClassWriter.COMPUTE_MAXS);
                 } catch (RuntimeException | Error t2) {
                     if (!isAsmFrameMergeFailure(t2)) {
                         throw t2;
                     }
-                    // Fall through to COMPUTE_MAXS fallback
+                    // Fall through — loop counter itself may be causing the issue
                 }
             }
-            // Retry 2: fall back to COMPUTE_MAXS — produces less optimal stack map frames
-            // but avoids the ASM Frame.merge bug on complex bytecode patterns
-            logger.warn("Retrying instrumentation of {} with COMPUTE_MAXS due to persistent ASM frame merge failure",
+            // Retry 2: disable loop counter with COMPUTE_FRAMES
+            if (config.maxLoopIterations() >= 0) {
+                logger.warn("Retrying instrumentation of {} without loop counter due to persistent ASM failure",
+                        classNameWithDots);
+                try {
+                    return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, false,
+                            ClassWriter.COMPUTE_FRAMES);
+                } catch (RuntimeException | Error t3) {
+                    if (!isAsmFrameMergeFailure(t3)) {
+                        throw t3;
+                    }
+                    // Fall through to final fallback
+                }
+            }
+            // Retry 3: no loop counter + COMPUTE_MAXS — last resort
+            logger.warn("Retrying instrumentation of {} with COMPUTE_MAXS and no loop counter "
+                    + "due to persistent ASM frame merge failure. "
+                    + "WARNING: infinite loop protection is DISABLED for this class.",
                     classNameWithDots);
             return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, false,
                     ClassWriter.COMPUTE_MAXS);
