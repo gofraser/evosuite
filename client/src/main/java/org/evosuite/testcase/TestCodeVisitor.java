@@ -1357,7 +1357,24 @@ public class TestCodeVisitor extends TestVisitor {
             }
             return Object.class;
         }
-        return GenericTypeReflector.erase(type);
+        if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            Type[] lowerBounds = wildcardType.getLowerBounds();
+            if (lowerBounds != null && lowerBounds.length > 0 && lowerBounds[0] != null) {
+                return safeErasure(lowerBounds[0]);
+            }
+            Type[] upperBounds = wildcardType.getUpperBounds();
+            if (upperBounds != null && upperBounds.length > 0 && upperBounds[0] != null) {
+                return safeErasure(upperBounds[0]);
+            }
+            return Object.class;
+        }
+        try {
+            return GenericTypeReflector.erase(type);
+        } catch (RuntimeException e) {
+            // Some custom Type implementations are not supported by gentyref erasure.
+            return Object.class;
+        }
     }
 
 

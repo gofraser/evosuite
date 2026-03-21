@@ -472,4 +472,16 @@ public class TestCodeVisitorTest {
         assertTrue(code.contains("(Class) "));
         assertFalse(code.contains("(Class<LinkedList<Integer>>) "));
     }
+
+    @Test
+    public void testSafeErasureSupportsWildcardTypeImpl() throws Exception {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        Method safeErasure = TestCodeVisitor.class.getDeclaredMethod("safeErasure", Type.class);
+        safeErasure.setAccessible(true);
+
+        WildcardTypeImpl wildcard = new WildcardTypeImpl(new Type[]{Number.class}, new Type[]{});
+        Class<?> erased = (Class<?>) safeErasure.invoke(visitor, wildcard);
+
+        assertEquals(Number.class, erased);
+    }
 }

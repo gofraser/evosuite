@@ -1072,11 +1072,24 @@ public class DefaultTestCase implements TestCase, Serializable {
             if (reference == null || target == null) {
                 continue;
             }
-            if (reference.equals(target) || reference.same(target) || target.same(reference)) {
+            if (reference.equals(target)
+                    || safeSame(reference, target)
+                    || safeSame(target, reference)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean safeSame(VariableReference left, VariableReference right) {
+        try {
+            return left.same(right);
+        } catch (AssertionError e) {
+            // Stale constants can temporarily exist after transformations.
+            // In that case they are not equal to live variables in this test.
+            logger.debug("Ignoring invalid variable comparison in hasReferences()", e);
+            return false;
+        }
     }
 
     private boolean isClassUtilsBug(Class<?> rawClass, Class<?> arrayClass) {

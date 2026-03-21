@@ -291,11 +291,16 @@ public final class ExecutionModeUtils {
         addOpen(cmdLine, "java.base/java.text=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.util.regex=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.util.concurrent=ALL-UNNAMED");
+        addOpen(cmdLine, "java.prefs/java.util.prefs=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt.font=ALL-UNNAMED");
         // Internal JDK packages sometimes used by legacy dependencies
         addExport(cmdLine, "java.xml.crypto/org.jcp.xml.dsig.internal.dom=ALL-UNNAMED");
         addExport(cmdLine, "jdk.javadoc/jdk.javadoc.internal.api=ALL-UNNAMED");
+        // Mockito/ByteBuddy can end up mocking javac internals when they flow through
+        // CUT APIs; pre-export/open this package to avoid runtime module rewrite failures.
+        addExport(cmdLine, "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED");
+        addOpen(cmdLine, "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/sun.nio.ch=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/sun.security.util=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/sun.net=ALL-UNNAMED");

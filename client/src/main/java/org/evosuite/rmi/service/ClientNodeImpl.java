@@ -338,7 +338,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     @Override
     public void trackOutputVariable(RuntimeVariable variable, Object value) {
-        logger.info("Sending output variable to master process: " + variable + " = " + value);
+        logger.debug("Sending output variable to master process: " + variable + " = " + value);
 
         /*
          * As this code might be called from unsafe blocks, we just put the values
@@ -508,7 +508,14 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 }
             };
             statisticsThread.setName("Statistics sender in client process");
-            Sandbox.addPrivilegedThread(statisticsThread);
+            try {
+                Sandbox.addPrivilegedThread(statisticsThread);
+            } catch (SecurityException e) {
+                // If sandbox was initialized by a different EvoSuite thread, the current
+                // thread might not be privileged. Statistics thread RMI traffic is still
+                // allowed by MSecurityManager.checkIfEvoSuiteRMI().
+                logger.warn("Could not mark statistics thread as privileged; continuing with RMI allowlist", e);
+            }
             statisticsThread.start();
 
         } catch (Exception e) {
@@ -547,11 +554,15 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             } catch (Throwable t) {
                 logger.error("Unexpected error during remote action: " + actionName, t);
             }
-        }, "ClientNodeRemoteAction-" + actionName);
+        }, "RMI ClientNodeRemoteAction-" + actionName);
         remoteActionThread.setDaemon(true);
         // RMI calls are EvoSuite infrastructure; mark this helper thread as privileged
         // so sandbox checks do not treat it as SUT-originated network access.
-        Sandbox.addPrivilegedThread(remoteActionThread);
+        try {
+            Sandbox.addPrivilegedThread(remoteActionThread);
+        } catch (SecurityException e) {
+            logger.debug("Could not mark remote action thread as privileged; relying on RMI allowlist", e);
+        }
         remoteActionThread.start();
 
         try {

@@ -21,12 +21,16 @@ package org.evosuite.testcase;
 
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
+import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericClassFactory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.util.Collections;
 
@@ -61,5 +65,20 @@ public class DefaultTestCaseTest {
         DefaultTestCase clone = tc.clone();
         Assertions.assertEquals(tc.size(), clone.size());
         Assertions.assertDoesNotThrow(() -> clone.toCode());
+    }
+
+    @Test
+    public void testHasReferencesIgnoresUnboundConstantComparison() {
+        DefaultTestCase tc = new DefaultTestCase();
+        VariableReference target = tc.addStatement(new IntPrimitiveStatement(tc, 1));
+
+        ConstantValue unboundConstant = new ConstantValue(tc, GenericClassFactory.get(int.class), 7);
+        Statement mockStatement = Mockito.mock(Statement.class);
+        Mockito.when(mockStatement.getVariableReferences())
+                .thenReturn(Collections.singleton(unboundConstant));
+        tc.statements.add(mockStatement);
+
+        Assertions.assertDoesNotThrow(() -> tc.hasReferences(target));
+        Assertions.assertFalse(tc.hasReferences(target));
     }
 }

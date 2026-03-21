@@ -760,10 +760,16 @@ public class ExternalProcessGroupHandler {
                 if (!finished && clientRunningOnThread == null) {
                     int processIndex = parseClientIndex(entry.getKey());
                     if (processIndex >= 0 && !isClientProcessAlive(processIndex)) {
-                        logger.error("Client {} process has already terminated while master state is {}.",
-                                entry.getKey(),
-                                MasterServices.getInstance().getMasterNode().getCurrentState(entry.getKey()));
-                        clientFailureDetected = true;
+                        ClientState postState = MasterServices.getInstance().getMasterNode().getCurrentState(entry.getKey());
+                        int exitCode = getProcessExitCode(processIndex);
+                        if (isBenignCleanExit(exitCode, postState)) {
+                            logger.info("Client {} process exited cleanly (exitCode=0) in state {}; "
+                                    + "treating as successful completion.", entry.getKey(), postState);
+                        } else {
+                            logger.error("Client {} process has already terminated while master state is {}.",
+                                    entry.getKey(), postState);
+                            clientFailureDetected = true;
+                        }
                         finished = true;
                     }
                 }
@@ -838,10 +844,20 @@ public class ExternalProcessGroupHandler {
                     return true;
                 }
             } else if (processIndex >= 0 && !isClientProcessAlive(processIndex)) {
-                logger.error("Client {} process is no longer alive; treating as finished even though state is {}.",
-                        clientId, state);
-                logUnexpectedClientTermination(processIndex, clientId, state);
-                clientFailureDetected = true;
+                int exitCode = getProcessExitCode(processIndex);
+                if (isBenignCleanExit(exitCode, state)) {
+                    // The client completed successfully (exitCode=0) and reached DONE state.
+                    // The FINISHED notification didn't arrive in time due to a race between
+                    // process exit and RMI propagation, but exitCode=0 proves System.exit(0)
+                    // was reached after stopServices()/stop() completed all statistics flushing.
+                    logger.info("Client {} process exited cleanly (exitCode=0) in state {}; "
+                            + "treating as successful completion.", clientId, state);
+                } else {
+                    logger.error("Client {} process is no longer alive; treating as finished even though state is {}.",
+                            clientId, state);
+                    logUnexpectedClientTermination(processIndex, clientId, state);
+                    clientFailureDetected = true;
+                }
                 return true;
             }
             if (allowDoneAsFinished && state == ClientState.DONE) {
@@ -1095,16 +1111,20 @@ public class ExternalProcessGroupHandler {
         return clientFailureDetected;
     }
 
-    private void logUnexpectedClientTermination(int processIndex, String clientId, ClientState lastKnownState) {
-        int exitCode = Integer.MIN_VALUE;
+    private int getProcessExitCode(int processIndex) {
         try {
             Process process = processGroup[processIndex];
             if (process != null) {
-                exitCode = process.exitValue();
+                return process.exitValue();
             }
         } catch (Throwable ignored) {
             // ignore
         }
+        return Integer.MIN_VALUE;
+    }
+
+    private void logUnexpectedClientTermination(int processIndex, String clientId, ClientState lastKnownState) {
+        int exitCode = getProcessExitCode(processIndex);
 
         logger.error("Client {} terminated unexpectedly. lastKnownState={}, exitCode={}",
                 clientId, lastKnownState,
@@ -1116,5 +1136,24 @@ public class ExternalProcessGroupHandler {
                 logger.error("Detected client JVM crash dump header:\n{}", err);
             }
         }
+    }
+
+    /**
+     * Determines whether a terminated client should be considered a successful completion.
+     *
+     * <p>In practice, under load or transient RMI delays, the master might observe the last state
+     * as a late post-search phase (eg JUNIT_CHECK) even though the client has already completed and
+     * exited with code 0. Treat these as benign to avoid false "terminated unexpectedly" reports.</p>
+     */
+    private boolean isBenignCleanExit(int exitCode, ClientState state) {
+        if (exitCode != 0 || state == null) {
+            return false;
+        }
+
+        if (state == ClientState.DONE || state == ClientState.FINISHED) {
+            return true;
+        }
+
+        return state.getNumPhase() >= ClientState.JUNIT_CHECK.getNumPhase();
     }
 }
