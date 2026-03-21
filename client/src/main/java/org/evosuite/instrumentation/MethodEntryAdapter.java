@@ -51,6 +51,31 @@ public class MethodEntryAdapter extends AbstractEvoMethodAdapter {
     }
 
     /**
+     * For constructors, insert an early {@code enteredMethod} call BEFORE
+     * {@code super()}/{@code this()} so that the root branch is recorded
+     * even if the super-constructor throws.  ASM's {@link org.objectweb.asm.commons.AdviceAdapter}
+     * delays {@code onMethodEnter} until after the delegating constructor
+     * call, which means an exception in {@code super()} would prevent the
+     * method entry from ever being traced.
+     *
+     * <p>We pass {@code null} as the caller because {@code this} is not yet
+     * initialized before {@code super()}.
+     */
+    @Override
+    public void visitCode() {
+        super.visitCode();
+        if (!shouldSkip() && isConstructor) {
+            mv.visitLdcInsn(className);
+            mv.visitLdcInsn(fullMethodName);
+            mv.visitInsn(Opcodes.ACONST_NULL);
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(ExecutionTracer.class),
+                    "enteredMethod",
+                    "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;)V", false);
+        }
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -60,17 +85,21 @@ public class MethodEntryAdapter extends AbstractEvoMethodAdapter {
             return;
         }
 
-        mv.visitLdcInsn(className);
-        mv.visitLdcInsn(fullMethodName);
-        if ((access & Opcodes.ACC_STATIC) > 0) {
-            mv.visitInsn(Opcodes.ACONST_NULL);
-        } else {
-            mv.visitVarInsn(Opcodes.ALOAD, 0);
+        // For constructors, the early enteredMethod call was already
+        // inserted in visitCode() (before super()).  Skip the duplicate.
+        if (!isConstructor) {
+            mv.visitLdcInsn(className);
+            mv.visitLdcInsn(fullMethodName);
+            if ((access & Opcodes.ACC_STATIC) > 0) {
+                mv.visitInsn(Opcodes.ACONST_NULL);
+            } else {
+                mv.visitVarInsn(Opcodes.ALOAD, 0);
+            }
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(ExecutionTracer.class),
+                    "enteredMethod",
+                    "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;)V", false);
         }
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(ExecutionTracer.class),
-                "enteredMethod",
-                "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;)V", false);
 
         super.onMethodEnter();
     }
