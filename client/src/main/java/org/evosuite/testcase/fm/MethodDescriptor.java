@@ -33,6 +33,9 @@ import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +63,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
     private GenericMethod method;
 
     private String id; //derived field
+    private final Class<?>[] matcherParameterTypes;
 
 
     /**
@@ -72,73 +76,104 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         this.method = new GenericMethod(method, retvalType);
         methodName = method.getName();
         className = method.getDeclaringClass().getName();
-        inputParameterMatchers = initMatchers(this.method, retvalType);
+        matcherParameterTypes = determineMatcherParameterTypes(this.method);
+        inputParameterMatchers = initMatchers(matcherParameterTypes);
     }
 
-    private MethodDescriptor(GenericMethod m, String methodName, String className, String inputParameterMatchers) {
+    private MethodDescriptor(GenericMethod m, String methodName, String className,
+                             String inputParameterMatchers, Class<?>[] matcherParameterTypes) {
         this.method = m;
         this.methodName = methodName;
         this.className = className;
         this.inputParameterMatchers = inputParameterMatchers;
+        this.matcherParameterTypes = matcherParameterTypes;
     }
 
-    private String initMatchers(GenericMethod method, GenericClass<?> retvalType) {
+    private String initMatchers(Class<?>[] paramTypes) {
 
         StringJoiner matchers = new StringJoiner(", ");
-        Type[] types = method.getParameterTypes();
-        List<GenericClass<?>> parameterClasses = method.getParameterClasses();
-        for (int i = 0; i < types.length; i++) {
-            GenericClass<?> genericParameter = parameterClasses.get(i);
-            Type type = genericParameter.getRawClass();
-            if (type.equals(Integer.TYPE) || type.equals(Integer.class)) {
-                matchers.add("anyInt()");
-            } else if (type.equals(Long.TYPE) || type.equals(Long.class)) {
-                matchers.add("anyLong()");
-            } else if (type.equals(Boolean.TYPE) || type.equals(Boolean.class)) {
-                matchers.add("anyBoolean()");
-            } else if (type.equals(Double.TYPE) || type.equals(Double.class)) {
-                matchers.add("anyDouble()");
-            } else if (type.equals(Float.TYPE) || type.equals(Float.class)) {
-                matchers.add("anyFloat()");
-            } else if (type.equals(Short.TYPE) || type.equals(Short.class)) {
-                matchers.add("anyShort()");
-            } else if (type.equals(Character.TYPE) || type.equals(Character.class)) {
-                matchers.add("anyChar()");
-            } else if (type.equals(String.class)) {
-                matchers.add("anyString()");
-            } else if (type.equals(List.class)) {
-                matchers.add("anyList()");
-            } else if (type.equals(Set.class)) {
-                matchers.add("anySet()");
-            } else if (type.equals(Map.class)) {
-                matchers.add("anyMap()");
-            } else if (type.equals(Collection.class)) {
-                matchers.add("anyCollection()");
-            } else if (type.equals(Iterable.class)) {
-                matchers.add("anyIterable()");
-            } else {
-                if (type.getTypeName().equals(Object.class.getName())) {
-                    /*
-                        Ideally here we should use retvalType to understand if the target class
-                        is using generics and if this method parameters would need to be handled
-                        accordingly. However, doing it does not seem so trivial...
-                        so a current workaround is that, when a method takes an Object as input (which is
-                        that would happen in case of Generics T), we use the undetermined "any()"
-                     */
-                    matchers.add("any()");
-                } else {
-                    if (type instanceof Class) {
-                        matchers.add("nullable(" + ((Class) type).getCanonicalName() + ".class)");
-                    } else {
-                        //what to do here? is it even possible?
-                        matchers.add("nullable(" + genericParameter.getRawClass().getCanonicalName() + ".class)");
-                        // matchers += "any(" + type.getTypeName() + ".class)";
-                    }
-                }
-            }
+        for (Class<?> type : paramTypes) {
+            matchers.add(matcherStringForType(type));
         }
 
         return matchers.toString();
+    }
+
+    private static Class<?>[] determineMatcherParameterTypes(GenericMethod method) {
+        Class<?>[] raw = method.getMethod().getParameterTypes();
+        if (!hasUnresolvedGenericParameterTypes(method.getMethod())) {
+            return raw;
+        }
+
+        Class<?>[] resolved = raw.clone();
+        try {
+            List<GenericClass<?>> parameterClasses = method.getParameterClasses();
+            for (int i = 0; i < raw.length && i < parameterClasses.size(); i++) {
+                GenericClass<?> parameterClass = parameterClasses.get(i);
+                if (parameterClass == null || parameterClass.getRawClass() == null) {
+                    continue;
+                }
+                Class<?> candidate = parameterClass.getRawClass();
+                // Only adopt strictly more specific resolved types.
+                if (!raw[i].equals(candidate) && raw[i].isAssignableFrom(candidate)) {
+                    resolved[i] = candidate;
+                }
+            }
+        } catch (RuntimeException | LinkageError e) {
+            logger.debug("Falling back to raw matcher parameter types for {}.{}: {}",
+                    method.getMethod().getDeclaringClass().getName(),
+                    method.getMethod().getName(),
+                    e.getMessage());
+            return raw;
+        }
+        return resolved;
+    }
+
+    private static boolean hasUnresolvedGenericParameterTypes(Method method) {
+        for (Type type : method.getGenericParameterTypes()) {
+            if (type instanceof TypeVariable || type instanceof WildcardType) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static String matcherStringForType(Class<?> type) {
+        if (type.equals(Integer.TYPE) || type.equals(Integer.class)) {
+            return "anyInt()";
+        } else if (type.equals(Long.TYPE) || type.equals(Long.class)) {
+            return "anyLong()";
+        } else if (type.equals(Boolean.TYPE) || type.equals(Boolean.class)) {
+            return "anyBoolean()";
+        } else if (type.equals(Double.TYPE) || type.equals(Double.class)) {
+            return "anyDouble()";
+        } else if (type.equals(Float.TYPE) || type.equals(Float.class)) {
+            return "anyFloat()";
+        } else if (type.equals(Short.TYPE) || type.equals(Short.class)) {
+            return "anyShort()";
+        } else if (type.equals(Character.TYPE) || type.equals(Character.class)) {
+            return "anyChar()";
+        } else if (type.equals(String.class)) {
+            return "anyString()";
+        } else if (type.equals(List.class)) {
+            return "anyList()";
+        } else if (type.equals(Set.class)) {
+            return "anySet()";
+        } else if (type.equals(Map.class)) {
+            return "anyMap()";
+        } else if (type.equals(Collection.class)) {
+            return "anyCollection()";
+        } else if (type.equals(Iterable.class)) {
+            return "anyIterable()";
+        } else if (type.equals(Object.class)) {
+            return "any()";
+        } else {
+            String name = type.getCanonicalName();
+            if (name == null) {
+                name = type.getName();
+            }
+            return "nullable(" + name + ".class)";
+        }
     }
 
 
@@ -204,7 +239,8 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
      * @return a copy of this descriptor
      */
     public MethodDescriptor getCopy() {
-        MethodDescriptor copy = new MethodDescriptor(method, methodName, className, inputParameterMatchers);
+        MethodDescriptor copy = new MethodDescriptor(method, methodName, className,
+                inputParameterMatchers, matcherParameterTypes.clone());
         copy.counter = this.counter;
         return copy;
     }
@@ -225,10 +261,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
             throw new IllegalArgumentException("Invalid index: " + i);
         }
 
-        Type[] types = method.getParameterTypes();
-        List<GenericClass<?>> parameterClasses = method.getParameterClasses();
-        GenericClass<?> parameterClass = parameterClasses.get(i);
-        Class<?> type = parameterClass.getRawClass();
+        Class<?> type = matcherParameterTypes[i];
 
         try {
             if (type.equals(Integer.TYPE) || type.equals(Integer.class)) {

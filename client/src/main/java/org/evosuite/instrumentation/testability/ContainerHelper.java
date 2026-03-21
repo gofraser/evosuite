@@ -57,13 +57,24 @@ public class ContainerHelper {
      * @param o1 a {@link java.lang.Object} object.
      * @return a int.
      */
+    /**
+     * Maximum number of elements to iterate when examining a collection.
+     * Guards against infinite loops when the collection (or its iterator)
+     * is a mock whose hasNext() always returns true.
+     */
+    private static final int MAX_ITERATION = 10_000;
+
     public static int collectionContains(Collection<?> c, Object o1) {
         if (o1 != null) {
             TestCluster.getInstance().addCastClassForContainer(o1.getClass());
         }
         int matching = 0;
         double minDistance = Double.MAX_VALUE;
+        int count = 0;
         for (Object o2 : c) {
+            if (++count > MAX_ITERATION) {
+                break;
+            }
             if (o2 == o1 || (o2 != null && o2.equals(o1))) {
                 matching++;
             } else {
@@ -105,7 +116,11 @@ public class ContainerHelper {
      */
     public static int collectionContainsAll(Collection<?> c, Collection<?> c2) {
         int mismatch = 0;
+        int count = 0;
         for (Object o : c2) {
+            if (++count > MAX_ITERATION) {
+                break;
+            }
             if (!c.contains(o)) {
                 mismatch++;
             }

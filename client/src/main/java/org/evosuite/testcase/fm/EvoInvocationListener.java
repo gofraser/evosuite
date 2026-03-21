@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.fm;
 
+import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.mockito.invocation.DescribedInvocation;
@@ -51,6 +52,21 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
     private final Map<String, MethodDescriptor> map = new LinkedHashMap<>();
 
     /**
+     * Maximum total mock invocations per test execution before we throw
+     * {@link TooManyResourcesException}.  This catches cases where SUT code
+     * calls a mocked method in a tight loop (e.g., {@code iterable.forEach(mockedConsumer)})
+     * that the {@link org.evosuite.runtime.LoopCounter} cannot reach because
+     * the loop is in uninstrumented JDK code.
+     */
+    private static final int MAX_INVOCATIONS_PER_TEST = 10_000;
+
+    /**
+     * Counts total invocations since last {@link #activate()}.
+     * Not volatile — only accessed by the test execution thread.
+     */
+    private int invocationCount = 0;
+
+    /**
      * By default, we should not log events, otherwise we would end up
      * logging also cases like "when(...)" which are set before a mock is used.
      */
@@ -69,6 +85,7 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
 
     public void activate() {
         active = true;
+        invocationCount = 0;
     }
 
 
@@ -104,23 +121,54 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
             return;
         }
 
+        // Bail out quickly if the thread has been interrupted (e.g., timeout).
+        // This runs inside the mock interceptor on the test execution thread,
+        // so we want to avoid expensive work when the test is being killed.
+        if (Thread.currentThread().isInterrupted()) {
+            return;
+        }
+
+        // Guard against tight loops in uninstrumented code that call a mock
+        // method repeatedly (e.g., Iterable.forEach(mockedConsumer)).  The
+        // LoopCounter can't help because the loop back-edge is in JDK code.
+        if (++invocationCount > MAX_INVOCATIONS_PER_TEST) {
+            throw new TooManyResourcesException(
+                    "Mock invocation limit exceeded (" + MAX_INVOCATIONS_PER_TEST
+                            + ") — likely an infinite loop calling a mocked method");
+        }
+
         DescribedInvocation di = methodInvocationReport.getInvocation();
-        MethodDescriptor md = null;
+        Method method;
 
         if (di instanceof InvocationOnMock) {
             InvocationOnMock impl = (InvocationOnMock) di;
-            Method method = impl.getMethod();
-            md = new MethodDescriptor(method, retvalType);
+            method = impl.getMethod();
         } else {
             //hopefully it should never happen
             logger.error("DescribedInvocation is not an instance of InvocationOnMock! {}", di);
             return;
         }
 
-        if (md.getMethodName().equals("finalize")) {
+        if (method.getName().equals("finalize")) {
             //ignore it, otherwise if we mock it, we ll end up in a lot of side effects... :(
             return;
         }
+
+        // Build a cheap key from the raw Method to check the cache before
+        // constructing an expensive MethodDescriptor.
+        String cheapKey = method.getDeclaringClass().getName() + "." + method.getName()
+                + "#" + buildRawParamKey(method);
+
+        synchronized (map) {
+            MethodDescriptor current = map.get(cheapKey);
+            if (current != null) {
+                current.increaseCounter();
+                return;
+            }
+        }
+
+        // First time seeing this method — create the descriptor.
+        MethodDescriptor md = new MethodDescriptor(method, retvalType);
 
         if (onlyMockAbstractMethods() && !md.getGenericMethod().isAbstract()) {
             return;
@@ -134,6 +182,19 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
             current.increaseCounter();
             map.put(md.getID(), current);
         }
+    }
+
+    private static String buildRawParamKey(Method method) {
+        Class<?>[] paramTypes = method.getParameterTypes();
+        if (paramTypes.length == 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < paramTypes.length; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(MethodDescriptor.matcherStringForType(paramTypes[i]));
+        }
+        return sb.toString();
     }
 
 

@@ -44,6 +44,7 @@ import org.evosuite.runtime.mock.java.time.chrono.*;
 import org.evosuite.runtime.mock.java.util.*;
 import org.evosuite.runtime.mock.java.util.logging.MockFileHandler;
 import org.evosuite.runtime.mock.java.util.logging.MockLogRecord;
+import org.evosuite.runtime.mock.java.util.logging.MockLogger;
 import org.evosuite.runtime.mock.java.util.prefs.MockPreferences;
 import org.evosuite.runtime.mock.javax.swing.MockDefaultListSelectionModel;
 import org.evosuite.runtime.mock.javax.swing.MockJFileChooser;
@@ -104,6 +105,7 @@ public class MockList {
             list.add(MockRuntime.class);
             list.add(MockSystem.class);
             list.add(MockLogRecord.class);
+            list.add(MockLogger.class);
 
             // Uses Object.hashCode
             list.add(MockDefaultListSelectionModel.class);
@@ -160,6 +162,8 @@ public class MockList {
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.time.MockZoneRulesProvider");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockScopedValue");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockScopedValueCarrier");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockSemaphore");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockCountDownLatch");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockStructuredTaskScope");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockProcessBuilder");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockProcessHandle");
@@ -204,6 +208,9 @@ public class MockList {
         if (RuntimeSettings.mockGUI) {
             // why not including JFileChooser?
             list.add(MockJOptionPane.class);
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.awt.MockWindow");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.awt.MockFrame");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.javax.swing.MockJFrame");
         }
 
         return list;

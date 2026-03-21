@@ -21,6 +21,7 @@ package org.evosuite.runtime.mock.java.lang;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.OverrideMock;
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Threads are very complex to handle.
@@ -59,8 +61,28 @@ public class MockThread extends Thread implements OverrideMock {
 
     private static final Map<Integer, Long> threadMap = new ConcurrentHashMap<>();
 
+    /**
+     * Tracks the cumulative sleep time (in the SUT's perception) requested by
+     * all threads in the current test execution.  When the total exceeds
+     * {@link #MAX_CUMULATIVE_SLEEP_MS}, {@link #sleep(long)} throws
+     * {@link TooManyResourcesException} to break out of infinite polling loops
+     * in uninstrumented library code that the
+     * {@link org.evosuite.runtime.LoopCounter} cannot reach.
+     *
+     * <p>Uses AtomicLong instead of ThreadLocal so that {@link #reset()} clears
+     * the budget for all threads, not just the calling thread.</p>
+     */
+    private static final AtomicLong cumulativeSleepRequested = new AtomicLong(0L);
+
+    /**
+     * Maximum cumulative sleep time (in SUT-perceived milliseconds) before
+     * MockThread.sleep starts throwing InterruptedException.
+     */
+    private static final long MAX_CUMULATIVE_SLEEP_MS = 10_000L;
+
     public static void reset() {
         threadMap.clear();
+        cumulativeSleepRequested.set(0L);  // AtomicLong — visible to all threads
     }
 
     private boolean isSutRelated() {
@@ -128,9 +150,29 @@ public class MockThread extends Thread implements OverrideMock {
      */
     @EvoSuiteExclude
     public static void sleep(long millis) throws InterruptedException {
-        //no point in doing any sleep
-        //MockThread.yield(); //just in case to change thread //FIXME quite a few side effects
-        Thread.sleep(Math.min(millis, 50)); //TODO maybe should be a parameter
+        // Track cumulative mocked sleep time. Uninstrumented library code
+        // (e.g., HSQLDB Server.start()) may sit in a polling loop calling
+        // Thread.sleep(). The LoopCounter can't break these loops because no
+        // checkLoop() was inserted. We therefore enforce a cumulative budget
+        // over the *effective* mocked delay (<= 50ms per call), not the raw
+        // requested millis, so a single legitimate long sleep is still reduced
+        // to one short mocked wait instead of being rejected immediately.
+        if (millis > 0) {
+            long effectiveMillis = Math.min(millis, 50L);
+            long cumulative = cumulativeSleepRequested.addAndGet(effectiveMillis);
+            if (cumulative > MAX_CUMULATIVE_SLEEP_MS) {
+                // Throw an unchecked exception.  InterruptedException won't
+                // work here because server-style loops (like HSQLDB
+                // Server.start()) typically catch InterruptedException and
+                // keep looping.  TooManyResourcesException is already used by
+                // LoopCounter for the same purpose — breaking infinite loops
+                // that EvoSuite cannot otherwise terminate.
+                throw new TooManyResourcesException(
+                        "MockThread: cumulative sleep request exceeded "
+                                + MAX_CUMULATIVE_SLEEP_MS + "ms");
+            }
+        }
+        Thread.sleep(Math.min(millis, 50));
     }
 
     @EvoSuiteExclude

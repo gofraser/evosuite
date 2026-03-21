@@ -107,6 +107,110 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     private static final AtomicInteger functionalMockingInitFailures = new AtomicInteger(0);
 
     /**
+     * Maps a declared mock type to a more specific type that should be used instead.
+     * Populated at runtime when a ClassCastException reveals that the SUT downcasts
+     * a mock parameter (e.g., Graphics → Graphics2D).
+     */
+    private static final ConcurrentHashMap<String, String> mockTypeUpgrades = new ConcurrentHashMap<>();
+
+    /**
+     * Registers a mock type upgrade: future mocks of {@code declaredType} should
+     * use {@code targetType} instead (because the SUT casts to it).
+     */
+    public static void registerMockTypeUpgrade(String declaredType, String targetType) {
+        if (mockTypeUpgrades.putIfAbsent(declaredType, targetType) == null) {
+            logger.warn("Registered mock type upgrade: {} → {}", declaredType, targetType);
+        }
+    }
+
+    /**
+     * Returns the upgraded mock type for the given declared type, or null if
+     * no upgrade is registered.
+     */
+    public static String getMockTypeUpgrade(String declaredType) {
+        return mockTypeUpgrades.get(declaredType);
+    }
+
+    /**
+     * Detects when a ClassCastException was caused by a mock being the wrong
+     * type, and registers an upgrade so future mocks use the cast target type.
+     *
+     * <p>For example, if {@code mock(Graphics.class)} is passed to SUT code
+     * that casts to {@code Graphics2D}, this registers
+     * {@code Graphics → Graphics2D} so subsequent mocks use Graphics2D.</p>
+     *
+     * @param e    the ClassCastException
+     * @param s    the statement that was executing when the exception occurred
+     * @param tc   the test case
+     */
+    public static void detectMockTypeUpgrade(ClassCastException e, Statement s, TestCase tc) {
+        try {
+            String targetType = parseCastTargetType(e);
+            if (targetType == null) {
+                return;
+            }
+
+            if (!(s instanceof EntityWithParametersStatement)) {
+                return;
+            }
+            for (VariableReference ref :
+                    ((EntityWithParametersStatement) s).getParameterReferences()) {
+                Statement defStmt = tc.getStatement(ref.getStPosition());
+                if (!(defStmt instanceof FunctionalMockStatement)) {
+                    continue;
+                }
+                FunctionalMockStatement mock = (FunctionalMockStatement) defStmt;
+                Class<?> mockClass = mock.getTargetClass();
+                try {
+                    Class<?> castTarget = Class.forName(targetType, false,
+                            mockClass.getClassLoader());
+                    if (mockClass.isAssignableFrom(castTarget)) {
+                        registerMockTypeUpgrade(mockClass.getName(), targetType);
+                    }
+                } catch (ClassNotFoundException ignored) {
+                }
+            }
+        } catch (Exception ex) {
+            logger.debug("Failed to detect mock type upgrade", ex);
+        }
+    }
+
+    /**
+     * Parses the cast target type from a ClassCastException message.
+     * Returns null if the exception doesn't involve a Mockito mock.
+     */
+    private static String parseCastTargetType(ClassCastException e) {
+        String msg = e.getMessage();
+        if (msg == null || !msg.contains("MockitoMock")) {
+            return null;
+        }
+        // JDK 11+: "... cannot be cast to class java.awt.Graphics2D (module info...)"
+        int idx = msg.indexOf("cannot be cast to class ");
+        if (idx >= 0) {
+            String after = msg.substring(idx + "cannot be cast to class ".length());
+            int end = indexOfAny(after, ' ', '(');
+            return end > 0 ? after.substring(0, end) : after.trim();
+        }
+        // Older JDKs: "... cannot be cast to java.awt.Graphics2D"
+        idx = msg.indexOf("cannot be cast to ");
+        if (idx >= 0) {
+            return msg.substring(idx + "cannot be cast to ".length()).trim();
+        }
+        return null;
+    }
+
+    private static int indexOfAny(String s, char... chars) {
+        int min = -1;
+        for (char c : chars) {
+            int idx = s.indexOf(c);
+            if (idx >= 0 && (min < 0 || idx < min)) {
+                min = idx;
+            }
+        }
+        return min;
+    }
+
+    /**
      * This list needs to be kept sorted.
      */
     protected final List<MethodDescriptor> mockedMethods;
@@ -297,6 +401,24 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
+        // Reject ForkJoinTask types.  A mocked ForkJoinTask's exec() returns
+        // false (default mock), so the task never "completes".  When SUT code
+        // calls invokeAll()/join() on such a mock, ForkJoinTask.awaitDone()
+        // parks the thread forever.  Worse, awaitDone() swallows interrupts
+        // (sets a flag but continues waiting), so Thread.interrupt() from the
+        // timeout handler cannot stop it.
+        if (java.util.concurrent.ForkJoinTask.class.isAssignableFrom(rawClass)) {
+            return false;
+        }
+
+        // Reject ManagedBlocker types.  ForkJoinPool.managedBlock() loops:
+        //   while (!blocker.isReleasable()) if (blocker.block()) break;
+        // A mock's isReleasable() returns false and block() returns false,
+        // creating an infinite CPU-burning loop with no interrupt check.
+        if (java.util.concurrent.ForkJoinPool.ManagedBlocker.class.isAssignableFrom(rawClass)) {
+            return false;
+        }
+
         // ad-hoc list of classes we should not really mock
         List<Class<?>> avoid = Arrays.asList(
         // add here if needed
@@ -335,8 +457,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         String targetClassName = Properties.TARGET_CLASS;
         if (targetClassName != null && !targetClassName.isEmpty()) {
             String rawClassName = rawClass.getName();
-            if (rawClassName.equals(targetClassName)
-                    || rawClassName.startsWith(targetClassName + "$")) {
+            if (rawClassName.equals(targetClassName)) {
                 return false;
             }
         }
@@ -808,7 +929,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     private static boolean shouldDisableFunctionalMockingGlobally(int attempts, int failures) {
-        if (Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE == Properties.FunctionalMockingFailoverMode.OFF) {
+        // Only the GLOBAL mode triggers the global disable.  CLASS mode only
+        // blacklists individual problematic classes — it must NOT disable mocking
+        // globally, because that prevents mocking of unrelated classes that work
+        // fine (e.g., MainFrame mock for a JDialog-extending CUT).
+        if (Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE != Properties.FunctionalMockingFailoverMode.GLOBAL) {
             return false;
         }
         if (attempts <= 0 || failures < Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_COUNT) {
@@ -928,9 +1053,25 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             try {
                 functionalMockingAttempts.incrementAndGet();
                 logMockMakerDiagnosticsOnce();
-                logger.debug("Mockito: create mock for {}", targetClass);
 
                 MockSettings settings = createMockSettings();
+                // Check if a more specific type should be used (e.g., Graphics2D
+                // instead of Graphics) because the SUT downcasts the parameter.
+                String upgrade = getMockTypeUpgrade(targetClass.getRawClass().getName());
+                if (upgrade != null) {
+                    try {
+                        Class<?> upgraded = Class.forName(upgrade, false,
+                                targetClass.getRawClass().getClassLoader());
+                        if (targetClass.getRawClass().isAssignableFrom(upgraded)
+                                && canBeFunctionalMocked(upgraded)) {
+                            targetClass = GenericClassFactory.get(upgraded);
+                            retval.setType(upgraded);
+                        }
+                    } catch (ClassNotFoundException e) {
+                        logger.debug("Could not load upgraded mock type {}: {}", upgrade, e.getMessage());
+                    }
+                }
+                logger.debug("Mockito: create mock for {}", targetClass);
                 ret = mock(targetClass.getRawClass(), settings);
 
                 //execute all "when" statements
