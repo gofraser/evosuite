@@ -296,7 +296,7 @@ public class TestClusterUtils {
 
     private static Set<Field> computeAccessibleFields(final Class<?> clazz) {
         final Set<Field> accessibleFields = Arrays.stream(Reflection.getFields(clazz))
-                .filter(f -> TestUsageChecker.canUse(f) && !Modifier.isFinal(f.getModifiers()))
+                .filter(f -> TestUsageChecker.canUse(f) && !isFinalField(f))
                 .sorted(comparing(Field::getName))
                 .collect(toCollection(LinkedHashSet::new));
         return accessibleFields;

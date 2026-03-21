@@ -24,6 +24,7 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.junit.CoverageAnalysis;
+import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.seeding.CastClassManager;
@@ -1278,15 +1279,131 @@ public class TestCluster {
     }
 
     private boolean isHeadlessIncompatibleGenerator(GenericAccessibleObject<?> generator) {
-        if (!Properties.HEADLESS_MODE || !generator.isConstructor()) {
+        if (!Properties.HEADLESS_MODE) {
             return false;
         }
 
-        return isAssignableToTypeName(generator.getDeclaringClass(), "java.awt.Window");
+        // Filter constructors that declare HeadlessException — these call
+        // GraphicsEnvironment.checkHeadless() and will always fail in headless
+        // mode.  This covers Window/Frame/Dialog as well as heavyweight AWT
+        // components like ScrollPane, Button, Label, etc.
+        if (generator.isConstructor()) {
+            GenericConstructor gc = (GenericConstructor) generator;
+            boolean declaresHeadless = false;
+            for (Class<?> ex : gc.getConstructor().getExceptionTypes()) {
+                if (ex == java.awt.HeadlessException.class) {
+                    declaresHeadless = true;
+                    break;
+                }
+            }
+            if (declaresHeadless) {
+                Class<?> declaringClass = gc.getDeclaringClass();
+                String declaringName = declaringClass.getCanonicalName();
+                // If this IS a JDK class that we mock (e.g. JFrame itself),
+                // keep filtering — reflection bypasses the mock.
+                if (declaringName != null && MockList.shouldBeMocked(declaringName)) {
+                    return true;
+                }
+                // If the declaring class has a mocked ancestor (e.g. CUT extends
+                // JFrame), the mock handles headless via bytecode instrumentation
+                // — don't filter.
+                if (hasMockedAncestor(declaringClass)) {
+                    return false;
+                }
+                return true;
+            }
+        }
+
+        // Filter methods/fields that return abstract AWT types which have no concrete
+        // implementation in a headless environment (e.g., GraphicsConfiguration,
+        // GraphicsDevice).  Without this filter, EvoSuite picks generators like
+        // Component.getGraphicsConfiguration() which return null in headless mode,
+        // producing broken test chains instead of falling back to mocking.
+        if (generator.isMethod() || generator.isField()) {
+            Class<?> returnType = generator.getGeneratedClass().getRawClass();
+            if (returnType != null
+                    && java.lang.reflect.Modifier.isAbstract(returnType.getModifiers())
+                    && isHeadlessOnlyType(returnType)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns true for abstract AWT/Swing types that have no concrete implementation
+     * available in a headless environment.  These types can only be obtained via
+     * mocking when running headless.
+     */
+    private static boolean isHeadlessOnlyType(Class<?> type) {
+        String name = type.getName();
+        return name.equals("java.awt.GraphicsConfiguration")
+                || name.equals("java.awt.GraphicsDevice")
+                || name.equals("java.awt.GraphicsEnvironment");
+    }
+
+    /**
+     * Returns {@code true} if any class in {@code clazz}'s superclass chain
+     * has a registered OverrideMock.  This means bytecode instrumentation will
+     * replace the superclass reference, allowing the mock to handle headless
+     * construction.
+     */
+    private static boolean hasMockedAncestor(Class<?> clazz) {
+        for (Class<?> c = clazz.getSuperclass(); c != null; c = c.getSuperclass()) {
+            String name = c.getCanonicalName();
+            if (name != null && MockList.shouldBeMocked(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns {@code true} if the given type has generators registered but all of
+     * them are filtered out by headless mode.  This is used to decide whether
+     * to fall back to functional mocking for the CUT when it extends a
+     * headless-incompatible type (e.g., JFrame).
+     */
+    public boolean hasOnlyHeadlessIncompatibleGenerators(GenericClass<?> clazz) {
+        if (!Properties.HEADLESS_MODE) {
+            return false;
+        }
+        try {
+            cacheGenerators(clazz);
+        } catch (ConstructionFailedException e) {
+            return false;
+        }
+        Set<GenericAccessibleObject<?>> generators = generatorCache.get(clazz);
+        if (generators == null || generators.isEmpty()) {
+            return false;
+        }
+        return generators.stream().allMatch(this::isHeadlessIncompatibleGenerator);
     }
 
     private boolean shouldFilterHeadlessIncompatibleTestCall(GenericAccessibleObject<?> call) {
-        return Properties.HEADLESS_FILTER_CUT_CALLS && isHeadlessIncompatibleGenerator(call);
+        if (!Properties.HEADLESS_MODE) {
+            return false;
+        }
+        // Explicit opt-in: filter the call itself if it declares HeadlessException
+        if (Properties.HEADLESS_FILTER_CUT_CALLS && isHeadlessIncompatibleGenerator(call)) {
+            return true;
+        }
+        // Auto-filter constructors that declare HeadlessException — they will
+        // always fail in headless mode regardless of HEADLESS_FILTER_CUT_CALLS.
+        if (call.isConstructor() && isHeadlessIncompatibleGenerator(call)) {
+            return true;
+        }
+        // Auto-filter instance methods/fields whose owner class has no usable
+        // generators (all filtered by headless mode) — there is no way to
+        // create a callee, so skip to avoid wasting search budget.
+        if (!call.isStatic() && !call.isConstructor()) {
+            GenericClass<?> ownerClass = GenericClassFactory.get(call.getOwnerClass().getRawClass());
+            if (hasOnlyHeadlessIncompatibleGenerators(ownerClass)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isAssignableToTypeName(Class<?> type, String superTypeName) {

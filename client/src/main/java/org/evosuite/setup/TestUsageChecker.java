@@ -73,6 +73,10 @@ public class TestUsageChecker {
             return false;// handled here to avoid printing reasons
         }
 
+        if (isForkJoinClass(c.getDeclaringClass())) {
+            return false;
+        }
+
         if (c.getDeclaringClass().isAnonymousClass()) {
             return false;
         }
@@ -284,6 +288,10 @@ public class TestUsageChecker {
             return false;// handled here to avoid printing reasons
         }
 
+        if (isForkJoinClass(f.getDeclaringClass())) {
+            return false;
+        }
+
         if (!Properties.USE_DEPRECATED && f.isAnnotationPresent(Deprecated.class)) {
             final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
 
@@ -450,6 +458,10 @@ public class TestUsageChecker {
         }
 
         if (m.getDeclaringClass().equals(java.lang.Thread.class)) {
+            return false;
+        }
+
+        if (isForkJoinClass(m.getDeclaringClass())) {
             return false;
         }
 
@@ -627,6 +639,19 @@ public class TestUsageChecker {
         }
 
         return false;
+    }
+
+    /**
+     * ForkJoinTask and ForkJoinPool should not appear in generated tests.
+     * ForkJoinTask.join()/get()/invokeAll() block until the task completes,
+     * and ForkJoinTask.awaitDone() swallows Thread.interrupt() — meaning the
+     * timeout handler cannot stop a thread stuck in these methods.
+     * ForkJoinPool.submit()/invoke() can similarly create tasks that never
+     * complete in the test environment.
+     */
+    private static boolean isForkJoinClass(Class<?> clazz) {
+        return java.util.concurrent.ForkJoinTask.class.isAssignableFrom(clazz)
+                || java.util.concurrent.ForkJoinPool.class.isAssignableFrom(clazz);
     }
 
     /**
