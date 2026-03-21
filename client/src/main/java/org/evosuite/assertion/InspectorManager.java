@@ -70,7 +70,7 @@ public class InspectorManager {
         blackList.put(
                 "java.lang.ThreadGroup",
                 Arrays.asList("activeCount", "activeGroupCount", "getMaxPriority",
-                        "isDaemon", "isDestroyed", "toString"));
+                        "isDaemon", "isDestroyed", "getName", "toString"));
         blackList.put("java.util.EventObject",
                 Arrays.asList("toString"));
 

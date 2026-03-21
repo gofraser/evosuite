@@ -96,7 +96,8 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
                 continue;
             }
             // No assertions on mocked objects
-            if (statement.getTestCase().getStatement(var.getStPosition()) instanceof FunctionalMockStatement) {
+            Statement decl = getDeclaringStatement(var);
+            if (decl == null || decl instanceof FunctionalMockStatement) {
                 continue;
             }
             try {
@@ -119,6 +120,20 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         return false;
     }
 
+
+    /**
+     * Safely resolves the statement that declares the given variable in
+     * {@code currentTest}.  Returns {@code null} when the position is out of
+     * bounds — this can happen when a {@link VariableReference} still points
+     * at a larger source test case after cloning/truncation.
+     */
+    protected static Statement getDeclaringStatement(VariableReference var) {
+        int pos = var.getStPosition();
+        if (pos < 0 || pos >= currentTest.size()) {
+            return null;
+        }
+        return currentTest.getStatement(pos);
+    }
 
     /**
      * <p>

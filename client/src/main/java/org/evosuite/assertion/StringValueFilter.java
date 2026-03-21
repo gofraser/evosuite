@@ -30,10 +30,12 @@ import java.util.regex.Pattern;
  */
 public final class StringValueFilter {
 
-    // Matches Java's default Object.toString() format: e.g., "com.example.Foo@1a2b3c4d"
-    // or nested occurrences like "[Foo@abc, Bar@def]". Requires at least 2 hex chars after @.
+    // Matches Java's default Object.toString() format:
+    // "com.example.Foo@1a2b3c4d", "com.example.Outer$Inner@2", "Foo@A".
+    // Also catches nested occurrences like "[Foo@abc, Bar@def]".
     private static final Pattern ADDRESS_PATTERN =
-            Pattern.compile("[A-Za-z_$][\\w.]*@[a-f\\d]{2,}", Pattern.MULTILINE);
+            Pattern.compile("(?:[A-Za-z_$][\\w$]*\\.)*[A-Za-z_$][\\w$]*@[A-Fa-f\\d]+(?![A-Za-z\\d_])",
+                    Pattern.MULTILINE);
 
     private StringValueFilter() {
         // Utility class

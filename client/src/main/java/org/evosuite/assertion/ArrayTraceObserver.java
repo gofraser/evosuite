@@ -107,8 +107,8 @@ public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> 
             }
 
             // Also skip arrays that were created by an ArrayStatement (visited as dependency)
-            Statement declaringStatement = currentTest.getStatement(var.getStPosition());
-            if (declaringStatement instanceof ArrayStatement) {
+            Statement declaringStatement = getDeclaringStatement(var);
+            if (declaringStatement == null || declaringStatement instanceof ArrayStatement) {
                 return;
             }
 

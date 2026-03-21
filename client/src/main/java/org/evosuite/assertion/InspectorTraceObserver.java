@@ -46,8 +46,8 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
         // TODO: Check the variable class is complex?
 
         // We don't want inspector checks on string constants
-        Statement declaringStatement = currentTest.getStatement(var.getStPosition());
-        if (declaringStatement instanceof PrimitiveStatement<?>) {
+        Statement declaringStatement = getDeclaringStatement(var);
+        if (declaringStatement == null || declaringStatement instanceof PrimitiveStatement<?>) {
             return;
         }
 

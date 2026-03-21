@@ -56,14 +56,15 @@ public class NullTraceObserver extends AssertionTraceObserver<NullTraceEntry> {
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         logger.debug("Checking for null of " + var);
         try {
+            Statement declaringStatement = getDeclaringStatement(var);
             if (var == null
                     || var.isPrimitive()
                     //|| var.isWrapperType() // TODO: Wrapper types might make sense but
                     // there were failing assertions...
                     || var.isEnum()
-                    || currentTest.getStatement(var.getStPosition())
-                    instanceof PrimitiveStatement
-                    || currentTest.getStatement(var.getStPosition()).isAssignmentStatement()) {
+                    || declaringStatement == null
+                    || declaringStatement instanceof PrimitiveStatement
+                    || declaringStatement.isAssignmentStatement()) {
                 return;
             }
 
