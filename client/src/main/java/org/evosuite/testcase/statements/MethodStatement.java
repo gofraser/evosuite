@@ -26,6 +26,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.EvosuiteError;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.UncompilableCodeException;
 import org.evosuite.testcase.variable.ArrayIndex;
@@ -413,6 +414,10 @@ public class MethodStatement extends EntityWithParametersStatement {
                         throw new EvosuiteError(e);
                     }
 
+                    rejectAbsurdIntInputs(inputs);
+                    rejectLargeAllocation(calleeObject, inputs);
+                    rejectDynamicMethodThreshold(inputs);
+
                     Object ret = method.getMethod().invoke(calleeObject, inputs);
                     // Try exact return type
                     /*
@@ -469,6 +474,149 @@ public class MethodStatement extends EntityWithParametersStatement {
                     exceptionThrown);
         }
         return exceptionThrown;
+    }
+
+    /**
+     * Sanity check for method calls on allocation-sensitive classes: rejects
+     * individual int args ≥ ABSURD_INT_THRESHOLD, and rejects when the product
+     * of all positive int args exceeds the threshold. Only applies to classes
+     * known to allocate memory proportional to int arguments.
+     */
+    private static final long ABSURD_INT_THRESHOLD = Integer.MAX_VALUE / 2L;
+
+    private void rejectAbsurdIntInputs(Object[] inputs) throws CodeUnderTestException {
+        if (!org.evosuite.testcase.StatementFactory.isAllocationSensitive(
+                method.getMethod().getDeclaringClass())) {
+            return;
+        }
+        Class<?>[] paramTypes = method.getMethod().getParameterTypes();
+        long product = 1;
+        boolean hasPositiveInt = false;
+        for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
+            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
+                int val = (Integer) inputs[i];
+                if (val >= ABSURD_INT_THRESHOLD || val <= -ABSURD_INT_THRESHOLD) {
+                    logger.info("Rejecting method {}.{} with absurd int arg {} = {}",
+                            method.getMethod().getDeclaringClass().getName(),
+                            method.getName(), i, val);
+                    throw new CodeUnderTestException(
+                            new TestCaseExecutor.TimeoutExceeded());
+                }
+                if (val > 0) {
+                    product *= val;
+                    hasPositiveInt = true;
+                }
+            }
+        }
+        if (hasPositiveInt && product > ABSURD_INT_THRESHOLD) {
+            logger.info("Rejecting method {}.{}: product of int args = {} exceeds {}",
+                    method.getMethod().getDeclaringClass().getName(),
+                    method.getName(), product, ABSURD_INT_THRESHOLD);
+            throw new CodeUnderTestException(
+                    new TestCaseExecutor.TimeoutExceeded());
+        }
+    }
+
+    /**
+     * Rejects method calls that would cause excessive memory allocation.
+     *
+     * <p>For allocation-sensitive classes, checks both individual int arguments
+     * and, for table/image resize methods, the product of the int argument with
+     * the object's current dimensions (e.g. setColumnCount(n) allocates
+     * existingRows × n cells).</p>
+     */
+    private void rejectLargeAllocation(Object calleeObject, Object[] inputs)
+            throws CodeUnderTestException {
+        Class<?> declaringClass = method.getMethod().getDeclaringClass();
+        if (!org.evosuite.testcase.StatementFactory.isAllocationSensitive(declaringClass)) {
+            return;
+        }
+        Class<?>[] paramTypes = method.getMethod().getParameterTypes();
+        int limit = Properties.COLLECTION_CAPACITY_LIMIT;
+        String methodName = method.getName();
+
+        // Check individual args and compute product
+        long product = 1;
+        boolean hasPositiveInt = false;
+        for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
+            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
+                int val = (Integer) inputs[i];
+                if (val > limit || val < -limit) {
+                    logger.info("Rejecting method {}.{}: int arg {} = {} exceeds limit {}",
+                            declaringClass.getName(), methodName, i, val, limit);
+                    throw new CodeUnderTestException(
+                            new TestCaseExecutor.TimeoutExceeded());
+                }
+                if (val > 0) {
+                    product *= val;
+                    hasPositiveInt = true;
+                }
+            }
+        }
+        if (hasPositiveInt && product > limit) {
+            rejectWithLog(declaringClass, methodName, "product of int args", product, limit);
+        }
+
+        // For resize methods, check the product with the object's current dimensions
+        if (hasPositiveInt && calleeObject instanceof javax.swing.table.DefaultTableModel) {
+            javax.swing.table.DefaultTableModel model =
+                    (javax.swing.table.DefaultTableModel) calleeObject;
+            int intArg = firstPositiveIntArg(paramTypes, inputs);
+            long effectiveSize = 0;
+            if ("setColumnCount".equals(methodName)) {
+                effectiveSize = (long) model.getRowCount() * intArg;
+            } else if ("setRowCount".equals(methodName)) {
+                effectiveSize = (long) model.getColumnCount() * intArg;
+            }
+            if (effectiveSize > limit) {
+                rejectWithLog(declaringClass, methodName,
+                        "effective allocation (existing dimension × arg)", effectiveSize, limit);
+            }
+        }
+    }
+
+    private int firstPositiveIntArg(Class<?>[] paramTypes, Object[] inputs) {
+        for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
+            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
+                int val = (Integer) inputs[i];
+                if (val > 0) return val;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Rejects method calls whose int args exceed a dynamically learned threshold.
+     * The threshold is set after a previous OOM from the same method, starting at
+     * half the smallest arg that caused OOM, and halving on each subsequent OOM.
+     */
+    private void rejectDynamicMethodThreshold(Object[] inputs) throws CodeUnderTestException {
+        String className = method.getMethod().getDeclaringClass().getName();
+        String methodName = method.getName();
+        int threshold = org.evosuite.testcase.StatementFactory
+                .getAllocationSensitiveMethodThreshold(className, methodName);
+        if (threshold < 0) {
+            return;
+        }
+        Class<?>[] paramTypes = method.getMethod().getParameterTypes();
+        for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
+            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
+                int val = (Integer) inputs[i];
+                if (val > threshold) {
+                    logger.info("Rejecting {}.{}: int arg {} = {} exceeds learned threshold {}",
+                            className, methodName, i, val, threshold);
+                    throw new CodeUnderTestException(
+                            new TestCaseExecutor.TimeoutExceeded());
+                }
+            }
+        }
+    }
+
+    private void rejectWithLog(Class<?> cls, String methodName, String reason,
+                               long value, int limit) throws CodeUnderTestException {
+        logger.info("Rejecting {}.{}: {} = {} exceeds limit {}",
+                cls.getName(), methodName, reason, value, limit);
+        throw new CodeUnderTestException(new TestCaseExecutor.TimeoutExceeded());
     }
 
     /**

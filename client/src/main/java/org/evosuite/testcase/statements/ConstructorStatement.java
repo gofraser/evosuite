@@ -26,6 +26,7 @@ import org.evosuite.dse.VM;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.UncompilableCodeException;
@@ -207,6 +208,10 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                         }
                     }
 
+                    rejectAbsurdIntInputs(inputs);
+                    rejectLargeIntInputs(inputs);
+                    rejectDynamicMethodThreshold(inputs);
+
                     Object ret = constructor.getConstructor().newInstance(inputs);
 
                     try {
@@ -240,6 +245,165 @@ public class ConstructorStatement extends EntityWithParametersStatement {
             }
         }
         return exceptionThrown;
+    }
+
+    /**
+     * Sanity check for constructors of allocation-sensitive classes: rejects
+     * individual int args ≥ ABSURD_INT_THRESHOLD, and rejects when the product
+     * of all positive int args exceeds the threshold. Only applies to classes
+     * known to allocate memory proportional to int arguments. This catches
+     * multi-dimensional allocations like DefaultTableModel(34775, 34775) = 1.2B.
+     */
+    private static final long ABSURD_INT_THRESHOLD = Integer.MAX_VALUE / 2L;
+
+    private void rejectAbsurdIntInputs(Object[] inputs) throws CodeUnderTestException {
+        if (!org.evosuite.testcase.StatementFactory.isAllocationSensitive(
+                constructor.getRawGeneratedType())) {
+            return;
+        }
+        Class<?>[] paramTypes = constructor.getConstructor().getParameterTypes();
+        long product = 1;
+        boolean hasPositiveInt = false;
+        for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
+            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
+                int val = (Integer) inputs[i];
+                if (val >= ABSURD_INT_THRESHOLD || val <= -ABSURD_INT_THRESHOLD) {
+                    logger.info("Rejecting constructor {} with absurd int arg {} = {}",
+                            constructor.getDeclaringClass().getName(), i, val);
+                    throw new CodeUnderTestException(
+                            new TestCaseExecutor.TimeoutExceeded());
+                }
+                if (val > 0) {
+                    product *= val;
+                    hasPositiveInt = true;
+                }
+            }
+        }
+        if (hasPositiveInt && product > ABSURD_INT_THRESHOLD) {
+            logger.info("Rejecting constructor {}: product of int args = {} exceeds {}",
+                    constructor.getDeclaringClass().getName(), product, ABSURD_INT_THRESHOLD);
+            throw new CodeUnderTestException(
+                    new TestCaseExecutor.TimeoutExceeded());
+        }
+    }
+
+    /**
+     * Rejects execution of allocation-sensitive constructors when the effective
+     * allocation size would exceed the capacity limit. Computes effective size as
+     * the product of all "dimension" factors: int args and collection/array sizes.
+     *
+     * <p>This handles cases like DefaultTableModel(Vector columnNames, int rowCount)
+     * where allocation = rowCount × columnNames.size().</p>
+     */
+    private void rejectLargeIntInputs(Object[] inputs) throws CodeUnderTestException {
+        if (!org.evosuite.testcase.StatementFactory.isAllocationSensitive(
+                constructor.getRawGeneratedType())) {
+            logger.debug("rejectLargeIntInputs: {} is NOT allocation-sensitive, skipping",
+                    constructor.getRawGeneratedType().getName());
+            return;
+        }
+        logger.debug("rejectLargeIntInputs: checking {} with {} inputs",
+                constructor.getRawGeneratedType().getName(), inputs.length);
+        Class<?>[] paramTypes = constructor.getConstructor().getParameterTypes();
+        int limit = Properties.COLLECTION_CAPACITY_LIMIT;
+
+        // Compute effective allocation size as the product of all dimension factors:
+        // - int args contribute their value
+        // - Collection args contribute their size
+        // - array args contribute their length
+        long product = 1;
+        boolean hasFactor = false;
+        for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
+            long factor = 0;
+            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
+                int val = (Integer) inputs[i];
+                if (val > limit || val < -limit) {
+                    logger.info("Rejecting allocation-sensitive constructor {}: "
+                            + "int arg {} = {} exceeds limit {}",
+                            constructor.getDeclaringClass().getName(), i, val, limit);
+                    throw new CodeUnderTestException(
+                            new TestCaseExecutor.TimeoutExceeded());
+                }
+                if (val > 0) factor = val;
+            } else if (inputs[i] instanceof java.util.Collection) {
+                factor = ((java.util.Collection<?>) inputs[i]).size();
+            } else if (inputs[i] != null && inputs[i].getClass().isArray()) {
+                factor = java.lang.reflect.Array.getLength(inputs[i]);
+            }
+            if (factor > 0) {
+                product *= factor;
+                hasFactor = true;
+                if (product > limit) {
+                    rejectConstructor("effective allocation size", product, limit);
+                }
+            }
+        }
+
+        // Check TableModel arguments — JTable(TableModel) and similar constructors
+        // query the model's dimensions during construction, so a mock returning
+        // huge values from getRowCount()/getColumnCount() causes OOM.
+        for (int i = 0; i < inputs.length; i++) {
+            if (inputs[i] instanceof javax.swing.table.TableModel) {
+                javax.swing.table.TableModel model = (javax.swing.table.TableModel) inputs[i];
+                try {
+                    long rows = model.getRowCount();
+                    long cols = model.getColumnCount();
+                    logger.debug("TableModel guard: rows={}, cols={}, limit={}", rows, cols, limit);
+                    if (rows > limit || cols > limit) {
+                        rejectConstructor("TableModel dimension", Math.max(rows, cols), limit);
+                    }
+                    if (rows > 0 && cols > 0 && rows * cols > limit) {
+                        rejectConstructor("TableModel size (rows × cols)", rows * cols, limit);
+                    }
+                } catch (Throwable e) {
+                    logger.warn("TableModel dimension query failed for {}: {}",
+                            inputs[i].getClass().getName(), e.toString());
+                }
+            } else if (inputs[i] != null) {
+                // Check if the input implements TableModel via a different classloader
+                for (Class<?> iface : inputs[i].getClass().getInterfaces()) {
+                    if (iface.getName().equals("javax.swing.table.TableModel")) {
+                        logger.warn("Input {} implements TableModel by name but not by identity "
+                                + "(classloader mismatch?): input CL={}, expected CL={}",
+                                i, iface.getClassLoader(),
+                                javax.swing.table.TableModel.class.getClassLoader());
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void rejectConstructor(String reason, long value, int limit)
+            throws CodeUnderTestException {
+        logger.info("Rejecting allocation-sensitive constructor {}: {} = {} exceeds limit {}",
+                constructor.getDeclaringClass().getName(), reason, value, limit);
+        throw new CodeUnderTestException(new TestCaseExecutor.TimeoutExceeded());
+    }
+
+    /**
+     * Rejects constructor calls whose int args exceed a dynamically learned threshold.
+     * Uses the same mechanism as MethodStatement — the key is className.&lt;init&gt;.
+     */
+    private void rejectDynamicMethodThreshold(Object[] inputs) throws CodeUnderTestException {
+        String className = constructor.getDeclaringClass().getName();
+        int threshold = org.evosuite.testcase.StatementFactory
+                .getAllocationSensitiveMethodThreshold(className, "<init>");
+        if (threshold < 0) {
+            return;
+        }
+        Class<?>[] paramTypes = constructor.getConstructor().getParameterTypes();
+        for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
+            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
+                int val = (Integer) inputs[i];
+                if (val > threshold) {
+                    logger.info("Rejecting constructor {}: int arg {} = {} exceeds learned threshold {}",
+                            className, i, val, threshold);
+                    throw new CodeUnderTestException(
+                            new TestCaseExecutor.TimeoutExceeded());
+                }
+            }
+        }
     }
 
     /**
@@ -496,4 +660,5 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         }
         return names;
     }
+
 }

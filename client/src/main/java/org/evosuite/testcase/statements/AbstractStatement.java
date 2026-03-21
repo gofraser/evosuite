@@ -185,6 +185,14 @@ public abstract class AbstractStatement implements Statement, Serializable {
              * Signal an error in evosuite code and are therefore always thrown
              */
             throw e;
+        } catch (OutOfMemoryError e) {
+            // Force immediate GC to reclaim the failed allocation (e.g. a
+            // DefaultTableModel that tried to create 86M Vector objects).
+            // Without this, the dead objects remain on the heap until the next
+            // allocation triggers GC — by which time the Linux OOM killer may
+            // have already terminated the process.
+            System.gc();
+            return e;
         } catch (Error | RuntimeException | InstantiationException | IllegalAccessException
                 | InvocationTargetException e) {
             if (isAssignableFrom(e, code.throwableExceptions())) {

@@ -110,6 +110,51 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
         super.visitTypeInsn(opcode, type);
     }
 
+    /**
+     * Intercept calls to JDK factory methods that internally allocate large arrays,
+     * bypassing the NEWARRAY/ANEWARRAY instrumentation. The size argument on the stack
+     * is clamped to ARRAY_LIMIT before the call proceeds.
+     */
+    @Override
+    public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
+                                boolean isInterface) {
+        if (shouldLimitSizeArg(opcode, owner, name, descriptor)) {
+            // Stack: ..., int(size)  →  clamp size to ARRAY_LIMIT
+            Label ok = new Label();
+            visitInsn(Opcodes.DUP);
+            visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(Properties.class),
+                    "ARRAY_LIMIT", "I");
+            super.visitJumpInsn(Opcodes.IF_ICMPLT, ok);
+            // size >= ARRAY_LIMIT → throw TimeoutExceeded
+            super.visitTypeInsn(Opcodes.NEW,
+                    PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class));
+            super.visitInsn(Opcodes.DUP);
+            super.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                    PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class),
+                    "<init>", "()V", false);
+            super.visitInsn(Opcodes.ATHROW);
+            super.visitLabel(ok);
+        }
+        super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+    }
+
+    private static boolean shouldLimitSizeArg(int opcode, String owner, String name,
+                                              String descriptor) {
+        // ByteBuffer.allocate(int) and ByteBuffer.allocateDirect(int)
+        if (opcode == Opcodes.INVOKESTATIC && "java/nio/ByteBuffer".equals(owner)
+                && ("allocate".equals(name) || "allocateDirect".equals(name))
+                && "(I)Ljava/nio/ByteBuffer;".equals(descriptor)) {
+            return true;
+        }
+        // StringBuilder/StringBuffer initial capacity
+        if ((opcode == Opcodes.INVOKESPECIAL)
+                && ("java/lang/StringBuilder".equals(owner) || "java/lang/StringBuffer".equals(owner))
+                && "<init>".equals(name) && "(I)V".equals(descriptor)) {
+            return true;
+        }
+        return false;
+    }
+
     /* (non-Javadoc)
      * @see org.objectweb.asm.MethodVisitor#visitMultiANewArrayInsn(java.lang.String, int)
      */

@@ -22,6 +22,7 @@ package org.evosuite.testcase;
 import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.runtime.util.Inputs;
+import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.variable.*;
@@ -33,8 +34,10 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Service for creating statements during test case generation.
@@ -147,8 +150,8 @@ public class StatementFactory {
                     context.deeper(),
                     VariableResolutionConfig.defaultConfig());
             
-            if (isCapacitySensitiveCollectionConstructor(constructor)) {
-                validateOrAdjustCapacityParameter(test, constructor, position, parameters);
+            if (isCapacitySensitiveConstructor(constructor)) {
+                validateOrAdjustCapacityParameters(test, constructor, position, parameters);
             }
             int newLength = test.size();
             position += (newLength - length);
@@ -162,39 +165,250 @@ public class StatementFactory {
         }
     }
 
-    private boolean isCapacitySensitiveCollectionConstructor(GenericConstructor constructor) {
-        Class<?> rawType = constructor.getRawGeneratedType();
-        if (rawType == null
-                || (!Collection.class.isAssignableFrom(rawType) && !Map.class.isAssignableFrom(rawType))) {
-            return false;
+    /**
+     * JDK classes whose constructors allocate memory proportional to an int argument,
+     * but are not covered by Collection/Map checks or bytecode-level instrumentation
+     * (since JDK classes are loaded by the bootstrap classloader).
+     *
+     * <p>This static list covers known offenders. It is supplemented at runtime by
+     * {@link #addAllocationSensitiveClass(String)} when a constructor causes
+     * OutOfMemoryError during test execution.</p>
+     */
+    private static final Set<String> ALLOCATION_SENSITIVE_CLASSES = new HashSet<>(Arrays.asList(
+            // Swing — allocate O(rows) or O(rows*cols) internal objects
+            "javax.swing.table.DefaultTableModel",
+            "javax.swing.JTable",
+            // Swing text — allocate internal char[] proportional to int arg
+            "javax.swing.text.StringContent",
+            "javax.swing.text.GapContent",
+            // AWT image — allocate pixel/sample arrays proportional to dimensions
+            "java.awt.image.BufferedImage",
+            "java.awt.image.DataBufferByte",
+            "java.awt.image.DataBufferInt",
+            "java.awt.image.DataBufferShort",
+            "java.awt.image.DataBufferFloat",
+            "java.awt.image.DataBufferDouble",
+            // I/O — allocate internal byte[]/char[] buffers
+            "java.io.ByteArrayOutputStream",
+            "java.io.CharArrayWriter",
+            // I/O — allocate internal buffers proportional to int arg
+            "java.io.PipedInputStream",
+            "java.io.PipedOutputStream",
+            "java.io.PipedReader",
+            "java.io.PipedWriter",
+            "java.io.PushbackInputStream",
+            "java.io.BufferedInputStream",
+            "java.io.BufferedOutputStream",
+            "java.io.BufferedReader",
+            "java.io.BufferedWriter",
+            "java.io.LineNumberReader",
+            // Writers — allocate internal char[] proportional to int arg
+            "java.io.StringWriter",
+            // String builders — already guarded in SUT bytecode by
+            // ArrayAllocationLimitMethodAdapter, but not when called via
+            // reflection from ConstructorStatement
+            "java.lang.StringBuilder",
+            "java.lang.StringBuffer"
+    ));
+
+    /**
+     * Classes discovered at runtime to cause OOM when constructed with large int args.
+     * Populated by {@link #addAllocationSensitiveClass(String)} when a constructor
+     * throws OutOfMemoryError during test execution, so that future test generation
+     * avoids repeating the same mistake.
+     */
+    private static final Set<String> dynamicAllocationSensitiveClasses =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * Registers a class as allocation-sensitive at runtime, after observing that
+     * its constructor caused an OutOfMemoryError. Future constructor calls for this
+     * class will have their int parameters capped.
+     *
+     * @param className the fully qualified class name (dots)
+     */
+    public static void addAllocationSensitiveClass(String className) {
+        if (className != null && dynamicAllocationSensitiveClasses.add(className)) {
+            LoggerFactory.getLogger(StatementFactory.class)
+                    .warn("Registered {} as allocation-sensitive after OOM in constructor", className);
         }
-        Class<?>[] rawParams = constructor.getConstructor().getParameterTypes();
-        return rawParams.length > 0 && rawParams[0].equals(int.class);
     }
 
-    private void validateOrAdjustCapacityParameter(TestCase test,
-                                                   GenericConstructor constructor,
-                                                   int insertionPosition,
-                                                   List<VariableReference> parameters)
+    /**
+     * Methods discovered at runtime to cause OOM. Maps a method key
+     * (className.methodName) to the maximum allowed positive int arg value.
+     * The threshold starts at half the smallest arg value that caused OOM,
+     * and halves again on each subsequent OOM for the same method.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Integer>
+            allocationSensitiveMethods = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Registers a method as allocation-sensitive after it caused an OOM.
+     * The threshold is set to half the smallest positive int arg that was
+     * passed when the OOM occurred. If the method is already registered,
+     * the threshold is halved again.
+     *
+     * @param className  fully qualified class name
+     * @param methodName method name
+     * @param args       the arguments that caused the OOM
+     */
+    public static void addAllocationSensitiveMethod(String className, String methodName,
+                                                     Object[] args) {
+        String key = className + "." + methodName;
+        // Find the smallest positive int arg that was passed
+        int minPositiveArg = Integer.MAX_VALUE;
+        for (Object arg : args) {
+            if (arg instanceof Integer) {
+                int val = (Integer) arg;
+                if (val > 0 && val < minPositiveArg) {
+                    minPositiveArg = val;
+                }
+            }
+        }
+        int newThreshold = Math.max(1, minPositiveArg / 2);
+
+        allocationSensitiveMethods.merge(key, newThreshold, (existing, proposed) -> {
+            // Halve the existing threshold on each subsequent OOM
+            return Math.max(1, existing / 2);
+        });
+        LoggerFactory.getLogger(StatementFactory.class)
+                .warn("Registered method {} as allocation-sensitive (threshold={})",
+                        key, allocationSensitiveMethods.get(key));
+    }
+
+    /**
+     * Returns the int-arg threshold for a method that has been registered as
+     * allocation-sensitive, or -1 if the method is not registered.
+     */
+    public static int getAllocationSensitiveMethodThreshold(String className, String methodName) {
+        String key = className + "." + methodName;
+        Integer threshold = allocationSensitiveMethods.get(key);
+        return threshold != null ? threshold : -1;
+    }
+
+    /**
+     * Returns true if the given class is known (statically or dynamically) to allocate
+     * memory proportional to an int constructor argument. Used by ConstructorStatement
+     * at execution time to cap mutated values.
+     */
+    public static boolean isAllocationSensitive(Class<?> clazz) {
+        if (clazz == null) return false;
+        if (Collection.class.isAssignableFrom(clazz) || Map.class.isAssignableFrom(clazz)) {
+            return true;
+        }
+        // Walk the class hierarchy so subclasses of whitelisted classes are also caught
+        // (e.g. LineNumberReader extends BufferedReader)
+        for (Class<?> c = clazz; c != null; c = c.getSuperclass()) {
+            String name = c.getName();
+            if (ALLOCATION_SENSITIVE_CLASSES.contains(name)
+                    || dynamicAllocationSensitiveClasses.contains(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks if a constructor can allocate memory proportional to an int argument.
+     * Covers Collection/Map constructors (capacity param) and known allocation-sensitive
+     * JDK classes like DefaultTableModel.
+     */
+    private boolean isCapacitySensitiveConstructor(GenericConstructor constructor) {
+        Class<?>[] rawParams = constructor.getConstructor().getParameterTypes();
+        boolean hasIntParam = false;
+        for (Class<?> p : rawParams) {
+            if (p.equals(int.class)) { hasIntParam = true; break; }
+        }
+        if (!hasIntParam) return false;
+
+        Class<?> rawType = constructor.getRawGeneratedType();
+        if (rawType == null) return false;
+
+        if (Collection.class.isAssignableFrom(rawType) || Map.class.isAssignableFrom(rawType)) {
+            return true;
+        }
+
+        String name = rawType.getName();
+        return ALLOCATION_SENSITIVE_CLASSES.contains(name)
+                || dynamicAllocationSensitiveClasses.contains(name);
+    }
+
+    /**
+     * Validates int constructor parameters against the capacity limit.
+     * Checks both individual values and the product of all positive int args,
+     * since classes like DefaultTableModel(int rows, int cols) allocate
+     * O(rows × cols) memory.
+     *
+     * <p>At generation time we can safely adjust the IntPrimitiveStatement
+     * values since the statement hasn't been finalized yet.</p>
+     */
+    private void validateOrAdjustCapacityParameters(TestCase test,
+                                                    GenericConstructor constructor,
+                                                    int insertionPosition,
+                                                    List<VariableReference> parameters)
             throws ConstructionFailedException {
         if (parameters == null || parameters.isEmpty()) {
-            throw new ConstructionFailedException("Missing capacity parameter");
+            throw new ConstructionFailedException("Missing parameters");
         }
-        VariableReference param = parameters.get(0);
-        Statement st = test.getStatement(param.getStPosition());
-        if (!(st instanceof org.evosuite.testcase.statements.numeric.IntPrimitiveStatement)) {
-            return;
-        }
-        org.evosuite.testcase.statements.numeric.IntPrimitiveStatement intStatement =
-                (org.evosuite.testcase.statements.numeric.IntPrimitiveStatement) st;
-        int value = intStatement.getValue();
+        Class<?>[] rawParams = constructor.getConstructor().getParameterTypes();
         int maxCapacity = getCapacityLimit(constructor);
-        if (value < 0 || value > maxCapacity) {
-            if (param.getStPosition() < insertionPosition) {
-                throw new ConstructionFailedException("Collection/Map capacity too large: " + value);
+
+        // First pass: cap individual values
+        for (int i = 0; i < rawParams.length && i < parameters.size(); i++) {
+            if (!rawParams[i].equals(int.class)) continue;
+            VariableReference param = parameters.get(i);
+            Statement st = test.getStatement(param.getStPosition());
+            if (!(st instanceof org.evosuite.testcase.statements.numeric.IntPrimitiveStatement)) continue;
+
+            org.evosuite.testcase.statements.numeric.IntPrimitiveStatement intSt =
+                    (org.evosuite.testcase.statements.numeric.IntPrimitiveStatement) st;
+            int value = intSt.getValue();
+            if (value < 0 || value > maxCapacity) {
+                if (param.getStPosition() < insertionPosition) {
+                    throw new ConstructionFailedException(
+                            "Capacity-sensitive constructor arg too large: " + value);
+                }
+                intSt.setValue(Randomness.nextInt(maxCapacity + 1));
             }
-            int bounded = Randomness.nextInt(maxCapacity + 1);
-            intStatement.setValue(bounded);
+        }
+
+        // Second pass: check product of positive int args
+        long product = 1;
+        boolean hasPositiveInt = false;
+        for (int i = 0; i < rawParams.length && i < parameters.size(); i++) {
+            if (!rawParams[i].equals(int.class)) continue;
+            VariableReference param = parameters.get(i);
+            Statement st = test.getStatement(param.getStPosition());
+            if (!(st instanceof org.evosuite.testcase.statements.numeric.IntPrimitiveStatement)) continue;
+            int value = ((org.evosuite.testcase.statements.numeric.IntPrimitiveStatement) st).getValue();
+            if (value > 0) {
+                product *= value;
+                hasPositiveInt = true;
+            }
+        }
+        if (hasPositiveInt && product > maxCapacity) {
+            // Scale down: set each positive int arg to roughly the nth root of maxCapacity
+            int intArgCount = 0;
+            for (Class<?> p : rawParams) {
+                if (p.equals(int.class)) intArgCount++;
+            }
+            int perArgLimit = (int) Math.pow(maxCapacity, 1.0 / intArgCount);
+            for (int i = 0; i < rawParams.length && i < parameters.size(); i++) {
+                if (!rawParams[i].equals(int.class)) continue;
+                VariableReference param = parameters.get(i);
+                Statement st = test.getStatement(param.getStPosition());
+                if (!(st instanceof org.evosuite.testcase.statements.numeric.IntPrimitiveStatement)) continue;
+                org.evosuite.testcase.statements.numeric.IntPrimitiveStatement intSt =
+                        (org.evosuite.testcase.statements.numeric.IntPrimitiveStatement) st;
+                if (intSt.getValue() > perArgLimit) {
+                    if (param.getStPosition() < insertionPosition) {
+                        throw new ConstructionFailedException(
+                                "Capacity-sensitive constructor arg product too large: " + product);
+                    }
+                    intSt.setValue(Randomness.nextInt(perArgLimit + 1));
+                }
+            }
         }
     }
 
@@ -356,6 +570,10 @@ public class StatementFactory {
     public VariableReference addFieldAssignment(TestCase test, GenericField field,
                                                 int position, GenerationContext context)
             throws ConstructionFailedException {
+        if (TestClusterUtils.isFinalField(field.getField())) {
+            throw new ConstructionFailedException("Cannot assign to final field " + field.getName());
+        }
+
         if (context.getDepth() > Properties.MAX_RECURSION) {
             throw new ConstructionFailedException("Max recursion depth reached");
         }
@@ -409,6 +627,10 @@ public class StatementFactory {
     public VariableReference addFieldFor(TestCase test, VariableReference callee,
                                          GenericField field, int position, GenerationContext context)
             throws ConstructionFailedException {
+        if (TestClusterUtils.isFinalField(field.getField())) {
+            throw new ConstructionFailedException("Cannot assign to final field " + field.getName());
+        }
+
         if (position <= callee.getStPosition()) {
             throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
         }
