@@ -111,11 +111,8 @@ public class LocalAddressPrimitiveStatement extends EnvironmentDataStatement<Evo
             int port = info.getPort();
             addr = new EvoSuiteLocalAddress(host, port);
         } else {
-            /*
-                no point in creating local addresses that the SUT has
-                never accessed
-             */
-            addr = null;
+            // No accessed local addresses — use a sensible default
+            addr = new EvoSuiteLocalAddress("127.0.0.1", 8080);
         }
 
         setValue(addr);

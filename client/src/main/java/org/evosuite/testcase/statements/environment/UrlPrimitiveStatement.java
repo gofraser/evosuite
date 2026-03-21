@@ -102,8 +102,7 @@ public class UrlPrimitiveStatement extends EnvironmentDataStatement<EvoSuiteURL>
         String url = Randomness.choice(tc.getAccessedEnvironment().getViewOfRemoteURLs());
         if (url != null) {
             setValue(new EvoSuiteURL(url));
-        } else {
-            setValue(null);
         }
+        // When no URLs have been accessed yet, keep the current value.
     }
 }

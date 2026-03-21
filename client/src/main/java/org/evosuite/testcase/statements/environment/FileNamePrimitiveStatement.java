@@ -21,6 +21,7 @@ package org.evosuite.testcase.statements.environment;
 
 import org.evosuite.runtime.testdata.EvoSuiteFile;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.StringUtil;
@@ -28,6 +29,8 @@ import org.evosuite.utils.StringUtil;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -87,6 +90,21 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
         // there does not exist a zero value for files
     }
 
+    @Override
+    public boolean hasMoreThanOneValue() {
+        return !getAlternativePaths().isEmpty();
+    }
+
+    @Override
+    public boolean mutate(TestCase test, TestFactory factory) {
+        List<String> alternativePaths = getAlternativePaths();
+        if (alternativePaths.isEmpty()) {
+            return false;
+        }
+        setValue(new EvoSuiteFile(Randomness.choice(alternativePaths)));
+        return true;
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -95,10 +113,25 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
         String path = Randomness.choice(tc.getAccessedEnvironment().getViewOfAccessedFiles());
         if (path != null) {
             setValue(new EvoSuiteFile(path));
-        } else {
-            setValue(null); // FIXME find out why this case can actually happen! (I don't think we want this?)
         }
-        logger.debug("Randomized filename: " + value);
+        // When no files have been accessed yet, keep the current value.
+        // The accessed files list is populated after test execution, so
+        // meaningful paths will become available once the SUT has run.
+    }
+
+    private List<String> getAlternativePaths() {
+        List<String> alternatives = new ArrayList<>();
+        String currentPath = value != null ? value.toString() : null;
+
+        for (String path : tc.getAccessedEnvironment().getViewOfAccessedFiles()) {
+            if (path == null) {
+                continue;
+            }
+            if (!path.equals(currentPath)) {
+                alternatives.add(path);
+            }
+        }
+        return alternatives;
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException {

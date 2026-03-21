@@ -62,6 +62,9 @@ public class EnvironmentStatements {
 
         if (clazz.equals(EvoSuiteFile.class)) {
             String fileName = Randomness.choice(tc.getAccessedEnvironment().getViewOfAccessedFiles());
+            if (fileName == null) {
+                fileName = "tmpFile";
+            }
             return new FileNamePrimitiveStatement(tc, new EvoSuiteFile(fileName));
         } else if (clazz.equals(EvoSuiteLocalAddress.class)) {
             return new LocalAddressPrimitiveStatement(tc);
