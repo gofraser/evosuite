@@ -329,12 +329,15 @@ public class TestSuiteGenerator {
 
         // If overall time is short, the search might not have had enough time
         // to come up with a suite without timeouts. However, they will slow
-        // down
-        // the rest of the process, and may lead to invalid tests
+        // down the rest of the process, and may lead to invalid tests.
+        //
+        // Tests that threw internal exceptions are removed.  Timed-out tests
+        // are kept: the JUnit writer wraps them in an ExecutorService with
+        // future.get(timeout) so they won't hang.  This preserves coverage for
+        // classes whose constructors always block (e.g., on network I/O).
         testSuite.getTestChromosomes()
                 .removeIf(t -> t.getLastExecutionResult() != null
-                        && (t.getLastExecutionResult().hasTimeout()
-                        || t.getLastExecutionResult().hasTestException()));
+                        && t.getLastExecutionResult().hasTestException());
 
         if (Properties.CTG_SEEDS_FILE_OUT != null) {
             TestSuiteSerialization.saveTests(testSuite, new File(Properties.CTG_SEEDS_FILE_OUT));
@@ -379,9 +382,14 @@ public class TestSuiteGenerator {
         if (Properties.MINIMIZE && !isLlmStrategy) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
             // progressMonitor.setCurrentPhase("Minimizing test cases");
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Skipping minimization because not enough time is left");
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()
+                    || isMemoryTooLowForPhase("minimization")) {
+                if (TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                    // Time is available but memory is low — already logged by the check
+                } else {
+                    LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                            + "Skipping minimization because not enough time is left");
+                }
                 ClientServices.track(RuntimeVariable.Result_Size, testSuite.size());
                 ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
                 ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
@@ -504,6 +512,8 @@ public class TestSuiteGenerator {
             if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping assertion generation because not enough time is left");
+            } else if (isMemoryTooLowForPhase("assertion generation")) {
+                // skip — message already logged by the check
             } else {
                 TestSuiteGeneratorHelper.addAssertions(testSuite);
             }
@@ -529,6 +539,32 @@ public class TestSuiteGenerator {
     }
 
     /**
+     * Check whether free memory is too low to safely enter a post-search phase
+     * that re-executes tests (minimization, assertion generation, JUnit check).
+     * Uses {@code MIN_FREE_MEM * 2} as the threshold to leave headroom.
+     *
+     * @param phaseName human-readable name for log messages
+     * @return true if memory is too low (caller should skip the phase)
+     */
+    private boolean isMemoryTooLowForPhase(String phaseName) {
+        Runtime runtime = Runtime.getRuntime();
+        long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+        long threshold = Properties.MIN_FREE_MEM * 2L;
+        if (freeMem < threshold) {
+            System.gc();
+            freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+            if (freeMem < threshold) {
+                LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Skipping " + phaseName + " due to low memory: "
+                        + (freeMem / 1024 / 1024) + " MB free, need "
+                        + (threshold / 1024 / 1024) + " MB");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Compile and run the given tests. Remove from input list all tests that do
      * not compile, and handle the cases of instability (either remove tests or
      * comment out failing assertions).
@@ -545,6 +581,10 @@ public class TestSuiteGenerator {
                     + "as well as to make sure that the PATH variable points to the JDK before any JRE.";
             logger.error(msg);
             throw new RuntimeException(msg);
+        }
+
+        if (isMemoryTooLowForPhase("JUnit check")) {
+            return;
         }
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.JUNIT_CHECK);

@@ -118,9 +118,25 @@ public class TestCaseMinimizer {
         }
         logger.info("Minimizing test case");
 
-
+        // Re-execute the test to get a fresh fitness value.
+        // The cached result may be null (archive entries whose results were
+        // cleared during the search) or stale.
         double fitness = fitnessFunction.getFitness(c);
         if (isTimeoutReached()) {
+            return;
+        }
+
+        // If the goal is not covered on re-execution (fitness != 0.0), skip
+        // minimization entirely.  This prevents the pathological case where
+        // worst-case fitness allows every statement to be removed (since
+        // removing a statement from a non-covering test can never make the
+        // worst-case fitness worse), stripping the test to empty.
+        // This can happen when:
+        //  - the SUT has non-deterministic behavior
+        //  - static state drifted between search and minimization
+        //  - the execution result indicates a timeout
+        if (fitness != 0.0) {
+            logger.info("Skipping minimization: goal not covered on re-execution (fitness={})", fitness);
             return;
         }
 

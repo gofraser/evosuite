@@ -25,11 +25,13 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.NonInstrumentingClassLoader;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.InitializingListener;
 import org.evosuite.runtime.InitializingListenerUtils;
+import org.evosuite.runtime.classhandling.ClassStateSupport;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.JarPathing;
@@ -97,7 +99,7 @@ public abstract class JUnitAnalyzer {
     private static final String CLASS = ".class";
     private static final Map<String, String> SANITIZED_COMPILER_CLASSPATH_ENTRIES = new HashMap<>();
 
-    private static NonInstrumentingClassLoader loader = new NonInstrumentingClassLoader();
+    private static InstrumentingClassLoader loader = new NonInstrumentingClassLoader();
 
     private static final VersionDependentAnalyzing JUNIT4_ANALYZER = new JUnit4Analyzing();
     private static final VersionDependentAnalyzing JUNIT5_ANALYZER = new JUnit5Analyzing();
@@ -229,7 +231,7 @@ public abstract class JUnitAnalyzer {
                 return numUnstable;
             }
 
-            JUnitResult result = runTests(testClasses, dir);
+            JUnitResult result = runTests(testClasses, dir, generated);
 
             if (result.wasSuccessful()) {
                 return numUnstable; //everything is OK
@@ -270,6 +272,19 @@ public abstract class JUnitAnalyzer {
                 if (testName.equals("initializationError") && failure.getMessage().contains(
                         "Failed to attach Java Agent")) {
                     logger.warn("Likely error with EvoSuite instrumentation, ignoring failure in test execution");
+                    continue failure_loop;
+                }
+
+                // TooManyResourcesException during JUnit re-execution is typically caused by
+                // environmental differences between search and JUnit check — e.g., SUTs
+                // that install System.out/err redirectors (like Vuze's LoggerImpl) can
+                // create infinite recursion during JUnit check but not during search
+                // (where EvoSuite mutes stdout/stderr). The test is valid; the loop
+                // counter is just catching a side effect of the rerun environment.
+                if ("org.evosuite.runtime.TooManyResourcesException".equals(failure.getExceptionClassName())) {
+                    logger.warn("Ignoring TooManyResourcesException in JUnit check for test {} "
+                            + "— likely caused by environmental differences in stream handling: {}",
+                            testName, failure.getMessage());
                     continue failure_loop;
                 }
 
@@ -331,9 +346,52 @@ public abstract class JUnitAnalyzer {
         return numUnstable;
     }
 
-    private static JUnitResult runTests(Class<?>[] testClasses, File testClassDir)
+    private static JUnitResult runTests(Class<?>[] testClasses, File testClassDir, Collection<File> generatedFiles)
             throws JUnitExecutionException {
-        return runJUnitOnCurrentProcess(testClasses);
+        ClassStateSupport.clearNonInstrumentedClassDetectionFlag();
+        JUnitResult result = runJUnitOnCurrentProcess(testClasses);
+
+        // If JUnit already succeeded, keep that outcome. The InstrumentingClassLoader retry
+        // is only a recovery path for failures potentially caused by missing instrumentation.
+        if (result.wasSuccessful()) {
+            return result;
+        }
+
+        // In separate-classloader mode (legacy JUnit4 scaffolding), retrying with a
+        // different loader can perturb class identity/static reset behavior and
+        // introduce false instability signals.
+        if (Properties.USE_SEPARATE_CLASSLOADER) {
+            return result;
+        }
+
+        if (!ClassStateSupport.hadNonInstrumentedClassDetection()) {
+            return result;
+        }
+
+        if (generatedFiles == null || generatedFiles.isEmpty()) {
+            return result;
+        }
+
+        logger.warn("Detected non-instrumented classes during JUnit check; "
+                + "retrying once with InstrumentingClassLoader.");
+        InstrumentingClassLoader savedLoader = loader;
+        try {
+            loader = new InstrumentingClassLoader();
+            Class<?>[] retriedClasses = loadTests(new ArrayList<>(generatedFiles));
+            if (retriedClasses == null) {
+                logger.warn("Retry with InstrumentingClassLoader failed to load test classes");
+                return result;
+            }
+
+            ClassStateSupport.clearNonInstrumentedClassDetectionFlag();
+            JUnitResult retriedResult = runJUnitOnCurrentProcess(retriedClasses);
+            if (ClassStateSupport.hadNonInstrumentedClassDetection()) {
+                logger.warn("Retry still observed non-instrumented classes during JUnit check");
+            }
+            return retriedResult;
+        } finally {
+            loader = savedLoader;
+        }
     }
 
     /**
@@ -355,7 +413,15 @@ public abstract class JUnitAnalyzer {
 
 
     private static JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses) {
-        return getVersionDependentAnalyzer().runJUnitOnCurrentProcess(testClasses);
+        try {
+            return getVersionDependentAnalyzer().runJUnitOnCurrentProcess(testClasses);
+        } catch (OutOfMemoryError e) {
+            // The compiled test triggered a huge allocation (e.g. new DefaultTableModel(351774, 351774)).
+            // Force GC to reclaim the dead objects so the process can continue writing results.
+            System.gc();
+            logger.warn("OutOfMemoryError during JUnit execution — forced GC and treating all tests as failed");
+            return JUnitResult.allFailed(testClasses.length, e);
+        }
     }
 
     private static String buildUnstableDiagnostics(String testName, JUnitFailure failure) {
@@ -475,7 +541,7 @@ public abstract class JUnitAnalyzer {
             if (testClasses == null) {
                 return Collections.singleton("load-error");
             }
-            JUnitResult result = runTests(testClasses, dir);
+            JUnitResult result = runTests(testClasses, dir, generated);
             if (result.wasSuccessful()) {
                 return Collections.emptySet();
             }
@@ -907,7 +973,7 @@ public abstract class JUnitAnalyzer {
                 return false;
             }
 
-            JUnitResult result = runTests(testClasses, dir);
+            JUnitResult result = runTests(testClasses, dir, generated);
 
             if (!result.wasSuccessful()) {
                 logger.error("" + result.getFailureCount() + " test cases failed");

@@ -44,6 +44,7 @@ import java.util.List;
 public class ClassStateSupport {
 
     private static final Logger logger = LoggerFactory.getLogger(ClassStateSupport.class);
+    private static volatile boolean nonInstrumentedClassDetected = false;
 
     private static final String[] externalInitMethods = new String[]{"$jacocoInit", "$gzoltarInit"};
 
@@ -90,6 +91,7 @@ public class ClassStateSupport {
                             + "Consult the EvoSuite documentation "
                             + "for possible workarounds for this issue.";
                     logger.error(msg);
+                    nonInstrumentedClassDetected = true;
                     problem = true;
                     //throw new IllegalStateException(msg); // throwing an exception might be a bit too extreme
                 }
@@ -99,6 +101,20 @@ public class ClassStateSupport {
         return problem;
 
         //retransformIfNeeded(classes); // cannot do it, as retransformation does not really work :(
+    }
+
+    /**
+     * Clears the per-run flag that records whether non-instrumented classes were observed.
+     */
+    public static void clearNonInstrumentedClassDetectionFlag() {
+        nonInstrumentedClassDetected = false;
+    }
+
+    /**
+     * @return true iff initializeClasses observed at least one class without EvoSuite instrumentation.
+     */
+    public static boolean hadNonInstrumentedClassDetection() {
+        return nonInstrumentedClassDetected;
     }
 
     /*

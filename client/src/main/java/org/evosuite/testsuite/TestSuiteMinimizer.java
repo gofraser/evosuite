@@ -35,7 +35,10 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTracer;
+import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -154,8 +157,73 @@ public class TestSuiteMinimizer {
 
         ExecutionTracer.enableTraceCalls();
 
+        // Ensure ExecutionTracer is in a clean state before re-executing tests.
+        // After the search phase (especially if the last execution timed out),
+        // the tracer may be disabled or the kill switch may be active.
+        ExecutionTracer.enable();
+        ExecutionTracer.setKillSwitch(false);
+
+        // Reset ALL SUT classes to their <clinit> state before re-executing.
+        // During the search and inlining phases, __STATIC_RESET() may have
+        // corrupted static state due to cross-class dependencies (class A's
+        // reset depends on class B's fields, but B was reset first, leaving
+        // B's fields null when A tries to use them).  Two passes handle the
+        // common case: the first restores leaf classes, the second restores
+        // classes whose <clinit> depends on those leaf classes.
+        ClassReInitializer.getInstance().resetAllInitializedClasses(2);
+
+        // Probe: re-execute all tests to verify they can still reproduce
+        // coverage.  If ALL tests produce empty traces (e.g., due to broken
+        // static state after ClassReInitializer's __STATIC_RESET()), skip
+        // minimization entirely and preserve the suite as-is — including
+        // the original covered goals from the search phase, so that
+        // downstream coverage analysis can still report them.
+        boolean allTracesEmpty = true;
+        int testsWithExceptions = 0;
+        String firstExceptionType = null;
+        for (int i = 0; i < suite.getTestChromosomes().size(); i++) {
+            TestChromosome test = suite.getTestChromosomes().get(i);
+            ExecutionResult result = TestCaseExecutor.runTest(test.getTestCase());
+            if (!result.getTrace().getCoveredTrueBranches().isEmpty()
+                    || !result.getTrace().getCoveredFalseBranches().isEmpty()
+                    || !result.getTrace().getCoveredBranchlessMethods().isEmpty()
+                    || !result.getTrace().getCoveredMethods().isEmpty()
+                    || !result.getTrace().getCoveredLines().isEmpty()) {
+                allTracesEmpty = false;
+                break; // At least one test has coverage — proceed with minimization
+            }
+            if (!result.getAllThrownExceptions().isEmpty()) {
+                testsWithExceptions++;
+                if (firstExceptionType == null) {
+                    Integer firstPos = result.getFirstPositionOfThrownException();
+                    if (firstPos != null) {
+                        Throwable ex = result.getExceptionThrownAtPosition(firstPos);
+                        if (ex != null) {
+                            firstExceptionType = ex.getClass().getSimpleName();
+                        }
+                    }
+                }
+            }
+        }
+        if (allTracesEmpty && !suite.getTestChromosomes().isEmpty()) {
+            logger.warn("ALL {} tests produced empty traces on re-execution "
+                    + "({} threw exceptions, first: {}). "
+                    + "Skipping minimization to preserve original archive tests.",
+                    suite.getTestChromosomes().size(), testsWithExceptions,
+                    firstExceptionType != null ? firstExceptionType : "none");
+            return;
+        }
+
+        // Tests can reproduce coverage — now clear stale state and proceed.
         for (TestChromosome test : suite.getTestChromosomes()) {
             test.setChanged(true); // implies test.clearCachedResults();
+            // Clear stale covered goals from the search phase.  The archive
+            // stores test references (not clones), so goals accumulated during
+            // the search may no longer be reproducible on re-execution.
+            // Without this, isCovered() short-circuits via isGoalCovered()
+            // and returns true without re-executing, masking tests that no
+            // longer actually cover anything.
+            test.getTestCase().clearCoveredGoals();
         }
 
         List<TestFitnessFunction> goals = new ArrayList<>();
@@ -235,6 +303,7 @@ public class TestSuiteMinimizer {
                 copy.getTestCase().clearCoveredGoals();
 
                 // Add ALL goals covered by the minimized test
+                int coveredBefore = covered.size();
                 for (TestFitnessFunction g : goals) {
                     if (g.isCovered(copy)) { // isCovered(copy) adds the goal
                         covered.add(g);
@@ -242,8 +311,16 @@ public class TestSuiteMinimizer {
                     }
                 }
 
-                minimizedTests.add(copy);
-                minimizedSuite.insertTest(copy.getTestCase());
+                // Only keep the minimized test if it actually covers goals
+                // on re-execution.  Stale archive entries may no longer
+                // reproduce their coverage, and an empty/failing test would
+                // just bloat the output suite.
+                if (covered.size() > coveredBefore) {
+                    minimizedTests.add(copy);
+                    minimizedSuite.insertTest(copy.getTestCase());
+                } else {
+                    logger.info("Discarding minimized test that covers no goals on re-execution");
+                }
 
                 logger.info("After new test the suite covers " + covered.size() + "/"
                         + goals.size() + " goals");

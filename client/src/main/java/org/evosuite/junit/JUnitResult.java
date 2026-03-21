@@ -61,6 +61,16 @@ public class JUnitResult {
 
 
     /**
+     * Creates a JUnitResult representing a catastrophic failure (e.g. OOM)
+     * where all tests are considered failed.
+     */
+    public static JUnitResult allFailed(int testCount, Throwable cause) {
+        JUnitResult result = new JUnitResult(false, testCount, testCount);
+        result.setTrace(cause.toString());
+        return result;
+    }
+
+    /**
      * Initializes a new JUnitResult with the given name.
      *
      * @param name the name of the test
