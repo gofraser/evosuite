@@ -25,6 +25,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 
 import java.util.*;
@@ -95,9 +96,21 @@ public class BranchesManager extends StructuralGoalManager {
         c.setLastExecutionResult(result);
         c.setChanged(false);
 
-        if (result.hasTimeout() || result.hasTestException()) {
+        if (result.hasTestException()) {
             currentGoals.forEach(f -> c.setFitness(f, Double.MAX_VALUE));
             return;
+        }
+
+        // Timed-out tests that covered nothing are also discarded.
+        if (result.hasTimeout()) {
+            ExecutionTrace trace = result.getTrace();
+            if (trace.getCoveredLines().isEmpty()
+                    && trace.getCoveredTrueBranches().isEmpty()
+                    && trace.getCoveredFalseBranches().isEmpty()
+                    && trace.getCoveredBranchlessMethods().isEmpty()) {
+                currentGoals.forEach(f -> c.setFitness(f, Double.MAX_VALUE));
+                return;
+            }
         }
 
         // 1) we update the set of currents goals

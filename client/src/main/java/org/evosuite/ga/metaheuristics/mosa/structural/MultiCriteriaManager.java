@@ -390,14 +390,19 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         // Note: we check lines, branches and branchless methods because getCoveredLines() can be
         // empty when the class under test was compiled without debug information.
         final ExecutionTrace trace = result.getTrace();
-        if (result.hasTimeout() || result.hasTestException()
-                || (trace.getCoveredLines().isEmpty()
-                    && trace.getCoveredTrueBranches().isEmpty()
-                    && trace.getCoveredFalseBranches().isEmpty()
-                    && trace.getCoveredBranchlessMethods().isEmpty())) {
+        final boolean hasAnyCoverage = !trace.getCoveredLines().isEmpty()
+                || !trace.getCoveredTrueBranches().isEmpty()
+                || !trace.getCoveredFalseBranches().isEmpty()
+                || !trace.getCoveredBranchlessMethods().isEmpty();
+
+        if (result.hasTestException() || !hasAnyCoverage) {
             currentGoals.forEach(f -> c.setFitness(f, Double.MAX_VALUE)); // assume minimization
             return;
         }
+
+        // Timed-out tests that still covered something (statements executed before the
+        // blocking point) are allowed through so their coverage enters the archive.
+        // They will be truncated in postProcessTests before JUnit generation.
 
         Set<TestFitnessFunction> visitedTargets = new LinkedHashSet<>(getUncoveredGoals().size() * 2);
 

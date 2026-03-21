@@ -383,6 +383,10 @@ public class TestSuiteWriter implements Opcodes {
          * test cases with a sandbox
          */
         boolean wasSecurityException = TestSuiteWriterUtils.hasAnySecurityException(results);
+        // The ExecutorService wrapper is needed for both security exceptions and
+        // timeouts — it runs the test body in a separate thread with future.get(timeout).
+        boolean needsThreadWrapper = wasSecurityException
+                || results.stream().anyMatch(ExecutionResult::hasTimeout);
 
         StringBuilder builder = new StringBuilder();
         resetEmittedMethodNameTracking();
@@ -390,7 +394,7 @@ public class TestSuiteWriter implements Opcodes {
         builder.append(getHeader(name, name, results, requirements));
 
         if (requirements.isInlineScaffoldingMode()) {
-            builder.append(new Scaffolding().getBeforeAndAfterMethods(name, wasSecurityException, results));
+            builder.append(new Scaffolding().getBeforeAndAfterMethods(name, needsThreadWrapper, results));
         }
 
         if (testCases.isEmpty()) {
@@ -414,7 +418,8 @@ public class TestSuiteWriter implements Opcodes {
     private String getOneUnitTestInAFile(String name, int testId, List<ExecutionResult> results,
                                          RuntimeRequirements requirements) {
 
-        boolean wasSecurityException = results.get(testId).hasSecurityException();
+        ExecutionResult testResult = results.get(testId);
+        boolean needsThreadWrapper = testResult.hasSecurityException() || testResult.hasTimeout();
 
         StringBuilder builder = new StringBuilder();
         resetEmittedMethodNameTracking();
@@ -422,7 +427,7 @@ public class TestSuiteWriter implements Opcodes {
         builder.append(getHeader(name + "_" + testId, name, results, requirements));
 
         if (requirements.isInlineScaffoldingMode()) {
-            builder.append(new Scaffolding().getBeforeAndAfterMethods(name + "_" + testId, wasSecurityException,
+            builder.append(new Scaffolding().getBeforeAndAfterMethods(name + "_" + testId, needsThreadWrapper,
                     results));
         }
 
@@ -545,7 +550,9 @@ public class TestSuiteWriter implements Opcodes {
             }
         }
 
-        if (wasSecurityException) {
+        boolean needsThreadWrapper = wasSecurityException
+                || results.stream().anyMatch(ExecutionResult::hasTimeout);
+        if (needsThreadWrapper) {
             //Add import info for EvoSuite classes used in the generated test suite
             importNames.add(java.util.concurrent.ExecutorService.class.getCanonicalName());
             importNames.add(java.util.concurrent.Executors.class.getCanonicalName());
@@ -771,6 +778,7 @@ public class TestSuiteWriter implements Opcodes {
     protected String testToString(int number, int id, ExecutionResult result) {
 
         boolean wasSecurityException = result.hasSecurityException();
+        boolean needsThreadWrapper = wasSecurityException || result.hasTimeout();
 
         String testInfo = getInformation(id);
 
@@ -819,7 +827,7 @@ public class TestSuiteWriter implements Opcodes {
             }
         }
 
-        if (wasSecurityException) {
+        if (needsThreadWrapper) {
             if (!Properties.TEST_SCAFFOLDING) {
                 builder.append(BLOCK_SPACE);
                 builder.append("ExecutorService " + Scaffolding.EXECUTOR_SERVICE
@@ -850,7 +858,7 @@ public class TestSuiteWriter implements Opcodes {
             builder.append(NEWLINE);
         }
 
-        if (wasSecurityException) {
+        if (needsThreadWrapper) {
             Set<Class<?>> exceptions = test.getDeclaredExceptions();
             if (!exceptions.isEmpty()) {
                 builder.append(INNER_INNER_BLOCK_SPACE);

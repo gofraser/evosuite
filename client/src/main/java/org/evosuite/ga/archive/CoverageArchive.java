@@ -109,6 +109,7 @@ public class CoverageArchive extends Archive {
     }
 
     private void addToArchive(TestFitnessFunction target, TestChromosome solution) {
+        logger.debug("Adding test case for goal {}: {}", target, solution);
         this.uncovered.remove(target);
         this.covered.put(target, solution);
         this.removeNonCoveredTargetOfAMethod(target);
@@ -272,13 +273,14 @@ public class CoverageArchive extends Archive {
 
         TestSuiteChromosome mergedSolution = solution.clone();
 
-        // skip solutions that have been modified as those might not have been evaluated yet, or have
-        // timeout or throw some exception and therefore they may slow down future analysis on the final
-        // test suite
+        // Skip solutions that have been modified as those might not have been evaluated yet, or
+        // have thrown some exception and therefore they may slow down future analysis on the
+        // final test suite.  Timed-out tests are kept: the JUnit writer wraps them in an
+        // ExecutorService with future.get(timeout) so they won't hang.
         mergedSolution.getTestChromosomes()
                 .removeIf(t -> t.isChanged()
-                        || (t.getLastExecutionResult() != null && (t.getLastExecutionResult().hasTimeout()
-                        || t.getLastExecutionResult().hasTestException())));
+                        || (t.getLastExecutionResult() != null
+                        && t.getLastExecutionResult().hasTestException()));
 
         // to avoid adding the same solution to 'mergedSolution' suite
         Set<TestChromosome> solutionsSampledFromArchive = new LinkedHashSet<>();
